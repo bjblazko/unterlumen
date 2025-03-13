@@ -70,8 +70,8 @@ class ExposureCompensation(value: Fraction, unit: Unit) :
 
             val fraction = Fraction.of(parts[0])
             val unit = when (parts[1]) {
-                "EV", "ev" -> ExposureCompensation.Unit.EV
-                "S", "STOP", "stops" -> ExposureCompensation.Unit.STOPS
+                "EV", "ev" -> Unit.EV
+                "S", "STOP", "stops" -> Unit.STOPS
                 else -> throw IllegalArgumentException("Unknown unit: ${parts[1]}")
             }
 
@@ -82,4 +82,11 @@ class ExposureCompensation(value: Fraction, unit: Unit) :
 
 }
 
-enum class ExposureMode { OTHER, AUTO, MANUAL, AUTOBRACKET }
+enum class ExposureMode(private val displayName: String) {
+    OTHER("other/unknown"),
+    AUTO("Auto"),
+    MANUAL("Manual"),
+    AUTOBRACKET("Automatic Bracketing");
+
+    override fun toString() = displayName
+}
