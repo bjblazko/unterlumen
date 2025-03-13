@@ -61,6 +61,23 @@ class ExposureCompensation(value: Fraction, unit: Unit) :
         fun of(value: Int, unit: Unit = Unit.EV) =
             ExposureCompensation(Fraction.of(value, 1), unit)
 
+        /**
+         * Parses strings like "-1/3 EV" or "1 STOP".
+         */
+        fun of(str: String): ExposureCompensation {
+            val parts = str.split(" ")
+            require(parts.size == 2) { "Invalid format, expected '<fraction> <unit>'" }
+
+            val fraction = Fraction.of(parts[0])
+            val unit = when (parts[1]) {
+                "EV", "ev" -> ExposureCompensation.Unit.EV
+                "S", "STOP", "stops" -> ExposureCompensation.Unit.STOPS
+                else -> throw IllegalArgumentException("Unknown unit: ${parts[1]}")
+            }
+
+            return ExposureCompensation(fraction, unit)
+        }
+
     }
 
 }
