@@ -8,8 +8,8 @@ class Dimensions(
 
         fun of(height: Int, width: Int): Dimensions =
             Dimensions(
-                Length(height, Length.Unit.PIXELS),
-                Length(height, Length.Unit.PIXELS)
+                width = Length(width, Length.Unit.PIXELS),
+                height = Length(height, Length.Unit.PIXELS)
             )
 
     }
@@ -31,14 +31,14 @@ class Length(value: Int, unit: Unit) : Measurement<Int, Length.Unit>(value, unit
 
         fun of(str: String): Length {
             val parts = str.split(" ")
-            require(parts.size == 2) { "Invalid format, expected '<value> <unit>'" }
+            require(parts.size == 2) { "invalid format, expected '<value> <unit>'" }
 
             val value = parts[0].toInt()
-            val unit = when (parts[1]) {
-                "px", "Pixel", "Pixels", "pixel", "pixels" -> Unit.PIXELS
+            val unit = when (parts[1].lowercase()) {
+                "px", "pixel", "pixels" -> Unit.PIXELS
                 "cm", "centimeter", "centimeters" -> Unit.CENTIMETERS
                 "m", "meter", "meters" -> Unit.METERS
-                else -> throw IllegalArgumentException("Unknown unit: ${parts[1]}")
+                else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")
             }
 
             return Length(value, unit)

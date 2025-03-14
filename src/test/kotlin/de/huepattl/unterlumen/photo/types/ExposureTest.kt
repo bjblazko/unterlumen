@@ -60,11 +60,4 @@ class ExposureTest {
         assertEquals("1/3 EV", oneEv.toString())
     }
 
-    @Test
-    fun `exposure mode auto`() {
-        val emAuto = ExposureMode.AUTO
-        assertEquals("Auto", emAuto.toString())
-    }
-
-
 }

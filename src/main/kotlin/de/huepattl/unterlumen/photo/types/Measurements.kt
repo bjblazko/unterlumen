@@ -6,7 +6,7 @@ package de.huepattl.unterlumen.photo.types
 data class Fraction(val numerator: Int, val denominator: Int) {
 
     init {
-        require(denominator > 0) { "Denominator must be greater than zero" }
+        require(denominator > 0) { "denominator must be greater than zero" }
     }
 
     override fun toString(): String = if (denominator == 1) "$numerator" else "$numerator/$denominator"

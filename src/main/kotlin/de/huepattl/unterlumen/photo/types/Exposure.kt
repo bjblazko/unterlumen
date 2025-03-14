@@ -2,8 +2,10 @@ package de.huepattl.unterlumen.photo.types
 
 data class Exposure(
     val time: ExposureTime? = null,
-    val mode: ExposureMode? = null,
+    val mode: String? = null,
+    val meteringMode: String? = null,
     val compensation: ExposureCompensation? = null,
+    val iso: Int? = null,
 )
 
 class ExposureTime(value: Fraction, unit: Unit) : Measurement<Fraction, ExposureTime.Unit>(value, unit) {
@@ -29,14 +31,14 @@ class ExposureTime(value: Fraction, unit: Unit) : Measurement<Fraction, Exposure
          */
         fun of(str: String): ExposureTime {
             val parts = str.split(" ")
-            require(parts.size == 2) { "Invalid format, expected '<fraction> <unit>'" }
+            require(parts.size == 2) { "invalid format, expected '<fraction> <unit>'" }
 
             val fraction = Fraction.of(parts[0])
-            val unit = when (parts[1]) {
+            val unit = when (parts[1].lowercase()) {
                 "msec", "ms", "millisecond", "milliseconds" -> Unit.MILLISECONDS
                 "sec", "s", "second", "seconds" -> Unit.SECONDS
                 "min", "m", "minute", "minutes" -> Unit.MINUTES
-                else -> throw IllegalArgumentException("Unknown unit: ${parts[1]}")
+                else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")
             }
 
             return ExposureTime(fraction, unit)
@@ -66,13 +68,13 @@ class ExposureCompensation(value: Fraction, unit: Unit) :
          */
         fun of(str: String): ExposureCompensation {
             val parts = str.split(" ")
-            require(parts.size == 2) { "Invalid format, expected '<fraction> <unit>'" }
+            require(parts.size == 2) { "invalid format, expected '<fraction> <unit>'" }
 
             val fraction = Fraction.of(parts[0])
-            val unit = when (parts[1]) {
-                "EV", "ev" -> Unit.EV
-                "S", "STOP", "stops" -> Unit.STOPS
-                else -> throw IllegalArgumentException("Unknown unit: ${parts[1]}")
+            val unit = when (parts[1].lowercase()) {
+                "ev" -> Unit.EV
+                "s", "stop", "stops" -> Unit.STOPS
+                else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")
             }
 
             return ExposureCompensation(fraction, unit)
@@ -80,13 +82,4 @@ class ExposureCompensation(value: Fraction, unit: Unit) :
 
     }
 
-}
-
-enum class ExposureMode(private val displayName: String) {
-    OTHER("other/unknown"),
-    AUTO("Auto"),
-    MANUAL("Manual"),
-    AUTOBRACKET("Automatic Bracketing");
-
-    override fun toString() = displayName
 }
