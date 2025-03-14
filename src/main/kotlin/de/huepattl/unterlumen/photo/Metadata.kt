@@ -2,6 +2,7 @@ package de.huepattl.unterlumen.photo
 
 import de.huepattl.unterlumen.photo.types.Dimensions
 import de.huepattl.unterlumen.photo.types.Exposure
+import de.huepattl.unterlumen.photo.types.Lens
 import de.huepattl.unterlumen.photo.types.Orientation
 import de.huepattl.unterlumen.photo.types.Quality
 
@@ -15,4 +16,5 @@ data class Metadata(
     val artist: String? = null,
     val copyright: String? = null,
     val orientation: Orientation? = null,
+    val lens: Lens? = null,
 )

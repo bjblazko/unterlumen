@@ -20,6 +20,7 @@ class Length(value: Int, unit: Unit) : Measurement<Int, Length.Unit>(value, unit
     enum class Unit(private val displayName: String) {
         PIXELS("px"),
         CENTIMETERS("cm"),
+        MILLIMETERS("mm"),
         METERS("m");
 
         override fun toString() = displayName
@@ -36,6 +37,7 @@ class Length(value: Int, unit: Unit) : Measurement<Int, Length.Unit>(value, unit
             val value = parts[0].toInt()
             val unit = when (parts[1].lowercase()) {
                 "px", "pixel", "pixels" -> Unit.PIXELS
+                "mm", "millimeter", "millimeters" -> Unit.MILLIMETERS
                 "cm", "centimeter", "centimeters" -> Unit.CENTIMETERS
                 "m", "meter", "meters" -> Unit.METERS
                 else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")

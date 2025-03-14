@@ -39,6 +39,12 @@ class ExifMetadataRetrieverTest {
         assertEquals("auto exposure", metadata.exposure?.mode)
         assertEquals("multi-segment", metadata.exposure?.meteringMode)
         assertEquals(500, metadata.exposure?.iso)
+
+        assertEquals("FUJIFILM", metadata.lens?.brand)
+        assertEquals("XF70-300mmF4-5.6 R LM OIS WR", metadata.lens?.model)
+        assertEquals("f/5.6", metadata.lens?.aperture.toString())
+        assertEquals(300, metadata.lens?.focalLength?.value)
+        assertEquals(Length.Unit.MILLIMETERS, metadata.lens?.focalLength?.unit)
     }
 
 }

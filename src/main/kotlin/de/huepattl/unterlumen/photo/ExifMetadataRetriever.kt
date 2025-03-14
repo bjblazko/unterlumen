@@ -47,6 +47,12 @@ class ExifMetadataRetriever {
                 compensation = ExposureCompensation.of(map["subifd0_exposure_compensation"]!!),
                 iso = map["subifd0_iso_speed_ratings"]?.toInt()
             ),
+            lens = Lens(
+                brand = map["subifd0_lens_make"],
+                model = map["subifd0_lens_model"],
+                aperture = Aperture.of(map["subifd0_f_number"]!!),
+                focalLength = Length.of(map["subifd0_lens_focal_length"]!!),
+            )
         )
     }
 
@@ -87,6 +93,10 @@ class ExifMetadataRetriever {
                 "Exposure Bias Value" -> map["subifd0_exposure_compensation"] = tag.description // e.g. '-1 EV'
                 "Metering Mode" -> map["subifd0_metering_mode"] = tag.description
                 "ISO Speed Ratings" -> map["subifd0_iso_speed_ratings"] = tag.description
+                "F-Number" -> map["subifd0_f_number"] = tag.description
+                "Lens Make" -> map["subifd0_lens_make"] = tag.description
+                "Lens Model" -> map["subifd0_lens_model"] = tag.description
+                "Focal Length" -> map["subifd0_lens_focal_length"] = tag.description
             }
         }
         return map
