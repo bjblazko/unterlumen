@@ -21,9 +21,18 @@ class Length(value: Int, unit: Unit) : Measurement<Int, Length.Unit>(value, unit
         PIXELS("px"),
         CENTIMETERS("cm"),
         MILLIMETERS("mm"),
-        METERS("m");
+        METERS("m"),
+        KILOMETERS("km");
 
         override fun toString() = displayName
+    }
+
+    fun normalise(): Length {
+        val normalised = when (this.unit) {
+            Unit.KILOMETERS -> value * 1000
+            else -> value
+        }
+        return Length(value = normalised, unit = Unit.METERS)
     }
 
     companion object {
@@ -34,12 +43,12 @@ class Length(value: Int, unit: Unit) : Measurement<Int, Length.Unit>(value, unit
             val parts = str.split(" ")
             require(parts.size == 2) { "invalid format, expected '<value> <unit>'" }
 
-            val value = parts[0].toInt()
+            val value = parts[0].replace(",", ".").toDouble().toInt().toInt() // e.g. iPhone has '4.2 mm'
             val unit = when (parts[1].lowercase()) {
                 "px", "pixel", "pixels" -> Unit.PIXELS
-                "mm", "millimeter", "millimeters" -> Unit.MILLIMETERS
-                "cm", "centimeter", "centimeters" -> Unit.CENTIMETERS
-                "m", "meter", "meters" -> Unit.METERS
+                "mm", "millimeter", "millimetre","millimeters", "millimetres" -> Unit.MILLIMETERS
+                "cm", "centimeter", "centimetre", "centimeters", "centimetres" -> Unit.CENTIMETERS
+                "m", "meter", "metre", "meters", "metres" -> Unit.METERS
                 else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")
             }
 

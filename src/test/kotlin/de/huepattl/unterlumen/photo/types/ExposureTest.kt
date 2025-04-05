@@ -42,22 +42,4 @@ class ExposureTest {
         assertEquals("1/250 sec", oneSecond.toString())
     }
 
-    @Test
-    fun `exposure compensation integer`() {
-        val oneEv = ExposureCompensation.of(1)
-        assertEquals("1 EV", oneEv.toString())
-    }
-
-    @Test
-    fun `exposure compensation integer negative from string`() {
-        val oneEv = ExposureCompensation.of("-2 EV")
-        assertEquals("-2 EV", oneEv.toString())
-    }
-
-    @Test
-    fun `exposure compensation fraction from string`() {
-        val oneEv = ExposureCompensation.of("+1/3 EV")
-        assertEquals("1/3 EV", oneEv.toString())
-    }
-
 }

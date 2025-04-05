@@ -4,7 +4,7 @@ data class Exposure(
     val time: ExposureTime? = null,
     val mode: String? = null,
     val meteringMode: String? = null,
-    val compensation: ExposureCompensation? = null,
+    val compensation: String? = null, // gave up on structured type (found all kind of representations in EXIF...
     val iso: Int? = null,
 )
 
@@ -42,42 +42,6 @@ class ExposureTime(value: Fraction, unit: Unit) : Measurement<Fraction, Exposure
             }
 
             return ExposureTime(fraction, unit)
-        }
-
-    }
-
-}
-
-/**
- * Exposure Compensation or Bias: Supports EV and Stops.
- */
-class ExposureCompensation(value: Fraction, unit: Unit) :
-    Measurement<Fraction, ExposureCompensation.Unit>(value, unit) {
-    enum class Unit { EV, STOPS }
-
-    companion object {
-
-        fun of(numerator: Int, denominator: Int, unit: Unit = Unit.EV) =
-            ExposureCompensation(Fraction.of(numerator, denominator), unit)
-
-        fun of(value: Int, unit: Unit = Unit.EV) =
-            ExposureCompensation(Fraction.of(value, 1), unit)
-
-        /**
-         * Parses strings like "-1/3 EV" or "1 STOP".
-         */
-        fun of(str: String): ExposureCompensation {
-            val parts = str.split(" ")
-            require(parts.size == 2) { "invalid format, expected '<fraction> <unit>'" }
-
-            val fraction = Fraction.of(parts[0])
-            val unit = when (parts[1].lowercase()) {
-                "ev" -> Unit.EV
-                "s", "stop", "stops" -> Unit.STOPS
-                else -> throw IllegalArgumentException("unknown unit: ${parts[1]}")
-            }
-
-            return ExposureCompensation(fraction, unit)
         }
 
     }
