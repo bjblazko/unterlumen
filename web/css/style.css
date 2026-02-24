@@ -220,7 +220,7 @@ body {
 .view-menu {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 0;
     margin-top: calc(var(--unit) * 0.5);
     background: var(--surface-alt);
     border: 1px solid var(--border);
