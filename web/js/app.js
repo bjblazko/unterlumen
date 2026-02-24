@@ -10,6 +10,7 @@ const App = {
     wasteBin: new Map(), // key: full relative path, value: {name, type, date, size, dir}
     wasteBinSelected: new Set(),
     wasteBinLastClickedIndex: -1,
+    isMac: /Mac|iPhone|iPad|iPod/.test(navigator.platform),
 
     init() {
         this.viewer = new Viewer(document.getElementById('app'));
@@ -18,6 +19,11 @@ const App = {
         document.getElementById('mode-browse').addEventListener('click', () => this.setMode('browse'));
         document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
+
+        // Set mode button tooltips with platform-appropriate shortcut keys
+        document.getElementById('mode-browse').title = `Browse & Cull (1)`;
+        document.getElementById('mode-commander').title = `File Manager (2)`;
+        document.getElementById('mode-wastebin').title = `Waste Bin (3)`;
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
@@ -261,7 +267,7 @@ const App = {
             this.infoPanel.toggle();
         }
 
-        // Delete key to mark selected files in browse mode
+        // Delete key to mark selected files for waste bin
         if (e.key === 'Delete' && this.mode === 'browse' && this.browsePane) {
             if (document.querySelector('.viewer')) return;
             const selected = this.browsePane.getSelectedFiles();
@@ -270,6 +276,59 @@ const App = {
             this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
             this.browsePane.selected.clear();
             this.browsePane.render();
+        }
+        if (e.key === 'Delete' && this.mode === 'commander' && this.commander) {
+            const selected = this.commander.getActivePane().getSelectedFiles();
+            if (selected.length === 0) return;
+            e.preventDefault();
+            this.commander.doDelete();
+        }
+
+        // F5/F6 to copy/move in commander mode
+        if (this.mode === 'commander' && this.commander) {
+            if (e.key === 'F5') { e.preventDefault(); this.commander.doCopy(); }
+            else if (e.key === 'F6') { e.preventDefault(); this.commander.doMove(); }
+        }
+
+        const modKey = this.isMac ? e.metaKey : e.ctrlKey;
+
+        // Cmd/Ctrl+A to select all
+        if (modKey && (e.key === 'a' || e.key === 'A') && !e.shiftKey && !e.altKey) {
+            if (this.mode === 'browse' && this.browsePane && !document.querySelector('.viewer')) {
+                e.preventDefault();
+                this.browsePane.selectAll();
+            } else if (this.mode === 'commander' && this.commander) {
+                e.preventDefault();
+                this.commander.getActivePane().selectAll();
+            } else if (this.mode === 'wastebin') {
+                e.preventDefault();
+                this.wasteBin.forEach((_, p) => this.wasteBinSelected.add(p));
+                this.renderWasteBin(document.getElementById('app'));
+            }
+        }
+
+        // Cmd/Ctrl+D to mark for deletion
+        if (modKey && (e.key === 'd' || e.key === 'D') && !e.shiftKey && !e.altKey) {
+            if (this.mode === 'browse' && this.browsePane && !document.querySelector('.viewer')) {
+                e.preventDefault();
+                const selected = this.browsePane.getSelectedFiles();
+                if (selected.length > 0) {
+                    this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
+                    this.browsePane.selected.clear();
+                    this.browsePane.render();
+                }
+            } else if (this.mode === 'commander' && this.commander) {
+                e.preventDefault();
+                this.commander.doDelete();
+            }
+        }
+
+        // 1/2/3 to switch views (bare keys, no modifier)
+        if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === '1') { e.preventDefault(); this.setMode('browse'); }
+            else if (e.key === '2') { e.preventDefault(); this.setMode('commander'); }
+            else if (e.key === '3') { e.preventDefault(); this.setMode('wastebin'); }
         }
     },
 };

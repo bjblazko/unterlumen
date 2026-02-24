@@ -120,11 +120,11 @@ class Viewer {
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
-                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" ${hasPrev ? '' : 'disabled'}>‹</button>
+                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}>‹</button>
                         <div class="viewer-image-container">
                             <img src="${API.imageURL(this.currentPath)}" alt="${filename}">
                         </div>
-                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" ${hasNext ? '' : 'disabled'}>›</button>
+                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}>›</button>
                     </div>
                     <div class="viewer-info-container"></div>
                 </div>

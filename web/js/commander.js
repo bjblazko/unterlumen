@@ -20,9 +20,9 @@ class Commander {
             <div class="commander">
                 <div class="commander-pane left-pane" id="left-pane"></div>
                 <div class="commander-actions">
-                    <button class="btn btn-action" id="cmd-copy" disabled>${CMD_ICONS.copy} Copy →</button>
-                    <button class="btn btn-action" id="cmd-move" disabled>${CMD_ICONS.move} Move →</button>
-                    <button class="btn btn-action" id="cmd-delete" disabled>${CMD_ICONS.delete} Delete</button>
+                    <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy →</button>
+                    <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move →</button>
+                    <button class="btn btn-action" id="cmd-delete" title="Waste Bin (Del)" disabled>${CMD_ICONS.delete} Delete</button>
                 </div>
                 <div class="commander-pane right-pane" id="right-pane"></div>
             </div>
