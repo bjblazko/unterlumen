@@ -110,6 +110,12 @@ class BrowsePane {
     }
 
     renderControls() {
+        const imageCount = this.getImageEntries().length;
+        const selectedCount = this.selected.size;
+        const statusText = selectedCount > 0
+            ? `${imageCount} images · ${selectedCount} selected`
+            : `${imageCount} images`;
+
         return `<div class="controls">
             <div class="view-menu-wrap">
                 <button class="btn btn-sm view-menu-btn" title="View options">
@@ -141,6 +147,7 @@ class BrowsePane {
                     </div>
                 </div>
             </div>
+            <span class="status-bar">${statusText}</span>
         </div>`;
     }
 
@@ -189,6 +196,20 @@ class BrowsePane {
             <thead><tr><th></th><th>Name</th><th>Date</th><th>Size</th></tr></thead>
             <tbody>${rows.join('')}</tbody>
         </table>`;
+    }
+
+    updateSelectionClasses() {
+        this.container.querySelectorAll('[data-type="image"]').forEach(el => {
+            el.classList.toggle('selected', this.selected.has(el.dataset.path));
+        });
+        const statusEl = this.container.querySelector('.status-bar');
+        if (statusEl) {
+            const imageCount = this.getImageEntries().length;
+            const selectedCount = this.selected.size;
+            statusEl.textContent = selectedCount > 0
+                ? `${imageCount} images · ${selectedCount} selected`
+                : `${imageCount} images`;
+        }
     }
 
     attachEvents() {
@@ -288,7 +309,7 @@ class BrowsePane {
                         this.selected.add(fp);
                     }
                     this.lastClickedIndex = idx;
-                    this.render();
+                    this.updateSelectionClasses();
                     if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
                 } else if (e.shiftKey && this.lastClickedIndex >= 0) {
                     // Range selection
@@ -300,14 +321,14 @@ class BrowsePane {
                             this.selected.add(this.fullPath(entry.name));
                         }
                     }
-                    this.render();
+                    this.updateSelectionClasses();
                     if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
                 } else {
                     // Single select — clear previous, select this one
                     this.selected.clear();
                     this.selected.add(fp);
                     this.lastClickedIndex = idx;
-                    this.render();
+                    this.updateSelectionClasses();
                     if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
                 }
             });
