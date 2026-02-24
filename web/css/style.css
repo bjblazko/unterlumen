@@ -54,6 +54,15 @@ body {
     font-weight: 500;
     letter-spacing: 0.04em;
     color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--unit) * 1);
+}
+
+.header-logo {
+    height: 24px;
+    width: auto;
+    display: block;
 }
 
 .mode-switcher {
