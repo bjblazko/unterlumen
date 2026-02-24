@@ -1,15 +1,18 @@
 # Unterlumen
 
-A photo browser and culler that runs as a local web server. Browse your photo library in the browser, view images full-screen, and organize files using a dual-pane Commander interface.
+A photo browser and culler that runs as a local web server. Browse your photo library in the browser, view images full-screen, and organize files using a dual-pane File Manager interface.
 
 ## Features
 
-- **Browse mode** — Grid or list view of photos in a directory with breadcrumb navigation
-- **Commander mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
+- **Browse & Cull mode** — Grid or list view of photos in a directory with breadcrumb navigation
+- **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Image viewer** — Full-screen image view with keyboard navigation
-- **Sorting** — By name or date, ascending or descending
+- **Info panel** — Collapsible sidebar showing file metadata and EXIF data (camera, exposure, dates, GPS). Available in browse and fullscreen viewer
+- **Sorting** — By name, date, or size, ascending or descending
 - **Multi-select** — Click, Shift+click, Ctrl/Cmd+click for bulk operations
+- **Status bar** — Live image count and selection count in every pane
+- **EXIF/HEIF orientation** — Portrait and rotated images display correctly
 - **HEIF support** — Automatic conversion via ffmpeg (requires ffmpeg installed)
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
 
@@ -64,8 +67,13 @@ Then open `http://localhost:8080` in your browser.
 |-----|--------|
 | Arrow keys | Navigate prev/next in image viewer |
 | Escape / Backspace | Close viewer / go up a directory |
-| Delete | Mark selected files for deletion (waste bin) |
-| Tab | Switch panes in Commander mode |
+| `I` | Toggle info panel |
+| Delete / Cmd+D | Mark selected files for deletion (waste bin) |
+| Cmd/Ctrl+A | Select all files in current pane |
+| Cmd/Ctrl+1/2/3 | Switch to Browse & Cull / File Manager / Waste Bin |
+| Tab | Switch panes in File Manager mode |
+| F5 | Copy selected files (File Manager) |
+| F6 | Move selected files (File Manager) |
 | Ctrl/Cmd + Click | Toggle selection |
 | Shift + Click | Range selection |
 
