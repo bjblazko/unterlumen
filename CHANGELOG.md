@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Status bar** — Image count and selection count shown in the controls row of every Browse and Commander pane (e.g. "12 images · 3 selected"). Updates live on selection changes.
+
 - **Keyboard shortcuts** — Comprehensive keyboard shortcut set across all views:
   - **Cmd/Ctrl+1/2/3** — switch to Browse & Cull, File Manager, or Waste Bin. Mode buttons show tooltips with platform-appropriate hints (⌘ on Mac, Ctrl+ elsewhere).
   - **Cmd/Ctrl+A** — select all files in the current Browse pane, active Commander pane, or Waste Bin.

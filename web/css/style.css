@@ -169,13 +169,20 @@ body {
 .controls {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: var(--unit) 0 calc(var(--unit) * 2);
     gap: calc(var(--unit) * 2);
 }
 
 .view-menu-wrap {
     position: relative;
-    margin-left: auto;
+}
+
+.status-bar {
+    font-size: 11px;
+    color: var(--text-sec);
+    letter-spacing: 0.02em;
+    user-select: none;
 }
 
 .view-menu-toggle {
@@ -475,7 +482,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    align-self: stretch;
     overflow: hidden;
 }
 
