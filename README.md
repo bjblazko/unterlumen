@@ -65,7 +65,9 @@ Then open `http://localhost:8080` in your browser.
 
 | Key | Action |
 |-----|--------|
-| Arrow keys | Navigate prev/next in image viewer |
+| Arrow keys | Navigate grid/list in browse view; prev/next in image viewer |
+| Enter | Open focused folder or image |
+| Space | Toggle selection of focused item |
 | Escape / Backspace | Close viewer / go up a directory |
 | `I` | Toggle info panel |
 | Delete / Cmd+D | Mark selected files for deletion (waste bin) |

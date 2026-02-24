@@ -14,12 +14,14 @@ class BrowsePane {
         this.onSelectionChange = options.onSelectionChange || null;
         this.showNames = false;
         this.lastClickedIndex = -1;
+        this.focusedIndex = -1;
     }
 
     async load(path) {
         this.path = path || '';
         this.selected.clear();
         this.lastClickedIndex = -1;
+        this.focusedIndex = 0;
         this.warnings = [];
 
         try {
@@ -153,8 +155,9 @@ class BrowsePane {
 
     renderGrid() {
         const items = this.entries.map((entry, idx) => {
+            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
             if (entry.type === 'dir') {
-                return `<div class="grid-item dir-item" data-index="${idx}" data-name="${entry.name}" data-type="dir">
+                return `<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
                     <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
                     <div class="item-name">${entry.name}</div>
                 </div>`;
@@ -163,7 +166,7 @@ class BrowsePane {
             const selectedClass = this.selected.has(fp) ? ' selected' : '';
             const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
             const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
-            return `<div class="grid-item image-item${selectedClass}${markedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
+            return `<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
                 <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy">${nameHtml}
             </div>`;
         });
@@ -173,8 +176,9 @@ class BrowsePane {
     renderList() {
         const rows = this.entries.map((entry, idx) => {
             const date = entry.date ? new Date(entry.date).toLocaleString() : '';
+            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
             if (entry.type === 'dir') {
-                return `<tr class="dir-row" data-index="${idx}" data-name="${entry.name}" data-type="dir">
+                return `<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
                     <td class="list-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></td>
                     <td class="list-name">${entry.name}</td>
                     <td class="list-date">${date}</td>
@@ -185,7 +189,7 @@ class BrowsePane {
             const selectedClass = this.selected.has(fp) ? ' selected' : '';
             const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
             const size = entry.size ? formatSize(entry.size) : '';
-            return `<tr class="image-row${selectedClass}${markedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
+            return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
                 <td class="list-icon"><img src="${API.thumbnailURL(fp)}" alt="" loading="lazy"></td>
                 <td class="list-name">${entry.name}</td>
                 <td class="list-date">${date}</td>
@@ -287,6 +291,10 @@ class BrowsePane {
 
         // Directory clicks
         this.container.querySelectorAll('[data-type="dir"]').forEach(el => {
+            el.addEventListener('click', () => {
+                this.focusedIndex = parseInt(el.dataset.index);
+                this.updateFocusClass();
+            });
             el.addEventListener('dblclick', () => {
                 const name = el.dataset.name;
                 const path = this.fullPath(name);
@@ -300,6 +308,8 @@ class BrowsePane {
             el.addEventListener('click', (e) => {
                 const fp = el.dataset.path;
                 const idx = parseInt(el.dataset.index);
+                this.focusedIndex = idx;
+                this.updateFocusClass();
 
                 if (e.ctrlKey || e.metaKey) {
                     // Toggle selection
@@ -338,6 +348,64 @@ class BrowsePane {
                 if (this.onImageClick) this.onImageClick(fp);
             });
         });
+    }
+
+    getColumnCount() {
+        if (this.view !== 'grid') return 1;
+        const items = this.container.querySelectorAll('.grid-item');
+        if (items.length < 2) return 1;
+        const firstTop = items[0].getBoundingClientRect().top;
+        let cols = 0;
+        for (const item of items) {
+            if (item.getBoundingClientRect().top !== firstTop) break;
+            cols++;
+        }
+        return cols > 0 ? cols : 1;
+    }
+
+    updateFocusClass() {
+        this.container.querySelectorAll('[data-index]').forEach(el => {
+            el.classList.toggle('focused', parseInt(el.dataset.index) === this.focusedIndex);
+        });
+    }
+
+    scrollFocusedIntoView() {
+        const el = this.container.querySelector(`[data-index="${this.focusedIndex}"]`);
+        if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    moveFocus(delta) {
+        const count = this.entries.length;
+        if (count === 0) return;
+        let next = this.focusedIndex + delta;
+        if (next < 0) next = 0;
+        if (next >= count) next = count - 1;
+        this.focusedIndex = next;
+        this.updateFocusClass();
+        this.scrollFocusedIntoView();
+    }
+
+    activateFocused() {
+        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return;
+        const entry = this.entries[this.focusedIndex];
+        const path = this.fullPath(entry.name);
+        if (entry.type === 'dir') {
+            this.load(path);
+            if (this.onNavigate) this.onNavigate(path);
+        } else {
+            if (this.onImageClick) this.onImageClick(path);
+        }
+    }
+
+    toggleFocusedSelection() {
+        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return;
+        const entry = this.entries[this.focusedIndex];
+        if (entry.type !== 'image') return;
+        const fp = this.fullPath(entry.name);
+        if (this.selected.has(fp)) this.selected.delete(fp);
+        else this.selected.add(fp);
+        this.updateSelectionClasses();
+        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
     }
 }
 

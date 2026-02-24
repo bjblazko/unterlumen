@@ -231,6 +231,12 @@ const App = {
         }
     },
 
+    getActiveBrowsePane() {
+        if (this.mode === 'browse') return this.browsePane;
+        if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();
+        return null;
+    },
+
     handleGlobalKey(e) {
         // Tab to switch panes in commander mode
         if (e.key === 'Tab' && this.mode === 'commander' && this.commander) {
@@ -320,6 +326,29 @@ const App = {
             } else if (this.mode === 'commander' && this.commander) {
                 e.preventDefault();
                 this.commander.doDelete();
+            }
+        }
+
+        // Arrow keys / Enter / Space for grid/list keyboard navigation
+        if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+            if (!document.querySelector('.viewer')) {
+                const pane = this.getActiveBrowsePane();
+                if (pane) {
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault(); pane.moveFocus(-1);
+                    } else if (e.key === 'ArrowRight') {
+                        e.preventDefault(); pane.moveFocus(1);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault(); pane.moveFocus(-pane.getColumnCount());
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault(); pane.moveFocus(pane.getColumnCount());
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault(); pane.activateFocused();
+                    } else if (e.key === ' ') {
+                        e.preventDefault(); pane.toggleFocusedSelection();
+                    }
+                }
             }
         }
 
