@@ -9,6 +9,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Keyboard shortcuts** — Comprehensive keyboard shortcut set across all views:
+  - **Cmd/Ctrl+1/2/3** — switch to Browse & Cull, File Manager, or Waste Bin. Mode buttons show tooltips with platform-appropriate hints (⌘ on Mac, Ctrl+ elsewhere).
+  - **Cmd/Ctrl+A** — select all files in the current Browse pane, active Commander pane, or Waste Bin.
+  - **Cmd/Ctrl+D** — mark selected files for deletion (Browse & Commander); prevents browser bookmark default.
+  - **F5 / F6** — copy / move selected files in Commander. Buttons show F5/F6 tooltips on hover.
+
 ### Changed
 
 - **Renamed project** — "iseefourlights" is now "Unterlumen". Binary, module path, cache directory, UI title, and all documentation updated.

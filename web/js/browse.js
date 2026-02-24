@@ -51,6 +51,13 @@ class BrowsePane {
         return Array.from(this.selected);
     }
 
+    selectAll() {
+        this.entries.filter(e => e.type !== 'dir').forEach(e => {
+            this.selected.add(this.fullPath(e.name));
+        });
+        this.render();
+    }
+
     fullPath(name) {
         return this.path ? `${this.path}/${name}` : name;
     }
