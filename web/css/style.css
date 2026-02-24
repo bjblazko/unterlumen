@@ -723,7 +723,8 @@ body {
     font-style: italic;
     font-family: Georgia, 'Times New Roman', serif;
     cursor: pointer;
-    padding: calc(var(--unit) * 1.5) 0;
+    padding: calc(var(--unit) * 1.5);
+    width: 100%;
     border-radius: 2px;
     line-height: 1;
 }
