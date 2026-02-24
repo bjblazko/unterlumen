@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unterlumen</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <h1>Unterlumen</h1>
+        <div class="mode-switcher">
+            <button class="btn btn-sm active" id="mode-browse">Browse &amp; Cull</button>
+            <button class="btn btn-sm" id="mode-commander">File Manager</button>
+            <button class="btn btn-sm" id="mode-wastebin">Waste Bin <span id="wastebin-count"></span></button>
+        </div>
+    </header>
+    <main id="app"></main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/browse.js"></script>
+    <script src="/js/viewer.js"></script>
+    <script src="/js/infopanel.js"></script>
+    <script src="/js/commander.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
