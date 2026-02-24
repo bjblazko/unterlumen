@@ -292,6 +292,11 @@ body {
     opacity: 0.45;
 }
 
+.grid-item.focused {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
 .grid-item img {
     width: 100%;
     height: auto;
@@ -365,6 +370,11 @@ body {
 .list-view tr.selected {
     background: var(--accent-light);
     box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.list-view tr.focused {
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--accent-light);
 }
 
 .list-icon img {

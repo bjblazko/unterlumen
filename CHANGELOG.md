@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Grid keyboard navigation** — Arrow keys move a visual focus indicator through grid and list views. Up/Down jump by the current column count; Left/Right step linearly. Enter activates the focused item (navigates into a folder or opens the fullscreen viewer). Space toggles selection of the focused image without moving focus. Focus resets to the first item on directory load and syncs with mouse clicks.
+
 - **Header logo** — The Unterlumen logo is now displayed inline to the left of the app title in the header.
 
 - **Status bar** — Image count and selection count shown in the controls row of every Browse and Commander pane (e.g. "12 images · 3 selected"). Updates live on selection changes.
