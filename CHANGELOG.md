@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Header logo** — The Unterlumen logo is now displayed inline to the left of the app title in the header.
+
 - **Status bar** — Image count and selection count shown in the controls row of every Browse and Commander pane (e.g. "12 images · 3 selected"). Updates live on selection changes.
 
 - **Keyboard shortcuts** — Comprehensive keyboard shortcut set across all views:
