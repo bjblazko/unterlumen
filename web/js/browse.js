@@ -12,6 +12,7 @@ class BrowsePane {
         this.onNavigate = options.onNavigate || null;
         this.onImageClick = options.onImageClick || null;
         this.onSelectionChange = options.onSelectionChange || null;
+        this.onFocusChange = options.onFocusChange || null;
         this.showNames = false;
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
@@ -29,6 +30,7 @@ class BrowsePane {
             this.entries = data.entries || [];
             this.warnings = data.warnings || [];
             this.render();
+            this._notifyFocusChange();
         } catch (err) {
             this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
         }
@@ -294,6 +296,7 @@ class BrowsePane {
             el.addEventListener('click', () => {
                 this.focusedIndex = parseInt(el.dataset.index);
                 this.updateFocusClass();
+                this._notifyFocusChange();
             });
             el.addEventListener('dblclick', () => {
                 const name = el.dataset.name;
@@ -310,6 +313,7 @@ class BrowsePane {
                 const idx = parseInt(el.dataset.index);
                 this.focusedIndex = idx;
                 this.updateFocusClass();
+                this._notifyFocusChange();
 
                 if (e.ctrlKey || e.metaKey) {
                     // Toggle selection
@@ -374,6 +378,20 @@ class BrowsePane {
         if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
+    _notifyFocusChange() {
+        if (!this.onFocusChange) return;
+        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) {
+            this.onFocusChange(null);
+            return;
+        }
+        const entry = this.entries[this.focusedIndex];
+        if (entry.type !== 'image') {
+            this.onFocusChange(null);
+            return;
+        }
+        this.onFocusChange(this.fullPath(entry.name));
+    }
+
     moveFocus(delta) {
         const count = this.entries.length;
         if (count === 0) return;
@@ -383,6 +401,7 @@ class BrowsePane {
         this.focusedIndex = next;
         this.updateFocusClass();
         this.scrollFocusedIntoView();
+        this._notifyFocusChange();
     }
 
     activateFocused() {

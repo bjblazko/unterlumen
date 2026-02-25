@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-02-24*
+*Last modified: 2026-02-25*
 
 
 
@@ -8,6 +8,10 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+
+- **Info panel focus tracking** — The info panel now reliably shows metadata for the focused image in both grid and list view. It updates on keyboard navigation (arrow keys), mouse clicks, and directory changes. Pressing `I` to open the panel immediately loads info for the currently focused item.
 
 ### Added
 
