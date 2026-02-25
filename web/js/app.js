@@ -48,6 +48,7 @@ const App = {
                 onNavigate: (path) => { this.currentBrowsePath = path; },
                 onImageClick: (path) => this.openViewer(path, this.browsePane),
                 onSelectionChange: (selected) => this.handleSelectionChange(selected),
+                onFocusChange: (path) => this.handleFocusChange(path),
             });
             this.infoPanel = new InfoPanel(document.getElementById('info-panel-container'));
             this.browsePane.load(this.currentBrowsePath);
@@ -223,9 +224,13 @@ const App = {
     },
 
     handleSelectionChange(selected) {
-        if (!this.infoPanel) return;
-        if (selected.length === 1) {
-            this.infoPanel.loadInfo(selected[0]);
+        // Selection changes don't drive the info panel; focus does.
+    },
+
+    handleFocusChange(path) {
+        if (!this.infoPanel || !this.infoPanel.expanded) return;
+        if (path) {
+            this.infoPanel.loadInfo(path);
         } else {
             this.infoPanel.clear();
         }
@@ -271,6 +276,9 @@ const App = {
             if (document.querySelector('.viewer')) return;
             e.preventDefault();
             this.infoPanel.toggle();
+            if (this.infoPanel.expanded && this.browsePane) {
+                this.browsePane._notifyFocusChange();
+            }
         }
 
         // Delete key to mark selected files for waste bin
