@@ -19,8 +19,8 @@ All notable changes to this project are documented in this file.
 - **Header logo** — The Unterlumen logo is now displayed inline to the left of the app title in the header.
 - **Status bar** — Image count and selection count shown in the controls row of every Browse and Commander pane (e.g. "12 images · 3 selected"). Updates live on selection changes.
 - **Keyboard shortcuts** — Comprehensive keyboard shortcut set across all views:
-  - **Cmd/Ctrl+1/2/3** — switch to Browse & Cull, File Manager, or Waste Bin. Mode buttons show tooltips with platform-appropriate hints (⌘ on Mac, Ctrl+ elsewhere).
-  - **Cmd/Ctrl+A** — select all files in the current Browse pane, active Commander pane, or Waste Bin.
+  - **Cmd/Ctrl+1/2/3** — switch to Browse & Cull, File Manager, or Marked for Deletion. Mode buttons show tooltips with platform-appropriate hints (⌘ on Mac, Ctrl+ elsewhere).
+  - **Cmd/Ctrl+A** — select all files in the current Browse pane, active Commander pane, or Marked for Deletion.
   - **Cmd/Ctrl+D** — mark selected files for deletion (Browse & Commander); prevents browser bookmark default.
   - **F5 / F6** — copy / move selected files in Commander. Buttons show F5/F6 tooltips on hover.
   - **Arrow keys, Escape, Backspace, Tab** — navigation in viewer and commander pane switch.
@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file.
 - **EXIF orientation support** — Photos taken in portrait mode (or other non-standard orientations) now display correctly. Thumbnails are rotated server-side; full-size images use CSS `image-orientation: from-image`. All 8 EXIF orientation values are handled.
 - **HEIF orientation support** — Portrait HEIF/HIF files now display correctly. The `irot` (image rotation) box in the HEIF container is parsed and applied during conversion, since `sips`/`ffmpeg` do not apply it automatically.
 - **Sort by size** — File size is now available as a sort option alongside Name and Date.
-- **Waste bin** — Mark unwanted photos for deletion, review them in a dedicated Waste Bin view, then restore or permanently delete. Non-destructive by default: files remain on disk until confirmed. Accessible as a third mode alongside Browse and Commander, with a count badge in the header.
+- **Waste bin** — Mark unwanted photos for deletion, review them in a dedicated Marked for Deletion view, then restore or permanently delete. Non-destructive by default: files remain on disk until confirmed. Accessible as a third mode alongside Browse and Commander, with a count badge in the header.
 - **Delete endpoint** — `POST /api/delete` removes files from disk, following the same pattern as copy/move with per-file results.
 - **Delete in Commander** — Delete button alongside Copy/Move marks selected files for the waste bin.
 - **Delete in Viewer** — Delete button in the viewer toolbar marks the current image and advances to the next.
