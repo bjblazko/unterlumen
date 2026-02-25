@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dark mode & Settings menu** — A Settings button (gear icon) appears in the header next to the mode-switcher. Clicking it opens a dropdown with a Light / Auto / Dark theme toggle. Auto follows the OS `prefers-color-scheme` setting and updates in real time. The selection is persisted in `localStorage`. Theme is applied before CSS paints to prevent flash of wrong theme.
+
 ### Fixed
 
 - **Info panel focus tracking** — The info panel now reliably shows metadata for the focused image in both grid and list view. It updates on keyboard navigation (arrow keys), mouse clicks, and directory changes. Pressing `I` to open the panel immediately loads info for the currently focused item.

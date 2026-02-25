@@ -4,15 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unterlumen</title>
+    <script>
+        (function() {
+            var p = localStorage.getItem('theme') || 'auto';
+            var dark = p === 'dark' || (p === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        })();
+    </script>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <header class="header">
         <h1><img src="/logo-96.png" alt="Unterlumen logo" class="header-logo">Unterlumen</h1>
-        <div class="mode-switcher">
-            <button class="btn btn-sm active" id="mode-browse">Browse &amp; Cull</button>
-            <button class="btn btn-sm" id="mode-commander">File Manager</button>
-            <button class="btn btn-sm" id="mode-wastebin">Marked for Deletion <span id="wastebin-count"></span></button>
+        <div class="header-right">
+            <div class="mode-switcher">
+                <button class="btn btn-sm active" id="mode-browse">Browse &amp; Cull</button>
+                <button class="btn btn-sm" id="mode-commander">File Manager</button>
+                <button class="btn btn-sm" id="mode-wastebin">Marked for Deletion <span id="wastebin-count"></span></button>
+            </div>
+            <div class="settings-wrap">
+                <button class="btn btn-sm settings-btn" id="settings-btn" title="Settings">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="2.5"/>
+                        <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/>
+                    </svg>
+                    Settings
+                </button>
+                <div class="settings-menu" id="settings-menu" style="display:none">
+                    <div class="settings-menu-section">
+                        <label class="settings-menu-label">Theme</label>
+                        <div class="settings-theme-toggle">
+                            <button class="btn btn-sm" data-theme-set="light">Light</button>
+                            <button class="btn btn-sm" data-theme-set="auto">Auto</button>
+                            <button class="btn btn-sm" data-theme-set="dark">Dark</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
     <main id="app"></main>
