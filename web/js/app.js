@@ -28,7 +28,67 @@ const App = {
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
 
+        this.initTheme();
+        this.initSettingsMenu();
+
         this.setMode('browse');
+    },
+
+    initTheme() {
+        const saved = localStorage.getItem('theme') || 'auto';
+        this._applyTheme(saved);
+        this._updateThemeButtons(saved);
+
+        window.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', () => {
+                if ((localStorage.getItem('theme') || 'auto') === 'auto') {
+                    this._applyTheme('auto');
+                }
+            });
+    },
+
+    _applyTheme(preference) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = preference === 'auto' ? (prefersDark ? 'dark' : 'light') : preference;
+        document.documentElement.dataset.theme = resolved;
+    },
+
+    _updateThemeButtons(preference) {
+        document.querySelectorAll('[data-theme-set]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.themeSet === preference);
+        });
+    },
+
+    initSettingsMenu() {
+        const btn = document.getElementById('settings-btn');
+        const menu = document.getElementById('settings-menu');
+
+        const closeMenu = () => {
+            menu.style.display = 'none';
+            document.removeEventListener('click', closeMenu);
+        };
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (menu.style.display !== 'none') {
+                closeMenu();
+            } else {
+                menu.style.display = '';
+                document.addEventListener('click', closeMenu);
+            }
+        });
+
+        menu.addEventListener('click', (e) => e.stopPropagation());
+
+        menu.addEventListener('click', (e) => {
+            const themeBtn = e.target.closest('[data-theme-set]');
+            if (themeBtn) {
+                const preference = themeBtn.dataset.themeSet;
+                localStorage.setItem('theme', preference);
+                this._applyTheme(preference);
+                this._updateThemeButtons(preference);
+            }
+        });
     },
 
     setMode(mode) {

@@ -26,6 +26,20 @@
     --unit: 8px;
 }
 
+:root[data-theme="dark"] {
+    --surface:        #1e1e1e;
+    --surface-alt:    #282828;
+    --border:         #3a3a3a;
+    --text:           #dcdcdc;
+    --text-sec:       #888888;
+    --accent:         #d35400;
+    --accent-hover:   #e86a1a;
+    --accent-light:   rgba(211, 84, 0, 0.15);
+    --warning-bg:     #2a2010;
+    --warning-border: #6a5020;
+    --warning-text:   #d4a84b;
+}
+
 body {
     font-family: 'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif;
     background: var(--surface);
@@ -65,12 +79,69 @@ body {
     display: block;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+}
+
 .mode-switcher {
     display: flex;
     gap: 1px;
     background: var(--border);
     border: 1px solid var(--border);
     border-radius: 2px;
+}
+
+.settings-wrap {
+    position: relative;
+}
+
+.settings-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+}
+
+.settings-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: calc(var(--unit) * 0.5);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    z-index: 100;
+    min-width: 200px;
+}
+
+.settings-menu-section {
+    display: flex;
+    align-items: center;
+    gap: var(--unit);
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+}
+
+.settings-menu-label {
+    color: var(--text-sec);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex: 1;
+}
+
+.settings-theme-toggle {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+}
+
+.settings-theme-toggle .btn {
+    border: none;
+    border-radius: 0;
 }
 
 /* —— Buttons —— */
