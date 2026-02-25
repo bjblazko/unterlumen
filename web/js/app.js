@@ -23,7 +23,7 @@ const App = {
         // Set mode button tooltips with platform-appropriate shortcut keys
         document.getElementById('mode-browse').title = `Browse & Cull (1)`;
         document.getElementById('mode-commander').title = `File Manager (2)`;
-        document.getElementById('mode-wastebin').title = `Waste Bin (3)`;
+        document.getElementById('mode-wastebin').title = `Marked for Deletion (3)`;
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
