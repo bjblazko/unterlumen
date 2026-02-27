@@ -752,6 +752,26 @@ body {
     font-size: 13px;
 }
 
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.browse-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--unit) * 8) 0;
+}
+
+.browse-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
 .empty {
     color: var(--text-sec);
     padding: calc(var(--unit) * 6);
