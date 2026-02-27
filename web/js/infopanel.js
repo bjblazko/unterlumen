@@ -127,6 +127,7 @@ class InfoPanel {
         this.addTag(cameraRows, tags, used, 'Make', 'Make');
         this.addTag(cameraRows, tags, used, 'Model', 'Model');
         this.addTag(cameraRows, tags, used, 'LensModel', 'Lens');
+        this.addTag(cameraRows, tags, used, 'FilmSimulation', 'Film Simulation');
         this.addTag(cameraRows, tags, used, 'Software', 'Software');
         if (cameraRows.length) sections.push(this.section('Camera', cameraRows));
 

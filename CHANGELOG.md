@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Fujifilm film simulation** — The info panel now shows the film simulation (e.g. Classic Chrome, Acros, Velvia) in the Camera section for Fujifilm images.
 - **Resizable Commander panes** — a drag handle between the left pane and the center action buttons allows free resizing of the two panes. The split ratio persists across sessions via `localStorage`.
 - **Commander copy/move** — if a folder is focused in the target pane, copy/move operations use that folder as the destination instead of the pane's current directory.
 - Press `H` to toggle interface visibility (header, info panel, viewer toolbar) for distraction-free photo viewing. State persists across reloads. A "Hide Interface (H)" button is also available in the Settings menu.
