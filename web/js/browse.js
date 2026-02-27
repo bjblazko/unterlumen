@@ -16,9 +16,12 @@ class BrowsePane {
         this.showNames = false;
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
+        this._loading = false;
     }
 
     async load(path) {
+        if (this._loading) return;
+        this._loading = true;
         this.path = path || '';
         this.selected.clear();
         this.lastClickedIndex = -1;
@@ -33,6 +36,8 @@ class BrowsePane {
             this._notifyFocusChange();
         } catch (err) {
             this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
+        } finally {
+            this._loading = false;
         }
     }
 

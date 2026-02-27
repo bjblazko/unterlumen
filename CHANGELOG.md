@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Duplicate path on repeated folder click** — Rapidly double-clicking a folder (e.g. over a slow NAS connection) no longer produces invalid paths like `/pics/large/large`. A loading guard prevents navigation while a browse request is in flight.
+
 ### Added
 
 - **Fujifilm film simulation** — The info panel now shows the film simulation (e.g. Classic Chrome, Acros, Velvia) in the Camera section for Fujifilm images.
