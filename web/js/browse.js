@@ -27,18 +27,23 @@ class BrowsePane {
         this.lastClickedIndex = -1;
         this.focusedIndex = 0;
         this.warnings = [];
+        this.entries = [];
+        this.render();
 
+        let data;
         try {
-            const data = await API.browse(this.path, this.sort, this.order);
-            this.entries = data.entries || [];
-            this.warnings = data.warnings || [];
-            this.render();
-            this._notifyFocusChange();
+            data = await API.browse(this.path, this.sort, this.order);
         } catch (err) {
-            this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
-        } finally {
             this._loading = false;
+            this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
+            return;
         }
+
+        this._loading = false;
+        this.entries = data.entries || [];
+        this.warnings = data.warnings || [];
+        this.render();
+        this._notifyFocusChange();
     }
 
     setView(view) {
@@ -92,7 +97,9 @@ class BrowsePane {
         // Controls
         html.push(this.renderControls());
 
-        if (this.entries.length === 0) {
+        if (this._loading) {
+            html.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
+        } else if (this.entries.length === 0) {
             html.push('<div class="empty">No images or folders found</div>');
         } else if (this.view === 'grid') {
             html.push(this.renderGrid());

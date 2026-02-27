@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Loading spinner for folder navigation** — A spinner appears in the content area while the backend scans a directory, giving immediate feedback during slow EXIF extraction on large folders.
 - **Fujifilm film simulation** — The info panel now shows the film simulation (e.g. Classic Chrome, Acros, Velvia) in the Camera section for Fujifilm images.
 - **Resizable Commander panes** — a drag handle between the left pane and the center action buttons allows free resizing of the two panes. The split ratio persists across sessions via `localStorage`.
 - **Commander copy/move** — if a folder is focused in the target pane, copy/move operations use that folder as the destination instead of the pane's current directory.
