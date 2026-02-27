@@ -188,7 +188,7 @@ class BrowsePane {
             const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
             const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
             return `<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy">${nameHtml}
+                <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
             </div>`;
         });
         return `<div class="grid">${items.join('')}</div>`;

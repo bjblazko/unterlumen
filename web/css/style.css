@@ -373,6 +373,13 @@ body {
     height: auto;
     display: block;
     image-orientation: from-image;
+    aspect-ratio: 1;
+    background: var(--surface);
+}
+
+.grid-item img.img-loaded {
+    aspect-ratio: auto;
+    background: transparent;
 }
 
 .grid-item .item-name {
