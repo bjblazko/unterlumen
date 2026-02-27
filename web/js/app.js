@@ -11,6 +11,7 @@ const App = {
     wasteBinSelected: new Set(),
     wasteBinLastClickedIndex: -1,
     isMac: /Mac|iPhone|iPad|iPod/.test(navigator.platform),
+    uiHidden: false,
 
     init() {
         this.viewer = new Viewer(document.getElementById('app'));
@@ -29,9 +30,36 @@ const App = {
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
 
         this.initTheme();
+        this._initUIVisibility();
         this.initSettingsMenu();
 
         this.setMode('browse');
+    },
+
+    _initUIVisibility() {
+        if (localStorage.getItem('ui-hidden') === '1') {
+            this.uiHidden = true;
+            document.body.classList.add('ui-hidden');
+            this._showUIHint();
+        }
+    },
+
+    toggleUIVisibility() {
+        this.uiHidden = !this.uiHidden;
+        document.body.classList.toggle('ui-hidden', this.uiHidden);
+        localStorage.setItem('ui-hidden', this.uiHidden ? '1' : '0');
+        if (this.uiHidden) {
+            this._showUIHint();
+        }
+    },
+
+    _showUIHint() {
+        const hint = document.getElementById('ui-hint');
+        if (!hint) return;
+        hint.textContent = 'Press H to show the interface again';
+        hint.classList.add('visible');
+        clearTimeout(this._uiHintTimer);
+        this._uiHintTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
     },
 
     initTheme() {
@@ -88,6 +116,11 @@ const App = {
                 this._applyTheme(preference);
                 this._updateThemeButtons(preference);
             }
+        });
+
+        document.getElementById('settings-hide-ui').addEventListener('click', () => {
+            this.toggleUIVisibility();
+            closeMenu();
         });
     },
 
@@ -426,6 +459,14 @@ const App = {
             if (e.key === '1') { e.preventDefault(); this.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); this.setMode('commander'); }
             else if (e.key === '3') { e.preventDefault(); this.setMode('wastebin'); }
+        }
+
+        // H to toggle interface visibility (bare key, no modifier)
+        if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+            if (document.querySelector('.viewer')) return; // viewer handles it
+            e.preventDefault();
+            this.toggleUIVisibility();
         }
     },
 };
