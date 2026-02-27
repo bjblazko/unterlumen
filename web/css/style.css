@@ -956,3 +956,28 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-sec);
 }
+
+/* Hide-interface mode */
+body.ui-hidden .header { display: none; }
+body.ui-hidden .info-panel { display: none; }
+body.ui-hidden .viewer-toolbar { display: none; }
+
+/* Floating hint toast */
+.ui-hint {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: rgba(255, 255, 255, 0.9);
+    padding: calc(var(--unit)) calc(var(--unit) * 2);
+    border-radius: 2px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s;
+    z-index: 9999;
+    white-space: nowrap;
+}
+.ui-hint.visible { opacity: 1; }

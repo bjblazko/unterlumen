@@ -99,6 +99,11 @@ class Viewer {
                 e.preventDefault();
                 this.toggleInfo();
                 break;
+            case 'h':
+            case 'H':
+                e.preventDefault();
+                App.toggleUIVisibility();
+                break;
         }
     }
 
