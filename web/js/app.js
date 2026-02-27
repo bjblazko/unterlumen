@@ -146,6 +146,10 @@ const App = {
             this.infoPanel = new InfoPanel(document.getElementById('info-panel-container'));
             this.browsePane.load(this.currentBrowsePath);
         } else if (mode === 'commander') {
+            if (this.commander) {
+                this.commander.destroy();
+                this.commander = null;
+            }
             this.commander = new Commander(appEl);
             this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
             this.commander.init();

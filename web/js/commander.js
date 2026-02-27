@@ -19,6 +19,7 @@ class Commander {
         this.container.innerHTML = `
             <div class="commander">
                 <div class="commander-pane left-pane" id="left-pane"></div>
+                <div class="commander-resizer" id="cmd-resizer"></div>
                 <div class="commander-actions">
                     <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy →</button>
                     <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move →</button>
@@ -69,6 +70,95 @@ class Commander {
         leftEl.classList.add('active');
         this.leftPane.load('');
         this.rightPane.load('');
+
+        this._initResizer();
+    }
+
+    _initResizer() {
+        const resizer = document.getElementById('cmd-resizer');
+        const commanderEl = this.container.querySelector('.commander');
+        const leftEl = document.getElementById('left-pane');
+        const rightEl = document.getElementById('right-pane');
+        const MIN_PX = 100;
+
+        let dragging = false;
+        let startX = 0;
+        let startLeftWidth = 0;
+        let startRightWidth = 0;
+        let totalWidth = 0;
+
+        const onMouseMove = (e) => {
+            if (!dragging) return;
+            const delta = e.clientX - startX;
+            let newLeft = Math.max(MIN_PX, Math.min(totalWidth - MIN_PX, startLeftWidth + delta));
+            leftEl.style.width = newLeft + 'px';
+            rightEl.style.width = (totalWidth - newLeft) + 'px';
+        };
+
+        const onMouseUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            resizer.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            // Persist ratio
+            const ratio = parseFloat(leftEl.style.width) / totalWidth;
+            if (isFinite(ratio)) localStorage.setItem('commander-split', ratio.toFixed(4));
+        };
+
+        const onMouseDown = (e) => {
+            if (e.button !== 0) return;
+            dragging = true;
+            startX = e.clientX;
+            startLeftWidth = leftEl.getBoundingClientRect().width;
+            startRightWidth = rightEl.getBoundingClientRect().width;
+            totalWidth = startLeftWidth + startRightWidth;
+
+            leftEl.style.flex = 'none';
+            leftEl.style.width = startLeftWidth + 'px';
+            rightEl.style.flex = 'none';
+            rightEl.style.width = startRightWidth + 'px';
+
+            resizer.classList.add('dragging');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        resizer.addEventListener('mousedown', onMouseDown);
+
+        // Restore saved split ratio
+        const saved = parseFloat(localStorage.getItem('commander-split'));
+        if (saved > 0 && saved < 1) {
+            requestAnimationFrame(() => {
+                const actionsEl = commanderEl.querySelector('.commander-actions');
+                const available = commanderEl.getBoundingClientRect().width
+                    - resizer.getBoundingClientRect().width
+                    - actionsEl.getBoundingClientRect().width;
+                const lw = Math.max(MIN_PX, Math.min(available - MIN_PX, saved * available));
+                leftEl.style.flex = 'none';
+                leftEl.style.width = lw + 'px';
+                rightEl.style.flex = 'none';
+                rightEl.style.width = (available - lw) + 'px';
+            });
+        }
+
+        this._resizerCleanup = () => {
+            resizer.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+    }
+
+    destroy() {
+        if (this._resizerCleanup) {
+            this._resizerCleanup();
+            this._resizerCleanup = null;
+        }
     }
 
     getActivePane() {

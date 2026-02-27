@@ -506,6 +506,29 @@ body {
     min-width: 128px;
 }
 
+.commander-resizer {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--border);
+    flex-shrink: 0;
+    position: relative;
+    transition: background 0.15s;
+}
+
+.commander-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+}
+
+.commander-resizer:hover,
+.commander-resizer.dragging {
+    background: var(--accent);
+}
+
 /* —— Viewer —— */
 
 .viewer {
