@@ -97,7 +97,8 @@ class Commander {
 
     async doCopy() {
         const files = this.getActivePane().getSelectedFiles();
-        const dest = this.getOtherPane().path;
+        const otherPane = this.getOtherPane();
+        const dest = otherPane.getFocusedDir() || otherPane.path;
 
         if (files.length === 0) return;
         if (!confirm(`Copy ${files.length} file(s) to "${dest || 'root'}"?`)) return;
@@ -115,7 +116,8 @@ class Commander {
 
     async doMove() {
         const files = this.getActivePane().getSelectedFiles();
-        const dest = this.getOtherPane().path;
+        const otherPane = this.getOtherPane();
+        const dest = otherPane.getFocusedDir() || otherPane.path;
 
         if (files.length === 0) return;
         if (!confirm(`Move ${files.length} file(s) to "${dest || 'root'}"?`)) return;
