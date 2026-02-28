@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-02-27*
+*Last modified: 2026-02-28*
 
 
 
@@ -9,6 +9,12 @@
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **In-memory scan cache** — Repeat visits to a folder load instantly from an in-memory cache. Cache is invalidated automatically when files are copied, moved, or deleted, or when the directory modification time changes.
+- **Deferred EXIF extraction** — Directory listings return immediately using file modification times. EXIF dates are extracted in a background goroutine and delivered to the frontend via a new `GET /api/browse/dates` polling endpoint. If sorting by date, the grid re-sorts automatically when EXIF dates arrive.
+- **Chunked rendering** — Grid and list views render in batches of 50 items. Additional batches load on scroll via IntersectionObserver, keeping DOM size small for large folders. Keyboard navigation past the rendered range triggers on-demand rendering.
 
 ### Fixed
 

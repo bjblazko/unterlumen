@@ -22,6 +22,47 @@ type Entry struct {
 	Size int64     `json:"size,omitempty"`
 }
 
+// ScanDirectoryFast lists subdirectories and supported image files using file
+// mod-times only (no EXIF extraction). This returns near-instantly even for
+// large directories.
+func ScanDirectoryFast(dirPath string) ([]Entry, error) {
+	dirEntries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var entries []Entry
+	for _, de := range dirEntries {
+		name := de.Name()
+
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+
+		info, err := de.Info()
+		if err != nil {
+			continue
+		}
+
+		if de.IsDir() {
+			entries = append(entries, Entry{
+				Name: name,
+				Type: EntryDir,
+				Date: info.ModTime(),
+			})
+		} else if IsSupportedImage(name) {
+			entries = append(entries, Entry{
+				Name: name,
+				Type: EntryImage,
+				Date: info.ModTime(),
+				Size: info.Size(),
+			})
+		}
+	}
+
+	return entries, nil
+}
+
 // ScanDirectory lists subdirectories and supported image files in the given directory.
 func ScanDirectory(dirPath string) ([]Entry, error) {
 	dirEntries, err := os.ReadDir(dirPath)

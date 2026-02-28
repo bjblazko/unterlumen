@@ -1031,3 +1031,11 @@ body.ui-hidden .viewer-toolbar { display: none; }
     white-space: nowrap;
 }
 .ui-hint.visible { opacity: 1; }
+
+/* —— Scroll sentinel for chunked rendering —— */
+
+.scroll-sentinel {
+    height: 1px;
+    width: 100%;
+    grid-column: 1 / -1;
+}

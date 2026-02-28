@@ -1,5 +1,7 @@
 // Browse mode — single pane directory browser
 
+const CHUNK_SIZE = 50;
+
 class BrowsePane {
     constructor(container, options = {}) {
         this.container = container;
@@ -17,6 +19,9 @@ class BrowsePane {
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
         this._loading = false;
+        this._renderedCount = 0;
+        this._observer = null;
+        this._exifPollPath = null;
     }
 
     async load(path) {
@@ -28,6 +33,7 @@ class BrowsePane {
         this.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];
+        this._exifPollPath = null;
         this.render();
 
         let data;
@@ -44,6 +50,11 @@ class BrowsePane {
         this.warnings = data.warnings || [];
         this.render();
         this._notifyFocusChange();
+
+        // Start EXIF date polling if there are images
+        if (this.entries.some(e => e.type === 'image')) {
+            this._pollExifDates();
+        }
     }
 
     setView(view) {
@@ -84,6 +95,9 @@ class BrowsePane {
     }
 
     render() {
+        this._destroyObserver();
+        this._renderedCount = 0;
+
         const html = [];
 
         // Warnings
@@ -102,13 +116,24 @@ class BrowsePane {
         } else if (this.entries.length === 0) {
             html.push('<div class="empty">No images or folders found</div>');
         } else if (this.view === 'grid') {
-            html.push(this.renderGrid());
+            const end = Math.min(CHUNK_SIZE, this.entries.length);
+            html.push(this._renderGridChunk(0, end));
+            this._renderedCount = end;
+            if (end < this.entries.length) {
+                html.push('<div class="scroll-sentinel"></div>');
+            }
         } else {
-            html.push(this.renderList());
+            const end = Math.min(CHUNK_SIZE, this.entries.length);
+            html.push(this._renderListChunk(0, end));
+            this._renderedCount = end;
+            if (end < this.entries.length) {
+                html.push('<div class="scroll-sentinel"></div>');
+            }
         }
 
         this.container.innerHTML = html.join('');
         this.attachEvents();
+        this._setupObserver();
     }
 
     renderWarnings() {
@@ -174,53 +199,121 @@ class BrowsePane {
         </div>`;
     }
 
-    renderGrid() {
-        const items = this.entries.map((entry, idx) => {
+    _renderGridChunk(start, end) {
+        const items = [];
+        for (let idx = start; idx < end; idx++) {
+            const entry = this.entries[idx];
             const focusedClass = idx === this.focusedIndex ? ' focused' : '';
             if (entry.type === 'dir') {
-                return `<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
+                items.push(`<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
                     <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
                     <div class="item-name">${entry.name}</div>
-                </div>`;
+                </div>`);
+            } else {
+                const fp = this.fullPath(entry.name);
+                const selectedClass = this.selected.has(fp) ? ' selected' : '';
+                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+                const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
+                items.push(`<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
+                    <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
+                </div>`);
             }
-            const fp = this.fullPath(entry.name);
-            const selectedClass = this.selected.has(fp) ? ' selected' : '';
-            const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-            const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
-            return `<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
-            </div>`;
-        });
-        return `<div class="grid">${items.join('')}</div>`;
+        }
+        if (start === 0) {
+            return `<div class="grid">${items.join('')}</div>`;
+        }
+        return items.join('');
     }
 
-    renderList() {
-        const rows = this.entries.map((entry, idx) => {
+    _renderListChunk(start, end) {
+        const rows = [];
+        for (let idx = start; idx < end; idx++) {
+            const entry = this.entries[idx];
             const date = entry.date ? new Date(entry.date).toLocaleString() : '';
             const focusedClass = idx === this.focusedIndex ? ' focused' : '';
             if (entry.type === 'dir') {
-                return `<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
+                rows.push(`<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
                     <td class="list-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></td>
                     <td class="list-name">${entry.name}</td>
                     <td class="list-date">${date}</td>
                     <td class="list-size"></td>
-                </tr>`;
+                </tr>`);
+            } else {
+                const fp = this.fullPath(entry.name);
+                const selectedClass = this.selected.has(fp) ? ' selected' : '';
+                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+                const size = entry.size ? formatSize(entry.size) : '';
+                rows.push(`<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
+                    <td class="list-icon"><img src="${API.thumbnailURL(fp)}" alt="" loading="lazy"></td>
+                    <td class="list-name">${entry.name}</td>
+                    <td class="list-date">${date}</td>
+                    <td class="list-size">${size}</td>
+                </tr>`);
             }
-            const fp = this.fullPath(entry.name);
-            const selectedClass = this.selected.has(fp) ? ' selected' : '';
-            const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-            const size = entry.size ? formatSize(entry.size) : '';
-            return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                <td class="list-icon"><img src="${API.thumbnailURL(fp)}" alt="" loading="lazy"></td>
-                <td class="list-name">${entry.name}</td>
-                <td class="list-date">${date}</td>
-                <td class="list-size">${size}</td>
-            </tr>`;
-        });
-        return `<table class="list-view">
-            <thead><tr><th></th><th>Name</th><th>Date</th><th>Size</th></tr></thead>
-            <tbody>${rows.join('')}</tbody>
-        </table>`;
+        }
+        if (start === 0) {
+            return `<table class="list-view">
+                <thead><tr><th></th><th>Name</th><th>Date</th><th>Size</th></tr></thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>`;
+        }
+        return rows.join('');
+    }
+
+    // Keep old renderGrid/renderList as aliases for compatibility (used nowhere now)
+    renderGrid() { return this._renderGridChunk(0, this.entries.length); }
+    renderList() { return this._renderListChunk(0, this.entries.length); }
+
+    _setupObserver() {
+        const sentinel = this.container.querySelector('.scroll-sentinel');
+        if (!sentinel) return;
+        this._observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                this._renderNextChunk();
+            }
+        }, { rootMargin: '200px' });
+        this._observer.observe(sentinel);
+    }
+
+    _destroyObserver() {
+        if (this._observer) {
+            this._observer.disconnect();
+            this._observer = null;
+        }
+    }
+
+    _renderNextChunk() {
+        const start = this._renderedCount;
+        const end = Math.min(start + CHUNK_SIZE, this.entries.length);
+        if (start >= end) return;
+
+        if (this.view === 'grid') {
+            const grid = this.container.querySelector('.grid');
+            if (grid) {
+                grid.insertAdjacentHTML('beforeend', this._renderGridChunk(start, end));
+            }
+        } else {
+            const tbody = this.container.querySelector('tbody');
+            if (tbody) {
+                tbody.insertAdjacentHTML('beforeend', this._renderListChunk(start, end));
+            }
+        }
+
+        this._renderedCount = end;
+        this._attachItemEvents(start, end);
+
+        // Remove sentinel if we've rendered everything
+        if (end >= this.entries.length) {
+            const sentinel = this.container.querySelector('.scroll-sentinel');
+            if (sentinel) sentinel.remove();
+            this._destroyObserver();
+        }
+    }
+
+    _ensureRenderedUpTo(index) {
+        while (this._renderedCount <= index && this._renderedCount < this.entries.length) {
+            this._renderNextChunk();
+        }
     }
 
     updateSelectionClasses() {
@@ -310,66 +403,70 @@ class BrowsePane {
             });
         }
 
-        // Directory clicks
-        this.container.querySelectorAll('[data-type="dir"]').forEach(el => {
-            el.addEventListener('click', () => {
-                this.focusedIndex = parseInt(el.dataset.index);
-                this.updateFocusClass();
-                this._notifyFocusChange();
-            });
-            el.addEventListener('dblclick', () => {
-                const name = el.dataset.name;
-                const path = this.fullPath(name);
-                this.load(path);
-                if (this.onNavigate) this.onNavigate(path);
-            });
-        });
+        // Item events for the initial chunk
+        this._attachItemEvents(0, this._renderedCount);
+    }
 
-        // Image clicks
-        this.container.querySelectorAll('[data-type="image"]').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const fp = el.dataset.path;
-                const idx = parseInt(el.dataset.index);
-                this.focusedIndex = idx;
-                this.updateFocusClass();
-                this._notifyFocusChange();
+    _attachItemEvents(start, end) {
+        const els = this.container.querySelectorAll(`[data-index]`);
+        els.forEach(el => {
+            const idx = parseInt(el.dataset.index);
+            if (idx < start || idx >= end) return;
+            const type = el.dataset.type;
 
-                if (e.ctrlKey || e.metaKey) {
-                    // Toggle selection
-                    if (this.selected.has(fp)) {
-                        this.selected.delete(fp);
-                    } else {
-                        this.selected.add(fp);
-                    }
-                    this.lastClickedIndex = idx;
-                    this.updateSelectionClasses();
-                    if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                } else if (e.shiftKey && this.lastClickedIndex >= 0) {
-                    // Range selection
-                    const start = Math.min(this.lastClickedIndex, idx);
-                    const end = Math.max(this.lastClickedIndex, idx);
-                    for (let i = start; i <= end; i++) {
-                        const entry = this.entries[i];
-                        if (entry.type === 'image') {
-                            this.selected.add(this.fullPath(entry.name));
+            if (type === 'dir') {
+                el.addEventListener('click', () => {
+                    this.focusedIndex = idx;
+                    this.updateFocusClass();
+                    this._notifyFocusChange();
+                });
+                el.addEventListener('dblclick', () => {
+                    const name = el.dataset.name;
+                    const path = this.fullPath(name);
+                    this.load(path);
+                    if (this.onNavigate) this.onNavigate(path);
+                });
+            } else if (type === 'image') {
+                el.addEventListener('click', (e) => {
+                    const fp = el.dataset.path;
+                    this.focusedIndex = idx;
+                    this.updateFocusClass();
+                    this._notifyFocusChange();
+
+                    if (e.ctrlKey || e.metaKey) {
+                        if (this.selected.has(fp)) {
+                            this.selected.delete(fp);
+                        } else {
+                            this.selected.add(fp);
                         }
+                        this.lastClickedIndex = idx;
+                        this.updateSelectionClasses();
+                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+                    } else if (e.shiftKey && this.lastClickedIndex >= 0) {
+                        const rangeStart = Math.min(this.lastClickedIndex, idx);
+                        const rangeEnd = Math.max(this.lastClickedIndex, idx);
+                        for (let i = rangeStart; i <= rangeEnd; i++) {
+                            const entry = this.entries[i];
+                            if (entry.type === 'image') {
+                                this.selected.add(this.fullPath(entry.name));
+                            }
+                        }
+                        this.updateSelectionClasses();
+                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+                    } else {
+                        this.selected.clear();
+                        this.selected.add(fp);
+                        this.lastClickedIndex = idx;
+                        this.updateSelectionClasses();
+                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
                     }
-                    this.updateSelectionClasses();
-                    if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                } else {
-                    // Single select — clear previous, select this one
-                    this.selected.clear();
-                    this.selected.add(fp);
-                    this.lastClickedIndex = idx;
-                    this.updateSelectionClasses();
-                    if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                }
-            });
+                });
 
-            el.addEventListener('dblclick', () => {
-                const fp = el.dataset.path;
-                if (this.onImageClick) this.onImageClick(fp);
-            });
+                el.addEventListener('dblclick', () => {
+                    const fp = el.dataset.path;
+                    if (this.onImageClick) this.onImageClick(fp);
+                });
+            }
         });
     }
 
@@ -418,6 +515,7 @@ class BrowsePane {
         if (next < 0) next = 0;
         if (next >= count) next = count - 1;
         this.focusedIndex = next;
+        this._ensureRenderedUpTo(next);
         this.updateFocusClass();
         this.scrollFocusedIntoView();
         this._notifyFocusChange();
@@ -444,6 +542,66 @@ class BrowsePane {
         else this.selected.add(fp);
         this.updateSelectionClasses();
         if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+    }
+
+    // EXIF date polling
+    _pollExifDates() {
+        const pollPath = this.path;
+        this._exifPollPath = pollPath;
+
+        setTimeout(() => this._doExifPoll(pollPath), 300);
+    }
+
+    async _doExifPoll(pollPath) {
+        // Guard: user navigated away
+        if (this._exifPollPath !== pollPath) return;
+
+        let data;
+        try {
+            data = await API.browseDates(pollPath);
+        } catch {
+            return;
+        }
+
+        // Guard again after await
+        if (this._exifPollPath !== pollPath) return;
+
+        if (!data.ready) {
+            setTimeout(() => this._doExifPoll(pollPath), 500);
+            return;
+        }
+
+        // Apply dates if any differ
+        if (data.dates && Object.keys(data.dates).length > 0) {
+            for (const entry of this.entries) {
+                if (entry.type === 'image' && data.dates[entry.name]) {
+                    entry.date = data.dates[entry.name];
+                }
+            }
+            if (this.sort === 'date') {
+                this._resortAndRender();
+            }
+        }
+    }
+
+    _resortAndRender() {
+        // Client-side sort: dirs first, then by current sort field/order
+        this.entries.sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+            let less;
+            switch (this.sort) {
+                case 'date':
+                    less = new Date(a.date) < new Date(b.date);
+                    break;
+                case 'size':
+                    less = (a.size || 0) < (b.size || 0);
+                    break;
+                default:
+                    less = a.name.toLowerCase() < b.name.toLowerCase();
+            }
+            return this.order === 'desc' ? (less ? 1 : -1) : (less ? -1 : 1);
+        });
+        this.render();
     }
 }
 

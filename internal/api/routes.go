@@ -4,18 +4,23 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"huepattl.de/unterlumen/internal/media"
 )
 
 // NewRouter sets up the HTTP routes for the application.
 func NewRouter(root string) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/browse", handleBrowse(root))
+	cache := media.NewScanCache()
+
+	mux.HandleFunc("/api/browse", handleBrowse(root, cache))
+	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root))
 	mux.HandleFunc("/api/image", handleImage(root))
-	mux.HandleFunc("/api/copy", handleCopy(root))
-	mux.HandleFunc("/api/move", handleMove(root))
-	mux.HandleFunc("/api/delete", handleDelete(root))
+	mux.HandleFunc("/api/copy", handleCopy(root, cache))
+	mux.HandleFunc("/api/move", handleMove(root, cache))
+	mux.HandleFunc("/api/delete", handleDelete(root, cache))
 	mux.HandleFunc("/api/info", handleInfo(root))
 
 	// Serve static files from web/ directory
