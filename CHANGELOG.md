@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-28
+
 ### Added
 
 - **`UNTERLUMEN_ROOT_PATH` environment variable** — set this to restrict navigation to a specific directory. When set, the server starts in that directory and users cannot navigate above it. Useful for self-hosted or kiosk deployments where the photo library should be confined.
