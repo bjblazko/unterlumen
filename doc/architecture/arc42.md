@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-02-24*
+*Last modified: 2026-02-28*
 
 ## 1. Introduction and Goals
 
@@ -81,6 +81,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 
 | Interface | Protocol | Format |
 |-----------|----------|--------|
+| `/api/config` | HTTP GET | JSON (server configuration, e.g. startPath) |
 | `/api/browse` | HTTP GET | JSON (directory listing) |
 | `/api/thumbnail` | HTTP GET | JPEG/PNG binary |
 | `/api/image` | HTTP GET | JPEG/PNG/GIF/WebP binary |
@@ -210,7 +211,7 @@ Browser                     Server                    Filesystem
      └─────────────┘
 ```
 
-The binary and `web/` directory must be co-located (the server serves static files from `./web/` relative to the working directory). The root photo directory is specified as a CLI argument.
+The binary and `web/` directory must be co-located (the server serves static files from `./web/` relative to the working directory). The start directory is determined by CLI argument, `UNTERLUMEN_ROOT_PATH` environment variable, or user home directory (in that priority order). See [ADR-0010](adr/0010-root-path-resolution.md).
 
 ## 8. Crosscutting Concepts
 
@@ -250,6 +251,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0007](adr/0007-vanilla-frontend.md) — Vanilla HTML/JS/CSS frontend
 - [ADR-0008](adr/0008-dieter-rams-design-principles.md) — Dieter Rams' ten principles of good design
 - [ADR-0009](adr/0009-soft-delete-waste-bin.md) — Soft delete with frontend-only waste bin
+- [ADR-0010](adr/0010-root-path-resolution.md) — Root path resolution and navigation boundary
 
 ## 10. Quality Requirements
 
@@ -279,7 +281,7 @@ Quality
 |----------|---------|-------------------|
 | User opens a directory with 500 JPEGs | Performance | Directory listing returns in < 2s; thumbnails load progressively |
 | User navigates to `../../etc/passwd` | Security | API returns 400 Bad Request; file is not served |
-| User starts the binary with no arguments | Simplicity | Server starts, serving the current directory on localhost:8080 |
+| User starts the binary with no arguments | Simplicity | Server starts, serving the user's home directory on localhost:8080 |
 | User runs on a headless server | Portability | Binds to 0.0.0.0 with `-bind` flag; browser on another machine connects |
 
 ## 11. Risks and Technical Debt

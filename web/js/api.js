@@ -58,4 +58,8 @@ const API = {
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();
     },
+
+    config() {
+        return fetch('/api/config').then(r => r.json());
+    },
 };

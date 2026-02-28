@@ -33,7 +33,12 @@ const App = {
         this._initUIVisibility();
         this.initSettingsMenu();
 
-        this.setMode('browse');
+        API.config().then(cfg => {
+            this.currentBrowsePath = cfg.startPath || '';
+            this.setMode('browse');
+        }).catch(() => {
+            this.setMode('browse');
+        });
     },
 
     _initUIVisibility() {

@@ -10,19 +10,22 @@ import (
 )
 
 // NewRouter sets up the HTTP routes for the application.
-func NewRouter(root string, webFS fs.FS) http.Handler {
+// boundary is the root directory that all file paths must remain within.
+// startPath is the initial path (relative to boundary) the frontend should navigate to.
+func NewRouter(boundary, startPath string, webFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
 	cache := media.NewScanCache()
 
-	mux.HandleFunc("/api/browse", handleBrowse(root, cache))
-	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
-	mux.HandleFunc("/api/thumbnail", handleThumbnail(root))
-	mux.HandleFunc("/api/image", handleImage(root))
-	mux.HandleFunc("/api/copy", handleCopy(root, cache))
-	mux.HandleFunc("/api/move", handleMove(root, cache))
-	mux.HandleFunc("/api/delete", handleDelete(root, cache))
-	mux.HandleFunc("/api/info", handleInfo(root))
+	mux.HandleFunc("/api/config", handleConfig(startPath))
+	mux.HandleFunc("/api/browse", handleBrowse(boundary, cache))
+	mux.HandleFunc("/api/browse/dates", handleBrowseDates(boundary, cache))
+	mux.HandleFunc("/api/thumbnail", handleThumbnail(boundary))
+	mux.HandleFunc("/api/image", handleImage(boundary))
+	mux.HandleFunc("/api/copy", handleCopy(boundary, cache))
+	mux.HandleFunc("/api/move", handleMove(boundary, cache))
+	mux.HandleFunc("/api/delete", handleDelete(boundary, cache))
+	mux.HandleFunc("/api/info", handleInfo(boundary))
 
 	// Serve static files from embedded web/ filesystem
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
