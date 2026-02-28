@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,7 @@ import (
 )
 
 // NewRouter sets up the HTTP routes for the application.
-func NewRouter(root string) http.Handler {
+func NewRouter(root string, webFS fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
 	cache := media.NewScanCache()
@@ -23,8 +24,8 @@ func NewRouter(root string) http.Handler {
 	mux.HandleFunc("/api/delete", handleDelete(root, cache))
 	mux.HandleFunc("/api/info", handleInfo(root))
 
-	// Serve static files from web/ directory
-	mux.Handle("/", http.FileServer(http.Dir("web")))
+	// Serve static files from embedded web/ filesystem
+	mux.Handle("/", http.FileServer(http.FS(webFS)))
 
 	return mux
 }
