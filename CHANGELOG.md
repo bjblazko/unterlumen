@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`UNTERLUMEN_ROOT_PATH` environment variable** — set this to restrict navigation to a specific directory. When set, the server starts in that directory and users cannot navigate above it. Useful for self-hosted or kiosk deployments where the photo library should be confined.
+- **`UNTERLUMEN_PORT` and `UNTERLUMEN_BIND` environment variables** — configure the HTTP port and bind address without CLI flags. CLI flags (`-port`, `-bind`) take precedence when provided.
+- **Home directory default** — when started without arguments and without `UNTERLUMEN_ROOT_PATH`, the server now starts in the user's home directory instead of the current working directory.
+- **Unrestricted navigation for cmdline arg** — when a directory is passed as a command-line argument, navigation is no longer restricted to that directory; users can navigate freely up to the filesystem root.
+
 ### Fixed
 
 - **Viewer gap when UI hidden** — pressing H to hide the header no longer leaves a blank 48 px gap at the bottom of the screen; `#app` now expands to full viewport height when the header is hidden.
