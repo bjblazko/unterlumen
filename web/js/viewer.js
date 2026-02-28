@@ -86,10 +86,10 @@ class Viewer {
                 this.navigate(1);
                 break;
             case 'Escape':
-            case 'Backspace':
                 e.preventDefault();
                 this.close();
                 break;
+            case 'Backspace':
             case 'Delete':
                 e.preventDefault();
                 this.markCurrentForDeletion();

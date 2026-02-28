@@ -357,8 +357,8 @@ const App = {
             this.commander.updateActions();
         }
 
-        // Backspace to go up in browse mode
-        if (e.key === 'Backspace' && this.mode === 'browse' && this.browsePane) {
+        // Escape to go up in browse mode
+        if (e.key === 'Escape' && this.mode === 'browse' && this.browsePane) {
             if (document.querySelector('.viewer')) return; // Don't navigate while viewing
             e.preventDefault();
             const parts = this.browsePane.path.split('/').filter(Boolean);
@@ -366,6 +366,25 @@ const App = {
             const parentPath = parts.join('/');
             this.browsePane.load(parentPath);
             this.currentBrowsePath = parentPath;
+        }
+
+        // Backspace to mark selected files for waste bin (browse mode)
+        if (e.key === 'Backspace' && this.mode === 'browse' && this.browsePane) {
+            if (document.querySelector('.viewer')) return;
+            const selected = this.browsePane.getSelectedFiles();
+            if (selected.length === 0) return;
+            e.preventDefault();
+            this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
+            this.browsePane.selected.clear();
+            this.browsePane.render();
+        }
+
+        // Backspace to mark for deletion in commander mode
+        if (e.key === 'Backspace' && this.mode === 'commander' && this.commander) {
+            const selected = this.commander.getActivePane().getSelectedFiles();
+            if (selected.length === 0) return;
+            e.preventDefault();
+            this.commander.doDelete();
         }
 
         // I to toggle info panel in browse mode
