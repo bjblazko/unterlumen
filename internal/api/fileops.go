@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"huepattl.de/unterlumen/internal/media"
 )
 
 type fileOpRequest struct {
@@ -24,7 +26,7 @@ type fileOpResponse struct {
 	Results []fileOpResult `json:"results"`
 }
 
-func handleDelete(root string) http.HandlerFunc {
+func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -42,6 +44,7 @@ func handleDelete(root string) http.HandlerFunc {
 			return
 		}
 
+		dirsToInvalidate := make(map[string]struct{})
 		var results []fileOpResult
 		for _, file := range req.Files {
 			filePath, ok := safePath(root, file)
@@ -76,6 +79,7 @@ func handleDelete(root string) http.HandlerFunc {
 					Error: err.Error(),
 				})
 			} else {
+				dirsToInvalidate[filepath.Dir(filePath)] = struct{}{}
 				results = append(results, fileOpResult{
 					File:    file,
 					Success: true,
@@ -83,32 +87,36 @@ func handleDelete(root string) http.HandlerFunc {
 			}
 		}
 
+		for dir := range dirsToInvalidate {
+			cache.Invalidate(dir)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(fileOpResponse{Results: results})
 	}
 }
 
-func handleCopy(root string) http.HandlerFunc {
+func handleCopy(root string, cache *media.ScanCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, copyFile)
+		handleFileOp(w, r, root, copyFile, cache)
 	}
 }
 
-func handleMove(root string) http.HandlerFunc {
+func handleMove(root string, cache *media.ScanCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, moveFile)
+		handleFileOp(w, r, root, moveFile, cache)
 	}
 }
 
-func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error) {
+func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache) {
 	var req fileOpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -133,6 +141,7 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		return
 	}
 
+	dirsToInvalidate := make(map[string]struct{})
 	var results []fileOpResult
 	for _, file := range req.Files {
 		srcPath, ok := safePath(root, file)
@@ -152,11 +161,17 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 				Error: err.Error(),
 			})
 		} else {
+			dirsToInvalidate[filepath.Dir(srcPath)] = struct{}{}
+			dirsToInvalidate[destDir] = struct{}{}
 			results = append(results, fileOpResult{
 				File:    file,
 				Success: true,
 			})
 		}
+	}
+
+	for dir := range dirsToInvalidate {
+		cache.Invalidate(dir)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
