@@ -16,6 +16,20 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **HEIF support** — Automatic conversion via ffmpeg (requires ffmpeg installed)
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
 
+### Screenshots
+
+Browse mode:
+![Browse mode](doc/screenshot-1-overview.png)
+
+Fullscreen, here with optional file and EXIF data)::
+![File Manager mode](doc/screenshot-2-fullscreen-and-exif.png)
+
+File manager  ("Commander style") mode:
+![File Manager mode](doc/screenshot-3-filemanager.png)
+
+Waste bin (marked for deletion during culling) mode:
+![Marked for deletion](doc/screenshot-4-wastebin.png)
+
 ## Requirements
 
 - Go 1.21+
