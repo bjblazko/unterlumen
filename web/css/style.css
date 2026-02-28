@@ -1009,6 +1009,7 @@ body {
 
 /* Hide-interface mode */
 body.ui-hidden .header { display: none; }
+body.ui-hidden #app { height: 100vh; }
 body.ui-hidden .info-panel { display: none; }
 body.ui-hidden .viewer-toolbar { display: none; }
 
