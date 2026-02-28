@@ -83,6 +83,13 @@ class BrowsePane {
         return this.fullPath(entry.name);
     }
 
+    getFocusedFile() {
+        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
+        const entry = this.entries[this.focusedIndex];
+        if (entry.type !== 'image') return null;
+        return this.fullPath(entry.name);
+    }
+
     selectAll() {
         this.entries.filter(e => e.type !== 'dir').forEach(e => {
             this.selected.add(this.fullPath(e.name));

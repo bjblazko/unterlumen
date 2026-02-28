@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - **Keyboard shortcuts** — `Escape` now handles navigation/dismissal (go up directory, close viewer). `Backspace` (⌫) now marks selected files for the waste bin in browse/commander mode and marks the current image for deletion in viewer mode. `Delete` (⌦) continues to work as a second shortcut for deletion. This makes culling more ergonomic on Mac laptops where Fn+⌫ was previously required for the most common action.
+- **Keyboard-first culling** — Backspace, Delete, and Cmd/Ctrl+D now mark the **focused** image for deletion when nothing is selected. Navigate with arrow keys and press Backspace to mark without needing to select first.
 
 ## [0.1.0] - 2026-02-28
 

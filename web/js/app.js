@@ -368,22 +368,23 @@ const App = {
             this.currentBrowsePath = parentPath;
         }
 
-        // Backspace to mark selected files for waste bin (browse mode)
+        // Backspace to mark selected (or focused) files for waste bin (browse mode)
         if (e.key === 'Backspace' && this.mode === 'browse' && this.browsePane) {
-            if (document.querySelector('.viewer')) return;
+            e.preventDefault(); // prevent Safari back-navigation before any early returns
+            if (document.querySelector('.viewer')) return; // viewer's own handler takes over
             const selected = this.browsePane.getSelectedFiles();
-            if (selected.length === 0) return;
-            e.preventDefault();
-            this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
+            const targets = selected.length > 0 ? selected : [this.browsePane.getFocusedFile()].filter(Boolean);
+            if (targets.length === 0) return;
+            this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
             this.browsePane.selected.clear();
             this.browsePane.render();
         }
 
         // Backspace to mark for deletion in commander mode
         if (e.key === 'Backspace' && this.mode === 'commander' && this.commander) {
+            e.preventDefault(); // prevent Safari back-navigation before any early returns
             const selected = this.commander.getActivePane().getSelectedFiles();
             if (selected.length === 0) return;
-            e.preventDefault();
             this.commander.doDelete();
         }
 
@@ -397,13 +398,14 @@ const App = {
             }
         }
 
-        // Delete key to mark selected files for waste bin
+        // Delete key to mark selected (or focused) files for waste bin
         if (e.key === 'Delete' && this.mode === 'browse' && this.browsePane) {
             if (document.querySelector('.viewer')) return;
             const selected = this.browsePane.getSelectedFiles();
-            if (selected.length === 0) return;
+            const targets = selected.length > 0 ? selected : [this.browsePane.getFocusedFile()].filter(Boolean);
+            if (targets.length === 0) return;
             e.preventDefault();
-            this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
+            this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
             this.browsePane.selected.clear();
             this.browsePane.render();
         }
@@ -442,8 +444,9 @@ const App = {
             if (this.mode === 'browse' && this.browsePane && !document.querySelector('.viewer')) {
                 e.preventDefault();
                 const selected = this.browsePane.getSelectedFiles();
-                if (selected.length > 0) {
-                    this.markForDeletion(selected, this.browsePane.entries, this.browsePane.path);
+                const targets = selected.length > 0 ? selected : [this.browsePane.getFocusedFile()].filter(Boolean);
+                if (targets.length > 0) {
+                    this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
                     this.browsePane.selected.clear();
                     this.browsePane.render();
                 }
