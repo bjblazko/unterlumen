@@ -68,9 +68,9 @@ Then open `http://localhost:8080` in your browser.
 | Arrow keys | Navigate grid/list in browse view; prev/next in image viewer |
 | Enter | Open focused folder or image |
 | Space | Toggle selection of focused item |
-| Escape / Backspace | Close viewer / go up a directory |
+| Escape | Close viewer / go up a directory |
 | `I` | Toggle info panel |
-| Delete / Cmd+D | Mark selected files for deletion |
+| Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
 | Cmd/Ctrl+1/2/3 | Switch to Browse & Cull / File Manager / Marked for Deletion |
 | Tab | Switch panes in File Manager mode |
