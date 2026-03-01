@@ -1,10 +1,14 @@
 # Changelog
 
-*Last modified: 2026-02-28*
+*Last modified: 2026-03-01*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Justified layout** — New default browse view that scales images to fill each row edge-to-edge while preserving aspect ratios, with 1px gaps between photos. Directories render in the standard grid style above the justified images. Available in the View menu alongside Grid and List. Layout reflows on window resize. Similar to Flickr or Google Photos.
 
 ## [0.1.1] - 2026-02-28
 

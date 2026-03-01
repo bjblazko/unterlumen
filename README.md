@@ -4,7 +4,7 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 
 ## Features
 
-- **Browse & Cull mode** — Grid or list view of photos in a directory with breadcrumb navigation
+- **Browse & Cull mode** — Justified, grid, or list view of photos in a directory with breadcrumb navigation
 - **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Image viewer** — Full-screen image view with keyboard navigation

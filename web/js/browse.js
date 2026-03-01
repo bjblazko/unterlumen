@@ -8,7 +8,7 @@ class BrowsePane {
         this.path = '';
         this.entries = [];
         this.selected = new Set();
-        this.view = 'grid'; // 'grid' or 'list'
+        this.view = 'justified'; // 'grid', 'list', or 'justified'
         this.sort = 'name';
         this.order = 'asc';
         this.onNavigate = options.onNavigate || null;
@@ -22,6 +22,10 @@ class BrowsePane {
         this._renderedCount = 0;
         this._observer = null;
         this._exifPollPath = null;
+        this._aspectRatios = {};
+        this._justifiedTargetHeight = 200;
+        this._justifiedRelayoutTimer = null;
+        this._resizeHandler = null;
     }
 
     async load(path) {
@@ -34,6 +38,7 @@ class BrowsePane {
         this.warnings = [];
         this.entries = [];
         this._exifPollPath = null;
+        this._aspectRatios = {};
         this.render();
 
         let data;
@@ -129,6 +134,13 @@ class BrowsePane {
             if (end < this.entries.length) {
                 html.push('<div class="scroll-sentinel"></div>');
             }
+        } else if (this.view === 'justified') {
+            const end = Math.min(CHUNK_SIZE, this.entries.length);
+            html.push(this._renderJustifiedChunk(0, end));
+            this._renderedCount = end;
+            if (end < this.entries.length) {
+                html.push('<div class="scroll-sentinel"></div>');
+            }
         } else {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
             html.push(this._renderListChunk(0, end));
@@ -138,9 +150,21 @@ class BrowsePane {
             }
         }
 
+        // Clean up previous resize handler
+        if (this._resizeHandler) {
+            window.removeEventListener('resize', this._resizeHandler);
+            this._resizeHandler = null;
+        }
+
         this.container.innerHTML = html.join('');
         this.attachEvents();
         this._setupObserver();
+
+        if (this.view === 'justified') {
+            this._layoutJustified();
+            this._resizeHandler = () => this._scheduleJustifiedRelayout();
+            window.addEventListener('resize', this._resizeHandler);
+        }
     }
 
     renderWarnings() {
@@ -182,6 +206,7 @@ class BrowsePane {
                         <label class="view-menu-label">Layout</label>
                         <div class="view-menu-toggle">
                             <button class="btn btn-sm ${this.view === 'grid' ? 'active' : ''}" data-view="grid">Grid</button>
+                            <button class="btn btn-sm ${this.view === 'justified' ? 'active' : ''}" data-view="justified">Justified</button>
                             <button class="btn btn-sm ${this.view === 'list' ? 'active' : ''}" data-view="list">List</button>
                         </div>
                     </div>
@@ -267,6 +292,108 @@ class BrowsePane {
         return rows.join('');
     }
 
+    _renderJustifiedChunk(start, end) {
+        const dirItems = [];
+        const imageItems = [];
+        for (let idx = start; idx < end; idx++) {
+            const entry = this.entries[idx];
+            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
+            if (entry.type === 'dir') {
+                dirItems.push(`<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
+                    <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
+                    <div class="item-name">${entry.name}</div>
+                </div>`);
+            } else {
+                const fp = this.fullPath(entry.name);
+                const selectedClass = this.selected.has(fp) ? ' selected' : '';
+                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+                const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
+                const ar = this._aspectRatios[idx] || 1.5;
+                imageItems.push(`<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(this._justifiedTargetHeight * ar)}px;height:${this._justifiedTargetHeight}px">
+                    <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${nameHtml}
+                </div>`);
+            }
+        }
+        if (start === 0) {
+            const parts = [];
+            if (dirItems.length > 0) {
+                parts.push(`<div class="grid justified-dirs">${dirItems.join('')}</div>`);
+            }
+            parts.push(`<div class="justified">${imageItems.join('')}</div>`);
+            return parts.join('');
+        }
+        return imageItems.join('');
+    }
+
+    _layoutJustified() {
+        const container = this.container.querySelector('.justified');
+        if (!container) return;
+        const containerWidth = container.clientWidth;
+        if (containerWidth <= 0) return;
+
+        const items = container.querySelectorAll('.justified-item');
+        if (items.length === 0) return;
+
+        const gap = 1;
+        let rowStart = 0;
+        let rowAspectSum = 0;
+
+        for (let i = 0; i <= items.length; i++) {
+            if (i < items.length) {
+                const idx = parseInt(items[i].dataset.index);
+                const ar = this._aspectRatios[idx] || 1.5;
+                const itemWidth = ar * this._justifiedTargetHeight;
+                const rowGaps = (i - rowStart) * gap;
+
+                if (rowAspectSum > 0 && rowAspectSum * this._justifiedTargetHeight + itemWidth + rowGaps + gap > containerWidth) {
+                    // Close the current row
+                    this._setJustifiedRow(items, rowStart, i, containerWidth, rowAspectSum, gap);
+                    rowStart = i;
+                    rowAspectSum = ar;
+                } else {
+                    rowAspectSum += ar;
+                }
+            } else {
+                // Last row — keep target height, don't stretch
+                for (let j = rowStart; j < i; j++) {
+                    const jIdx = parseInt(items[j].dataset.index);
+                    const ar = this._aspectRatios[jIdx] || 1.5;
+                    items[j].style.width = Math.round(this._justifiedTargetHeight * ar) + 'px';
+                    items[j].style.height = this._justifiedTargetHeight + 'px';
+                }
+            }
+        }
+    }
+
+    _setJustifiedRow(items, start, end, containerWidth, aspectSum, gap) {
+        const gaps = (end - start - 1) * gap;
+        const rowHeight = (containerWidth - gaps) / aspectSum;
+        let usedWidth = 0;
+
+        for (let i = start; i < end; i++) {
+            const idx = parseInt(items[i].dataset.index);
+            const ar = this._aspectRatios[idx] || 1.5;
+            if (i === end - 1) {
+                // Last item gets remaining pixels to avoid rounding gaps
+                const w = containerWidth - usedWidth - (end - start - 1) * gap;
+                items[i].style.width = Math.round(w) + 'px';
+            } else {
+                const w = Math.round(ar * rowHeight);
+                items[i].style.width = w + 'px';
+                usedWidth += w;
+            }
+            items[i].style.height = Math.round(rowHeight) + 'px';
+        }
+    }
+
+    _scheduleJustifiedRelayout() {
+        if (this._justifiedRelayoutTimer) return;
+        this._justifiedRelayoutTimer = requestAnimationFrame(() => {
+            this._justifiedRelayoutTimer = null;
+            this._layoutJustified();
+        });
+    }
+
     // Keep old renderGrid/renderList as aliases for compatibility (used nowhere now)
     renderGrid() { return this._renderGridChunk(0, this.entries.length); }
     renderList() { return this._renderListChunk(0, this.entries.length); }
@@ -298,6 +425,12 @@ class BrowsePane {
             const grid = this.container.querySelector('.grid');
             if (grid) {
                 grid.insertAdjacentHTML('beforeend', this._renderGridChunk(start, end));
+            }
+        } else if (this.view === 'justified') {
+            const justified = this.container.querySelector('.justified');
+            if (justified) {
+                justified.insertAdjacentHTML('beforeend', this._renderJustifiedChunk(start, end));
+                this._scheduleJustifiedRelayout();
             }
         } else {
             const tbody = this.container.querySelector('tbody');
@@ -473,12 +606,54 @@ class BrowsePane {
                     const fp = el.dataset.path;
                     if (this.onImageClick) this.onImageClick(fp);
                 });
+
+                // Record aspect ratio on thumbnail load for justified layout
+                if (this.view === 'justified') {
+                    const img = el.querySelector('img');
+                    if (img) {
+                        if (img.naturalWidth && img.naturalHeight) {
+                            this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
+                            this._scheduleJustifiedRelayout();
+                        } else {
+                            img.addEventListener('load', () => {
+                                this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
+                                this._scheduleJustifiedRelayout();
+                            });
+                        }
+                    }
+                }
             }
         });
     }
 
     getColumnCount() {
-        if (this.view !== 'grid') return 1;
+        if (this.view === 'list') return 1;
+        if (this.view === 'justified') {
+            const focused = this.container.querySelector(`[data-index="${this.focusedIndex}"]`);
+            if (!focused) return 1;
+            // If focused item is a dir, use the grid column count from the dirs grid
+            if (focused.classList.contains('dir-item')) {
+                const dirGrid = this.container.querySelector('.justified-dirs');
+                if (!dirGrid) return 1;
+                const dirItems = dirGrid.querySelectorAll('.grid-item');
+                if (dirItems.length < 2) return 1;
+                const firstTop = dirItems[0].getBoundingClientRect().top;
+                let cols = 0;
+                for (const item of dirItems) {
+                    if (item.getBoundingClientRect().top !== firstTop) break;
+                    cols++;
+                }
+                return cols > 0 ? cols : 1;
+            }
+            // Image in justified layout — count items sharing the same top
+            const focusedTop = Math.round(focused.getBoundingClientRect().top);
+            const items = this.container.querySelectorAll('.justified-item');
+            let cols = 0;
+            for (const item of items) {
+                if (Math.round(item.getBoundingClientRect().top) === focusedTop) cols++;
+            }
+            return cols > 0 ? cols : 1;
+        }
         const items = this.container.querySelectorAll('.grid-item');
         if (items.length < 2) return 1;
         const firstTop = items[0].getBoundingClientRect().top;
