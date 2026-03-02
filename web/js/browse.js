@@ -91,6 +91,13 @@ class BrowsePane {
         return Array.from(this.selected);
     }
 
+    getActionableFiles() {
+        const selected = this.getSelectedFiles();
+        if (selected.length > 0) return selected;
+        const focused = this.getFocusedFile();
+        return focused ? [focused] : [];
+    }
+
     getFocusedDir() {
         if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
         const entry = this.entries[this.focusedIndex];
@@ -464,6 +471,17 @@ class BrowsePane {
         while (this._renderedCount <= index && this._renderedCount < this.entries.length) {
             this._renderNextChunk();
         }
+    }
+
+    updateMarkedForDeletion() {
+        this.container.querySelectorAll('[data-path]').forEach(el => {
+            const path = el.getAttribute('data-path');
+            if (App.isMarkedForDeletion(path)) {
+                el.classList.add('marked-for-deletion');
+            } else {
+                el.classList.remove('marked-for-deletion');
+            }
+        });
     }
 
     updateSelectionClasses() {
