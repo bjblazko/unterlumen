@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - **Scroll position preserved** — Closing the fullscreen viewer and reloading a pane after copy/move now restore the browse grid to the same scroll position instead of jumping to the top. Works across grid, justified, and list views.
+- **Mode switching preserves state** — Browse and File Manager views are created once and hidden/shown on mode switch instead of being destroyed and rebuilt. Scroll position, loaded thumbnails, selections, and folder state are all preserved. File Manager opens both panes in the folder you were browsing; switching back restores the active pane's folder.
+- **Uniform File Manager button widths** — Copy, Move, and Delete buttons in the File Manager center column now stretch to equal width instead of sizing to their label.
 
 ### Added
 

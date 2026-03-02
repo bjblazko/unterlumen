@@ -7,8 +7,9 @@ const CMD_ICONS = {
 };
 
 class Commander {
-    constructor(container) {
+    constructor(container, initialPath) {
         this.container = container;
+        this.initialPath = initialPath || '';
         this.leftPane = null;
         this.rightPane = null;
         this.activePane = 'left';
@@ -68,8 +69,8 @@ class Commander {
 
         // Load both panes
         leftEl.classList.add('active');
-        this.leftPane.load('');
-        this.rightPane.load('');
+        this.leftPane.load(this.initialPath);
+        this.rightPane.load(this.initialPath);
 
         this._initResizer();
     }

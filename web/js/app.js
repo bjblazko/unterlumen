@@ -7,6 +7,9 @@ const App = {
     commander: null,
     viewer: null,
     currentBrowsePath: '',
+    _browseEl: null,
+    _commanderEl: null,
+    _wastebinEl: null,
     wasteBin: new Map(), // key: full relative path, value: {name, type, date, size, dir}
     wasteBinSelected: new Set(),
     wasteBinLastClickedIndex: -1,
@@ -130,6 +133,13 @@ const App = {
     },
 
     setMode(mode) {
+        const prevMode = this.mode;
+
+        // Preserve path from previous mode
+        if (prevMode === 'commander' && this.commander) {
+            this.currentBrowsePath = this.commander.getActivePane().path;
+        }
+
         this.mode = mode;
         document.getElementById('mode-browse').classList.toggle('active', mode === 'browse');
         document.getElementById('mode-commander').classList.toggle('active', mode === 'commander');
@@ -137,32 +147,54 @@ const App = {
 
         const appEl = document.getElementById('app');
 
+        // Create browse DOM once, then hide/show
         if (mode === 'browse') {
-            appEl.innerHTML = '<div class="browse-layout">' +
-                '<div id="browse-container" class="browse-container"></div>' +
-                '<div id="info-panel-container"></div>' +
-                '</div>';
-            this.browsePane = new BrowsePane(document.getElementById('browse-container'), {
-                onNavigate: (path) => { this.currentBrowsePath = path; },
-                onImageClick: (path) => this.openViewer(path, this.browsePane),
-                onSelectionChange: (selected) => this.handleSelectionChange(selected),
-                onFocusChange: (path) => this.handleFocusChange(path),
-            });
-            this.infoPanel = new InfoPanel(document.getElementById('info-panel-container'));
-            this.browsePane.load(this.currentBrowsePath);
-        } else if (mode === 'commander') {
-            if (this.commander) {
-                this.commander.destroy();
-                this.commander = null;
+            if (!this._browseEl) {
+                this._browseEl = document.createElement('div');
+                this._browseEl.className = 'browse-layout';
+                this._browseEl.innerHTML =
+                    '<div id="browse-container" class="browse-container"></div>' +
+                    '<div id="info-panel-container"></div>';
+                appEl.appendChild(this._browseEl);
+                this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
+                    onNavigate: (path) => { this.currentBrowsePath = path; },
+                    onImageClick: (path) => this.openViewer(path, this.browsePane),
+                    onSelectionChange: (selected) => this.handleSelectionChange(selected),
+                    onFocusChange: (path) => this.handleFocusChange(path),
+                });
+                this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
+                this.browsePane.load(this.currentBrowsePath);
             }
-            this.commander = new Commander(appEl);
-            this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
-            this.commander.init();
-        } else if (mode === 'wastebin') {
+        }
+
+        // Create commander DOM once, then hide/show
+        if (mode === 'commander') {
+            if (!this._commanderEl) {
+                this._commanderEl = document.createElement('div');
+                this._commanderEl.style.height = '100%';
+                appEl.appendChild(this._commanderEl);
+                this.commander = new Commander(this._commanderEl, this.currentBrowsePath);
+                this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
+                this.commander.init();
+            }
+        }
+
+        // Wastebin is always re-rendered (reflects mutable state)
+        if (mode === 'wastebin') {
+            if (!this._wastebinEl) {
+                this._wastebinEl = document.createElement('div');
+                this._wastebinEl.style.height = '100%';
+                appEl.appendChild(this._wastebinEl);
+            }
             this.wasteBinSelected.clear();
             this.wasteBinLastClickedIndex = -1;
-            this.renderWasteBin(appEl);
+            this.renderWasteBin(this._wastebinEl);
         }
+
+        // Show active, hide others
+        if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
+        if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
+        if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
     },
 
     markForDeletion(selectedPaths, entries, currentDir) {
@@ -304,7 +336,9 @@ const App = {
         // Hide existing content instead of destroying it
         const existingChildren = Array.from(appEl.children);
 
-        // Save scroll positions before hiding
+        // Save display state and scroll positions before hiding
+        const savedDisplay = new Map();
+        existingChildren.forEach(el => savedDisplay.set(el, el.style.display));
         const scrollPositions = new Map();
         appEl.querySelectorAll('.browse-container').forEach(el => {
             scrollPositions.set(el, el.scrollTop);
@@ -322,7 +356,7 @@ const App = {
         this.viewer.onClose = () => {
             // Remove viewer and restore previous content
             viewerEl.remove();
-            existingChildren.forEach(el => el.style.display = '');
+            savedDisplay.forEach((display, el) => { el.style.display = display; });
             // Restore scroll positions
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };

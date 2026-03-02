@@ -568,7 +568,7 @@ body {
     gap: var(--unit);
     padding: calc(var(--unit) * 2) calc(var(--unit));
     justify-content: center;
-    align-items: flex-start;
+    align-items: stretch;
     background: var(--surface);
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
