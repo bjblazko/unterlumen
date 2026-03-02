@@ -31,6 +31,8 @@ class BrowsePane {
     async load(path) {
         if (this._loading) return;
         this._loading = true;
+        const isReload = (path || '') === this.path;
+        const savedScroll = isReload ? this.container.scrollTop : 0;
         this.path = path || '';
         this.selected.clear();
         this.lastClickedIndex = -1;
@@ -54,6 +56,14 @@ class BrowsePane {
         this.entries = data.entries || [];
         this.warnings = data.warnings || [];
         this.render();
+        if (isReload && savedScroll > 0) {
+            // Render enough chunks so container has sufficient height
+            while (this._renderedCount < this.entries.length &&
+                   this.container.scrollHeight <= savedScroll + this.container.clientHeight) {
+                this._renderNextChunk();
+            }
+            this.container.scrollTop = savedScroll;
+        }
         this._notifyFocusChange();
 
         // Start EXIF date polling if there are images
