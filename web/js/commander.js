@@ -38,6 +38,7 @@ class Commander {
                 if (this.onImageClick) this.onImageClick(path, this.leftPane);
             },
             onSelectionChange: () => this.updateActions(),
+            onFocusChange: () => this.updateActions(),
         });
 
         this.rightPane = new BrowsePane(rightEl, {
@@ -45,6 +46,7 @@ class Commander {
                 if (this.onImageClick) this.onImageClick(path, this.rightPane);
             },
             onSelectionChange: () => this.updateActions(),
+            onFocusChange: () => this.updateActions(),
         });
 
         // Track active pane
@@ -66,6 +68,10 @@ class Commander {
         document.getElementById('cmd-copy').addEventListener('click', () => this.doCopy());
         document.getElementById('cmd-move').addEventListener('click', () => this.doMove());
         document.getElementById('cmd-delete').addEventListener('click', () => this.doDelete());
+
+        // Set default views: left=grid, right=list
+        this.leftPane.view = 'grid';
+        this.rightPane.view = 'list';
 
         // Load both panes
         leftEl.classList.add('active');
@@ -132,21 +138,20 @@ class Commander {
 
         resizer.addEventListener('mousedown', onMouseDown);
 
-        // Restore saved split ratio
+        // Restore saved split ratio (default 0.6 = left pane wider)
         const saved = parseFloat(localStorage.getItem('commander-split'));
-        if (saved > 0 && saved < 1) {
-            requestAnimationFrame(() => {
-                const actionsEl = commanderEl.querySelector('.commander-actions');
-                const available = commanderEl.getBoundingClientRect().width
-                    - resizer.getBoundingClientRect().width
-                    - actionsEl.getBoundingClientRect().width;
-                const lw = Math.max(MIN_PX, Math.min(available - MIN_PX, saved * available));
-                leftEl.style.flex = 'none';
-                leftEl.style.width = lw + 'px';
-                rightEl.style.flex = 'none';
-                rightEl.style.width = (available - lw) + 'px';
-            });
-        }
+        const ratio = (saved > 0 && saved < 1) ? saved : 0.6;
+        requestAnimationFrame(() => {
+            const actionsEl = commanderEl.querySelector('.commander-actions');
+            const available = commanderEl.getBoundingClientRect().width
+                - resizer.getBoundingClientRect().width
+                - actionsEl.getBoundingClientRect().width;
+            const lw = Math.max(MIN_PX, Math.min(available - MIN_PX, ratio * available));
+            leftEl.style.flex = 'none';
+            leftEl.style.width = lw + 'px';
+            rightEl.style.flex = 'none';
+            rightEl.style.width = (available - lw) + 'px';
+        });
 
         this._resizerCleanup = () => {
             resizer.removeEventListener('mousedown', onMouseDown);
@@ -172,14 +177,15 @@ class Commander {
 
     updateActions() {
         const active = this.getActivePane();
-        const hasSelection = active.getSelectedFiles().length > 0;
-        document.getElementById('cmd-copy').disabled = !hasSelection;
-        document.getElementById('cmd-move').disabled = !hasSelection;
-        document.getElementById('cmd-delete').disabled = !hasSelection;
+        const actionable = active.getActionableFiles();
+        const hasTargets = actionable.length > 0;
+        document.getElementById('cmd-copy').disabled = !hasTargets;
+        document.getElementById('cmd-move').disabled = !hasTargets;
+        document.getElementById('cmd-delete').disabled = !hasTargets;
 
         // Update button labels with direction
         const direction = this.activePane === 'left' ? '→' : '←';
-        const count = active.getSelectedFiles().length;
+        const count = actionable.length;
         const label = count > 0 ? ` (${count})` : '';
         document.getElementById('cmd-copy').innerHTML = `${CMD_ICONS.copy} Copy ${direction}${label}`;
         document.getElementById('cmd-move').innerHTML = `${CMD_ICONS.move} Move ${direction}${label}`;
@@ -187,7 +193,7 @@ class Commander {
     }
 
     async doCopy() {
-        const files = this.getActivePane().getSelectedFiles();
+        const files = this.getActivePane().getActionableFiles();
         const otherPane = this.getOtherPane();
         const dest = otherPane.getFocusedDir() || otherPane.path;
 
@@ -205,7 +211,7 @@ class Commander {
     }
 
     async doMove() {
-        const files = this.getActivePane().getSelectedFiles();
+        const files = this.getActivePane().getActionableFiles();
         const otherPane = this.getOtherPane();
         const dest = otherPane.getFocusedDir() || otherPane.path;
 
@@ -224,7 +230,7 @@ class Commander {
 
     doDelete() {
         const active = this.getActivePane();
-        const files = active.getSelectedFiles();
+        const files = active.getActionableFiles();
         if (files.length === 0) return;
 
         App.markForDeletion(files, active.entries, active.path);

@@ -9,9 +9,12 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - **Copy/move without confirmation** — Copy (F5) and Move (F6) in File Manager mode now execute immediately without a confirmation dialog, reducing friction during photo culling workflows.
+- **Clearer deletion mark visual** — Images marked for deletion now show a dark semi-transparent overlay with a waste bin icon instead of the previous subtle opacity reduction, making the deletion state immediately obvious.
+- **File Manager default layout** — Left pane now defaults to grid view and right pane to list view, with a 60/40 width split favoring the left pane for a better photo culling workflow.
 
 ### Fixed
 
+- **Marking for deletion no longer causes grid jump** — Marking or unmarking images for deletion in browse mode now toggles classes in-place instead of re-rendering the entire container, preserving scroll position across grid, justified, and list views.
 - **Scroll position preserved** — Closing the fullscreen viewer and reloading a pane after copy/move now restore the browse grid to the same scroll position instead of jumping to the top. Works across grid, justified, and list views.
 - **Mode switching preserves state** — Browse and File Manager views are created once and hidden/shown on mode switch instead of being destroyed and rebuilt. Scroll position, loaded thumbnails, selections, and folder state are all preserved. File Manager opens both panes in the folder you were browsing; switching back restores the active pane's folder.
 - **Uniform File Manager button widths** — Copy, Move, and Delete buttons in the File Manager center column now stretch to equal width instead of sizing to their label.
