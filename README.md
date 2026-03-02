@@ -21,7 +21,7 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 Browse mode:
 ![Browse mode](doc/screenshot-1-overview.png)
 
-Fullscreen, here with optional file and EXIF data)::
+Fullscreen (here with optional file and EXIF data):
 ![File Manager mode](doc/screenshot-2-fullscreen-and-exif.png)
 
 File manager  ("Commander style") mode:
