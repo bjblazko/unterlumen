@@ -1,10 +1,18 @@
 # Changelog
 
-*Last modified: 2026-03-01*
+*Last modified: 2026-03-02*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+
+- **Copy/move without confirmation** — Copy (F5) and Move (F6) in File Manager mode now execute immediately without a confirmation dialog, reducing friction during photo culling workflows.
+
+### Fixed
+
+- **Scroll position preserved** — Closing the fullscreen viewer and reloading a pane after copy/move now restore the browse grid to the same scroll position instead of jumping to the top. Works across grid, justified, and list views.
 
 ### Added
 

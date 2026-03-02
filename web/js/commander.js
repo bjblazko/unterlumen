@@ -191,7 +191,6 @@ class Commander {
         const dest = otherPane.getFocusedDir() || otherPane.path;
 
         if (files.length === 0) return;
-        if (!confirm(`Copy ${files.length} file(s) to "${dest || 'root'}"?`)) return;
 
         try {
             const result = await API.copy(files, dest);
@@ -210,7 +209,6 @@ class Commander {
         const dest = otherPane.getFocusedDir() || otherPane.path;
 
         if (files.length === 0) return;
-        if (!confirm(`Move ${files.length} file(s) to "${dest || 'root'}"?`)) return;
 
         try {
             const result = await API.move(files, dest);

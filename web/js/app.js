@@ -303,6 +303,13 @@ const App = {
 
         // Hide existing content instead of destroying it
         const existingChildren = Array.from(appEl.children);
+
+        // Save scroll positions before hiding
+        const scrollPositions = new Map();
+        appEl.querySelectorAll('.browse-container').forEach(el => {
+            scrollPositions.set(el, el.scrollTop);
+        });
+
         existingChildren.forEach(el => el.style.display = 'none');
 
         // Create a separate container for the viewer
@@ -316,6 +323,8 @@ const App = {
             // Remove viewer and restore previous content
             viewerEl.remove();
             existingChildren.forEach(el => el.style.display = '');
+            // Restore scroll positions
+            scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };
         this.viewer.onDelete = (path) => {
             const entries = pane.entries || [];
