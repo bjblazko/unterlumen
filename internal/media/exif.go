@@ -15,6 +15,8 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/goexif/tiff"
 
+	"golang.org/x/image/draw"
+
 	// Register image decoders
 	_ "image/gif"
 	_ "golang.org/x/image/webp"
@@ -546,7 +548,7 @@ func GenerateThumbnail(path string, maxDim int, orientation int) ([]byte, string
 			ct = "image/png"
 			err = png.Encode(&buf, img)
 		} else {
-			err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80})
+			err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85})
 		}
 		if err != nil {
 			return nil, "", err
@@ -564,15 +566,8 @@ func GenerateThumbnail(path string, maxDim int, orientation int) ([]byte, string
 		newW = w * maxDim / h
 	}
 
-	// Simple nearest-neighbor resize
 	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	for y := 0; y < newH; y++ {
-		for x := 0; x < newW; x++ {
-			srcX := x * w / newW
-			srcY := y * h / newH
-			dst.Set(x, y, img.At(bounds.Min.X+srcX, bounds.Min.Y+srcY))
-		}
-	}
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
 
 	var buf bytes.Buffer
 	ct := "image/jpeg"
@@ -580,7 +575,7 @@ func GenerateThumbnail(path string, maxDim int, orientation int) ([]byte, string
 		ct = "image/png"
 		err = png.Encode(&buf, dst)
 	} else {
-		err = jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 80})
+		err = jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85})
 	}
 	if err != nil {
 		return nil, "", err
@@ -615,16 +610,10 @@ func ResizeJPEGBytes(data []byte, maxDim int) ([]byte, error) {
 	}
 
 	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	for y := 0; y < newH; y++ {
-		for x := 0; x < newW; x++ {
-			srcX := x * w / newW
-			srcY := y * h / newH
-			dst.Set(x, y, img.At(bounds.Min.X+srcX, bounds.Min.Y+srcY))
-		}
-	}
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
 
 	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 80}); err != nil {
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85}); err != nil {
 		return nil, err
 	}
 

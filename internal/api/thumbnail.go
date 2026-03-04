@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -27,6 +28,14 @@ func handleThumbnail(root string) http.HandlerFunc {
 			return
 		}
 
+		// Parse optional size parameter (max dimension in pixels)
+		size := thumbnailMaxDim
+		if s := r.URL.Query().Get("size"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil && n >= 50 && n <= 1024 {
+				size = n
+			}
+		}
+
 		// For HEIF files, extract embedded preview (fast) or convert
 		if media.IsHEIF(absPath) {
 			jpegData, err := media.ExtractHEIFPreview(absPath)
@@ -34,7 +43,7 @@ func handleThumbnail(root string) http.HandlerFunc {
 				http.Error(w, "Failed to convert HEIF", http.StatusInternalServerError)
 				return
 			}
-			thumb, err := media.ResizeJPEGBytes(jpegData, thumbnailMaxDim)
+			thumb, err := media.ResizeJPEGBytes(jpegData, size)
 			if err != nil {
 				thumb = jpegData
 			}
@@ -46,17 +55,20 @@ func handleThumbnail(root string) http.HandlerFunc {
 
 		orientation := media.ExtractOrientation(absPath)
 
-		// Try EXIF thumbnail first (fast path)
-		thumb, ct, err := media.ExtractThumbnail(absPath, orientation)
-		if err == nil {
-			w.Header().Set("Content-Type", ct)
-			w.Header().Set("Cache-Control", "no-cache")
-			w.Write(thumb)
-			return
+		// Try EXIF thumbnail first (fast path) — only when requested
+		// size fits within typical EXIF thumbnail dimensions (≤ 300px)
+		if size <= thumbnailMaxDim {
+			thumb, ct, err := media.ExtractThumbnail(absPath, orientation)
+			if err == nil {
+				w.Header().Set("Content-Type", ct)
+				w.Header().Set("Cache-Control", "no-cache")
+				w.Write(thumb)
+				return
+			}
 		}
 
 		// Fallback: generate a resized thumbnail
-		thumb, ct, err = media.GenerateThumbnail(absPath, thumbnailMaxDim, orientation)
+		thumb, ct, err := media.GenerateThumbnail(absPath, size, orientation)
 		if err != nil {
 			http.Error(w, "Failed to generate thumbnail", http.StatusInternalServerError)
 			return

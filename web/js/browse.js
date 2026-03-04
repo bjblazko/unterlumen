@@ -28,6 +28,28 @@ class BrowsePane {
         this._resizeHandler = null;
     }
 
+    _getThumbnailSize() {
+        if (localStorage.getItem('thumbnail-quality') !== 'high') return null;
+        const dpr = window.devicePixelRatio || 1;
+        if (this.view === 'grid') {
+            const grid = this.container.querySelector('.grid');
+            if (grid) {
+                const item = grid.querySelector('.grid-item');
+                if (item) return Math.round(item.offsetWidth * dpr);
+            }
+            return Math.round(200 * dpr);
+        }
+        if (this.view === 'justified') {
+            return Math.round(this._justifiedTargetHeight * dpr);
+        }
+        // list view: small thumbnails
+        return Math.round(32 * dpr);
+    }
+
+    reloadThumbnails() {
+        this.render();
+    }
+
     async load(path) {
         if (this._loading) return;
         this._loading = true;
@@ -249,6 +271,7 @@ class BrowsePane {
     }
 
     _renderGridChunk(start, end) {
+        const thumbSize = this._getThumbnailSize();
         const items = [];
         for (let idx = start; idx < end; idx++) {
             const entry = this.entries[idx];
@@ -264,7 +287,7 @@ class BrowsePane {
                 const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
                 const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
                 items.push(`<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                    <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
+                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
                 </div>`);
             }
         }
@@ -275,6 +298,7 @@ class BrowsePane {
     }
 
     _renderListChunk(start, end) {
+        const thumbSize = this._getThumbnailSize();
         const rows = [];
         for (let idx = start; idx < end; idx++) {
             const entry = this.entries[idx];
@@ -293,7 +317,7 @@ class BrowsePane {
                 const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
                 const size = entry.size ? formatSize(entry.size) : '';
                 rows.push(`<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                    <td class="list-icon"><img src="${API.thumbnailURL(fp)}" alt="" loading="lazy"></td>
+                    <td class="list-icon"><img src="${API.thumbnailURL(fp, thumbSize)}" alt="" loading="lazy"></td>
                     <td class="list-name">${entry.name}</td>
                     <td class="list-date">${date}</td>
                     <td class="list-size">${size}</td>
@@ -310,6 +334,7 @@ class BrowsePane {
     }
 
     _renderJustifiedChunk(start, end) {
+        const thumbSize = this._getThumbnailSize();
         const dirItems = [];
         const imageItems = [];
         for (let idx = start; idx < end; idx++) {
@@ -327,7 +352,7 @@ class BrowsePane {
                 const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
                 const ar = this._aspectRatios[idx] || 1.5;
                 imageItems.push(`<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(this._justifiedTargetHeight * ar)}px;height:${this._justifiedTargetHeight}px">
-                    <img src="${API.thumbnailURL(fp)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${nameHtml}
+                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${nameHtml}
                 </div>`);
             }
         }
