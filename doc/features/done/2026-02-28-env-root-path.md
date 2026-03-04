@@ -1,6 +1,6 @@
 # Feature: UNTERLUMEN_ROOT_PATH Environment Variable
 
-*Last modified: 2026-02-28*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -25,9 +25,9 @@ Implementation:
 
 ## Acceptance Criteria
 
-- [ ] `./unterlumen` (no args, no env) → opens in home directory, can navigate up to `/`
-- [ ] `./unterlumen /tmp/photos` → starts at `/tmp/photos`, can navigate up to `/`
-- [ ] `UNTERLUMEN_ROOT_PATH=/tmp/photos ./unterlumen` → starts at `/tmp/photos`, cannot navigate above it
-- [ ] `UNTERLUMEN_ROOT_PATH=/tmp/photos ./unterlumen /var/images` → cmdline wins, starts at `/var/images`, no nav restriction
-- [ ] Invalid path (either source) → prints error message and exits with non-zero code
-- [ ] `go vet ./...` passes with no errors
+- [x] `./unterlumen` (no args, no env) → opens in home directory, can navigate up to `/`
+- [x] `./unterlumen /tmp/photos` → starts at `/tmp/photos`, can navigate up to `/`
+- [x] `UNTERLUMEN_ROOT_PATH=/tmp/photos ./unterlumen` → starts at `/tmp/photos`, cannot navigate above it
+- [x] `UNTERLUMEN_ROOT_PATH=/tmp/photos ./unterlumen /var/images` → cmdline wins, starts at `/var/images`, no nav restriction
+- [x] Invalid path (either source) → prints error message and exits with non-zero code
+- [x] `go vet ./...` passes with no errors

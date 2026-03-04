@@ -1,6 +1,6 @@
 # Commander Resizable Panes
 
-*Last modified: 2026-02-27*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -18,10 +18,10 @@ In Commander (dual-pane) mode, add a draggable vertical divider between the left
 
 ## Acceptance Criteria
 
-- [ ] A thin vertical strip is visible between the left pane and the action buttons in Commander mode.
-- [ ] Hovering over the strip changes the cursor to `col-resize` and the strip colour to orange.
-- [ ] Dragging left/right resizes both panes smoothly without either pane collapsing below 100px.
-- [ ] Releasing the mouse ends the drag; cursor and user-select are restored.
-- [ ] Refreshing the page restores the previous split ratio.
-- [ ] Switching to Browse mode and back produces no JS errors and no stuck `col-resize` cursor.
-- [ ] `go vet ./...` passes with no errors.
+- [x] A thin vertical strip is visible between the left pane and the action buttons in Commander mode.
+- [x] Hovering over the strip changes the cursor to `col-resize` and the strip colour to orange.
+- [x] Dragging left/right resizes both panes smoothly without either pane collapsing below 100px.
+- [x] Releasing the mouse ends the drag; cursor and user-select are restored.
+- [x] Refreshing the page restores the previous split ratio.
+- [x] Switching to Browse mode and back produces no JS errors and no stuck `col-resize` cursor.
+- [x] `go vet ./...` passes with no errors.

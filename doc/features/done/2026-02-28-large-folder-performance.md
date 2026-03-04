@@ -1,6 +1,6 @@
 # Large Folder Performance
 
-*Last modified: 2026-02-28*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -23,10 +23,10 @@ Grid and list views render in batches of 50 items. An `IntersectionObserver` on 
 ## Acceptance Criteria
 
 - [x] `go vet ./...` passes with no errors
-- [ ] Navigating into a 500+ image folder shows the grid within ~200ms
-- [ ] Only ~50 grid items are in the DOM initially; scrolling loads more
-- [ ] Sorting by date re-sorts when EXIF dates arrive in the background
-- [ ] Navigating away and back loads the folder instantly from cache
-- [ ] Copy/move/delete invalidates the cache; next visit rescans
-- [ ] Keyboard arrow-down past the rendered chunk renders items on demand
-- [ ] Works in both grid and list views
+- [x] Navigating into a 500+ image folder shows the grid within ~200ms
+- [x] Only ~50 grid items are in the DOM initially; scrolling loads more
+- [x] Sorting by date re-sorts when EXIF dates arrive in the background
+- [x] Navigating away and back loads the folder instantly from cache
+- [x] Copy/move/delete invalidates the cache; next visit rescans
+- [x] Keyboard arrow-down past the rendered chunk renders items on demand
+- [x] Works in both grid and list views
