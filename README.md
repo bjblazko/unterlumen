@@ -117,22 +117,7 @@ Then open `http://localhost:8080` in your browser.
 ## Documentation
 
 - [Changelog](CHANGELOG.md)
-- [Architecture (arc42)](doc/architecture/arc42.md)
-- Architecture Decision Records:
-  - [ADR-0001](doc/architecture/adr/0001-go-http-server-with-browser-ui.md) — Go HTTP server with browser UI
-  - [ADR-0002](doc/architecture/adr/0002-no-persistence.md) — No persistence, in-memory state only
-  - [ADR-0003](doc/architecture/adr/0003-exif-thumbnails.md) — EXIF embedded thumbnails
-  - [ADR-0004](doc/architecture/adr/0004-heif-via-ffmpeg.md) — HEIF via ffmpeg
-  - [ADR-0005](doc/architecture/adr/0005-commander-style-culling.md) — Commander-style dual-pane culling
-  - [ADR-0006](doc/architecture/adr/0006-no-authentication.md) — No authentication
-  - [ADR-0007](doc/architecture/adr/0007-vanilla-frontend.md) — Vanilla HTML/JS/CSS frontend
-  - [ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md) — Dieter Rams' design principles
-  - [ADR-0009](doc/architecture/adr/0009-soft-delete-waste-bin.md) — Soft delete with frontend-only waste bin
-  - [ADR-0010](doc/architecture/adr/0010-root-path-resolution.md) — Root path resolution and navigation boundary
-  - [ADR-0011](doc/architecture/adr/0011-scan-cache-deferred-exif.md) — In-memory scan cache and deferred EXIF extraction
-  - [ADR-0012](doc/architecture/adr/0012-client-side-settings.md) — Client-side settings via localStorage
-  - [ADR-0013](doc/architecture/adr/0013-maplibre-location-maps.md) — MapLibre GL JS for location maps
-  - [ADR-0014](doc/architecture/adr/0014-thumbnail-quality-tiers.md) — Thumbnail quality tiers
+- [Architecture (arc42)](doc/architecture/arc42.md) — system overview, building blocks, decisions, and ADR index
 
 ## Notes
 
