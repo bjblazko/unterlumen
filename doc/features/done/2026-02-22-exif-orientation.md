@@ -1,6 +1,6 @@
 # EXIF Orientation Support
 
-*Last modified: 2026-02-22*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -16,18 +16,18 @@ Photos taken in portrait mode (or at other non-standard orientations) now displa
 
 ## Acceptance Criteria
 
-- [ ] `ExtractOrientation` reads EXIF orientation tag, defaults to 1 on error
-- [ ] `applyOrientation` correctly handles all 8 orientation values (identity, flips, rotations, transposes)
-- [ ] Embedded EXIF thumbnails are rotated server-side before serving
-- [ ] Generated thumbnails are rotated server-side before serving
-- [ ] The "small enough, serve as-is" fast path re-encodes when orientation > 1
-- [ ] Full-size images display correctly via CSS `image-orientation: from-image`
-- [ ] Portrait photos (orientation 6 or 8) display upright in grid view
-- [ ] Portrait photos display upright in fullscreen viewer
-- [ ] Landscape photos (orientation 1) are unaffected
-- [ ] HEIF portrait photos display upright in grid and fullscreen views
-- [ ] HEIF landscape photos are unaffected
-- [ ] EXIF thumbnails with mismatched aspect ratio (e.g., 4:3 thumb for 1:1 image) are rejected
-- [ ] Standard EXIF thumbnails with matching aspect ratio still use the fast path
-- [ ] `go vet ./...` passes
-- [ ] `go build` succeeds
+- [x] `ExtractOrientation` reads EXIF orientation tag, defaults to 1 on error
+- [x] `applyOrientation` correctly handles all 8 orientation values (identity, flips, rotations, transposes)
+- [x] Embedded EXIF thumbnails are rotated server-side before serving
+- [x] Generated thumbnails are rotated server-side before serving
+- [x] The "small enough, serve as-is" fast path re-encodes when orientation > 1
+- [x] Full-size images display correctly via CSS `image-orientation: from-image`
+- [x] Portrait photos (orientation 6 or 8) display upright in grid view
+- [x] Portrait photos display upright in fullscreen viewer
+- [x] Landscape photos (orientation 1) are unaffected
+- [x] HEIF portrait photos display upright in grid and fullscreen views
+- [x] HEIF landscape photos are unaffected
+- [x] EXIF thumbnails with mismatched aspect ratio (e.g., 4:3 thumb for 1:1 image) are rejected
+- [x] Standard EXIF thumbnails with matching aspect ratio still use the fast path
+- [x] `go vet ./...` passes
+- [x] `go build` succeeds

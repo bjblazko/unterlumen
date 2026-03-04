@@ -1,6 +1,6 @@
 # Hide Interface Toggle
 
-*Last modified: 2026-02-27*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -16,9 +16,9 @@ Add an `H` key toggle (and Settings menu item) that hides all chrome — header 
 
 ## Acceptance Criteria
 
-- [ ] Press `H` in browse/commander/wastebin mode → header and info panel disappear; hint shows for ~3 seconds
-- [ ] Press `H` again → interface reappears
-- [ ] Open Settings → "Hide Interface (H)" button is present; clicking it toggles and closes the menu
-- [ ] Open viewer → press `H` → viewer toolbar disappears; hint appears
-- [ ] Close viewer (Esc) → interface hidden state persists as set
-- [ ] Reload page → hidden state restored from localStorage; hint shown if hidden
+- [x] Press `H` in browse/commander/wastebin mode → header and info panel disappear; hint shows for ~3 seconds
+- [x] Press `H` again → interface reappears
+- [x] Open Settings → "Hide Interface (H)" button is present; clicking it toggles and closes the menu
+- [x] Open viewer → press `H` → viewer toolbar disappears; hint appears
+- [x] Close viewer (Esc) → interface hidden state persists as set
+- [x] Reload page → hidden state restored from localStorage; hint shown if hidden

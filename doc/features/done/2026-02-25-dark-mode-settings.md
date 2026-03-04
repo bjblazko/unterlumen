@@ -1,6 +1,6 @@
 # Dark Mode & Settings Button
 
-*Last modified: 2026-02-25*
+*Last modified: 2026-03-04*
 
 ## Summary
 
@@ -19,12 +19,12 @@ Add a Settings button to the header, next to the mode-switcher buttons, that ope
 
 ## Acceptance Criteria
 
-- [ ] Settings button appears in the header to the right of mode-switcher buttons
-- [ ] Clicking the button opens a dropdown with Light / Auto / Dark toggle
-- [ ] Clicking Light switches to light theme; the Light button highlights orange
-- [ ] Clicking Dark switches to dark theme; the Dark button highlights orange
-- [ ] Clicking Auto follows OS setting; changing OS dark mode preference updates the UI immediately without page reload
-- [ ] Theme preference persists across page reloads
-- [ ] No flash of wrong theme on initial load
-- [ ] Image viewer is always dark regardless of theme
-- [ ] `go vet ./...` passes with no errors
+- [x] Settings button appears in the header to the right of mode-switcher buttons
+- [x] Clicking the button opens a dropdown with Light / Auto / Dark toggle
+- [x] Clicking Light switches to light theme; the Light button highlights orange
+- [x] Clicking Dark switches to dark theme; the Dark button highlights orange
+- [x] Clicking Auto follows OS setting; changing OS dark mode preference updates the UI immediately without page reload
+- [x] Theme preference persists across page reloads
+- [x] No flash of wrong theme on initial load
+- [x] Image viewer is always dark regardless of theme
+- [x] `go vet ./...` passes with no errors
