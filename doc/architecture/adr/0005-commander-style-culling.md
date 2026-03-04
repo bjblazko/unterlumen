@@ -1,6 +1,6 @@
 # ADR-0005: Norton Commander-Style Dual-Pane Culling
 
-*Last modified: 2026-02-21*
+*Last modified: 2026-03-04*
 
 ## Status
 
@@ -22,6 +22,6 @@ Implement culling as a dual-pane Commander mode. Each pane navigates directories
 
 - **No metadata needed** — Culling is expressed as filesystem operations (copy/move), not stored flags. Fully consistent with ADR-0002.
 - **Familiar paradigm** — Users experienced with file managers will recognize the interaction pattern immediately.
-- **Irreversible moves** — Moving a file is a destructive operation (removes it from the source). The UI shows a confirmation dialog with the file count before executing.
+- **Irreversible moves** — Moving a file is a destructive operation (removes it from the source). Operations execute immediately without a confirmation dialog to reduce friction during culling workflows.
 - **Both panes are full browsers** — Each pane has its own breadcrumb, sort controls, and view mode (grid/list). The browse rendering logic is shared between Browse mode and Commander mode via the `BrowsePane` class.
 - **Active pane concept** — Only the active pane's selection is used for copy/move. The Tab key switches the active pane.

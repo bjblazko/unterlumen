@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-02-28*
+*Last modified: 2026-03-04*
 
 ## 1. Introduction and Goals
 
@@ -89,6 +89,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `/api/move` | HTTP POST | JSON request/response |
 | `/api/info` | HTTP GET | JSON (file metadata + EXIF) |
 | `/api/delete` | HTTP POST | JSON request/response |
+| `/api/browse/dates` | HTTP GET | JSON (deferred EXIF dates for a directory) |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
 
 ## 4. Solution Strategy
@@ -100,6 +101,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | Easy deployment | Single Go binary, static files served from `web/` directory ([ADR-0001](adr/0001-go-http-server-with-browser-ui.md)) |
 | No state management | Filesystem is the only store; no database ([ADR-0002](adr/0002-no-persistence.md)) |
 | HEIF support | Shell out to ffmpeg ([ADR-0004](adr/0004-heif-via-ffmpeg.md)) |
+| Large-folder performance | In-memory scan cache, deferred EXIF extraction, chunked rendering ([ADR-0011](adr/0011-scan-cache-deferred-exif.md)) |
+| Client-side settings | User preferences persisted in `localStorage` ([ADR-0012](adr/0012-client-side-settings.md)) |
 
 ## 5. Building Block View
 
@@ -144,6 +147,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
+| `maplibre-gl.js` | External dependency (CDN) — MapLibre GL JS for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md)) |
 
 ## 6. Runtime View
 
@@ -234,9 +238,9 @@ This prevents directory traversal attacks regardless of encoding tricks or symli
 
 ### 8.3 Caching
 
-- Thumbnail and image responses include `Cache-Control: public, max-age=3600`
-- Browser caching reduces repeated requests when navigating back to a previously viewed directory
-- No server-side cache exists (consistent with [ADR-0002](adr/0002-no-persistence.md))
+- **Browser caching** — Thumbnail and image responses include `Cache-Control: no-cache` to prevent stale images after server updates while still allowing conditional requests.
+- **In-memory scan cache** — Directory listings are cached in a `sync.Map` keyed by directory path. Entries are invalidated when the directory modification time changes or when a copy/move/delete operation touches the directory. Consistent with [ADR-0002](adr/0002-no-persistence.md) — the cache is purely in-memory and lost on restart. See [ADR-0011](adr/0011-scan-cache-deferred-exif.md).
+- **HEIF disk cache** — Converted JPEG data from HEIF/HEIC/HIF files is cached in `$TMPDIR/unterlumen-cache/`. Cache keys include file path, modification time, and purpose (full/preview). Survives restarts but not OS temp cleanup. See [ADR-0004](adr/0004-heif-via-ffmpeg.md).
 
 ## 9. Architecture Decisions
 
@@ -252,6 +256,10 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0008](adr/0008-dieter-rams-design-principles.md) — Dieter Rams' ten principles of good design
 - [ADR-0009](adr/0009-soft-delete-waste-bin.md) — Soft delete with frontend-only waste bin
 - [ADR-0010](adr/0010-root-path-resolution.md) — Root path resolution and navigation boundary
+- [ADR-0011](adr/0011-scan-cache-deferred-exif.md) — In-memory scan cache and deferred EXIF extraction
+- [ADR-0012](adr/0012-client-side-settings.md) — Client-side settings via localStorage
+- [ADR-0013](adr/0013-maplibre-location-maps.md) — MapLibre GL JS for location maps
+- [ADR-0014](adr/0014-thumbnail-quality-tiers.md) — Thumbnail quality tiers
 
 ## 10. Quality Requirements
 
@@ -262,9 +270,12 @@ Quality
 ├── Simplicity
 │   ├── Single binary, no database
 │   ├── No build toolchain for frontend
-│   └── No configuration files
+│   ├── No configuration files
+│   └── localStorage settings (client-side preferences)
 ├── Performance
 │   ├── EXIF thumbnails (no generation)
+│   ├── Scan cache (instant repeat visits)
+│   ├── Chunked rendering (batched DOM updates)
 │   └── Browser-side caching
 ├── Security
 │   ├── Path traversal prevention
@@ -288,9 +299,9 @@ Quality
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| EXIF thumbnails too small for high-DPI displays | Medium | Low | Could add a generated thumbnail fallback with in-memory LRU cache |
+| EXIF thumbnails too small for high-DPI displays | Medium | Low | Partially mitigated: High quality thumbnail setting decodes full images at DPR-aware sizes ([ADR-0014](adr/0014-thumbnail-quality-tiers.md)) |
 | ffmpeg not installed on target system | Medium | Low | HEIF files fail gracefully; all other formats work. Error message guides user. |
-| Large directories (10k+ files) slow to list | Low | Medium | EXIF date extraction is per-file; could be parallelized or lazy-loaded |
+| Large directories (10k+ files) slow to list | Low | Medium | Mitigated: in-memory scan cache and deferred EXIF extraction ([ADR-0011](adr/0011-scan-cache-deferred-exif.md)) |
 | `innerHTML` re-rendering causes flicker | Low | Low | Could switch to incremental DOM updates if UX suffers |
 
 ## 12. Glossary
