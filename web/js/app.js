@@ -235,6 +235,13 @@ const App = {
             }
             this.updateWasteBinBadge();
 
+            // Reload panes so deleted entries are removed from browse/commander
+            if (this.browsePane) this.browsePane.load(this.browsePane.path);
+            if (this.commander) {
+                if (this.commander.leftPane)  this.commander.leftPane.load(this.commander.leftPane.path);
+                if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
+            }
+
             const failures = result.results.filter(r => !r.success && !r.error.includes('no such file'));
             if (failures.length > 0) {
                 const msgs = failures.map(f => `${f.file}: ${f.error}`).join('\n');
@@ -483,7 +490,7 @@ const App = {
             } else if (this.mode === 'wastebin') {
                 e.preventDefault();
                 this.wasteBin.forEach((_, p) => this.wasteBinSelected.add(p));
-                this.renderWasteBin(document.getElementById('app'));
+                this.renderWasteBin(this._wastebinEl);
             }
         }
 
