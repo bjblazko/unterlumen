@@ -8,7 +8,8 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Image viewer** — Full-screen image view with keyboard navigation
-- **Info panel** — Collapsible sidebar showing file metadata and EXIF data (camera, exposure, dates, GPS). Available in browse and fullscreen viewer
+- **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. Available in browse and fullscreen viewer
+- **Thumbnail quality** — Standard (fast EXIF thumbnails) or High (full-image decode with bicubic resampling for retina displays), selectable in Settings
 - **Sorting** — By name, date, or size, ascending or descending
 - **Multi-select** — Click, Shift+click, Ctrl/Cmd+click for bulk operations
 - **Status bar** — Live image count and selection count in every pane
@@ -128,6 +129,10 @@ Then open `http://localhost:8080` in your browser.
   - [ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md) — Dieter Rams' design principles
   - [ADR-0009](doc/architecture/adr/0009-soft-delete-waste-bin.md) — Soft delete with frontend-only waste bin
   - [ADR-0010](doc/architecture/adr/0010-root-path-resolution.md) — Root path resolution and navigation boundary
+  - [ADR-0011](doc/architecture/adr/0011-scan-cache-deferred-exif.md) — In-memory scan cache and deferred EXIF extraction
+  - [ADR-0012](doc/architecture/adr/0012-client-side-settings.md) — Client-side settings via localStorage
+  - [ADR-0013](doc/architecture/adr/0013-maplibre-location-maps.md) — MapLibre GL JS for location maps
+  - [ADR-0014](doc/architecture/adr/0014-thumbnail-quality-tiers.md) — Thumbnail quality tiers
 
 ## Notes
 

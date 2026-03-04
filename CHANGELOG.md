@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - **Improved thumbnail resize quality** — Thumbnail generation now uses bicubic (Catmull-Rom) interpolation instead of nearest-neighbor, and JPEG quality is bumped from 80 to 85.
+- **Architecture documentation** — Added ADR-0011 (scan cache and deferred EXIF), ADR-0012 (client-side settings via localStorage), ADR-0013 (MapLibre GL for location maps), ADR-0014 (thumbnail quality tiers). Updated arc42 to reflect current caching, performance, and settings architecture. Updated ADR-0005 to reflect removal of confirmation dialogs.
 
 ## [0.2.0] - 2026-03-02
 
