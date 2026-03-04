@@ -782,6 +782,25 @@ body {
     color: rgba(255, 255, 255, 0.85);
 }
 
+.viewer .info-map-controls {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.viewer .info-map-controls .btn {
+    background: #333;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.viewer .info-map-controls .btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.viewer .info-map-controls .btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+
 .viewer .info-panel-body::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
 }
@@ -1082,6 +1101,32 @@ body {
     text-align: right;
     word-break: break-word;
     min-width: 0;
+}
+
+/* —— Info panel map —— */
+
+.info-map-container {
+    width: 100%;
+    height: 200px;
+    margin-bottom: calc(var(--unit));
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.info-map-controls {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: calc(var(--unit));
+}
+
+.info-map-controls .btn {
+    border: none;
+    border-radius: 0;
+    flex: 1;
+    text-align: center;
 }
 
 /* —— Scrollbar —— */

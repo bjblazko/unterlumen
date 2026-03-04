@@ -46,10 +46,20 @@ class InfoPanel {
         this.error = null;
         this.currentPath = null;
         this.loading = false;
+        this.destroyMap();
         this.render();
     }
 
+    destroyMap() {
+        if (this.map) {
+            this.map.remove();
+            this.map = null;
+        }
+    }
+
     render() {
+        this.destroyMap();
+
         if (!this.expanded) {
             this.container.innerHTML =
                 '<div class="info-panel collapsed">' +
@@ -94,6 +104,52 @@ class InfoPanel {
                 this.render();
             });
         });
+
+        this.initMap();
+    }
+
+    initMap() {
+        const mapEl = this.container.querySelector('#info-map');
+        if (!mapEl || typeof maplibregl === 'undefined') return;
+
+        const lat = parseFloat(mapEl.dataset.lat);
+        const lon = parseFloat(mapEl.dataset.lon);
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        this.map = new maplibregl.Map({
+            container: mapEl,
+            style: 'https://tiles.openfreemap.org/styles/liberty',
+            center: [lon, lat],
+            zoom: 14,
+            scrollZoom: false,
+            attributionControl: true
+        });
+
+        new maplibregl.Marker().setLngLat([lon, lat]).addTo(this.map);
+
+        this.mapStyle = '2d';
+        const controls = this.container.querySelector('.info-map-controls');
+        if (!controls) return;
+
+        controls.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const action = btn.dataset.action;
+            if (action === '2d') {
+                this.mapStyle = '2d';
+                this.map.setPitch(0);
+                this.map.setBearing(0);
+            } else if (action === '3d') {
+                this.mapStyle = '3d';
+                this.map.setPitch(60);
+            } else if (action === 'open') {
+                window.open('https://openfreemap.org/#16/' + lat + '/' + lon, '_blank');
+                return;
+            }
+            controls.querySelectorAll('button[data-action="2d"], button[data-action="3d"]').forEach(b => {
+                b.classList.toggle('active', b.dataset.action === this.mapStyle);
+            });
+        });
     }
 
     renderData(d) {
@@ -112,6 +168,26 @@ class InfoPanel {
 
         const tags = d.exif.tags || {};
         const used = new Set();
+
+        // Location section (placed early so the map is visible without scrolling)
+        if (d.exif.latitude != null && d.exif.longitude != null) {
+            const lat = d.exif.latitude.toFixed(6);
+            const lon = d.exif.longitude.toFixed(6);
+            const locRows = [];
+            locRows.push('<div id="info-map" class="info-map-container" data-lat="' + lat + '" data-lon="' + lon + '"></div>');
+            locRows.push('<div class="info-map-controls">' +
+                '<button class="btn btn-sm active" data-action="2d">2D</button>' +
+                '<button class="btn btn-sm" data-action="3d">3D</button>' +
+                '<button class="btn btn-sm" data-action="open">\u2197 Open</button>' +
+            '</div>');
+            locRows.push(this.row('Latitude', lat));
+            locRows.push(this.row('Longitude', lon));
+            sections.push(this.section('Location', locRows));
+        }
+        // Mark GPS tags as used
+        ['GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef',
+         'GPSAltitude', 'GPSAltitudeRef', 'GPSTimeStamp', 'GPSDateStamp',
+         'GPSVersionID'].forEach(t => used.add(t));
 
         // Image section
         const imageRows = [];
@@ -151,17 +227,6 @@ class InfoPanel {
         this.addTag(dateRows, tags, used, 'DateTime', 'Modified');
         if (dateRows.length) sections.push(this.section('Dates', dateRows));
 
-        // Location section
-        if (d.exif.latitude != null && d.exif.longitude != null) {
-            const locRows = [];
-            locRows.push(this.row('Latitude', d.exif.latitude.toFixed(6)));
-            locRows.push(this.row('Longitude', d.exif.longitude.toFixed(6)));
-            sections.push(this.section('Location', locRows));
-        }
-        // Mark GPS tags as used
-        ['GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef',
-         'GPSAltitude', 'GPSAltitudeRef', 'GPSTimeStamp', 'GPSDateStamp',
-         'GPSVersionID'].forEach(t => used.add(t));
         // Also mark dimension tags as used
         ['PixelXDimension', 'PixelYDimension', 'ImageWidth', 'ImageLength'].forEach(t => used.add(t));
 
