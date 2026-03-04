@@ -33,6 +33,7 @@ const App = {
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
 
         this.initTheme();
+        this.initThumbnailQuality();
         this._initUIVisibility();
         this.initSettingsMenu();
 
@@ -95,6 +96,27 @@ const App = {
         });
     },
 
+    initThumbnailQuality() {
+        const saved = localStorage.getItem('thumbnail-quality') || 'standard';
+        this._updateThumbQualityButtons(saved);
+    },
+
+    _updateThumbQualityButtons(quality) {
+        document.querySelectorAll('[data-thumb-quality]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.thumbQuality === quality);
+        });
+    },
+
+    _setThumbnailQuality(quality) {
+        localStorage.setItem('thumbnail-quality', quality);
+        this._updateThumbQualityButtons(quality);
+        if (this.browsePane) this.browsePane.reloadThumbnails();
+        if (this.commander) {
+            if (this.commander.leftPane) this.commander.leftPane.reloadThumbnails();
+            if (this.commander.rightPane) this.commander.rightPane.reloadThumbnails();
+        }
+    },
+
     initSettingsMenu() {
         const btn = document.getElementById('settings-btn');
         const menu = document.getElementById('settings-menu');
@@ -123,6 +145,10 @@ const App = {
                 localStorage.setItem('theme', preference);
                 this._applyTheme(preference);
                 this._updateThemeButtons(preference);
+            }
+            const thumbBtn = e.target.closest('[data-thumb-quality]');
+            if (thumbBtn) {
+                this._setThumbnailQuality(thumbBtn.dataset.thumbQuality);
             }
         });
 

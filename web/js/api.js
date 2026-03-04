@@ -8,8 +8,10 @@ const API = {
         return resp.json();
     },
 
-    thumbnailURL(path) {
-        return `/api/thumbnail?path=${encodeURIComponent(path)}`;
+    thumbnailURL(path, size) {
+        let url = `/api/thumbnail?path=${encodeURIComponent(path)}`;
+        if (size) url += `&size=${size}`;
+        return url;
     },
 
     imageURL(path) {

@@ -1,10 +1,19 @@
 # Changelog
 
-*Last modified: 2026-03-02*
+*Last modified: 2026-03-04*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Location map** — Photos with GPS EXIF data now show an interactive map in the Info panel's Location section, powered by OpenFreeMap and MapLibre GL JS. Includes 2D/3D view switching and a link to open the location on OpenFreeMap.
+- **High-quality thumbnails** — New "Thumbnails" setting (Standard / High) in the Settings menu. High mode generates thumbnails at the actual display size × device pixel ratio using bicubic resampling, producing visibly sharper thumbnails on retina displays. Standard mode preserves the fast EXIF thumbnail behavior.
+
+### Changed
+
+- **Improved thumbnail resize quality** — Thumbnail generation now uses bicubic (Catmull-Rom) interpolation instead of nearest-neighbor, and JPEG quality is bumped from 80 to 85.
 
 ## [0.2.0] - 2026-03-02
 
