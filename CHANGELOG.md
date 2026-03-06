@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Sticky browse header** — Breadcrumb navigation, View button, and image count bar now remain fixed at the top of the browse view instead of scrolling away with the content.
+
 - **Viewer not closing on tab switch** — Switching tabs (File Manager, Waste Bin) while viewing an image now properly closes the viewer before transitioning.
 - **Waste bin thumbnail distortion** — Waste bin thumbnails now use the same `onload` handler and size parameter as the browse grid, fixing distorted aspect ratios and low-quality previews.
 
