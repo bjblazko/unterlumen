@@ -6,12 +6,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-06
+
 ### Fixed
 
 - **Map "Open" button** — The location map's "Open" button now links to OpenStreetMap instead of OpenFreeMap, which has no map viewer UI.
 - **Map attribution clutter** — The location map's attribution text now starts collapsed, showing only the info icon. Click to expand.
 - **Sticky browse header** — Breadcrumb navigation, View button, and image count bar now remain fixed at the top of the browse view instead of scrolling away with the content.
-
 - **Viewer not closing on tab switch** — Switching tabs (File Manager, Waste Bin) while viewing an image now properly closes the viewer before transitioning.
 - **Waste bin thumbnail distortion** — Waste bin thumbnails now use the same `onload` handler and size parameter as the browse grid, fixing distorted aspect ratios and low-quality previews.
 
