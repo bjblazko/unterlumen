@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Map "Open" button** — The location map's "Open" button now links to OpenStreetMap instead of OpenFreeMap, which has no map viewer UI.
+- **Map attribution clutter** — The location map's attribution text now starts collapsed, showing only the info icon. Click to expand.
 - **Sticky browse header** — Breadcrumb navigation, View button, and image count bar now remain fixed at the top of the browse view instead of scrolling away with the content.
 
 - **Viewer not closing on tab switch** — Switching tabs (File Manager, Waste Bin) while viewing an image now properly closes the viewer before transitioning.
@@ -17,7 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- **Location map** — Photos with GPS EXIF data now show an interactive map in the Info panel's Location section, powered by OpenFreeMap and MapLibre GL JS. Includes 2D/3D view switching and a link to open the location on OpenFreeMap.
+- **Location map** — Photos with GPS EXIF data now show an interactive map in the Info panel's Location section, powered by OpenFreeMap and MapLibre GL JS. Includes 2D/3D view switching and a link to open the location on OpenStreetMap.
 - **High-quality thumbnails** — New "Thumbnails" setting (Standard / High) in the Settings menu. High mode generates thumbnails at the actual display size × device pixel ratio using bicubic resampling, producing visibly sharper thumbnails on retina displays. Standard mode preserves the fast EXIF thumbnail behavior.
 
 ### Changed
