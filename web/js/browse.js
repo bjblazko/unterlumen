@@ -54,7 +54,8 @@ class BrowsePane {
         if (this._loading) return;
         this._loading = true;
         const isReload = (path || '') === this.path;
-        const savedScroll = isReload ? this.container.scrollTop : 0;
+        const scrollEl = this._contentEl || this.container;
+        const savedScroll = isReload ? scrollEl.scrollTop : 0;
         this.path = path || '';
         this.selected.clear();
         this.lastClickedIndex = -1;
@@ -79,12 +80,13 @@ class BrowsePane {
         this.warnings = data.warnings || [];
         this.render();
         if (isReload && savedScroll > 0) {
+            const restoreEl = this._contentEl || this.container;
             // Render enough chunks so container has sufficient height
             while (this._renderedCount < this.entries.length &&
-                   this.container.scrollHeight <= savedScroll + this.container.clientHeight) {
+                   restoreEl.scrollHeight <= savedScroll + restoreEl.clientHeight) {
                 this._renderNextChunk();
             }
-            this.container.scrollTop = savedScroll;
+            restoreEl.scrollTop = savedScroll;
         }
         this._notifyFocusChange();
 
@@ -149,43 +151,40 @@ class BrowsePane {
         this._destroyObserver();
         this._renderedCount = 0;
 
-        const html = [];
-
-        // Warnings
+        // Build header (sticky)
+        const header = [];
         if (this.warnings && this.warnings.length > 0) {
-            html.push(this.renderWarnings());
+            header.push(this.renderWarnings());
         }
+        header.push(this.renderBreadcrumb());
+        header.push(this.renderControls());
 
-        // Breadcrumb
-        html.push(this.renderBreadcrumb());
-
-        // Controls
-        html.push(this.renderControls());
-
+        // Build content (scrollable)
+        const content = [];
         if (this._loading) {
-            html.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
+            content.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
         } else if (this.entries.length === 0) {
-            html.push('<div class="empty">No images or folders found</div>');
+            content.push('<div class="empty">No images or folders found</div>');
         } else if (this.view === 'grid') {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
-            html.push(this._renderGridChunk(0, end));
+            content.push(this._renderGridChunk(0, end));
             this._renderedCount = end;
             if (end < this.entries.length) {
-                html.push('<div class="scroll-sentinel"></div>');
+                content.push('<div class="scroll-sentinel"></div>');
             }
         } else if (this.view === 'justified') {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
-            html.push(this._renderJustifiedChunk(0, end));
+            content.push(this._renderJustifiedChunk(0, end));
             this._renderedCount = end;
             if (end < this.entries.length) {
-                html.push('<div class="scroll-sentinel"></div>');
+                content.push('<div class="scroll-sentinel"></div>');
             }
         } else {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
-            html.push(this._renderListChunk(0, end));
+            content.push(this._renderListChunk(0, end));
             this._renderedCount = end;
             if (end < this.entries.length) {
-                html.push('<div class="scroll-sentinel"></div>');
+                content.push('<div class="scroll-sentinel"></div>');
             }
         }
 
@@ -195,7 +194,10 @@ class BrowsePane {
             this._resizeHandler = null;
         }
 
-        this.container.innerHTML = html.join('');
+        this.container.innerHTML =
+            `<div class="browse-header">${header.join('')}</div>` +
+            `<div class="browse-content">${content.join('')}</div>`;
+        this._contentEl = this.container.querySelector('.browse-content');
         this.attachEvents();
         this._setupObserver();
 
@@ -441,13 +443,14 @@ class BrowsePane {
     renderList() { return this._renderListChunk(0, this.entries.length); }
 
     _setupObserver() {
-        const sentinel = this.container.querySelector('.scroll-sentinel');
+        if (!this._contentEl) return;
+        const sentinel = this._contentEl.querySelector('.scroll-sentinel');
         if (!sentinel) return;
         this._observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting) {
                 this._renderNextChunk();
             }
-        }, { rootMargin: '200px' });
+        }, { root: this._contentEl, rootMargin: '200px' });
         this._observer.observe(sentinel);
     }
 
@@ -462,20 +465,21 @@ class BrowsePane {
         const start = this._renderedCount;
         const end = Math.min(start + CHUNK_SIZE, this.entries.length);
         if (start >= end) return;
+        const ct = this._contentEl || this.container;
 
         if (this.view === 'grid') {
-            const grid = this.container.querySelector('.grid');
+            const grid = ct.querySelector('.grid');
             if (grid) {
                 grid.insertAdjacentHTML('beforeend', this._renderGridChunk(start, end));
             }
         } else if (this.view === 'justified') {
-            const justified = this.container.querySelector('.justified');
+            const justified = ct.querySelector('.justified');
             if (justified) {
                 justified.insertAdjacentHTML('beforeend', this._renderJustifiedChunk(start, end));
                 this._scheduleJustifiedRelayout();
             }
         } else {
-            const tbody = this.container.querySelector('tbody');
+            const tbody = ct.querySelector('tbody');
             if (tbody) {
                 tbody.insertAdjacentHTML('beforeend', this._renderListChunk(start, end));
             }
@@ -486,7 +490,7 @@ class BrowsePane {
 
         // Remove sentinel if we've rendered everything
         if (end >= this.entries.length) {
-            const sentinel = this.container.querySelector('.scroll-sentinel');
+            const sentinel = ct.querySelector('.scroll-sentinel');
             if (sentinel) sentinel.remove();
             this._destroyObserver();
         }
