@@ -159,6 +159,12 @@ const App = {
     },
 
     setMode(mode) {
+        // Close any open viewer before switching modes
+        if (this.viewer) {
+            this.viewer.close();
+            this.viewer = null;
+        }
+
         const prevMode = this.mode;
 
         // Preserve path from previous mode

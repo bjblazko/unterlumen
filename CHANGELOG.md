@@ -1,10 +1,14 @@
 # Changelog
 
-*Last modified: 2026-03-04*
+*Last modified: 2026-03-06*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+
+- **Viewer not closing on tab switch** — Switching tabs (File Manager, Waste Bin) while viewing an image now properly closes the viewer before transitioning.
 
 ## [0.3.0] - 2026-03-04
 
