@@ -311,7 +311,7 @@ const App = {
         const gridItems = items.map(([path, entry], idx) => {
             const selectedClass = this.wasteBinSelected.has(path) ? ' selected' : '';
             return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
-                <img src="${API.thumbnailURL(path)}" alt="${entry.name}" loading="lazy">
+                <img src="${API.thumbnailURL(path, 200)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">
                 <div class="item-name">${entry.name}</div>
             </div>`;
         });

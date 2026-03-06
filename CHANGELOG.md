@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - **Viewer not closing on tab switch** — Switching tabs (File Manager, Waste Bin) while viewing an image now properly closes the viewer before transitioning.
+- **Waste bin thumbnail distortion** — Waste bin thumbnails now use the same `onload` handler and size parameter as the browse grid, fixing distorted aspect ratios and low-quality previews.
 
 ## [0.3.0] - 2026-03-04
 
