@@ -124,6 +124,7 @@ class InfoPanel {
             scrollZoom: false,
             attributionControl: false
         });
+        this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
         this.map.addControl(new maplibregl.AttributionControl({ compact: true }));
         this.map.on('load', () => {
             const attr = mapEl.querySelector('.maplibregl-ctrl-attrib');

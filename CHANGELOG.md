@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key), allowing photo metadata to be viewed without leaving fullscreen.
+- **Map zoom controls** — The location map now has +/- zoom buttons for reliable zooming across all input methods.
+
 ## [0.3.1] - 2026-03-06
 
 ### Fixed
