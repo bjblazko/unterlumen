@@ -1142,6 +1142,34 @@ body {
     text-align: center;
 }
 
+.info-map-container .maplibregl-ctrl-top-right {
+    top: 4px;
+    right: 4px;
+}
+
+.info-map-container .maplibregl-ctrl-group {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    box-shadow: none;
+}
+
+.info-map-container .maplibregl-ctrl-group button {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.info-map-container .maplibregl-ctrl-group button:hover {
+    background: var(--border);
+}
+
+.info-map-container .maplibregl-ctrl-group button + button {
+    border-top: 1px solid var(--border);
+}
+
 /* —— Scrollbar —— */
 
 ::-webkit-scrollbar {
@@ -1164,7 +1192,6 @@ body {
 /* Hide-interface mode */
 body.ui-hidden .header { display: none; }
 body.ui-hidden #app { height: 100vh; }
-body.ui-hidden .info-panel { display: none; }
 body.ui-hidden .viewer-toolbar { display: none; }
 
 /* Floating hint toast */
