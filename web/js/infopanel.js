@@ -122,7 +122,15 @@ class InfoPanel {
             center: [lon, lat],
             zoom: 14,
             scrollZoom: false,
-            attributionControl: true
+            attributionControl: false
+        });
+        this.map.addControl(new maplibregl.AttributionControl({ compact: true }));
+        this.map.on('load', () => {
+            const attr = mapEl.querySelector('.maplibregl-ctrl-attrib');
+            if (attr) {
+                attr.classList.remove('maplibregl-compact-show');
+                attr.removeAttribute('open');
+            }
         });
 
         new maplibregl.Marker().setLngLat([lon, lat]).addTo(this.map);
@@ -143,7 +151,7 @@ class InfoPanel {
                 this.mapStyle = '3d';
                 this.map.setPitch(60);
             } else if (action === 'open') {
-                window.open('https://openfreemap.org/#16/' + lat + '/' + lon, '_blank');
+                window.open('https://www.openstreetmap.org/#map=16/' + lat + '/' + lon, '_blank');
                 return;
             }
             controls.querySelectorAll('button[data-action="2d"], button[data-action="3d"]').forEach(b => {
