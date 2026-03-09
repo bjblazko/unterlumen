@@ -12,6 +12,7 @@ import (
 type EntryMeta struct {
 	HasGPS         bool   `json:"hasGPS,omitempty"`
 	FilmSimulation string `json:"filmSimulation,omitempty"`
+	AspectRatio    string `json:"aspectRatio,omitempty"`
 }
 
 type EntryType string

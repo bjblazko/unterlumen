@@ -202,6 +202,11 @@ class InfoPanel {
         const imageRows = [];
         if (d.exif.width && d.exif.height) {
             imageRows.push(this.row('Dimensions', d.exif.width + ' \u00d7 ' + d.exif.height));
+            const arLabel = this._aspectRatioLabel(d.exif.width, d.exif.height);
+            if (arLabel) {
+                const icon = this._aspectRatioIcon(arLabel, 'rgba(60,50,40,0.6)');
+                imageRows.push(this.row('Aspect Ratio', `<span style="display:inline-flex;align-items:center;gap:4px">${icon}${arLabel}</span>`));
+            }
         }
         this.addTag(imageRows, tags, used, 'Orientation', 'Orientation');
         this.addTag(imageRows, tags, used, 'ColorSpace', 'Color Space', this.decodeColorSpace);
@@ -311,6 +316,38 @@ class InfoPanel {
             'Sepia': '#6a5038',
         };
         return colors[sim] || '#6a6a7a';
+    }
+
+    _aspectRatioLabel(w, h) {
+        if (!w || !h) return '';
+        const knownRatios = [
+            [1, 2], [9, 16], [2, 3], [3, 4], [4, 5],
+            [1, 1],
+            [5, 4], [4, 3], [3, 2], [7, 5], [16, 10], [5, 3], [16, 9], [2, 1], [21, 9],
+        ];
+        const ratio = w / h;
+        const tol = 0.015;
+        for (const [rw, rh] of knownRatios) {
+            const known = rw / rh;
+            if (Math.abs(ratio - known) / known < tol) return rw + ':' + rh;
+        }
+        return 'Custom Crop';
+    }
+
+    _aspectRatioIcon(ratioStr, strokeColor) {
+        const isCustom = ratioStr === 'Custom Crop';
+        let ratio = 1;
+        if (!isCustom) {
+            const parts = ratioStr.split(':');
+            if (parts.length === 2) ratio = parseFloat(parts[0]) / parseFloat(parts[1]);
+        }
+        let rw, rh;
+        if (ratio > 14 / 10) { rw = 14; rh = 14 / ratio; }
+        else { rh = 10; rw = 10 * ratio; }
+        const x = ((16 - rw) / 2).toFixed(1);
+        const y = ((12 - rh) / 2).toFixed(1);
+        const dash = isCustom ? ' stroke-dasharray="2 1"' : '';
+        return `<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="${strokeColor}" stroke-width="1.5"${dash}><rect x="${x}" y="${y}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="0.5"/></svg>`;
     }
 
     addTag(rows, tags, used, tagName, label, decoder) {

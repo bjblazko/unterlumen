@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Aspect ratio display** — Images now show their aspect ratio (e.g. `3:2`, `16:9`) as a badge on thumbnails (when "Show details" is on) and as a row in the info panel below Dimensions. An inline proportional-rectangle icon gives an instant visual hint of the image shape. Uses approximate matching (1.5% tolerance) for real-world sensor dimensions; unusual crops show "Custom Crop" with a dashed icon.
 - **Thumbnail overlays** — New "Show details" toggle in the View menu displays colored metadata badges on thumbnails: file type (JPEG, HEIF, PNG, GIF, WebP), GPS location pin, and Fujifilm film simulation name. Each category has a unique vibrant color. File type badges appear immediately; GPS and film simulation badges load asynchronously via background EXIF extraction. Works in grid, justified, and list views. The same color scheme is used in the info panel for Format and Film Simulation values.
 
 ### Fixed

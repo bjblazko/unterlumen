@@ -208,7 +208,7 @@ func extractExifBackground(absPath string, cached *media.CachedScan) {
 			cached.SetExifDate(entry.Name, exifDate)
 		}
 		// Store meta if it has any data
-		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "") {
+		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "") {
 			cached.SetExifMeta(entry.Name, meta)
 		}
 	}

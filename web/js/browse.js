@@ -936,6 +936,22 @@ class BrowsePane {
         return { label: sim, color: colors[sim] || '#6a6a7a' };
     }
 
+    _aspectRatioIcon(ratioStr) {
+        const isCustom = ratioStr === 'Custom Crop';
+        let ratio = 1;
+        if (!isCustom) {
+            const parts = ratioStr.split(':');
+            if (parts.length === 2) ratio = parseFloat(parts[0]) / parseFloat(parts[1]);
+        }
+        let rw, rh;
+        if (ratio > 14 / 10) { rw = 14; rh = 14 / ratio; }
+        else { rh = 10; rw = 10 * ratio; }
+        const x = ((16 - rw) / 2).toFixed(1);
+        const y = ((12 - rh) / 2).toFixed(1);
+        const dash = isCustom ? ' stroke-dasharray="2 1"' : '';
+        return `<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"${dash}><rect x="${x}" y="${y}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="0.5"/></svg>`;
+    }
+
     _buildOverlayBadges(name, meta) {
         if (!this.showOverlays) return '';
         const badges = [];
@@ -955,6 +971,11 @@ class BrowsePane {
             if (fs) {
                 badges.push(`<span class="overlay-badge" style="background:${fs.color}">${fs.label}</span>`);
             }
+        }
+
+        if (meta && meta.aspectRatio) {
+            const icon = this._aspectRatioIcon(meta.aspectRatio);
+            badges.push(`<span class="overlay-badge" style="background:#5a6872;display:inline-flex;align-items:center;gap:3px">${icon}${meta.aspectRatio}</span>`);
         }
 
         if (badges.length === 0) return '';
