@@ -240,11 +240,14 @@ class InfoPanel {
         this.addTag(expRows, tags, used, 'WhiteBalance', 'White Balance', this.decodeWhiteBalance);
         if (expRows.length) sections.push(this.section('Exposure', expRows));
 
-        // Dates section
+        // Dates section — use pre-parsed structured fields when available
         const dateRows = [];
-        this.addTag(dateRows, tags, used, 'DateTimeOriginal', 'Original');
-        this.addTag(dateRows, tags, used, 'DateTimeDigitized', 'Digitized');
-        this.addTag(dateRows, tags, used, 'DateTime', 'Modified');
+        // Mark raw date and offset tags as used so they don't appear in Other
+        ['DateTimeOriginal','DateTimeDigitized','DateTime',
+         'OffsetTimeOriginal','OffsetTimeDigitized','OffsetTime'].forEach(t => used.add(t));
+        if (d.exif.dateTaken)     dateRows.push(this.row('Original',  this.formatExifDate(d.exif.dateTaken)));
+        if (d.exif.dateDigitized) dateRows.push(this.row('Digitized', this.formatExifDate(d.exif.dateDigitized)));
+        if (d.exif.dateModified)  dateRows.push(this.row('Modified',  this.formatExifDate(d.exif.dateModified)));
         if (dateRows.length) sections.push(this.section('Dates', dateRows));
 
         // Also mark dimension tags as used
@@ -372,6 +375,11 @@ class InfoPanel {
         if (!iso) return '\u2014';
         const d = new Date(iso);
         return d.toLocaleString();
+    }
+
+    formatExifDate(iso) {
+        if (!iso) return '\u2014';
+        return iso.replace('T', ' ').replace(/([+-]\d{2}:\d{2})$/, ' $1');
     }
 
     decodeMeteringMode(v) {

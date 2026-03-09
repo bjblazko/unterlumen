@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **EXIF date formatting** — Info panel Dates section now displays dates as `2016-07-16 20:24:53` instead of the raw EXIF format `2016:07:16 20:24:53`. When offset tags are present, the UTC offset is appended (e.g. `2016-07-16 20:24:53 +09:00`). Raw date and offset tags are suppressed from the Other section.
 - **Deselect on Escape** — Pressing Escape now clears the current selection instead of navigating up a directory when photos are selected (both browse and commander modes). A second Escape with no selection navigates up as before.
 - **Deselect on void click** — Clicking an empty gap in the grid, justified, or list view now clears the selection.
 

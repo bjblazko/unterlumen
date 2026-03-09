@@ -25,11 +25,14 @@ import (
 
 // ExifData holds all extracted EXIF metadata from an image file.
 type ExifData struct {
-	Tags      map[string]string `json:"tags,omitempty"`
-	Width     int               `json:"width,omitempty"`
-	Height    int               `json:"height,omitempty"`
-	Latitude  *float64          `json:"latitude,omitempty"`
-	Longitude *float64          `json:"longitude,omitempty"`
+	Tags          map[string]string `json:"tags,omitempty"`
+	Width         int               `json:"width,omitempty"`
+	Height        int               `json:"height,omitempty"`
+	Latitude      *float64          `json:"latitude,omitempty"`
+	Longitude     *float64          `json:"longitude,omitempty"`
+	DateTaken     *string           `json:"dateTaken,omitempty"`
+	DateDigitized *string           `json:"dateDigitized,omitempty"`
+	DateModified  *string           `json:"dateModified,omitempty"`
 }
 
 // exifWalker collects EXIF tags into a map.
@@ -82,6 +85,11 @@ func ExtractAllEXIF(path string) (*ExifData, error) {
 	if sim := extractFujiFilmSimulation(x); sim != "" {
 		data.Tags["FilmSimulation"] = sim
 	}
+
+	// Parse structured date fields
+	data.DateTaken = parseExifDateTag(data.Tags, "DateTimeOriginal", "OffsetTimeOriginal")
+	data.DateDigitized = parseExifDateTag(data.Tags, "DateTimeDigitized", "OffsetTimeDigitized")
+	data.DateModified = parseExifDateTag(data.Tags, "DateTime", "OffsetTime")
 
 	// Extract GPS coordinates
 	lat, lon, err := x.LatLong()
@@ -175,6 +183,28 @@ func isTIFFHeader(data []byte) bool {
 		return true
 	}
 	return false
+}
+
+// parseExifDateTag parses an EXIF date string and optional offset from the Tags map
+// into a normalized ISO 8601 string. Returns nil if the date tag is absent or unparseable.
+func parseExifDateTag(tags map[string]string, dateKey, offsetKey string) *string {
+	raw, ok := tags[dateKey]
+	if !ok {
+		return nil
+	}
+	raw = strings.Trim(raw, `"`)
+	t, err := time.Parse("2006:01:02 15:04:05", raw)
+	if err != nil {
+		return nil
+	}
+	iso := t.Format("2006-01-02T15:04:05")
+	if off, ok := tags[offsetKey]; ok {
+		off = strings.Trim(off, `"`)
+		if off != "" {
+			iso += off
+		}
+	}
+	return &iso
 }
 
 // ExtractDateTaken returns the EXIF DateTimeOriginal from an image file.
