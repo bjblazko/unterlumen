@@ -212,6 +212,11 @@ const App = {
                     onFocusChange: (path) => this.handleFocusChange(path),
                 });
                 this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
+                this.infoPanel.onToggle = () => {
+                    if (this.browsePane && this.browsePane.view === 'justified') {
+                        this.browsePane._scheduleJustifiedRelayout();
+                    }
+                };
                 this.browsePane.load(this.currentBrowsePath);
             }
         }
