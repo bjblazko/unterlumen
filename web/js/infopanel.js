@@ -9,12 +9,14 @@ class InfoPanel {
         this.currentPath = null;
         this.loading = false;
         this.collapsedSections = new Set();
+        this.onToggle = null;
         this.render();
     }
 
     toggle() {
         this.expanded = !this.expanded;
         this.render();
+        if (this.onToggle) this.onToggle();
     }
 
     async loadInfo(path) {

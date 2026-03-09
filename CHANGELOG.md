@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Inline SVG logo** — The header logo is now an inline SVG (two horizontal bars + orange triangle), removing the dependency on an external PNG file and allowing the logo to adapt to the current text color.
 - **Workflow-oriented UI** — Replaced the tab-style mode switcher with a connected chevron stepper: three arrow-shaped buttons (flat left, pointed right) that interlock gaplessly. Modes are renamed and reordered to reflect the photographer's natural workflow — Select (1), Review (2), Organize (3) — each with a representative icon (photo grid, trash can, dual-pane). Active step is orange with white text; completed steps are gray; future steps are off-white. Mode switches animate with a directional slide. The Review step shows a count badge when photos are marked for deletion. Keyboard shortcuts updated to match: 2=Review, 3=Organize.
 - **Thumbnail overlays on by default** — The "Show details" overlay badges (file type, GPS, film simulation) are now enabled by default.
 
@@ -18,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Justified grid not resizing after info panel close** — Closing the info panel no longer leaves the justified grid at the narrower width; it now relays out immediately to fill the full available space.
 - **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key), allowing photo metadata to be viewed without leaving fullscreen.
 - **Map zoom controls** — The location map now has +/- zoom buttons for reliable zooming across all input methods.
 - **HEIF date extraction** — Background EXIF date extraction now handles HEIF/HEIC/HIF files via embedded EXIF fallback, fixing missing dates for HEIF images when sorting by date.

@@ -74,9 +74,9 @@ body {
 }
 
 .header-logo {
-    height: 24px;
-    width: auto;
+    height: 30px;
     display: block;
+    flex-shrink: 0;
 }
 
 .header-right {
