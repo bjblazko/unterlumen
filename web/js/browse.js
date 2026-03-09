@@ -279,7 +279,8 @@ class BrowsePane {
                         <label class="view-menu-label">Sort</label>
                         <select class="sort-field">
                             <option value="name" ${this.sort === 'name' ? 'selected' : ''}>Name</option>
-                            <option value="date" ${this.sort === 'date' ? 'selected' : ''}>Date</option>
+                            <option value="date" ${this.sort === 'date' ? 'selected' : ''}>File Modified</option>
+                            <option value="taken" ${this.sort === 'taken' ? 'selected' : ''}>Photo Taken</option>
                             <option value="size" ${this.sort === 'size' ? 'selected' : ''}>Size</option>
                         </select>
                         <button class="btn btn-sm sort-order" title="Toggle order">${this.order === 'asc' ? '↑' : '↓'}</button>
@@ -323,7 +324,7 @@ class BrowsePane {
         const rows = [];
         for (let idx = start; idx < end; idx++) {
             const entry = this.entries[idx];
-            const date = entry.date ? new Date(entry.date).toLocaleString() : '';
+            const date = formatDate(entry.date);
             const focusedClass = idx === this.focusedIndex ? ' focused' : '';
             if (entry.type === 'dir') {
                 rows.push(`<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
@@ -856,10 +857,10 @@ class BrowsePane {
         if (data.dates && Object.keys(data.dates).length > 0) {
             for (const entry of this.entries) {
                 if (entry.type === 'image' && data.dates[entry.name]) {
-                    entry.date = data.dates[entry.name];
+                    entry.exifDate = data.dates[entry.name];
                 }
             }
-            if (this.sort === 'date') {
+            if (this.sort === 'taken') {
                 this._resortAndRender();
             }
         }
@@ -1024,6 +1025,15 @@ class BrowsePane {
                 case 'date':
                     less = new Date(a.date) < new Date(b.date);
                     break;
+                case 'taken': {
+                    const aDate = a.exifDate ? new Date(a.exifDate) : null;
+                    const bDate = b.exifDate ? new Date(b.exifDate) : null;
+                    if (!aDate && !bDate) return 0;
+                    if (!aDate) return 1;  // null always last
+                    if (!bDate) return -1;
+                    less = aDate < bDate;
+                    break;
+                }
                 case 'size':
                     less = (a.size || 0) < (b.size || 0);
                     break;
@@ -1034,6 +1044,11 @@ class BrowsePane {
         });
         this.render();
     }
+}
+
+function formatDate(iso) {
+    if (!iso) return '';
+    return iso.replace('T', ' ').replace(/Z$/, '').replace(/([+-]\d{2}:\d{2})$/, ' $1').trim();
 }
 
 function formatSize(bytes) {

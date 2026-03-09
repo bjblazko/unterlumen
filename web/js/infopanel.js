@@ -373,8 +373,7 @@ class InfoPanel {
 
     formatDate(iso) {
         if (!iso) return '\u2014';
-        const d = new Date(iso);
-        return d.toLocaleString();
+        return iso.replace('T', ' ').replace(/Z$/, '').replace(/([+-]\d{2}:\d{2})$/, ' $1').trim();
     }
 
     formatExifDate(iso) {

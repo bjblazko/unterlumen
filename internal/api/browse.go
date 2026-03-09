@@ -65,7 +65,7 @@ func handleBrowse(root string, cache *media.ScanCache) http.HandlerFunc {
 					continue
 				}
 				if exifDate, ok := cached.ExifDates[entries[i].Name]; ok {
-					entries[i].Date = exifDate
+					entries[i].ExifDate = &exifDate
 				}
 			}
 		}
@@ -203,10 +203,7 @@ func extractExifBackground(absPath string, cached *media.CachedScan) {
 		if err != nil {
 			continue
 		}
-		// Only store if EXIF date differs from the mod-time
-		if !exifDate.Equal(entry.Date) {
-			cached.SetExifDate(entry.Name, exifDate)
-		}
+		cached.SetExifDate(entry.Name, exifDate)
 		// Store meta if it has any data
 		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "") {
 			cached.SetExifMeta(entry.Name, meta)

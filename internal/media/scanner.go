@@ -23,10 +23,11 @@ const (
 )
 
 type Entry struct {
-	Name string    `json:"name"`
-	Type EntryType `json:"type"`
-	Date time.Time `json:"date"`
-	Size int64     `json:"size,omitempty"`
+	Name     string     `json:"name"`
+	Type     EntryType  `json:"type"`
+	Date     time.Time  `json:"date"`
+	ExifDate *time.Time `json:"exifDate,omitempty"`
+	Size     int64      `json:"size,omitempty"`
 }
 
 // ScanDirectoryFast lists subdirectories and supported image files using file
@@ -121,11 +122,12 @@ type SortField string
 type SortOrder string
 
 const (
-	SortByName SortField = "name"
-	SortByDate SortField = "date"
-	SortBySize SortField = "size"
-	OrderAsc   SortOrder = "asc"
-	OrderDesc  SortOrder = "desc"
+	SortByName  SortField = "name"
+	SortByDate  SortField = "date"
+	SortByTaken SortField = "taken"
+	SortBySize  SortField = "size"
+	OrderAsc    SortOrder = "asc"
+	OrderDesc   SortOrder = "desc"
 )
 
 func SortEntries(entries []Entry, field SortField, order SortOrder) {
@@ -139,6 +141,16 @@ func SortEntries(entries []Entry, field SortField, order SortOrder) {
 		switch field {
 		case SortByDate:
 			less = entries[i].Date.Before(entries[j].Date)
+		case SortByTaken:
+			if entries[i].ExifDate == nil && entries[j].ExifDate == nil {
+				less = false
+			} else if entries[i].ExifDate == nil {
+				return false // nil always last
+			} else if entries[j].ExifDate == nil {
+				return true // nil always last
+			} else {
+				less = entries[i].ExifDate.Before(*entries[j].ExifDate)
+			}
 		case SortBySize:
 			less = entries[i].Size < entries[j].Size
 		default:
