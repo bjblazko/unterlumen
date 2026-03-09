@@ -20,6 +20,7 @@ func NewRouter(boundary, startPath string, webFS fs.FS) http.Handler {
 	mux.HandleFunc("/api/config", handleConfig(startPath))
 	mux.HandleFunc("/api/browse", handleBrowse(boundary, cache))
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(boundary, cache))
+	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(boundary, cache))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(boundary))
 	mux.HandleFunc("/api/image", handleImage(boundary))
 	mux.HandleFunc("/api/copy", handleCopy(boundary, cache))

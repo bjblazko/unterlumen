@@ -11,8 +11,9 @@ type CachedScan struct {
 	Entries    []Entry
 	DirModTime time.Time
 	ExifDates  map[string]time.Time
+	ExifMeta   map[string]*EntryMeta
 	exifDone   atomic.Bool
-	mu         sync.Mutex // guards ExifDates writes
+	mu         sync.Mutex // guards ExifDates and ExifMeta writes
 }
 
 // ExifDone returns whether background EXIF extraction has completed.
@@ -24,6 +25,13 @@ func (c *CachedScan) ExifDone() bool {
 func (c *CachedScan) SetExifDate(name string, t time.Time) {
 	c.mu.Lock()
 	c.ExifDates[name] = t
+	c.mu.Unlock()
+}
+
+// SetExifMeta stores EXIF metadata for a filename (thread-safe).
+func (c *CachedScan) SetExifMeta(name string, meta *EntryMeta) {
+	c.mu.Lock()
+	c.ExifMeta[name] = meta
 	c.mu.Unlock()
 }
 
@@ -70,6 +78,7 @@ func (sc *ScanCache) Put(absPath string, entries []Entry, dirModTime time.Time) 
 		Entries:    entries,
 		DirModTime: dirModTime,
 		ExifDates:  make(map[string]time.Time),
+		ExifMeta:   make(map[string]*EntryMeta),
 	}
 	sc.mu.Lock()
 	sc.items[absPath] = cached

@@ -150,21 +150,66 @@ func handleBrowseDates(root string, cache *media.ScanCache) http.HandlerFunc {
 	}
 }
 
-// extractExifBackground extracts EXIF dates for all image entries in the
-// background, storing results in the cached scan.
+type browseMetaResponse struct {
+	Ready bool                         `json:"ready"`
+	Meta  map[string]*media.EntryMeta  `json:"meta,omitempty"`
+}
+
+func handleBrowseMeta(root string, cache *media.ScanCache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := safePath(root, relPath)
+		if !ok {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+
+		dirInfo, err := os.Stat(absPath)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(browseMetaResponse{Ready: false})
+			return
+		}
+
+		cached := cache.Get(absPath, dirInfo.ModTime())
+		if cached == nil || !cached.ExifDone() {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(browseMetaResponse{Ready: false})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(browseMetaResponse{
+			Ready: true,
+			Meta:  cached.ExifMeta,
+		})
+	}
+}
+
+// extractExifBackground extracts EXIF dates and metadata for all image entries
+// in the background, storing results in the cached scan.
 func extractExifBackground(absPath string, cached *media.CachedScan) {
 	for _, entry := range cached.Entries {
 		if entry.Type != media.EntryImage {
 			continue
 		}
 		fullPath := filepath.Join(absPath, entry.Name)
-		exifDate, err := media.ExtractDateTaken(fullPath)
+		exifDate, meta, err := media.ExtractDateAndMeta(fullPath)
 		if err != nil {
 			continue
 		}
 		// Only store if EXIF date differs from the mod-time
 		if !exifDate.Equal(entry.Date) {
 			cached.SetExifDate(entry.Name, exifDate)
+		}
+		// Store meta if it has any data
+		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "") {
+			cached.SetExifMeta(entry.Name, meta)
 		}
 	}
 	cached.MarkExifDone()
