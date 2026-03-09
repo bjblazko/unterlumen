@@ -16,12 +16,15 @@ class BrowsePane {
         this.onSelectionChange = options.onSelectionChange || null;
         this.onFocusChange = options.onFocusChange || null;
         this.showNames = false;
+        this.showOverlays = false;
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
         this._loading = false;
         this._renderedCount = 0;
         this._observer = null;
         this._exifPollPath = null;
+        this._metaPollPath = null;
+        this._entryMeta = {};
         this._aspectRatios = {};
         this._justifiedTargetHeight = 200;
         this._justifiedRelayoutTimer = null;
@@ -63,6 +66,8 @@ class BrowsePane {
         this.warnings = [];
         this.entries = [];
         this._exifPollPath = null;
+        this._metaPollPath = null;
+        this._entryMeta = {};
         this._aspectRatios = {};
         this.render();
 
@@ -93,6 +98,7 @@ class BrowsePane {
         // Start EXIF date polling if there are images
         if (this.entries.some(e => e.type === 'image')) {
             this._pollExifDates();
+            this._pollOverlayMeta();
         }
     }
 
@@ -258,6 +264,12 @@ class BrowsePane {
                         </button>
                     </div>
                     <div class="view-menu-section">
+                        <label class="view-menu-label">Show details</label>
+                        <button class="btn btn-sm toggle-overlays ${this.showOverlays ? 'active' : ''}">
+                            ${this.showOverlays ? 'On' : 'Off'}
+                        </button>
+                    </div>
+                    <div class="view-menu-section">
                         <label class="view-menu-label">Sort</label>
                         <select class="sort-field">
                             <option value="name" ${this.sort === 'name' ? 'selected' : ''}>Name</option>
@@ -288,8 +300,9 @@ class BrowsePane {
                 const selectedClass = this.selected.has(fp) ? ' selected' : '';
                 const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
                 const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
+                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
                 items.push(`<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${nameHtml}
+                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${badgesHtml}${nameHtml}
                 </div>`);
             }
         }
@@ -318,9 +331,10 @@ class BrowsePane {
                 const selectedClass = this.selected.has(fp) ? ' selected' : '';
                 const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
                 const size = entry.size ? formatSize(entry.size) : '';
+                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
                 rows.push(`<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
                     <td class="list-icon"><img src="${API.thumbnailURL(fp, thumbSize)}" alt="" loading="lazy"></td>
-                    <td class="list-name">${entry.name}</td>
+                    <td class="list-name">${entry.name}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
                     <td class="list-date">${date}</td>
                     <td class="list-size">${size}</td>
                 </tr>`);
@@ -352,9 +366,10 @@ class BrowsePane {
                 const selectedClass = this.selected.has(fp) ? ' selected' : '';
                 const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
                 const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
+                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
                 const ar = this._aspectRatios[idx] || 1.5;
                 imageItems.push(`<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(this._justifiedTargetHeight * ar)}px;height:${this._justifiedTargetHeight}px">
-                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${nameHtml}
+                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${badgesHtml}${nameHtml}
                 </div>`);
             }
         }
@@ -580,6 +595,15 @@ class BrowsePane {
         if (namesToggle) {
             namesToggle.addEventListener('click', () => {
                 this.showNames = !this.showNames;
+                this.render();
+            });
+        }
+
+        // Overlays toggle
+        const overlaysToggle = this.container.querySelector('.toggle-overlays');
+        if (overlaysToggle) {
+            overlaysToggle.addEventListener('click', () => {
+                this.showOverlays = !this.showOverlays;
                 this.render();
             });
         }
@@ -821,6 +845,117 @@ class BrowsePane {
                 this._resortAndRender();
             }
         }
+    }
+
+    // Overlay meta polling
+    _pollOverlayMeta() {
+        const pollPath = this.path;
+        this._metaPollPath = pollPath;
+        setTimeout(() => this._doMetaPoll(pollPath), 300);
+    }
+
+    async _doMetaPoll(pollPath) {
+        if (this._metaPollPath !== pollPath) return;
+
+        let data;
+        try {
+            data = await API.browseMeta(pollPath);
+        } catch {
+            return;
+        }
+
+        if (this._metaPollPath !== pollPath) return;
+
+        if (!data.ready) {
+            setTimeout(() => this._doMetaPoll(pollPath), 500);
+            return;
+        }
+
+        if (data.meta) {
+            this._entryMeta = data.meta;
+            if (this.showOverlays) {
+                this._updateOverlays();
+            }
+        }
+    }
+
+    _updateOverlays() {
+        const ct = this._contentEl || this.container;
+        ct.querySelectorAll('[data-type="image"]').forEach(el => {
+            const name = el.dataset.name;
+            // Remove existing badges
+            const existing = el.querySelector('.overlay-badges');
+            if (existing) existing.remove();
+            const badges = this._buildOverlayBadges(name, this._entryMeta[name]);
+            if (badges) el.insertAdjacentHTML('beforeend', badges);
+        });
+    }
+
+    _getFileTypeBadge(name) {
+        const ext = name.split('.').pop().toLowerCase();
+        const types = {
+            jpg: { label: 'JPEG', color: '#c27833' },
+            jpeg: { label: 'JPEG', color: '#c27833' },
+            heif: { label: 'HEIF', color: '#4a8c5c' },
+            heic: { label: 'HEIF', color: '#4a8c5c' },
+            hif: { label: 'HEIF', color: '#4a8c5c' },
+            png: { label: 'PNG', color: '#4a6fa5' },
+            gif: { label: 'GIF', color: '#8c6b4a' },
+            webp: { label: 'WebP', color: '#7b5299' },
+        };
+        return types[ext] || null;
+    }
+
+    _getFilmSimBadge(sim) {
+        if (!sim) return null;
+        const colors = {
+            'Provia': '#3a7ca5',
+            'Astia': '#5a9ab5',
+            'Velvia': '#b5443a',
+            'Classic Chrome': '#8a7d3a',
+            'Classic Neg.': '#b07040',
+            'Eterna': '#3a8a8a',
+            'Nostalgic Neg.': '#a05050',
+            'Reala Ace': '#3a8a5a',
+            'Pro Neg. Std': '#6a6a7a',
+            'Pro Neg. Hi': '#7a6a8a',
+            'Bleach Bypass': '#8a8a8a',
+            'Monochrome': '#404040',
+            'Monochrome + R': '#5a3030',
+            'Monochrome + Ye': '#5a5a30',
+            'Monochrome + G': '#305a30',
+            'Acros': '#333333',
+            'Acros + R': '#4a2828',
+            'Acros + Ye': '#4a4a28',
+            'Acros + G': '#284a28',
+            'Sepia': '#6a5038',
+        };
+        return { label: sim, color: colors[sim] || '#6a6a7a' };
+    }
+
+    _buildOverlayBadges(name, meta) {
+        if (!this.showOverlays) return '';
+        const badges = [];
+
+        // GPS always first
+        if (meta && meta.hasGPS) {
+            badges.push(`<span class="overlay-badge overlay-badge-gps"><svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
+        }
+
+        const ft = this._getFileTypeBadge(name);
+        if (ft) {
+            badges.push(`<span class="overlay-badge" style="background:${ft.color}">${ft.label}</span>`);
+        }
+
+        if (meta && meta.filmSimulation) {
+            const fs = this._getFilmSimBadge(meta.filmSimulation);
+            if (fs) {
+                badges.push(`<span class="overlay-badge" style="background:${fs.color}">${fs.label}</span>`);
+            }
+        }
+
+        if (badges.length === 0) return '';
+        return `<div class="overlay-badges">${badges.join('')}</div>`;
     }
 
     _resortAndRender() {

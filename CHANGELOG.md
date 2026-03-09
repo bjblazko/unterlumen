@@ -1,15 +1,20 @@
 # Changelog
 
-*Last modified: 2026-03-06*
+*Last modified: 2026-03-09*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Thumbnail overlays** — New "Show details" toggle in the View menu displays colored metadata badges on thumbnails: file type (JPEG, HEIF, PNG, GIF, WebP), GPS location pin, and Fujifilm film simulation name. Each category has a unique vibrant color. File type badges appear immediately; GPS and film simulation badges load asynchronously via background EXIF extraction. Works in grid, justified, and list views. The same color scheme is used in the info panel for Format and Film Simulation values.
+
 ### Fixed
 
 - **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key), allowing photo metadata to be viewed without leaving fullscreen.
 - **Map zoom controls** — The location map now has +/- zoom buttons for reliable zooming across all input methods.
+- **HEIF date extraction** — Background EXIF date extraction now handles HEIF/HEIC/HIF files via embedded EXIF fallback, fixing missing dates for HEIF images when sorting by date.
 
 ## [0.3.1] - 2026-03-06
 

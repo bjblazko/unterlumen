@@ -192,6 +192,44 @@ func ExtractDateTaken(path string) (time.Time, error) {
 	return x.DateTime()
 }
 
+// ExtractDateAndMeta performs a single EXIF decode pass to extract the date taken,
+// GPS presence, and Fujifilm film simulation. Falls back to decodeEmbeddedExif
+// for HEIF/HEIC/HIF files, fixing HEIF date extraction that ExtractDateTaken misses.
+func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, nil, err
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		x, err = decodeEmbeddedExif(path)
+		if err != nil {
+			return time.Time{}, nil, err
+		}
+	}
+
+	dt, dtErr := x.DateTime()
+
+	meta := &EntryMeta{}
+
+	// Check GPS presence
+	if _, _, err := x.LatLong(); err == nil {
+		meta.HasGPS = true
+	}
+
+	// Extract film simulation
+	if sim := extractFujiFilmSimulation(x); sim != "" {
+		meta.FilmSimulation = sim
+	}
+
+	if dtErr != nil {
+		return time.Time{}, meta, dtErr
+	}
+	return dt, meta, nil
+}
+
 // ExtractOrientation reads the EXIF orientation tag (1–8) from an image file.
 // Returns 1 (normal) on any error or missing tag.
 func ExtractOrientation(path string) int {

@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// EntryMeta holds lightweight EXIF metadata extracted during background scanning.
+type EntryMeta struct {
+	HasGPS         bool   `json:"hasGPS,omitempty"`
+	FilmSimulation string `json:"filmSimulation,omitempty"`
+}
+
 type EntryType string
 
 const (

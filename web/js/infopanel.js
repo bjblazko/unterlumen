@@ -169,7 +169,7 @@ class InfoPanel {
         fileRows.push(this.row('Name', d.name));
         fileRows.push(this.row('Path', d.path));
         fileRows.push(this.row('Size', formatSize(d.size)));
-        fileRows.push(this.row('Format', (d.format || '').toUpperCase()));
+        fileRows.push(this.colorBadgeRow('Format', (d.format || '').toUpperCase(), this.formatColor(d.format)));
         fileRows.push(this.row('Modified', this.formatDate(d.modified)));
         sections.push(this.section('File', fileRows));
 
@@ -212,7 +212,11 @@ class InfoPanel {
         this.addTag(cameraRows, tags, used, 'Make', 'Make');
         this.addTag(cameraRows, tags, used, 'Model', 'Model');
         this.addTag(cameraRows, tags, used, 'LensModel', 'Lens');
-        this.addTag(cameraRows, tags, used, 'FilmSimulation', 'Film Simulation');
+        if (tags['FilmSimulation'] != null) {
+            used.add('FilmSimulation');
+            const sim = this.stripQuotes(tags['FilmSimulation']);
+            cameraRows.push(this.colorBadgeRow('Film Simulation', sim, this.filmSimColor(sim)));
+        }
         this.addTag(cameraRows, tags, used, 'Software', 'Software');
         if (cameraRows.length) sections.push(this.section('Camera', cameraRows));
 
@@ -270,6 +274,43 @@ class InfoPanel {
             '<span class="info-label">' + label + '</span>' +
             '<span class="info-value">' + (value || '\u2014') + '</span>' +
             '</div>';
+    }
+
+    colorBadgeRow(label, value, color) {
+        if (!value || !color) return this.row(label, value);
+        return '<div class="info-row">' +
+            '<span class="info-label">' + label + '</span>' +
+            '<span class="info-value"><span class="info-color-badge" style="background:' + color + '">' + value + '</span></span>' +
+            '</div>';
+    }
+
+    formatColor(format) {
+        const colors = {
+            jpeg: '#c27833', jpg: '#c27833',
+            heif: '#4a8c5c', heic: '#4a8c5c', hif: '#4a8c5c',
+            png: '#4a6fa5',
+            gif: '#8c6b4a',
+            webp: '#7b5299',
+        };
+        return colors[(format || '').toLowerCase()] || null;
+    }
+
+    filmSimColor(sim) {
+        const colors = {
+            'Provia': '#3a7ca5', 'Astia': '#5a9ab5',
+            'Velvia': '#b5443a',
+            'Classic Chrome': '#8a7d3a', 'Classic Neg.': '#b07040',
+            'Eterna': '#3a8a8a',
+            'Nostalgic Neg.': '#a05050', 'Reala Ace': '#3a8a5a',
+            'Pro Neg. Std': '#6a6a7a', 'Pro Neg. Hi': '#7a6a8a',
+            'Bleach Bypass': '#8a8a8a',
+            'Monochrome': '#404040', 'Monochrome + R': '#5a3030',
+            'Monochrome + Ye': '#5a5a30', 'Monochrome + G': '#305a30',
+            'Acros': '#333333', 'Acros + R': '#4a2828',
+            'Acros + Ye': '#4a4a28', 'Acros + G': '#284a28',
+            'Sepia': '#6a5038',
+        };
+        return colors[sim] || '#6a6a7a';
     }
 
     addTag(rows, tags, used, tagName, label, decoder) {

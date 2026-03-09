@@ -1116,6 +1116,16 @@ body {
     min-width: 0;
 }
 
+.info-color-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
 /* —— Info panel map —— */
 
 .info-map-container {
@@ -1213,6 +1223,60 @@ body.ui-hidden .viewer-toolbar { display: none; }
     white-space: nowrap;
 }
 .ui-hint.visible { opacity: 1; }
+
+/* —— Overlay badges —— */
+
+.grid-item {
+    position: relative;
+}
+
+.overlay-badges {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    max-width: calc(100% - 8px);
+    pointer-events: none;
+}
+
+.overlay-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 4px;
+    font-size: 10px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.overlay-badge-gps {
+    background: none;
+    padding: 1px 2px;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.4));
+}
+
+.overlay-badge-gps svg {
+    display: block;
+}
+
+/* List view: badges inline after name */
+.list-badges {
+    display: inline;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.list-badges .overlay-badges {
+    position: static;
+    display: inline-flex;
+    vertical-align: middle;
+}
 
 /* —— Scroll sentinel for chunked rendering —— */
 

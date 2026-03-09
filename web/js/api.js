@@ -51,6 +51,13 @@ const API = {
         return resp.json();
     },
 
+    async browseMeta(path = '') {
+        const params = new URLSearchParams({ path });
+        const resp = await fetch(`/api/browse/meta?${params}`);
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     async delete(files) {
         const resp = await fetch('/api/delete', {
             method: 'POST',
