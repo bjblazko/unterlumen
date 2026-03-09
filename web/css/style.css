@@ -85,12 +85,83 @@ body {
     gap: calc(var(--unit) * 2);
 }
 
-.mode-switcher {
+/* —— Workflow chevron stepper —— */
+
+.workflow {
     display: flex;
-    gap: 1px;
+    align-items: center;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+    height: 28px;
+    padding: 0 calc(var(--unit) * 2.5) 0 calc(var(--unit) * 2);
+    background: var(--surface);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-sec);
+    position: relative;
+    z-index: 1;
+    margin-left: -8px;
+    clip-path: polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%);
+    transition: background 0.15s;
+}
+
+.workflow-step:first-of-type {
+    margin-left: 0;
+    z-index: 3;
+}
+
+.workflow-step:nth-of-type(2) {
+    z-index: 2;
+}
+
+.workflow-step:last-of-type {
+    padding-right: calc(var(--unit) * 1.5);
+    clip-path: none;
+}
+
+.workflow-step.completed {
     background: var(--border);
-    border: 1px solid var(--border);
+}
+
+.workflow-step.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.workflow-step:not(.active):hover {
+    filter: brightness(0.94);
+}
+
+.workflow-label {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.workflow-step.active .workflow-label {
+    font-weight: 600;
+}
+
+.workflow-badge {
+    display: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 1px 4px;
     border-radius: 2px;
+    margin-left: 2px;
+}
+
+.workflow-step.active .workflow-badge {
+    background: rgba(255, 255, 255, 0.25);
 }
 
 .settings-wrap {
@@ -206,11 +277,6 @@ body {
     color: var(--accent);
 }
 
-/* Mode switcher buttons have no individual borders */
-.mode-switcher .btn {
-    border: none;
-    border-radius: 0;
-}
 
 /* —— App container —— */
 
@@ -896,16 +962,6 @@ body {
 
 /* —— Waste bin —— */
 
-#wastebin-count {
-    display: none;
-    background: var(--accent);
-    color: #fff;
-    font-size: 10px;
-    line-height: 1;
-    padding: 2px 5px;
-    border-radius: 2px;
-    margin-left: 2px;
-}
 
 .wastebin-empty {
     color: var(--text-sec);
@@ -1198,6 +1254,21 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-sec);
 }
+
+/* —— Mode transition animations —— */
+
+@keyframes slide-in-right {
+    from { transform: translateX(24px); opacity: 0.5; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slide-in-left {
+    from { transform: translateX(-24px); opacity: 0.5; }
+    to   { transform: translateX(0);     opacity: 1; }
+}
+
+.mode-enter-right { animation: slide-in-right 0.2s ease-out; }
+.mode-enter-left  { animation: slide-in-left  0.2s ease-out; }
 
 /* Hide-interface mode */
 body.ui-hidden .header { display: none; }

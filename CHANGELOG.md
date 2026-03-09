@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Workflow-oriented UI** — Replaced the tab-style mode switcher with a connected chevron stepper: three arrow-shaped buttons (flat left, pointed right) that interlock gaplessly. Modes are renamed and reordered to reflect the photographer's natural workflow — Select (1), Review (2), Organize (3) — each with a representative icon (photo grid, trash can, dual-pane). Active step is orange with white text; completed steps are gray; future steps are off-white. Mode switches animate with a directional slide. The Review step shows a count badge when photos are marked for deletion. Keyboard shortcuts updated to match: 2=Review, 3=Organize.
+- **Thumbnail overlays on by default** — The "Show details" overlay badges (file type, GPS, film simulation) are now enabled by default.
+
 ### Added
 
 - **Thumbnail overlays** — New "Show details" toggle in the View menu displays colored metadata badges on thumbnails: file type (JPEG, HEIF, PNG, GIF, WebP), GPS location pin, and Fujifilm film simulation name. Each category has a unique vibrant color. File type badges appear immediately; GPS and film simulation badges load asynchronously via background EXIF extraction. Works in grid, justified, and list views. The same color scheme is used in the info panel for Format and Film Simulation values.

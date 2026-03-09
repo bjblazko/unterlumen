@@ -25,9 +25,9 @@ const App = {
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
 
         // Set mode button tooltips with platform-appropriate shortcut keys
-        document.getElementById('mode-browse').title = `Browse & Cull (1)`;
-        document.getElementById('mode-commander').title = `File Manager (2)`;
-        document.getElementById('mode-wastebin').title = `Marked for Deletion (3)`;
+        document.getElementById('mode-browse').title = `Select (1)`;
+        document.getElementById('mode-wastebin').title = `Review (2)`;
+        document.getElementById('mode-commander').title = `Organize (3)`;
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
@@ -173,9 +173,26 @@ const App = {
         }
 
         this.mode = mode;
-        document.getElementById('mode-browse').classList.toggle('active', mode === 'browse');
-        document.getElementById('mode-commander').classList.toggle('active', mode === 'commander');
-        document.getElementById('mode-wastebin').classList.toggle('active', mode === 'wastebin');
+
+        // Workflow step order: browse=0, wastebin=1, commander=2
+        const stepOrder = { browse: 0, wastebin: 1, commander: 2 };
+        const prevIdx = stepOrder[prevMode] ?? 0;
+        const currIdx = stepOrder[mode];
+
+        // Update workflow step states
+        const steps = [
+            { el: document.getElementById('mode-browse'), idx: 0 },
+            { el: document.getElementById('mode-wastebin'), idx: 1 },
+            { el: document.getElementById('mode-commander'), idx: 2 },
+        ];
+        for (const step of steps) {
+            step.el.classList.remove('active', 'completed');
+            if (step.idx === currIdx) {
+                step.el.classList.add('active');
+            } else if (step.idx < currIdx) {
+                step.el.classList.add('completed');
+            }
+        }
 
         const appEl = document.getElementById('app');
 
@@ -227,6 +244,18 @@ const App = {
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
+
+        // Transition animation
+        const activeEl = mode === 'browse' ? this._browseEl :
+                         mode === 'commander' ? this._commanderEl : this._wastebinEl;
+        if (activeEl && prevMode !== mode) {
+            const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
+            activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
+            void activeEl.offsetWidth; // force reflow
+            activeEl.classList.add(cls);
+            activeEl.addEventListener('animationend', () => activeEl.classList.remove(cls), { once: true });
+        }
+
     },
 
     markForDeletion(selectedPaths, entries, currentDir) {
@@ -289,14 +318,14 @@ const App = {
         if (!countEl) return;
         const count = this.wasteBin.size;
         countEl.textContent = count > 0 ? count : '';
-        countEl.style.display = count > 0 ? '' : 'none';
+        countEl.style.display = count > 0 ? 'inline' : 'none';
     },
 
     renderWasteBin(appEl) {
         const items = Array.from(this.wasteBin.entries());
 
         if (items.length === 0) {
-            appEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">Waste bin is empty</div></div>';
+            appEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos marked yet. Use Select to browse and mark photos.</div></div>';
             return;
         }
 
@@ -570,8 +599,8 @@ const App = {
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === '1') { e.preventDefault(); this.setMode('browse'); }
-            else if (e.key === '2') { e.preventDefault(); this.setMode('commander'); }
-            else if (e.key === '3') { e.preventDefault(); this.setMode('wastebin'); }
+            else if (e.key === '2') { e.preventDefault(); this.setMode('wastebin'); }
+            else if (e.key === '3') { e.preventDefault(); this.setMode('commander'); }
         }
 
         // H to toggle interface visibility (bare key, no modifier)

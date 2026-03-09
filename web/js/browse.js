@@ -15,8 +15,9 @@ class BrowsePane {
         this.onImageClick = options.onImageClick || null;
         this.onSelectionChange = options.onSelectionChange || null;
         this.onFocusChange = options.onFocusChange || null;
+        this.onLoad = options.onLoad || null;
         this.showNames = false;
-        this.showOverlays = false;
+        this.showOverlays = true;
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
         this._loading = false;
@@ -100,6 +101,8 @@ class BrowsePane {
             this._pollExifDates();
             this._pollOverlayMeta();
         }
+
+        if (this.onLoad) this.onLoad();
     }
 
     setView(view) {
