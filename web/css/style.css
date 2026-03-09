@@ -323,6 +323,15 @@ body {
     color: var(--accent);
 }
 
+.breadcrumb .crumb-sep {
+    color: var(--accent);
+}
+
+.breadcrumb .crumb-current {
+    color: var(--accent);
+    font-weight: bold;
+}
+
 /* —— Controls —— */
 
 .controls {
@@ -646,7 +655,10 @@ body {
 
 .commander-pane {
     flex: 1;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
     padding: calc(var(--unit) * 2) calc(var(--unit) * 2);
     border: 2px solid transparent;
 }
