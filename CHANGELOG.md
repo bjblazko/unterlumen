@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Commander copy no longer resets source pane scroll** — After a copy operation, only the destination pane reloads; the source pane is left untouched, preserving its scroll position.
 - **Escape navigates up in commander mode** — Pressing Escape in commander mode now navigates the active pane to its parent directory, matching the existing browse-mode behavior.
 - **Justified grid not resizing after info panel close** — Closing the info panel no longer leaves the justified grid at the narrower width; it now relays out immediately to fill the full available space.
 - **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key), allowing photo metadata to be viewed without leaving fullscreen.
