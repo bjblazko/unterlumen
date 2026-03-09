@@ -330,7 +330,7 @@ const App = {
         const items = Array.from(this.wasteBin.entries());
 
         if (items.length === 0) {
-            appEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos marked yet. Use Select to browse and mark photos.</div></div>';
+            appEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos marked yet for deletion. Use the "Select" or "Organize view to do so."</div></div>';
             return;
         }
 
@@ -482,6 +482,12 @@ const App = {
         if (e.key === 'Escape' && this.mode === 'browse' && this.browsePane) {
             if (document.querySelector('.viewer')) return; // Don't navigate while viewing
             e.preventDefault();
+            if (this.browsePane.selected.size > 0) {
+                this.browsePane.selected.clear();
+                this.browsePane.updateSelectionClasses();
+                if (this.browsePane.onSelectionChange) this.browsePane.onSelectionChange([]);
+                return;
+            }
             const parts = this.browsePane.path.split('/').filter(Boolean);
             parts.pop();
             const parentPath = parts.join('/');
@@ -493,6 +499,12 @@ const App = {
         if (e.key === 'Escape' && this.mode === 'commander' && this.commander) {
             e.preventDefault();
             const pane = this.commander.getActivePane();
+            if (pane.selected.size > 0) {
+                pane.selected.clear();
+                pane.updateSelectionClasses();
+                if (pane.onSelectionChange) pane.onSelectionChange([]);
+                return;
+            }
             const parts = pane.path.split('/').filter(Boolean);
             parts.pop();
             pane.load(parts.join('/'));
