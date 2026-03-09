@@ -351,7 +351,7 @@ const App = {
         });
         const grid = `<div class="grid">${gridItems.join('')}</div>`;
 
-        appEl.innerHTML = `<div class="browse-container">${header}${actions}${grid}</div>`;
+        appEl.innerHTML = `<div class="browse-container"><div class="browse-header">${header}${actions}</div><div class="browse-content">${grid}</div></div>`;
 
         // Attach events
         document.getElementById('wb-restore').addEventListener('click', () => {

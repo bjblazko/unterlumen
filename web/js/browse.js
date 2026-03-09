@@ -229,11 +229,14 @@ class BrowsePane {
 
     renderBreadcrumb() {
         const parts = this.path ? this.path.split('/') : [];
-        let crumbs = `<a href="#" class="crumb" data-path="">Root</a>`;
+        const isAtRoot = parts.length === 0;
+        let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
         let accumulated = '';
-        for (const part of parts) {
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
             accumulated = accumulated ? `${accumulated}/${part}` : part;
-            crumbs += ` / <a href="#" class="crumb" data-path="${accumulated}">${part}</a>`;
+            const isCurrent = i === parts.length - 1;
+            crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
         return `<nav class="breadcrumb">${crumbs}</nav>`;
     }

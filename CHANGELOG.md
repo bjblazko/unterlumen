@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Sticky header in commander and waste bin views** — The breadcrumb and controls now stay pinned at the top of each commander pane and the waste bin view while scrolling, matching the existing browse view behavior.
 - **Commander copy no longer resets source pane scroll** — After a copy operation, only the destination pane reloads; the source pane is left untouched, preserving its scroll position.
 - **Escape navigates up in commander mode** — Pressing Escape in commander mode now navigates the active pane to its parent directory, matching the existing browse-mode behavior.
 - **Justified grid not resizing after info panel close** — Closing the info panel no longer leaves the justified grid at the narrower width; it now relays out immediately to fill the full available space.
