@@ -889,11 +889,29 @@ class BrowsePane {
         const ct = this._contentEl || this.container;
         ct.querySelectorAll('[data-type="image"]').forEach(el => {
             const name = el.dataset.name;
-            // Remove existing badges
-            const existing = el.querySelector('.overlay-badges');
-            if (existing) existing.remove();
             const badges = this._buildOverlayBadges(name, this._entryMeta[name]);
-            if (badges) el.insertAdjacentHTML('beforeend', badges);
+
+            if (el.tagName === 'TR') {
+                // List view: badges go inside .list-name td > .list-badges span
+                const nameCell = el.querySelector('td.list-name');
+                if (!nameCell) return;
+                let listBadges = nameCell.querySelector('.list-badges');
+                if (badges) {
+                    if (!listBadges) {
+                        listBadges = document.createElement('span');
+                        listBadges.className = 'list-badges';
+                        nameCell.appendChild(listBadges);
+                    }
+                    listBadges.innerHTML = badges;
+                } else if (listBadges) {
+                    listBadges.remove();
+                }
+            } else {
+                // Grid/justified view: badges overlay the image item
+                const existing = el.querySelector('.overlay-badges');
+                if (existing) existing.remove();
+                if (badges) el.insertAdjacentHTML('beforeend', badges);
+            }
         });
     }
 
