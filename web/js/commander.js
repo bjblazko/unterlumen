@@ -22,8 +22,11 @@ class Commander {
                 <div class="commander-pane left-pane" id="left-pane"></div>
                 <div class="commander-resizer" id="cmd-resizer"></div>
                 <div class="commander-actions">
-                    <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy →</button>
-                    <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move →</button>
+                    <svg id="cmd-direction-arrow" class="cmd-arrow" viewBox="0 0 100 160" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                        <path d="M 0,56 L 20,56 L 20,0 L 100,80 L 20,160 L 20,104 L 0,104 Z"/>
+                    </svg>
+                    <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy</button>
+                    <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move</button>
                     <button class="btn btn-action" id="cmd-delete" title="Marked for Deletion (Del)" disabled>${CMD_ICONS.delete} Delete</button>
                 </div>
                 <div class="commander-pane right-pane" id="right-pane"></div>
@@ -183,13 +186,15 @@ class Commander {
         document.getElementById('cmd-move').disabled = !hasTargets;
         document.getElementById('cmd-delete').disabled = !hasTargets;
 
-        // Update button labels with direction
-        const direction = this.activePane === 'left' ? '→' : '←';
-        const count = actionable.length;
-        const label = count > 0 ? ` (${count})` : '';
-        document.getElementById('cmd-copy').innerHTML = `${CMD_ICONS.copy} Copy ${direction}${label}`;
-        document.getElementById('cmd-move').innerHTML = `${CMD_ICONS.move} Move ${direction}${label}`;
-        document.getElementById('cmd-delete').innerHTML = `${CMD_ICONS.delete} Delete${label}`;
+        document.getElementById('cmd-copy').innerHTML = `${CMD_ICONS.copy} Copy`;
+        document.getElementById('cmd-move').innerHTML = `${CMD_ICONS.move} Move`;
+        document.getElementById('cmd-delete').innerHTML = `${CMD_ICONS.delete} Delete`;
+
+        // Flip arrow: left-active → points right (default); right-active → points left
+        const arrow = document.getElementById('cmd-direction-arrow');
+        if (arrow) {
+            arrow.style.transform = this.activePane === 'right' ? 'scaleX(-1)' : '';
+        }
     }
 
     async doCopy() {

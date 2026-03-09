@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Commander direction arrow** — The Copy/Move buttons no longer show an arrow or selection count in their labels. Direction is now conveyed by a large translucent arrow SVG in the center actions panel, which flips left/right based on the active pane.
 - **Inline SVG logo** — The header logo is now an inline SVG (two horizontal bars + orange triangle), removing the dependency on an external PNG file and allowing the logo to adapt to the current text color.
 - **Workflow-oriented UI** — Replaced the tab-style mode switcher with a connected chevron stepper: three arrow-shaped buttons (flat left, pointed right) that interlock gaplessly. Modes are renamed and reordered to reflect the photographer's natural workflow — Select (1), Review (2), Organize (3) — each with a representative icon (photo grid, trash can, dual-pane). Active step is orange with white text; completed steps are gray; future steps are off-white. Mode switches animate with a directional slide. The Review step shows a count badge when photos are marked for deletion. Keyboard shortcuts updated to match: 2=Review, 3=Organize.
 - **Thumbnail overlays on by default** — The "Show details" overlay badges (file type, GPS, film simulation) are now enabled by default.
@@ -19,6 +20,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Commander buttons showing stale count** — Action buttons (Copy, Move, Delete) no longer show "(1)" when no images are explicitly selected; the count now reflects only Ctrl+click selections, matching the grid status bar.
 - **Sticky header in commander and waste bin views** — The breadcrumb and controls now stay pinned at the top of each commander pane and the waste bin view while scrolling, matching the existing browse view behavior.
 - **Commander copy no longer resets source pane scroll** — After a copy operation, only the destination pane reloads; the source pane is left untouched, preserving its scroll position.
 - **Escape navigates up in commander mode** — Pressing Escape in commander mode now navigates the active pane to its parent directory, matching the existing browse-mode behavior.

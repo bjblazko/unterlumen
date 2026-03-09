@@ -1,6 +1,6 @@
 # Commander Mode
 
-*Last modified: 2026-02-21*
+*Last modified: 2026-03-09*
 
 ## Summary
 
@@ -23,7 +23,8 @@ Commander mode splits the screen into two independent directory browsers (left a
 - **Copy** — copies selected files from the active pane to the other pane's current directory
 - **Move** — moves selected files from the active pane to the other pane's current directory
 - Buttons are in the center column between the two panes
-- Button labels show the direction arrow (→ or ←) and selected file count
+- Button labels show plain text (Copy, Move, Delete) with no arrow or count
+- A large near-triangular SVG arrow in the center panel shows the active direction; it flips with a 0.2s ease transition when the active pane changes
 - Buttons are disabled when no files are selected
 - A confirmation dialog shows the file count before executing
 - Both panes refresh after the operation completes
@@ -40,7 +41,7 @@ Commander mode splits the screen into two independent directory browsers (left a
 - [x] Two panes render side by side, each browsing independently
 - [x] Active pane is visually indicated
 - [x] Tab switches the active pane
-- [x] Copy/Move buttons reflect direction and selection count
+- [x] Direction arrow in center panel reflects active pane; flips on pane switch
 - [x] Confirmation dialog before executing operations
 - [x] Both panes refresh after copy/move
 - [x] Errors reported per-file
