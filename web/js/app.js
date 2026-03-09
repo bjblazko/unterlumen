@@ -489,6 +489,15 @@ const App = {
             this.currentBrowsePath = parentPath;
         }
 
+        // Escape to go up in commander mode
+        if (e.key === 'Escape' && this.mode === 'commander' && this.commander) {
+            e.preventDefault();
+            const pane = this.commander.getActivePane();
+            const parts = pane.path.split('/').filter(Boolean);
+            parts.pop();
+            pane.load(parts.join('/'));
+        }
+
         // Backspace to mark selected (or focused) files for waste bin (browse mode)
         if (e.key === 'Backspace' && this.mode === 'browse' && this.browsePane) {
             e.preventDefault(); // prevent Safari back-navigation before any early returns
