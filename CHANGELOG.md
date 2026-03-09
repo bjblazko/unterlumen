@@ -8,9 +8,15 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **"Photo Taken" sort order** — Photos whose EXIF date happened to equal their filesystem mtime were silently omitted from the EXIF date map and treated as undated, causing them to sort last. EXIF dates are now always stored regardless of whether they match the mtime.
+- **Date display in list view** — Dates in list view and the info panel "Modified" row were formatted using the browser locale (e.g. `01.03.2024, 15:04:05`). They are now displayed in ISO format (`2024-03-01 15:04:05`), consistent with the EXIF dates section in the info panel.
 - **EXIF date formatting** — Info panel Dates section now displays dates as `2016-07-16 20:24:53` instead of the raw EXIF format `2016:07:16 20:24:53`. When offset tags are present, the UTC offset is appended (e.g. `2016-07-16 20:24:53 +09:00`). Raw date and offset tags are suppressed from the Other section.
 - **Deselect on Escape** — Pressing Escape now clears the current selection instead of navigating up a directory when photos are selected (both browse and commander modes). A second Escape with no selection navigates up as before.
 - **Deselect on void click** — Clicking an empty gap in the grid, justified, or list view now clears the selection.
+
+### Added
+
+- **"Photo Taken" sort** — New sort option in the view menu sorts photos by EXIF `DateTimeOriginal`. Photos without EXIF data always appear last regardless of sort direction. The existing "Date" option is renamed "File Modified" to clearly indicate it sorts by filesystem modification time.
 
 ### Changed
 
