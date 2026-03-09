@@ -630,6 +630,18 @@ class BrowsePane {
             });
         }
 
+        // Click on void area clears selection
+        const gridEl = this.container.querySelector('.grid, .justified, .list-view');
+        if (gridEl) {
+            gridEl.addEventListener('click', (e) => {
+                if (e.target !== gridEl) return;
+                if (this.selected.size === 0) return;
+                this.selected.clear();
+                this.updateSelectionClasses();
+                if (this.onSelectionChange) this.onSelectionChange([]);
+            });
+        }
+
         // Item events for the initial chunk
         this._attachItemEvents(0, this._renderedCount);
     }

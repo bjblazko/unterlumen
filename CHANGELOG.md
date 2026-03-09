@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Deselect on Escape** — Pressing Escape now clears the current selection instead of navigating up a directory when photos are selected (both browse and commander modes). A second Escape with no selection navigates up as before.
+- **Deselect on void click** — Clicking an empty gap in the grid, justified, or list view now clears the selection.
+
 ### Changed
 
 - **Commander direction arrow** — The Copy/Move buttons no longer show an arrow or selection count in their labels. Direction is now conveyed by a large translucent arrow SVG in the center actions panel, which flips left/right based on the active pane.
