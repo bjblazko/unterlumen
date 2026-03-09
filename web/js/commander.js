@@ -202,9 +202,8 @@ class Commander {
         try {
             const result = await API.copy(files, dest);
             this.showResults('Copy', result.results);
-            // Refresh both panes
-            this.leftPane.load(this.leftPane.path);
-            this.rightPane.load(this.rightPane.path);
+            // Only refresh destination; source is unchanged by copy
+            otherPane.load(otherPane.path);
         } catch (err) {
             alert('Copy failed: ' + err.message);
         }
