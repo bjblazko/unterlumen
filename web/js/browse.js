@@ -300,7 +300,11 @@ class BrowsePane {
                     <div class="tools-menu-message" style="display:none">Requires exiftool. Install it to use tools.</div>
                     <div class="tools-menu-items" style="display:none">
                         <div class="view-menu-section">
-                            <button class="btn btn-sm tool-item" data-tool="set-location" style="width:100%">Set Location</button>
+                            <label class="view-menu-label tools-geo-label">Geolocation</label>
+                            <div class="view-menu-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="set-location">Set</button>
+                                <button class="btn btn-sm tool-item" data-tool="remove-location">Remove</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -632,6 +636,7 @@ class BrowsePane {
                 } else {
                     toolsMenu.style.display = '';
                     document.addEventListener('click', closeToolsMenu);
+                    this._updateToolsGeoLabel();
                     this._checkToolsAvailability();
                 }
             });
@@ -864,6 +869,15 @@ class BrowsePane {
         items.style.display = this._toolsChecked.exiftool ? '' : 'none';
     }
 
+    _updateToolsGeoLabel() {
+        const label = this.container.querySelector('.tools-geo-label');
+        if (!label) return;
+        const count = this.getActionableFiles().length;
+        label.textContent = count > 0
+            ? `Geolocation (${count} image${count !== 1 ? 's' : ''})`
+            : 'Geolocation';
+    }
+
     _notifyFocusChange() {
         if (!this.onFocusChange) return;
         if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) {
@@ -984,6 +998,13 @@ class BrowsePane {
                 this._updateOverlays();
             }
         }
+    }
+
+    async notifyFilesChanged(fullPaths) {
+        try {
+            await API.browse(this.path, this.sort, this.order);
+        } catch { /* ignore */ }
+        this._pollOverlayMeta();
     }
 
     _updateOverlays() {
