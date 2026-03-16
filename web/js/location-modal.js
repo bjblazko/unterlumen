@@ -21,6 +21,7 @@ class LocationModal {
         document.body.appendChild(this.overlay);
         document.addEventListener('keydown', this._onKeyDown);
         this._initMap();
+        this._loadInitialPosition(files);
     }
 
     close() {
@@ -95,11 +96,22 @@ class LocationModal {
         const mapEl = this.overlay.querySelector('#location-map');
         if (!mapEl) return;
 
+        let initialCenter = [0, 20];
+        let initialZoom = 2;
+        const stored = localStorage.getItem('user-location');
+        if (stored) {
+            try {
+                const { lat, lon } = JSON.parse(stored);
+                initialCenter = [lon, lat];
+                initialZoom = 9;
+            } catch (e) { /* ignore */ }
+        }
+
         this.map = new maplibregl.Map({
             container: mapEl,
             style: 'https://tiles.openfreemap.org/styles/liberty',
-            center: [0, 20],
-            zoom: 2,
+            center: initialCenter,
+            zoom: initialZoom,
             attributionControl: false,
         });
 
@@ -117,14 +129,52 @@ class LocationModal {
 
     _updateMarker() {
         if (!this.map || this.lat === null || this.lon === null) return;
-        if (this.marker) {
-            this.marker.setLngLat([this.lon, this.lat]);
-        } else {
-            this.marker = new maplibregl.Marker({ color: '#d35400' })
-                .setLngLat([this.lon, this.lat])
-                .addTo(this.map);
+        const doUpdate = () => {
+            if (this.marker) {
+                this.marker.setLngLat([this.lon, this.lat]);
+            } else {
+                this.marker = new maplibregl.Marker({ color: '#d35400' })
+                    .setLngLat([this.lon, this.lat])
+                    .addTo(this.map);
+            }
+            this.map.flyTo({ center: [this.lon, this.lat], speed: 1.5 });
+        };
+        if (this.map.loaded()) doUpdate(); else this.map.once('load', doUpdate);
+    }
+
+    async _loadInitialPosition(files) {
+        if (!this.map) return;
+
+        // 1. Single file: try to get existing GPS from EXIF
+        if (files.length === 1) {
+            try {
+                const info = await API.info(files[0]);
+                if (info && info.exif && info.exif.latitude != null && info.exif.longitude != null) {
+                    if (!this.overlay) return; // modal closed while loading
+                    this.lat = info.exif.latitude;
+                    this.lon = info.exif.longitude;
+                    this.overlay.querySelector('#loc-lat').value = this.lat;
+                    this.overlay.querySelector('#loc-lon').value = this.lon;
+                    this.overlay.querySelector('#loc-confirm').disabled = false;
+                    const flyTo = () => this.map.flyTo({ center: [this.lon, this.lat], zoom: 14, speed: 1.5 });
+                    if (this.map.loaded()) flyTo(); else this.map.once('load', flyTo);
+                    this._updateMarker();
+                    return; // skip geolocation when GPS exists
+                }
+            } catch (e) { /* ignore */ }
         }
-        this.map.flyTo({ center: [this.lon, this.lat], speed: 1.5 });
+
+        // 2. Geolocation — only if no stored location
+        if (!localStorage.getItem('user-location') && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                localStorage.setItem('user-location', JSON.stringify({ lat, lon }));
+                if (!this.map || !this.overlay) return;
+                const flyTo = () => this.map.flyTo({ center: [lon, lat], zoom: 9, speed: 1.5 });
+                if (this.map.loaded()) flyTo(); else this.map.once('load', flyTo);
+            }, () => { /* denied or unavailable — world view already set */ });
+        }
     }
 
     _showConfirmation() {
