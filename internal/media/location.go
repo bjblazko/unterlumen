@@ -22,6 +22,26 @@ func CheckExiftool() bool {
 	return hasExiftool
 }
 
+// RemoveGPSLocation strips all GPS EXIF tags from the image file at absPath using exiftool.
+func RemoveGPSLocation(absPath string) error {
+	if !CheckExiftool() {
+		return fmt.Errorf("exiftool is not available")
+	}
+	var stderr bytes.Buffer
+	cmd := exec.Command("exiftool",
+		"-GPSLatitude=", "-GPSLatitudeRef=",
+		"-GPSLongitude=", "-GPSLongitudeRef=",
+		"-GPSAltitude=", "-GPSAltitudeRef=",
+		"-overwrite_original",
+		absPath,
+	)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("exiftool GPS remove failed: %v: %s", err, stderr.String())
+	}
+	return nil
+}
+
 // WriteGPSLocation writes GPS coordinates to the image file at absPath using exiftool.
 // Existing EXIF data (maker notes, etc.) is preserved.
 func WriteGPSLocation(absPath string, lat, lon float64) error {

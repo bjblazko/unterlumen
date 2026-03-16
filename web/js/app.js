@@ -463,9 +463,21 @@ const App = {
     },
 
     handleToolInvoke({ tool, files }) {
+        if (!this.locationModal) this.locationModal = new LocationModal();
+        const pane = this.getActiveBrowsePane();
+        const onSuccess = (changedFiles) => {
+            if (pane) pane.notifyFilesChanged(changedFiles);
+            if (this.infoPanel && this.infoPanel.expanded && pane) {
+                const focused = pane.getFocusedFile();
+                if (focused && changedFiles.includes(focused)) {
+                    this.infoPanel.loadInfo(focused);
+                }
+            }
+        };
         if (tool === 'set-location') {
-            if (!this.locationModal) this.locationModal = new LocationModal();
-            this.locationModal.open(files);
+            this.locationModal.open(files, onSuccess);
+        } else if (tool === 'remove-location') {
+            this.locationModal.openRemove(files, onSuccess);
         }
     },
 

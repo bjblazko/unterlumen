@@ -13,8 +13,71 @@ class LocationModal {
         };
     }
 
-    open(files) {
+    openRemove(files, onSuccess = null) {
         this.files = files;
+        this._onSuccess = onSuccess;
+        this._buildRemoveDOM();
+        document.body.appendChild(this.overlay);
+        document.addEventListener('keydown', this._onKeyDown);
+    }
+
+    _buildRemoveDOM() {
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'modal-overlay';
+        this.overlay.addEventListener('click', (e) => {
+            if (e.target === this.overlay) this.close();
+        });
+
+        const n = this.files.length;
+        this.overlay.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title">Remove Geolocation</span>
+                    <button class="info-collapse-btn modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="location-confirm-msg">
+                        <p>GPS data will be removed from <strong>${n} image${n !== 1 ? 's' : ''}</strong>. This cannot be undone.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" id="loc-remove-cancel">Cancel</button>
+                    <button class="btn btn-accent" id="loc-remove-confirm">Remove</button>
+                </div>
+            </div>`;
+
+        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
+        this.overlay.querySelector('#loc-remove-cancel').addEventListener('click', () => this.close());
+        this.overlay.querySelector('#loc-remove-confirm').addEventListener('click', () => this._executeRemove());
+    }
+
+    async _executeRemove() {
+        const footer = this.overlay.querySelector('.modal-footer');
+        footer.innerHTML = '<span class="info-label">Removing GPS data...</span>';
+
+        try {
+            const result = await API.removeLocation(this.files);
+            const successes = result.results.filter(r => r.success).length;
+            const failures = result.results.filter(r => !r.success);
+            let msg = `GPS data removed from ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
+            const successFiles = result.results.filter(r => r.success).map(r => r.file);
+            if (failures.length > 0) {
+                msg += ' Some files failed.';
+                footer.innerHTML = `<span class="info-label" style="color:#c0392b">${msg}</span>`;
+                if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
+            } else {
+                footer.innerHTML = `<span class="info-label">${msg}</span>`;
+                if (this._onSuccess) this._onSuccess(successFiles);
+                setTimeout(() => this.close(), 1200);
+            }
+        } catch (err) {
+            footer.innerHTML = `<span class="info-label" style="color:#c0392b">Failed: ${err.message}</span>`;
+        }
+    }
+
+    open(files, onSuccess = null) {
+        this.files = files;
+        this._onSuccess = onSuccess;
         this.lat = null;
         this.lon = null;
         this._buildDOM();
@@ -209,14 +272,19 @@ class LocationModal {
             const result = await API.setLocation(this.files, this.lat, this.lon);
             const successes = result.results.filter(r => r.success).length;
             const failures = result.results.filter(r => !r.success);
+            const successFiles = result.results.filter(r => r.success).map(r => r.file);
             let msg = `Location set on ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
             if (failures.length > 0) {
-                msg += '\n\nErrors:\n' + failures.map(f => `${f.file}: ${f.error}`).join('\n');
+                msg += ' Some files failed.';
+                footer.innerHTML = `<span class="info-label" style="color:#c0392b">${msg}</span>`;
+                if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
+            } else {
+                footer.innerHTML = `<span class="info-label">${msg}</span>`;
+                if (this._onSuccess) this._onSuccess(successFiles);
+                setTimeout(() => this.close(), 1200);
             }
-            alert(msg);
         } catch (err) {
-            alert('Failed to set location: ' + err.message);
+            footer.innerHTML = `<span class="info-label" style="color:#c0392b">Failed: ${err.message}</span>`;
         }
-        this.close();
     }
 }

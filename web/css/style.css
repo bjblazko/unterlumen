@@ -412,6 +412,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     flex: 1;
+    white-space: nowrap;
 }
 
 .view-menu select {
@@ -451,7 +452,7 @@ body {
     border-radius: 2px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     z-index: 100;
-    min-width: 200px;
+    min-width: 260px;
 }
 
 .tools-menu-loading {

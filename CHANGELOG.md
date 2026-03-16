@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Remove Geolocation** — New "Remove" button in the Tools → Geolocation row strips GPS EXIF tags from selected images via exiftool. Shows a confirmation modal before writing; reports success or failure inline.
+- **Geolocation row in Tools menu** — The Tools menu now shows a "Geolocation" label with "Set" / "Remove" toggle buttons, matching the View menu's Layout row style. The label updates to show the count of actionable images (e.g. "Geolocation (3 images)") when the menu is opened.
 - **Tools dropdown** — New "Tools" dropdown in the browse controls bar, directly adjacent to the View button. Operates on selected (or focused) images. Checks for exiftool availability on first open and shows a message if missing.
   - **Set Location** — Interactive map picker (MapLibre GL) to manually set GPS coordinates on images. Click the map to place a marker, or type coordinates directly. Shows a confirmation step before writing. Preserves all existing EXIF data including maker notes. The map now opens pre-centered on the image's existing GPS (if any), then falls back to a remembered user location, then requests browser geolocation once (cached in `localStorage`), then world view.
 - **exiftool availability check** — `GET /api/tools/check` endpoint. Tools dropdown shows a message when exiftool is not installed.
@@ -15,6 +17,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Grid overlay badges refresh after location operations** — After Set Location or Remove Location completes, GPS pin badges on grid items update immediately in-place without scrolling or re-rendering the grid. The info panel also refreshes if it is open and the focused file was changed.
+- **Cache invalidation for location operations** — `handleSetLocation` and `handleRemoveLocation` now correctly invalidate the scan cache after writing, so subsequent metadata fetches return fresh data instead of stale cached values.
+- **Tools menu geolocation label wrapping** — The "Geolocation (N images)" label in the Tools menu no longer wraps across two lines.
+- **Set Location duplicate alert** — After confirming Set Location, a redundant browser `alert()` dialog no longer appears. The result message is shown inline in the modal footer; on success the modal closes after 1.2 s, on error it stays open for retry.
 - **"Photo Taken" sort order** — Photos whose EXIF date happened to equal their filesystem mtime were silently omitted from the EXIF date map and treated as undated, causing them to sort last. EXIF dates are now always stored regardless of whether they match the mtime.
 - **Date display in list view** — Dates in list view and the info panel "Modified" row were formatted using the browser locale (e.g. `01.03.2024, 15:04:05`). They are now displayed in ISO format (`2024-03-01 15:04:05`), consistent with the EXIF dates section in the info panel.
 - **EXIF date formatting** — Info panel Dates section now displays dates as `2016-07-16 20:24:53` instead of the raw EXIF format `2016:07:16 20:24:53`. When offset tags are present, the UTC offset is appended (e.g. `2016-07-16 20:24:53 +09:00`). Raw date and offset tags are suppressed from the Other section.

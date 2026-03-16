@@ -74,6 +74,16 @@ const API = {
         return resp.json();
     },
 
+    async removeLocation(files) {
+        const resp = await fetch('/api/remove-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     async setLocation(files, latitude, longitude) {
         const resp = await fetch('/api/set-location', {
             method: 'POST',
