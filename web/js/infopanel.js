@@ -210,7 +210,7 @@ class InfoPanel {
                 imageRows.push(this.row('Aspect Ratio', `<span style="display:inline-flex;align-items:center;gap:4px">${icon}${arLabel}</span>`));
             }
         }
-        this.addTag(imageRows, tags, used, 'Orientation', 'Orientation');
+        this.addTag(imageRows, tags, used, 'Orientation', 'Orientation', this.decodeOrientation);
         this.addTag(imageRows, tags, used, 'ColorSpace', 'Color Space', this.decodeColorSpace);
         if (imageRows.length) sections.push(this.section('Image', imageRows));
 
@@ -401,6 +401,20 @@ class InfoPanel {
 
     decodeWhiteBalance(v) {
         return v === '0' ? 'Auto' : v === '1' ? 'Manual' : v;
+    }
+
+    decodeOrientation(v) {
+        const map = {
+            '1': 'Normal',
+            '2': 'Flipped horizontally',
+            '3': 'Rotated 180°',
+            '4': 'Flipped vertically',
+            '5': 'Transposed (flip H + 270° CW)',
+            '6': 'Rotated 90° CW',
+            '7': 'Transverse (flip H + 90° CW)',
+            '8': 'Rotated 270° CW',
+        };
+        return map[v] || v;
     }
 
     decodeColorSpace(v) {
