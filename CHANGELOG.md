@@ -1,10 +1,17 @@
 # Changelog
 
-*Last modified: 2026-03-09*
+*Last modified: 2026-03-16*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Tools dropdown** — New "Tools" dropdown in the browse controls bar, directly adjacent to the View button. Operates on selected (or focused) images. Checks for exiftool availability on first open and shows a message if missing.
+  - **Set Location** — Interactive map picker (MapLibre GL) to manually set GPS coordinates on images. Click the map to place a marker, or type coordinates directly. Shows a confirmation step before writing. Preserves all existing EXIF data including maker notes.
+- **exiftool availability check** — `GET /api/tools/check` endpoint. Tools dropdown shows a message when exiftool is not installed.
+- **Orientation label in info panel** — The Orientation field in the info panel now shows a human-readable name (e.g. "Normal", "Rotated 90° CW") instead of the raw EXIF integer.
 
 ### Fixed
 

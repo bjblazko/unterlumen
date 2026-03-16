@@ -2,6 +2,7 @@
 
 const App = {
     mode: 'browse', // 'browse', 'commander', or 'wastebin'
+    locationModal: null,
     browsePane: null,
     infoPanel: null,
     commander: null,
@@ -210,6 +211,7 @@ const App = {
                     onImageClick: (path) => this.openViewer(path, this.browsePane),
                     onSelectionChange: (selected) => this.handleSelectionChange(selected),
                     onFocusChange: (path) => this.handleFocusChange(path),
+                    onToolInvoke: (params) => this.handleToolInvoke(params),
                 });
                 this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
                 this.infoPanel.onToggle = () => {
@@ -458,6 +460,13 @@ const App = {
         if (this.mode === 'browse') return this.browsePane;
         if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();
         return null;
+    },
+
+    handleToolInvoke({ tool, files }) {
+        if (tool === 'set-location') {
+            if (!this.locationModal) this.locationModal = new LocationModal();
+            this.locationModal.open(files);
+        }
     },
 
     handleGlobalKey(e) {

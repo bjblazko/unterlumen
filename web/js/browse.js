@@ -18,6 +18,8 @@ class BrowsePane {
         this.onLoad = options.onLoad || null;
         this.showNames = false;
         this.showOverlays = true;
+        this.onToolInvoke = options.onToolInvoke || null;
+        this._toolsChecked = null; // null = not checked, {exiftool: bool}
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
         this._loading = false;
@@ -249,6 +251,7 @@ class BrowsePane {
             : `${imageCount} images`;
 
         return `<div class="controls">
+            <div class="controls-left">
             <div class="view-menu-wrap">
                 <button class="btn btn-sm view-menu-btn" title="View options">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3.5" x2="12" y2="3.5"/><line x1="2" y1="7" x2="12" y2="7"/><line x1="2" y1="10.5" x2="12" y2="10.5"/><circle cx="5" cy="3.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="10.5" r="1.5" fill="currentColor" stroke="none"/></svg>
@@ -286,6 +289,22 @@ class BrowsePane {
                         <button class="btn btn-sm sort-order" title="Toggle order">${this.order === 'asc' ? '↑' : '↓'}</button>
                     </div>
                 </div>
+            </div>
+            <div class="tools-menu-wrap">
+                <button class="btn btn-sm tools-menu-btn" title="Tools">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 1.5l4 4-7.5 7.5H1v-4z"/><path d="M7 3l4 4"/></svg>
+                    Tools
+                </button>
+                <div class="tools-menu" style="display:none">
+                    <div class="tools-menu-loading" style="display:none">Checking...</div>
+                    <div class="tools-menu-message" style="display:none">Requires exiftool. Install it to use tools.</div>
+                    <div class="tools-menu-items" style="display:none">
+                        <div class="view-menu-section">
+                            <button class="btn btn-sm tool-item" data-tool="set-location" style="width:100%">Set Location</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
             <span class="status-bar">${statusText}</span>
         </div>`;
@@ -597,6 +616,46 @@ class BrowsePane {
             });
         }
 
+        // Tools menu toggle
+        const toolsMenuBtn = this.container.querySelector('.tools-menu-btn');
+        const toolsMenu = this.container.querySelector('.tools-menu');
+        if (toolsMenuBtn && toolsMenu) {
+            const closeToolsMenu = () => {
+                toolsMenu.style.display = 'none';
+                document.removeEventListener('click', closeToolsMenu);
+            };
+            toolsMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = toolsMenu.style.display !== 'none';
+                if (open) {
+                    closeToolsMenu();
+                } else {
+                    toolsMenu.style.display = '';
+                    document.addEventListener('click', closeToolsMenu);
+                    this._checkToolsAvailability();
+                }
+            });
+            toolsMenu.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            // Tool item clicks
+            toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const files = this.getActionableFiles();
+                    if (files.length === 0) {
+                        alert('No images selected.');
+                        return;
+                    }
+                    const tool = btn.dataset.tool;
+                    const params = {};
+                    if (tool === 'rotate') params.angle = parseInt(btn.dataset.angle);
+                    if (this.onToolInvoke) this.onToolInvoke({ tool, files, ...params });
+                    closeToolsMenu();
+                });
+            });
+        }
+
         // Names toggle
         const namesToggle = this.container.querySelector('.toggle-names');
         if (namesToggle) {
@@ -774,6 +833,35 @@ class BrowsePane {
     scrollFocusedIntoView() {
         const el = this.container.querySelector(`[data-index="${this.focusedIndex}"]`);
         if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    async _checkToolsAvailability() {
+        const loading = this.container.querySelector('.tools-menu-loading');
+        const message = this.container.querySelector('.tools-menu-message');
+        const items = this.container.querySelector('.tools-menu-items');
+        if (!loading || !message || !items) return;
+
+        if (this._toolsChecked !== null) {
+            // Already checked
+            loading.style.display = 'none';
+            message.style.display = this._toolsChecked.exiftool ? 'none' : '';
+            items.style.display = this._toolsChecked.exiftool ? '' : 'none';
+            return;
+        }
+
+        loading.style.display = '';
+        message.style.display = 'none';
+        items.style.display = 'none';
+
+        try {
+            this._toolsChecked = await API.toolsCheck();
+        } catch {
+            this._toolsChecked = { exiftool: false };
+        }
+
+        loading.style.display = 'none';
+        message.style.display = this._toolsChecked.exiftool ? 'none' : '';
+        items.style.display = this._toolsChecked.exiftool ? '' : 'none';
     }
 
     _notifyFocusChange() {

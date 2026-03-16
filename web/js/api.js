@@ -68,6 +68,22 @@ const API = {
         return resp.json();
     },
 
+    async toolsCheck() {
+        const resp = await fetch('/api/tools/check');
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async setLocation(files, latitude, longitude) {
+        const resp = await fetch('/api/set-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, latitude, longitude }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     config() {
         return fetch('/api/config').then(r => r.json());
     },
