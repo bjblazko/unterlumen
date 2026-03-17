@@ -52,6 +52,32 @@ class LocationModal {
     }
 
     async _executeRemove() {
+        // Large batches: use progress dialog
+        if (this.files.length > 5) {
+            this.close();
+            const files = this.files;
+            const onSuccess = this._onSuccess;
+            const dialog = new ProgressDialog();
+            const successFiles = [];
+            dialog.open(files, {
+                verb: 'Removing GPS',
+                action: async (file) => {
+                    try {
+                        const result = await API.removeLocation([file]);
+                        const r = result.results[0];
+                        if (r && r.success) successFiles.push(r.file);
+                        return r || { success: true };
+                    } catch (err) {
+                        return { success: false, error: err.message };
+                    }
+                },
+                onComplete: () => {
+                    if (successFiles.length > 0 && onSuccess) onSuccess(successFiles);
+                },
+            });
+            return;
+        }
+
         const footer = this.overlay.querySelector('.modal-footer');
         footer.innerHTML = '<span class="info-label">Removing GPS data...</span>';
 
@@ -265,6 +291,34 @@ class LocationModal {
     }
 
     async _execute() {
+        // Large batches: use progress dialog
+        if (this.files.length > 5) {
+            const lat = this.lat;
+            const lon = this.lon;
+            const files = this.files;
+            const onSuccess = this._onSuccess;
+            this.close();
+            const dialog = new ProgressDialog();
+            const successFiles = [];
+            dialog.open(files, {
+                verb: 'Setting location',
+                action: async (file) => {
+                    try {
+                        const result = await API.setLocation([file], lat, lon);
+                        const r = result.results[0];
+                        if (r && r.success) successFiles.push(r.file);
+                        return r || { success: true };
+                    } catch (err) {
+                        return { success: false, error: err.message };
+                    }
+                },
+                onComplete: () => {
+                    if (successFiles.length > 0 && onSuccess) onSuccess(successFiles);
+                },
+            });
+            return;
+        }
+
         const footer = this.overlay.querySelector('.modal-footer');
         footer.innerHTML = '<span class="info-label">Setting location...</span>';
 

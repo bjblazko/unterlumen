@@ -129,7 +129,7 @@ class BrowsePane {
     getActionableFiles() {
         const selected = this.getSelectedFiles();
         if (selected.length > 0) return selected;
-        const focused = this.getFocusedFile();
+        const focused = this.getFocusedEntry();
         return focused ? [focused] : [];
     }
 
@@ -145,6 +145,11 @@ class BrowsePane {
         const entry = this.entries[this.focusedIndex];
         if (entry.type !== 'image') return null;
         return this.fullPath(entry.name);
+    }
+
+    getFocusedEntry() {
+        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
+        return this.fullPath(this.entries[this.focusedIndex].name);
     }
 
     selectAll() {

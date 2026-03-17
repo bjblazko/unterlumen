@@ -94,6 +94,36 @@ const API = {
         return resp.json();
     },
 
+    async mkdir(path) {
+        const resp = await fetch('/api/mkdir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async rename(path, name) {
+        const resp = await fetch('/api/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, name }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async listRecursive(path) {
+        const resp = await fetch('/api/list-recursive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     config() {
         return fetch('/api/config').then(r => r.json());
     },

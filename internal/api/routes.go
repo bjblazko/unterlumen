@@ -26,10 +26,13 @@ func NewRouter(boundary, startPath string, webFS fs.FS) http.Handler {
 	mux.HandleFunc("/api/copy", handleCopy(boundary, cache))
 	mux.HandleFunc("/api/move", handleMove(boundary, cache))
 	mux.HandleFunc("/api/delete", handleDelete(boundary, cache))
+	mux.HandleFunc("/api/mkdir", handleMkdir(boundary, cache))
+	mux.HandleFunc("/api/rename", handleRename(boundary, cache))
 	mux.HandleFunc("/api/info", handleInfo(boundary))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 	mux.HandleFunc("/api/set-location", handleSetLocation(boundary, cache))
 	mux.HandleFunc("/api/remove-location", handleRemoveLocation(boundary, cache))
+	mux.HandleFunc("/api/list-recursive", handleListRecursive(boundary))
 
 	// Serve static files from embedded web/ filesystem
 	mux.Handle("/", http.FileServer(http.FS(webFS)))

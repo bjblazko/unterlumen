@@ -1,6 +1,7 @@
 package media
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -90,5 +91,16 @@ func (sc *ScanCache) Put(absPath string, entries []Entry, dirModTime time.Time) 
 func (sc *ScanCache) Invalidate(absPath string) {
 	sc.mu.Lock()
 	delete(sc.items, absPath)
+	sc.mu.Unlock()
+}
+
+// InvalidatePrefix removes all cache entries whose key starts with prefix.
+func (sc *ScanCache) InvalidatePrefix(prefix string) {
+	sc.mu.Lock()
+	for key := range sc.items {
+		if strings.HasPrefix(key, prefix) {
+			delete(sc.items, key)
+		}
+	}
 	sc.mu.Unlock()
 }

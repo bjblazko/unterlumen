@@ -561,6 +561,59 @@ body {
     font-size: 12px;
 }
 
+/* —— Progress dialog —— */
+
+.progress-overlay {
+    z-index: 1001;
+}
+
+.progress-status {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: calc(var(--unit));
+}
+
+.progress-bar-track {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: calc(var(--unit));
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.15s ease;
+}
+
+.progress-detail {
+    font-size: 11px;
+    color: var(--text-sec);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 16px;
+}
+
+.progress-errors {
+    font-size: 11px;
+    color: #c0392b;
+    margin-top: calc(var(--unit));
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.progress-error-line {
+    padding: 1px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .btn-accent {
     background: var(--accent);
     border-color: var(--accent);
@@ -826,12 +879,24 @@ body {
     border-color: var(--accent);
 }
 
+.commander-pane::before {
+    content: attr(data-pane-label);
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    padding: 0 0 calc(var(--unit) * 1.5);
+    flex-shrink: 0;
+}
+
 .commander-actions {
     display: flex;
     flex-direction: column;
-    gap: var(--unit);
+    gap: 0;
     padding: calc(var(--unit) * 2) calc(var(--unit));
-    justify-content: center;
+    justify-content: flex-start;
     align-items: stretch;
     background: var(--surface);
     border-left: 1px solid var(--border);
@@ -839,6 +904,27 @@ body {
     min-width: 128px;
     position: relative;
     overflow: hidden;
+}
+
+.cmd-top-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--unit);
+    flex-shrink: 0;
+    padding-bottom: calc(var(--unit) * 2);
+    position: relative;
+    z-index: 1;
+}
+
+.cmd-dir-actions {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--unit);
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
 }
 
 .cmd-arrow {
