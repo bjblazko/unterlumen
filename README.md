@@ -9,12 +9,14 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Image viewer** — Full-screen image view with keyboard navigation
 - **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. Available in browse and fullscreen viewer
+- **Geolocation editing** — Set or remove GPS coordinates on one or more images via an interactive map picker (requires exiftool)
 - **Thumbnail quality** — Standard (fast EXIF thumbnails) or High (full-image decode with bicubic resampling for retina displays), selectable in Settings
 - **Sorting** — By name, date, or size, ascending or descending
 - **Multi-select** — Click, Shift+click, Ctrl/Cmd+click for bulk operations
 - **Status bar** — Live image count and selection count in every pane
 - **EXIF/HEIF orientation** — Portrait and rotated images display correctly
 - **HEIF support** — Automatic conversion via ffmpeg (requires ffmpeg installed)
+- **Fujifilm film simulation** — Film simulation name (e.g. Classic Chrome, Velvia, Acros) shown in the info panel and as a grid overlay badge for Fujifilm images
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
 
 ### Screenshots
@@ -31,10 +33,14 @@ File manager  ("Commander style") mode:
 Waste bin (marked for deletion during culling) mode:
 ![Marked for deletion](doc/screenshot-4-wastebin.png)
 
+Add (or remove) geolocation to one or more files:
+![Marked for deletion](doc/screenshot-5-addgeolocation.png)
+
 ## Requirements
 
 - Go 1.21+
 - ffmpeg (optional, only needed for HEIF/HEIC/HIF files)
+- exiftool (optional, only needed for Set/Remove Geolocation)
 
 ## Install
 
