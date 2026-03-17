@@ -4,68 +4,56 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2026-03-17
 
 ### Added
 
+- **Tools dropdown** — New "Tools" dropdown in the browse controls bar, directly adjacent to the View button. Operates on selected (or focused) images. Checks for exiftool availability on first open and shows a message if missing.
+- **Set Location** — Interactive map picker (MapLibre GL) to manually set GPS coordinates on images. Click the map to place a marker, or type coordinates directly. Shows a confirmation step before writing. Preserves all existing EXIF data including maker notes. The map opens pre-centered on the image's existing GPS (if any), then falls back to a remembered user location, then requests browser geolocation once (cached in `localStorage`), then world view.
+- **Remove Geolocation** — "Remove" button in the Tools → Geolocation row strips GPS EXIF tags from selected images via exiftool. Shows a confirmation modal before writing; reports success or failure inline.
+- **Geolocation row in Tools menu** — The Tools menu shows a "Geolocation" label with "Set" / "Remove" buttons. The label updates to show the count of actionable images (e.g. "Geolocation (3 images)") when the menu is opened.
+- **exiftool availability check** — `GET /api/tools/check` endpoint. Tools dropdown shows a message when exiftool is not installed.
 - **Folder operations** — Copy, move, and delete now work on entire folders in the commander. Copying a folder enumerates its contents and shows per-file progress; moving a folder uses fast rename when on the same filesystem, with copy+delete fallback. Deleting a folder shows a confirmation dialog and removes the folder and all its contents immediately (bypasses the wastebin).
 - **Progress dialog** — A reusable modal progress dialog shows per-item progress with cancel support for multi-file operations (copy, move, delete, set/remove location). Displays a progress bar, current filename, and error summary. Only shown for operations with more than 1 item (copy/move) or more than 5 items (delete, location).
-- **`POST /api/list-recursive`** — New endpoint that recursively lists all files and subdirectories under a given path, used by the frontend to enumerate folder contents for per-file copy/move progress.
-
-- **Commander: New Folder** — New "Folder" button in the commander actions column creates a subfolder in the active pane's current directory. Prompts for the folder name; the pane refreshes after creation.
-- **Commander: Rename** — New "Rename" button renames the focused item in the active pane. Enabled when an item is focused; the pane refreshes after renaming.
-- **Commander: panel captions** — Each pane now shows a "From" or "To" label indicating the active (source) and inactive (destination) pane. Labels update when the active pane changes.
-- **Commander: restructured actions** — Delete, Folder, and Rename buttons are grouped at the top of the actions column (non-directional). Copy and Move buttons remain near the directional arrow.
+- **Commander: New Folder** — "Folder" button in the commander actions column creates a subfolder in the active pane's current directory.
+- **Commander: Rename** — "Rename" button renames the focused item in the active pane. Enabled when an item is focused.
+- **Commander: panel captions** — Each pane now shows a "From" or "To" label indicating the active (source) and inactive (destination) pane.
+- **"Photo Taken" sort** — New sort option in the view menu sorts photos by EXIF `DateTimeOriginal`. Photos without EXIF data always appear last regardless of sort direction. The existing "Date" option is renamed "File Modified".
+- **Aspect ratio display** — Images show their aspect ratio (e.g. `3:2`, `16:9`) as a badge on thumbnails (when "Show details" is on) and as a row in the info panel. Unusual crops show "Custom Crop".
+- **Thumbnail overlays** — New "Show details" toggle in the View menu displays colored metadata badges on thumbnails: file type (JPEG, HEIF, PNG, GIF, WebP), GPS location pin, and Fujifilm film simulation name. Badges load asynchronously. Works in grid, justified, and list views.
+- **Orientation label in info panel** — The Orientation field now shows a human-readable name (e.g. "Normal", "Rotated 90° CW") instead of the raw EXIF integer.
 - **`POST /api/mkdir`** — Creates a directory at the given path within the root boundary.
 - **`POST /api/rename`** — Renames a file or directory to a new base name within the same parent directory.
-
-- **Remove Geolocation** — New "Remove" button in the Tools → Geolocation row strips GPS EXIF tags from selected images via exiftool. Shows a confirmation modal before writing; reports success or failure inline.
-- **Geolocation row in Tools menu** — The Tools menu now shows a "Geolocation" label with "Set" / "Remove" toggle buttons, matching the View menu's Layout row style. The label updates to show the count of actionable images (e.g. "Geolocation (3 images)") when the menu is opened.
-- **Tools dropdown** — New "Tools" dropdown in the browse controls bar, directly adjacent to the View button. Operates on selected (or focused) images. Checks for exiftool availability on first open and shows a message if missing.
-  - **Set Location** — Interactive map picker (MapLibre GL) to manually set GPS coordinates on images. Click the map to place a marker, or type coordinates directly. Shows a confirmation step before writing. Preserves all existing EXIF data including maker notes. The map now opens pre-centered on the image's existing GPS (if any), then falls back to a remembered user location, then requests browser geolocation once (cached in `localStorage`), then world view.
-- **exiftool availability check** — `GET /api/tools/check` endpoint. Tools dropdown shows a message when exiftool is not installed.
-- **Orientation label in info panel** — The Orientation field in the info panel now shows a human-readable name (e.g. "Normal", "Rotated 90° CW") instead of the raw EXIF integer.
-
-### Fixed
-
-- **Commander: Tools (Set/Remove Location) not working** — In commander mode, the Set Location modal never opened and Remove Location had no effect. The `Commander` class was not passing `onToolInvoke` to its `BrowsePane` instances, so tool invocations were silently dropped. Both panes now forward tool events to the app's `handleToolInvoke`.
-
-- **Grid overlay badges refresh after location operations** — After Set Location or Remove Location completes, GPS pin badges on grid items update immediately in-place without scrolling or re-rendering the grid. The info panel also refreshes if it is open and the focused file was changed.
-- **Cache invalidation for location operations** — `handleSetLocation` and `handleRemoveLocation` now correctly invalidate the scan cache after writing, so subsequent metadata fetches return fresh data instead of stale cached values.
-- **Tools menu geolocation label wrapping** — The "Geolocation (N images)" label in the Tools menu no longer wraps across two lines.
-- **Set Location duplicate alert** — After confirming Set Location, a redundant browser `alert()` dialog no longer appears. The result message is shown inline in the modal footer; on success the modal closes after 1.2 s, on error it stays open for retry.
-- **"Photo Taken" sort order** — Photos whose EXIF date happened to equal their filesystem mtime were silently omitted from the EXIF date map and treated as undated, causing them to sort last. EXIF dates are now always stored regardless of whether they match the mtime.
-- **Date display in list view** — Dates in list view and the info panel "Modified" row were formatted using the browser locale (e.g. `01.03.2024, 15:04:05`). They are now displayed in ISO format (`2024-03-01 15:04:05`), consistent with the EXIF dates section in the info panel.
-- **EXIF date formatting** — Info panel Dates section now displays dates as `2016-07-16 20:24:53` instead of the raw EXIF format `2016:07:16 20:24:53`. When offset tags are present, the UTC offset is appended (e.g. `2016-07-16 20:24:53 +09:00`). Raw date and offset tags are suppressed from the Other section.
-- **Deselect on Escape** — Pressing Escape now clears the current selection instead of navigating up a directory when photos are selected (both browse and commander modes). A second Escape with no selection navigates up as before.
-- **Deselect on void click** — Clicking an empty gap in the grid, justified, or list view now clears the selection.
-
-### Added
-
-- **"Photo Taken" sort** — New sort option in the view menu sorts photos by EXIF `DateTimeOriginal`. Photos without EXIF data always appear last regardless of sort direction. The existing "Date" option is renamed "File Modified" to clearly indicate it sorts by filesystem modification time.
+- **`POST /api/list-recursive`** — Recursively lists all files and subdirectories under a given path. Used for per-file copy/move progress on folders.
 
 ### Changed
 
-- **Commander direction arrow** — The Copy/Move buttons no longer show an arrow or selection count in their labels. Direction is now conveyed by a large translucent arrow SVG in the center actions panel, which flips left/right based on the active pane.
-- **Inline SVG logo** — The header logo is now an inline SVG (two horizontal bars + orange triangle), removing the dependency on an external PNG file and allowing the logo to adapt to the current text color.
-- **Workflow-oriented UI** — Replaced the tab-style mode switcher with a connected chevron stepper: three arrow-shaped buttons (flat left, pointed right) that interlock gaplessly. Modes are renamed and reordered to reflect the photographer's natural workflow — Select (1), Review (2), Organize (3) — each with a representative icon (photo grid, trash can, dual-pane). Active step is orange with white text; completed steps are gray; future steps are off-white. Mode switches animate with a directional slide. The Review step shows a count badge when photos are marked for deletion. Keyboard shortcuts updated to match: 2=Review, 3=Organize.
+- **Workflow-oriented UI** — Replaced the tab-style mode switcher with a connected chevron stepper reflecting the photographer's natural workflow: Select (1), Review (2), Organize (3), each with a representative icon. Active step is orange; mode switches animate with a directional slide. The Review step shows a count badge when photos are marked for deletion.
+- **Commander direction arrow** — Direction is now conveyed by a large translucent arrow SVG in the center actions panel, which flips left/right based on the active pane. Copy/Move button labels no longer show a selection count.
+- **Commander: restructured actions** — Delete, Folder, and Rename buttons are grouped at the top of the actions column (non-directional). Copy and Move buttons remain near the directional arrow.
+- **Inline SVG logo** — The header logo is now an inline SVG, removing the dependency on an external PNG file.
 - **Thumbnail overlays on by default** — The "Show details" overlay badges (file type, GPS, film simulation) are now enabled by default.
-
-### Added
-
-- **Aspect ratio display** — Images now show their aspect ratio (e.g. `3:2`, `16:9`) as a badge on thumbnails (when "Show details" is on) and as a row in the info panel below Dimensions. An inline proportional-rectangle icon gives an instant visual hint of the image shape. Uses approximate matching (1.5% tolerance) for real-world sensor dimensions; unusual crops show "Custom Crop" with a dashed icon.
-- **Thumbnail overlays** — New "Show details" toggle in the View menu displays colored metadata badges on thumbnails: file type (JPEG, HEIF, PNG, GIF, WebP), GPS location pin, and Fujifilm film simulation name. Each category has a unique vibrant color. File type badges appear immediately; GPS and film simulation badges load asynchronously via background EXIF extraction. Works in grid, justified, and list views. The same color scheme is used in the info panel for Format and Film Simulation values.
 
 ### Fixed
 
-- **Commander buttons showing stale count** — Action buttons (Copy, Move, Delete) no longer show "(1)" when no images are explicitly selected; the count now reflects only Ctrl+click selections, matching the grid status bar.
-- **Sticky header in commander and waste bin views** — The breadcrumb and controls now stay pinned at the top of each commander pane and the waste bin view while scrolling, matching the existing browse view behavior.
-- **Commander copy no longer resets source pane scroll** — After a copy operation, only the destination pane reloads; the source pane is left untouched, preserving its scroll position.
-- **Escape navigates up in commander mode** — Pressing Escape in commander mode now navigates the active pane to its parent directory, matching the existing browse-mode behavior.
-- **Justified grid not resizing after info panel close** — Closing the info panel no longer leaves the justified grid at the narrower width; it now relays out immediately to fill the full available space.
-- **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key), allowing photo metadata to be viewed without leaving fullscreen.
-- **Map zoom controls** — The location map now has +/- zoom buttons for reliable zooming across all input methods.
-- **HEIF date extraction** — Background EXIF date extraction now handles HEIF/HEIC/HIF files via embedded EXIF fallback, fixing missing dates for HEIF images when sorting by date.
+- **Commander: Tools (Set/Remove Location) not working** — In commander mode, the Set Location modal never opened and Remove Location had no effect. The `Commander` class was not passing `onToolInvoke` to its `BrowsePane` instances, so tool invocations were silently dropped.
+- **Grid overlay badges refresh after location operations** — After Set Location or Remove Location completes, GPS pin badges on grid items update immediately in-place. The info panel also refreshes if the focused file was changed.
+- **Cache invalidation for location operations** — `handleSetLocation` and `handleRemoveLocation` now correctly invalidate the scan cache after writing.
+- **Tools menu geolocation label wrapping** — The "Geolocation (N images)" label in the Tools menu no longer wraps across two lines.
+- **Set Location duplicate alert** — After confirming Set Location, a redundant browser `alert()` no longer appears; the result is shown inline in the modal footer.
+- **"Photo Taken" sort order** — Photos whose EXIF date equalled their filesystem mtime were silently treated as undated, causing them to sort last. EXIF dates are now always stored.
+- **Date display in list view** — Dates in list view and the info panel "Modified" row are now displayed in ISO format (`2024-03-01 15:04:05`).
+- **EXIF date formatting** — Info panel Dates section now displays dates as `2016-07-16 20:24:53` (was `2016:07:16 20:24:53`). UTC offset appended when present.
+- **Commander buttons showing stale count** — Action buttons no longer show "(1)" when no images are explicitly selected.
+- **Sticky header in commander and waste bin views** — The breadcrumb and controls stay pinned at the top while scrolling.
+- **Commander copy no longer resets source pane scroll** — After a copy operation, only the destination pane reloads.
+- **Escape navigates up in commander mode** — Pressing Escape navigates the active pane to its parent directory.
+- **Deselect on Escape** — Pressing Escape clears the current selection before navigating up (both browse and commander modes).
+- **Deselect on void click** — Clicking an empty gap in the grid, justified, or list view clears the selection.
+- **Justified grid not resizing after info panel close** — Closing the info panel now immediately relays out the justified grid to fill the full available space.
+- **Info panel in fullscreen mode** — The info panel (I key) now works in full UI-hidden mode (H key).
+- **Map zoom controls** — The location map now has +/− zoom buttons for reliable zooming across all input methods.
+- **HEIF date extraction** — Background EXIF date extraction now handles HEIF/HEIC/HIF files via embedded EXIF fallback, fixing missing dates when sorting by date.
 
 ## [0.3.1] - 2026-03-06
 
