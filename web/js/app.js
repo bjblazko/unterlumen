@@ -231,6 +231,7 @@ const App = {
                 appEl.appendChild(this._commanderEl);
                 this.commander = new Commander(this._commanderEl, this.currentBrowsePath);
                 this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
+                this.commander.onToolInvoke = (params) => this.handleToolInvoke(params);
                 this.commander.init();
             }
         }
@@ -294,6 +295,41 @@ const App = {
 
     async permanentlyDelete(paths) {
         const filePaths = Array.from(paths);
+
+        const refreshPanes = () => {
+            if (this.browsePane) this.browsePane.load(this.browsePane.path);
+            if (this.commander) {
+                if (this.commander.leftPane)  this.commander.leftPane.load(this.commander.leftPane.path);
+                if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
+            }
+        };
+
+        // Large batches use progress dialog
+        if (filePaths.length > 5) {
+            const dialog = new ProgressDialog();
+            dialog.open(filePaths, {
+                verb: 'Deleting',
+                action: async (file) => {
+                    try {
+                        const result = await API.delete([file]);
+                        const r = result.results[0];
+                        if (r && (r.success || (r.error && r.error.includes('no such file')))) {
+                            this.wasteBin.delete(r.file);
+                        }
+                        return r || { success: true };
+                    } catch (err) {
+                        return { success: false, error: err.message };
+                    }
+                },
+                onComplete: () => {
+                    this.updateWasteBinBadge();
+                    refreshPanes();
+                },
+            });
+            return;
+        }
+
+        // Small batches: direct call
         try {
             const result = await API.delete(filePaths);
             for (const r of result.results) {
@@ -302,13 +338,7 @@ const App = {
                 }
             }
             this.updateWasteBinBadge();
-
-            // Reload panes so deleted entries are removed from browse/commander
-            if (this.browsePane) this.browsePane.load(this.browsePane.path);
-            if (this.commander) {
-                if (this.commander.leftPane)  this.commander.leftPane.load(this.commander.leftPane.path);
-                if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
-            }
+            refreshPanes();
 
             const failures = result.results.filter(r => !r.success && !r.error.includes('no such file'));
             if (failures.length > 0) {

@@ -1,12 +1,23 @@
 # Changelog
 
-*Last modified: 2026-03-16*
+*Last modified: 2026-03-17*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Folder operations** — Copy, move, and delete now work on entire folders in the commander. Copying a folder enumerates its contents and shows per-file progress; moving a folder uses fast rename when on the same filesystem, with copy+delete fallback. Deleting a folder shows a confirmation dialog and removes the folder and all its contents immediately (bypasses the wastebin).
+- **Progress dialog** — A reusable modal progress dialog shows per-item progress with cancel support for multi-file operations (copy, move, delete, set/remove location). Displays a progress bar, current filename, and error summary. Only shown for operations with more than 1 item (copy/move) or more than 5 items (delete, location).
+- **`POST /api/list-recursive`** — New endpoint that recursively lists all files and subdirectories under a given path, used by the frontend to enumerate folder contents for per-file copy/move progress.
+
+- **Commander: New Folder** — New "Folder" button in the commander actions column creates a subfolder in the active pane's current directory. Prompts for the folder name; the pane refreshes after creation.
+- **Commander: Rename** — New "Rename" button renames the focused item in the active pane. Enabled when an item is focused; the pane refreshes after renaming.
+- **Commander: panel captions** — Each pane now shows a "From" or "To" label indicating the active (source) and inactive (destination) pane. Labels update when the active pane changes.
+- **Commander: restructured actions** — Delete, Folder, and Rename buttons are grouped at the top of the actions column (non-directional). Copy and Move buttons remain near the directional arrow.
+- **`POST /api/mkdir`** — Creates a directory at the given path within the root boundary.
+- **`POST /api/rename`** — Renames a file or directory to a new base name within the same parent directory.
 
 - **Remove Geolocation** — New "Remove" button in the Tools → Geolocation row strips GPS EXIF tags from selected images via exiftool. Shows a confirmation modal before writing; reports success or failure inline.
 - **Geolocation row in Tools menu** — The Tools menu now shows a "Geolocation" label with "Set" / "Remove" toggle buttons, matching the View menu's Layout row style. The label updates to show the count of actionable images (e.g. "Geolocation (3 images)") when the menu is opened.
@@ -16,6 +27,8 @@ All notable changes to this project are documented in this file.
 - **Orientation label in info panel** — The Orientation field in the info panel now shows a human-readable name (e.g. "Normal", "Rotated 90° CW") instead of the raw EXIF integer.
 
 ### Fixed
+
+- **Commander: Tools (Set/Remove Location) not working** — In commander mode, the Set Location modal never opened and Remove Location had no effect. The `Commander` class was not passing `onToolInvoke` to its `BrowsePane` instances, so tool invocations were silently dropped. Both panes now forward tool events to the app's `handleToolInvoke`.
 
 - **Grid overlay badges refresh after location operations** — After Set Location or Remove Location completes, GPS pin badges on grid items update immediately in-place without scrolling or re-rendering the grid. The info panel also refreshes if it is open and the focused file was changed.
 - **Cache invalidation for location operations** — `handleSetLocation` and `handleRemoveLocation` now correctly invalidate the scan cache after writing, so subsequent metadata fetches return fresh data instead of stale cached values.
