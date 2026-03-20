@@ -165,8 +165,7 @@ class Viewer {
             case 'F':
                 e.preventDefault();
                 this.filmStripVisible = !this.filmStripVisible;
-                const cb = this.container.querySelector('.viewer-filmstrip-toggle input');
-                if (cb) cb.checked = this.filmStripVisible;
+                if (this._filmToggle) this._filmToggle.setState(this.filmStripVisible);
                 this.updateFilmStrip();
                 break;
             case 'h':
@@ -189,10 +188,8 @@ class Viewer {
                 <div class="viewer-toolbar">
                     <button class="btn viewer-back" title="Back (Esc)">← Back</button>
                     <span class="viewer-filename">${filename}</span>
-                    <label class="viewer-filmstrip-toggle" title="Film strip (F)">
-                        <input type="checkbox" ${this.filmStripVisible ? 'checked' : ''}>
-                        <span>Film strip</span>
-                    </label>
+                    <span class="viewer-filmstrip-label">Film strip</span>
+                    <div class="viewer-filmstrip-toggle-wrap" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
                     <button class="btn viewer-info ${infoActive ? 'active' : ''}" title="Info (I)">Info</button>
                     <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
@@ -224,11 +221,14 @@ class Viewer {
             this.updateFilmStrip(true);
         }
 
-        const filmToggle = this.container.querySelector('.viewer-filmstrip-toggle input');
-        if (filmToggle) {
-            filmToggle.addEventListener('change', (e) => {
-                this.filmStripVisible = e.target.checked;
-                this.updateFilmStrip();
+        const filmToggleWrap = this.container.querySelector('.viewer-filmstrip-toggle-wrap');
+        if (filmToggleWrap) {
+            this._filmToggle = Toggle.create(filmToggleWrap, {
+                initial: this.filmStripVisible,
+                onChange: (on) => {
+                    this.filmStripVisible = on;
+                    this.updateFilmStrip();
+                }
             });
         }
 

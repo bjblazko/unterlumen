@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Reusable toggle switch** — All boolean toggles (Show Names, Show Details, Interface, Film Strip) now use a unified iOS-style pill toggle component with OFF/ON labels, replacing the inconsistent mix of buttons and checkboxes. CSS-only animation with accent orange for the on state.
 - **Unified dropdown system** — Settings, View, Tools, and commander Rename menus now share a single `Dropdown.init()` utility and consistent CSS classes (`dropdown-wrap`, `dropdown-btn`, `dropdown-menu`, etc.), eliminating duplicated toggle logic and styling. Dropdown menus size to their content (`width: max-content`) and overflow narrow parent containers gracefully.
 
 ## [0.4.0] - 2026-03-17

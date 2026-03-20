@@ -274,15 +274,11 @@ class BrowsePane {
                     </div>
                     <div class="dropdown-section">
                         <label class="dropdown-label">Show names</label>
-                        <button class="btn btn-sm toggle-names ${this.showNames ? 'active' : ''}">
-                            ${this.showNames ? 'On' : 'Off'}
-                        </button>
+                        <div class="toggle-names-wrap"></div>
                     </div>
                     <div class="dropdown-section">
                         <label class="dropdown-label">Show details</label>
-                        <button class="btn btn-sm toggle-overlays ${this.showOverlays ? 'active' : ''}">
-                            ${this.showOverlays ? 'On' : 'Off'}
-                        </button>
+                        <div class="toggle-overlays-wrap"></div>
                     </div>
                     <div class="dropdown-section">
                         <label class="dropdown-label">Sort</label>
@@ -648,22 +644,18 @@ class BrowsePane {
         }
 
         // Names toggle
-        const namesToggle = this.container.querySelector('.toggle-names');
-        if (namesToggle) {
-            namesToggle.addEventListener('click', () => {
-                this.showNames = !this.showNames;
-                this.render();
-            });
-        }
+        const namesWrap = this.container.querySelector('.toggle-names-wrap');
+        if (namesWrap) Toggle.create(namesWrap, {
+            initial: this.showNames,
+            onChange: (on) => { this.showNames = on; this.render(); }
+        });
 
         // Overlays toggle
-        const overlaysToggle = this.container.querySelector('.toggle-overlays');
-        if (overlaysToggle) {
-            overlaysToggle.addEventListener('click', () => {
-                this.showOverlays = !this.showOverlays;
-                this.render();
-            });
-        }
+        const overlaysWrap = this.container.querySelector('.toggle-overlays-wrap');
+        if (overlaysWrap) Toggle.create(overlaysWrap, {
+            initial: this.showOverlays,
+            onChange: (on) => { this.showOverlays = on; this.render(); }
+        });
 
         // Sort field
         const sortField = this.container.querySelector('.sort-field');

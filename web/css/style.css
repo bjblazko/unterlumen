@@ -263,6 +263,80 @@ body {
     cursor: default;
 }
 
+/* —— Toggle switch —— */
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.toggle-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-sec);
+    user-select: none;
+}
+
+.toggle-track {
+    display: inline-flex;
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+.toggle-thumb {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--surface-alt);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s;
+    transform: translateX(16px);
+}
+
+.toggle[data-state="on"] .toggle-track {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.toggle[data-state="on"] .toggle-thumb {
+    transform: translateX(0);
+}
+
+.toggle[data-state="on"] .toggle-label-on {
+    color: var(--accent);
+}
+
+.toggle:hover .toggle-track {
+    border-color: var(--text-sec);
+}
+
+.toggle[data-state="on"]:hover .toggle-track {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.viewer-toolbar .toggle-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.viewer-filmstrip-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
 /* —— Buttons —— */
 
 .btn {
@@ -1178,22 +1252,6 @@ body {
     object-fit: cover;
     display: block;
     image-orientation: from-image;
-}
-
-.viewer-filmstrip-toggle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-}
-
-.viewer-filmstrip-toggle input {
-    accent-color: var(--accent);
-}
-
-.viewer-filmstrip-toggle span {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
 }
 
 body.ui-hidden .viewer-filmstrip {
