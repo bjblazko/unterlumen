@@ -257,34 +257,35 @@ class BrowsePane {
 
         return `<div class="controls">
             <div class="controls-left">
-            <div class="view-menu-wrap">
-                <button class="btn btn-sm view-menu-btn" title="View options">
+            <div class="dropdown-wrap">
+                <button class="btn btn-sm dropdown-btn view-menu-btn" title="View options">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3.5" x2="12" y2="3.5"/><line x1="2" y1="7" x2="12" y2="7"/><line x1="2" y1="10.5" x2="12" y2="10.5"/><circle cx="5" cy="3.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="10.5" r="1.5" fill="currentColor" stroke="none"/></svg>
                     View
+                    <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
                 </button>
-                <div class="view-menu" style="display:none">
-                    <div class="view-menu-section">
-                        <label class="view-menu-label">Layout</label>
-                        <div class="view-menu-toggle">
+                <div class="dropdown-menu view-menu" style="display:none">
+                    <div class="dropdown-section">
+                        <label class="dropdown-label">Layout</label>
+                        <div class="dropdown-toggle">
                             <button class="btn btn-sm ${this.view === 'grid' ? 'active' : ''}" data-view="grid">Grid</button>
                             <button class="btn btn-sm ${this.view === 'justified' ? 'active' : ''}" data-view="justified">Justified</button>
                             <button class="btn btn-sm ${this.view === 'list' ? 'active' : ''}" data-view="list">List</button>
                         </div>
                     </div>
-                    <div class="view-menu-section">
-                        <label class="view-menu-label">Show names</label>
+                    <div class="dropdown-section">
+                        <label class="dropdown-label">Show names</label>
                         <button class="btn btn-sm toggle-names ${this.showNames ? 'active' : ''}">
                             ${this.showNames ? 'On' : 'Off'}
                         </button>
                     </div>
-                    <div class="view-menu-section">
-                        <label class="view-menu-label">Show details</label>
+                    <div class="dropdown-section">
+                        <label class="dropdown-label">Show details</label>
                         <button class="btn btn-sm toggle-overlays ${this.showOverlays ? 'active' : ''}">
                             ${this.showOverlays ? 'On' : 'Off'}
                         </button>
                     </div>
-                    <div class="view-menu-section">
-                        <label class="view-menu-label">Sort</label>
+                    <div class="dropdown-section">
+                        <label class="dropdown-label">Sort</label>
                         <select class="sort-field">
                             <option value="name" ${this.sort === 'name' ? 'selected' : ''}>Name</option>
                             <option value="date" ${this.sort === 'date' ? 'selected' : ''}>File Modified</option>
@@ -295,20 +296,28 @@ class BrowsePane {
                     </div>
                 </div>
             </div>
-            <div class="tools-menu-wrap">
-                <button class="btn btn-sm tools-menu-btn" title="Tools">
+            <div class="dropdown-wrap">
+                <button class="btn btn-sm dropdown-btn tools-menu-btn" title="Tools">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 1.5l4 4-7.5 7.5H1v-4z"/><path d="M7 3l4 4"/></svg>
                     Tools
+                    <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
                 </button>
-                <div class="tools-menu" style="display:none">
+                <div class="dropdown-menu tools-menu" style="display:none">
                     <div class="tools-menu-loading" style="display:none">Checking...</div>
                     <div class="tools-menu-message" style="display:none">Requires exiftool. Install it to use tools.</div>
                     <div class="tools-menu-items" style="display:none">
-                        <div class="view-menu-section">
-                            <label class="view-menu-label tools-geo-label">Geolocation</label>
-                            <div class="view-menu-toggle">
+                        <div class="dropdown-section">
+                            <label class="dropdown-label tools-geo-label">Geolocation</label>
+                            <div class="dropdown-toggle">
                                 <button class="btn btn-sm tool-item" data-tool="set-location">Set</button>
                                 <button class="btn btn-sm tool-item" data-tool="remove-location">Remove</button>
+                            </div>
+                        </div>
+                        <div class="dropdown-section">
+                            <label class="dropdown-label">Rename</label>
+                            <div class="dropdown-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="rename">Single</button>
+                                <button class="btn btn-sm tool-item" data-tool="batch-rename">Batch (Metadata)</button>
                             </div>
                         </div>
                     </div>
@@ -606,47 +615,19 @@ class BrowsePane {
         const viewMenuBtn = this.container.querySelector('.view-menu-btn');
         const viewMenu = this.container.querySelector('.view-menu');
         if (viewMenuBtn && viewMenu) {
-            const closeMenu = () => {
-                viewMenu.style.display = 'none';
-                document.removeEventListener('click', closeMenu);
-            };
-            viewMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const open = viewMenu.style.display !== 'none';
-                if (open) {
-                    closeMenu();
-                } else {
-                    viewMenu.style.display = '';
-                    document.addEventListener('click', closeMenu);
-                }
-            });
-            viewMenu.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
+            Dropdown.init(viewMenuBtn, viewMenu);
         }
 
         // Tools menu toggle
         const toolsMenuBtn = this.container.querySelector('.tools-menu-btn');
         const toolsMenu = this.container.querySelector('.tools-menu');
         if (toolsMenuBtn && toolsMenu) {
-            const closeToolsMenu = () => {
-                toolsMenu.style.display = 'none';
-                document.removeEventListener('click', closeToolsMenu);
-            };
-            toolsMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const open = toolsMenu.style.display !== 'none';
-                if (open) {
-                    closeToolsMenu();
-                } else {
-                    toolsMenu.style.display = '';
-                    document.addEventListener('click', closeToolsMenu);
+            const { close: closeToolsMenu } = Dropdown.init(toolsMenuBtn, toolsMenu, {
+                onOpen: () => {
                     this._updateToolsGeoLabel();
+                    this._updateToolsRenameState();
                     this._checkToolsAvailability();
-                }
-            });
-            toolsMenu.addEventListener('click', (e) => {
-                e.stopPropagation();
+                },
             });
 
             // Tool item clicks
@@ -881,6 +862,13 @@ class BrowsePane {
         label.textContent = count > 0
             ? `Geolocation (${count} image${count !== 1 ? 's' : ''})`
             : 'Geolocation';
+    }
+
+    _updateToolsRenameState() {
+        const btn = this.container.querySelector('[data-tool="rename"]');
+        if (!btn) return;
+        const count = this.getActionableFiles().length;
+        btn.disabled = count !== 1;
     }
 
     _notifyFocusChange() {

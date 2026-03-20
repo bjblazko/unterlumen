@@ -1,8 +1,21 @@
 # Changelog
 
-*Last modified: 2026-03-17*
+*Last modified: 2026-03-21*
 
 All notable changes to this project are documented in this file.
+
+## [Unreleased]
+
+### Added
+
+- **Batch Rename** — Pattern-based batch renaming of photos using EXIF metadata. Accessible from the Tools dropdown ("Batch (Metadata)") and the commander Rename dropdown. Supports placeholders for date (`{YYYY}`, `{MM}`, `{DD}`, etc.), camera metadata (`{make}`, `{model}`, `{lens}`, `{filmsim}`, `{iso}`, `{aperture}`, `{focal}`, `{shutter}`), original filename (`{original}`), and auto-incrementing counter (`{seq}`). Features color-coded draggable token pills with tooltips, a colored highlight overlay in the pattern input, a horizontally scrollable live preview of resulting filenames, conflict detection with automatic suffix resolution, progress bar during execution, and SMB-safe filename sanitization.
+- **Simple Rename** — Single-file rename option ("Single") in the Tools dropdown and commander Rename dropdown. Automatically disabled when multiple files are selected.
+- **`POST /api/batch-rename/preview`** — Returns resolved filenames for a given pattern and file list.
+- **`POST /api/batch-rename/execute`** — Renames files on disk using a two-pass strategy (temp names first) to handle circular renames safely.
+
+### Changed
+
+- **Unified dropdown system** — Settings, View, Tools, and commander Rename menus now share a single `Dropdown.init()` utility and consistent CSS classes (`dropdown-wrap`, `dropdown-btn`, `dropdown-menu`, etc.), eliminating duplicated toggle logic and styling. Dropdown menus size to their content (`width: max-content`) and overflow narrow parent containers gracefully.
 
 ## [0.4.0] - 2026-03-17
 

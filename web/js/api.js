@@ -124,6 +124,26 @@ const API = {
         return resp.json();
     },
 
+    async batchRenamePreview(files, pattern) {
+        const resp = await fetch('/api/batch-rename/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, pattern }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async batchRenameExecute(files, pattern) {
+        const resp = await fetch('/api/batch-rename/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, pattern }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     config() {
         return fetch('/api/config').then(r => r.json());
     },
