@@ -138,9 +138,12 @@ const App = {
             }
         });
 
-        document.getElementById('settings-hide-ui').addEventListener('click', () => {
-            this.toggleUIVisibility();
-            closeMenu();
+        this._hideUiToggle = Toggle.create(document.getElementById('settings-hide-ui-wrap'), {
+            initial: !this.uiHidden,
+            onChange: (on) => {
+                this.toggleUIVisibility();
+                closeMenu();
+            }
         });
     },
 
