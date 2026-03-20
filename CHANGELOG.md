@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Film strip in viewer** — Horizontal thumbnail strip below the main image in fullscreen viewer mode. Toggle via toolbar checkbox or `F` key. Click any thumbnail to jump directly to that image. Auto-scrolls to keep the current image visible. Thumbnails are lazy-loaded for performance. Hidden by default; also hides when UI is hidden (`H` key).
 - **Batch Rename** — Pattern-based batch renaming of photos using EXIF metadata. Accessible from the Tools dropdown ("Batch (Metadata)") and the commander Rename dropdown. Supports placeholders for date (`{YYYY}`, `{MM}`, `{DD}`, etc.), camera metadata (`{make}`, `{model}`, `{lens}`, `{filmsim}`, `{iso}`, `{aperture}`, `{focal}`, `{shutter}`), original filename (`{original}`), and auto-incrementing counter (`{seq}`). Features color-coded draggable token pills with tooltips, a colored highlight overlay in the pattern input, a horizontally scrollable live preview of resulting filenames, conflict detection with automatic suffix resolution, progress bar during execution, and SMB-safe filename sanitization.
 - **Simple Rename** — Single-file rename option ("Single") in the Tools dropdown and commander Rename dropdown. Automatically disabled when multiple files are selected.
 - **`POST /api/batch-rename/preview`** — Returns resolved filenames for a given pattern and file list.
