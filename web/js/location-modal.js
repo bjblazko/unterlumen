@@ -143,11 +143,11 @@ class LocationModal {
                     <div class="location-map" id="location-map"></div>
                     <div class="location-fields">
                         <label class="location-field">
-                            <span class="view-menu-label">Latitude</span>
+                            <span class="dropdown-label">Latitude</span>
                             <input type="text" class="location-input" id="loc-lat" placeholder="e.g. 48.8566">
                         </label>
                         <label class="location-field">
-                            <span class="view-menu-label">Longitude</span>
+                            <span class="dropdown-label">Longitude</span>
                             <input type="text" class="location-input" id="loc-lon" placeholder="e.g. 2.3522">
                         </label>
                     </div>

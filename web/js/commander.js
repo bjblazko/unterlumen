@@ -28,7 +28,13 @@ class Commander {
                     <div class="cmd-top-actions">
                         <button class="btn btn-action" id="cmd-delete" title="Mark for Deletion (Del)" disabled>${CMD_ICONS.delete} Delete</button>
                         <button class="btn btn-action" id="cmd-mkdir" title="New Folder">${CMD_ICONS.mkdir} Folder</button>
-                        <button class="btn btn-action" id="cmd-rename" title="Rename" disabled>${CMD_ICONS.rename} Rename</button>
+                        <div class="dropdown-wrap cmd-rename-wrap">
+                            <button class="btn btn-action dropdown-btn cmd-rename-btn" id="cmd-rename" title="Rename" disabled>${CMD_ICONS.rename} Rename <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
+                            <div class="dropdown-menu cmd-rename-menu" id="cmd-rename-menu" style="display:none">
+                                <button class="btn dropdown-item" data-rename="rename">Single</button>
+                                <button class="btn dropdown-item" data-rename="batch-rename">Batch (Metadata)</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="cmd-dir-actions">
                         <svg id="cmd-direction-arrow" class="cmd-arrow" viewBox="0 0 100 160" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -83,7 +89,16 @@ class Commander {
         document.getElementById('cmd-move').addEventListener('click', () => this.doMove());
         document.getElementById('cmd-delete').addEventListener('click', () => this.doDelete());
         document.getElementById('cmd-mkdir').addEventListener('click', () => this.doMkdir());
-        document.getElementById('cmd-rename').addEventListener('click', () => this.doRename());
+        // Rename dropdown
+        const renameBtn = document.getElementById('cmd-rename');
+        const renameMenu = document.getElementById('cmd-rename-menu');
+        const { close: closeRenameMenu } = Dropdown.init(renameBtn, renameMenu);
+        renameMenu.addEventListener('click', (e) => {
+            const option = e.target.closest('[data-rename]');
+            if (!option) return;
+            closeRenameMenu();
+            this.doRename(option.dataset.rename);
+        });
 
         // Set default views: left=grid, right=list
         this.leftPane.view = 'grid';
@@ -205,13 +220,19 @@ class Commander {
         document.getElementById('cmd-copy').disabled = !hasTargets;
         document.getElementById('cmd-move').disabled = !hasTargets;
         document.getElementById('cmd-delete').disabled = !hasTargets;
-        document.getElementById('cmd-rename').disabled = !focused;
+        document.getElementById('cmd-rename').disabled = !hasTargets && !focused;
 
         document.getElementById('cmd-copy').innerHTML = `${CMD_ICONS.copy} Copy`;
         document.getElementById('cmd-move').innerHTML = `${CMD_ICONS.move} Move`;
         document.getElementById('cmd-delete').innerHTML = `${CMD_ICONS.delete} Delete`;
         document.getElementById('cmd-mkdir').innerHTML = `${CMD_ICONS.mkdir} Folder`;
-        document.getElementById('cmd-rename').innerHTML = `${CMD_ICONS.rename} Rename`;
+        document.getElementById('cmd-rename').innerHTML = `${CMD_ICONS.rename} Rename <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>`;
+
+        // Disable simple rename when multiple files selected
+        const simpleRenameBtn = document.querySelector('#cmd-rename-menu [data-rename="rename"]');
+        if (simpleRenameBtn) {
+            simpleRenameBtn.disabled = actionable.length > 1;
+        }
 
         // Flip arrow: left-active → points right (default); right-active → points left
         const arrow = document.getElementById('cmd-direction-arrow');
@@ -425,19 +446,16 @@ class Commander {
         }
     }
 
-    async doRename() {
+    doRename(tool = 'rename') {
         const pane = this.getActivePane();
-        const entry = pane.focusedIndex >= 0 ? pane.entries[pane.focusedIndex] : null;
-        if (!entry) return;
-        const newName = prompt('New name:', entry.name);
-        if (!newName || !newName.trim() || newName.trim() === entry.name) return;
-        const oldPath = pane.fullPath(entry.name);
-        try {
-            await API.rename(oldPath, newName.trim());
-            pane.load(pane.path);
-        } catch (err) {
-            alert('Rename failed: ' + err.message);
+        const files = pane.getActionableFiles();
+        if (files.length === 0) {
+            const entry = pane.focusedIndex >= 0 ? pane.entries[pane.focusedIndex] : null;
+            if (!entry) return;
+            if (this.onToolInvoke) this.onToolInvoke({ tool, files: [pane.fullPath(entry.name)] });
+            return;
         }
+        if (this.onToolInvoke) this.onToolInvoke({ tool, files });
     }
 
     showResults(op, results) {

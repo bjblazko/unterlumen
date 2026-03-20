@@ -122,22 +122,7 @@ const App = {
         const btn = document.getElementById('settings-btn');
         const menu = document.getElementById('settings-menu');
 
-        const closeMenu = () => {
-            menu.style.display = 'none';
-            document.removeEventListener('click', closeMenu);
-        };
-
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (menu.style.display !== 'none') {
-                closeMenu();
-            } else {
-                menu.style.display = '';
-                document.addEventListener('click', closeMenu);
-            }
-        });
-
-        menu.addEventListener('click', (e) => e.stopPropagation());
+        const { close: closeMenu } = Dropdown.init(btn, menu);
 
         menu.addEventListener('click', (e) => {
             const themeBtn = e.target.closest('[data-theme-set]');
@@ -494,6 +479,7 @@ const App = {
 
     handleToolInvoke({ tool, files }) {
         if (!this.locationModal) this.locationModal = new LocationModal();
+        if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
         const onSuccess = (changedFiles) => {
             if (pane) pane.notifyFilesChanged(changedFiles);
@@ -508,10 +494,34 @@ const App = {
             this.locationModal.open(files, onSuccess);
         } else if (tool === 'remove-location') {
             this.locationModal.openRemove(files, onSuccess);
+        } else if (tool === 'rename') {
+            if (files.length !== 1) return;
+            const filePath = files[0];
+            const oldName = filePath.split('/').pop();
+            const newName = prompt('New name:', oldName);
+            if (!newName || !newName.trim() || newName.trim() === oldName) return;
+            API.rename(filePath, newName.trim()).then(() => {
+                if (pane) pane.load(pane.path);
+                if (this.mode === 'commander' && this.commander) {
+                    const other = this.commander.getOtherPane();
+                    if (other) other.load(other.path);
+                }
+            }).catch(err => alert('Rename failed: ' + err.message));
+        } else if (tool === 'batch-rename') {
+            this.batchRenameModal.open(files, () => {
+                if (pane) pane.load(pane.path);
+                if (this.mode === 'commander' && this.commander) {
+                    const other = this.commander.getOtherPane();
+                    if (other) other.load(other.path);
+                }
+            });
         }
     },
 
     handleGlobalKey(e) {
+        // Don't intercept keys when a modal overlay is open (modals handle their own keys)
+        if (document.querySelector('.modal-overlay')) return;
+
         // Tab to switch panes in commander mode
         if (e.key === 'Tab' && this.mode === 'commander' && this.commander) {
             e.preventDefault();
