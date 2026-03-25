@@ -1,6 +1,6 @@
 # Image Processing Flow: Thumbnails, Full Images, ffmpeg, and Caching
 
-*Last modified: 2026-02-27*
+*Last modified: 2026-03-25*
 
 This document describes the exact runtime behavior for every code path that
 produces image data for the browser — from the HTTP request to the bytes on
@@ -15,27 +15,25 @@ The handler lives in `internal/api/thumbnail.go`. `thumbnailMaxDim` is 300 px.
 
 ### 1a. Non-HEIF files (JPEG, PNG, GIF, WebP)
 
-```
-Request
-  │
-  ├─ ExtractOrientation()            read EXIF orientation tag (1–8)
-  │    └─ opens file, calls goexif   no ffmpeg
-  │
-  ├─ ExtractThumbnail()              [fast path]
-  │    ├─ opens file, calls goexif
-  │    ├─ reads JpegThumbnail() from EXIF
-  │    ├─ validates aspect ratio (rejects if >10% mismatch)
-  │    ├─ applies orientation rotation if needed (in-memory)
-  │    └─ returns embedded JPEG bytes  ──► serve, done
-  │         (no ffmpeg, no disk cache)
-  │
-  └─ GenerateThumbnail()             [fallback — no EXIF thumbnail]
-       ├─ opens file, calls image.Decode()
-       ├─ applies orientation rotation if needed (in-memory)
-       ├─ if image fits within 300 px: return raw file bytes (no resize)
-       └─ else: nearest-neighbor resize, re-encode as JPEG/PNG
-            ──► serve, done
-            (no ffmpeg, no disk cache)
+```mermaid
+flowchart TD
+    A[Request] --> B["ExtractOrientation()<br/>read EXIF orientation tag (1–8)<br/><i>opens file, calls goexif — no ffmpeg</i>"]
+    B --> C["ExtractThumbnail() — fast path"]
+    C --> C1["opens file, calls goexif"]
+    C1 --> C2["reads JpegThumbnail() from EXIF"]
+    C2 --> C3["validates aspect ratio<br/>(rejects if >10% mismatch)"]
+    C3 --> C4["applies orientation rotation if needed (in-memory)"]
+    C4 --> C5["returns embedded JPEG bytes<br/><i>no ffmpeg, no disk cache</i>"]
+    C5 --> SERVE1([Serve, done])
+
+    C3 -- "no EXIF thumbnail" --> D["GenerateThumbnail() — fallback"]
+    D --> D1["opens file, calls image.Decode()"]
+    D1 --> D2["applies orientation rotation if needed (in-memory)"]
+    D2 --> D3{"image fits<br/>within 300 px?"}
+    D3 -- "yes" --> D4["return raw file bytes (no resize)"]
+    D3 -- "no" --> D5["nearest-neighbor resize,<br/>re-encode as JPEG/PNG"]
+    D4 --> SERVE2([Serve, done])
+    D5 --> SERVE2
 ```
 
 **No ffmpeg is ever called for non-HEIF thumbnails.**
@@ -43,36 +41,32 @@ Request
 
 ### 1b. HEIF/HEIC/HIF files
 
-```
-Request
-  │
-  ├─ ExtractHEIFPreview()
-  │    ├─ compute cache key: SHA-256( path + "|" + mtime + "|preview-v3" )[:12].hex + ".jpg"
-  │    ├─ readCache()  →  hit? ──► return cached bytes, skip to ResizeJPEGBytes
-  │    │
-  │    └─ cache miss → extractBestJPEG()
-  │         ├─ ffmpegProbe()           runs: ffmpeg -i <path>
-  │         │    └─ reads stderr only  (ffmpeg always exits non-zero without output file)
-  │         │       result used to discover embedded JPEG streams
-  │         │
-  │         ├─ if large MJPEG stream found (not 160×120):
-  │         │    ffmpegRun()           runs: ffmpeg -i <path> -map 0:<idx> -c copy -f image2pipe pipe:1
-  │         │    └─ stream-copy: no re-encoding, very fast  ──► use this JPEG
-  │         │
-  │         ├─ else: sipsConvert()     runs: sips -s format jpeg -s formatOptions 92 <path> --out <tmp>
-  │         │    ├─ writes to a unique OS temp file (immediately deleted after read)
-  │         │    └─ uses Apple's native HEIF decoder (correct for multi-tile HEIF)
-  │         │         ──► use this JPEG if successful
-  │         │
-  │         └─ else: ffmpegRun()       runs: ffmpeg -i <path> -f image2pipe -vcodec mjpeg -q:v 2 -frames:v 1 pipe:1
-  │              └─ decodes HEVC to JPEG (slowest, for HEIF without embedded previews)
-  │
-  │    ├─ ExtractHEIFOrientation()    reads irot box from ISOBMFF container (no ffmpeg)
-  │    ├─ applyOrientationJPEG()      rotate in-memory if needed, re-encode at quality 80
-  │    └─ writeCache()                write result to disk cache
-  │
-  └─ ResizeJPEGBytes()                resize to ≤300 px if needed (in-memory)
-       ──► serve
+```mermaid
+flowchart TD
+    A[Request] --> B["ExtractHEIFPreview()"]
+    B --> C["compute cache key:<br/>SHA-256( path + '|' + mtime + '|preview-v3' )[:12].hex + '.jpg'"]
+    C --> D{"readCache()<br/>hit?"}
+    D -- "hit" --> RESIZE
+
+    D -- "miss" --> E["extractBestJPEG()"]
+    E --> F["ffmpegProbe()<br/><code>ffmpeg -i &lt;path&gt;</code><br/><i>reads stderr only — discovers embedded JPEG streams</i>"]
+    F --> G{"large MJPEG<br/>stream found?<br/>(not 160×120)"}
+
+    G -- "yes" --> H["ffmpegRun() stream copy<br/><code>ffmpeg -i &lt;path&gt; -map 0:&lt;idx&gt; -c copy -f image2pipe pipe:1</code><br/><i>no re-encoding, very fast</i>"]
+    G -- "no" --> I["sipsConvert()<br/><code>sips -s format jpeg -s formatOptions 92 &lt;path&gt; --out &lt;tmp&gt;</code><br/><i>Apple native HEIF decoder; temp file deleted after read</i>"]
+    I --> J{"sips<br/>succeeded?"}
+    J -- "yes" --> ORIENT
+    J -- "no" --> K["ffmpegRun() HEVC decode<br/><code>ffmpeg -i &lt;path&gt; -f image2pipe -vcodec mjpeg -q:v 2 -frames:v 1 pipe:1</code><br/><i>slowest path — decodes HEVC to JPEG</i>"]
+    H --> ORIENT
+    K --> ORIENT
+
+    ORIENT["ExtractHEIFOrientation()<br/><i>reads irot box from ISOBMFF container (no ffmpeg)</i>"]
+    ORIENT --> ORI2["applyOrientationJPEG()<br/><i>rotate in-memory, re-encode at quality 80</i>"]
+    ORI2 --> CACHE["writeCache()<br/><i>write result to disk cache</i>"]
+    CACHE --> RESIZE
+
+    RESIZE["ResizeJPEGBytes()<br/><i>resize to ≤300 px if needed (in-memory)</i>"]
+    RESIZE --> SERVE([Serve])
 ```
 
 ---
@@ -83,29 +77,37 @@ The handler lives in `internal/api/image.go`.
 
 ### 2a. Non-HEIF files
 
-```
-Request
-  └─ http.ServeFile()    raw file served directly from disk
-       (no ffmpeg, no decode, no cache)
+```mermaid
+flowchart TD
+    A[Request] --> B["http.ServeFile()<br/><i>raw file served directly from disk<br/>no ffmpeg, no decode, no cache</i>"]
 ```
 
 ### 2b. HEIF/HEIC/HIF files
 
-```
-Request
-  └─ ConvertHEIFToJPEG()
-       ├─ compute cache key: SHA-256( path + "|" + mtime + "|full-v3" )[:12].hex + ".jpg"
-       ├─ readCache()  →  hit? ──► return cached bytes
-       │
-       └─ cache miss → extractBestJPEG()    (identical flow to §1b above)
-            ├─ ffmpegProbe()
-            ├─ ffmpegRun() stream copy  OR
-            ├─ sipsConvert()            OR
-            └─ ffmpegRun() HEVC decode
-       ├─ ExtractHEIFOrientation()
-       ├─ applyOrientationJPEG()  (re-encode at quality 92 for full image)
-       └─ writeCache()
-            ──► http.ServeContent()
+```mermaid
+flowchart TD
+    A[Request] --> B["ConvertHEIFToJPEG()"]
+    B --> C["compute cache key:<br/>SHA-256( path + '|' + mtime + '|full-v3' )[:12].hex + '.jpg'"]
+    C --> D{"readCache()<br/>hit?"}
+    D -- "hit" --> SERVE
+
+    D -- "miss" --> E["extractBestJPEG()<br/><i>identical flow to §1b above</i>"]
+    E --> F["ffmpegProbe()"]
+    F --> G{"embedded JPEG<br/>found?"}
+    G -- "yes" --> H["ffmpegRun() stream copy"]
+    G -- "no" --> I["sipsConvert()"]
+    I --> J{"sips<br/>succeeded?"}
+    J -- "yes" --> ORIENT
+    J -- "no" --> K["ffmpegRun() HEVC decode"]
+    H --> ORIENT
+    K --> ORIENT
+
+    ORIENT["ExtractHEIFOrientation()"]
+    ORIENT --> ORI2["applyOrientationJPEG()<br/><i>re-encode at quality 92 for full image</i>"]
+    ORI2 --> CACHE["writeCache()"]
+    CACHE --> SERVE
+
+    SERVE(["http.ServeContent()"])
 ```
 
 Note: thumbnails and full images use **different cache keys** (`preview-v3` vs
