@@ -300,9 +300,8 @@ class BrowsePane {
                 </button>
                 <div class="dropdown-menu tools-menu" style="display:none">
                     <div class="tools-menu-loading" style="display:none">Checking...</div>
-                    <div class="tools-menu-message" style="display:none">Requires exiftool. Install it to use tools.</div>
-                    <div class="tools-menu-items" style="display:none">
-                        <div class="dropdown-section">
+                    <div class="tools-menu-items">
+                        <div class="dropdown-section tools-geo-section" style="display:none">
                             <label class="dropdown-label tools-geo-label">Geolocation</label>
                             <div class="dropdown-toggle">
                                 <button class="btn btn-sm tool-item" data-tool="set-location">Set</button>
@@ -314,6 +313,12 @@ class BrowsePane {
                             <div class="dropdown-toggle">
                                 <button class="btn btn-sm tool-item" data-tool="rename">Single</button>
                                 <button class="btn btn-sm tool-item" data-tool="batch-rename">Batch (Metadata)</button>
+                            </div>
+                        </div>
+                        <div class="dropdown-section">
+                            <label class="dropdown-label">Export</label>
+                            <div class="dropdown-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="export">Convert &amp; Export</button>
                             </div>
                         </div>
                     </div>
@@ -576,9 +581,16 @@ class BrowsePane {
         if (statusEl) {
             const imageCount = this.getImageEntries().length;
             const selectedCount = this.selected.size;
-            statusEl.textContent = selectedCount > 0
-                ? `${imageCount} images · ${selectedCount} selected`
-                : `${imageCount} images`;
+            if (selectedCount > 0) {
+                statusEl.innerHTML = `${imageCount} images · ${selectedCount} selected <button class="btn btn-sm btn-deselect">Deselect</button>`;
+                statusEl.querySelector('.btn-deselect').addEventListener('click', () => {
+                    this.selected.clear();
+                    this.updateSelectionClasses();
+                    if (this.onSelectionChange) this.onSelectionChange([]);
+                });
+            } else {
+                statusEl.textContent = `${imageCount} images`;
+            }
         }
     }
 
@@ -820,21 +832,16 @@ class BrowsePane {
 
     async _checkToolsAvailability() {
         const loading = this.container.querySelector('.tools-menu-loading');
-        const message = this.container.querySelector('.tools-menu-message');
-        const items = this.container.querySelector('.tools-menu-items');
-        if (!loading || !message || !items) return;
+        const geoSection = this.container.querySelector('.tools-geo-section');
+        if (!loading || !geoSection) return;
 
         if (this._toolsChecked !== null) {
-            // Already checked
             loading.style.display = 'none';
-            message.style.display = this._toolsChecked.exiftool ? 'none' : '';
-            items.style.display = this._toolsChecked.exiftool ? '' : 'none';
+            geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
             return;
         }
 
         loading.style.display = '';
-        message.style.display = 'none';
-        items.style.display = 'none';
 
         try {
             this._toolsChecked = await API.toolsCheck();
@@ -843,8 +850,7 @@ class BrowsePane {
         }
 
         loading.style.display = 'none';
-        message.style.display = this._toolsChecked.exiftool ? 'none' : '';
-        items.style.display = this._toolsChecked.exiftool ? '' : 'none';
+        geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
     }
 
     _updateToolsGeoLabel() {

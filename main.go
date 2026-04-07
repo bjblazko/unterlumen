@@ -101,7 +101,11 @@ func main() {
 		log.Fatalf("Failed to sub web FS: %v", err)
 	}
 
-	mux := api.NewRouter(absBoundary, relStart, sub)
+	// Server mode: navigation is locked to a specific root (UNTERLUMEN_ROOT_PATH).
+	// Local mode: boundary is "/" — free filesystem navigation.
+	serverRole := absBoundary != "/"
+
+	mux := api.NewRouter(absBoundary, relStart, sub, serverRole)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

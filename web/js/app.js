@@ -3,11 +3,15 @@
 const App = {
     mode: 'browse', // 'browse', 'commander', or 'wastebin'
     locationModal: null,
+    batchRenameModal: null,
+    exportModal: null,
     browsePane: null,
     infoPanel: null,
     commander: null,
     viewer: null,
     currentBrowsePath: '',
+    config: null,
+    toolsStatus: null,
     _browseEl: null,
     _commanderEl: null,
     _wastebinEl: null,
@@ -38,7 +42,12 @@ const App = {
         this._initUIVisibility();
         this.initSettingsMenu();
 
-        API.config().then(cfg => {
+        Promise.all([
+            API.config(),
+            API.toolsCheck().catch(() => ({ exiftool: false })),
+        ]).then(([cfg, tools]) => {
+            this.config = cfg;
+            this.toolsStatus = tools;
             this.currentBrowsePath = cfg.startPath || '';
             this.setMode('browse');
         }).catch(() => {
@@ -58,6 +67,7 @@ const App = {
         this.uiHidden = !this.uiHidden;
         document.body.classList.toggle('ui-hidden', this.uiHidden);
         localStorage.setItem('ui-hidden', this.uiHidden ? '1' : '0');
+        if (this._hideUiToggle) this._hideUiToggle.setState(!this.uiHidden);
         if (this.uiHidden) {
             this._showUIHint();
         }
@@ -423,7 +433,10 @@ const App = {
     },
 
     openViewer(imagePath, pane) {
-        const images = pane.getImageEntries().map(e => pane.fullPath(e.name));
+        let images = pane.getImageEntries().map(e => pane.fullPath(e.name));
+        if (pane.selected.size >= 2) {
+            images = images.filter(path => pane.selected.has(path));
+        }
         const appEl = document.getElementById('app');
 
         // Hide existing content instead of destroying it
@@ -517,6 +530,12 @@ const App = {
                     const other = this.commander.getOtherPane();
                     if (other) other.load(other.path);
                 }
+            });
+        } else if (tool === 'export') {
+            if (!this.exportModal) this.exportModal = new ExportModal();
+            this.exportModal.open(files, {
+                serverRole: this.config?.serverRole ?? false,
+                exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
             });
         }
     },
