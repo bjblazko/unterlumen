@@ -9,6 +9,7 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Image viewer** — Full-screen image view with keyboard navigation
 - **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. Available in browse and fullscreen viewer
+- **Convert & Export** — Export selected images to JPEG, PNG, or WebP with quality control, flexible scaling (original, percentage, max dimension), and EXIF metadata options (strip, keep, or keep without GPS). Shows per-file estimated output size and pixel dimensions. Saves to a local folder or downloads as a ZIP; server mode (`UNTERLUMEN_ROOT_PATH`) is ZIP-only
 - **Batch rename** — Rename multiple photos using EXIF-based patterns (date, camera, film simulation, etc.) with color-coded draggable token pills, live preview, conflict resolution, and progress indication. Also includes a simple single-file rename option
 - **Geolocation editing** — Set or remove GPS coordinates on one or more images via an interactive map picker (requires exiftool)
 - **Thumbnail quality** — Standard (fast EXIF thumbnails) or High (full-image decode with bicubic resampling for retina displays), selectable in Settings
@@ -41,7 +42,7 @@ Add (or remove) geolocation to one or more files:
 
 - Go 1.21+
 - ffmpeg (optional, only needed for HEIF/HEIC/HIF files)
-- exiftool (optional, needed for Set/Remove Geolocation and Batch Rename)
+- exiftool (optional, needed for Set/Remove Geolocation, Batch Rename, and Export EXIF copy/GPS-strip)
 
 ## Install
 

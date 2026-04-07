@@ -12,12 +12,13 @@ import (
 // NewRouter sets up the HTTP routes for the application.
 // boundary is the root directory that all file paths must remain within.
 // startPath is the initial path (relative to boundary) the frontend should navigate to.
-func NewRouter(boundary, startPath string, webFS fs.FS) http.Handler {
+// serverRole controls export behaviour: true = ZIP download only, false = local filesystem save + ZIP.
+func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool) http.Handler {
 	mux := http.NewServeMux()
 
 	cache := media.NewScanCache()
 
-	mux.HandleFunc("/api/config", handleConfig(startPath))
+	mux.HandleFunc("/api/config", handleConfig(startPath, serverRole))
 	mux.HandleFunc("/api/browse", handleBrowse(boundary, cache))
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(boundary, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(boundary, cache))
@@ -35,6 +36,13 @@ func NewRouter(boundary, startPath string, webFS fs.FS) http.Handler {
 	mux.HandleFunc("/api/list-recursive", handleListRecursive(boundary))
 	mux.HandleFunc("/api/batch-rename/preview", handleBatchRenamePreview(boundary, cache))
 	mux.HandleFunc("/api/batch-rename/execute", handleBatchRenameExecute(boundary, cache))
+
+	// Export endpoints
+	mux.HandleFunc("/api/export/estimate", handleExportEstimate(boundary))
+	mux.HandleFunc("/api/export/zip", handleExportZip(boundary))
+	if !serverRole {
+		mux.HandleFunc("/api/export/save", handleExportSave(boundary))
+	}
 
 	// Serve static files from embedded web/ filesystem
 	mux.Handle("/", http.FileServer(http.FS(webFS)))

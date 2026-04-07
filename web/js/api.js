@@ -147,4 +147,35 @@ const API = {
     config() {
         return fetch('/api/config').then(r => r.json());
     },
+
+    async exportEstimate(payload, signal) {
+        const resp = await fetch('/api/export/estimate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal,
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async exportZip(payload) {
+        const resp = await fetch('/api/export/zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.blob();
+    },
+
+    async exportSave(payload) {
+        const resp = await fetch('/api/export/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
 };

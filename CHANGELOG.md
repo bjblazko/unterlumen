@@ -1,12 +1,19 @@
 # Changelog
 
-*Last modified: 2026-03-21*
+*Last modified: 2026-04-07*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Convert & Export** — Export selected images to JPEG, PNG, or WebP from the Tools menu. Options include target quality (JPEG/WebP), flexible scaling (original size, percentage, or max width/height), and EXIF metadata control (strip all, keep all, or keep all except GPS location). The modal shows per-file estimated output size and output pixel dimensions, with a toggle between fast heuristic and exact in-memory encoding. Exact estimation runs file-by-file with a progress bar labeled "Calculating exact sizes…", a counter, and an Abort button. If any output dimension exceeds the source, an upscale warning badge (!) with a tooltip is shown. Estimation errors (e.g. ffmpeg failures for WebP) are displayed inline in the file row. Totals row sums all input and output bytes, aligned under the file list columns. In local mode (no `UNTERLUMEN_ROOT_PATH`), files can be saved directly to a chosen folder or downloaded as a ZIP. In server mode (`UNTERLUMEN_ROOT_PATH` set), ZIP download is the only output option. JPEG and PNG use Go's native encoder with CatmullRom resampling; WebP uses ffmpeg with Lanczos. GPS stripping requires exiftool.
+- **`POST /api/export/estimate`** — Returns per-file estimated output size for given format/quality/scale options, using either heuristic formulas or actual in-memory encoding.
+- **`POST /api/export/zip`** — Converts and streams all selected files as a ZIP archive.
+- **`POST /api/export/save`** — Converts and writes files to a local directory on disk (local mode only).
+
+- **Selection-filtered viewer** — When 2 or more images are selected in the gallery, opening the fullscreen viewer scopes the filmstrip and prev/next navigation to only the selected images. Opening from a single or no selection retains the previous behavior (all images in the folder). A "Deselect" button is now visible in the status bar whenever images are selected, as an alternative to pressing Escape.
 
 - **Film strip in viewer** — Horizontal thumbnail strip below the main image in fullscreen viewer mode. Toggle via toolbar checkbox or `F` key. Click any thumbnail to jump directly to that image. Auto-scrolls to keep the current image visible. Thumbnails are lazy-loaded for performance. Hidden by default; also hides when UI is hidden (`H` key).
 - **Batch Rename** — Pattern-based batch renaming of photos using EXIF metadata. Accessible from the Tools dropdown ("Batch (Metadata)") and the commander Rename dropdown. Supports placeholders for date (`{YYYY}`, `{MM}`, `{DD}`, etc.), camera metadata (`{make}`, `{model}`, `{lens}`, `{filmsim}`, `{iso}`, `{aperture}`, `{focal}`, `{shutter}`), original filename (`{original}`), and auto-incrementing counter (`{seq}`). Features color-coded draggable token pills with tooltips, a colored highlight overlay in the pattern input, a horizontally scrollable live preview of resulting filenames, conflict detection with automatic suffix resolution, progress bar during execution, and SMB-safe filename sanitization.
