@@ -107,12 +107,18 @@ UNTERLUMEN_PORT=3000 ./unterlumen ~/Pictures
 
 Then open `http://localhost:8080` in your browser.
 
-## Docker
+## Docker / Podman
 
 Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg and exiftool.
 
 ```
-docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/blazko/unterlumen:latest
+docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/bjblazko/unterlumen:latest
+```
+
+**Podman (rootless):** Add `--userns=keep-id` so your host UID is mapped into the container — otherwise the container process (UID 1000) cannot read the mounted directory:
+
+```
+podman run --userns=keep-id -p 8080:8080 -v /path/to/photos:/photos:ro ghcr.io/bjblazko/unterlumen:latest
 ```
 
 Then open `http://localhost:8080`.
@@ -130,7 +136,7 @@ By default the container runs in **server mode** — navigation is locked to `/p
 ```yaml
 services:
   unterlumen:
-    image: ghcr.io/blazko/unterlumen:latest
+    image: ghcr.io/bjblazko/unterlumen:latest
     ports:
       - "8080:8080"
     volumes:

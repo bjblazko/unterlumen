@@ -9,7 +9,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
-- **Container image** — Docker image published to GHCR (`ghcr.io/blazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
+- **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
 
 ## [0.5.0] - 2026-04-08
 
