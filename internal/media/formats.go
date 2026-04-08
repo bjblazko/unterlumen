@@ -80,6 +80,21 @@ func CheckFFmpeg() FFmpegStatus {
 	return ffmpegStatus
 }
 
+var (
+	sipsAvailable     bool
+	sipsAvailableOnce sync.Once
+)
+
+// CheckSips returns true if sips (macOS built-in image tool) is available.
+// The result is cached for the lifetime of the process.
+func CheckSips() bool {
+	sipsAvailableOnce.Do(func() {
+		path, err := exec.LookPath("sips")
+		sipsAvailable = err == nil && path != ""
+	})
+	return sipsAvailable
+}
+
 // --- Disk cache in OS temp directory ---
 
 var (

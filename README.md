@@ -107,6 +107,37 @@ UNTERLUMEN_PORT=3000 ./unterlumen ~/Pictures
 
 Then open `http://localhost:8080` in your browser.
 
+## Docker
+
+Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg and exiftool.
+
+```
+docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/blazko/unterlumen:latest
+```
+
+Then open `http://localhost:8080`.
+
+By default the container runs in **server mode** — navigation is locked to `/photos`. Override environment variables to change behaviour:
+
+| Variable | Default (container) | Description |
+|----------|---------------------|-------------|
+| `UNTERLUMEN_PORT` | `8080` | HTTP port |
+| `UNTERLUMEN_BIND` | `0.0.0.0` | Bind address |
+| `UNTERLUMEN_ROOT_PATH` | `/photos` | Root directory (navigation locked here) |
+
+**Example with Docker Compose:**
+
+```yaml
+services:
+  unterlumen:
+    image: ghcr.io/blazko/unterlumen:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /mnt/photos:/photos:ro
+    restart: unless-stopped
+```
+
 ## Keyboard Shortcuts
 
 | Key | Action |
