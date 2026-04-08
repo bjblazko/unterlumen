@@ -2099,6 +2099,9 @@ body.ui-hidden .viewer-toolbar { display: none; }
     font-size: 11px;
     color: var(--text-sec);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .export-progress-bar {
@@ -2115,6 +2118,17 @@ body.ui-hidden .viewer-toolbar { display: none; }
     border-radius: 2px;
     transition: width 0.15s ease;
     width: 0%;
+}
+
+@keyframes export-progress-slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+.export-progress-indeterminate {
+    width: 25% !important;
+    transition: none !important;
+    animation: export-progress-slide 1.2s ease-in-out infinite;
 }
 
 .export-progress-label {

@@ -215,6 +215,32 @@ func extractBestJPEG(path string) ([]byte, error) {
 	)
 }
 
+// convertHEIFExport decodes a HEIF file to a full-resolution JPEG for export.
+// Unlike ConvertHEIFToJPEG it deliberately skips embedded JPEG preview streams
+// and always performs a full decode, ensuring img.Bounds() reflects the true
+// original dimensions so that percentage / max-dimension scaling is correct.
+func convertHEIFExport(path string) ([]byte, error) {
+	// sips (macOS) performs a native full decode and applies orientation automatically.
+	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
+		return data, nil
+	}
+	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
+	// so we apply the container rotation explicitly afterwards.
+	data, err := ffmpegRun(path,
+		"-f", "image2pipe",
+		"-vcodec", "mjpeg",
+		"-q:v", "2",
+		"-frames:v", "1",
+		"pipe:1",
+	)
+	if err != nil {
+		return nil, err
+	}
+	orientation := ExtractHEIFOrientation(path)
+	data, _ = applyOrientationJPEG(data, orientation, 92)
+	return data, nil
+}
+
 // sipsConvert uses macOS sips to convert HEIF to JPEG.
 // sips uses Apple's native HEIF decoder which correctly assembles multi-tile grids.
 func sipsConvert(path string) ([]byte, error) {

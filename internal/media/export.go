@@ -165,16 +165,20 @@ func ExportImage(srcPath string, opts ExportOptions) ([]byte, error) {
 	// Decode source image.
 	var img image.Image
 	if IsHEIF(srcPath) {
-		jpegBytes, err := ConvertHEIFToJPEG(srcPath)
+		// Use full-resolution decode (not the embedded preview used by the viewer).
+		// ConvertHEIFToJPEG prefers the embedded JPEG stream which may be a low-res
+		// preview (e.g. 1920×1280 inside a 7728×5152 HEIF), causing percentage and
+		// max-dimension scaling to operate on the wrong base dimensions.
+		jpegBytes, err := convertHEIFExport(srcPath)
 		if err != nil {
-			return nil, fmt.Errorf("HEIF conversion: %w", err)
+			return nil, fmt.Errorf("HEIF full-res decode: %w", err)
 		}
 		var err2 error
 		img, _, err2 = image.Decode(bytes.NewReader(jpegBytes))
 		if err2 != nil {
 			return nil, fmt.Errorf("decode converted HEIF: %w", err2)
 		}
-		// Orientation already applied by ConvertHEIFToJPEG.
+		// Orientation already applied by convertHEIFExport.
 	} else {
 		f, err := os.Open(srcPath)
 		if err != nil {
