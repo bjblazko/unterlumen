@@ -155,6 +155,11 @@ const App = {
                 closeMenu();
             }
         });
+
+        document.getElementById('settings-check-deps').addEventListener('click', () => {
+            closeMenu();
+            new DepsModal().open(this.toolsStatus);
+        });
     },
 
     setMode(mode) {
