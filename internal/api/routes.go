@@ -40,6 +40,8 @@ func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool) http.Ha
 	// Export endpoints
 	mux.HandleFunc("/api/export/estimate", handleExportEstimate(boundary))
 	mux.HandleFunc("/api/export/zip", handleExportZip(boundary))
+	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(boundary))
+	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
 	if !serverRole {
 		mux.HandleFunc("/api/export/save", handleExportSave(boundary))
 	}

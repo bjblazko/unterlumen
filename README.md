@@ -38,6 +38,9 @@ Waste bin (marked for deletion during culling) mode:
 Add (or remove) geolocation to one or more files:
 ![Marked for deletion](doc/screenshot-5-addgeolocation.png)
 
+Export to ZIP (download) or destination folder and convert to JPEG, PNG or WebP with optional scaling:
+![Export and resize](doc/screenshot-6-export.png)
+
 ## Requirements
 
 - Go 1.21+

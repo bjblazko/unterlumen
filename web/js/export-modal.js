@@ -317,7 +317,7 @@ class ExportModal {
         totalOutEl.textContent = '…';
 
         if (method === 'heuristic') {
-            this._setProgress(false);
+            this._setProgress(false, 0, 0, '', false);
             try {
                 const resp = await API.exportEstimate({ ...basePayload, files: this._files, method: 'heuristic' });
                 if (!this.overlay) return;
@@ -331,7 +331,7 @@ class ExportModal {
         // Exact mode: encode per file with progress
         const abortCtrl = new AbortController();
         this._estimateAbort = abortCtrl;
-        this._setProgress(true, 0, this._files.length);
+        this._setProgress(true, 0, this._files.length, 'Calculating exact sizes…', true);
 
         let totalIn = 0, totalOut = 0, done = 0;
 
@@ -367,7 +367,7 @@ class ExportModal {
 
             done++;
             if (this.overlay) {
-                this._setProgress(true, done, this._files.length);
+                this._setProgress(true, done, this._files.length, 'Calculating exact sizes…', true);
                 totalInEl.textContent = totalIn > 0 ? _fmtBytes(totalIn) : '—';
                 totalOutEl.textContent = totalOut > 0 ? _fmtBytes(totalOut) : '—';
             }
@@ -404,19 +404,28 @@ class ExportModal {
         totalOutEl.textContent = totalOut > 0 ? '~' + _fmtBytes(totalOut) : '—';
     }
 
-    _setProgress(visible, done = 0, total = 0) {
+    _setProgress(visible, done = 0, total = 0, label = '', showAbort = false) {
         const row = this.overlay.querySelector('.export-progress-row');
+        const fill = this.overlay.querySelector('.export-progress-fill');
         const abortBtn = this.overlay.querySelector('.export-estimate-abort');
         if (!visible) {
             row.style.display = 'none';
             abortBtn.style.display = 'none';
+            fill.classList.remove('export-progress-indeterminate');
             return;
         }
         row.style.display = '';
-        abortBtn.style.display = '';
-        const pct = total > 0 ? Math.round(done / total * 100) : 0;
-        this.overlay.querySelector('.export-progress-fill').style.width = pct + '%';
-        this.overlay.querySelector('.export-progress-label').textContent = `${done} of ${total}`;
+        abortBtn.style.display = showAbort ? '' : 'none';
+        this.overlay.querySelector('.export-progress-text').textContent = label;
+        if (total === 0) {
+            fill.classList.add('export-progress-indeterminate');
+            fill.style.width = '';
+            this.overlay.querySelector('.export-progress-label').textContent = '';
+        } else {
+            fill.classList.remove('export-progress-indeterminate');
+            fill.style.width = Math.round(done / total * 100) + '%';
+            this.overlay.querySelector('.export-progress-label').textContent = `${done} of ${total}`;
+        }
     }
 
     async _doExport() {
@@ -426,10 +435,9 @@ class ExportModal {
 
         confirmBtn.disabled = true;
         cancelBtn.disabled = true;
-        statusEl.textContent = 'Exporting…';
+        statusEl.textContent = '';
 
-        const payload = {
-            files: this._files,
+        const basePayload = {
             format: this._getFormat(),
             quality: this._getQuality(),
             scale: this._getScaleOptions(),
@@ -440,7 +448,49 @@ class ExportModal {
 
         try {
             if (outputMode === 'zip' || this._serverRole) {
-                const blob = await API.exportZip(payload);
+                // Stream SSE progress while the server builds the ZIP, then download.
+                this._setProgress(true, 0, this._files.length, 'Exporting…', false);
+
+                const resp = await fetch('/api/export/zip-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...basePayload, files: this._files }),
+                });
+                if (!resp.ok) throw new Error(await resp.text());
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let token = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Parse SSE blocks (separated by blank lines)
+                    const blocks = buffer.split('\n\n');
+                    buffer = blocks.pop() ?? '';
+
+                    for (const block of blocks) {
+                        const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+                        if (!dataLine) continue;
+                        try {
+                            const evt = JSON.parse(dataLine.slice(6));
+                            if (evt.complete) {
+                                token = evt.token;
+                            } else if (this.overlay) {
+                                this._setProgress(true, evt.done, evt.total, evt.file || 'Exporting…', false);
+                            }
+                        } catch { /* malformed event, skip */ }
+                    }
+                }
+
+                if (!token) throw new Error('Export stream ended without a download token');
+
+                if (this.overlay) this._setProgress(true, this._files.length, this._files.length, 'Downloading…', false);
+                const blob = await API.exportZipDownload(token);
+                this._setProgress(false);
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -458,18 +508,43 @@ class ExportModal {
                     cancelBtn.disabled = false;
                     return;
                 }
-                const result = await API.exportSave({ ...payload, destination });
-                const failed = (result.results || []).filter(r => !r.success);
-                if (failed.length === 0) {
+
+                // Per-file loop so we can show progress
+                let done = 0, failed = 0;
+                this._setProgress(true, 0, this._files.length, 'Exporting…', false);
+
+                for (const file of this._files) {
+                    if (!this.overlay) break;
+                    const filename = file.split('/').pop();
+                    this._setProgress(true, done, this._files.length, filename, false);
+                    const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
+                    try {
+                        const result = await API.exportSave({ ...basePayload, files: [file], destination });
+                        const r = result.results?.[0];
+                        if (!r?.success) {
+                            failed++;
+                            if (row && r?.error) _applyRowError(row, { error: r.error });
+                        }
+                    } catch (err) {
+                        failed++;
+                        if (row) _applyRowError(row, { error: err.message });
+                    }
+                    done++;
+                }
+
+                if (!this.overlay) return;
+                this._setProgress(false);
+                if (failed === 0) {
                     this.close();
                 } else {
-                    statusEl.textContent = `${failed.length} file(s) failed.`;
+                    statusEl.textContent = `${failed} file(s) failed.`;
                     confirmBtn.disabled = false;
                     cancelBtn.disabled = false;
                 }
             }
         } catch (err) {
             if (this.overlay) {
+                this._setProgress(false);
                 statusEl.textContent = 'Export failed: ' + err.message;
                 confirmBtn.disabled = false;
                 cancelBtn.disabled = false;

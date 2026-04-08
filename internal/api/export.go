@@ -2,13 +2,34 @@ package api
 
 import (
 	"archive/zip"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"huepattl.de/unterlumen/internal/media"
 )
+
+// zipJobs holds temp ZIP files keyed by a random token.
+// Entries are removed on download or after 10 minutes.
+var (
+	zipJobsMu sync.Mutex
+	zipJobs   = make(map[string]string) // token → temp file path
+)
+
+func generateToken() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
 
 // exportRequest is the JSON body for export endpoints.
 type exportRequest struct {
@@ -251,5 +272,157 @@ func handleExportSave(root string) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(exportSaveResponse{Results: results})
+	}
+}
+
+// zipStreamEvent is a single SSE payload for ZIP stream progress.
+type zipStreamEvent struct {
+	File     string `json:"file,omitempty"`
+	Done     int    `json:"done"`
+	Total    int    `json:"total"`
+	Complete bool   `json:"complete,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
+
+// handleExportZipStream handles POST /api/export/zip-stream.
+// Streams SSE progress events while building a ZIP, then stores it under a
+// short-lived token for the client to download via /api/export/zip-download.
+func handleExportZipStream(root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req exportRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		opts := media.ExportOptions{
+			Format:   req.Format,
+			Quality:  req.Quality,
+			Scale:    req.Scale,
+			ExifMode: req.ExifMode,
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+
+		send := func(evt zipStreamEvent) {
+			data, _ := json.Marshal(evt)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		tmpFile, err := os.CreateTemp("", "unterlumen-zip-*.zip")
+		if err != nil {
+			send(zipStreamEvent{Error: err.Error()})
+			return
+		}
+		tmpPath := tmpFile.Name()
+
+		zw := zip.NewWriter(tmpFile)
+		total := len(req.Files)
+
+		for i, relPath := range req.Files {
+			select {
+			case <-r.Context().Done():
+				zw.Close()
+				tmpFile.Close()
+				os.Remove(tmpPath)
+				return
+			default:
+			}
+
+			send(zipStreamEvent{File: filepath.Base(relPath), Done: i, Total: total})
+
+			absPath, ok := safePath(root, relPath)
+			if !ok {
+				continue
+			}
+
+			data, err := media.ExportImage(absPath, opts)
+			if err != nil {
+				send(zipStreamEvent{File: filepath.Base(relPath), Done: i + 1, Total: total, Error: err.Error()})
+				continue
+			}
+
+			outName := media.ExportedName(filepath.Base(relPath), req.Format)
+			if fw, err := zw.Create(outName); err == nil {
+				fw.Write(data)
+			}
+		}
+
+		zw.Close()
+		tmpFile.Close()
+
+		token := generateToken()
+		zipJobsMu.Lock()
+		zipJobs[token] = tmpPath
+		zipJobsMu.Unlock()
+
+		// Auto-expire after 10 minutes in case the client never downloads.
+		go func() {
+			time.Sleep(10 * time.Minute)
+			zipJobsMu.Lock()
+			if p, exists := zipJobs[token]; exists {
+				os.Remove(p)
+				delete(zipJobs, token)
+			}
+			zipJobsMu.Unlock()
+		}()
+
+		send(zipStreamEvent{Done: total, Total: total, Complete: true, Token: token})
+	}
+}
+
+// handleExportZipDownload handles GET /api/export/zip-download?token=…
+// Serves the prepared ZIP and removes it from disk.
+func handleExportZipDownload() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			http.Error(w, "missing token", http.StatusBadRequest)
+			return
+		}
+
+		zipJobsMu.Lock()
+		path, ok := zipJobs[token]
+		if ok {
+			delete(zipJobs, token)
+		}
+		zipJobsMu.Unlock()
+
+		if !ok {
+			http.Error(w, "token not found or expired", http.StatusNotFound)
+			return
+		}
+		defer os.Remove(path)
+
+		f, err := os.Open(path)
+		if err != nil {
+			http.Error(w, "could not open ZIP", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		info, err := f.Stat()
+		if err == nil {
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", `attachment; filename="export.zip"`)
+		io.Copy(w, f)
 	}
 }

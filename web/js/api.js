@@ -169,6 +169,12 @@ const API = {
         return resp.blob();
     },
 
+    async exportZipDownload(token) {
+        const resp = await fetch(`/api/export/zip-download?token=${encodeURIComponent(token)}`);
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.blob();
+    },
+
     async exportSave(payload) {
         const resp = await fetch('/api/export/save', {
             method: 'POST',
