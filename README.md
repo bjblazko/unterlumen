@@ -115,10 +115,10 @@ Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub
 docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/bjblazko/unterlumen:latest
 ```
 
-**Podman (rootless):** Add `--userns=keep-id` so your host UID is mapped into the container — otherwise the container process (UID 1000) cannot read the mounted directory:
+**Podman:** The container runs as UID 1000, but on macOS the mounted directory is owned by your host user (typically UID 501 or 502). Pass `--user $(id -u):$(id -g)` to run as your own UID:
 
 ```
-podman run --userns=keep-id -p 8080:8080 -v /path/to/photos:/photos:ro ghcr.io/bjblazko/unterlumen:latest
+podman run --user $(id -u):$(id -g) -p 8080:8080 -v /path/to/photos:/photos:ro ghcr.io/bjblazko/unterlumen:latest
 ```
 
 Then open `http://localhost:8080`.
