@@ -19,6 +19,7 @@ class BrowsePane {
         this.showNames = false;
         this.showOverlays = true;
         this.onToolInvoke = options.onToolInvoke || null;
+        this.onSlideshowInvoke = options.onSlideshowInvoke || null;
         this._toolsChecked = null; // null = not checked, {exiftool: bool}
         this.lastClickedIndex = -1;
         this.focusedIndex = -1;
@@ -324,6 +325,13 @@ class BrowsePane {
                     </div>
                 </div>
             </div>
+            <button class="btn btn-sm slideshow-btn" title="Slideshow">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="3,2 12,7 3,12" fill="currentColor" stroke="none"/>
+                    <line x1="1" y1="2" x2="1" y2="12"/>
+                </svg>
+                Slideshow
+            </button>
             </div>
             <span class="status-bar">${statusText}</span>
         </div>`;
@@ -652,6 +660,14 @@ class BrowsePane {
                     if (this.onToolInvoke) this.onToolInvoke({ tool, files, ...params });
                     closeToolsMenu();
                 });
+            });
+        }
+
+        // Slideshow button
+        const slideshowBtn = this.container.querySelector('.slideshow-btn');
+        if (slideshowBtn) {
+            slideshowBtn.addEventListener('click', () => {
+                if (this.onSlideshowInvoke) this.onSlideshowInvoke();
             });
         }
 

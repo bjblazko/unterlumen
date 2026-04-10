@@ -2364,3 +2364,212 @@ body.ui-hidden .viewer-toolbar { display: none; }
     grid-column: 1 / -1;
     flex-basis: 100%;
 }
+
+/* —— Slideshow overlay —— */
+
+.ss-overlay {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    cursor: default;
+}
+
+.ss-stage {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Frame containers */
+
+.ss-frame {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.ss-frame[data-display="single"] {
+    align-items: center;
+}
+
+/* 2-up: two equal columns */
+.ss-frame[data-display="2up"] {
+    gap: 2px;
+}
+.ss-frame[data-display="2up"] .ss-cell {
+    flex: 1;
+    overflow: hidden;
+}
+
+/* 4-up: 2×2 grid */
+.ss-frame[data-display="4up"] {
+    flex-wrap: wrap;
+    gap: 2px;
+}
+.ss-frame[data-display="4up"] .ss-cell {
+    width: calc(50% - 1px);
+    height: calc(50% - 1px);
+    overflow: hidden;
+}
+
+.ss-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* Cells use cover so images fill their quadrant */
+.ss-cell .ss-img {
+    object-fit: cover;
+}
+
+/* Ken Burns */
+.ss-frame[data-display="kenburns"] {
+    align-items: center;
+}
+.ss-frame[data-display="kenburns"] .ss-img {
+    object-fit: cover;
+    width: 110%;
+    height: 110%;
+    transform-origin: center center;
+    /* Ken Burns animation applied via Web Animations API with random vectors per frame */
+}
+
+/* Transition: Fade */
+.ss-enter-fade  { animation: ss-fade-in  0.6s ease forwards; }
+.ss-exit-fade   { animation: ss-fade-out 0.6s ease forwards; }
+
+@keyframes ss-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ss-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* Transition: Slide */
+.ss-enter-slide { animation: ss-slide-in  0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.ss-exit-slide  { animation: ss-slide-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes ss-slide-in  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes ss-slide-out { from { transform: translateX(0); }    to { transform: translateX(-100%); } }
+
+/* Transition: Zoom */
+.ss-enter-zoom { animation: ss-zoom-in  0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.ss-exit-zoom  { animation: ss-zoom-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes ss-zoom-in  { from { transform: scale(1.08); opacity: 0; } to { transform: scale(1);    opacity: 1; } }
+@keyframes ss-zoom-out { from { transform: scale(1);    opacity: 1; } to { transform: scale(0.94); opacity: 0; } }
+
+/* —— HUD —— */
+
+.ss-hud {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--unit) * 2);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    transition: opacity 0.3s;
+    z-index: 1;
+}
+
+.ss-hud.ss-hud-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ss-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.85);
+    border-radius: 2px;
+    padding: calc(var(--unit)) calc(var(--unit) * 1.5);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.1s, border-color 0.1s;
+    white-space: nowrap;
+}
+
+.ss-btn:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.5);
+}
+
+.ss-counter {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    min-width: 56px;
+    text-align: center;
+    font-family: 'Helvetica Neue', Helvetica, -apple-system, Arial, sans-serif;
+}
+
+/* —— Slideshow options modal —— */
+
+.slideshow-modal .modal-body {
+    padding: 0;
+}
+
+.ss-opt-section {
+    display: flex;
+    align-items: center;
+    gap: var(--unit);
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+    flex-wrap: wrap;
+}
+
+.ss-opt-section + .ss-opt-section {
+    border-top: 1px solid var(--border);
+}
+
+.ss-opt-label {
+    color: var(--text-sec);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 72px;
+    white-space: nowrap;
+}
+
+.ss-delay-row {
+    display: flex;
+    align-items: center;
+    gap: var(--unit);
+}
+
+.ss-delay-range {
+    width: 140px;
+    accent-color: var(--accent);
+}
+
+.ss-delay-value {
+    font-size: 12px;
+    color: var(--text);
+    min-width: 28px;
+}
+
+.ss-audio-options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ss-audio-file-label {
+    font-size: 11px;
+    color: var(--text-sec);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+    padding-left: 20px;
+}
