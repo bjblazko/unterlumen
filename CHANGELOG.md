@@ -1,12 +1,14 @@
 # Changelog
 
-*Last modified: 2026-04-08*
+*Last modified: 2026-04-10*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Slideshow** — New "Slideshow" button in the browse toolbar (between Tools and the status bar). Operates on selected images, or all images in the current folder if nothing is selected. An options dialog lets you set the delay between images (1–60 s), choose a transition effect (Fade, Slide, Zoom, or Instant), and pick a display style: Single image, Ken Burns (slow animated pan and zoom), 2-up (two images side by side), or 4-up (2×2 grid). Optional audio: choose a local audio file or a folder of tracks (shuffled, looping). The player shows a minimal HUD with Prev / Pause-Play / Next / Close controls that autohides after 3 seconds; keyboard shortcuts Space (pause/resume), ← / → (navigate), and Esc (close) are supported.
 
 - **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
 - **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.

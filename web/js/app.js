@@ -5,6 +5,7 @@ const App = {
     locationModal: null,
     batchRenameModal: null,
     exportModal: null,
+    slideshowModal: null,
     browsePane: null,
     infoPanel: null,
     commander: null,
@@ -215,6 +216,7 @@ const App = {
                     onSelectionChange: (selected) => this.handleSelectionChange(selected),
                     onFocusChange: (path) => this.handleFocusChange(path),
                     onToolInvoke: (params) => this.handleToolInvoke(params),
+                    onSlideshowInvoke: () => this.handleSlideshowInvoke(),
                 });
                 this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
                 this.infoPanel.onToggle = () => {
@@ -477,6 +479,41 @@ const App = {
             this.markForDeletion([path], entries, dir);
         };
         this.viewer.open(imagePath, images);
+    },
+
+    handleSlideshowInvoke() {
+        const pane = this.browsePane;
+        if (!pane) return;
+        const images = pane.selected.size > 0
+            ? Array.from(pane.selected)
+            : pane.getImageEntries().map(e => pane.fullPath(e.name));
+        if (images.length === 0) return;
+        if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
+        this.slideshowModal.onStart = (imgs, opts) => this.openSlideshow(imgs, opts);
+        this.slideshowModal.open(images);
+    },
+
+    openSlideshow(images, options) {
+        const appEl = document.getElementById('app');
+        const existingChildren = Array.from(appEl.children);
+        const savedDisplay = new Map();
+        existingChildren.forEach(el => savedDisplay.set(el, el.style.display));
+        const scrollPositions = new Map();
+        appEl.querySelectorAll('.browse-container').forEach(el => scrollPositions.set(el, el.scrollTop));
+        existingChildren.forEach(el => el.style.display = 'none');
+
+        const slideshowEl = document.createElement('div');
+        slideshowEl.id = 'slideshow-container';
+        slideshowEl.style.height = '100%';
+        appEl.appendChild(slideshowEl);
+
+        const player = new SlideshowPlayer(slideshowEl);
+        player.onClose = () => {
+            slideshowEl.remove();
+            savedDisplay.forEach((display, el) => { el.style.display = display; });
+            scrollPositions.forEach((top, el) => { el.scrollTop = top; });
+        };
+        player.open(images, options);
     },
 
     handleSelectionChange(selected) {
