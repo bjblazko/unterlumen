@@ -61,12 +61,12 @@ The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/archit
 
 ## Coding Standards
 
-These rules apply automatically on every bug fix, refactor, or new feature — no need to ask. See [ADR-0015](doc/architecture/adr/0015-coding-standards.md) for rationale and acknowledged baseline violations.
+These rules apply automatically on every bug fix, refactor, or new feature — no need to ask. See [ADR-0015](doc/architecture/adr/0015-coding-standards.md) for rationale.
 
 - **Single responsibility** — each file, class, or Go package has one reason to change. If a description needs "and also", split it.
 - **Function size** — functions over ~40 lines are a split signal. Extract named helpers whose names make comments unnecessary.
 - **YAGNI** — never add parameters, abstractions, or features for hypothetical future use. Three concrete uses justify an abstraction; one does not.
-- **Domain grouping** — group by business domain (`export`, `location`, `wastebin`), not technical layer (`utils`, `helpers`, `handlers`). When a directory exceeds ~8–10 files, look for a domain split.
+- **Domain grouping** — group by business domain (`export`, `location`, `wastebin`), not technical layer. When a directory exceeds ~8–10 files, look for a domain split. Names like `utils`, `helpers`, or `tools` are a warning sign — try harder to find a name that describes what the code actually does.
 - **Testing** — new Go packages or complex functions get a `_test.go`. New user-visible features get an e2e spec in `e2e/specs/`. When fixing a bug, add a test that would have caught it.
 - **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
 

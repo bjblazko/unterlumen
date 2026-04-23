@@ -35,7 +35,9 @@ Never add parameters, abstractions, generics, or features for hypothetical futur
 
 ### 4. Domain Grouping
 
-Group code by business domain, not technical layer. Prefer `export/`, `location/`, `wastebin/` over `handlers/`, `utils/`, `helpers/`. When a package or directory exceeds roughly 8–10 files, look for a domain-based split rather than adding more files to the same bucket.
+Group code by business domain, not technical layer. Prefer `export/`, `location/`, `wastebin/` over `handlers/`. When a package or directory exceeds roughly 8–10 files, look for a domain-based split rather than adding more files to the same bucket.
+
+Names like `utils`, `helpers`, or `tools` are a warning sign: they are buckets, not domains. If a file or package is tempted to use one of these names, that is a signal to look harder for a name that describes *what the code actually does* — e.g. `pathvalidation`, `exifdate`, `imagesize`. A good name makes the contents predictable without opening the file.
 
 ### 5. Testing
 
@@ -47,17 +49,6 @@ Group code by business domain, not technical layer. Prefer `export/`, `location/
 ### 6. CSS and HTML
 
 CSS rules are grouped by component with a `/* --- Component Name --- */` section comment. No speculative utility classes are added. HTML structure reflects the logical component tree, not visual presentation order.
-
-## Acknowledged Baseline Violations
-
-The following pre-existing files violate these standards. They are not required to be fixed immediately, but should be improved opportunistically when touched:
-
-| File | Violation |
-|------|-----------|
-| `src/web/js/browse.js` (1,174 lines) | Multiple responsibilities: rendering, layout, selection, EXIF polling |
-| `src/web/js/app.js` (767 lines) | Multiple responsibilities: modes, theming, wastebin, modals, keyboard routing |
-| `src/internal/media/exif.go` (735 lines) | Multiple parsing strategies in one file |
-| All Go and JS source | Zero unit tests |
 
 ## Consequences
 
