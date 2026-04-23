@@ -1,0 +1,14 @@
+{
+  "name": "unterlumen-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "bash fixtures/setup.sh",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0"
+  }
+}
