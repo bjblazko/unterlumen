@@ -1,13 +1,13 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────────
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /src
+WORKDIR /build/src
 
 # Cache dependencies before copying source
-COPY go.mod go.sum ./
+COPY src/go.mod src/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY src/ .
 
 RUN CGO_ENABLED=0 GOOS=linux \
     go build -ldflags="-s -w" -o /unterlumen .

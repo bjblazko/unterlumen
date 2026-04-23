@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-02-24*
+*Last modified: 2026-04-20*
 
 ## Project
 
@@ -9,22 +9,35 @@ Unterlumen — a photo browser and culler with a Go backend and vanilla HTML/JS/
 ## Build & Run
 
 ```
-go build -o unterlumen .
+cd src && go build -o ../unterlumen .
 ./unterlumen /path/to/photos
 ```
 
 ## Test
 
 ```
-go vet ./...
+cd src && go vet ./...
 ```
+
+## E2E Tests
+
+Requires the binary to be built first (`cd src && go build -o ../unterlumen .`).
+
+```
+cd e2e && npm ci
+npm run setup      # download fixtures once
+npm test           # run all tests headlessly
+npm run test:headed  # run with browser visible
+```
+
+Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignored).
 
 ## Architecture
 
-- `main.go` — entry point, CLI flags, HTTP server
-- `internal/api/` — HTTP handlers (browse, thumbnail, image, copy/move) and routing with path traversal protection
-- `internal/media/` — directory scanning, EXIF extraction, format detection, HEIF conversion
-- `web/` — static frontend (vanilla HTML/JS/CSS, no build step)
+- `src/main.go` — entry point, CLI flags, HTTP server
+- `src/internal/api/` — HTTP handlers (browse, thumbnail, image, copy/move) and routing with path traversal protection
+- `src/internal/media/` — directory scanning, EXIF extraction, format detection, HEIF conversion
+- `src/web/` — static frontend (vanilla HTML/JS/CSS, no build step)
 
 ## Documentation
 

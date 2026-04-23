@@ -41,17 +41,30 @@ Add (or remove) geolocation to one or more files:
 Export to ZIP (download) or destination folder and convert to JPEG, PNG or WebP with optional scaling:
 ![Export and resize](doc/screenshot-6-export.png)
 
-## Requirements
-
-- Go 1.21+
-- ffmpeg (optional, only needed for HEIF/HEIC/HIF files)
-- exiftool (optional, needed for Set/Remove Geolocation, Batch Rename, and Export EXIF copy/GPS-strip)
-
 ## Install
 
+Three options — pick the one that fits your setup:
+
+### Pre-built binary (recommended)
+
+Download the latest release for your platform from the [Releases page](https://github.com/bjblazko/unterlumen/releases). Extract the archive and run the binary directly — no runtime dependencies required (ffmpeg and exiftool are optional extras, see below).
+
+### Docker / Podman
+
+Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container Registry and include ffmpeg and exiftool — no separate install needed. Jump to the [Docker / Podman](#docker--podman) section below.
+
+### Build from source
+
+Requires Go 1.21+.
+
 ```
-go build -o unterlumen .
+cd src && go build -o ../unterlumen .
 ```
+
+### Optional dependencies
+
+- **ffmpeg** — required for HEIF/HEIC/HIF support
+- **exiftool** — required for Set/Remove Geolocation, Batch Rename, and Export EXIF copy/GPS-strip
 
 ## Usage
 
@@ -166,6 +179,30 @@ services:
 
 - [Changelog](CHANGELOG.md)
 - [Architecture (arc42)](doc/architecture/arc42.md) — system overview, building blocks, decisions, and ADR index
+
+## Development & Testing
+
+### E2E tests
+
+Requires the binary to be built first.
+
+```
+cd src && go build -o ../unterlumen .
+cd e2e && npm ci
+npm run setup        # download test fixtures once
+npm test             # run all tests headlessly (CI mode)
+npm run test:headed  # run with browser visible
+```
+
+To use the **Playwright interactive UI** — watch tests run step-by-step, inspect DOM snapshots, and re-run individual specs:
+
+```
+cd e2e && npx playwright test --ui
+```
+
+This opens a browser-based test runner at a local port. Select any spec or individual test in the sidebar and click the play button to run it with a live preview pane.
+
+Test reports and failure screenshots/videos are saved to `e2e/playwright-report/` and `e2e/test-results/`.
 
 ## Notes
 

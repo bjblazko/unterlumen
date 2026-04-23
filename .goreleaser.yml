@@ -4,10 +4,12 @@ project_name: unterlumen
 
 before:
   hooks:
-    - go mod tidy
+    - cmd: go mod tidy
+      dir: src
 
 builds:
-  - env:
+  - dir: src
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
