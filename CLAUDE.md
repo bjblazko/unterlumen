@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-04-20*
+*Last modified: 2026-04-23*
 
 ## Project
 
@@ -44,7 +44,7 @@ Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignore
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0008)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0015)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 
@@ -58,6 +58,17 @@ The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/archit
 - **Layout**: 8px grid, generous whitespace, photos without ornament
 - **Principle**: "Remove until it breaks." Every element must justify its existence.
 - Apply these principles to all future UI changes.
+
+## Coding Standards
+
+These rules apply automatically on every bug fix, refactor, or new feature — no need to ask. See [ADR-0015](doc/architecture/adr/0015-coding-standards.md) for rationale and acknowledged baseline violations.
+
+- **Single responsibility** — each file, class, or Go package has one reason to change. If a description needs "and also", split it.
+- **Function size** — functions over ~40 lines are a split signal. Extract named helpers whose names make comments unnecessary.
+- **YAGNI** — never add parameters, abstractions, or features for hypothetical future use. Three concrete uses justify an abstraction; one does not.
+- **Domain grouping** — group by business domain (`export`, `location`, `wastebin`), not technical layer (`utils`, `helpers`, `handlers`). When a directory exceeds ~8–10 files, look for a domain split.
+- **Testing** — new Go packages or complex functions get a `_test.go`. New user-visible features get an e2e spec in `e2e/specs/`. When fixing a bug, add a test that would have caught it.
+- **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
 
 ## Reminders
 
