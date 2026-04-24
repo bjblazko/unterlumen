@@ -1,4 +1,4 @@
-package api
+package browse
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/pathguard"
 )
 
 func handleImage(root string) http.HandlerFunc {
@@ -23,13 +24,12 @@ func handleImage(root string) http.HandlerFunc {
 			return
 		}
 
-		absPath, ok := safePath(root, relPath)
+		absPath, ok := pathguard.SafePath(root, relPath)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
 
-		// For HEIF files, convert to JPEG on-the-fly
 		if media.IsHEIF(absPath) {
 			jpegData, err := media.ConvertHEIFToJPEG(absPath)
 			if err != nil {
@@ -42,19 +42,23 @@ func handleImage(root string) http.HandlerFunc {
 			return
 		}
 
-		// Set content type based on extension
-		ext := strings.ToLower(filepath.Ext(absPath))
-		switch ext {
-		case ".jpg", ".jpeg":
-			w.Header().Set("Content-Type", "image/jpeg")
-		case ".png":
-			w.Header().Set("Content-Type", "image/png")
-		case ".gif":
-			w.Header().Set("Content-Type", "image/gif")
-		case ".webp":
-			w.Header().Set("Content-Type", "image/webp")
+		if ct := contentTypeByExt(absPath); ct != "" {
+			w.Header().Set("Content-Type", ct)
 		}
-
 		http.ServeFile(w, r, absPath)
 	}
+}
+
+func contentTypeByExt(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	}
+	return ""
 }

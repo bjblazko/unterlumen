@@ -1,7 +1,7 @@
-// Main application — routing and state
+// App — orchestration: init, mode switching, modal wiring, viewer
 
 const App = {
-    mode: 'browse', // 'browse', 'commander', or 'wastebin'
+    mode: 'browse',
     locationModal: null,
     batchRenameModal: null,
     exportModal: null,
@@ -16,30 +16,29 @@ const App = {
     _browseEl: null,
     _commanderEl: null,
     _wastebinEl: null,
-    wasteBin: new Map(), // key: full relative path, value: {name, type, date, size, dir}
-    wasteBinSelected: new Set(),
-    wasteBinLastClickedIndex: -1,
-    isMac: /Mac|iPhone|iPad|iPod/.test(navigator.platform),
     uiHidden: false,
+    wastebin: null,
+    theme: null,
+    keyboard: null,
 
     init() {
+        this.wastebin = new Wastebin();
+        this.theme = new ThemeManager(this);
+        this.keyboard = new GlobalKeyboard(this);
+
         this.viewer = new Viewer(document.getElementById('app'));
 
-        // Mode switcher
         document.getElementById('mode-browse').addEventListener('click', () => this.setMode('browse'));
         document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
 
-        // Set mode button tooltips with platform-appropriate shortcut keys
         document.getElementById('mode-browse').title = `Select (1)`;
         document.getElementById('mode-wastebin').title = `Review (2)`;
         document.getElementById('mode-commander').title = `Organize (3)`;
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleGlobalKey(e));
-
-        this.initTheme();
-        this.initThumbnailQuality();
+        this.keyboard.attach();
+        this.theme.init();
+        this.theme.initThumbnailQuality();
         this._initUIVisibility();
         this.initSettingsMenu();
 
@@ -69,9 +68,7 @@ const App = {
         document.body.classList.toggle('ui-hidden', this.uiHidden);
         localStorage.setItem('ui-hidden', this.uiHidden ? '1' : '0');
         if (this._hideUiToggle) this._hideUiToggle.setState(!this.uiHidden);
-        if (this.uiHidden) {
-            this._showUIHint();
-        }
+        if (this.uiHidden) this._showUIHint();
     },
 
     _showUIHint() {
@@ -81,52 +78,6 @@ const App = {
         hint.classList.add('visible');
         clearTimeout(this._uiHintTimer);
         this._uiHintTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
-    },
-
-    initTheme() {
-        const saved = localStorage.getItem('theme') || 'auto';
-        this._applyTheme(saved);
-        this._updateThemeButtons(saved);
-
-        window.matchMedia('(prefers-color-scheme: dark)')
-            .addEventListener('change', () => {
-                if ((localStorage.getItem('theme') || 'auto') === 'auto') {
-                    this._applyTheme('auto');
-                }
-            });
-    },
-
-    _applyTheme(preference) {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const resolved = preference === 'auto' ? (prefersDark ? 'dark' : 'light') : preference;
-        document.documentElement.dataset.theme = resolved;
-    },
-
-    _updateThemeButtons(preference) {
-        document.querySelectorAll('[data-theme-set]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.themeSet === preference);
-        });
-    },
-
-    initThumbnailQuality() {
-        const saved = localStorage.getItem('thumbnail-quality') || 'standard';
-        this._updateThumbQualityButtons(saved);
-    },
-
-    _updateThumbQualityButtons(quality) {
-        document.querySelectorAll('[data-thumb-quality]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.thumbQuality === quality);
-        });
-    },
-
-    _setThumbnailQuality(quality) {
-        localStorage.setItem('thumbnail-quality', quality);
-        this._updateThumbQualityButtons(quality);
-        if (this.browsePane) this.browsePane.reloadThumbnails();
-        if (this.commander) {
-            if (this.commander.leftPane) this.commander.leftPane.reloadThumbnails();
-            if (this.commander.rightPane) this.commander.rightPane.reloadThumbnails();
-        }
     },
 
     initSettingsMenu() {
@@ -140,18 +91,18 @@ const App = {
             if (themeBtn) {
                 const preference = themeBtn.dataset.themeSet;
                 localStorage.setItem('theme', preference);
-                this._applyTheme(preference);
-                this._updateThemeButtons(preference);
+                this.theme._apply(preference);
+                this.theme._updateButtons(preference);
             }
             const thumbBtn = e.target.closest('[data-thumb-quality]');
             if (thumbBtn) {
-                this._setThumbnailQuality(thumbBtn.dataset.thumbQuality);
+                this.theme.setQuality(thumbBtn.dataset.thumbQuality);
             }
         });
 
         this._hideUiToggle = Toggle.create(document.getElementById('settings-hide-ui-wrap'), {
             initial: !this.uiHidden,
-            onChange: (on) => {
+            onChange: () => {
                 this.toggleUIVisibility();
                 closeMenu();
             }
@@ -164,7 +115,6 @@ const App = {
     },
 
     setMode(mode) {
-        // Close any open viewer before switching modes
         if (this.viewer) {
             this.viewer.close();
             this.viewer = null;
@@ -172,19 +122,16 @@ const App = {
 
         const prevMode = this.mode;
 
-        // Preserve path from previous mode
         if (prevMode === 'commander' && this.commander) {
             this.currentBrowsePath = this.commander.getActivePane().path;
         }
 
         this.mode = mode;
 
-        // Workflow step order: browse=0, wastebin=1, commander=2
         const stepOrder = { browse: 0, wastebin: 1, commander: 2 };
         const prevIdx = stepOrder[prevMode] ?? 0;
         const currIdx = stepOrder[mode];
 
-        // Update workflow step states
         const steps = [
             { el: document.getElementById('mode-browse'), idx: 0 },
             { el: document.getElementById('mode-wastebin'), idx: 1 },
@@ -201,7 +148,6 @@ const App = {
 
         const appEl = document.getElementById('app');
 
-        // Create browse DOM once, then hide/show
         if (mode === 'browse') {
             if (!this._browseEl) {
                 this._browseEl = document.createElement('div');
@@ -221,14 +167,13 @@ const App = {
                 this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
                 this.infoPanel.onToggle = () => {
                     if (this.browsePane && this.browsePane.view === 'justified') {
-                        this.browsePane._scheduleJustifiedRelayout();
+                        this.browsePane._justifiedRenderer.scheduleRelayout();
                     }
                 };
                 this.browsePane.load(this.currentBrowsePath);
             }
         }
 
-        // Create commander DOM once, then hide/show
         if (mode === 'commander') {
             if (!this._commanderEl) {
                 this._commanderEl = document.createElement('div');
@@ -241,225 +186,72 @@ const App = {
             }
         }
 
-        // Wastebin is always re-rendered (reflects mutable state)
         if (mode === 'wastebin') {
             if (!this._wastebinEl) {
                 this._wastebinEl = document.createElement('div');
                 this._wastebinEl.style.height = '100%';
                 appEl.appendChild(this._wastebinEl);
             }
-            this.wasteBinSelected.clear();
-            this.wasteBinLastClickedIndex = -1;
-            this.renderWasteBin(this._wastebinEl);
+            this.wastebin.selected.clear();
+            this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
         }
 
-        // Show active, hide others
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
 
-        // Transition animation
         const activeEl = mode === 'browse' ? this._browseEl :
                          mode === 'commander' ? this._commanderEl : this._wastebinEl;
         if (activeEl && prevMode !== mode) {
             const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
             activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
-            void activeEl.offsetWidth; // force reflow
+            void activeEl.offsetWidth;
             activeEl.classList.add(cls);
             activeEl.addEventListener('animationend', () => activeEl.classList.remove(cls), { once: true });
         }
-
     },
 
-    markForDeletion(selectedPaths, entries, currentDir) {
-        for (const path of selectedPaths) {
-            if (this.wasteBin.has(path)) continue;
-            const entry = entries.find(e => {
-                const fp = currentDir ? `${currentDir}/${e.name}` : e.name;
-                return fp === path;
-            });
-            if (entry) {
-                this.wasteBin.set(path, {
-                    name: entry.name,
-                    type: entry.type,
-                    date: entry.date,
-                    size: entry.size,
-                    dir: currentDir,
-                });
-            }
+    _refreshPanes() {
+        if (this.browsePane) this.browsePane.load(this.browsePane.path);
+        if (this.commander) {
+            if (this.commander.leftPane) this.commander.leftPane.load(this.commander.leftPane.path);
+            if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
         }
-        this.updateWasteBinBadge();
+    },
+
+    // Public delegation methods — referenced by renderers and commander
+
+    markForDeletion(selectedPaths, entries, currentDir) {
+        this.wastebin.mark(selectedPaths, entries, currentDir);
     },
 
     restoreFromWasteBin(paths) {
-        for (const path of paths) {
-            this.wasteBin.delete(path);
-        }
-        this.updateWasteBinBadge();
+        this.wastebin.restore(paths);
     },
 
     async permanentlyDelete(paths) {
-        const filePaths = Array.from(paths);
-
-        const refreshPanes = () => {
-            if (this.browsePane) this.browsePane.load(this.browsePane.path);
-            if (this.commander) {
-                if (this.commander.leftPane)  this.commander.leftPane.load(this.commander.leftPane.path);
-                if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
-            }
-        };
-
-        // Large batches use progress dialog
-        if (filePaths.length > 5) {
-            const dialog = new ProgressDialog();
-            dialog.open(filePaths, {
-                verb: 'Deleting',
-                action: async (file) => {
-                    try {
-                        const result = await API.delete([file]);
-                        const r = result.results[0];
-                        if (r && (r.success || (r.error && r.error.includes('no such file')))) {
-                            this.wasteBin.delete(r.file);
-                        }
-                        return r || { success: true };
-                    } catch (err) {
-                        return { success: false, error: err.message };
-                    }
-                },
-                onComplete: () => {
-                    this.updateWasteBinBadge();
-                    refreshPanes();
-                },
-            });
-            return;
-        }
-
-        // Small batches: direct call
-        try {
-            const result = await API.delete(filePaths);
-            for (const r of result.results) {
-                if (r.success || r.error.includes('no such file')) {
-                    this.wasteBin.delete(r.file);
-                }
-            }
-            this.updateWasteBinBadge();
-            refreshPanes();
-
-            const failures = result.results.filter(r => !r.success && !r.error.includes('no such file'));
-            if (failures.length > 0) {
-                const msgs = failures.map(f => `${f.file}: ${f.error}`).join('\n');
-                alert(`Delete: ${failures.length} error(s):\n${msgs}`);
-            }
-        } catch (err) {
-            alert('Delete failed: ' + err.message);
-        }
-    },
-
-    updateWasteBinBadge() {
-        const countEl = document.getElementById('wastebin-count');
-        if (!countEl) return;
-        const count = this.wasteBin.size;
-        countEl.textContent = count > 0 ? count : '';
-        countEl.style.display = count > 0 ? 'inline' : 'none';
-    },
-
-    renderWasteBin(appEl) {
-        const items = Array.from(this.wasteBin.entries());
-
-        if (items.length === 0) {
-            appEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos marked yet for deletion. Use the "Select" or "Organize view to do so."</div></div>';
-            return;
-        }
-
-        const header = `<div class="wastebin-header">${items.length} file${items.length !== 1 ? 's' : ''} marked for deletion</div>`;
-        const selectedCount = this.wasteBinSelected.size;
-
-        const actions = `<div class="wastebin-actions">
-            <button class="btn btn-action" id="wb-restore" ${selectedCount === 0 ? 'disabled' : ''}>Restore${selectedCount > 0 ? ` (${selectedCount})` : ''}</button>
-            <button class="btn btn-action btn-danger" id="wb-delete" ${selectedCount === 0 ? 'disabled' : ''}>Delete permanently${selectedCount > 0 ? ` (${selectedCount})` : ''}</button>
-        </div>`;
-
-        const gridItems = items.map(([path, entry], idx) => {
-            const selectedClass = this.wasteBinSelected.has(path) ? ' selected' : '';
-            return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
-                <img src="${API.thumbnailURL(path, 200)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">
-                <div class="item-name">${entry.name}</div>
-            </div>`;
-        });
-        const grid = `<div class="grid">${gridItems.join('')}</div>`;
-
-        appEl.innerHTML = `<div class="browse-container"><div class="browse-header">${header}${actions}</div><div class="browse-content">${grid}</div></div>`;
-
-        // Attach events
-        document.getElementById('wb-restore').addEventListener('click', () => {
-            this.restoreFromWasteBin(this.wasteBinSelected);
-            this.wasteBinSelected.clear();
-            this.renderWasteBin(appEl);
-        });
-
-        document.getElementById('wb-delete').addEventListener('click', async () => {
-            const count = this.wasteBinSelected.size;
-            if (!confirm(`Permanently delete ${count} file${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
-            await this.permanentlyDelete(this.wasteBinSelected);
-            this.wasteBinSelected.clear();
-            this.renderWasteBin(appEl);
-        });
-
-        // Grid selection
-        appEl.querySelectorAll('[data-type="image"]').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const path = el.dataset.path;
-                const idx = parseInt(el.dataset.index);
-
-                if (e.ctrlKey || e.metaKey) {
-                    if (this.wasteBinSelected.has(path)) {
-                        this.wasteBinSelected.delete(path);
-                    } else {
-                        this.wasteBinSelected.add(path);
-                    }
-                    this.wasteBinLastClickedIndex = idx;
-                } else if (e.shiftKey && this.wasteBinLastClickedIndex >= 0) {
-                    const start = Math.min(this.wasteBinLastClickedIndex, idx);
-                    const end = Math.max(this.wasteBinLastClickedIndex, idx);
-                    for (let i = start; i <= end; i++) {
-                        this.wasteBinSelected.add(items[i][0]);
-                    }
-                } else {
-                    this.wasteBinSelected.clear();
-                    this.wasteBinSelected.add(path);
-                    this.wasteBinLastClickedIndex = idx;
-                }
-
-                this.renderWasteBin(appEl);
-            });
-        });
+        await this.wastebin.permanentlyDelete(paths, () => this._refreshPanes());
     },
 
     isMarkedForDeletion(path) {
-        return this.wasteBin.has(path);
+        return this.wastebin.isMarked(path);
     },
 
     openViewer(imagePath, pane) {
         let images = pane.getImageEntries().map(e => pane.fullPath(e.name));
-        if (pane.selected.size >= 2) {
-            images = images.filter(path => pane.selected.has(path));
+        if (pane.selection.selected.size >= 2) {
+            images = images.filter(path => pane.selection.selected.has(path));
         }
         const appEl = document.getElementById('app');
-
-        // Hide existing content instead of destroying it
         const existingChildren = Array.from(appEl.children);
-
-        // Save display state and scroll positions before hiding
         const savedDisplay = new Map();
         existingChildren.forEach(el => savedDisplay.set(el, el.style.display));
         const scrollPositions = new Map();
         appEl.querySelectorAll('.browse-container').forEach(el => {
             scrollPositions.set(el, el.scrollTop);
         });
-
         existingChildren.forEach(el => el.style.display = 'none');
 
-        // Create a separate container for the viewer
         const viewerEl = document.createElement('div');
         viewerEl.id = 'viewer-container';
         viewerEl.style.height = '100%';
@@ -467,16 +259,12 @@ const App = {
 
         this.viewer = new Viewer(viewerEl);
         this.viewer.onClose = () => {
-            // Remove viewer and restore previous content
             viewerEl.remove();
             savedDisplay.forEach((display, el) => { el.style.display = display; });
-            // Restore scroll positions
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };
         this.viewer.onDelete = (path) => {
-            const entries = pane.entries || [];
-            const dir = pane.path || '';
-            this.markForDeletion([path], entries, dir);
+            this.wastebin.mark([path], pane.entries || [], pane.path || '');
         };
         this.viewer.open(imagePath, images);
     },
@@ -484,8 +272,8 @@ const App = {
     handleSlideshowInvoke() {
         const pane = this.browsePane;
         if (!pane) return;
-        const images = pane.selected.size > 0
-            ? Array.from(pane.selected)
+        const images = pane.selection.selected.size > 0
+            ? Array.from(pane.selection.selected)
             : pane.getImageEntries().map(e => pane.fullPath(e.name));
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
@@ -579,187 +367,6 @@ const App = {
                 serverRole: this.config?.serverRole ?? false,
                 exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
             });
-        }
-    },
-
-    handleGlobalKey(e) {
-        // Don't intercept keys when a modal overlay is open (modals handle their own keys)
-        if (document.querySelector('.modal-overlay')) return;
-
-        // Tab to switch panes in commander mode
-        if (e.key === 'Tab' && this.mode === 'commander' && this.commander) {
-            e.preventDefault();
-            const leftEl = document.getElementById('left-pane');
-            const rightEl = document.getElementById('right-pane');
-            if (this.commander.activePane === 'left') {
-                this.commander.activePane = 'right';
-                leftEl.classList.remove('active');
-                rightEl.classList.add('active');
-            } else {
-                this.commander.activePane = 'left';
-                rightEl.classList.remove('active');
-                leftEl.classList.add('active');
-            }
-            this.commander.updateActions();
-        }
-
-        // Escape to go up in browse mode
-        if (e.key === 'Escape' && this.mode === 'browse' && this.browsePane) {
-            if (document.querySelector('.viewer')) return; // Don't navigate while viewing
-            e.preventDefault();
-            if (this.browsePane.selected.size > 0) {
-                this.browsePane.selected.clear();
-                this.browsePane.updateSelectionClasses();
-                if (this.browsePane.onSelectionChange) this.browsePane.onSelectionChange([]);
-                return;
-            }
-            const parts = this.browsePane.path.split('/').filter(Boolean);
-            parts.pop();
-            const parentPath = parts.join('/');
-            this.browsePane.load(parentPath);
-            this.currentBrowsePath = parentPath;
-        }
-
-        // Escape to go up in commander mode
-        if (e.key === 'Escape' && this.mode === 'commander' && this.commander) {
-            e.preventDefault();
-            const pane = this.commander.getActivePane();
-            if (pane.selected.size > 0) {
-                pane.selected.clear();
-                pane.updateSelectionClasses();
-                if (pane.onSelectionChange) pane.onSelectionChange([]);
-                return;
-            }
-            const parts = pane.path.split('/').filter(Boolean);
-            parts.pop();
-            pane.load(parts.join('/'));
-        }
-
-        // Backspace to mark selected (or focused) files for waste bin (browse mode)
-        if (e.key === 'Backspace' && this.mode === 'browse' && this.browsePane) {
-            e.preventDefault(); // prevent Safari back-navigation before any early returns
-            if (document.querySelector('.viewer')) return; // viewer's own handler takes over
-            const targets = this.browsePane.getActionableFiles();
-            if (targets.length === 0) return;
-            this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
-            this.browsePane.selected.clear();
-            this.browsePane.updateSelectionClasses();
-            this.browsePane.updateMarkedForDeletion();
-        }
-
-        // Backspace to mark for deletion in commander mode
-        if (e.key === 'Backspace' && this.mode === 'commander' && this.commander) {
-            e.preventDefault(); // prevent Safari back-navigation before any early returns
-            const targets = this.commander.getActivePane().getActionableFiles();
-            if (targets.length === 0) return;
-            this.commander.doDelete();
-        }
-
-        // I to toggle info panel in browse mode
-        if ((e.key === 'i' || e.key === 'I') && this.mode === 'browse' && this.infoPanel) {
-            if (document.querySelector('.viewer')) return;
-            e.preventDefault();
-            this.infoPanel.toggle();
-            if (this.infoPanel.expanded && this.browsePane) {
-                this.browsePane._notifyFocusChange();
-            }
-        }
-
-        // Delete key to mark selected (or focused) files for waste bin
-        if (e.key === 'Delete' && this.mode === 'browse' && this.browsePane) {
-            if (document.querySelector('.viewer')) return;
-            const targets = this.browsePane.getActionableFiles();
-            if (targets.length === 0) return;
-            e.preventDefault();
-            this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
-            this.browsePane.selected.clear();
-            this.browsePane.updateSelectionClasses();
-            this.browsePane.updateMarkedForDeletion();
-        }
-        if (e.key === 'Delete' && this.mode === 'commander' && this.commander) {
-            const targets = this.commander.getActivePane().getActionableFiles();
-            if (targets.length === 0) return;
-            e.preventDefault();
-            this.commander.doDelete();
-        }
-
-        // F5/F6 to copy/move in commander mode
-        if (this.mode === 'commander' && this.commander) {
-            if (e.key === 'F5') { e.preventDefault(); this.commander.doCopy(); }
-            else if (e.key === 'F6') { e.preventDefault(); this.commander.doMove(); }
-        }
-
-        const modKey = this.isMac ? e.metaKey : e.ctrlKey;
-
-        // Cmd/Ctrl+A to select all
-        if (modKey && (e.key === 'a' || e.key === 'A') && !e.shiftKey && !e.altKey) {
-            if (this.mode === 'browse' && this.browsePane && !document.querySelector('.viewer')) {
-                e.preventDefault();
-                this.browsePane.selectAll();
-            } else if (this.mode === 'commander' && this.commander) {
-                e.preventDefault();
-                this.commander.getActivePane().selectAll();
-            } else if (this.mode === 'wastebin') {
-                e.preventDefault();
-                this.wasteBin.forEach((_, p) => this.wasteBinSelected.add(p));
-                this.renderWasteBin(this._wastebinEl);
-            }
-        }
-
-        // Cmd/Ctrl+D to mark for deletion
-        if (modKey && (e.key === 'd' || e.key === 'D') && !e.shiftKey && !e.altKey) {
-            if (this.mode === 'browse' && this.browsePane && !document.querySelector('.viewer')) {
-                e.preventDefault();
-                const targets = this.browsePane.getActionableFiles();
-                if (targets.length > 0) {
-                    this.markForDeletion(targets, this.browsePane.entries, this.browsePane.path);
-                    this.browsePane.selected.clear();
-                    this.browsePane.updateSelectionClasses();
-                    this.browsePane.updateMarkedForDeletion();
-                }
-            } else if (this.mode === 'commander' && this.commander) {
-                e.preventDefault();
-                this.commander.doDelete();
-            }
-        }
-
-        // Arrow keys / Enter / Space for grid/list keyboard navigation
-        if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-            if (!document.querySelector('.viewer')) {
-                const pane = this.getActiveBrowsePane();
-                if (pane) {
-                    if (e.key === 'ArrowLeft') {
-                        e.preventDefault(); pane.moveFocus(-1);
-                    } else if (e.key === 'ArrowRight') {
-                        e.preventDefault(); pane.moveFocus(1);
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault(); pane.moveFocus(-pane.getColumnCount());
-                    } else if (e.key === 'ArrowDown') {
-                        e.preventDefault(); pane.moveFocus(pane.getColumnCount());
-                    } else if (e.key === 'Enter') {
-                        e.preventDefault(); pane.activateFocused();
-                    } else if (e.key === ' ') {
-                        e.preventDefault(); pane.toggleFocusedSelection();
-                    }
-                }
-            }
-        }
-
-        // 1/2/3 to switch views (bare keys, no modifier)
-        if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === '1') { e.preventDefault(); this.setMode('browse'); }
-            else if (e.key === '2') { e.preventDefault(); this.setMode('wastebin'); }
-            else if (e.key === '3') { e.preventDefault(); this.setMode('commander'); }
-        }
-
-        // H to toggle interface visibility (bare key, no modifier)
-        if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-            if (document.querySelector('.viewer')) return; // viewer handles it
-            e.preventDefault();
-            this.toggleUIVisibility();
         }
     },
 };

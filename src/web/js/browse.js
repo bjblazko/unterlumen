@@ -7,7 +7,6 @@ class BrowsePane {
         this.container = container;
         this.path = '';
         this.entries = [];
-        this.selected = new Set();
         this.view = 'justified'; // 'grid', 'list', or 'justified'
         this.sort = 'name';
         this.order = 'asc';
@@ -20,9 +19,7 @@ class BrowsePane {
         this.showOverlays = true;
         this.onToolInvoke = options.onToolInvoke || null;
         this.onSlideshowInvoke = options.onSlideshowInvoke || null;
-        this._toolsChecked = null; // null = not checked, {exiftool: bool}
-        this.lastClickedIndex = -1;
-        this.focusedIndex = -1;
+        this._toolsChecked = null;
         this._loading = false;
         this._renderedCount = 0;
         this._observer = null;
@@ -31,31 +28,24 @@ class BrowsePane {
         this._entryMeta = {};
         this._aspectRatios = {};
         this._justifiedTargetHeight = 200;
-        this._justifiedRelayoutTimer = null;
         this._resizeHandler = null;
+        this._contentEl = null;
+
+        this.selection = new SelectionManager((files) => {
+            if (this.onSelectionChange) this.onSelectionChange(files);
+        });
+        this.keyboard = new BrowseKeyboard(this);
+        this._gridRenderer = new GridRenderer(this);
+        this._listRenderer = new ListRenderer(this);
+        this._justifiedRenderer = new JustifiedRenderer(this);
     }
 
-    _getThumbnailSize() {
-        if (localStorage.getItem('thumbnail-quality') !== 'high') return null;
-        const dpr = window.devicePixelRatio || 1;
-        if (this.view === 'grid') {
-            const grid = this.container.querySelector('.grid');
-            if (grid) {
-                const item = grid.querySelector('.grid-item');
-                if (item) return Math.round(item.offsetWidth * dpr);
-            }
-            return Math.round(200 * dpr);
-        }
-        if (this.view === 'justified') {
-            return Math.round(this._justifiedTargetHeight * dpr);
-        }
-        // list view: small thumbnails
-        return Math.round(32 * dpr);
-    }
+    // Getters so external code (commander.js, renderers) can access sub-object state via the pane directly
+    get focusedIndex() { return this.keyboard.focusedIndex; }
+    set focusedIndex(v) { this.keyboard.focusedIndex = v; }
+    get selected() { return this.selection.selected; }
 
-    reloadThumbnails() {
-        this.render();
-    }
+    // --- Public API ---
 
     async load(path) {
         if (this._loading) return;
@@ -64,9 +54,8 @@ class BrowsePane {
         const scrollEl = this._contentEl || this.container;
         const savedScroll = isReload ? scrollEl.scrollTop : 0;
         this.path = path || '';
-        this.selected.clear();
-        this.lastClickedIndex = -1;
-        this.focusedIndex = 0;
+        this.selection.clear();
+        this.keyboard.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];
         this._exifPollPath = null;
@@ -88,9 +77,10 @@ class BrowsePane {
         this.entries = data.entries || [];
         this.warnings = data.warnings || [];
         this.render();
+        this.keyboard.updateFocusClass();
+
         if (isReload && savedScroll > 0) {
             const restoreEl = this._contentEl || this.container;
-            // Render enough chunks so container has sufficient height
             while (this._renderedCount < this.entries.length &&
                    restoreEl.scrollHeight <= savedScroll + restoreEl.clientHeight) {
                 this._renderNextChunk();
@@ -99,7 +89,6 @@ class BrowsePane {
         }
         this._notifyFocusChange();
 
-        // Start EXIF date polling if there are images
         if (this.entries.some(e => e.type === 'image')) {
             this._pollExifDates();
             this._pollOverlayMeta();
@@ -119,44 +108,36 @@ class BrowsePane {
         this.load(this.path);
     }
 
+    reloadThumbnails() {
+        this.render();
+    }
+
     getImageEntries() {
         return this.entries.filter(e => e.type === 'image');
     }
 
     getSelectedFiles() {
-        return Array.from(this.selected);
+        return this.selection.getSelectedFiles();
     }
 
     getActionableFiles() {
         const selected = this.getSelectedFiles();
         if (selected.length > 0) return selected;
-        const focused = this.getFocusedEntry();
+        const focused = this.keyboard.getFocusedEntry();
         return focused ? [focused] : [];
     }
 
-    getFocusedDir() {
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
-        const entry = this.entries[this.focusedIndex];
-        if (entry.type !== 'dir') return null;
-        return this.fullPath(entry.name);
-    }
+    getFocusedDir()    { return this.keyboard.getFocusedDir(); }
+    getFocusedFile()   { return this.keyboard.getFocusedFile(); }
+    getFocusedEntry()  { return this.keyboard.getFocusedEntry(); }
+    moveFocus(delta)   { this.keyboard.moveFocus(delta); }
+    activateFocused()  { this.keyboard.activateFocused(); }
+    getColumnCount()   { return this.keyboard.getColumnCount(); }
 
-    getFocusedFile() {
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
-        const entry = this.entries[this.focusedIndex];
-        if (entry.type !== 'image') return null;
-        return this.fullPath(entry.name);
-    }
-
-    getFocusedEntry() {
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return null;
-        return this.fullPath(this.entries[this.focusedIndex].name);
-    }
+    toggleFocusedSelection() { this.keyboard.toggleFocusedSelection(); }
 
     selectAll() {
-        this.entries.filter(e => e.type !== 'dir').forEach(e => {
-            this.selected.add(this.fullPath(e.name));
-        });
+        this.selection.selectAll(this.entries, n => this.fullPath(n));
         this.render();
     }
 
@@ -164,48 +145,47 @@ class BrowsePane {
         return this.path ? `${this.path}/${name}` : name;
     }
 
+    updateMarkedForDeletion() {
+        this.container.querySelectorAll('[data-path]').forEach(el => {
+            const path = el.getAttribute('data-path');
+            el.classList.toggle('marked-for-deletion', App.isMarkedForDeletion(path));
+        });
+    }
+
+    updateSelectionClasses() {
+        this.selection.updateClasses(this.container);
+    }
+
+    async notifyFilesChanged() {
+        try {
+            await API.browse(this.path, this.sort, this.order);
+        } catch { /* ignore */ }
+        this._pollOverlayMeta();
+    }
+
+    // --- Rendering ---
+
     render() {
         this._destroyObserver();
         this._renderedCount = 0;
 
-        // Build header (sticky)
         const header = [];
-        if (this.warnings && this.warnings.length > 0) {
-            header.push(this.renderWarnings());
-        }
-        header.push(this.renderBreadcrumb());
-        header.push(this.renderControls());
+        if (this.warnings && this.warnings.length > 0) header.push(this._renderWarnings());
+        header.push(this._renderBreadcrumb());
+        header.push(this._renderControls());
 
-        // Build content (scrollable)
         const content = [];
         if (this._loading) {
             content.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
         } else if (this.entries.length === 0) {
             content.push('<div class="empty">No images or folders found</div>');
-        } else if (this.view === 'grid') {
-            const end = Math.min(CHUNK_SIZE, this.entries.length);
-            content.push(this._renderGridChunk(0, end));
-            this._renderedCount = end;
-            if (end < this.entries.length) {
-                content.push('<div class="scroll-sentinel"></div>');
-            }
-        } else if (this.view === 'justified') {
-            const end = Math.min(CHUNK_SIZE, this.entries.length);
-            content.push(this._renderJustifiedChunk(0, end));
-            this._renderedCount = end;
-            if (end < this.entries.length) {
-                content.push('<div class="scroll-sentinel"></div>');
-            }
         } else {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
-            content.push(this._renderListChunk(0, end));
+            content.push(this._renderChunk(0, end));
             this._renderedCount = end;
-            if (end < this.entries.length) {
-                content.push('<div class="scroll-sentinel"></div>');
-            }
+            if (end < this.entries.length) content.push('<div class="scroll-sentinel"></div>');
         }
 
-        // Clean up previous resize handler
         if (this._resizeHandler) {
             window.removeEventListener('resize', this._resizeHandler);
             this._resizeHandler = null;
@@ -219,23 +199,28 @@ class BrowsePane {
         this._setupObserver();
 
         if (this.view === 'justified') {
-            this._layoutJustified();
-            this._resizeHandler = () => this._scheduleJustifiedRelayout();
+            this._justifiedRenderer.layout();
+            this._resizeHandler = () => this._justifiedRenderer.scheduleRelayout();
             window.addEventListener('resize', this._resizeHandler);
         }
     }
 
-    renderWarnings() {
-        const items = this.warnings.map((w, i) =>
+    _renderChunk(start, end) {
+        if (this.view === 'grid')      return this._gridRenderer.renderChunk(start, end);
+        if (this.view === 'justified') return this._justifiedRenderer.renderChunk(start, end);
+        return this._listRenderer.renderChunk(start, end);
+    }
+
+    _renderWarnings() {
+        return this.warnings.map((w, i) =>
             `<div class="warning-banner" data-warning-index="${i}">
                 <span class="warning-message">${w.message}</span>
                 <button class="btn btn-sm warning-dismiss" data-warning-index="${i}" title="Dismiss">&times;</button>
             </div>`
-        );
-        return items.join('');
+        ).join('');
     }
 
-    renderBreadcrumb() {
+    _renderBreadcrumb() {
         const parts = this.path ? this.path.split('/') : [];
         const isAtRoot = parts.length === 0;
         let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
@@ -249,9 +234,9 @@ class BrowsePane {
         return `<nav class="breadcrumb">${crumbs}</nav>`;
     }
 
-    renderControls() {
+    _renderControls() {
         const imageCount = this.getImageEntries().length;
-        const selectedCount = this.selected.size;
+        const selectedCount = this.selection.selected.size;
         const statusText = selectedCount > 0
             ? `${imageCount} images · ${selectedCount} selected`
             : `${imageCount} images`;
@@ -337,187 +322,14 @@ class BrowsePane {
         </div>`;
     }
 
-    _renderGridChunk(start, end) {
-        const thumbSize = this._getThumbnailSize();
-        const items = [];
-        for (let idx = start; idx < end; idx++) {
-            const entry = this.entries[idx];
-            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
-            if (entry.type === 'dir') {
-                items.push(`<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
-                    <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
-                    <div class="item-name">${entry.name}</div>
-                </div>`);
-            } else {
-                const fp = this.fullPath(entry.name);
-                const selectedClass = this.selected.has(fp) ? ' selected' : '';
-                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-                const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
-                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
-                items.push(`<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${badgesHtml}${nameHtml}
-                </div>`);
-            }
-        }
-        if (start === 0) {
-            return `<div class="grid">${items.join('')}</div>`;
-        }
-        return items.join('');
-    }
-
-    _renderListChunk(start, end) {
-        const thumbSize = this._getThumbnailSize();
-        const rows = [];
-        for (let idx = start; idx < end; idx++) {
-            const entry = this.entries[idx];
-            const date = formatDate(entry.date);
-            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
-            if (entry.type === 'dir') {
-                rows.push(`<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
-                    <td class="list-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></td>
-                    <td class="list-name">${entry.name}</td>
-                    <td class="list-date">${date}</td>
-                    <td class="list-size"></td>
-                </tr>`);
-            } else {
-                const fp = this.fullPath(entry.name);
-                const selectedClass = this.selected.has(fp) ? ' selected' : '';
-                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-                const size = entry.size ? formatSize(entry.size) : '';
-                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
-                rows.push(`<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-                    <td class="list-icon"><img src="${API.thumbnailURL(fp, thumbSize)}" alt="" loading="lazy"></td>
-                    <td class="list-name">${entry.name}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
-                    <td class="list-date">${date}</td>
-                    <td class="list-size">${size}</td>
-                </tr>`);
-            }
-        }
-        if (start === 0) {
-            return `<table class="list-view">
-                <thead><tr><th></th><th>Name</th><th>Date</th><th>Size</th></tr></thead>
-                <tbody>${rows.join('')}</tbody>
-            </table>`;
-        }
-        return rows.join('');
-    }
-
-    _renderJustifiedChunk(start, end) {
-        const thumbSize = this._getThumbnailSize();
-        const dirItems = [];
-        const imageItems = [];
-        for (let idx = start; idx < end; idx++) {
-            const entry = this.entries[idx];
-            const focusedClass = idx === this.focusedIndex ? ' focused' : '';
-            if (entry.type === 'dir') {
-                dirItems.push(`<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="dir">
-                    <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
-                    <div class="item-name">${entry.name}</div>
-                </div>`);
-            } else {
-                const fp = this.fullPath(entry.name);
-                const selectedClass = this.selected.has(fp) ? ' selected' : '';
-                const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-                const nameHtml = this.showNames ? `<div class="item-name">${entry.name}</div>` : '';
-                const badgesHtml = this._buildOverlayBadges(entry.name, this._entryMeta[entry.name]);
-                const ar = this._aspectRatios[idx] || 1.5;
-                imageItems.push(`<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(this._justifiedTargetHeight * ar)}px;height:${this._justifiedTargetHeight}px">
-                    <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" data-jidx="${idx}">${badgesHtml}${nameHtml}
-                </div>`);
-            }
-        }
-        if (start === 0) {
-            const parts = [];
-            if (dirItems.length > 0) {
-                parts.push(`<div class="grid justified-dirs">${dirItems.join('')}</div>`);
-            }
-            parts.push(`<div class="justified">${imageItems.join('')}</div>`);
-            return parts.join('');
-        }
-        return imageItems.join('');
-    }
-
-    _layoutJustified() {
-        const container = this.container.querySelector('.justified');
-        if (!container) return;
-        const containerWidth = container.clientWidth;
-        if (containerWidth <= 0) return;
-
-        const items = container.querySelectorAll('.justified-item');
-        if (items.length === 0) return;
-
-        const gap = 1;
-        let rowStart = 0;
-        let rowAspectSum = 0;
-
-        for (let i = 0; i <= items.length; i++) {
-            if (i < items.length) {
-                const idx = parseInt(items[i].dataset.index);
-                const ar = this._aspectRatios[idx] || 1.5;
-                const itemWidth = ar * this._justifiedTargetHeight;
-                const rowGaps = (i - rowStart) * gap;
-
-                if (rowAspectSum > 0 && rowAspectSum * this._justifiedTargetHeight + itemWidth + rowGaps + gap > containerWidth) {
-                    // Close the current row
-                    this._setJustifiedRow(items, rowStart, i, containerWidth, rowAspectSum, gap);
-                    rowStart = i;
-                    rowAspectSum = ar;
-                } else {
-                    rowAspectSum += ar;
-                }
-            } else {
-                // Last row — keep target height, don't stretch
-                for (let j = rowStart; j < i; j++) {
-                    const jIdx = parseInt(items[j].dataset.index);
-                    const ar = this._aspectRatios[jIdx] || 1.5;
-                    items[j].style.width = Math.round(this._justifiedTargetHeight * ar) + 'px';
-                    items[j].style.height = this._justifiedTargetHeight + 'px';
-                }
-            }
-        }
-    }
-
-    _setJustifiedRow(items, start, end, containerWidth, aspectSum, gap) {
-        const gaps = (end - start - 1) * gap;
-        const rowHeight = (containerWidth - gaps) / aspectSum;
-        let usedWidth = 0;
-
-        for (let i = start; i < end; i++) {
-            const idx = parseInt(items[i].dataset.index);
-            const ar = this._aspectRatios[idx] || 1.5;
-            if (i === end - 1) {
-                // Last item gets remaining pixels to avoid rounding gaps
-                const w = containerWidth - usedWidth - (end - start - 1) * gap;
-                items[i].style.width = Math.round(w) + 'px';
-            } else {
-                const w = Math.round(ar * rowHeight);
-                items[i].style.width = w + 'px';
-                usedWidth += w;
-            }
-            items[i].style.height = Math.round(rowHeight) + 'px';
-        }
-    }
-
-    _scheduleJustifiedRelayout() {
-        if (this._justifiedRelayoutTimer) return;
-        this._justifiedRelayoutTimer = requestAnimationFrame(() => {
-            this._justifiedRelayoutTimer = null;
-            this._layoutJustified();
-        });
-    }
-
-    // Keep old renderGrid/renderList as aliases for compatibility (used nowhere now)
-    renderGrid() { return this._renderGridChunk(0, this.entries.length); }
-    renderList() { return this._renderListChunk(0, this.entries.length); }
+    // --- Incremental rendering ---
 
     _setupObserver() {
         if (!this._contentEl) return;
         const sentinel = this._contentEl.querySelector('.scroll-sentinel');
         if (!sentinel) return;
         this._observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                this._renderNextChunk();
-            }
+            if (entries[0].isIntersecting) this._renderNextChunk();
         }, { root: this._contentEl, rootMargin: '200px' });
         this._observer.observe(sentinel);
     }
@@ -537,26 +349,21 @@ class BrowsePane {
 
         if (this.view === 'grid') {
             const grid = ct.querySelector('.grid');
-            if (grid) {
-                grid.insertAdjacentHTML('beforeend', this._renderGridChunk(start, end));
-            }
+            if (grid) grid.insertAdjacentHTML('beforeend', this._gridRenderer.renderChunk(start, end));
         } else if (this.view === 'justified') {
             const justified = ct.querySelector('.justified');
             if (justified) {
-                justified.insertAdjacentHTML('beforeend', this._renderJustifiedChunk(start, end));
-                this._scheduleJustifiedRelayout();
+                justified.insertAdjacentHTML('beforeend', this._justifiedRenderer.renderChunk(start, end));
+                this._justifiedRenderer.scheduleRelayout();
             }
         } else {
             const tbody = ct.querySelector('tbody');
-            if (tbody) {
-                tbody.insertAdjacentHTML('beforeend', this._renderListChunk(start, end));
-            }
+            if (tbody) tbody.insertAdjacentHTML('beforeend', this._listRenderer.renderChunk(start, end));
         }
 
         this._renderedCount = end;
         this._attachItemEvents(start, end);
 
-        // Remove sentinel if we've rendered everything
         if (end >= this.entries.length) {
             const sentinel = ct.querySelector('.scroll-sentinel');
             if (sentinel) sentinel.remove();
@@ -570,40 +377,24 @@ class BrowsePane {
         }
     }
 
-    updateMarkedForDeletion() {
-        this.container.querySelectorAll('[data-path]').forEach(el => {
-            const path = el.getAttribute('data-path');
-            if (App.isMarkedForDeletion(path)) {
-                el.classList.add('marked-for-deletion');
-            } else {
-                el.classList.remove('marked-for-deletion');
+    _getThumbnailSize() {
+        if (localStorage.getItem('thumbnail-quality') !== 'high') return null;
+        const dpr = window.devicePixelRatio || 1;
+        if (this.view === 'grid') {
+            const grid = this.container.querySelector('.grid');
+            if (grid) {
+                const item = grid.querySelector('.grid-item');
+                if (item) return Math.round(item.offsetWidth * dpr);
             }
-        });
+            return Math.round(200 * dpr);
+        }
+        if (this.view === 'justified') return Math.round(this._justifiedTargetHeight * dpr);
+        return Math.round(32 * dpr);
     }
 
-    updateSelectionClasses() {
-        this.container.querySelectorAll('[data-type="image"]').forEach(el => {
-            el.classList.toggle('selected', this.selected.has(el.dataset.path));
-        });
-        const statusEl = this.container.querySelector('.status-bar');
-        if (statusEl) {
-            const imageCount = this.getImageEntries().length;
-            const selectedCount = this.selected.size;
-            if (selectedCount > 0) {
-                statusEl.innerHTML = `${imageCount} images · ${selectedCount} selected <button class="btn btn-sm btn-deselect">Deselect</button>`;
-                statusEl.querySelector('.btn-deselect').addEventListener('click', () => {
-                    this.selected.clear();
-                    this.updateSelectionClasses();
-                    if (this.onSelectionChange) this.onSelectionChange([]);
-                });
-            } else {
-                statusEl.textContent = `${imageCount} images`;
-            }
-        }
-    }
+    // --- Events ---
 
     attachEvents() {
-        // Warning dismiss
         this.container.querySelectorAll('.warning-dismiss').forEach(el => {
             el.addEventListener('click', () => {
                 const idx = parseInt(el.dataset.warningIndex);
@@ -612,7 +403,6 @@ class BrowsePane {
             });
         });
 
-        // Breadcrumb navigation
         this.container.querySelectorAll('.crumb').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -622,19 +412,14 @@ class BrowsePane {
             });
         });
 
-        // View toggle
         this.container.querySelectorAll('[data-view]').forEach(el => {
             el.addEventListener('click', () => this.setView(el.dataset.view));
         });
 
-        // View menu toggle
         const viewMenuBtn = this.container.querySelector('.view-menu-btn');
         const viewMenu = this.container.querySelector('.view-menu');
-        if (viewMenuBtn && viewMenu) {
-            Dropdown.init(viewMenuBtn, viewMenu);
-        }
+        if (viewMenuBtn && viewMenu) Dropdown.init(viewMenuBtn, viewMenu);
 
-        // Tools menu toggle
         const toolsMenuBtn = this.container.querySelector('.tools-menu-btn');
         const toolsMenu = this.container.querySelector('.tools-menu');
         if (toolsMenuBtn && toolsMenu) {
@@ -645,15 +430,10 @@ class BrowsePane {
                     this._checkToolsAvailability();
                 },
             });
-
-            // Tool item clicks
             toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const files = this.getActionableFiles();
-                    if (files.length === 0) {
-                        alert('No images selected.');
-                        return;
-                    }
+                    if (files.length === 0) { alert('No images selected.'); return; }
                     const tool = btn.dataset.tool;
                     const params = {};
                     if (tool === 'rotate') params.angle = parseInt(btn.dataset.angle);
@@ -663,7 +443,6 @@ class BrowsePane {
             });
         }
 
-        // Slideshow button
         const slideshowBtn = this.container.querySelector('.slideshow-btn');
         if (slideshowBtn) {
             slideshowBtn.addEventListener('click', () => {
@@ -671,200 +450,98 @@ class BrowsePane {
             });
         }
 
-        // Names toggle
         const namesWrap = this.container.querySelector('.toggle-names-wrap');
         if (namesWrap) Toggle.create(namesWrap, {
             initial: this.showNames,
             onChange: (on) => { this.showNames = on; this.render(); }
         });
 
-        // Overlays toggle
         const overlaysWrap = this.container.querySelector('.toggle-overlays-wrap');
         if (overlaysWrap) Toggle.create(overlaysWrap, {
             initial: this.showOverlays,
             onChange: (on) => { this.showOverlays = on; this.render(); }
         });
 
-        // Sort field
         const sortField = this.container.querySelector('.sort-field');
-        if (sortField) {
-            sortField.addEventListener('change', () => {
-                this.setSort(sortField.value, this.order);
-            });
-        }
+        if (sortField) sortField.addEventListener('change', () => this.setSort(sortField.value, this.order));
 
-        // Sort order toggle
         const sortOrder = this.container.querySelector('.sort-order');
-        if (sortOrder) {
-            sortOrder.addEventListener('click', () => {
-                this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc');
-            });
-        }
+        if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
 
-        // Click on void area clears selection
         const gridEl = this.container.querySelector('.grid, .justified, .list-view');
         if (gridEl) {
             gridEl.addEventListener('click', (e) => {
                 if (e.target !== gridEl) return;
-                if (this.selected.size === 0) return;
-                this.selected.clear();
-                this.updateSelectionClasses();
+                if (this.selection.selected.size === 0) return;
+                this.selection.clear();
+                this.selection.updateClasses(this.container);
                 if (this.onSelectionChange) this.onSelectionChange([]);
             });
         }
 
-        // Item events for the initial chunk
         this._attachItemEvents(0, this._renderedCount);
     }
 
     _attachItemEvents(start, end) {
-        const els = this.container.querySelectorAll(`[data-index]`);
-        els.forEach(el => {
+        this.container.querySelectorAll('[data-index]').forEach(el => {
             const idx = parseInt(el.dataset.index);
             if (idx < start || idx >= end) return;
-            const type = el.dataset.type;
 
-            if (type === 'dir') {
+            if (el.dataset.type === 'dir') {
                 el.addEventListener('click', () => {
-                    this.focusedIndex = idx;
-                    this.updateFocusClass();
+                    this.keyboard.focusedIndex = idx;
+                    this.keyboard.updateFocusClass();
                     this._notifyFocusChange();
                 });
                 el.addEventListener('dblclick', () => {
-                    const name = el.dataset.name;
-                    const path = this.fullPath(name);
+                    const path = this.fullPath(el.dataset.name);
                     this.load(path);
                     if (this.onNavigate) this.onNavigate(path);
                 });
-            } else if (type === 'image') {
+            } else if (el.dataset.type === 'image') {
                 el.addEventListener('click', (e) => {
                     const fp = el.dataset.path;
-                    this.focusedIndex = idx;
-                    this.updateFocusClass();
+                    this.keyboard.focusedIndex = idx;
+                    this.keyboard.updateFocusClass();
                     this._notifyFocusChange();
-
-                    if (e.ctrlKey || e.metaKey) {
-                        if (this.selected.has(fp)) {
-                            this.selected.delete(fp);
-                        } else {
-                            this.selected.add(fp);
-                        }
-                        this.lastClickedIndex = idx;
-                        this.updateSelectionClasses();
-                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                    } else if (e.shiftKey && this.lastClickedIndex >= 0) {
-                        const rangeStart = Math.min(this.lastClickedIndex, idx);
-                        const rangeEnd = Math.max(this.lastClickedIndex, idx);
-                        for (let i = rangeStart; i <= rangeEnd; i++) {
-                            const entry = this.entries[i];
-                            if (entry.type === 'image') {
-                                this.selected.add(this.fullPath(entry.name));
-                            }
-                        }
-                        this.updateSelectionClasses();
-                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                    } else {
-                        this.selected.clear();
-                        this.selected.add(fp);
-                        this.lastClickedIndex = idx;
-                        this.updateSelectionClasses();
-                        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-                    }
+                    this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
+                    this.selection.updateClasses(this.container);
                 });
-
                 el.addEventListener('dblclick', () => {
-                    const fp = el.dataset.path;
-                    if (this.onImageClick) this.onImageClick(fp);
+                    if (this.onImageClick) this.onImageClick(el.dataset.path);
                 });
 
-                // Record aspect ratio on thumbnail load for justified layout
                 if (this.view === 'justified') {
                     const img = el.querySelector('img');
                     if (img) {
-                        if (img.naturalWidth && img.naturalHeight) {
-                            this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
-                            this._scheduleJustifiedRelayout();
-                        } else {
-                            img.addEventListener('load', () => {
+                        const recordAR = () => {
+                            if (img.naturalWidth && img.naturalHeight) {
                                 this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
-                                this._scheduleJustifiedRelayout();
-                            });
-                        }
+                                this._justifiedRenderer.scheduleRelayout();
+                            }
+                        };
+                        if (img.naturalWidth) recordAR();
+                        else img.addEventListener('load', recordAR);
                     }
                 }
             }
         });
     }
 
-    getColumnCount() {
-        if (this.view === 'list') return 1;
-        if (this.view === 'justified') {
-            const focused = this.container.querySelector(`[data-index="${this.focusedIndex}"]`);
-            if (!focused) return 1;
-            // If focused item is a dir, use the grid column count from the dirs grid
-            if (focused.classList.contains('dir-item')) {
-                const dirGrid = this.container.querySelector('.justified-dirs');
-                if (!dirGrid) return 1;
-                const dirItems = dirGrid.querySelectorAll('.grid-item');
-                if (dirItems.length < 2) return 1;
-                const firstTop = dirItems[0].getBoundingClientRect().top;
-                let cols = 0;
-                for (const item of dirItems) {
-                    if (item.getBoundingClientRect().top !== firstTop) break;
-                    cols++;
-                }
-                return cols > 0 ? cols : 1;
-            }
-            // Image in justified layout — count items sharing the same top
-            const focusedTop = Math.round(focused.getBoundingClientRect().top);
-            const items = this.container.querySelectorAll('.justified-item');
-            let cols = 0;
-            for (const item of items) {
-                if (Math.round(item.getBoundingClientRect().top) === focusedTop) cols++;
-            }
-            return cols > 0 ? cols : 1;
-        }
-        const items = this.container.querySelectorAll('.grid-item');
-        if (items.length < 2) return 1;
-        const firstTop = items[0].getBoundingClientRect().top;
-        let cols = 0;
-        for (const item of items) {
-            if (item.getBoundingClientRect().top !== firstTop) break;
-            cols++;
-        }
-        return cols > 0 ? cols : 1;
-    }
-
-    updateFocusClass() {
-        this.container.querySelectorAll('[data-index]').forEach(el => {
-            el.classList.toggle('focused', parseInt(el.dataset.index) === this.focusedIndex);
-        });
-    }
-
-    scrollFocusedIntoView() {
-        const el = this.container.querySelector(`[data-index="${this.focusedIndex}"]`);
-        if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }
+    // --- Tools menu helpers ---
 
     async _checkToolsAvailability() {
         const loading = this.container.querySelector('.tools-menu-loading');
         const geoSection = this.container.querySelector('.tools-geo-section');
         if (!loading || !geoSection) return;
-
         if (this._toolsChecked !== null) {
             loading.style.display = 'none';
             geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
             return;
         }
-
         loading.style.display = '';
-
-        try {
-            this._toolsChecked = await API.toolsCheck();
-        } catch {
-            this._toolsChecked = { exiftool: false };
-        }
-
+        try { this._toolsChecked = await API.toolsCheck(); }
+        catch { this._toolsChecked = { exiftool: false }; }
         loading.style.display = 'none';
         geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
     }
@@ -880,102 +557,44 @@ class BrowsePane {
 
     _updateToolsRenameState() {
         const btn = this.container.querySelector('[data-tool="rename"]');
-        if (!btn) return;
-        const count = this.getActionableFiles().length;
-        btn.disabled = count !== 1;
+        if (btn) btn.disabled = this.getActionableFiles().length !== 1;
     }
+
+    // --- Focus change notification ---
 
     _notifyFocusChange() {
         if (!this.onFocusChange) return;
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) {
-            this.onFocusChange(null);
-            return;
-        }
-        const entry = this.entries[this.focusedIndex];
-        if (entry.type !== 'image') {
-            this.onFocusChange(null);
-            return;
-        }
+        const idx = this.keyboard.focusedIndex;
+        if (idx < 0 || idx >= this.entries.length) { this.onFocusChange(null); return; }
+        const entry = this.entries[idx];
+        if (entry.type !== 'image') { this.onFocusChange(null); return; }
         this.onFocusChange(this.fullPath(entry.name));
     }
 
-    moveFocus(delta) {
-        const count = this.entries.length;
-        if (count === 0) return;
-        let next = this.focusedIndex + delta;
-        if (next < 0) next = 0;
-        if (next >= count) next = count - 1;
-        this.focusedIndex = next;
-        this._ensureRenderedUpTo(next);
-        this.updateFocusClass();
-        this.scrollFocusedIntoView();
-        this._notifyFocusChange();
-    }
+    // --- EXIF date polling ---
 
-    activateFocused() {
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return;
-        const entry = this.entries[this.focusedIndex];
-        const path = this.fullPath(entry.name);
-        if (entry.type === 'dir') {
-            this.load(path);
-            if (this.onNavigate) this.onNavigate(path);
-        } else {
-            if (this.onImageClick) this.onImageClick(path);
-        }
-    }
-
-    toggleFocusedSelection() {
-        if (this.focusedIndex < 0 || this.focusedIndex >= this.entries.length) return;
-        const entry = this.entries[this.focusedIndex];
-        if (entry.type !== 'image') return;
-        const fp = this.fullPath(entry.name);
-        if (this.selected.has(fp)) this.selected.delete(fp);
-        else this.selected.add(fp);
-        this.updateSelectionClasses();
-        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
-    }
-
-    // EXIF date polling
     _pollExifDates() {
         const pollPath = this.path;
         this._exifPollPath = pollPath;
-
         setTimeout(() => this._doExifPoll(pollPath), 300);
     }
 
     async _doExifPoll(pollPath) {
-        // Guard: user navigated away
         if (this._exifPollPath !== pollPath) return;
-
         let data;
-        try {
-            data = await API.browseDates(pollPath);
-        } catch {
-            return;
-        }
-
-        // Guard again after await
+        try { data = await API.browseDates(pollPath); } catch { return; }
         if (this._exifPollPath !== pollPath) return;
-
-        if (!data.ready) {
-            setTimeout(() => this._doExifPoll(pollPath), 500);
-            return;
-        }
-
-        // Apply dates if any differ
+        if (!data.ready) { setTimeout(() => this._doExifPoll(pollPath), 500); return; }
         if (data.dates && Object.keys(data.dates).length > 0) {
             for (const entry of this.entries) {
-                if (entry.type === 'image' && data.dates[entry.name]) {
-                    entry.exifDate = data.dates[entry.name];
-                }
+                if (entry.type === 'image' && data.dates[entry.name]) entry.exifDate = data.dates[entry.name];
             }
-            if (this.sort === 'taken') {
-                this._resortAndRender();
-            }
+            if (this.sort === 'taken') this._resortAndRender();
         }
     }
 
-    // Overlay meta polling
+    // --- Overlay meta polling ---
+
     _pollOverlayMeta() {
         const pollPath = this.path;
         this._metaPollPath = pollPath;
@@ -984,34 +603,14 @@ class BrowsePane {
 
     async _doMetaPoll(pollPath) {
         if (this._metaPollPath !== pollPath) return;
-
         let data;
-        try {
-            data = await API.browseMeta(pollPath);
-        } catch {
-            return;
-        }
-
+        try { data = await API.browseMeta(pollPath); } catch { return; }
         if (this._metaPollPath !== pollPath) return;
-
-        if (!data.ready) {
-            setTimeout(() => this._doMetaPoll(pollPath), 500);
-            return;
-        }
-
+        if (!data.ready) { setTimeout(() => this._doMetaPoll(pollPath), 500); return; }
         if (data.meta) {
             this._entryMeta = data.meta;
-            if (this.showOverlays) {
-                this._updateOverlays();
-            }
+            if (this.showOverlays) this._updateOverlays();
         }
-    }
-
-    async notifyFilesChanged(fullPaths) {
-        try {
-            await API.browse(this.path, this.sort, this.order);
-        } catch { /* ignore */ }
-        this._pollOverlayMeta();
     }
 
     _updateOverlays() {
@@ -1019,24 +618,17 @@ class BrowsePane {
         ct.querySelectorAll('[data-type="image"]').forEach(el => {
             const name = el.dataset.name;
             const badges = this._buildOverlayBadges(name, this._entryMeta[name]);
-
             if (el.tagName === 'TR') {
-                // List view: badges go inside .list-name td > .list-badges span
                 const nameCell = el.querySelector('td.list-name');
                 if (!nameCell) return;
                 let listBadges = nameCell.querySelector('.list-badges');
                 if (badges) {
-                    if (!listBadges) {
-                        listBadges = document.createElement('span');
-                        listBadges.className = 'list-badges';
-                        nameCell.appendChild(listBadges);
-                    }
+                    if (!listBadges) { listBadges = document.createElement('span'); listBadges.className = 'list-badges'; nameCell.appendChild(listBadges); }
                     listBadges.innerHTML = badges;
                 } else if (listBadges) {
                     listBadges.remove();
                 }
             } else {
-                // Grid/justified view: badges overlay the image item
                 const existing = el.querySelector('.overlay-badges');
                 if (existing) existing.remove();
                 if (badges) el.insertAdjacentHTML('beforeend', badges);
@@ -1044,17 +636,34 @@ class BrowsePane {
         });
     }
 
+    // --- Overlay badge builders ---
+
+    _buildOverlayBadges(name, meta) {
+        if (!this.showOverlays) return '';
+        const badges = [];
+        if (meta && meta.hasGPS) {
+            badges.push(`<span class="overlay-badge overlay-badge-gps"><svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
+        }
+        const ft = this._getFileTypeBadge(name);
+        if (ft) badges.push(`<span class="overlay-badge" style="background:${ft.color}">${ft.label}</span>`);
+        if (meta && meta.filmSimulation) {
+            const fs = this._getFilmSimBadge(meta.filmSimulation);
+            if (fs) badges.push(`<span class="overlay-badge" style="background:${fs.color}">${fs.label}</span>`);
+        }
+        if (meta && meta.aspectRatio) {
+            const icon = this._aspectRatioIcon(meta.aspectRatio);
+            badges.push(`<span class="overlay-badge" style="background:#5a6872;display:inline-flex;align-items:center;gap:3px">${icon}${meta.aspectRatio}</span>`);
+        }
+        if (badges.length === 0) return '';
+        return `<div class="overlay-badges">${badges.join('')}</div>`;
+    }
+
     _getFileTypeBadge(name) {
         const ext = name.split('.').pop().toLowerCase();
         const types = {
-            jpg: { label: 'JPEG', color: '#c27833' },
-            jpeg: { label: 'JPEG', color: '#c27833' },
-            heif: { label: 'HEIF', color: '#4a8c5c' },
-            heic: { label: 'HEIF', color: '#4a8c5c' },
-            hif: { label: 'HEIF', color: '#4a8c5c' },
-            png: { label: 'PNG', color: '#4a6fa5' },
-            gif: { label: 'GIF', color: '#8c6b4a' },
-            webp: { label: 'WebP', color: '#7b5299' },
+            jpg: { label: 'JPEG', color: '#c27833' }, jpeg: { label: 'JPEG', color: '#c27833' },
+            heif: { label: 'HEIF', color: '#4a8c5c' }, heic: { label: 'HEIF', color: '#4a8c5c' }, hif: { label: 'HEIF', color: '#4a8c5c' },
+            png: { label: 'PNG', color: '#4a6fa5' }, gif: { label: 'GIF', color: '#8c6b4a' }, webp: { label: 'WebP', color: '#7b5299' },
         };
         return types[ext] || null;
     }
@@ -1062,26 +671,11 @@ class BrowsePane {
     _getFilmSimBadge(sim) {
         if (!sim) return null;
         const colors = {
-            'Provia': '#3a7ca5',
-            'Astia': '#5a9ab5',
-            'Velvia': '#b5443a',
-            'Classic Chrome': '#8a7d3a',
-            'Classic Neg.': '#b07040',
-            'Eterna': '#3a8a8a',
-            'Nostalgic Neg.': '#a05050',
-            'Reala Ace': '#3a8a5a',
-            'Pro Neg. Std': '#6a6a7a',
-            'Pro Neg. Hi': '#7a6a8a',
-            'Bleach Bypass': '#8a8a8a',
-            'Monochrome': '#404040',
-            'Monochrome + R': '#5a3030',
-            'Monochrome + Ye': '#5a5a30',
-            'Monochrome + G': '#305a30',
-            'Acros': '#333333',
-            'Acros + R': '#4a2828',
-            'Acros + Ye': '#4a4a28',
-            'Acros + G': '#284a28',
-            'Sepia': '#6a5038',
+            'Provia': '#3a7ca5', 'Astia': '#5a9ab5', 'Velvia': '#b5443a', 'Classic Chrome': '#8a7d3a',
+            'Classic Neg.': '#b07040', 'Eterna': '#3a8a8a', 'Nostalgic Neg.': '#a05050', 'Reala Ace': '#3a8a5a',
+            'Pro Neg. Std': '#6a6a7a', 'Pro Neg. Hi': '#7a6a8a', 'Bleach Bypass': '#8a8a8a',
+            'Monochrome': '#404040', 'Monochrome + R': '#5a3030', 'Monochrome + Ye': '#5a5a30', 'Monochrome + G': '#305a30',
+            'Acros': '#333333', 'Acros + R': '#4a2828', 'Acros + Ye': '#4a4a28', 'Acros + G': '#284a28', 'Sepia': '#6a5038',
         };
         return { label: sim, color: colors[sim] || '#6a6a7a' };
     }
@@ -1102,59 +696,25 @@ class BrowsePane {
         return `<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"${dash}><rect x="${x}" y="${y}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="0.5"/></svg>`;
     }
 
-    _buildOverlayBadges(name, meta) {
-        if (!this.showOverlays) return '';
-        const badges = [];
-
-        // GPS always first
-        if (meta && meta.hasGPS) {
-            badges.push(`<span class="overlay-badge overlay-badge-gps"><svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
-        }
-
-        const ft = this._getFileTypeBadge(name);
-        if (ft) {
-            badges.push(`<span class="overlay-badge" style="background:${ft.color}">${ft.label}</span>`);
-        }
-
-        if (meta && meta.filmSimulation) {
-            const fs = this._getFilmSimBadge(meta.filmSimulation);
-            if (fs) {
-                badges.push(`<span class="overlay-badge" style="background:${fs.color}">${fs.label}</span>`);
-            }
-        }
-
-        if (meta && meta.aspectRatio) {
-            const icon = this._aspectRatioIcon(meta.aspectRatio);
-            badges.push(`<span class="overlay-badge" style="background:#5a6872;display:inline-flex;align-items:center;gap:3px">${icon}${meta.aspectRatio}</span>`);
-        }
-
-        if (badges.length === 0) return '';
-        return `<div class="overlay-badges">${badges.join('')}</div>`;
-    }
+    // --- Client-side sort ---
 
     _resortAndRender() {
-        // Client-side sort: dirs first, then by current sort field/order
         this.entries.sort((a, b) => {
             if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
             let less;
             switch (this.sort) {
-                case 'date':
-                    less = new Date(a.date) < new Date(b.date);
-                    break;
+                case 'date': less = new Date(a.date) < new Date(b.date); break;
                 case 'taken': {
                     const aDate = a.exifDate ? new Date(a.exifDate) : null;
                     const bDate = b.exifDate ? new Date(b.exifDate) : null;
                     if (!aDate && !bDate) return 0;
-                    if (!aDate) return 1;  // null always last
+                    if (!aDate) return 1;
                     if (!bDate) return -1;
                     less = aDate < bDate;
                     break;
                 }
-                case 'size':
-                    less = (a.size || 0) < (b.size || 0);
-                    break;
-                default:
-                    less = a.name.toLowerCase() < b.name.toLowerCase();
+                case 'size': less = (a.size || 0) < (b.size || 0); break;
+                default: less = a.name.toLowerCase() < b.name.toLowerCase();
             }
             return this.order === 'desc' ? (less ? 1 : -1) : (less ? -1 : 1);
         });
