@@ -46,6 +46,14 @@ jobs:
       - name: Download test fixtures
         run: cd e2e && npm run setup
 
+      - name: Diagnose HEIC conversion
+        run: |
+          heif-convert --version || true
+          heif-convert e2e/fixtures/heic-sample.heic /tmp/heic-test.jpg && echo "heif-convert OK" || echo "heif-convert FAILED: exit $?"
+          ls -lh /tmp/heic-test*.jpg 2>/dev/null || echo "no output files found"
+          ffmpeg -version | head -1
+          ffmpeg -i e2e/fixtures/heic-sample.heic 2>&1 | grep -i "heif\|heic\|Stream\|error" | head -10 || true
+
       - name: Run E2E tests
         run: cd e2e && npm test
 

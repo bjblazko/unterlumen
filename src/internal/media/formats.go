@@ -288,23 +288,38 @@ func sipsConvert(path string) ([]byte, error) {
 
 // heifConvert uses heif-convert (from libheif-examples) to convert HEIF to JPEG.
 // Available on Linux when the libheif-examples package is installed.
+// Uses a temp directory because multi-image HEIC files produce numbered output
+// files (e.g. out-1.jpg, out-2.jpg) rather than the exact destination path.
 func heifConvert(path string) ([]byte, error) {
-	tmp, err := os.CreateTemp("", "unterlumen-heif-*.jpg")
+	tmpDir, err := os.MkdirTemp("", "unterlumen-heif-*")
 	if err != nil {
 		return nil, err
 	}
-	tmpPath := tmp.Name()
-	tmp.Close()
-	defer os.Remove(tmpPath)
+	defer os.RemoveAll(tmpDir)
+
+	outPath := filepath.Join(tmpDir, "out.jpg")
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("heif-convert", path, tmpPath)
+	cmd := exec.Command("heif-convert", path, outPath)
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("heif-convert failed: %v: %s", err, stderr.String())
 	}
 
-	return os.ReadFile(tmpPath)
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return nil, fmt.Errorf("heif-convert: read output dir: %w", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(tmpDir, e.Name()))
+		if err == nil && len(data) > 0 {
+			return data, nil
+		}
+	}
+	return nil, fmt.Errorf("heif-convert produced no output")
 }
 
 func ffmpegRun(inputPath string, args ...string) ([]byte, error) {
