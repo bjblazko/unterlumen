@@ -19,8 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and libheif
+        run: sudo apt-get install -y ffmpeg libheif-examples
 
       - uses: actions/setup-go@v5
         with:

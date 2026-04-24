@@ -220,6 +220,11 @@ func extractBestJPEG(path string) ([]byte, error) {
 		return data, nil
 	}
 
+	// Try heif-convert (Linux, from libheif-examples package)
+	if data, err := heifConvert(path); err == nil && len(data) > 0 {
+		return data, nil
+	}
+
 	// Fallback: decode HEVC to JPEG (for simple HEIF/HEIC without embedded previews)
 	return ffmpegRun(path,
 		"-f", "image2pipe",
@@ -237,6 +242,10 @@ func extractBestJPEG(path string) ([]byte, error) {
 func convertHEIFExport(path string) ([]byte, error) {
 	// sips (macOS) performs a native full decode and applies orientation automatically.
 	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
+		return data, nil
+	}
+	// heif-convert (Linux) performs a native full decode via libheif.
+	if data, err := heifConvert(path); err == nil && len(data) > 0 {
 		return data, nil
 	}
 	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
@@ -272,6 +281,27 @@ func sipsConvert(path string) ([]byte, error) {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("sips failed: %v: %s", err, stderr.String())
+	}
+
+	return os.ReadFile(tmpPath)
+}
+
+// heifConvert uses heif-convert (from libheif-examples) to convert HEIF to JPEG.
+// Available on Linux when the libheif-examples package is installed.
+func heifConvert(path string) ([]byte, error) {
+	tmp, err := os.CreateTemp("", "unterlumen-heif-*.jpg")
+	if err != nil {
+		return nil, err
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	var stderr bytes.Buffer
+	cmd := exec.Command("heif-convert", path, tmpPath)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("heif-convert failed: %v: %s", err, stderr.String())
 	}
 
 	return os.ReadFile(tmpPath)
