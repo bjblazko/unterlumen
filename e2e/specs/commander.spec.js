@@ -76,7 +76,11 @@ test.describe('Commander (Organize mode)', () => {
   // --- Keyboard navigation (non-destructive) ---
 
   test('ArrowRight moves focus in left pane', async ({ page }) => {
-    await waitForThumbnailsLoaded(page, 1);
+    // Wait for left pane specifically — waitForThumbnailsLoaded may count right-pane or hidden browse-pane items
+    await page.waitForFunction(
+      () => document.querySelectorAll('#left-pane [data-index]').length >= 1,
+      { timeout: 10_000 },
+    );
     await page.keyboard.press('ArrowRight');
     // Some item in left pane should gain .focused class
     await expect(page.locator('#left-pane [data-index].focused')).toBeVisible({ timeout: 3_000 });

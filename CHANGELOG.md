@@ -1,10 +1,19 @@
 # Changelog
 
-*Last modified: 2026-04-10*
+*Last modified: 2026-04-24*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+
+- **Internal refactoring (ADR-0015)** — No user-visible behaviour changes; structural cleanup only.
+  - Go: `src/internal/api/` flat package split into domain subpackages: `browse`, `export`, `fileops`, `location`, `batchrename`. Path-traversal guard extracted to `src/internal/pathguard`.
+  - Go: `src/internal/media/exif.go` (735 lines) split into `exif.go`, `orientation.go`, `thumbnail.go`, `fujifilm.go`, `aspectratio.go`. `export.go` extraction of `decodeSourceImage`, `scaleImage`, `encodeToFormat`.
+  - Go: Unit tests added for `pathguard`, `batchrename` (pattern, sanitize, conflict), `media` (EXIF date parsing, aspect ratio labels, export dimension modes).
+  - JS: `browse.js` (1 174 lines) split into `browse.js` (orchestration), `browse-selection.js`, `browse-keyboard.js`, `browse-grid.js`, `browse-list.js`, `browse-justified.js`.
+  - JS: `app.js` (767 lines) split into `app.js` (orchestration), `app-theme.js`, `app-wastebin.js`, `app-keyboard.js`.
 
 ### Added
 

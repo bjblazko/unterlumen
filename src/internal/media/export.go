@@ -157,13 +157,34 @@ func ExportImage(srcPath string, opts ExportOptions) ([]byte, error) {
 		opts.Format = "jpeg"
 	}
 
-	// WebP requires ffmpeg for encoding; delegate the full pipeline.
 	if opts.Format == "webp" {
 		return exportWebP(srcPath, opts)
 	}
 
-	// Decode source image.
-	var img image.Image
+	img, err := decodeSourceImage(srcPath)
+	if err != nil {
+		return nil, err
+	}
+
+	scaled := scaleImage(img, opts.Scale)
+
+	encoded, err := encodeToFormat(scaled, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.ExifMode == "keep" || opts.ExifMode == "keep_no_gps" {
+		if patched, err := injectExif(srcPath, encoded, opts.Format, opts.ExifMode); err == nil {
+			encoded = patched
+		}
+	}
+
+	return encoded, nil
+}
+
+// decodeSourceImage opens and decodes a source image, applying EXIF orientation.
+// For HEIF, uses full-resolution decode to avoid low-res embedded previews.
+func decodeSourceImage(srcPath string) (image.Image, error) {
 	if IsHEIF(srcPath) {
 		// Use full-resolution decode (not the embedded preview used by the viewer).
 		// ConvertHEIFToJPEG prefers the embedded JPEG stream which may be a low-res
@@ -173,71 +194,57 @@ func ExportImage(srcPath string, opts ExportOptions) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("HEIF full-res decode: %w", err)
 		}
-		var err2 error
-		img, _, err2 = image.Decode(bytes.NewReader(jpegBytes))
-		if err2 != nil {
-			return nil, fmt.Errorf("decode converted HEIF: %w", err2)
+		img, _, err := image.Decode(bytes.NewReader(jpegBytes))
+		if err != nil {
+			return nil, fmt.Errorf("decode converted HEIF: %w", err)
 		}
 		// Orientation already applied by convertHEIFExport.
-	} else {
-		f, err := os.Open(srcPath)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-
-		var err2 error
-		img, _, err2 = image.Decode(f)
-		if err2 != nil {
-			return nil, fmt.Errorf("decode image: %w", err2)
-		}
-		orientation := ExtractOrientation(srcPath)
-		if orientation > 1 {
-			img = applyOrientation(img, orientation)
-		}
+		return img, nil
 	}
 
-	// Compute and apply scaling.
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, fmt.Errorf("decode image: %w", err)
+	}
+	if orientation := ExtractOrientation(srcPath); orientation > 1 {
+		img = applyOrientation(img, orientation)
+	}
+	return img, nil
+}
+
+func scaleImage(img image.Image, scale ScaleOptions) image.Image {
 	origW := img.Bounds().Dx()
 	origH := img.Bounds().Dy()
-	targetW, targetH := computeTargetDims(origW, origH, opts.Scale)
-
-	var scaled image.Image
+	targetW, targetH := computeTargetDims(origW, origH, scale)
 	if targetW == origW && targetH == origH {
-		scaled = img
-	} else {
-		dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
-		draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
-		scaled = dst
+		return img
 	}
+	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
+	return dst
+}
 
-	// Encode to target format.
-	var encoded []byte
+func encodeToFormat(img image.Image, opts ExportOptions) ([]byte, error) {
+	var buf bytes.Buffer
 	switch opts.Format {
 	case "jpeg":
-		var buf bytes.Buffer
-		if err := jpeg.Encode(&buf, scaled, &jpeg.Options{Quality: opts.Quality}); err != nil {
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: opts.Quality}); err != nil {
 			return nil, fmt.Errorf("JPEG encode: %w", err)
 		}
-		encoded = buf.Bytes()
 	case "png":
-		var buf bytes.Buffer
-		if err := png.Encode(&buf, scaled); err != nil {
+		if err := png.Encode(&buf, img); err != nil {
 			return nil, fmt.Errorf("PNG encode: %w", err)
 		}
-		encoded = buf.Bytes()
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", opts.Format)
 	}
-
-	// EXIF injection via exiftool (non-fatal if unavailable).
-	if opts.ExifMode == "keep" || opts.ExifMode == "keep_no_gps" {
-		if patched, err := injectExif(srcPath, encoded, opts.Format, opts.ExifMode); err == nil {
-			encoded = patched
-		}
-	}
-
-	return encoded, nil
+	return buf.Bytes(), nil
 }
 
 // exportWebP converts an image to WebP using ffmpeg with lanczos scaling.

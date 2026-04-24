@@ -1,13 +1,13 @@
-package api
+package browse
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/pathguard"
 )
 
 type infoResponse struct {
@@ -32,7 +32,7 @@ func handleInfo(root string) http.HandlerFunc {
 			return
 		}
 
-		absPath, ok := safePath(root, relPath)
+		absPath, ok := pathguard.SafePath(root, relPath)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
@@ -44,23 +44,18 @@ func handleInfo(root string) http.HandlerFunc {
 			return
 		}
 
-		ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(absPath)), ".")
-
 		resp := infoResponse{
 			Name:     info.Name(),
 			Path:     relPath,
 			Size:     info.Size(),
 			Modified: info.ModTime().UTC().Format("2006-01-02T15:04:05Z"),
-			Format:   ext,
+			Format:   strings.TrimPrefix(strings.ToLower(filepath.Ext(absPath)), "."),
 		}
 
-		// Best-effort EXIF extraction
-		exifData, err := media.ExtractAllEXIF(absPath)
-		if err == nil && exifData != nil {
+		if exifData, err := media.ExtractAllEXIF(absPath); err == nil && exifData != nil {
 			resp.Exif = exifData
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		writeJSON(w, resp)
 	}
 }

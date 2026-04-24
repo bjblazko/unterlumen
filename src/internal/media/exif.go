@@ -4,19 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
-	"math"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/goexif/tiff"
-
-	"golang.org/x/image/draw"
 
 	// Register image decoders
 	_ "image/gif"
@@ -41,7 +34,6 @@ type exifWalker struct {
 }
 
 func (w *exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
-	// Skip internal pointer tags and binary blobs
 	switch string(name) {
 	case "ExifIFDPointer", "GPSInfoIFDPointer", "InteroperabilityIFDPointer",
 		"ThumbJPEGInterchangeFormat", "ThumbJPEGInterchangeFormatLength",
@@ -65,43 +57,151 @@ func ExtractAllEXIF(path string) (*ExifData, error) {
 
 	x, err := exif.Decode(f)
 	if err != nil {
-		// Standard decode failed — try scanning for embedded EXIF
-		// (handles HEIF/HEIC/HIF where EXIF is inside the ISOBMFF container)
 		x, err = decodeEmbeddedExif(path)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	data := &ExifData{
-		Tags: make(map[string]string),
-	}
+	data := &ExifData{Tags: make(map[string]string)}
+	x.Walk(&exifWalker{tags: data.Tags})
 
-	// Walk all tags
-	walker := &exifWalker{tags: data.Tags}
-	x.Walk(walker)
-
-	// Extract Fujifilm film simulation from MakerNote
 	if sim := extractFujiFilmSimulation(x); sim != "" {
 		data.Tags["FilmSimulation"] = sim
 	}
 
-	// Parse structured date fields
 	data.DateTaken = parseExifDateTag(data.Tags, "DateTimeOriginal", "OffsetTimeOriginal")
 	data.DateDigitized = parseExifDateTag(data.Tags, "DateTimeDigitized", "OffsetTimeDigitized")
 	data.DateModified = parseExifDateTag(data.Tags, "DateTime", "OffsetTime")
 
-	// Extract GPS coordinates
 	lat, lon, err := x.LatLong()
 	if err == nil {
 		data.Latitude = &lat
 		data.Longitude = &lon
 	}
 
-	// Extract dimensions
 	data.Width, data.Height = exifImageDimensions(x)
-
 	return data, nil
+}
+
+// ExtractDateTaken returns the EXIF DateTimeOriginal from an image file.
+func ExtractDateTaken(path string) (time.Time, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return x.DateTime()
+}
+
+// ExtractDateAndMeta performs a single EXIF decode pass to extract the date taken,
+// GPS presence, and Fujifilm film simulation. Falls back to decodeEmbeddedExif
+// for HEIF/HEIC/HIF files, fixing HEIF date extraction that ExtractDateTaken misses.
+func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, nil, err
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		x, err = decodeEmbeddedExif(path)
+		if err != nil {
+			return time.Time{}, nil, err
+		}
+	}
+
+	dt, dtErr := x.DateTime()
+	meta := buildEntryMeta(x)
+
+	if dtErr != nil {
+		return time.Time{}, meta, dtErr
+	}
+	return dt, meta, nil
+}
+
+func buildEntryMeta(x *exif.Exif) *EntryMeta {
+	meta := &EntryMeta{}
+	if _, _, err := x.LatLong(); err == nil {
+		meta.HasGPS = true
+	}
+	if sim := extractFujiFilmSimulation(x); sim != "" {
+		meta.FilmSimulation = sim
+	}
+	w, h := exifImageDimensions(x)
+	if ar := AspectRatioLabel(w, h); ar != "" {
+		meta.AspectRatio = ar
+	}
+	return meta
+}
+
+// ExtractOrientation reads the EXIF orientation tag (1–8) from an image file.
+// Returns 1 (normal) on any error or missing tag.
+func ExtractOrientation(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 1
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return 1
+	}
+
+	tag, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 1
+	}
+
+	v, err := tag.Int(0)
+	if err != nil || v < 1 || v > 8 {
+		return 1
+	}
+	return v
+}
+
+// ExtractHEIFOrientation reads the irot (image rotation) box from a HEIF file.
+// HEIF stores rotation in the ISOBMFF container, not in EXIF.
+// Returns an EXIF-compatible orientation value (1–8), defaults to 1.
+func ExtractHEIFOrientation(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 1
+	}
+	defer f.Close()
+
+	buf := make([]byte, 16*1024)
+	n, err := f.Read(buf)
+	if err != nil || n < 9 {
+		return 1
+	}
+	buf = buf[:n]
+
+	for i := 0; i <= len(buf)-9; i++ {
+		if string(buf[i+4:i+8]) == "irot" {
+			boxSize := binary.BigEndian.Uint32(buf[i : i+4])
+			if boxSize == 9 {
+				switch buf[i+8] & 0x03 {
+				case 0:
+					return 1
+				case 1:
+					return 8
+				case 2:
+					return 3
+				case 3:
+					return 6
+				}
+			}
+		}
+	}
+	return 1
 }
 
 // decodeEmbeddedExif scans a file for an embedded EXIF block.
@@ -125,9 +225,6 @@ func decodeEmbeddedExif(path string) (*exif.Exif, error) {
 	}
 	buf = buf[:n]
 
-	// Search for "Exif\0\0" markers followed by a valid TIFF header.
-	// HEIF files may contain "Exif\0" as an item type name in infe boxes,
-	// so we skip matches that aren't followed by a TIFF header.
 	marker := []byte("Exif\x00\x00")
 	offset := 0
 	for {
@@ -137,17 +234,14 @@ func decodeEmbeddedExif(path string) (*exif.Exif, error) {
 		}
 		tiffStart := offset + idx + len(marker)
 		if tiffStart+8 <= len(buf) && isTIFFHeader(buf[tiffStart:]) {
-			x, err := exif.Decode(bytes.NewReader(buf[tiffStart:]))
-			if err == nil {
+			if x, err := exif.Decode(bytes.NewReader(buf[tiffStart:])); err == nil {
 				return x, nil
 			}
 		}
 		offset += idx + 1
 	}
 
-	// Fallback: search for bare TIFF headers ("II*\0" little-endian,
-	// "MM\0*" big-endian). Some HEIF variants store EXIF with a 4-byte
-	// offset prefix and no "Exif\0\0" marker.
+	// Fallback: search for bare TIFF headers.
 	for _, hdr := range [][]byte{{0x49, 0x49, 0x2a, 0x00}, {0x4d, 0x4d, 0x00, 0x2a}} {
 		offset = 0
 		for {
@@ -157,8 +251,7 @@ func decodeEmbeddedExif(path string) (*exif.Exif, error) {
 			}
 			tiffStart := offset + idx
 			if tiffStart+8 <= len(buf) {
-				x, err := exif.Decode(bytes.NewReader(buf[tiffStart:]))
-				if err == nil {
+				if x, err := exif.Decode(bytes.NewReader(buf[tiffStart:])); err == nil {
 					return x, nil
 				}
 			}
@@ -174,15 +267,8 @@ func isTIFFHeader(data []byte) bool {
 	if len(data) < 4 {
 		return false
 	}
-	// Little-endian: "II*\0"
-	if data[0] == 0x49 && data[1] == 0x49 && data[2] == 0x2a && data[3] == 0x00 {
-		return true
-	}
-	// Big-endian: "MM\0*"
-	if data[0] == 0x4d && data[1] == 0x4d && data[2] == 0x00 && data[3] == 0x2a {
-		return true
-	}
-	return false
+	return (data[0] == 0x49 && data[1] == 0x49 && data[2] == 0x2a && data[3] == 0x00) ||
+		(data[0] == 0x4d && data[1] == 0x4d && data[2] == 0x00 && data[3] == 0x2a)
 }
 
 // parseExifDateTag parses an EXIF date string and optional offset from the Tags map
@@ -199,268 +285,14 @@ func parseExifDateTag(tags map[string]string, dateKey, offsetKey string) *string
 	}
 	iso := t.Format("2006-01-02T15:04:05")
 	if off, ok := tags[offsetKey]; ok {
-		off = strings.Trim(off, `"`)
-		if off != "" {
+		if off = strings.Trim(off, `"`); off != "" {
 			iso += off
 		}
 	}
 	return &iso
 }
 
-// ExtractDateTaken returns the EXIF DateTimeOriginal from an image file.
-func ExtractDateTaken(path string) (time.Time, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return time.Time{}, err
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return x.DateTime()
-}
-
-// ExtractDateAndMeta performs a single EXIF decode pass to extract the date taken,
-// GPS presence, and Fujifilm film simulation. Falls back to decodeEmbeddedExif
-// for HEIF/HEIC/HIF files, fixing HEIF date extraction that ExtractDateTaken misses.
-func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return time.Time{}, nil, err
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		x, err = decodeEmbeddedExif(path)
-		if err != nil {
-			return time.Time{}, nil, err
-		}
-	}
-
-	dt, dtErr := x.DateTime()
-
-	meta := &EntryMeta{}
-
-	// Check GPS presence
-	if _, _, err := x.LatLong(); err == nil {
-		meta.HasGPS = true
-	}
-
-	// Extract film simulation
-	if sim := extractFujiFilmSimulation(x); sim != "" {
-		meta.FilmSimulation = sim
-	}
-
-	// Extract aspect ratio
-	w, h := exifImageDimensions(x)
-	if ar := AspectRatioLabel(w, h); ar != "" {
-		meta.AspectRatio = ar
-	}
-
-	if dtErr != nil {
-		return time.Time{}, meta, dtErr
-	}
-	return dt, meta, nil
-}
-
-// ExtractOrientation reads the EXIF orientation tag (1–8) from an image file.
-// Returns 1 (normal) on any error or missing tag.
-func ExtractOrientation(path string) int {
-	f, err := os.Open(path)
-	if err != nil {
-		return 1
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return 1
-	}
-
-	tag, err := x.Get(exif.Orientation)
-	if err != nil {
-		return 1
-	}
-
-	v, err := tag.Int(0)
-	if err != nil {
-		return 1
-	}
-
-	if v < 1 || v > 8 {
-		return 1
-	}
-	return v
-}
-
-// ExtractHEIFOrientation reads the irot (image rotation) box from a HEIF file.
-// HEIF stores rotation in the ISOBMFF container, not in EXIF.
-// Returns an EXIF-compatible orientation value (1–8), defaults to 1.
-func ExtractHEIFOrientation(path string) int {
-	f, err := os.Open(path)
-	if err != nil {
-		return 1
-	}
-	defer f.Close()
-
-	// Read enough of the file to find the irot box (typically in the first few KB)
-	buf := make([]byte, 16*1024)
-	n, err := f.Read(buf)
-	if err != nil || n < 9 {
-		return 1
-	}
-	buf = buf[:n]
-
-	// Search for irot box: 4-byte size + "irot" + 1-byte angle
-	for i := 0; i <= len(buf)-9; i++ {
-		if string(buf[i+4:i+8]) == "irot" {
-			boxSize := binary.BigEndian.Uint32(buf[i : i+4])
-			if boxSize == 9 {
-				angle := buf[i+8] & 0x03
-				// Map irot angle (CCW in 90° units) to EXIF orientation
-				switch angle {
-				case 0:
-					return 1 // no rotation
-				case 1:
-					return 8 // 90° CCW = EXIF rotate 270° CW
-				case 2:
-					return 3 // 180°
-				case 3:
-					return 6 // 270° CCW = EXIF rotate 90° CW
-				}
-			}
-		}
-	}
-
-	return 1
-}
-
-// applyOrientationJPEG decodes JPEG data, applies orientation, and re-encodes.
-// Returns the original data unchanged if orientation <= 1.
-func applyOrientationJPEG(data []byte, orientation int, quality int) ([]byte, error) {
-	if orientation <= 1 {
-		return data, nil
-	}
-
-	img, err := jpeg.Decode(bytes.NewReader(data))
-	if err != nil {
-		return data, err
-	}
-
-	rotated := applyOrientation(img, orientation)
-
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, rotated, &jpeg.Options{Quality: quality}); err != nil {
-		return data, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-// applyOrientation transforms an image according to the EXIF orientation tag.
-// Orientations 2–8 are mapped to the corresponding pixel coordinate remapping.
-func applyOrientation(img image.Image, orientation int) image.Image {
-	if orientation <= 1 || orientation > 8 {
-		return img
-	}
-
-	bounds := img.Bounds()
-	w := bounds.Dx()
-	h := bounds.Dy()
-	minX := bounds.Min.X
-	minY := bounds.Min.Y
-
-	// Orientations 5–8 swap width and height (90°/270° rotations + transposes)
-	var dstW, dstH int
-	if orientation >= 5 {
-		dstW, dstH = h, w
-	} else {
-		dstW, dstH = w, h
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
-	for y := 0; y < dstH; y++ {
-		for x := 0; x < dstW; x++ {
-			var srcX, srcY int
-			switch orientation {
-			case 2: // flip horizontal
-				srcX, srcY = w-1-x, y
-			case 3: // rotate 180
-				srcX, srcY = w-1-x, h-1-y
-			case 4: // flip vertical
-				srcX, srcY = x, h-1-y
-			case 5: // transpose
-				srcX, srcY = y, x
-			case 6: // rotate 90 CW
-				srcX, srcY = y, h-1-x
-			case 7: // transverse
-				srcX, srcY = w-1-y, h-1-x
-			case 8: // rotate 270 CW
-				srcX, srcY = w-1-y, x
-			}
-			dst.Set(x, y, img.At(minX+srcX, minY+srcY))
-		}
-	}
-
-	return dst
-}
-
-// ExtractThumbnail tries to extract the embedded EXIF thumbnail from a JPEG file.
-// When orientation > 1, the thumbnail is decoded, rotated, and re-encoded.
-// Returns an error if the thumbnail's aspect ratio doesn't match the actual image
-// (e.g., camera stores full-sensor thumbnail for an in-camera 1:1 crop).
-func ExtractThumbnail(path string, orientation int) ([]byte, string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, "", err
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return nil, "", err
-	}
-
-	thumb, err := x.JpegThumbnail()
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Validate thumbnail aspect ratio against actual image dimensions.
-	// Some cameras store a full-sensor thumbnail even for in-camera crops,
-	// producing a thumbnail with the wrong aspect ratio.
-	thumbCfg, cfgErr := jpeg.DecodeConfig(bytes.NewReader(thumb))
-	if cfgErr == nil {
-		imgW, imgH := exifImageDimensions(x)
-		if imgW > 0 && imgH > 0 && thumbCfg.Width > 0 && thumbCfg.Height > 0 {
-			imgAR := float64(imgW) / float64(imgH)
-			thumbAR := float64(thumbCfg.Width) / float64(thumbCfg.Height)
-			if math.Abs(imgAR-thumbAR)/imgAR > 0.1 {
-				return nil, "", errors.New("thumbnail aspect ratio mismatch")
-			}
-		}
-	}
-
-	if orientation > 1 {
-		img, decErr := jpeg.Decode(bytes.NewReader(thumb))
-		if decErr == nil {
-			rotated := applyOrientation(img, orientation)
-			var buf bytes.Buffer
-			if encErr := jpeg.Encode(&buf, rotated, &jpeg.Options{Quality: 80}); encErr == nil {
-				return buf.Bytes(), "image/jpeg", nil
-			}
-		}
-	}
-
-	return thumb, "image/jpeg", nil
-}
-
 // exifImageDimensions returns the actual image dimensions from EXIF tags.
-// Tries PixelXDimension/PixelYDimension first, then ImageWidth/ImageLength.
 func exifImageDimensions(x *exif.Exif) (int, int) {
 	if tag, err := x.Get(exif.PixelXDimension); err == nil {
 		if w, err := tag.Int(0); err == nil {
@@ -481,255 +313,4 @@ func exifImageDimensions(x *exif.Exif) (int, int) {
 		}
 	}
 	return 0, 0
-}
-
-// extractFujiFilmSimulation parses the raw Fujifilm MakerNote IFD and returns
-// the film simulation name, or "" if not a Fujifilm image or tag not found.
-func extractFujiFilmSimulation(x *exif.Exif) string {
-	mknTag, err := x.Get(exif.MakerNote)
-	if err != nil || len(mknTag.Val) < 12 {
-		return ""
-	}
-	data := mknTag.Val
-	if string(data[:8]) != "FUJIFILM" {
-		return ""
-	}
-	ifdOffset := int(binary.LittleEndian.Uint32(data[8:12]))
-	if ifdOffset+2 > len(data) {
-		return ""
-	}
-	numEntries := int(binary.LittleEndian.Uint16(data[ifdOffset : ifdOffset+2]))
-
-	var filmMode, saturation int = -1, -1
-	for i := 0; i < numEntries; i++ {
-		off := ifdOffset + 2 + i*12
-		if off+12 > len(data) {
-			break
-		}
-		tagID := binary.LittleEndian.Uint16(data[off:])
-		val := int(binary.LittleEndian.Uint16(data[off+8:]))
-		switch tagID {
-		case 0x1003:
-			saturation = val
-		case 0x1401:
-			filmMode = val
-		}
-	}
-
-	// B&W/Acros simulations live in Saturation (values >= 0x300, except 0x8000)
-	if saturation >= 0x300 && saturation != 0x8000 {
-		if name := fujiBWSimName(saturation); name != "" {
-			return name
-		}
-	}
-	if filmMode >= 0 {
-		return fujiColorSimName(filmMode)
-	}
-	return ""
-}
-
-func fujiColorSimName(v int) string {
-	switch v {
-	case 0x000:
-		return "Provia"
-	case 0x120:
-		return "Astia"
-	case 0x200:
-		return "Velvia"
-	case 0x500:
-		return "Pro Neg. Std"
-	case 0x501:
-		return "Pro Neg. Hi"
-	case 0x600:
-		return "Classic Chrome"
-	case 0x700:
-		return "Eterna"
-	case 0x800:
-		return "Classic Neg."
-	case 0x900:
-		return "Bleach Bypass"
-	case 0xa00:
-		return "Nostalgic Neg."
-	case 0xb00:
-		return "Reala Ace"
-	}
-	return ""
-}
-
-func fujiBWSimName(v int) string {
-	switch v {
-	case 0x300:
-		return "Monochrome"
-	case 0x301:
-		return "Monochrome + R"
-	case 0x302:
-		return "Monochrome + Ye"
-	case 0x303:
-		return "Monochrome + G"
-	case 0x310:
-		return "Sepia"
-	case 0x500:
-		return "Acros"
-	case 0x501:
-		return "Acros + R"
-	case 0x502:
-		return "Acros + Ye"
-	case 0x503:
-		return "Acros + G"
-	}
-	return ""
-}
-
-// GenerateThumbnail creates a thumbnail by decoding and resizing the image.
-// Orientation is applied after decoding and before resizing.
-// Used as fallback when no EXIF thumbnail is available.
-func GenerateThumbnail(path string, maxDim int, orientation int) ([]byte, string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, "", err
-	}
-	defer f.Close()
-
-	img, format, err := image.Decode(f)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if orientation > 1 {
-		img = applyOrientation(img, orientation)
-	}
-
-	bounds := img.Bounds()
-	w := bounds.Dx()
-	h := bounds.Dy()
-
-	if w <= maxDim && h <= maxDim {
-		if orientation <= 1 {
-			// No rotation needed, serve raw file
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return nil, "", err
-			}
-			ct := "image/jpeg"
-			if format == "png" {
-				ct = "image/png"
-			}
-			return data, ct, nil
-		}
-		// Rotation was applied, must re-encode
-		var buf bytes.Buffer
-		ct := "image/jpeg"
-		if strings.HasSuffix(strings.ToLower(path), ".png") {
-			ct = "image/png"
-			err = png.Encode(&buf, img)
-		} else {
-			err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85})
-		}
-		if err != nil {
-			return nil, "", err
-		}
-		return buf.Bytes(), ct, nil
-	}
-
-	// Calculate new dimensions maintaining aspect ratio
-	var newW, newH int
-	if w > h {
-		newW = maxDim
-		newH = h * maxDim / w
-	} else {
-		newH = maxDim
-		newW = w * maxDim / h
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
-
-	var buf bytes.Buffer
-	ct := "image/jpeg"
-	if strings.HasSuffix(strings.ToLower(path), ".png") {
-		ct = "image/png"
-		err = png.Encode(&buf, dst)
-	} else {
-		err = jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85})
-	}
-	if err != nil {
-		return nil, "", err
-	}
-
-	return buf.Bytes(), ct, nil
-}
-
-// AspectRatioLabel returns a human-readable aspect ratio label for the given
-// image dimensions, using approximate matching (1.5% tolerance) to handle
-// real camera sensors where pixel counts don't reduce to clean integers.
-// Returns "Custom Crop" for unrecognised ratios, or "" if dimensions are zero.
-func AspectRatioLabel(w, h int) string {
-	if w <= 0 || h <= 0 {
-		return ""
-	}
-	type knownRatio struct {
-		w, h  int
-		value float64
-	}
-	ratios := []knownRatio{
-		{1, 2, 1.0 / 2.0},
-		{9, 16, 9.0 / 16.0},
-		{2, 3, 2.0 / 3.0},
-		{3, 4, 3.0 / 4.0},
-		{4, 5, 4.0 / 5.0},
-		{1, 1, 1.0},
-		{5, 4, 5.0 / 4.0},
-		{4, 3, 4.0 / 3.0},
-		{3, 2, 3.0 / 2.0},
-		{7, 5, 7.0 / 5.0},
-		{16, 10, 16.0 / 10.0},
-		{5, 3, 5.0 / 3.0},
-		{16, 9, 16.0 / 9.0},
-		{2, 1, 2.0},
-		{21, 9, 21.0 / 9.0},
-	}
-	r := float64(w) / float64(h)
-	const tol = 0.015
-	for _, kr := range ratios {
-		if math.Abs(r-kr.value)/kr.value < tol {
-			return fmt.Sprintf("%d:%d", kr.w, kr.h)
-		}
-	}
-	return "Custom Crop"
-}
-
-// ResizeJPEGBytes takes JPEG image data and resizes it to fit within maxDim.
-// Returns the resized JPEG bytes.
-func ResizeJPEGBytes(data []byte, maxDim int) ([]byte, error) {
-	img, err := jpeg.Decode(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-
-	bounds := img.Bounds()
-	w := bounds.Dx()
-	h := bounds.Dy()
-
-	if w <= maxDim && h <= maxDim {
-		return data, nil
-	}
-
-	var newW, newH int
-	if w > h {
-		newW = maxDim
-		newH = h * maxDim / w
-	} else {
-		newH = maxDim
-		newW = w * maxDim / h
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	draw.CatmullRom.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
-
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85}); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
 }

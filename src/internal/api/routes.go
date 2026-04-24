@@ -3,9 +3,12 @@ package api
 import (
 	"io/fs"
 	"net/http"
-	"path/filepath"
-	"strings"
 
+	"huepattl.de/unterlumen/internal/api/batchrename"
+	"huepattl.de/unterlumen/internal/api/browse"
+	apiexport "huepattl.de/unterlumen/internal/api/export"
+	"huepattl.de/unterlumen/internal/api/fileops"
+	"huepattl.de/unterlumen/internal/api/location"
 	"huepattl.de/unterlumen/internal/media"
 )
 
@@ -15,79 +18,17 @@ import (
 // serverRole controls export behaviour: true = ZIP download only, false = local filesystem save + ZIP.
 func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool) http.Handler {
 	mux := http.NewServeMux()
-
 	cache := media.NewScanCache()
 
 	mux.HandleFunc("/api/config", handleConfig(startPath, serverRole))
-	mux.HandleFunc("/api/browse", handleBrowse(boundary, cache))
-	mux.HandleFunc("/api/browse/dates", handleBrowseDates(boundary, cache))
-	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(boundary, cache))
-	mux.HandleFunc("/api/thumbnail", handleThumbnail(boundary))
-	mux.HandleFunc("/api/image", handleImage(boundary))
-	mux.HandleFunc("/api/copy", handleCopy(boundary, cache))
-	mux.HandleFunc("/api/move", handleMove(boundary, cache))
-	mux.HandleFunc("/api/delete", handleDelete(boundary, cache))
-	mux.HandleFunc("/api/mkdir", handleMkdir(boundary, cache))
-	mux.HandleFunc("/api/rename", handleRename(boundary, cache))
-	mux.HandleFunc("/api/info", handleInfo(boundary))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
-	mux.HandleFunc("/api/set-location", handleSetLocation(boundary, cache))
-	mux.HandleFunc("/api/remove-location", handleRemoveLocation(boundary, cache))
-	mux.HandleFunc("/api/list-recursive", handleListRecursive(boundary))
-	mux.HandleFunc("/api/batch-rename/preview", handleBatchRenamePreview(boundary, cache))
-	mux.HandleFunc("/api/batch-rename/execute", handleBatchRenameExecute(boundary, cache))
 
-	// Export endpoints
-	mux.HandleFunc("/api/export/estimate", handleExportEstimate(boundary))
-	mux.HandleFunc("/api/export/zip", handleExportZip(boundary))
-	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(boundary))
-	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
-	if !serverRole {
-		mux.HandleFunc("/api/export/save", handleExportSave(boundary))
-	}
+	browse.Handle(mux, boundary, cache)
+	apiexport.Handle(mux, boundary, serverRole)
+	fileops.Handle(mux, boundary, cache)
+	location.Handle(mux, boundary, cache)
+	batchrename.Handle(mux, boundary, cache)
 
-	// Serve static files from embedded web/ filesystem
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
-
 	return mux
-}
-
-// safePath resolves a relative path within the root and ensures it doesn't escape.
-// Returns the absolute path or an error.
-func safePath(root, relative string) (string, bool) {
-	if relative == "" {
-		return root, true
-	}
-
-	// Clean the path to remove .., . etc.
-	cleaned := filepath.Clean(relative)
-
-	// Reject absolute paths
-	if filepath.IsAbs(cleaned) {
-		return "", false
-	}
-
-	// Join with root
-	full := filepath.Join(root, cleaned)
-
-	// Resolve symlinks and verify it's still under root
-	resolved, err := filepath.EvalSymlinks(full)
-	if err != nil {
-		// File might not exist yet (for destinations), try parent
-		parent := filepath.Dir(full)
-		resolvedParent, err := filepath.EvalSymlinks(parent)
-		if err != nil {
-			return "", false
-		}
-		if !strings.HasPrefix(resolvedParent, root) {
-			return "", false
-		}
-		return filepath.Join(resolvedParent, filepath.Base(full)), true
-	}
-
-	if !strings.HasPrefix(resolved, root) {
-		return "", false
-	}
-
-	return resolved, true
 }

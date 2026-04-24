@@ -1,4 +1,4 @@
-package api
+package fileops
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/pathguard"
 )
 
 type fileOpRequest struct {
@@ -29,6 +30,16 @@ type fileOpResponse struct {
 	Results []fileOpResult `json:"results"`
 }
 
+// Handle registers all file-operation routes on mux.
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
+	mux.HandleFunc("/api/copy", handleCopy(root, cache))
+	mux.HandleFunc("/api/move", handleMove(root, cache))
+	mux.HandleFunc("/api/delete", handleDelete(root, cache))
+	mux.HandleFunc("/api/mkdir", handleMkdir(root, cache))
+	mux.HandleFunc("/api/rename", handleRename(root, cache))
+	mux.HandleFunc("/api/list-recursive", handleListRecursive(root))
+}
+
 func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -41,7 +52,6 @@ func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
-
 		if len(req.Files) == 0 {
 			http.Error(w, "No files specified", http.StatusBadRequest)
 			return
@@ -50,62 +60,43 @@ func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
 		dirsToInvalidate := make(map[string]struct{})
 		var results []fileOpResult
 		for _, file := range req.Files {
-			filePath, ok := safePath(root, file)
-			if !ok {
-				results = append(results, fileOpResult{
-					File:  file,
-					Error: "invalid path",
-				})
-				continue
-			}
-
-			info, err := os.Stat(filePath)
-			if err != nil {
-				results = append(results, fileOpResult{
-					File:  file,
-					Error: err.Error(),
-				})
-				continue
-			}
-
-			if info.IsDir() {
-				if err := os.RemoveAll(filePath); err != nil {
-					results = append(results, fileOpResult{
-						File:  file,
-						Error: err.Error(),
-					})
-				} else {
-					cache.InvalidatePrefix(filePath)
-					dirsToInvalidate[filepath.Dir(filePath)] = struct{}{}
-					results = append(results, fileOpResult{
-						File:    file,
-						Success: true,
-					})
-				}
-				continue
-			}
-
-			if err := os.Remove(filePath); err != nil {
-				results = append(results, fileOpResult{
-					File:  file,
-					Error: err.Error(),
-				})
-			} else {
-				dirsToInvalidate[filepath.Dir(filePath)] = struct{}{}
-				results = append(results, fileOpResult{
-					File:    file,
-					Success: true,
-				})
+			result, dir := deleteEntry(root, file, cache)
+			results = append(results, result)
+			if result.Success && dir != "" {
+				dirsToInvalidate[dir] = struct{}{}
 			}
 		}
-
 		for dir := range dirsToInvalidate {
 			cache.Invalidate(dir)
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fileOpResponse{Results: results})
+		writeJSON(w, fileOpResponse{Results: results})
 	}
+}
+
+func deleteEntry(root, file string, cache *media.ScanCache) (fileOpResult, string) {
+	filePath, ok := pathguard.SafePath(root, file)
+	if !ok {
+		return fileOpResult{File: file, Error: "invalid path"}, ""
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return fileOpResult{File: file, Error: err.Error()}, ""
+	}
+
+	if info.IsDir() {
+		if err := os.RemoveAll(filePath); err != nil {
+			return fileOpResult{File: file, Error: err.Error()}, ""
+		}
+		cache.InvalidatePrefix(filePath)
+		return fileOpResult{File: file, Success: true}, filepath.Dir(filePath)
+	}
+
+	if err := os.Remove(filePath); err != nil {
+		return fileOpResult{File: file, Error: err.Error()}, ""
+	}
+	return fileOpResult{File: file, Success: true}, filepath.Dir(filePath)
 }
 
 func handleCopy(root string, cache *media.ScanCache) http.HandlerFunc {
@@ -134,19 +125,16 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
 	if len(req.Files) == 0 {
 		http.Error(w, "No files specified", http.StatusBadRequest)
 		return
 	}
 
-	destDir, ok := safePath(root, req.Destination)
+	destDir, ok := pathguard.SafePath(root, req.Destination)
 	if !ok {
 		http.Error(w, "Invalid destination path", http.StatusBadRequest)
 		return
 	}
-
-	// Verify destination is a directory
 	info, err := os.Stat(destDir)
 	if err != nil || !info.IsDir() {
 		http.Error(w, "Destination is not a valid directory", http.StatusBadRequest)
@@ -156,38 +144,25 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 	dirsToInvalidate := make(map[string]struct{})
 	var results []fileOpResult
 	for _, file := range req.Files {
-		srcPath, ok := safePath(root, file)
+		srcPath, ok := pathguard.SafePath(root, file)
 		if !ok {
-			results = append(results, fileOpResult{
-				File:  file,
-				Error: "invalid source path",
-			})
+			results = append(results, fileOpResult{File: file, Error: "invalid source path"})
 			continue
 		}
-
 		dstPath := filepath.Join(destDir, filepath.Base(srcPath))
-
 		if err := op(srcPath, dstPath); err != nil {
-			results = append(results, fileOpResult{
-				File:  file,
-				Error: err.Error(),
-			})
+			results = append(results, fileOpResult{File: file, Error: err.Error()})
 		} else {
 			dirsToInvalidate[filepath.Dir(srcPath)] = struct{}{}
 			dirsToInvalidate[destDir] = struct{}{}
-			results = append(results, fileOpResult{
-				File:    file,
-				Success: true,
-			})
+			results = append(results, fileOpResult{File: file, Success: true})
 		}
 	}
-
 	for dir := range dirsToInvalidate {
 		cache.Invalidate(dir)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(fileOpResponse{Results: results})
+	writeJSON(w, fileOpResponse{Results: results})
 }
 
 func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {
@@ -205,7 +180,7 @@ func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {
 			return
 		}
 
-		dirPath, ok := safePath(root, req.Path)
+		dirPath, ok := pathguard.SafePath(root, req.Path)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
@@ -215,11 +190,8 @@ func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		cache.Invalidate(filepath.Dir(dirPath))
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		writeJSON(w, map[string]bool{"success": true})
 	}
 }
 
@@ -239,21 +211,18 @@ func handleRename(root string, cache *media.ScanCache) http.HandlerFunc {
 			return
 		}
 
-		// Validate name is a simple base name
-		if req.Name == "" || req.Name == "." || req.Name == ".." ||
-			filepath.Base(req.Name) != req.Name {
+		if req.Name == "" || req.Name == "." || req.Name == ".." || filepath.Base(req.Name) != req.Name {
 			http.Error(w, "Invalid name", http.StatusBadRequest)
 			return
 		}
 
-		srcPath, ok := safePath(root, req.Path)
+		srcPath, ok := pathguard.SafePath(root, req.Path)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
 
 		dstPath := filepath.Join(filepath.Dir(srcPath), req.Name)
-
 		if _, err := os.Stat(dstPath); err == nil {
 			http.Error(w, "Destination already exists", http.StatusConflict)
 			return
@@ -263,11 +232,8 @@ func handleRename(root string, cache *media.ScanCache) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		cache.Invalidate(filepath.Dir(srcPath))
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		writeJSON(w, map[string]bool{"success": true})
 	}
 }
 
@@ -286,74 +252,70 @@ func handleListRecursive(root string) http.HandlerFunc {
 			return
 		}
 
-		dirPath, ok := safePath(root, req.Path)
+		dirPath, ok := pathguard.SafePath(root, req.Path)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
-
 		info, err := os.Stat(dirPath)
 		if err != nil || !info.IsDir() {
 			http.Error(w, "Not a directory", http.StatusBadRequest)
 			return
 		}
 
-		const maxEntries = 100000
-		var files []string
-		var dirs []string
-		count := 0
-
-		err = filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return nil // skip errors
-			}
-			count++
-			if count > maxEntries {
-				return fmt.Errorf("too many entries")
-			}
-
-			// Convert to relative path from root
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return nil
-			}
-
-			if d.IsDir() {
-				// Skip the root directory itself from the dirs list
-				if path != dirPath {
-					dirs = append(dirs, rel)
-				}
-			} else {
-				files = append(files, rel)
-			}
-			return nil
-		})
-
-		if err != nil && !strings.Contains(err.Error(), "too many entries") {
+		files, dirs, err := walkDirEntries(root, dirPath)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Sort dirs shallowest first (by number of path separators, then alphabetically)
-		sort.Slice(dirs, func(i, j int) bool {
-			di := strings.Count(dirs[i], string(filepath.Separator))
-			dj := strings.Count(dirs[j], string(filepath.Separator))
-			if di != dj {
-				return di < dj
-			}
-			return dirs[i] < dirs[j]
-		})
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"files": files,
-			"dirs":  dirs,
-		})
+		writeJSON(w, map[string]interface{}{"files": files, "dirs": dirs})
 	}
 }
 
+func walkDirEntries(root, dirPath string) (files, dirs []string, err error) {
+	const maxEntries = 100000
+	count := 0
+
+	walkErr := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		count++
+		if count > maxEntries {
+			return fmt.Errorf("too many entries")
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if path != dirPath {
+				dirs = append(dirs, rel)
+			}
+		} else {
+			files = append(files, rel)
+		}
+		return nil
+	})
+
+	if walkErr != nil && !strings.Contains(walkErr.Error(), "too many entries") {
+		return nil, nil, walkErr
+	}
+
+	sort.Slice(dirs, func(i, j int) bool {
+		di := strings.Count(dirs[i], string(filepath.Separator))
+		dj := strings.Count(dirs[j], string(filepath.Separator))
+		if di != dj {
+			return di < dj
+		}
+		return dirs[i] < dirs[j]
+	})
+
+	return files, dirs, nil
+}
+
 func copyFile(src, dst string) error {
-	// Check if source is a directory
 	info, err := os.Stat(src)
 	if err != nil {
 		return err
@@ -361,8 +323,6 @@ func copyFile(src, dst string) error {
 	if info.IsDir() {
 		return copyDir(src, dst)
 	}
-
-	// Don't overwrite existing files
 	if _, err := os.Stat(dst); err == nil {
 		return fmt.Errorf("destination file already exists")
 	}
@@ -383,44 +343,35 @@ func copyFile(src, dst string) error {
 		os.Remove(dst)
 		return err
 	}
-
 	return nil
 }
 
 func copyDir(src, dst string) error {
-	// Don't overwrite existing destination
 	if _, err := os.Stat(dst); err == nil {
 		return fmt.Errorf("destination already exists")
 	}
-
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
 		rel, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
 		target := filepath.Join(dst, rel)
-
 		if d.IsDir() {
 			return os.MkdirAll(target, 0755)
 		}
-
-		// Copy individual file
 		in, err := os.Open(path)
 		if err != nil {
 			return err
 		}
 		defer in.Close()
-
 		out, err := os.Create(target)
 		if err != nil {
 			return err
 		}
 		defer out.Close()
-
 		if _, err := io.Copy(out, in); err != nil {
 			os.Remove(target)
 			return err
@@ -430,40 +381,36 @@ func copyDir(src, dst string) error {
 }
 
 func moveFile(src, dst string) error {
-	// Check if source is a directory
 	info, err := os.Stat(src)
 	if err != nil {
 		return err
 	}
 	if info.IsDir() {
-		// Don't overwrite existing destination
 		if _, err := os.Stat(dst); err == nil {
 			return fmt.Errorf("destination already exists")
 		}
-		// Try rename first (fast, same filesystem)
 		if err := os.Rename(src, dst); err == nil {
 			return nil
 		}
-		// Fall back to copy + delete
 		if err := copyDir(src, dst); err != nil {
 			return err
 		}
 		return os.RemoveAll(src)
 	}
 
-	// Don't overwrite existing files
 	if _, err := os.Stat(dst); err == nil {
 		return fmt.Errorf("destination file already exists")
 	}
-
-	// Try rename first (fast, same filesystem)
 	if err := os.Rename(src, dst); err == nil {
 		return nil
 	}
-
-	// Fall back to copy + delete
 	if err := copyFile(src, dst); err != nil {
 		return err
 	}
 	return os.Remove(src)
+}
+
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
 }

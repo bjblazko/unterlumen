@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-03-04*
+*Last modified: 2026-04-24*
 
 ## 1. Introduction and Goals
 
@@ -134,15 +134,29 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | Package | Responsibility |
 |---------|---------------|
 | `main` | CLI flag parsing, HTTP server startup |
-| `internal/api` | HTTP route registration, request handling, path validation |
-| `internal/media` | Filesystem scanning, EXIF extraction, format detection, ffmpeg invocation |
+| `internal/api` | HTTP route registration; delegates to domain subpackages |
+| `internal/api/browse` | `/api/browse`, `/api/browse/dates`, `/api/browse/meta`, `/api/thumbnail`, `/api/image`, `/api/info` handlers |
+| `internal/api/export` | `/api/export/*` handlers; ZIP token store |
+| `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
+| `internal/api/location` | Set/remove GPS location handlers |
+| `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
+| `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
+| `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go) |
 
 ### 5.3 Level 2 — Frontend Modules
 
 | File | Responsibility |
 |------|---------------|
-| `app.js` | Application entry point, mode switching, global keyboard shortcuts |
-| `browse.js` | `BrowsePane` class — directory listing, grid/list rendering, selection |
+| `app.js` | `App` — orchestration: init, mode switching, modal wiring, viewer |
+| `app-theme.js` | `ThemeManager` — theme preference and thumbnail-quality settings |
+| `app-wastebin.js` | `Wastebin` — mark/restore/delete queue and review UI |
+| `app-keyboard.js` | `GlobalKeyboard` — global keydown handler |
+| `browse.js` | `BrowsePane` — orchestration: load, render, delegation to renderer/selection/keyboard sub-objects |
+| `browse-grid.js` | `GridRenderer` — grid-view DOM rendering |
+| `browse-list.js` | `ListRenderer` — list-view DOM rendering |
+| `browse-justified.js` | `JustifiedRenderer` — justified-view DOM rendering and row-packing layout |
+| `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
+| `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
 | `commander.js` | `Commander` class — dual-pane layout, copy/move orchestration |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data |
