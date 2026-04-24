@@ -1,5 +1,9 @@
 # Unterlumen
 
+[![E2E Tests](https://github.com/bjblazko/unterlumen/actions/workflows/e2e.yml/badge.svg)](https://github.com/bjblazko/unterlumen/actions/workflows/e2e.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+
 A photo browser and culler that runs as a local web server. Browse your photo library in the browser, view images full-screen, and organize files using a dual-pane File Manager interface.
 
 ## Features
