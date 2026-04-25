@@ -51,6 +51,15 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async publish(libID, { photoIDs, channel, publishedAt }) {
+        const r = await fetch(`/api/library/${libID}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoIDs, channel, publishedAt }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async upsertMeta(libID, photoID, key, value) {
         const r = await fetch(`/api/library/${libID}/photo/${photoID}/meta`, {
             method: 'PUT',
@@ -321,7 +330,9 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
+                    <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm" id="lib-reindex-btn">Re-index</button>
+                    <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels</button>
                 </div>
             </div>
             <div class="library-detail-body">
@@ -338,6 +349,10 @@ class LibraryTab {
         });
 
         el.querySelector('#lib-reindex-btn').addEventListener('click', () => this._reindexDetail(el));
+        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open());
+
+        const publishBtn = el.querySelector('#lib-publish-btn');
+        publishBtn.addEventListener('click', () => this._openPublishModal());
 
         const paneEl = el.querySelector('#lib-pane');
         const infoPanelEl = el.querySelector('#lib-info-panel');
@@ -354,9 +369,111 @@ class LibraryTab {
             onFocusChange: (path) => this._onPhotoFocus(path),
             onToolInvoke: (params) => App.handleToolInvoke(params),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
+            onSelectionChange: (files) => {
+                publishBtn.disabled = files.length === 0;
+            },
         });
 
         this._pane.load(lib.relSourcePath || '');
+    }
+
+    async _openPublishModal() {
+        const lib = this.currentLibrary;
+        const pane = this._pane;
+        if (!pane) return;
+
+        const selectedPaths = pane.getSelectedFiles();
+        if (selectedPaths.length === 0) return;
+
+        let channels;
+        try {
+            channels = await ChannelAPI.list();
+        } catch (err) {
+            alert('Failed to load channels: ' + err.message);
+            return;
+        }
+        if (channels.length === 0) {
+            alert('No channels configured. Use the Channels button to add one.');
+            return;
+        }
+
+        const now = new Date();
+        const localISO = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+        const dlg = document.createElement('div');
+        dlg.className = 'modal-backdrop';
+        dlg.innerHTML = `
+            <div class="modal publish-modal">
+                <div class="modal-header">
+                    <span class="modal-title">Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}</span>
+                    <button class="modal-close" id="pub-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Channel</label>
+                    <select class="form-select" id="pub-channel">
+                        ${channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
+                    </select>
+                    <label class="form-label">Date &amp; time</label>
+                    <input class="form-input" id="pub-date" type="datetime-local" value="${localISO}">
+                    <div class="publish-info" id="pub-info"></div>
+                </div>
+                <div class="modal-footer">
+                    <div class="publish-error" id="pub-error" style="display:none"></div>
+                    <button class="btn" id="pub-cancel">Cancel</button>
+                    <button class="btn btn-accent" id="pub-confirm">Publish</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dlg);
+
+        const updateInfo = () => {
+            const slug = dlg.querySelector('#pub-channel').value;
+            const ch = channels.find(c => c.slug === slug);
+            if (!ch) return;
+            const scaleDesc = window._scaleDesc ? _scaleDesc(ch.scale) : '';
+            dlg.querySelector('#pub-info').textContent =
+                `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}`;
+        };
+        dlg.querySelector('#pub-channel').addEventListener('change', updateInfo);
+        updateInfo();
+
+        dlg.querySelector('#pub-close').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#pub-cancel').addEventListener('click', () => dlg.remove());
+        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
+
+        dlg.querySelector('#pub-confirm').addEventListener('click', async () => {
+            const confirmBtn = dlg.querySelector('#pub-confirm');
+            const errEl = dlg.querySelector('#pub-error');
+            const channel = dlg.querySelector('#pub-channel').value;
+            const dateVal = dlg.querySelector('#pub-date').value;
+            const publishedAt = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Publishing…';
+            errEl.style.display = 'none';
+
+            try {
+                // Resolve filesystem paths → photo IDs
+                const photoIDs = await Promise.all(
+                    selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p))
+                );
+                const validIDs = photoIDs.filter(Boolean);
+                if (validIDs.length === 0) throw new Error('No matching library photos found for selection.');
+
+                const { results } = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, publishedAt });
+                const errors = (results || []).filter(r => r.error);
+                dlg.remove();
+                if (errors.length > 0) {
+                    alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                } else {
+                    _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
+                }
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = '';
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Publish';
+            }
+        });
     }
 
     async _onPhotoFocus(path) {
@@ -416,5 +533,14 @@ function stripQuotes(s) {
         return s.slice(1, -1);
     }
     return s;
+}
+
+function _showToast(msg) {
+    const hint = document.getElementById('ui-hint');
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.classList.add('visible');
+    clearTimeout(_showToast._timer);
+    _showToast._timer = setTimeout(() => hint.classList.remove('visible'), 3000);
 }
 
