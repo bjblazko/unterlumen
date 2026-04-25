@@ -1,0 +1,449 @@
+// Package apilibrary provides HTTP handlers for the DAM library feature.
+package apilibrary
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	lib "huepattl.de/unterlumen/internal/library"
+)
+
+// Handle registers all library API routes on mux.
+// root is the browse boundary directory; used to resolve relative paths for thumb-by-path lookups.
+func Handle(mux *http.ServeMux, mgr *lib.Manager, root string) {
+	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
+	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
+	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
+	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photos", listPhotos(mgr))
+	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
+	mux.HandleFunc("GET /api/library/{id}/thumb-by-path", thumbByPath(mgr, root))
+	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr, root))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
+	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
+	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr))
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
+// --- Library CRUD ---
+
+// libraryJSON wraps Library with a computed relSourcePath for the browse API.
+type libraryJSON struct {
+	*lib.Library
+	RelSourcePath string `json:"relSourcePath"`
+}
+
+func toLibraryJSON(l *lib.Library, root string) libraryJSON {
+	var rel string
+	if root == "/" {
+		rel = strings.TrimPrefix(l.SourcePath, "/")
+	} else {
+		rel = strings.TrimPrefix(l.SourcePath, root+"/")
+		if rel == l.SourcePath {
+			rel = "" // not under root
+		}
+	}
+	return libraryJSON{Library: l, RelSourcePath: rel}
+}
+
+func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		libs, err := mgr.ListLibraries()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := make([]libraryJSON, len(libs))
+		for i, l := range libs {
+			out[i] = toLibraryJSON(l, root)
+		}
+		writeJSON(w, out)
+	}
+}
+
+func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			SourcePath  string `json:"sourcePath"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if body.Name == "" || body.SourcePath == "" {
+			http.Error(w, "name and sourcePath are required", http.StatusBadRequest)
+			return
+		}
+		absPath, err := filepath.Abs(body.SourcePath)
+		if err != nil {
+			http.Error(w, "invalid sourcePath", http.StatusBadRequest)
+			return
+		}
+		if info, err := os.Stat(absPath); err != nil || !info.IsDir() {
+			http.Error(w, "sourcePath must be an existing directory", http.StatusBadRequest)
+			return
+		}
+		created, err := mgr.CreateLibrary(body.Name, body.Description, absPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, toLibraryJSON(created, root))
+	}
+}
+
+func getLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		l, err := mgr.GetLibrary(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		writeJSON(w, toLibraryJSON(l, root))
+	}
+}
+
+func deleteLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if err := mgr.DeleteLibrary(id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// --- Indexing (SSE) ---
+
+func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+
+		libInfo, err := mgr.GetLibrary(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+
+		if !mgr.TryLockIndex(id) {
+			http.Error(w, "indexing already in progress", http.StatusConflict)
+			return
+		}
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			mgr.UnlockIndex(id)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			store.Close()
+			mgr.UnlockIndex(id)
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+
+		progress := make(chan lib.Progress, 8)
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+
+		sourcePath := libInfo.SourcePath
+		go func() {
+			defer store.Close()
+			defer mgr.UnlockIndex(id)
+			indexer := lib.NewIndexer(store, mgr.LibDir(id), sourcePath)
+			indexer.Run(ctx, progress)
+		}()
+
+		enc := json.NewEncoder(w)
+		for p := range progress {
+			fmt.Fprintf(w, "data: ")
+			enc.Encode(p)
+			fmt.Fprintf(w, "\n")
+			flusher.Flush()
+		}
+	}
+}
+
+// --- Photos ---
+
+func listPhotos(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		q := r.URL.Query().Get("q")
+		filters := make(map[string]string)
+		for k, vals := range r.URL.Query() {
+			if k != "q" && k != "offset" && k != "limit" && len(vals) > 0 {
+				filters[k] = vals[0]
+			}
+		}
+
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		if limit <= 0 || limit > 500 {
+			limit = 100
+		}
+
+		result, err := store.ListPhotos(q, filters, offset, limit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, result)
+	}
+}
+
+// --- Thumbnail & photo serving ---
+
+func thumbByPath(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		relPath := r.URL.Query().Get("path")
+		if relPath == "" {
+			http.Error(w, "path required", http.StatusBadRequest)
+			return
+		}
+		absPath := filepath.Join(root, relPath)
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		photoID, err := store.GetPhotoIDByAbsPath(absPath)
+		if err != nil || photoID == "" {
+			http.Error(w, "thumbnail not found", http.StatusNotFound)
+			return
+		}
+
+		thumbRel, err := store.GetPhotoThumbPath(photoID)
+		if err != nil || thumbRel == "" {
+			http.Error(w, "thumbnail not found", http.StatusNotFound)
+			return
+		}
+
+		absThumb := filepath.Join(mgr.LibDir(id), thumbRel)
+		data, err := os.ReadFile(absThumb)
+		if err != nil {
+			http.Error(w, "thumbnail not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(data)
+	}
+}
+
+func photoIDByPath(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		relPath := r.URL.Query().Get("path")
+		if relPath == "" {
+			http.Error(w, "path required", http.StatusBadRequest)
+			return
+		}
+		absPath := filepath.Join(root, relPath)
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		photoID, err := store.GetPhotoIDByAbsPath(absPath)
+		if err != nil || photoID == "" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+
+		writeJSON(w, map[string]string{"photoID": photoID})
+	}
+}
+
+func serveThumb(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		thumbRel, err := store.GetPhotoThumbPath(photoID)
+		if err != nil || thumbRel == "" {
+			http.Error(w, "thumbnail not found", http.StatusNotFound)
+			return
+		}
+
+		absThumb := filepath.Join(mgr.LibDir(id), thumbRel)
+		data, err := os.ReadFile(absThumb)
+		if err != nil {
+			http.Error(w, "thumbnail not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(data)
+	}
+}
+
+func servePhoto(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		pathHint, err := store.GetPhotoPathHint(photoID)
+		if err != nil || pathHint == "" {
+			http.Error(w, "photo not found", http.StatusNotFound)
+			return
+		}
+
+		http.ServeFile(w, r, pathHint)
+	}
+}
+
+func photoInfo(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		info, err := store.GetPhotoInfo(photoID)
+		if err != nil {
+			http.Error(w, "photo not found", http.StatusNotFound)
+			return
+		}
+
+		writeJSON(w, info)
+	}
+}
+
+// --- Metadata ---
+
+func getMeta(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		entries, err := store.GetMeta(photoID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, entries)
+	}
+}
+
+func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		var body struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Key == "" {
+			http.Error(w, "key and value required", http.StatusBadRequest)
+			return
+		}
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		if err := store.UpsertMeta(photoID, body.Key, body.Value); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func deleteMeta(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+		key := r.URL.Query().Get("key")
+		if key == "" {
+			http.Error(w, "key query param required", http.StatusBadRequest)
+			return
+		}
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		if err := store.DeleteMeta(photoID, key); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}

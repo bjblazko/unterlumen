@@ -145,6 +145,14 @@ class BrowsePane {
         return this.path ? `${this.path}/${name}` : name;
     }
 
+    thumbURL(entry, size) {
+        return API.thumbnailURL(this.fullPath(entry.name), size);
+    }
+
+    isMarkedForDeletion(fp) {
+        return App.isMarkedForDeletion(fp);
+    }
+
     updateMarkedForDeletion() {
         this.container.querySelectorAll('[data-path]').forEach(el => {
             const path = el.getAttribute('data-path');
@@ -307,6 +315,12 @@ class BrowsePane {
                                 <button class="btn btn-sm tool-item" data-tool="export">Convert &amp; Export</button>
                             </div>
                         </div>
+                        <div class="dropdown-section tools-library-section" style="display:none">
+                            <label class="dropdown-label">Library</label>
+                            <div class="dropdown-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="make-library">Make library</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -427,14 +441,22 @@ class BrowsePane {
                 onOpen: () => {
                     this._updateToolsGeoLabel();
                     this._updateToolsRenameState();
+                    this._updateToolsLibraryState();
                     this._checkToolsAvailability();
                 },
             });
             toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
                 btn.addEventListener('click', () => {
+                    const tool = btn.dataset.tool;
+                    if (tool === 'make-library') {
+                        const dir = this.getFocusedDir();
+                        if (!dir) return;
+                        if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
+                        closeToolsMenu();
+                        return;
+                    }
                     const files = this.getActionableFiles();
                     if (files.length === 0) { alert('No images selected.'); return; }
-                    const tool = btn.dataset.tool;
                     const params = {};
                     if (tool === 'rotate') params.angle = parseInt(btn.dataset.angle);
                     if (this.onToolInvoke) this.onToolInvoke({ tool, files, ...params });
@@ -558,6 +580,12 @@ class BrowsePane {
     _updateToolsRenameState() {
         const btn = this.container.querySelector('[data-tool="rename"]');
         if (btn) btn.disabled = this.getActionableFiles().length !== 1;
+    }
+
+    _updateToolsLibraryState() {
+        const section = this.container.querySelector('.tools-library-section');
+        if (!section) return;
+        section.style.display = this.getFocusedDir() ? '' : 'none';
     }
 
     // --- Focus change notification ---

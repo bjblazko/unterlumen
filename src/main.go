@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/api"
+	"huepattl.de/unterlumen/internal/library"
 )
 
 //go:embed web
@@ -32,8 +33,16 @@ func main() {
 		bindDefault = v
 	}
 
+	libDirDefault := ""
+	if v := os.Getenv("UNTERLUMEN_LIB_DIR"); v != "" {
+		libDirDefault = v
+	} else if home, err := os.UserHomeDir(); err == nil {
+		libDirDefault = filepath.Join(home, ".unterlumen")
+	}
+
 	port := flag.Int("port", portDefault, "HTTP server port (env: UNTERLUMEN_PORT)")
 	bind := flag.String("bind", bindDefault, "Address to bind to (env: UNTERLUMEN_BIND)")
+	libDir := flag.String("lib-dir", libDirDefault, "Library data directory (env: UNTERLUMEN_LIB_DIR)")
 	flag.Parse()
 
 	// Priority: cmdline arg > UNTERLUMEN_ROOT_PATH env > user home dir
@@ -105,7 +114,16 @@ func main() {
 	// Local mode: boundary is "/" — free filesystem navigation.
 	serverRole := absBoundary != "/"
 
-	mux := api.NewRouter(absBoundary, relStart, sub, serverRole)
+	var libMgr *library.Manager
+	if *libDir != "" {
+		if mgr, err := library.NewManager(*libDir); err != nil {
+			log.Printf("Warning: library manager init failed: %v", err)
+		} else {
+			libMgr = mgr
+		}
+	}
+
+	mux := api.NewRouter(absBoundary, relStart, sub, serverRole, libMgr)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

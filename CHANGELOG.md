@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **DAM Libraries** — New "Libraries" tab (4th mode) adds optional Digital Asset Management. A library indexes a photo folder recursively into `~/.unterlumen/libraries/<id>/library.db` (SQLite via `modernc.org/sqlite` — no CGo, no external process). Features:
+  - Create a library from any folder; background indexing walks all subfolders.
+  - Photos are identified by SHA-256 content hash: metadata survives external renames.
+  - Fast re-scan path using mtime + file size to skip unchanged files.
+  - HQ thumbnails (1200px, JPEG 85) stored on disk keyed by content hash, sharded into `thumbs/<prefix>/` subdirectories.
+  - EXIF metadata stored in an EAV table (`exif_index`) for full-text and field-filtered search.
+  - User-defined key/value annotations per photo (`photo_meta` EAV table); inline editable in the annotation panel.
+  - Missing photos (deleted from source) are marked `status='missing'`; metadata and thumbnails are preserved.
+  - Re-indexing progress streamed via Server-Sent Events.
+  - `--lib-dir` CLI flag and `UNTERLUMEN_LIB_DIR` environment variable override the library root (default: `~/.unterlumen`); useful for testing with temporary directories.
+
 ### Changed
 
 - **Internal refactoring (ADR-0015)** — No user-visible behaviour changes; structural cleanup only.
