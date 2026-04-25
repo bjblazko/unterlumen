@@ -10,7 +10,7 @@ func TestGenerateGallery(t *testing.T) {
 		{Filename: "photo1.jpg", ThumbFilename: "thumbs/photo1.jpg", Width: 1200, Height: 800},
 		{Filename: "photo2.jpg", ThumbFilename: "thumbs/photo2.jpg", Width: 900, Height: 600},
 	}
-	html := string(GenerateGallery("Summer 2026", items))
+	html := string(GenerateGallery("Summer 2026", items, GalleryOptions{}))
 
 	for _, want := range []string{
 		"<title>Summer 2026</title>",
@@ -25,8 +25,23 @@ func TestGenerateGallery(t *testing.T) {
 	}
 }
 
+func TestGenerateGalleryZipLink(t *testing.T) {
+	html := string(GenerateGallery("Test", nil, GalleryOptions{ZipFilename: "photos.zip"}))
+	if !strings.Contains(html, `href="photos.zip"`) {
+		t.Error("ZIP download link missing")
+	}
+	if !strings.Contains(html, "download") {
+		t.Error("download attribute missing on ZIP link")
+	}
+
+	htmlNoZip := string(GenerateGallery("Test", nil, GalleryOptions{}))
+	if strings.Contains(htmlNoZip, "photos.zip") {
+		t.Error("ZIP link should not appear when ZipFilename is empty")
+	}
+}
+
 func TestGenerateGalleryEscapesTitle(t *testing.T) {
-	html := string(GenerateGallery("<script>alert(1)</script>", nil))
+	html := string(GenerateGallery("<script>alert(1)</script>", nil, GalleryOptions{}))
 	// The title must appear escaped; the literal unescaped injection must not.
 	if strings.Contains(html, "<script>alert(1)") {
 		t.Error("title was not HTML-escaped")
@@ -38,7 +53,7 @@ func TestGenerateGalleryEscapesTitle(t *testing.T) {
 
 func TestGenerateGalleryNoDimensions(t *testing.T) {
 	items := []GalleryItem{{Filename: "img.jpg"}}
-	html := string(GenerateGallery("Test", items))
+	html := string(GenerateGallery("Test", items, GalleryOptions{}))
 	if strings.Contains(html, `width="0"`) {
 		t.Error("zero dimensions should not appear in output")
 	}

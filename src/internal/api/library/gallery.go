@@ -18,6 +18,11 @@ type galleryPhoto struct {
 	Thumb string `json:"thumb"`
 }
 
+// GalleryOptions carries optional extras for the generated gallery page.
+type GalleryOptions struct {
+	ZipFilename string // if non-empty, a download link for the ZIP is shown
+}
+
 var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -142,12 +147,44 @@ h1 {
   color: rgba(255,255,255,0.45);
   letter-spacing: 0.06em;
 }
+
+/* --- Footer --- */
+footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a2a2a;
+  font-size: 0.8rem;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 3px;
+  color: #ccc;
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+.dl-btn:hover { background: #2a2a2a; border-color: #555; color: #fff; }
 </style>
 </head>
 <body>
 <h1>{{.Title}}</h1>
 
 <main class="gallery" id="gallery"></main>
+
+{{if .ZipFilename}}<footer>
+  <a class="dl-btn" href="{{.ZipFilename}}" download>&#8595; Download all photos</a>
+  <span>Full-resolution originals as ZIP</span>
+</footer>{{end}}
 
 <!-- Lightbox -->
 <div id="lb">
@@ -220,8 +257,8 @@ buildGallery();
 </html>
 `))
 
-// GenerateGallery returns a self-contained index.html for the given title and photos.
-func GenerateGallery(title string, items []GalleryItem) []byte {
+// GenerateGallery returns a self-contained index.html for the given title, photos, and options.
+func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []byte {
 	photos := make([]galleryPhoto, 0, len(items))
 	for _, item := range items {
 		photos = append(photos, galleryPhoto{Full: item.Filename, Thumb: item.ThumbFilename})
@@ -230,11 +267,13 @@ func GenerateGallery(title string, items []GalleryItem) []byte {
 
 	var buf bytes.Buffer
 	galleryTmpl.Execute(&buf, struct { //nolint:errcheck
-		Title     string
-		PhotosJSON template.JS
+		Title       string
+		PhotosJSON  template.JS
+		ZipFilename string
 	}{
-		Title:      title,
-		PhotosJSON: template.JS(photosJSON),
+		Title:       title,
+		PhotosJSON:  template.JS(photosJSON),
+		ZipFilename: opts.ZipFilename,
 	})
 	return buf.Bytes()
 }

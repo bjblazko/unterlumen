@@ -51,14 +51,46 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publish(libID, { photoIDs, channel, account, publishedAt, galleryTitle }) {
+    async publish(libID, { photoIDs, channel, account, publishedAt }) {
+        const r = await fetch(`/api/library/${libID}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle }, onProgress) {
         const r = await fetch(`/api/library/${libID}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle }),
         });
         if (!r.ok) throw new Error(await r.text());
-        return r.json();
+
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalEvt = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split('\n\n');
+            buffer = blocks.pop() ?? '';
+            for (const block of blocks) {
+                const line = block.split('\n').find(l => l.startsWith('data: '));
+                if (!line) continue;
+                try {
+                    const evt = JSON.parse(line.slice(6));
+                    if (evt.complete) finalEvt = evt;
+                    else if (onProgress) onProgress(evt);
+                } catch { /* skip malformed */ }
+            }
+        }
+        if (!finalEvt) throw new Error('Gallery stream ended without completion event');
+        return finalEvt;
     },
     async upsertMeta(libID, photoID, key, value) {
         const r = await fetch(`/api/library/${libID}/photo/${photoID}/meta`, {
@@ -428,6 +460,7 @@ class LibraryTab {
                 </div>
                 <div class="modal-footer">
                     <div class="publish-error" id="pub-error" style="display:none"></div>
+                    <div class="publish-progress" id="pub-progress" style="display:none"></div>
                     <button class="btn" id="pub-cancel">Cancel</button>
                     <button class="btn btn-accent" id="pub-confirm">Publish</button>
                 </div>
@@ -498,15 +531,38 @@ class LibraryTab {
                     ? (dlg.querySelector('#pub-gallery-title').value.trim() || undefined)
                     : undefined;
 
-                const resp = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt, galleryTitle });
-                const errors = (resp.results || []).filter(r => r.error);
-                dlg.remove();
-                if (errors.length > 0) {
-                    alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
-                } else if (resp.galleryPath) {
-                    _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}. Gallery: ${resp.galleryPath}`);
+                if (galleryTitle) {
+                    // Gallery publish: stream SSE progress.
+                    const progressEl = dlg.querySelector('#pub-progress');
+                    progressEl.style.display = '';
+                    const resp = await LibraryAPI.publishStream(
+                        lib.id,
+                        { photoIDs: validIDs, channel, account, publishedAt, galleryTitle },
+                        (evt) => {
+                            if (evt.step === 'photo')
+                                progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
+                            else if (evt.step === 'zip')
+                                progressEl.textContent = evt.file;
+                            else if (evt.step === 'html')
+                                progressEl.textContent = evt.file;
+                        }
+                    );
+                    const errors = (resp.results || []).filter(r => r.error);
+                    dlg.remove();
+                    if (errors.length > 0) {
+                        alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                    } else {
+                        _showToast(`Gallery ready: ${resp.galleryPath}`);
+                    }
                 } else {
-                    _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
+                    const resp = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt });
+                    const errors = (resp.results || []).filter(r => r.error);
+                    dlg.remove();
+                    if (errors.length > 0) {
+                        alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                    } else {
+                        _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
+                    }
                 }
             } catch (err) {
                 errEl.textContent = err.message;

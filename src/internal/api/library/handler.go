@@ -2,6 +2,7 @@
 package apilibrary
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -520,6 +521,13 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		defer store.Close()
 
 		postID := newPostID()
+		pub := media.Publication{
+			Channel:     body.Channel,
+			Account:     body.Account,
+			PostID:      postID,
+			PublishedAt: publishedAt,
+		}
+		ts := publishedAt.UTC().Format("20060102T150405Z")
 
 		galleryMode := ch.GalleryExport && body.GalleryTitle != ""
 		outDir := filepath.Join(mgr.LibDir(id), "channels", body.Channel)
@@ -531,54 +539,107 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 
-		pub := media.Publication{
-			Channel:     body.Channel,
-			Account:     body.Account,
-			PostID:      postID,
-			PublishedAt: publishedAt,
-		}
-		ts := publishedAt.UTC().Format("20060102T150405Z")
-
-		var thumbDir string
-		if galleryMode {
-			thumbDir = filepath.Join(outDir, "thumbs")
-			if err := os.MkdirAll(thumbDir, 0o700); err != nil {
-				http.Error(w, "create thumbs dir: "+err.Error(), http.StatusInternalServerError)
-				return
+		if !galleryMode {
+			// Fast synchronous path for regular (non-gallery) publishes.
+			var results []publishResult
+			for _, photoID := range body.PhotoIDs {
+				res := publishOne(store, ch, pub, ts, outDir, "", photoID)
+				results = append(results, res)
 			}
+			writeJSON(w, map[string]any{"postID": postID, "results": results})
+			return
 		}
 
+		// Gallery path: stream SSE progress, generate thumbnails, ZIP, and HTML.
+		thumbDir := filepath.Join(outDir, "thumbs")
+		if err := os.MkdirAll(thumbDir, 0o700); err != nil {
+			http.Error(w, "create thumbs dir: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+
+		emit := func(v any) {
+			data, _ := json.Marshal(v)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+
+		total := len(body.PhotoIDs)
 		var results []publishResult
-		for _, photoID := range body.PhotoIDs {
+		for i, photoID := range body.PhotoIDs {
 			res := publishOne(store, ch, pub, ts, outDir, thumbDir, photoID)
 			results = append(results, res)
+			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
 
-		resp := map[string]any{"postID": postID, "results": results}
-
-		if galleryMode {
-			var items []GalleryItem
-			for _, res := range results {
-				if res.Error == "" && res.Filename != "" {
-					items = append(items, GalleryItem{
-						Filename:      res.Filename,
-						ThumbFilename: res.ThumbFilename,
-						Width:         res.Width,
-						Height:        res.Height,
-					})
-				}
-			}
-			html := GenerateGallery(body.GalleryTitle, items)
-			indexPath := filepath.Join(outDir, "index.html")
-			if err := os.WriteFile(indexPath, html, 0o644); err != nil {
-				http.Error(w, "write gallery: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			resp["galleryPath"] = outDir
+		// ZIP of full-res photos.
+		emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "Creating ZIP…"})
+		zipName := "photos.zip"
+		if zipErr := createGalleryZip(results, outDir, zipName); zipErr != nil {
+			emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "ZIP failed: " + zipErr.Error()})
+			zipName = ""
+		} else {
+			emit(map[string]any{"step": "zip", "done": 1, "total": 1, "file": "ZIP ready"})
 		}
 
-		writeJSON(w, resp)
+		// Generate HTML gallery.
+		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
+		var items []GalleryItem
+		for _, res := range results {
+			if res.Error == "" && res.Filename != "" {
+				items = append(items, GalleryItem{
+					Filename:      res.Filename,
+					ThumbFilename: res.ThumbFilename,
+					Width:         res.Width,
+					Height:        res.Height,
+				})
+			}
+		}
+		html := GenerateGallery(body.GalleryTitle, items, GalleryOptions{ZipFilename: zipName})
+		indexPath := filepath.Join(outDir, "index.html")
+		if err := os.WriteFile(indexPath, html, 0o644); err != nil {
+			emit(map[string]any{"error": "write gallery: " + err.Error()})
+			return
+		}
+
+		emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "results": results})
 	}
+}
+
+func createGalleryZip(results []publishResult, outDir, zipName string) error {
+	f, err := os.Create(filepath.Join(outDir, zipName))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	zw := zip.NewWriter(f)
+	defer zw.Close()
+
+	for _, res := range results {
+		if res.Error != "" || res.Filename == "" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(outDir, res.Filename))
+		if err != nil {
+			continue
+		}
+		w, err := zw.Create(res.Filename)
+		if err != nil {
+			continue
+		}
+		w.Write(data) //nolint:errcheck
+	}
+	return nil
 }
 
 var galleryThumbOpts = media.ExportOptions{
