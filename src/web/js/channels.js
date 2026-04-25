@@ -90,11 +90,14 @@ class ChannelSettingsModal {
         const row = document.createElement('div');
         row.className = 'channel-row';
         const scaleDesc = _scaleDesc(ch.scale);
+        const accountCount = (ch.accounts || []).length;
+        const handlerDesc = ch.handler ? ` · handler: ${ch.handler}` : '';
+        const accountDesc = accountCount > 0 ? ` · ${accountCount} account${accountCount !== 1 ? 's' : ''}` : '';
         row.innerHTML = `
             <div class="channel-row-info">
                 <span class="channel-row-name">${escapeHtml(ch.name)}</span>
                 <span class="channel-row-slug">${escapeHtml(ch.slug)}</span>
-                <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}</span>
+                <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}</span>
             </div>
             <div class="channel-row-actions">
                 <button class="btn btn-sm ch-edit">Edit</button>
@@ -117,7 +120,11 @@ class ChannelSettingsModal {
 
     _openForm(existing) {
         const isNew = !existing;
-        const ch = existing || { slug: '', name: '', format: 'jpeg', quality: 85, exifMode: 'keep_no_gps', scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 } };
+        const ch = existing || {
+            slug: '', name: '', format: 'jpeg', quality: 85, exifMode: 'keep_no_gps',
+            scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
+            handler: '', handlerConfig: {}, accounts: [],
+        };
 
         const form = document.createElement('div');
         form.className = 'modal-backdrop';
@@ -136,10 +143,11 @@ class ChannelSettingsModal {
                     `}
                     <label class="form-label">Name</label>
                     <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="My Channel">
+
                     <label class="form-label">Format</label>
                     <select class="form-select" id="chf-format">
                         <option value="jpeg" ${ch.format==='jpeg'?'selected':''}>JPEG</option>
-                        <option value="png" ${ch.format==='png'?'selected':''}>PNG</option>
+                        <option value="png"  ${ch.format==='png'?'selected':''}>PNG</option>
                         <option value="webp" ${ch.format==='webp'?'selected':''}>WebP</option>
                     </select>
                     <label class="form-label">Quality (1–100)</label>
@@ -147,7 +155,7 @@ class ChannelSettingsModal {
                     <label class="form-label">Scale</label>
                     <div class="form-row">
                         <select class="form-select" id="chf-scale-mode">
-                            <option value="none" ${ch.scale?.mode==='none'?'selected':''}>None (original size)</option>
+                            <option value="none"    ${ch.scale?.mode==='none'?'selected':''}>None (original size)</option>
                             <option value="max_dim" ${ch.scale?.mode==='max_dim'?'selected':''}>Max dimension</option>
                             <option value="percent" ${ch.scale?.mode==='percent'?'selected':''}>Percent</option>
                         </select>
@@ -155,10 +163,21 @@ class ChannelSettingsModal {
                     </div>
                     <label class="form-label">EXIF</label>
                     <select class="form-select" id="chf-exif">
-                        <option value="strip" ${ch.exifMode==='strip'?'selected':''}>Strip all</option>
+                        <option value="strip"       ${ch.exifMode==='strip'?'selected':''}>Strip all</option>
                         <option value="keep_no_gps" ${ch.exifMode==='keep_no_gps'?'selected':''}>Keep (no GPS)</option>
-                        <option value="keep" ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
+                        <option value="keep"        ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
                     </select>
+
+                    <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
+                    <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
+
+                    <label class="form-label">Handler config <span class="form-hint">(key → value)</span></label>
+                    <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handlerConfig || {})}</div>
+                    <button class="btn btn-sm" id="chf-hconfig-add" style="align-self:flex-start">+ Add config entry</button>
+
+                    <label class="form-label">Accounts <span class="form-hint">(named sub-accounts, e.g. two Mastodon logins)</span></label>
+                    <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
+                    <button class="btn btn-sm" id="chf-account-add" style="align-self:flex-start">+ Add account</button>
                 </div>
                 <div class="modal-footer">
                     <div class="channel-form-error" id="chf-error" style="display:none"></div>
@@ -168,12 +187,25 @@ class ChannelSettingsModal {
             </div>`;
         document.body.appendChild(form);
 
+        // Scale mode toggle
         const scaleMode = form.querySelector('#chf-scale-mode');
         const scaleOpts = form.querySelector('#chf-scale-opts');
         scaleMode.addEventListener('change', () => {
             scaleOpts.innerHTML = _scaleOptsHTML({ mode: scaleMode.value });
         });
 
+        // Handler config add row
+        form.querySelector('#chf-hconfig-add').addEventListener('click', () => {
+            const ed = form.querySelector('#chf-hconfig');
+            ed.insertAdjacentHTML('beforeend', _kvRowHTML('', ''));
+        });
+
+        // Account add
+        form.querySelector('#chf-account-add').addEventListener('click', () => {
+            form.querySelector('#chf-accounts').insertAdjacentHTML('beforeend', _accountRowHTML({ id: '', label: '', config: {} }));
+        });
+
+        // Close / cancel
         form.querySelector('#chf-close').addEventListener('click', () => form.remove());
         form.querySelector('#chf-cancel').addEventListener('click', () => form.remove());
         form.addEventListener('click', e => { if (e.target === form) form.remove(); });
@@ -194,18 +226,22 @@ class ChannelSettingsModal {
             const errEl = form.querySelector('#chf-error');
             const slug = isNew ? form.querySelector('#chf-slug').value.trim() : ch.slug;
             const name = form.querySelector('#chf-name').value.trim();
-            const format = form.querySelector('#chf-format').value;
-            const quality = parseInt(form.querySelector('#chf-quality').value, 10);
-            const exifMode = form.querySelector('#chf-exif').value;
-            const scale = _readScaleOpts(form);
-
             if (!name || (isNew && !slug)) {
                 errEl.textContent = 'Name and slug are required.';
                 errEl.style.display = '';
                 return;
             }
-
-            const payload = { slug, name, format, quality, exifMode, scale };
+            const payload = {
+                slug,
+                name,
+                format:        form.querySelector('#chf-format').value,
+                quality:       parseInt(form.querySelector('#chf-quality').value, 10),
+                exifMode:      form.querySelector('#chf-exif').value,
+                scale:         _readScaleOpts(form),
+                handler:       form.querySelector('#chf-handler').value.trim() || undefined,
+                handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
+                accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),
+            };
             try {
                 if (isNew) {
                     await ChannelAPI.create(payload);
@@ -213,13 +249,79 @@ class ChannelSettingsModal {
                     await ChannelAPI.update(slug, payload);
                 }
                 form.remove();
-                this._load(); // refresh list
+                this._load();
             } catch (err) {
                 errEl.textContent = err.message;
                 errEl.style.display = '';
             }
         });
     }
+}
+
+/* --- KV editor helpers --- */
+
+function _kvEditorHTML(obj) {
+    return Object.entries(obj).map(([k, v]) => _kvRowHTML(k, v)).join('');
+}
+
+function _kvRowHTML(k, v) {
+    return `<div class="kv-row">
+        <input class="form-input kv-key"   value="${escapeHtml(k)}" placeholder="key">
+        <input class="form-input kv-value" value="${escapeHtml(v)}" placeholder="value">
+        <button class="btn btn-sm kv-del" title="Remove">&times;</button>
+    </div>`;
+}
+
+function _readKVEditor(el) {
+    const obj = {};
+    el.querySelectorAll('.kv-row').forEach(row => {
+        const k = row.querySelector('.kv-key').value.trim();
+        const v = row.querySelector('.kv-value').value;
+        if (k) obj[k] = v;
+    });
+    return Object.keys(obj).length ? obj : null;
+}
+
+// Delegate kv-del clicks via parent (handles dynamically added rows)
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('kv-del')) {
+        e.target.closest('.kv-row')?.remove();
+    }
+    if (e.target.classList.contains('account-del')) {
+        e.target.closest('.account-row')?.remove();
+    }
+    if (e.target.classList.contains('account-kv-add')) {
+        e.target.previousElementSibling?.insertAdjacentHTML('beforeend', _kvRowHTML('', ''));
+    }
+});
+
+/* --- Accounts editor helpers --- */
+
+function _accountsEditorHTML(accounts) {
+    return accounts.map(a => _accountRowHTML(a)).join('');
+}
+
+function _accountRowHTML(a) {
+    return `<div class="account-row">
+        <div class="account-row-header">
+            <input class="form-input account-id"    value="${escapeHtml(a.id || '')}"    placeholder="ID (e.g. personal)">
+            <input class="form-input account-label" value="${escapeHtml(a.label || '')}" placeholder="Label (e.g. Personal)">
+            <button class="btn btn-sm account-del" title="Remove account">&times;</button>
+        </div>
+        <div class="kv-editor account-config">${_kvEditorHTML(a.config || {})}</div>
+        <button class="btn btn-sm account-kv-add">+ Add config</button>
+    </div>`;
+}
+
+function _readAccountsEditor(el) {
+    const accounts = [];
+    el.querySelectorAll('.account-row').forEach(row => {
+        const id    = row.querySelector('.account-id').value.trim();
+        const label = row.querySelector('.account-label').value.trim();
+        const config = _readKVEditor(row.querySelector('.account-config'));
+        if (id) accounts.push({ id, label, ...(config ? { config } : {}) });
+    });
+    return accounts;
 }
 
 /* --- Scale helpers --- */
@@ -238,7 +340,7 @@ function _scaleOptsHTML(scale) {
         const dim = scale?.maxDimension || 'width';
         const val = scale?.maxValue || 1920;
         return `<select class="form-select" id="chf-max-dim">
-            <option value="width" ${dim==='width'?'selected':''}>Width</option>
+            <option value="width"  ${dim==='width'?'selected':''}>Width</option>
             <option value="height" ${dim==='height'?'selected':''}>Height</option>
         </select>
         <input class="form-input" id="chf-max-val" type="number" min="1" value="${val}" placeholder="px">`;

@@ -220,17 +220,29 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 	if err != nil || len(pubs) == 0 {
 		return
 	}
-	// Latest publication per channel wins.
-	latest := make(map[string]string)
+
+	type latestEntry struct {
+		ts      string
+		account string
+		postID  string
+	}
+	latest := make(map[string]latestEntry)
+
 	for _, p := range pubs {
-		key := "published:" + p.Channel
-		val := p.PublishedAt.UTC().Format("2006-01-02T15:04:05Z")
-		if existing, ok := latest[key]; !ok || val > existing {
-			latest[key] = val
+		ts := p.PublishedAt.UTC().Format(time.RFC3339)
+		if e, ok := latest[p.Channel]; !ok || ts > e.ts {
+			latest[p.Channel] = latestEntry{ts: ts, account: p.Account, postID: p.PostID}
 		}
 	}
-	for k, v := range latest {
-		idx.store.UpsertMeta(photoID, k, v) //nolint:errcheck
+
+	for ch, e := range latest {
+		idx.store.UpsertMeta(photoID, "published:"+ch, e.ts) //nolint:errcheck
+		if e.account != "" {
+			idx.store.UpsertMeta(photoID, "published:"+ch+":account", e.account) //nolint:errcheck
+		}
+		if e.postID != "" {
+			idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
+		}
 	}
 }
 

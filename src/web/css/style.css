@@ -3067,6 +3067,10 @@ body.ui-hidden .viewer-toolbar { display: none; }
     width: 520px;
 }
 
+.channel-form-modal {
+    width: 540px;
+}
+
 .channel-settings-modal .modal-body {
     gap: 0;
     padding: 0;
@@ -3147,5 +3151,63 @@ body.ui-hidden .viewer-toolbar { display: none; }
     font-size: 11px;
     color: var(--accent);
     flex: 1;
+}
+
+/* --- KV editor (handler config + account config) --- */
+
+.kv-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kv-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.kv-row .kv-key   { flex: 0 0 38%; }
+.kv-row .kv-value { flex: 1; }
+.kv-row .kv-del   { flex-shrink: 0; padding: 3px 7px; }
+
+/* --- Accounts editor --- */
+
+.accounts-editor {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+}
+
+.account-row {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: calc(var(--unit) * 1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.account-row-header {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.account-row-header .account-id    { flex: 0 0 36%; }
+.account-row-header .account-label { flex: 1; }
+.account-row-header .account-del   { flex-shrink: 0; padding: 3px 7px; }
+
+.account-kv-add {
+    align-self: flex-start;
+    font-size: 11px;
+}
+
+/* --- Publish modal extras --- */
+
+.publish-group-note {
+    font-size: 11px;
+    color: var(--text-sec);
+    padding: 2px 0;
 }
 
