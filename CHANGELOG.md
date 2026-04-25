@@ -9,12 +9,14 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - **Publish to Channels** — From library mode, select photos and publish them to a named channel (Instagram, Mastodon, Website, or custom). Each publish action:
-  - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel name and timestamp — non-destructive and portable.
-  - Caches the publish record in the library DB (`photo_meta` key `published:<channel>`) for fast search; rebuilt automatically from sidecars on re-index.
+  - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel, account, post ID, and timestamp — non-destructive and portable. Merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
+  - Caches the publish record in the library DB (`photo_meta` keys `published:<channel>`, `published:<channel>:account`, `published:<channel>:postid`) for fast search; rebuilt automatically from sidecars on re-index.
   - Exports a platform-optimised copy to `~/.unterlumen/libraries/<id>/channels/<channel>/` with filename `<channel>_<datetime>_<basename>.<ext>`.
+  - Multi-photo publishes share a **PostID** (24-char hex) linking all photos as one grouped post (e.g. Instagram carousel).
   - Three built-in channel presets (Instagram 1080px JPEG, Mastodon 1920px JPEG, Website 2400px JPEG), all fully editable.
-  - **Channel management UI** — "Channels" button in the library header opens a settings modal to add, edit, or delete channels. Channel configurations are stored globally in `~/.unterlumen/channels.json`.
-  - Publish button in the library toolbar becomes active when photos are selected; a modal lets you choose channel and date/time (defaults to now, can be back-dated).
+  - **Accounts** — channels support named sub-accounts (e.g. two Mastodon logins). The publish modal shows an account dropdown when a channel has sub-accounts.
+  - **Channel management UI** — "Channels" button in the library header opens a settings modal to add, edit, or delete channels. Each channel has format, quality, scale, EXIF mode, an optional handler identifier (for future upload automation), free-form handler config (key→value), and zero or more named accounts (each with their own key→value config). Channel configurations are stored globally in `~/.unterlumen/channels.json`.
+  - Publish button in the library toolbar becomes active when photos are selected; a modal lets you choose channel, account, and date/time (defaults to now, can be back-dated).
 
 - **DAM Libraries** — New "Libraries" tab (4th mode) adds optional Digital Asset Management. A library indexes a photo folder recursively into `~/.unterlumen/libraries/<id>/library.db` (SQLite via `modernc.org/sqlite` — no CGo, no external process). Features:
   - Create a library from any folder; background indexing walks all subfolders.
