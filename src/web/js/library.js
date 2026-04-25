@@ -413,9 +413,14 @@ class LibraryTab {
                     <select class="form-select" id="pub-channel">
                         ${channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
                     </select>
+                    <div id="pub-account-wrap" style="display:none">
+                        <label class="form-label">Account</label>
+                        <select class="form-select" id="pub-account"></select>
+                    </div>
                     <label class="form-label">Date &amp; time</label>
                     <input class="form-input" id="pub-date" type="datetime-local" value="${localISO}">
                     <div class="publish-info" id="pub-info"></div>
+                    ${selectedPaths.length > 1 ? `<div class="publish-group-note">${selectedPaths.length} photos will be grouped as one post (shared post ID in XMP).</div>` : ''}
                 </div>
                 <div class="modal-footer">
                     <div class="publish-error" id="pub-error" style="display:none"></div>
@@ -425,16 +430,32 @@ class LibraryTab {
             </div>`;
         document.body.appendChild(dlg);
 
-        const updateInfo = () => {
+        const updateChannel = () => {
             const slug = dlg.querySelector('#pub-channel').value;
             const ch = channels.find(c => c.slug === slug);
             if (!ch) return;
-            const scaleDesc = window._scaleDesc ? _scaleDesc(ch.scale) : '';
+
+            // Account dropdown
+            const accountWrap = dlg.querySelector('#pub-account-wrap');
+            const accountSel  = dlg.querySelector('#pub-account');
+            const accounts = ch.accounts || [];
+            if (accounts.length > 0) {
+                accountSel.innerHTML = accounts.map(a =>
+                    `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label || a.id)}</option>`
+                ).join('');
+                accountWrap.style.display = '';
+            } else {
+                accountWrap.style.display = 'none';
+            }
+
+            // Export summary
+            const scaleDesc = _scaleDesc(ch.scale);
+            const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
             dlg.querySelector('#pub-info').textContent =
-                `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}`;
+                `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}${handlerNote}`;
         };
-        dlg.querySelector('#pub-channel').addEventListener('change', updateInfo);
-        updateInfo();
+        dlg.querySelector('#pub-channel').addEventListener('change', updateChannel);
+        updateChannel();
 
         dlg.querySelector('#pub-close').addEventListener('click', () => dlg.remove());
         dlg.querySelector('#pub-cancel').addEventListener('click', () => dlg.remove());
@@ -459,7 +480,12 @@ class LibraryTab {
                 const validIDs = photoIDs.filter(Boolean);
                 if (validIDs.length === 0) throw new Error('No matching library photos found for selection.');
 
-                const { results } = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, publishedAt });
+                const accountWrap = dlg.querySelector('#pub-account-wrap');
+                const account = accountWrap.style.display !== 'none'
+                    ? (dlg.querySelector('#pub-account').value || undefined)
+                    : undefined;
+
+                const { results } = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt });
                 const errors = (results || []).filter(r => r.error);
                 dlg.remove();
                 if (errors.length > 0) {

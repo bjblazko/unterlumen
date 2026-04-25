@@ -1,4 +1,4 @@
-*Last modified: 2026-04-25*
+*Last modified: 2026-04-25 (rev 2)*
 
 # Feature: Publish to Channels
 
@@ -49,6 +49,8 @@ xmlns:ul="https://unterlumen.app/xmp/1.0/"
         <rdf:Bag>
           <rdf:li rdf:parseType="Resource">
             <ul:Channel>instagram</ul:Channel>
+            <ul:Account>personal</ul:Account>
+            <ul:PostID>a3f9c12e8b04</ul:PostID>
             <ul:PublishedAt>2026-04-25T14:30:00Z</ul:PublishedAt>
           </rdf:li>
         </rdf:Bag>
@@ -60,12 +62,14 @@ xmlns:ul="https://unterlumen.app/xmp/1.0/"
 
 Fields per entry:
 
-| Field | Type | Description |
-|---|---|---|
-| `ul:Channel` | string | Channel slug matching the global channel definition |
-| `ul:PublishedAt` | ISO 8601 UTC | When the publish action was recorded (default: now; user can back-date) |
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `ul:Channel` | string | yes | Channel slug matching the global channel definition |
+| `ul:Account` | string | no | Account ID within the channel (empty when channel has no sub-accounts) |
+| `ul:PostID` | string | no | Shared 24-hex-char ID linking all photos published in the same action |
+| `ul:PublishedAt` | ISO 8601 UTC | yes | When the publish action was recorded (default: now; user can back-date) |
 
-Multiple events for the same channel are allowed (re-posts). Write is always merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
+Multiple events for the same channel are allowed (re-posts). `Account` and `PostID` are omitted from the sidecar when not applicable. Write is always merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
 
 ### Library DB cache (secondary, searchable)
 
@@ -73,10 +77,11 @@ After writing the sidecar, upsert into the existing `photo_meta` table:
 
 | key | value |
 |---|---|
-| `published:instagram` | `2026-04-25T14:30:00Z` (most recent) |
-| `published:mastodon` | `2026-04-26T09:00:00Z` |
+| `published:instagram` | `2026-04-25T14:30:00Z` (most recent timestamp) |
+| `published:instagram:account` | `personal` (most recent account used) |
+| `published:instagram:postid` | `a3f9c12e8b04` (most recent post ID) |
 
-Enables fast filter queries without XML parsing. Rebuilt automatically during re-index.
+Enables fast filter queries without XML parsing. Rebuilt automatically during re-index. The `account` and `postid` sub-keys are only written when present.
 
 ### Re-index integration
 
@@ -84,9 +89,9 @@ During re-index (`src/internal/library/index.go`), after EXIF extraction:
 
 1. Check for a `.xmp` sidecar alongside the photo.
 2. If found, parse `ul:Publications` from the `https://unterlumen.app/xmp/1.0/` namespace.
-3. For each entry, upsert `published:<channel>` → latest `PublishedAt` into `photo_meta`.
+3. For each channel seen in the sidecar, upsert the latest `published:<channel>`, `published:<channel>:account`, and `published:<channel>:postid` keys into `photo_meta`.
 
-Drop the DB, run re-index, publication history is fully restored.
+Drop the DB, run re-index, full publication history (including accounts and post groupings) is restored.
 
 ---
 
@@ -118,7 +123,11 @@ Channels are defined once and shared across all libraries:
     "format": "jpeg",
     "quality": 90,
     "scale": { "mode": "max_dim", "maxDimension": "width", "maxValue": 1080 },
-    "exifMode": "keep_no_gps"
+    "exifMode": "keep_no_gps",
+    "accounts": [
+      { "id": "personal", "label": "Personal",    "config": { "note": "manual upload" } },
+      { "id": "work",     "label": "Work account", "config": { "note": "manual upload" } }
+    ]
   },
   {
     "slug": "mastodon",
@@ -126,7 +135,10 @@ Channels are defined once and shared across all libraries:
     "format": "jpeg",
     "quality": 85,
     "scale": { "mode": "max_dim", "maxDimension": "width", "maxValue": 1920 },
-    "exifMode": "keep_no_gps"
+    "exifMode": "keep_no_gps",
+    "accounts": [
+      { "id": "home", "label": "mastodon.social", "config": { "instance": "https://mastodon.social", "token": "…" } }
+    ]
   },
   {
     "slug": "website",
@@ -141,16 +153,27 @@ Channels are defined once and shared across all libraries:
 
 Fields:
 
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `slug` | string | yes | Machine identifier — used in XMP, meta keys, and output filenames. Immutable after first publish. |
+| `name` | string | yes | Display name in the UI |
+| `format` | `jpeg` \| `png` \| `webp` | yes | Output format |
+| `quality` | 1–100 | yes | Compression quality (ignored for PNG) |
+| `scale` | `ScaleOptions` | yes | Reuses existing `media.ScaleOptions` struct |
+| `exifMode` | `strip` \| `keep` \| `keep_no_gps` | yes | Reuses existing `ExportOptions.ExifMode` |
+| `handler` | string | no | Handler identifier for upload automation (e.g. `mastodon`, `scp`). Empty = export-only default. |
+| `handlerConfig` | `map[string]string` | no | Free-form key→value config for the handler (instance URL, SSH key path, etc.) |
+| `accounts` | `[]Account` | no | Named sub-accounts (e.g. two Mastodon logins). Empty = single anonymous destination. |
+
+**Account fields:**
+
 | Field | Type | Description |
 |---|---|---|
-| `slug` | string | Machine identifier, used in XMP and output filenames. Immutable after creation. |
-| `name` | string | Display name in the UI |
-| `format` | `jpeg` \| `png` \| `webp` | Output format |
-| `quality` | 1–100 | Compression quality (ignored for PNG) |
-| `scale` | `ScaleOptions` | Reuses existing `media.ScaleOptions` struct |
-| `exifMode` | `strip` \| `keep` \| `keep_no_gps` | Reuses existing `ExportOptions.ExifMode` |
+| `id` | string | Identifier used in XMP and meta keys. Immutable after first publish. |
+| `label` | string | Display name in dropdowns |
+| `config` | `map[string]string` | Account-specific handler config (tokens, credentials, notes) |
 
-The three entries above ship as built-in defaults. They can be edited or deleted by the user. New channels can be added freely.
+The three built-in channels (`instagram`, `mastodon`, `website`) are pre-populated on first run as normal user data — fully editable and deletable.
 
 ### Output filename
 
@@ -178,15 +201,15 @@ Created on first publish to that channel. No user configuration needed — the p
 
 ## Channel Management UI
 
-A **Channels** settings screen accessible from the library header (settings icon or dedicated tab). Shows all configured channels in a list. Actions:
+A **Channels** settings modal accessible via the "Channels" button in the library header. Shows all configured channels in a list. Actions:
 
-- **Edit** any channel: name, format, quality, scale mode/value, exif mode.
-- **Delete** a channel (confirmation required if the channel has XMP records in the current library).
-- **Add channel**: a form with the same fields, slug auto-derived from name (lowercased, spaces → hyphens), editable before save.
+- **Edit** any channel: name, format, quality, scale, exif mode, handler, handlerConfig, accounts.
+- **Delete** a channel.
+- **Add channel**: slug auto-derived from name (lowercased, spaces → hyphens), editable before save.
 
-The slug is shown read-only once saved — it's used in XMP sidecars and output filenames, so it must not change after first publish.
+The slug is shown read-only once saved. The **handlerConfig** and each **account's config** are edited via a dynamic key→value editor (add/remove rows). Accounts have an ID (immutable), a display label, and their own key→value config map.
 
-Built-in channels (`instagram`, `mastodon`, `website`) are pre-populated on first run but treated as normal user data — fully editable and deletable.
+When a channel has multiple accounts, the publish modal shows an account dropdown so the user picks which account to publish to. One publish action always targets one account.
 
 ---
 
@@ -195,41 +218,55 @@ Built-in channels (`instagram`, `mastodon`, `website`) are pre-populated on firs
 ### UI
 
 1. Select one or more photos in the library grid.
-2. Click **Publish** in the selection toolbar.
+2. Click **Publish…** in the library header toolbar (enabled when ≥1 photo selected).
 3. A modal opens with:
    - **Channel** — dropdown of configured channels
+   - **Account** — dropdown of the channel's accounts (hidden when channel has no sub-accounts)
    - **Date/time** — defaults to now; editable (for recording past manual uploads)
-   - Preview of output path and filename
-4. Confirm → progress indicator for multi-photo publish.
-5. Toast: "Published 3 photos to Instagram."
+   - Export preview line (format, quality, scale)
+   - When multiple photos: note that they will be grouped as one post (shared PostID)
+4. Confirm → resolves filesystem paths to photo IDs, calls publish endpoint.
+5. Toast: "Published 3 photos to instagram."
 
 ### What happens on confirm
 
+The backend generates one shared **PostID** (24-char random hex) for the entire batch.
+
 For each selected photo:
 
-1. Write/merge XMP sidecar next to the original.
-2. Upsert `photo_meta` in the library DB (`published:<slug>` → ISO timestamp).
+1. Write/merge XMP sidecar: `ul:Channel`, `ul:Account` (if set), `ul:PostID`, `ul:PublishedAt`.
+2. Upsert `photo_meta`:
+   - `published:<slug>` → timestamp
+   - `published:<slug>:account` → account ID (if set)
+   - `published:<slug>:postid` → post ID
 3. Run `media.ExportImage()` with the channel's preset options.
 4. Write output to `~/.unterlumen/libraries/<uuid>/channels/<slug>/<filename>`.
 
+The grouped-post semantics: all photos in the batch share the same `PostID`, making them linkable (e.g. for Instagram carousel). Each photo's sidecar is independent — the grouping is visible by comparing `PostID` values across photos.
+
 ### Handler extension point (Phase 2+)
 
-A channel can optionally declare a `handler` field (e.g. `"handler": "mastodon_api"`). When a registered handler is present, Unterlumen calls it after the export step. The default (no handler) is always: write sidecar + write export file. Phase 1 implements only the default.
+A channel's `handler` field names a registered handler (e.g. `"mastodon"`, `"scp"`). When present, Unterlumen calls it after the export step, passing the channel config, account config, and the exported file paths. The default (empty handler) is always: write sidecar + write export file. Phase 1 implements only the default.
 
 ---
 
 ## API Routes
 
 ```
-GET    /api/channels                      — list all channels
-POST   /api/channels                      — create channel
-PUT    /api/channels/:slug                — update channel (name, format, quality, scale, exifMode)
-DELETE /api/channels/:slug                — delete channel
+GET    /api/channels/              — list all channels
+POST   /api/channels/              — create channel
+PUT    /api/channels/{slug}        — update channel (all fields incl. accounts, handlerConfig)
+DELETE /api/channels/{slug}        — delete channel
 
-POST   /api/library/:id/publish           — publish selected photos
-       Body: { photoIDs: ["sha256..."], channel: "instagram", publishedAt: "2026-04-25T14:30:00Z" }
+POST   /api/library/{id}/publish   — publish selected photos
+       Body: {
+         photoIDs:    ["sha256..."],
+         channel:     "instagram",
+         account:     "personal",          // optional
+         publishedAt: "2026-04-25T14:30:00Z"  // optional, defaults to now
+       }
        → writes sidecars + DB cache + export files
-       → returns { exported: [{ photoID, outputPath }] }
+       → returns { postID: "a3f9c12e8b04", results: [{ photoID, outputPath, error? }] }
 ```
 
 Publication records are read via the existing `GET /api/library/:id/photo/:photoID/meta`.

@@ -3,6 +3,7 @@ package apilibrary
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -471,6 +472,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		var body struct {
 			PhotoIDs    []string `json:"photoIDs"`
 			Channel     string   `json:"channel"`
+			Account     string   `json:"account"`
 			PublishedAt string   `json:"publishedAt"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -485,6 +487,10 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		ch, err := chStore.Get(body.Channel)
 		if err != nil {
 			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if body.Account != "" && ch.AccountByID(body.Account) == nil {
+			http.Error(w, "account not found: "+body.Account, http.StatusBadRequest)
 			return
 		}
 
@@ -508,22 +514,26 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 
-		pub := media.Publication{Channel: body.Channel, PublishedAt: publishedAt}
-		metaKey := "published:" + body.Channel
-		metaVal := publishedAt.UTC().Format(time.RFC3339)
+		postID := newPostID()
+		pub := media.Publication{
+			Channel:     body.Channel,
+			Account:     body.Account,
+			PostID:      postID,
+			PublishedAt: publishedAt,
+		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
 		var results []publishResult
 		for _, photoID := range body.PhotoIDs {
-			res := publishOne(store, ch, pub, metaKey, metaVal, ts, outDir, photoID)
+			res := publishOne(store, ch, pub, ts, outDir, photoID)
 			results = append(results, res)
 		}
 
-		writeJSON(w, map[string]any{"results": results})
+		writeJSON(w, map[string]any{"postID": postID, "results": results})
 	}
 }
 
-func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, metaKey, metaVal, ts, outDir, photoID string) publishResult {
+func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, photoID string) publishResult {
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
 		return publishResult{PhotoID: photoID, Error: "photo not found"}
@@ -533,7 +543,14 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, m
 		return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
 	}
 
-	store.UpsertMeta(photoID, metaKey, metaVal) //nolint:errcheck
+	metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
+	store.UpsertMeta(photoID, "published:"+pub.Channel, metaVal)           //nolint:errcheck
+	if pub.Account != "" {
+		store.UpsertMeta(photoID, "published:"+pub.Channel+":account", pub.Account) //nolint:errcheck
+	}
+	if pub.PostID != "" {
+		store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+	}
 
 	exported, err := media.ExportImage(pathHint, ch.ExportOptions())
 	if err != nil {
@@ -552,4 +569,10 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, m
 		return publishResult{PhotoID: photoID, Error: "write export: " + err.Error()}
 	}
 	return publishResult{PhotoID: photoID, OutputPath: outPath}
+}
+
+func newPostID() string {
+	b := make([]byte, 12)
+	rand.Read(b) //nolint:errcheck
+	return fmt.Sprintf("%x", b)
 }

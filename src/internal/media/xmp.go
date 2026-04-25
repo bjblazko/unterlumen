@@ -16,6 +16,8 @@ const ulNamespace = "https://unterlumen.app/xmp/1.0/"
 // Publication records one publish event for a photo.
 type Publication struct {
 	Channel     string
+	Account     string    // account ID within the channel; empty when channel has no sub-accounts
+	PostID      string    // shared ID for photos published together in one action
 	PublishedAt time.Time
 }
 
@@ -106,6 +108,10 @@ func parseSidecarPublications(data []byte) ([]Publication, error) {
 				switch currentField {
 				case "Channel":
 					current.Channel = val
+				case "Account":
+					current.Account = val
+				case "PostID":
+					current.PostID = val
 				case "PublishedAt":
 					current.PublishedAt, _ = time.Parse(time.RFC3339, val)
 				}
@@ -132,6 +138,12 @@ func renderULBlock(pubs []Publication) string {
 	for _, p := range pubs {
 		items.WriteString("\n        <rdf:li rdf:parseType=\"Resource\">")
 		items.WriteString("\n          <ul:Channel>" + xmlEscapeStr(p.Channel) + "</ul:Channel>")
+		if p.Account != "" {
+			items.WriteString("\n          <ul:Account>" + xmlEscapeStr(p.Account) + "</ul:Account>")
+		}
+		if p.PostID != "" {
+			items.WriteString("\n          <ul:PostID>" + xmlEscapeStr(p.PostID) + "</ul:PostID>")
+		}
 		items.WriteString("\n          <ul:PublishedAt>" + p.PublishedAt.UTC().Format(time.RFC3339) + "</ul:PublishedAt>")
 		items.WriteString("\n        </rdf:li>")
 	}
