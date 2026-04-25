@@ -3156,6 +3156,12 @@ body.ui-hidden .viewer-toolbar { display: none; }
     padding: 2px 0;
 }
 
+.publish-progress {
+    font-size: 11px;
+    color: var(--text-sec);
+    flex: 1;
+}
+
 .publish-error {
     font-size: 11px;
     color: var(--accent);
