@@ -24,7 +24,8 @@ var builtinChannels = []*Channel{
 	{
 		Slug: "website", Name: "Website",
 		Format: "jpeg", Quality: 85, ExifMode: "strip",
-		Scale: media.ScaleOptions{Mode: media.ScaleModeMaxDim, MaxDimension: "width", MaxValue: 2400},
+		Scale:         media.ScaleOptions{Mode: media.ScaleModeMaxDim, MaxDimension: "width", MaxValue: 2400},
+		GalleryExport: true,
 	},
 }
 

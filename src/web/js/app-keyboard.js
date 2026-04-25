@@ -49,6 +49,17 @@ class GlobalKeyboard {
             app.currentBrowsePath = parentPath;
         }
 
+        // Escape: clear selection in library mode
+        if (e.key === 'Escape' && app.mode === 'library' && app._libraryTab) {
+            const pane = app._libraryTab.getActivePaneForKeyboard();
+            if (pane && pane.selection.selected.size > 0) {
+                e.preventDefault();
+                pane.selection.clear();
+                pane.updateSelectionClasses();
+                if (pane.onSelectionChange) pane.onSelectionChange([]);
+            }
+        }
+
         // Escape: clear selection or go up in commander mode
         if (e.key === 'Escape' && app.mode === 'commander' && app.commander) {
             e.preventDefault();
@@ -140,6 +151,9 @@ class GlobalKeyboard {
             } else if (app.mode === 'commander' && app.commander) {
                 e.preventDefault();
                 app.commander.getActivePane().selectAll();
+            } else if (app.mode === 'library' && app._libraryTab) {
+                e.preventDefault();
+                app._libraryTab.getActivePaneForKeyboard()?.selectAll();
             } else if (app.mode === 'wastebin') {
                 e.preventDefault();
                 app.wastebin.selectAll();

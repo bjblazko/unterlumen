@@ -51,11 +51,11 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publish(libID, { photoIDs, channel, publishedAt }) {
+    async publish(libID, { photoIDs, channel, account, publishedAt, galleryTitle }) {
         const r = await fetch(`/api/library/${libID}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, publishedAt }),
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle }),
         });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
@@ -420,6 +420,10 @@ class LibraryTab {
                     <label class="form-label">Date &amp; time</label>
                     <input class="form-input" id="pub-date" type="datetime-local" value="${localISO}">
                     <div class="publish-info" id="pub-info"></div>
+                    <div id="pub-gallery-wrap" style="display:none">
+                        <label class="form-label">Gallery title</label>
+                        <input class="form-input" id="pub-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                    </div>
                     ${selectedPaths.length > 1 ? `<div class="publish-group-note">${selectedPaths.length} photos will be grouped as one post (shared post ID in XMP).</div>` : ''}
                 </div>
                 <div class="modal-footer">
@@ -447,6 +451,10 @@ class LibraryTab {
             } else {
                 accountWrap.style.display = 'none';
             }
+
+            // Gallery title field
+            const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
+            galleryWrap.style.display = ch.galleryExport ? '' : 'none';
 
             // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
@@ -485,11 +493,18 @@ class LibraryTab {
                     ? (dlg.querySelector('#pub-account').value || undefined)
                     : undefined;
 
-                const { results } = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt });
-                const errors = (results || []).filter(r => r.error);
+                const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
+                const galleryTitle = galleryWrap.style.display !== 'none'
+                    ? (dlg.querySelector('#pub-gallery-title').value.trim() || undefined)
+                    : undefined;
+
+                const resp = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt, galleryTitle });
+                const errors = (resp.results || []).filter(r => r.error);
                 dlg.remove();
                 if (errors.length > 0) {
                     alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                } else if (resp.galleryPath) {
+                    _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}. Gallery: ${resp.galleryPath}`);
                 } else {
                     _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
                 }

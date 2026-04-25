@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Static Website Gallery Export** — Any channel can opt in to HTML gallery generation via a "Generate HTML gallery on publish" toggle in Channel Settings (the built-in Website channel has it enabled by default). When publishing to a gallery-capable channel, a `<title>` field appears in the Publish modal; the backend generates a self-contained `index.html` alongside the exported photos in a per-publish subfolder (`channels/<slug>/<postID>/`). The gallery uses static HTML with native `loading="lazy"` for SEO-friendly lazy loading without JavaScript. The folder can be transferred directly to any web host via `scp` or `rsync`.
+
 - **Publish to Channels** — From library mode, select photos and publish them to a named channel (Instagram, Mastodon, Website, or custom). Each publish action:
   - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel, account, post ID, and timestamp — non-destructive and portable. Merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
   - Caches the publish record in the library DB (`photo_meta` keys `published:<channel>`, `published:<channel>:account`, `published:<channel>:postid`) for fast search; rebuilt automatically from sidecars on re-index.

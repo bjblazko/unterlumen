@@ -19,7 +19,8 @@ type Channel struct {
 	Format        string            `json:"format"`                  // "jpeg", "png", "webp"
 	Quality       int               `json:"quality"`                 // 1–100
 	Scale         media.ScaleOptions `json:"scale"`
-	ExifMode      string            `json:"exifMode"` // "strip", "keep", "keep_no_gps"
+	ExifMode      string            `json:"exifMode"`      // "strip", "keep", "keep_no_gps"
+	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on publish
 }
 
 // ExportOptions returns the media.ExportOptions for this channel.

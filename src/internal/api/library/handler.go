@@ -2,16 +2,22 @@
 package apilibrary
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	_ "golang.org/x/image/webp"
 
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
@@ -456,9 +462,13 @@ func deleteMeta(mgr *lib.Manager) http.HandlerFunc {
 // --- Publish ---
 
 type publishResult struct {
-	PhotoID    string `json:"photoID"`
-	OutputPath string `json:"outputPath,omitempty"`
-	Error      string `json:"error,omitempty"`
+	PhotoID       string `json:"photoID"`
+	OutputPath    string `json:"outputPath,omitempty"`
+	Filename      string `json:"filename,omitempty"`
+	ThumbFilename string `json:"thumbFilename,omitempty"`
+	Width         int    `json:"width,omitempty"`
+	Height        int    `json:"height,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
@@ -470,10 +480,11 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		id := r.PathValue("id")
 
 		var body struct {
-			PhotoIDs    []string `json:"photoIDs"`
-			Channel     string   `json:"channel"`
-			Account     string   `json:"account"`
-			PublishedAt string   `json:"publishedAt"`
+			PhotoIDs     []string `json:"photoIDs"`
+			Channel      string   `json:"channel"`
+			Account      string   `json:"account"`
+			PublishedAt  string   `json:"publishedAt"`
+			GalleryTitle string   `json:"galleryTitle"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -508,13 +519,18 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		}
 		defer store.Close()
 
+		postID := newPostID()
+
+		galleryMode := ch.GalleryExport && body.GalleryTitle != ""
 		outDir := filepath.Join(mgr.LibDir(id), "channels", body.Channel)
+		if galleryMode {
+			outDir = filepath.Join(outDir, postID)
+		}
 		if err := os.MkdirAll(outDir, 0o700); err != nil {
 			http.Error(w, "create output dir: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		postID := newPostID()
 		pub := media.Publication{
 			Channel:     body.Channel,
 			Account:     body.Account,
@@ -523,17 +539,60 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
+		var thumbDir string
+		if galleryMode {
+			thumbDir = filepath.Join(outDir, "thumbs")
+			if err := os.MkdirAll(thumbDir, 0o700); err != nil {
+				http.Error(w, "create thumbs dir: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
 		var results []publishResult
 		for _, photoID := range body.PhotoIDs {
-			res := publishOne(store, ch, pub, ts, outDir, photoID)
+			res := publishOne(store, ch, pub, ts, outDir, thumbDir, photoID)
 			results = append(results, res)
 		}
 
-		writeJSON(w, map[string]any{"postID": postID, "results": results})
+		resp := map[string]any{"postID": postID, "results": results}
+
+		if galleryMode {
+			var items []GalleryItem
+			for _, res := range results {
+				if res.Error == "" && res.Filename != "" {
+					items = append(items, GalleryItem{
+						Filename:      res.Filename,
+						ThumbFilename: res.ThumbFilename,
+						Width:         res.Width,
+						Height:        res.Height,
+					})
+				}
+			}
+			html := GenerateGallery(body.GalleryTitle, items)
+			indexPath := filepath.Join(outDir, "index.html")
+			if err := os.WriteFile(indexPath, html, 0o644); err != nil {
+				http.Error(w, "write gallery: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			resp["galleryPath"] = outDir
+		}
+
+		writeJSON(w, resp)
 	}
 }
 
-func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, photoID string) publishResult {
+var galleryThumbOpts = media.ExportOptions{
+	Format:   "jpeg",
+	Quality:  78,
+	ExifMode: "strip",
+	Scale: media.ScaleOptions{
+		Mode:         media.ScaleModeMaxDim,
+		MaxDimension: "width",
+		MaxValue:     700,
+	},
+}
+
+func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string) publishResult {
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
 		return publishResult{PhotoID: photoID, Error: "photo not found"}
@@ -568,7 +627,23 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 	if err := os.WriteFile(outPath, exported, 0o644); err != nil {
 		return publishResult{PhotoID: photoID, Error: "write export: " + err.Error()}
 	}
-	return publishResult{PhotoID: photoID, OutputPath: outPath}
+
+	res := publishResult{PhotoID: photoID, OutputPath: outPath, Filename: outName}
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(exported)); err == nil {
+		res.Width = cfg.Width
+		res.Height = cfg.Height
+	}
+
+	if thumbDir != "" {
+		if thumb, err := media.ExportImage(pathHint, galleryThumbOpts); err == nil {
+			thumbName := "thumbs/" + outName
+			if err := os.WriteFile(filepath.Join(thumbDir, outName), thumb, 0o644); err == nil {
+				res.ThumbFilename = thumbName
+			}
+		}
+	}
+
+	return res
 }
 
 func newPostID() string {

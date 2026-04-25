@@ -15,6 +15,7 @@ class SelectionManager {
         entries.filter(e => e.type !== 'dir').forEach(e => {
             this.selected.add(fullPathFn(e.name));
         });
+        if (this._onSelectionChange) this._onSelectionChange(this.getSelectedFiles());
     }
 
     clear() {

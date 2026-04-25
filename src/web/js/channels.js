@@ -123,7 +123,7 @@ class ChannelSettingsModal {
         const ch = existing || {
             slug: '', name: '', format: 'jpeg', quality: 85, exifMode: 'keep_no_gps',
             scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
-            handler: '', handlerConfig: {}, accounts: [],
+            handler: '', handlerConfig: {}, accounts: [], galleryExport: false,
         };
 
         const form = document.createElement('div');
@@ -167,6 +167,12 @@ class ChannelSettingsModal {
                         <option value="keep_no_gps" ${ch.exifMode==='keep_no_gps'?'selected':''}>Keep (no GPS)</option>
                         <option value="keep"        ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
                     </select>
+
+                    <label class="form-label form-label-checkbox">
+                        <input type="checkbox" id="chf-gallery" ${ch.galleryExport ? 'checked' : ''}>
+                        Generate HTML gallery on publish
+                        <span class="form-hint">(creates index.html alongside exported photos)</span>
+                    </label>
 
                     <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
                     <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
@@ -238,6 +244,7 @@ class ChannelSettingsModal {
                 quality:       parseInt(form.querySelector('#chf-quality').value, 10),
                 exifMode:      form.querySelector('#chf-exif').value,
                 scale:         _readScaleOpts(form),
+                galleryExport: form.querySelector('#chf-gallery').checked || undefined,
                 handler:       form.querySelector('#chf-handler').value.trim() || undefined,
                 handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
                 accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),

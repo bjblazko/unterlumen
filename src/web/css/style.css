@@ -3055,6 +3055,21 @@ body.ui-hidden .viewer-toolbar { display: none; }
     flex: 1;
 }
 
+.form-label-checkbox {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.form-label-checkbox input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
 .form-slug-display {
     font-size: 12px;
     color: var(--text-sec);
