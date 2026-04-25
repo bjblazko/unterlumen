@@ -41,12 +41,15 @@ class ListRenderer {
     _renderImageRow(idx, entry, focusedClass, thumbSize, selection, entryMeta) {
         const fp = this._pane.fullPath(entry.name);
         const selectedClass = selection.selected.has(fp) ? ' selected' : '';
-        const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+        const markedClass = this._pane.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+        const label = entry.label ?? entry.name;
         const size = entry.size ? formatSize(entry.size) : '';
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
+        const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
+        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
         return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-            <td class="list-icon"><img src="${API.thumbnailURL(fp, thumbSize)}" alt="" loading="lazy"></td>
-            <td class="list-name">${entry.name}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
+            <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy"${onerror}></td>
+            <td class="list-name">${label}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
             <td class="list-date">${formatDate(entry.date)}</td>
             <td class="list-size">${size}</td>
         </tr>`;

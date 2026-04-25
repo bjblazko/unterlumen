@@ -2573,3 +2573,359 @@ body.ui-hidden .viewer-toolbar { display: none; }
     max-width: 280px;
     padding-left: 20px;
 }
+
+/* --- Libraries --- */
+
+.library-root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.library-list-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.library-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+.library-list-title {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.library-list-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 2);
+}
+
+.library-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 2);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+}
+
+.library-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.library-card-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.library-card-meta {
+    font-size: 11px;
+    color: var(--text-sec);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.library-card-stats {
+    font-size: 11px;
+    color: var(--text-sec);
+}
+
+.library-card-desc {
+    font-size: 12px;
+    color: var(--text-sec);
+    margin-top: 2px;
+}
+
+.library-card-progress {
+    font-size: 11px;
+    color: var(--text-sec);
+    margin-top: calc(var(--unit) * 1);
+}
+
+.library-card-actions {
+    display: flex;
+    gap: calc(var(--unit) * 1);
+    flex-shrink: 0;
+    align-items: flex-start;
+}
+
+/* Library detail */
+
+.library-detail {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.library-detail-header {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+    padding: 0 calc(var(--unit) * 3);
+    height: calc(var(--unit) * 6);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+.library-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.library-detail-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--unit) * 1.5);
+    overflow: hidden;
+}
+
+.library-detail-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.library-detail-path {
+    font-size: 11px;
+    color: var(--text-sec);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.library-detail-controls {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 1);
+    flex-shrink: 0;
+}
+
+.library-search-input {
+    height: 28px;
+    padding: 0 calc(var(--unit) * 1.5);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    width: 220px;
+    outline: none;
+}
+
+.library-search-input:focus {
+    border-color: var(--accent);
+}
+
+.library-detail-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* --- Library pane (shared grid/list/justified view) --- */
+
+.library-pane-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    padding: 0 calc(var(--unit) * 3);
+}
+
+.lib-info-panel-container {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+}
+
+/* --- Library Info Panel Meta section --- */
+
+.info-meta-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 0;
+}
+
+.info-meta-val {
+    flex: 1;
+    min-width: 0;
+    border-bottom: 1px dashed var(--border);
+    outline: none;
+    word-break: break-all;
+    font-size: 11px;
+    color: var(--text);
+}
+
+.info-meta-val:focus {
+    border-bottom-color: var(--accent);
+}
+
+.info-meta-del {
+    background: none;
+    border: none;
+    color: var(--text-sec);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.info-meta-del:hover {
+    color: var(--accent);
+}
+
+.info-meta-add {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 6px;
+}
+
+.info-meta-key-input,
+.info-meta-val-input {
+    flex: 1;
+    min-width: 60px;
+    height: 24px;
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 11px;
+    outline: none;
+}
+
+.info-meta-key-input:focus,
+.info-meta-val-input:focus {
+    border-color: var(--accent);
+}
+
+.library-status-bar {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 calc(var(--unit) * 2);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-sec);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+/* Library dialog */
+
+.library-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.library-dialog {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: calc(var(--unit) * 4);
+    width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1.5);
+}
+
+.library-dialog-title {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: calc(var(--unit) * 0.5);
+}
+
+.library-dialog-label {
+    font-size: 11px;
+    color: var(--text-sec);
+    font-weight: 500;
+    margin-bottom: -4px;
+}
+
+.library-dialog-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 calc(var(--unit) * 1.5);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+}
+
+.library-dialog-input:focus {
+    border-color: var(--accent);
+}
+
+.library-dialog-note {
+    font-size: 11px;
+    color: var(--text-sec);
+}
+
+.library-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: calc(var(--unit) * 1);
+    margin-top: calc(var(--unit) * 0.5);
+}
+
+.library-dialog-progress {
+    font-size: 11px;
+    color: var(--text-sec);
+    min-height: 16px;
+}
+
+.library-loading,
+.library-empty,
+.library-error {
+    padding: calc(var(--unit) * 4);
+    color: var(--text-sec);
+    font-size: 12px;
+}
+
+.library-error {
+    color: var(--accent);
+}
+

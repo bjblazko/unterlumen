@@ -16,6 +16,8 @@ const App = {
     _browseEl: null,
     _commanderEl: null,
     _wastebinEl: null,
+    _libraryEl: null,
+    _libraryTab: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -31,10 +33,12 @@ const App = {
         document.getElementById('mode-browse').addEventListener('click', () => this.setMode('browse'));
         document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
+        document.getElementById('mode-library').addEventListener('click', () => this.setMode('library'));
 
         document.getElementById('mode-browse').title = `Select (1)`;
         document.getElementById('mode-wastebin').title = `Review (2)`;
         document.getElementById('mode-commander').title = `Organize (3)`;
+        document.getElementById('mode-library').title = `Libraries (4)`;
 
         this.keyboard.attach();
         this.theme.init();
@@ -128,7 +132,7 @@ const App = {
 
         this.mode = mode;
 
-        const stepOrder = { browse: 0, wastebin: 1, commander: 2 };
+        const stepOrder = { browse: 0, wastebin: 1, commander: 2, library: 3 };
         const prevIdx = stepOrder[prevMode] ?? 0;
         const currIdx = stepOrder[mode];
 
@@ -136,6 +140,7 @@ const App = {
             { el: document.getElementById('mode-browse'), idx: 0 },
             { el: document.getElementById('mode-wastebin'), idx: 1 },
             { el: document.getElementById('mode-commander'), idx: 2 },
+            { el: document.getElementById('mode-library'), idx: 3 },
         ];
         for (const step of steps) {
             step.el.classList.remove('active', 'completed');
@@ -196,12 +201,24 @@ const App = {
             this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
         }
 
+        if (mode === 'library') {
+            if (!this._libraryEl) {
+                this._libraryEl = document.createElement('div');
+                this._libraryEl.style.height = '100%';
+                appEl.appendChild(this._libraryEl);
+                this._libraryTab = new LibraryTab(this._libraryEl);
+            }
+            this._libraryTab.render();
+        }
+
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
+        if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
 
         const activeEl = mode === 'browse' ? this._browseEl :
-                         mode === 'commander' ? this._commanderEl : this._wastebinEl;
+                         mode === 'commander' ? this._commanderEl :
+                         mode === 'library' ? this._libraryEl : this._wastebinEl;
         if (activeEl && prevMode !== mode) {
             const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
             activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
@@ -269,8 +286,8 @@ const App = {
         this.viewer.open(imagePath, images);
     },
 
-    handleSlideshowInvoke() {
-        const pane = this.browsePane;
+    handleSlideshowInvoke(pane) {
+        pane = pane || this.browsePane;
         if (!pane) return;
         const images = pane.selection.selected.size > 0
             ? Array.from(pane.selection.selected)
@@ -320,10 +337,11 @@ const App = {
     getActiveBrowsePane() {
         if (this.mode === 'browse') return this.browsePane;
         if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();
+        if (this.mode === 'library' && this._libraryTab) return this._libraryTab.getActivePaneForKeyboard();
         return null;
     },
 
-    handleToolInvoke({ tool, files }) {
+    handleToolInvoke({ tool, files, path }) {
         if (!this.locationModal) this.locationModal = new LocationModal();
         if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
@@ -336,7 +354,19 @@ const App = {
                 }
             }
         };
-        if (tool === 'set-location') {
+        if (tool === 'make-library') {
+            // Ensure LibraryTab exists so it can open the dialog.
+            if (!this._libraryEl) {
+                this._libraryEl = document.createElement('div');
+                this._libraryEl.style.height = '100%';
+                document.getElementById('app').appendChild(this._libraryEl);
+                this._libraryTab = new LibraryTab(this._libraryEl);
+                this._libraryEl.style.display = 'none';
+            }
+            const absPath = path && !path.startsWith('/') ? '/' + path : (path || '');
+            this._libraryTab.openCreateDialogForPath(absPath);
+            return;
+        } else if (tool === 'set-location') {
             this.locationModal.open(files, onSuccess);
         } else if (tool === 'remove-location') {
             this.locationModal.openRemove(files, onSuccess);

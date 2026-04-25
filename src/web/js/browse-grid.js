@@ -34,11 +34,14 @@ class GridRenderer {
     _renderImageItem(idx, entry, focusedClass, thumbSize, selection, showNames, entryMeta) {
         const fp = this._pane.fullPath(entry.name);
         const selectedClass = selection.selected.has(fp) ? ' selected' : '';
-        const markedClass = App.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
-        const nameHtml = showNames ? `<div class="item-name">${entry.name}</div>` : '';
+        const markedClass = this._pane.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
+        const label = entry.label ?? entry.name;
+        const nameHtml = showNames ? `<div class="item-name">${label}</div>` : '';
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
+        const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
+        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
         return `<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-            <img src="${API.thumbnailURL(fp, thumbSize)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">${badgesHtml}${nameHtml}
+            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" onload="this.classList.add('img-loaded')"${onerror}>${badgesHtml}${nameHtml}
         </div>`;
     }
 }

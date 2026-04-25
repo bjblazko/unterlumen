@@ -8,7 +8,9 @@ import (
 	"huepattl.de/unterlumen/internal/api/browse"
 	apiexport "huepattl.de/unterlumen/internal/api/export"
 	"huepattl.de/unterlumen/internal/api/fileops"
+	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
 
@@ -16,7 +18,8 @@ import (
 // boundary is the root directory that all file paths must remain within.
 // startPath is the initial path (relative to boundary) the frontend should navigate to.
 // serverRole controls export behaviour: true = ZIP download only, false = local filesystem save + ZIP.
-func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool) http.Handler {
+// libMgr is the library manager; may be nil if library support could not be initialised.
+func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool, libMgr *library.Manager) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 
@@ -28,6 +31,10 @@ func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool) http.Ha
 	fileops.Handle(mux, boundary, cache)
 	location.Handle(mux, boundary, cache)
 	batchrename.Handle(mux, boundary, cache)
+
+	if libMgr != nil {
+		apilibrary.Handle(mux, libMgr, boundary)
+	}
 
 	mux.Handle("/", http.FileServer(http.FS(webFS)))
 	return mux
