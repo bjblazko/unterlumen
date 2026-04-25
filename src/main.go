@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/api"
+	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/library"
 )
 
@@ -115,15 +116,17 @@ func main() {
 	serverRole := absBoundary != "/"
 
 	var libMgr *library.Manager
+	var chStore *channels.Store
 	if *libDir != "" {
 		if mgr, err := library.NewManager(*libDir); err != nil {
 			log.Printf("Warning: library manager init failed: %v", err)
 		} else {
 			libMgr = mgr
 		}
+		chStore = channels.NewStore(*libDir)
 	}
 
-	mux := api.NewRouter(absBoundary, relStart, sub, serverRole, libMgr)
+	mux := api.NewRouter(absBoundary, relStart, sub, serverRole, libMgr, chStore)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

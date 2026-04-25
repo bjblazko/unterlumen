@@ -1,12 +1,20 @@
 # Changelog
 
-*Last modified: 2026-04-24*
+*Last modified: 2026-04-25*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Publish to Channels** — From library mode, select photos and publish them to a named channel (Instagram, Mastodon, Website, or custom). Each publish action:
+  - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel name and timestamp — non-destructive and portable.
+  - Caches the publish record in the library DB (`photo_meta` key `published:<channel>`) for fast search; rebuilt automatically from sidecars on re-index.
+  - Exports a platform-optimised copy to `~/.unterlumen/libraries/<id>/channels/<channel>/` with filename `<channel>_<datetime>_<basename>.<ext>`.
+  - Three built-in channel presets (Instagram 1080px JPEG, Mastodon 1920px JPEG, Website 2400px JPEG), all fully editable.
+  - **Channel management UI** — "Channels" button in the library header opens a settings modal to add, edit, or delete channels. Channel configurations are stored globally in `~/.unterlumen/channels.json`.
+  - Publish button in the library toolbar becomes active when photos are selected; a modal lets you choose channel and date/time (defaults to now, can be back-dated).
 
 - **DAM Libraries** — New "Libraries" tab (4th mode) adds optional Digital Asset Management. A library indexes a photo folder recursively into `~/.unterlumen/libraries/<id>/library.db` (SQLite via `modernc.org/sqlite` — no CGo, no external process). Features:
   - Create a library from any folder; background indexing walks all subfolders.

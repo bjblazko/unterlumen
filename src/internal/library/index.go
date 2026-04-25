@@ -92,7 +92,11 @@ func (idx *Indexer) indexFile(absPath string) error {
 		return err
 	}
 	if found && cachedMtime == mtimeNs && cachedSize == fileSize {
-		return idx.store.MarkPhotoPresent(cachedID, absPath, filepath.Base(absPath))
+		if err := idx.store.MarkPhotoPresent(cachedID, absPath, filepath.Base(absPath)); err != nil {
+			return err
+		}
+		idx.indexSidecar(absPath, cachedID)
+		return nil
 	}
 
 	// Compute SHA-256 canonical identity.
@@ -110,7 +114,11 @@ func (idx *Indexer) indexFile(absPath string) error {
 		if err := idx.store.MarkPhotoPresent(photoID, absPath, filepath.Base(absPath)); err != nil {
 			return err
 		}
-		return idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize)
+		if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+			return err
+		}
+		idx.indexSidecar(absPath, photoID)
+		return nil
 	}
 
 	// New photo: extract EXIF.
@@ -137,7 +145,11 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err := idx.store.UpsertExifIndex(photoID, exifFields); err != nil {
 		return err
 	}
-	return idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize)
+	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+		return err
+	}
+	idx.indexSidecar(absPath, photoID)
+	return nil
 }
 
 const thumbMaxDim = 1200
@@ -199,6 +211,27 @@ func hashFile(path string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// indexSidecar reads XMP sidecar publications for absPath and upserts them into photo_meta.
+// Non-fatal: errors are silently ignored (sidecar may not exist).
+func (idx *Indexer) indexSidecar(absPath, photoID string) {
+	pubs, err := media.ReadSidecar(absPath)
+	if err != nil || len(pubs) == 0 {
+		return
+	}
+	// Latest publication per channel wins.
+	latest := make(map[string]string)
+	for _, p := range pubs {
+		key := "published:" + p.Channel
+		val := p.PublishedAt.UTC().Format("2006-01-02T15:04:05Z")
+		if existing, ok := latest[key]; !ok || val > existing {
+			latest[key] = val
+		}
+	}
+	for k, v := range latest {
+		idx.store.UpsertMeta(photoID, k, v) //nolint:errcheck
+	}
 }
 
 func collectFiles(root string) ([]string, error) {

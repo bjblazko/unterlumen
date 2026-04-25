@@ -2929,3 +2929,223 @@ body.ui-hidden .viewer-toolbar { display: none; }
     color: var(--accent);
 }
 
+/* --- Modal (shared base) --- */
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+}
+
+.modal {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.modal-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sec);
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+}
+
+.modal-close:hover { color: var(--text); }
+
+.modal-body {
+    padding: calc(var(--unit) * 2);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+}
+
+.modal-footer {
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: calc(var(--unit) * 1);
+    flex-shrink: 0;
+}
+
+/* --- Form helpers (shared by channel and publish modals) --- */
+
+.form-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-sec);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: calc(var(--unit) * 0.5);
+}
+
+.form-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-sec);
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 5px calc(var(--unit) * 1);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-row {
+    display: flex;
+    gap: calc(var(--unit) * 1);
+    align-items: flex-start;
+}
+
+.form-row .form-select {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.form-scale-opts {
+    display: flex;
+    gap: calc(var(--unit) * 1);
+    flex: 1;
+}
+
+.form-scale-opts .form-select,
+.form-scale-opts .form-input {
+    flex: 1;
+}
+
+.form-slug-display {
+    font-size: 12px;
+    color: var(--text-sec);
+    padding: 4px 0;
+}
+
+/* --- Channel settings modal --- */
+
+.channel-settings-modal {
+    width: 520px;
+}
+
+.channel-settings-modal .modal-body {
+    gap: 0;
+    padding: 0;
+}
+
+.channel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+    border-bottom: 1px solid var(--border);
+    gap: calc(var(--unit) * 2);
+}
+
+.channel-row:last-child { border-bottom: none; }
+
+.channel-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.channel-row-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.channel-row-slug {
+    font-size: 11px;
+    color: var(--text-sec);
+    font-family: monospace;
+}
+
+.channel-row-detail {
+    font-size: 11px;
+    color: var(--text-sec);
+}
+
+.channel-row-actions {
+    display: flex;
+    gap: calc(var(--unit) * 0.5);
+    flex-shrink: 0;
+}
+
+.channel-loading,
+.channel-empty,
+.channel-error {
+    padding: calc(var(--unit) * 3);
+    color: var(--text-sec);
+    font-size: 12px;
+    text-align: center;
+}
+
+.channel-error { color: var(--accent); }
+
+/* --- Publish modal --- */
+
+.publish-modal .modal-body {
+    gap: calc(var(--unit) * 1);
+}
+
+.publish-info {
+    font-size: 11px;
+    color: var(--text-sec);
+    min-height: 16px;
+    padding: 2px 0;
+}
+
+.publish-error {
+    font-size: 11px;
+    color: var(--accent);
+    flex: 1;
+}
+
+.channel-form-error {
+    font-size: 11px;
+    color: var(--accent);
+    flex: 1;
+}
+

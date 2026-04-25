@@ -10,13 +10,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 )
 
 // Handle registers all library API routes on mux.
 // root is the browse boundary directory; used to resolve relative paths for thumb-by-path lookups.
-func Handle(mux *http.ServeMux, mgr *lib.Manager, root string) {
+func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels.Store) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
@@ -31,6 +34,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string) {
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr))
+	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -446,4 +450,106 @@ func deleteMeta(mgr *lib.Manager) http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// --- Publish ---
+
+type publishResult struct {
+	PhotoID    string `json:"photoID"`
+	OutputPath string `json:"outputPath,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if chStore == nil {
+			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+
+		var body struct {
+			PhotoIDs    []string `json:"photoIDs"`
+			Channel     string   `json:"channel"`
+			PublishedAt string   `json:"publishedAt"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if len(body.PhotoIDs) == 0 || body.Channel == "" {
+			http.Error(w, "photoIDs and channel required", http.StatusBadRequest)
+			return
+		}
+
+		ch, err := chStore.Get(body.Channel)
+		if err != nil {
+			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		publishedAt := time.Now().UTC()
+		if body.PublishedAt != "" {
+			if t, parseErr := time.Parse(time.RFC3339, body.PublishedAt); parseErr == nil {
+				publishedAt = t
+			}
+		}
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		outDir := filepath.Join(mgr.LibDir(id), "channels", body.Channel)
+		if err := os.MkdirAll(outDir, 0o700); err != nil {
+			http.Error(w, "create output dir: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		pub := media.Publication{Channel: body.Channel, PublishedAt: publishedAt}
+		metaKey := "published:" + body.Channel
+		metaVal := publishedAt.UTC().Format(time.RFC3339)
+		ts := publishedAt.UTC().Format("20060102T150405Z")
+
+		var results []publishResult
+		for _, photoID := range body.PhotoIDs {
+			res := publishOne(store, ch, pub, metaKey, metaVal, ts, outDir, photoID)
+			results = append(results, res)
+		}
+
+		writeJSON(w, map[string]any{"results": results})
+	}
+}
+
+func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, metaKey, metaVal, ts, outDir, photoID string) publishResult {
+	pathHint, err := store.GetPhotoPathHint(photoID)
+	if err != nil || pathHint == "" {
+		return publishResult{PhotoID: photoID, Error: "photo not found"}
+	}
+
+	if err := media.AppendPublication(pathHint, pub); err != nil {
+		return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
+	}
+
+	store.UpsertMeta(photoID, metaKey, metaVal) //nolint:errcheck
+
+	exported, err := media.ExportImage(pathHint, ch.ExportOptions())
+	if err != nil {
+		return publishResult{PhotoID: photoID, Error: "export: " + err.Error()}
+	}
+
+	ext := "." + ch.Format
+	if ch.Format == "jpeg" {
+		ext = ".jpg"
+	}
+	base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
+	outName := ch.Slug + "_" + ts + "_" + base + ext
+	outPath := filepath.Join(outDir, outName)
+
+	if err := os.WriteFile(outPath, exported, 0o644); err != nil {
+		return publishResult{PhotoID: photoID, Error: "write export: " + err.Error()}
+	}
+	return publishResult{PhotoID: photoID, OutputPath: outPath}
 }
