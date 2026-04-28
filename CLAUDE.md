@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-04-23*
+*Last modified: 2026-04-27*
 
 ## Project
 
@@ -69,6 +69,10 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 - **Domain grouping** — group by business domain (`export`, `location`, `wastebin`), not technical layer. When a directory exceeds ~8–10 files, look for a domain split. Names like `utils`, `helpers`, or `tools` are a warning sign — try harder to find a name that describes what the code actually does.
 - **Testing** — new Go packages or complex functions get a `_test.go`. New user-visible features get an e2e spec in `e2e/specs/`. When fixing a bug, add a test that would have caught it.
 - **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
+- **Dialogs & keyboard guard** — `app-keyboard.js` blocks global hotkeys when a dialog is open. Two patterns exist; every new dialog must use one:
+  - **`.modal-overlay`** (used by `deps-modal`, `slideshow-modal`, `location-modal`, `export-modal`, `progress-dialog`, `batch-rename-modal`): register your own `document.addEventListener('keydown', ...)` that calls `this.close()` on Escape — the global guard returns early and defers to your listener.
+  - **`.modal-backdrop` / `.library-dialog-backdrop`** (used by channel settings, publish dialog, new-library dialog): the global guard handles Escape centrally by clicking the first `.modal-close` or `[id$="-cancel"]` button it finds — make sure your dialog has one. Do **not** also add a separate keydown listener.
+  - If you introduce a third root class, add it to the `querySelector` selector in `_handle()` in `app-keyboard.js`.
 
 ## Reminders
 

@@ -1,12 +1,20 @@
 # Changelog
 
-*Last modified: 2026-04-25*
+*Last modified: 2026-04-27*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Favicon & dock icon** — SVG favicon with dark-mode adaptive bar; 180×180 apple-touch-icon for Safari "Add to Dock".
+
+- **Multi-Album Static Website** — Channels now offer a third export mode: *Multi-album site*. Each publish adds a new album subfolder (`site/albums/<postID>/`) with full-res photos, thumbnails, a download ZIP, and a standalone `index.html`. A `site.json` statefile records every published album (including the full photo list so pages can be rebuilt without re-exporting); from it the root `site/index.html` is regenerated on each publish. Albums are ordered newest-first by publish date — inserting an older album (via the date picker) places it correctly in the grid. Old album folders can be deleted locally after rsyncing — the statefile remembers them. Transfer with `rsync -avz site/ user@host:/var/www/` and only deltas are sent.
+
+- **Light/Dark Theme Toggle** — All generated gallery and website pages now include a theme toggle button. Single-gallery pages default to dark; multi-album site pages default to whatever theme is configured on the channel. Visitor preference is stored in `localStorage` under the key `ul-theme` and shared across all pages of a site, including when navigating back via the browser's back/forward cache. The website uses a single shared `assets/style.css` with CSS custom properties so both themes are defined once; `assets/toggle.js` is fully static (reads the default from a `data-default-theme` attribute) and safe to cache indefinitely.
+
+- **Rebuild Site** — A "Rebuild site" button appears in the channel list for site-export channels. Clicking it regenerates `assets/style.css`, `assets/toggle.js`, every album's `index.html`, and the root `index.html` from the existing `site.json` statefile — no photo re-export needed. Albums published before photo metadata was added to the statefile are handled by scanning the album directory on disk. Use this after changing the channel's default theme or site title.
 
 - **Static Website Gallery Export** — Any channel can opt in to HTML gallery generation via a "Generate HTML gallery on publish" toggle in Channel Settings (the built-in Website channel has it enabled by default). When publishing to a gallery-capable channel, a `<title>` field appears in the Publish modal; the backend generates a self-contained `index.html` alongside the exported photos in a per-publish subfolder (`channels/<slug>/<postID>/`). The gallery uses static HTML with native `loading="lazy"` for SEO-friendly lazy loading without JavaScript. The folder can be transferred directly to any web host via `scp` or `rsync`.
 

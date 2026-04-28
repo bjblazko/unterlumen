@@ -261,6 +261,7 @@ class LibraryTab {
         try {
             await LibraryAPI.delete(lib.id);
             card.remove();
+            App.refreshLibraryVisibility();
         } catch (err) {
             alert('Delete failed: ' + err.message);
         }
@@ -324,6 +325,7 @@ class LibraryTab {
                     }
                 });
                 dlg.remove();
+                App.refreshLibraryVisibility();
                 this._openLibrary(lib);
             } catch (err) {
                 progressEl.style.color = 'var(--accent)';
@@ -381,7 +383,7 @@ class LibraryTab {
         });
 
         el.querySelector('#lib-reindex-btn').addEventListener('click', () => this._reindexDetail(el));
-        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open());
+        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
 
         const publishBtn = el.querySelector('#lib-publish-btn');
         publishBtn.addEventListener('click', () => this._openPublishModal());
@@ -485,9 +487,10 @@ class LibraryTab {
                 accountWrap.style.display = 'none';
             }
 
-            // Gallery title field
+            // Gallery / album title field
             const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-            galleryWrap.style.display = ch.galleryExport ? '' : 'none';
+            galleryWrap.querySelector('.form-label').textContent = ch.siteExport ? 'Album title' : 'Gallery title';
+            galleryWrap.style.display = (ch.galleryExport || ch.siteExport) ? '' : 'none';
 
             // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
@@ -541,9 +544,7 @@ class LibraryTab {
                         (evt) => {
                             if (evt.step === 'photo')
                                 progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
-                            else if (evt.step === 'zip')
-                                progressEl.textContent = evt.file;
-                            else if (evt.step === 'html')
+                            else if (evt.step === 'zip' || evt.step === 'html' || evt.step === 'site')
                                 progressEl.textContent = evt.file;
                         }
                     );
@@ -551,6 +552,8 @@ class LibraryTab {
                     dlg.remove();
                     if (errors.length > 0) {
                         alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                    } else if (resp.sitePath) {
+                        _showToast(`Album added · site at ${resp.sitePath}`);
                     } else {
                         _showToast(`Gallery ready: ${resp.galleryPath}`);
                     }

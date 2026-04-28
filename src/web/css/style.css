@@ -11,6 +11,8 @@
     box-sizing: border-box;
 }
 
+[hidden] { display: none !important; }
+
 :root {
     --surface:     #f5f2ed;
     --surface-alt: #ffffff;
@@ -119,9 +121,19 @@ body {
     z-index: 2;
 }
 
+.workflow-step:nth-of-type(4) {
+    z-index: 0;
+}
+
 .workflow-step:last-of-type {
     padding-right: calc(var(--unit) * 1.5);
     clip-path: none;
+}
+
+/* When library button is hidden, Organize becomes the visual last step */
+.workflow:has(#mode-library[style*="display: none"]) #mode-commander {
+    clip-path: none;
+    padding-right: calc(var(--unit) * 1.5);
 }
 
 .workflow-step.completed {
@@ -1721,6 +1733,10 @@ body.ui-hidden .viewer-filmstrip {
 body.ui-hidden .header { display: none; }
 body.ui-hidden #app { height: 100vh; }
 body.ui-hidden .viewer-toolbar { display: none; }
+
+/* Slideshow active: full-screen, no header */
+body.slideshow-active .header { display: none; }
+body.slideshow-active #app { height: 100vh; }
 
 /* Floating hint toast */
 .ui-hint {

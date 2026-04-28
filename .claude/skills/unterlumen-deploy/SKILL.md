@@ -8,23 +8,78 @@ Build Unterlumen from source, install the binary to `~/.local/bin/`, register it
 
 ## Steps
 
-1. Ask the user for the port (default: `8080`) and the photo directory (default: `~/Pictures`). Confirm or use the defaults if the user does not specify.
+### Step 1 — Detect existing install
 
-2. Build the binary and install it:
+Run this to check whether a previous deployment exists and read its settings:
+
+```bash
+PLIST="$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
+if [ -f "$PLIST" ]; then
+    EXISTING_PORT=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:2" "$PLIST" 2>/dev/null)
+    EXISTING_DIR=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:3" "$PLIST" 2>/dev/null)
+    echo "port=$EXISTING_PORT dir=$EXISTING_DIR"
+else
+    echo "no-existing-install"
+fi
+```
+
+### Step 2 — Ask the user what to do
+
+**If an existing install was found**, tell the user the current settings and ask:
+> "Existing install found — port **X**, directory **Y**. Update the binary and restart with the same settings, or change the configuration?"
+
+- If the user wants to **update only** (keep same settings): proceed to Step 3a.
+- If the user wants to **change config**: ask for the new port (default: existing port) and photo directory (default: existing dir), then proceed to Step 3b.
+
+**If no existing install was found**, ask:
+> "No existing install. What port and photo directory? (defaults: 8080, ~/Pictures)"
+
+Then proceed to Step 3b (fresh install).
+
+### Step 3a — Update only (same settings, new binary)
+
+Build and install the binary:
 
 ```bash
 mkdir -p "$HOME/.local/bin" && \
   cd /Users/blazko/Development/unterlumen/src && \
   go build -o "$HOME/.local/bin/unterlumen" . && \
-  echo "Build succeeded: $HOME/.local/bin/unterlumen"
+  echo "Build succeeded."
 ```
 
 If the build fails, report the errors and stop.
 
-3. Write the launchd plist using the port and directory chosen in step 1. Replace `PORT` and `PHOTO_DIR` with the actual values:
+Stop the running service cleanly (before the binary is replaced, so launchd releases the file):
 
 ```bash
-cat > "$HOME/Library/LaunchAgents/com.unterlumen.app.plist" << 'PLIST'
+launchctl bootout gui/$(id -u)/com.unterlumen.app 2>/dev/null || true
+```
+
+Start the service again with the existing plist (no plist rewrite needed):
+
+```bash
+launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
+```
+
+Skip to Step 5 to verify.
+
+### Step 3b — Fresh install or config change
+
+Build and install the binary:
+
+```bash
+mkdir -p "$HOME/.local/bin" && \
+  cd /Users/blazko/Development/unterlumen/src && \
+  go build -o "$HOME/.local/bin/unterlumen" . && \
+  echo "Build succeeded."
+```
+
+If the build fails, report the errors and stop.
+
+Write the launchd plist with the chosen PORT and fully-expanded PHOTO_DIR (launchd does not expand `~`; resolve it to the absolute path before writing):
+
+```bash
+cat > "$HOME/Library/LaunchAgents/com.unterlumen.app.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -51,24 +106,17 @@ cat > "$HOME/Library/LaunchAgents/com.unterlumen.app.plist" << 'PLIST'
 PLIST
 ```
 
-Note: the `PHOTO_DIR` value must be fully expanded (e.g., `/Users/blazko/Pictures`, not `~/Pictures`), because launchd does not expand `~`. Use `$HOME` resolution when constructing the command.
-
-4. If the service is already registered, unload it first to allow a clean reload:
+Unload any existing registration, then load the new one:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.unterlumen.app 2>/dev/null || true
-```
-
-5. Load and start the service:
-
-```bash
 launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
 ```
 
-6. Verify the service is running:
+### Step 5 — Verify
 
 ```bash
 launchctl print gui/$(id -u)/com.unterlumen.app 2>&1 | grep -E 'state|pid'
 ```
 
-7. Report success: the URL (`http://localhost:PORT`) and the log file path (`/tmp/unterlumen.log`). If the service did not start, show the relevant launchctl output.
+Report success: the URL (`http://localhost:PORT`) and the log file (`/tmp/unterlumen.log`). If the service did not start, show the relevant launchctl output.

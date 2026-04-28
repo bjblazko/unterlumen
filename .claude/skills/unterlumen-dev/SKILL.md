@@ -1,7 +1,6 @@
 ---
 name: unterlumen-dev
 description: Build the Unterlumen dev binary from source and launch it on port 8080. Use when the user says "dev run", "launch dev", "build and run", "run unterlumen", or "check changes".
-disable-model-invocation: true
 allowed-tools: Bash
 ---
 
