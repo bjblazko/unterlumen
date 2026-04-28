@@ -15,6 +15,20 @@ class GlobalKeyboard {
 
         if (document.querySelector('.modal-overlay')) return;
 
+        // Block global hotkeys when backdrop-style dialogs are open; Escape closes them.
+        const openBackdrop = document.querySelector('.modal-backdrop, .library-dialog-backdrop');
+        if (openBackdrop) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                const btn = openBackdrop.querySelector('.modal-close, [id$="-cancel"]');
+                if (btn) btn.click();
+                else openBackdrop.remove();
+            }
+            return;
+        }
+
+        if (e.key !== 'Escape' && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
         // Tab: switch panes in commander mode
         if (e.key === 'Tab' && app.mode === 'commander' && app.commander) {
             e.preventDefault();
@@ -77,6 +91,7 @@ class GlobalKeyboard {
 
         // Backspace: mark for deletion in browse mode
         if (e.key === 'Backspace' && app.mode === 'browse' && app.browsePane) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
             if (document.querySelector('.viewer')) return;
             const targets = app.browsePane.getActionableFiles();
@@ -89,6 +104,7 @@ class GlobalKeyboard {
 
         // Backspace: mark for deletion in commander mode
         if (e.key === 'Backspace' && app.mode === 'commander' && app.commander) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
             const targets = app.commander.getActivePane().getActionableFiles();
             if (targets.length === 0) return;
@@ -117,6 +133,7 @@ class GlobalKeyboard {
 
         // Delete: mark for deletion in browse mode
         if (e.key === 'Delete' && app.mode === 'browse' && app.browsePane) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (document.querySelector('.viewer')) return;
             const targets = app.browsePane.getActionableFiles();
             if (targets.length === 0) return;
@@ -129,6 +146,7 @@ class GlobalKeyboard {
 
         // Delete: mark for deletion in commander mode
         if (e.key === 'Delete' && app.mode === 'commander' && app.commander) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             const targets = app.commander.getActivePane().getActionableFiles();
             if (targets.length === 0) return;
             e.preventDefault();
@@ -201,12 +219,13 @@ class GlobalKeyboard {
             }
         }
 
-        // 1/2/3: switch modes
+        // 1/2/3/4: switch modes
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === '1') { e.preventDefault(); app.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); app.setMode('wastebin'); }
             else if (e.key === '3') { e.preventDefault(); app.setMode('commander'); }
+            else if (e.key === '4') { e.preventDefault(); app.setMode('library'); }
         }
 
         // H: toggle UI visibility

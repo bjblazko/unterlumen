@@ -30,6 +30,13 @@ const ChannelAPI = {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
     },
+    async rebuildSite(libID, slug) {
+        const r = await fetch(`/api/library/${libID}/channels/${encodeURIComponent(slug)}/rebuild-site`, {
+            method: 'POST',
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
 };
 
 /* --- ChannelSettingsModal --- */
@@ -39,7 +46,8 @@ class ChannelSettingsModal {
         this._el = null;
     }
 
-    open() {
+    open(libID) {
+        this._libID = libID;
         this._el = document.createElement('div');
         this._el.className = 'modal-backdrop';
         this._el.innerHTML = `
@@ -100,11 +108,16 @@ class ChannelSettingsModal {
                 <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}</span>
             </div>
             <div class="channel-row-actions">
+                ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
                 <button class="btn btn-sm ch-edit">Edit</button>
                 <button class="btn btn-sm ch-delete">Delete</button>
             </div>`;
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
+        if (ch.siteExport) {
+            const rebuildBtn = row.querySelector('.ch-rebuild');
+            rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
+        }
         return row;
     }
 
@@ -118,12 +131,32 @@ class ChannelSettingsModal {
         }
     }
 
+    async _rebuildSite(ch, btn) {
+        if (!this._libID) {
+            alert('Open Channels from within a library to use Rebuild site.');
+            return;
+        }
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Rebuilding…';
+        try {
+            const res = await ChannelAPI.rebuildSite(this._libID, ch.slug);
+            btn.textContent = `Done (${res.albumCount})`;
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+        } catch (err) {
+            btn.textContent = 'Failed';
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+            alert('Rebuild failed: ' + err.message);
+        }
+    }
+
     _openForm(existing) {
         const isNew = !existing;
         const ch = existing || {
             slug: '', name: '', format: 'jpeg', quality: 85, exifMode: 'keep_no_gps',
             scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
-            handler: '', handlerConfig: {}, accounts: [], galleryExport: false,
+            handler: '', handlerConfig: {}, accounts: [],
+            galleryExport: false, siteExport: false, siteTitle: '', siteTheme: 'light',
         };
 
         const form = document.createElement('div');
@@ -168,11 +201,21 @@ class ChannelSettingsModal {
                         <option value="keep"        ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
                     </select>
 
-                    <label class="form-label form-label-checkbox">
-                        <input type="checkbox" id="chf-gallery" ${ch.galleryExport ? 'checked' : ''}>
-                        Generate HTML gallery on publish
-                        <span class="form-hint">(creates index.html alongside exported photos)</span>
-                    </label>
+                    <label class="form-label">Export mode</label>
+                    <select class="form-select" id="chf-export-mode">
+                        <option value="standard" ${!ch.galleryExport && !ch.siteExport ? 'selected' : ''}>Standard — files only</option>
+                        <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per publish</option>
+                        <option value="site"     ${ch.siteExport                       ? 'selected' : ''}>Multi-album site — static website</option>
+                    </select>
+                    <div id="chf-site-opts" style="display:${ch.siteExport ? '' : 'none'}">
+                        <label class="form-label">Site title <span class="form-hint">(shown on the root index page)</span></label>
+                        <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
+                        <label class="form-label">Default theme <span class="form-hint">(visitors can switch; this is the initial choice)</span></label>
+                        <select class="form-select" id="chf-site-theme">
+                            <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
+                            <option value="dark"  ${ch.siteTheme === 'dark'              ? 'selected' : ''}>Dark</option>
+                        </select>
+                    </div>
 
                     <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
                     <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
@@ -198,6 +241,13 @@ class ChannelSettingsModal {
         const scaleOpts = form.querySelector('#chf-scale-opts');
         scaleMode.addEventListener('change', () => {
             scaleOpts.innerHTML = _scaleOptsHTML({ mode: scaleMode.value });
+        });
+
+        // Export mode toggle
+        const exportModeEl = form.querySelector('#chf-export-mode');
+        const siteOptsEl   = form.querySelector('#chf-site-opts');
+        exportModeEl.addEventListener('change', () => {
+            siteOptsEl.style.display = exportModeEl.value === 'site' ? '' : 'none';
         });
 
         // Handler config add row
@@ -237,6 +287,7 @@ class ChannelSettingsModal {
                 errEl.style.display = '';
                 return;
             }
+            const exportModeVal = form.querySelector('#chf-export-mode').value;
             const payload = {
                 slug,
                 name,
@@ -244,7 +295,10 @@ class ChannelSettingsModal {
                 quality:       parseInt(form.querySelector('#chf-quality').value, 10),
                 exifMode:      form.querySelector('#chf-exif').value,
                 scale:         _readScaleOpts(form),
-                galleryExport: form.querySelector('#chf-gallery').checked || undefined,
+                galleryExport: exportModeVal === 'gallery' ? true : undefined,
+                siteExport:    exportModeVal === 'site'    ? true : undefined,
+                siteTitle:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
+                siteTheme:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
                 handler:       form.querySelector('#chf-handler').value.trim() || undefined,
                 handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
                 accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),

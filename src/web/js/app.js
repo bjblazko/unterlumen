@@ -46,6 +46,8 @@ const App = {
         this._initUIVisibility();
         this.initSettingsMenu();
 
+        this._updateLibraryButton();
+
         Promise.all([
             API.config(),
             API.toolsCheck().catch(() => ({ exiftool: false })),
@@ -307,6 +309,8 @@ const App = {
         appEl.querySelectorAll('.browse-container').forEach(el => scrollPositions.set(el, el.scrollTop));
         existingChildren.forEach(el => el.style.display = 'none');
 
+        document.body.classList.add('slideshow-active');
+
         const slideshowEl = document.createElement('div');
         slideshowEl.id = 'slideshow-container';
         slideshowEl.style.height = '100%';
@@ -315,6 +319,7 @@ const App = {
         const player = new SlideshowPlayer(slideshowEl);
         player.onClose = () => {
             slideshowEl.remove();
+            document.body.classList.remove('slideshow-active');
             savedDisplay.forEach((display, el) => { el.style.display = display; });
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };
@@ -332,6 +337,21 @@ const App = {
         } else {
             this.infoPanel.clear();
         }
+    },
+
+    async _updateLibraryButton() {
+        const btn = document.getElementById('mode-library');
+        if (!btn) return;
+        try {
+            const libs = await LibraryAPI.list();
+            btn.style.display = libs.length === 0 ? 'none' : '';
+        } catch {
+            btn.style.display = 'none';
+        }
+    },
+
+    refreshLibraryVisibility() {
+        this._updateLibraryButton();
     },
 
     getActiveBrowsePane() {

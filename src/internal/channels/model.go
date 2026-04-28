@@ -21,6 +21,9 @@ type Channel struct {
 	Scale         media.ScaleOptions `json:"scale"`
 	ExifMode      string            `json:"exifMode"`      // "strip", "keep", "keep_no_gps"
 	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on publish
+	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on publish
+	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html
+	SiteTheme     string            `json:"siteTheme,omitempty"`     // "light" (default) or "dark"
 }
 
 // ExportOptions returns the media.ExportOptions for this channel.
