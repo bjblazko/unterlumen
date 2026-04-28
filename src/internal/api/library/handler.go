@@ -43,7 +43,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr))
 	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore))
-	mux.HandleFunc("POST /api/library/{id}/channels/{channel}/rebuild-site", rebuildSite(mgr, chStore))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -532,7 +532,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 
 		galleryMode := ch.GalleryExport && body.GalleryTitle != ""
 		siteMode := ch.SiteExport && body.GalleryTitle != ""
-		channelDir := filepath.Join(mgr.LibDir(id), "channels", body.Channel)
+		channelDir := chStore.OutputDir(body.Channel)
 		outDir := channelDir
 		if galleryMode {
 			outDir = filepath.Join(outDir, postID)
@@ -788,14 +788,13 @@ func newPostID() string {
 }
 
 // rebuildSite regenerates site assets and root index from the existing site.json statefile.
-func rebuildSite(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
 			return
 		}
-		id := r.PathValue("id")
-		channelSlug := r.PathValue("channel")
+		channelSlug := r.PathValue("slug")
 
 		ch, err := chStore.Get(channelSlug)
 		if err != nil {
@@ -807,7 +806,7 @@ func rebuildSite(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 
-		siteDir := filepath.Join(mgr.LibDir(id), "channels", channelSlug, "site")
+		siteDir := filepath.Join(chStore.OutputDir(channelSlug), "site")
 		albums, err := loadSiteState(filepath.Join(siteDir, "site.json"))
 		if err != nil {
 			http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)

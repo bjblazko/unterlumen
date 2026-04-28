@@ -30,12 +30,19 @@ const ChannelAPI = {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
     },
-    async rebuildSite(libID, slug) {
-        const r = await fetch(`/api/library/${libID}/channels/${encodeURIComponent(slug)}/rebuild-site`, {
-            method: 'POST',
-        });
+    async rebuildSite(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/rebuild-site`, { method: 'POST' });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
+    },
+    async path(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/path`);
+        if (!r.ok) throw new Error(await r.text());
+        return (await r.json()).path;
+    },
+    async reveal(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/reveal`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
     },
 };
 
@@ -102,18 +109,44 @@ class ChannelSettingsModal {
         const handlerDesc = ch.handler ? ` · handler: ${ch.handler}` : '';
         const accountDesc = accountCount > 0 ? ` · ${accountCount} account${accountCount !== 1 ? 's' : ''}` : '';
         row.innerHTML = `
-            <div class="channel-row-info">
-                <span class="channel-row-name">${escapeHtml(ch.name)}</span>
-                <span class="channel-row-slug">${escapeHtml(ch.slug)}</span>
-                <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}</span>
+            <div class="channel-row-top">
+                <div class="channel-row-header">
+                    <span class="channel-row-name">${escapeHtml(ch.name)}</span>
+                    <span class="channel-row-slug">${escapeHtml(ch.slug)}</span>
+                </div>
+                <div class="channel-row-actions">
+                    ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
+                    <div class="ch-path-wrap">
+                        <button class="btn btn-sm ch-path-toggle">Path ▾</button>
+                        <div class="ch-path-menu" hidden>
+                            <button class="ch-path-item ch-copy-path">Copy path</button>
+                            <button class="ch-path-item ch-reveal">Show in Files</button>
+                            <button class="ch-path-item ch-commander">Open in Commander</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm ch-edit">Edit</button>
+                    <button class="btn btn-sm ch-delete">Delete</button>
+                </div>
             </div>
-            <div class="channel-row-actions">
-                ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
-                <button class="btn btn-sm ch-edit">Edit</button>
-                <button class="btn btn-sm ch-delete">Delete</button>
-            </div>`;
+            <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}</span>`;
+
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
+
+        const toggle = row.querySelector('.ch-path-toggle');
+        const menu = row.querySelector('.ch-path-menu');
+        toggle.addEventListener('click', e => {
+            e.stopPropagation();
+            const open = !menu.hidden;
+            document.querySelectorAll('.ch-path-menu').forEach(m => { m.hidden = true; });
+            menu.hidden = open;
+        });
+
+        const copyBtn = row.querySelector('.ch-copy-path');
+        copyBtn.addEventListener('click', () => { menu.hidden = true; this._copyPath(ch, toggle); });
+        row.querySelector('.ch-reveal').addEventListener('click', () => { menu.hidden = true; this._revealChannel(ch); });
+        row.querySelector('.ch-commander').addEventListener('click', () => { menu.hidden = true; this._openInCommander(ch); });
+
         if (ch.siteExport) {
             const rebuildBtn = row.querySelector('.ch-rebuild');
             rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
@@ -132,21 +165,63 @@ class ChannelSettingsModal {
     }
 
     async _rebuildSite(ch, btn) {
-        if (!this._libID) {
-            alert('Open Channels from within a library to use Rebuild site.');
-            return;
-        }
         const orig = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Rebuilding…';
         try {
-            const res = await ChannelAPI.rebuildSite(this._libID, ch.slug);
+            const res = await ChannelAPI.rebuildSite(ch.slug);
             btn.textContent = `Done (${res.albumCount})`;
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
         } catch (err) {
             btn.textContent = 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             alert('Rebuild failed: ' + err.message);
+        }
+    }
+
+    async _copyPath(ch, btn) {
+        try {
+            const path = await ChannelAPI.path(ch.slug);
+            await navigator.clipboard.writeText(path);
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        } catch (err) {
+            alert('Copy failed: ' + err.message);
+        }
+    }
+
+    async _revealChannel(ch) {
+        try {
+            await ChannelAPI.reveal(ch.slug);
+        } catch (err) {
+            alert('Reveal failed: ' + err.message);
+        }
+    }
+
+    async _openInCommander(ch) {
+        try {
+            const path = await ChannelAPI.path(ch.slug);
+            try {
+                await API.browse(path);
+            } catch {
+                alert('Channel directory is outside the browse root.\n\nUse "Show in Files" to open it in the system file manager instead.');
+                return;
+            }
+            this.close();
+            if (!App.commander) {
+                // Commander not yet initialised — inject path before creation so
+                // commander.init() loads it directly instead of the default browse path.
+                const saved = App.currentBrowsePath;
+                App.currentBrowsePath = path;
+                App.setMode('commander');
+                App.currentBrowsePath = saved;
+            } else {
+                App.setMode('commander');
+                App.commander.leftPane.load(path);
+            }
+        } catch (err) {
+            alert('Failed: ' + err.message);
         }
     }
 
@@ -342,6 +417,11 @@ function _readKVEditor(el) {
     });
     return Object.keys(obj).length ? obj : null;
 }
+
+// Close any open path dropdown on outside click
+document.addEventListener('click', () => {
+    document.querySelectorAll('.ch-path-menu').forEach(m => { m.hidden = true; });
+});
 
 // Delegate kv-del clicks via parent (handles dynamically added rows)
 document.addEventListener('click', e => {

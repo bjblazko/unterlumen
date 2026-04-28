@@ -176,13 +176,17 @@ class LibraryTab {
         el.innerHTML = `
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
-                <button class="btn btn-accent" id="lib-create-btn">New library</button>
+                <div class="library-list-header-actions">
+                    <button class="btn" id="lib-channels-btn">Channels</button>
+                    <button class="btn btn-accent" id="lib-create-btn">New library</button>
+                </div>
             </div>
             <div class="library-list-body" id="lib-list-body">
                 <div class="library-loading">Loading…</div>
             </div>`;
         this.container.appendChild(el);
 
+        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-create-btn').addEventListener('click', () => this._showCreateDialog());
         this._loadList(el.querySelector('#lib-list-body'));
     }
