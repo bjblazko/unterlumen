@@ -142,7 +142,8 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel); err != nil {
 		return err
 	}
-	if err := idx.store.UpsertExifIndex(photoID, exifFields); err != nil {
+	numericValues := media.NormalizeExifNumbers(exifFields)
+	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
 		return err
 	}
 	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {

@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **EXIF numeric search groundwork** — Foundation for slider-based library filtering. Numeric EXIF values (shutter speed, aperture, focal length, ISO) are now parsed at index time into canonical floats and stored in a new `numeric_value` column in `exif_index`. Handles format variations from mixed cameras and scanning software (`"1/500"`, `"1/500 s"`, `"0.004 sec"`, `"f/2.8"`, `"50 mm"`, etc.). New API: `GET /api/library/{id}/exif-ranges` returns min/max per field; `GET /api/library/{id}/photos` now accepts `Field_min`/`Field_max` range params. A collapsible filter panel with log-scale range sliders appears via the "Filter" button in the library header, showing matched photo count as sliders are adjusted.
+
 - **Global channel output** — Channel export output moves from `~/.unterlumen/libraries/<id>/channels/<slug>/` to `~/.unterlumen/channels/<slug>/`, shared across all libraries. Albums from any library now publish into the same channel directory, and site-export channels accumulate albums from all libraries into one unified site. Publishing still reads photos from a specific library; only the output path is now global.
 
 - **Channel path buttons** — Each channel row in the Channels dialog now shows three new buttons:

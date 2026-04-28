@@ -1,7 +1,7 @@
 // Single image viewer
 
 class Viewer {
-    constructor(container) {
+    constructor(container, options = {}) {
         this.container = container;
         this.images = [];
         this.currentIndex = 0;
@@ -12,6 +12,9 @@ class Viewer {
         this.infoPanel = null;
         this.filmStripVisible = false;
         this.filmStripEl = null;
+        this._imageURLFn = options.imageURLFn || ((p) => API.imageURL(p));
+        this._thumbURLFn = options.thumbURLFn || ((p) => API.thumbnailURL(p, 80));
+        this._infoLoadFn = options.infoLoadFn || ((p, ip) => ip.loadInfo(p));
     }
 
     open(imagePath, imageList) {
@@ -43,7 +46,7 @@ class Viewer {
             thumb.className = 'filmstrip-thumb';
             thumb.dataset.index = i;
             const img = document.createElement('img');
-            img.src = API.thumbnailURL(path, 80);
+            img.src = this._thumbURLFn(path);
             img.loading = 'lazy';
             thumb.appendChild(img);
             strip.appendChild(thumb);
@@ -58,7 +61,7 @@ class Viewer {
             this.render();
             this.updateFilmStrip();
             if (this.infoPanel && this.infoPanel.expanded) {
-                this.infoPanel.loadInfo(this.currentPath);
+                this._infoLoadFn(this.currentPath, this.infoPanel);
             }
         });
         this.filmStripEl = strip;
@@ -87,7 +90,7 @@ class Viewer {
         this.render();
         this.updateFilmStrip();
         if (this.infoPanel && this.infoPanel.expanded) {
-            this.infoPanel.loadInfo(this.currentPath);
+            this._infoLoadFn(this.currentPath, this.infoPanel);
         }
     }
 
@@ -95,7 +98,7 @@ class Viewer {
         if (!this.infoPanel) return;
         this.infoPanel.toggle();
         if (this.infoPanel.expanded) {
-            this.infoPanel.loadInfo(this.currentPath);
+            this._infoLoadFn(this.currentPath, this.infoPanel);
         }
         const btn = this.container.querySelector('.viewer-info');
         if (btn) {
@@ -133,7 +136,7 @@ class Viewer {
         this.render();
         this.updateFilmStrip();
         if (this.infoPanel && this.infoPanel.expanded) {
-            this.infoPanel.loadInfo(this.currentPath);
+            this._infoLoadFn(this.currentPath, this.infoPanel);
         }
     }
 
@@ -198,7 +201,7 @@ class Viewer {
                     <div class="viewer-body">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}>‹</button>
                         <div class="viewer-image-container">
-                            <img src="${API.imageURL(this.currentPath)}" alt="${filename}">
+                            <img src="${this._imageURLFn(this.currentPath)}" alt="${filename}">
                         </div>
                         <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}>›</button>
                     </div>

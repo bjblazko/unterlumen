@@ -34,6 +34,32 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async exifRanges(id) {
+        const r = await fetch(`/api/library/${id}/exif-ranges`);
+        if (!r.ok) return {};
+        return r.json();
+    },
+    async globalExifRanges(ids) {
+        const params = ids ? `?ids=${ids}` : '';
+        const r = await fetch(`/api/library/exif-ranges${params}`);
+        if (!r.ok) return {};
+        return r.json();
+    },
+    async exifValues(field, ids) {
+        const params = new URLSearchParams({ field });
+        if (ids) params.set('ids', ids);
+        const r = await fetch(`/api/library/exif-values?${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
+    async search({ ids, limit = 100, offset = 0, ...rest } = {}) {
+        const params = new URLSearchParams({ limit, offset });
+        if (ids) params.set('ids', ids);
+        for (const [k, v] of Object.entries(rest)) params.set(k, v);
+        const r = await fetch(`/api/library/search?${params}`);
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     thumbURL(libID, photoID) {
         return `/api/library/${libID}/thumb/${photoID}`;
     },
@@ -152,10 +178,13 @@ class LibraryTab {
         this.currentLibrary = null;
         this._pane = null;
         this._infoPanel = null;
+        this._searchPane = null;
+        this._listInfoPanel = null;
+        this._listSearchPanel = null;
     }
 
     getActivePaneForKeyboard() {
-        return this._pane;
+        return this._searchPane || this._pane;
     }
 
     render() {
@@ -171,15 +200,24 @@ class LibraryTab {
     /* --- Library list --- */
 
     _renderList() {
+        this._listInfoPanel = null;
+        this._listSearchPanel = null;
+
         const el = document.createElement('div');
         el.className = 'library-list-view';
         el.innerHTML = `
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
                 <div class="library-list-header-actions">
+                    <button class="btn" id="lib-search-btn">Search</button>
                     <button class="btn" id="lib-channels-btn">Channels</button>
                     <button class="btn btn-accent" id="lib-create-btn">New library</button>
                 </div>
+            </div>
+            <div class="lib-search-panel" id="lib-search-panel"></div>
+            <div class="lib-search-content" id="lib-search-content">
+                <div class="lib-search-results-area" id="lib-search-results-area"></div>
+                <div class="lib-info-panel-container" id="lib-search-info-panel"></div>
             </div>
             <div class="library-list-body" id="lib-list-body">
                 <div class="library-loading">Loading…</div>
@@ -188,7 +226,54 @@ class LibraryTab {
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-create-btn').addEventListener('click', () => this._showCreateDialog());
+
+        const infoPanelEl = el.querySelector('#lib-search-info-panel');
+        this._listInfoPanel = new InfoPanel(infoPanelEl);
+        this._listInfoPanel.onToggle = () => {
+            if (this._listInfoPanel.expanded && this._listSearchPanel?._searchPane) {
+                this._listSearchPanel._searchPane._notifyFocusChange();
+            }
+        };
+
+        this._listSearchPanel = new LibrarySearchPanel(
+            el.querySelector('#lib-search-panel'),
+            el.querySelector('#lib-search-btn'),
+            null,
+            {
+                resultsContainer: el.querySelector('#lib-search-results-area'),
+                onFocusChange: (path) => this._onListSearchFocus(path),
+                onClose: () => { if (this._listInfoPanel) this._listInfoPanel.clear(); },
+            }
+        );
+
         this._loadList(el.querySelector('#lib-list-body'));
+    }
+
+    async _onListSearchFocus(path) {
+        const infoPanel = this._listInfoPanel;
+        if (!infoPanel || !infoPanel.expanded) return;
+        if (!path) { infoPanel.clear(); return; }
+
+        const pane = this._listSearchPanel?._searchPane;
+        const info = pane ? pane.getPhotoInfo(path) : null;
+        if (info) {
+            infoPanel.loadFromURL(`/api/library/${info.libID}/photo/${info.photoID}/info`, `lib:${info.libID}:${info.photoID}`);
+        } else {
+            infoPanel.loadInfo(path);
+        }
+        if (!info) { infoPanel.setMetaContext(null); return; }
+
+        try {
+            const entries = await LibraryAPI.getMeta(info.libID, info.photoID);
+            infoPanel.setMetaContext({
+                entries,
+                onUpsert: (k, v) => LibraryAPI.upsertMeta(info.libID, info.photoID, k, v),
+                onDelete: (k) => LibraryAPI.deleteMeta(info.libID, info.photoID, k),
+                refresh: () => LibraryAPI.getMeta(info.libID, info.photoID),
+            });
+        } catch {
+            infoPanel.setMetaContext(null);
+        }
     }
 
     async _loadList(body) {
@@ -355,6 +440,8 @@ class LibraryTab {
 
     _renderDetail() {
         const lib = this.currentLibrary;
+        this._searchPane = null;
+
         const el = document.createElement('div');
         el.className = 'library-detail';
         el.innerHTML = `
@@ -369,12 +456,15 @@ class LibraryTab {
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
+                    <button class="btn btn-sm" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-reindex-btn">Re-index</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels</button>
                 </div>
             </div>
+            <div class="lib-search-panel" id="lib-search-panel"></div>
             <div class="library-detail-body">
                 <div class="library-pane-wrap" id="lib-pane"></div>
+                <div class="library-pane-wrap" id="lib-search-pane" style="display:none"></div>
                 <div class="lib-info-panel-container" id="lib-info-panel"></div>
             </div>`;
         this.container.appendChild(el);
@@ -382,6 +472,7 @@ class LibraryTab {
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
             this._infoPanel = null;
+            this._searchPane = null;
             this.currentLibrary = null;
             this.render();
         });
@@ -392,13 +483,24 @@ class LibraryTab {
         const publishBtn = el.querySelector('#lib-publish-btn');
         publishBtn.addEventListener('click', () => this._openPublishModal());
 
+        this._filterPanel = new LibrarySearchPanel(
+            el.querySelector('#lib-search-panel'),
+            el.querySelector('#lib-filter-btn'),
+            lib.id,
+            {
+                onResults: (photos, multiLib) => this._showSearchResults(el, publishBtn, photos, multiLib),
+                onClose: () => this._showLibraryPane(el, publishBtn),
+            }
+        );
+
         const paneEl = el.querySelector('#lib-pane');
         const infoPanelEl = el.querySelector('#lib-info-panel');
 
         this._infoPanel = new InfoPanel(infoPanelEl);
         this._infoPanel.onToggle = () => {
-            if (this._infoPanel.expanded && this._pane) {
-                this._pane._notifyFocusChange();
+            if (this._infoPanel.expanded) {
+                const activePane = this._searchPane || this._pane;
+                if (activePane) activePane._notifyFocusChange();
             }
         };
 
@@ -413,6 +515,61 @@ class LibraryTab {
         });
 
         this._pane.load(lib.relSourcePath || '');
+    }
+
+    _showSearchResults(detailEl, publishBtn, photos, multiLib) {
+        const paneEl = detailEl.querySelector('#lib-pane');
+        const searchPaneEl = detailEl.querySelector('#lib-search-pane');
+
+        if (!this._searchPane) {
+            this._searchPane = new SearchResultPane(searchPaneEl, {
+                onImageClick: (path) => App.openViewer(path, this._searchPane),
+                onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
+                onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
+            });
+        }
+
+        this._searchPane.loadResults(photos, multiLib);
+        paneEl.style.display = 'none';
+        searchPaneEl.style.display = '';
+        publishBtn.disabled = true;
+    }
+
+    _showLibraryPane(detailEl, publishBtn) {
+        const paneEl = detailEl.querySelector('#lib-pane');
+        const searchPaneEl = detailEl.querySelector('#lib-search-pane');
+
+        searchPaneEl.style.display = 'none';
+        paneEl.style.display = '';
+        // Keep _searchPane alive so it can be reused if the filter is reopened.
+
+        publishBtn.disabled = this._pane ? this._pane.getSelectedFiles().length === 0 : true;
+    }
+
+    async _onPhotoFocusFromSearch(path) {
+        const infoPanel = this._infoPanel;
+        if (!infoPanel || !infoPanel.expanded) return;
+        if (!path) { infoPanel.clear(); return; }
+
+        const info = this._searchPane ? this._searchPane.getPhotoInfo(path) : null;
+        if (info) {
+            infoPanel.loadFromURL(`/api/library/${info.libID}/photo/${info.photoID}/info`, `lib:${info.libID}:${info.photoID}`);
+        } else {
+            infoPanel.loadInfo(path);
+        }
+        if (!info) { infoPanel.setMetaContext(null); return; }
+
+        try {
+            const entries = await LibraryAPI.getMeta(info.libID, info.photoID);
+            infoPanel.setMetaContext({
+                entries,
+                onUpsert: (k, v) => LibraryAPI.upsertMeta(info.libID, info.photoID, k, v),
+                onDelete: (k) => LibraryAPI.deleteMeta(info.libID, info.photoID, k),
+                refresh: () => LibraryAPI.getMeta(info.libID, info.photoID),
+            });
+        } catch {
+            infoPanel.setMetaContext(null);
+        }
     }
 
     async _openPublishModal() {

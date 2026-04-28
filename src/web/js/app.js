@@ -276,7 +276,11 @@ const App = {
         viewerEl.style.height = '100%';
         appEl.appendChild(viewerEl);
 
-        this.viewer = new Viewer(viewerEl);
+        this.viewer = new Viewer(viewerEl, {
+            imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
+            thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
+            infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
+        });
         this.viewer.onClose = () => {
             viewerEl.remove();
             savedDisplay.forEach((display, el) => { el.style.display = display; });

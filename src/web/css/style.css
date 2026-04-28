@@ -2792,6 +2792,227 @@ body.slideshow-active #app { height: 100vh; }
     border-left: 1px solid var(--border);
 }
 
+/* --- Library Search / Filter Panel --- */
+
+.lib-search-panel {
+    display: none;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.lib-search-panel.visible {
+    display: flex;
+}
+
+/* On the list page, hide library cards and show search content when filter is open */
+.lib-search-panel.visible ~ .library-list-body {
+    display: none;
+}
+
+/* --- Library search results area (list page) --- */
+
+.lib-search-content {
+    display: none;
+    flex: 1;
+    overflow: hidden;
+}
+
+.lib-search-panel.visible ~ .lib-search-content {
+    display: flex;
+}
+
+.lib-search-results-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 calc(var(--unit) * 3);
+}
+
+.lib-search-controls {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 2);
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.lib-search-select {
+    height: 28px;
+    padding: 0 calc(var(--unit) * 1.5);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+}
+
+.lib-search-select:focus {
+    border-color: var(--accent);
+}
+
+.lib-search-reset {
+    font-size: 11px;
+    color: var(--text-sec);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.lib-search-reset:hover {
+    color: var(--accent);
+}
+
+.lib-filter-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--unit) * 3);
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+    flex-shrink: 0;
+}
+
+.lib-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 160px;
+    flex: 1;
+    max-width: 220px;
+}
+
+.lib-filter-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-sec);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lib-filter-range-display {
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.lib-slider-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 1);
+}
+
+.lib-slider-tag {
+    font-size: 10px;
+    color: var(--text-sec);
+    width: 26px;
+    flex-shrink: 0;
+}
+
+.lib-filter-range {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
+}
+
+.lib-slider-val {
+    font-size: 10px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    min-width: 44px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.lib-search-status {
+    font-size: 11px;
+    color: var(--text-sec);
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 3);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+}
+
+.lib-search-status strong {
+    color: var(--text);
+}
+
+.lib-search-results {
+    flex: 1;
+    overflow-y: auto;
+    padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+}
+
+.lib-search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: calc(var(--unit) * 1);
+}
+
+.lib-search-thumb {
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--border);
+    cursor: pointer;
+    position: relative;
+}
+
+.lib-search-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.lib-search-thumb-lib {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 3px 5px;
+    font-size: 9px;
+    color: #fff;
+    background: rgba(0,0,0,0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: none;
+}
+
+.lib-search-thumb:hover .lib-search-thumb-lib {
+    display: block;
+}
+
+.lib-search-empty {
+    font-size: 12px;
+    color: var(--text-sec);
+    padding: calc(var(--unit) * 4) 0;
+    text-align: center;
+}
+
+.lib-text-filter-groups {
+    border-top: none;
+    padding-top: calc(var(--unit) * 1);
+}
+
+.lib-text-filter-select {
+    width: 100%;
+    max-width: 220px;
+}
+
 /* --- Library Info Panel Meta section --- */
 
 .info-meta-row {

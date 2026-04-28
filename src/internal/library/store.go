@@ -29,12 +29,14 @@ CREATE TABLE IF NOT EXISTS path_cache (
 );
 
 CREATE TABLE IF NOT EXISTS exif_index (
-	photo_id    TEXT NOT NULL REFERENCES photos(id),
-	field       TEXT NOT NULL,
-	value       TEXT NOT NULL,
+	photo_id      TEXT NOT NULL REFERENCES photos(id),
+	field         TEXT NOT NULL,
+	value         TEXT NOT NULL,
+	numeric_value REAL,
 	PRIMARY KEY (photo_id, field)
 );
 CREATE INDEX IF NOT EXISTS exif_index_field_value ON exif_index(field, value);
+CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value);
 
 CREATE TABLE IF NOT EXISTS photo_meta (
 	photo_id    TEXT NOT NULL REFERENCES photos(id),
@@ -67,6 +69,9 @@ func openStore(dbPath, dir string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	// Migration: add numeric_value column to existing databases (ignored for new ones).
+	db.Exec(`ALTER TABLE exif_index ADD COLUMN numeric_value REAL`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value)`)
 	return &Store{db: db, dir: dir}, nil
 }
 
@@ -143,7 +148,8 @@ func (s *Store) UpsertPhoto(id, pathHint, filename string, fileSize int64, index
 }
 
 // UpsertExifIndex replaces all EXIF index rows for a photo.
-func (s *Store) UpsertExifIndex(photoID string, fields map[string]string) error {
+// numeric contains pre-parsed float64 values for numeric EXIF fields.
+func (s *Store) UpsertExifIndex(photoID string, fields map[string]string, numeric map[string]float64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -153,13 +159,17 @@ func (s *Store) UpsertExifIndex(photoID string, fields map[string]string) error 
 	if _, err := tx.Exec(`DELETE FROM exif_index WHERE photo_id=?`, photoID); err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare(`INSERT INTO exif_index(photo_id,field,value) VALUES(?,?,?)`)
+	stmt, err := tx.Prepare(`INSERT INTO exif_index(photo_id,field,value,numeric_value) VALUES(?,?,?,?)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for k, v := range fields {
-		if _, err := stmt.Exec(photoID, k, v); err != nil {
+		var numVal any
+		if nv, ok := numeric[k]; ok {
+			numVal = nv
+		}
+		if _, err := stmt.Exec(photoID, k, v, numVal); err != nil {
 			return err
 		}
 	}
@@ -266,9 +276,17 @@ type ListPhotosResult struct {
 	Total  int     `json:"total"`
 }
 
+// NumericFilter restricts results to photos whose numeric EXIF value for a field
+// falls within [Min, Max] (inclusive).
+type NumericFilter struct {
+	Min float64
+	Max float64
+}
+
 // ListPhotos returns a filtered, paginated list of photos.
-// q is a full-text search term; filters is field→value for EXIF filtering.
-func (s *Store) ListPhotos(q string, filters map[string]string, offset, limit int) (ListPhotosResult, error) {
+// q is a full-text search term; filters is field→value for EXIF text filtering;
+// numericFilters is field→range for numeric EXIF filtering (e.g. ExposureTime).
+func (s *Store) ListPhotos(q string, filters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (ListPhotosResult, error) {
 	args := []any{}
 	where := []string{"p.status='ok'"}
 
@@ -287,6 +305,12 @@ func (s *Store) ListPhotos(q string, filters map[string]string, offset, limit in
 		args = append(args, field, "%"+val+"%")
 	}
 
+	for field, r := range numericFilters {
+		where = append(where,
+			`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND e.numeric_value BETWEEN ? AND ?)`)
+		args = append(args, field, r.Min, r.Max)
+	}
+
 	whereClause := strings.Join(where, " AND ")
 
 	var total int
@@ -299,7 +323,9 @@ func (s *Store) ListPhotos(q string, filters map[string]string, offset, limit in
 
 	pageArgs := append(args, limit, offset)
 	rows, err := s.db.Query(
-		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status
+		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status,
+		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
+		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1)
 		 FROM photos p WHERE `+whereClause+
 			` ORDER BY p.indexed_at DESC LIMIT ? OFFSET ?`,
 		pageArgs...,
@@ -313,10 +339,20 @@ func (s *Store) ListPhotos(q string, filters map[string]string, offset, limit in
 	for rows.Next() {
 		var p Photo
 		var indexedAt string
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status); err != nil {
+		var gpsLat, filmSim *string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status, &gpsLat, &filmSim); err != nil {
 			return ListPhotosResult{}, err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
+		if gpsLat != nil || filmSim != nil {
+			p.Exif = make(map[string]string)
+			if gpsLat != nil {
+				p.Exif["GPSLatitude"] = *gpsLat
+			}
+			if filmSim != nil {
+				p.Exif["FilmSimulation"] = *filmSim
+			}
+		}
 		photos = append(photos, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -330,19 +366,20 @@ func (s *Store) ListPhotos(q string, filters map[string]string, offset, limit in
 
 // PhotoInfo holds the fields needed to render the info panel for a library photo.
 type PhotoInfo struct {
-	Filename string `json:"filename"`
-	PathHint string `json:"pathHint"`
-	FileSize int64  `json:"fileSize"`
-	ExifJSON string `json:"exifJSON"`
+	Filename  string `json:"filename"`
+	PathHint  string `json:"pathHint"`
+	FileSize  int64  `json:"fileSize"`
+	IndexedAt string `json:"indexedAt"`
+	ExifJSON  string `json:"exifJSON"`
 }
 
-// GetPhotoInfo returns filename, path, size, and raw exif_json for a single photo.
+// GetPhotoInfo returns filename, path, size, indexed_at, and raw exif_json for a single photo.
 func (s *Store) GetPhotoInfo(photoID string) (*PhotoInfo, error) {
 	var p PhotoInfo
 	var exifJSON *string
 	err := s.db.QueryRow(
-		`SELECT filename, path_hint, file_size, exif_json FROM photos WHERE id=?`, photoID,
-	).Scan(&p.Filename, &p.PathHint, &p.FileSize, &exifJSON)
+		`SELECT filename, path_hint, file_size, indexed_at, exif_json FROM photos WHERE id=?`, photoID,
+	).Scan(&p.Filename, &p.PathHint, &p.FileSize, &p.IndexedAt, &exifJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -430,4 +467,56 @@ func (s *Store) ExifFields() ([]string, error) {
 		fields = append(fields, f)
 	}
 	return fields, rows.Err()
+}
+
+// GetExifFieldValues returns the sorted distinct string values for the given EXIF field,
+// with surrounding quotes stripped. Empty or missing values are excluded.
+func (s *Store) GetExifFieldValues(field string) ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT DISTINCT TRIM(value, '"') FROM exif_index
+		 WHERE field=? AND value != '""' AND value != ''
+		 ORDER BY TRIM(value, '"')`,
+		field,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vals []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		if v != "" {
+			vals = append(vals, v)
+		}
+	}
+	return vals, rows.Err()
+}
+
+// ExifRange holds the minimum and maximum numeric_value for a single EXIF field.
+type ExifRange struct {
+	Min float64 `json:"min"`
+	Max float64 `json:"max"`
+}
+
+// GetExifRanges returns the min/max numeric_value for each of the requested EXIF fields.
+// Fields with no numeric data are omitted from the result.
+func (s *Store) GetExifRanges(fields []string) (map[string]ExifRange, error) {
+	out := make(map[string]ExifRange)
+	for _, field := range fields {
+		var minVal, maxVal sql.NullFloat64
+		err := s.db.QueryRow(
+			`SELECT MIN(numeric_value), MAX(numeric_value) FROM exif_index WHERE field=? AND numeric_value IS NOT NULL`,
+			field,
+		).Scan(&minVal, &maxVal)
+		if err != nil {
+			return nil, err
+		}
+		if minVal.Valid && maxVal.Valid {
+			out[field] = ExifRange{Min: minVal.Float64, Max: maxVal.Float64}
+		}
+	}
+	return out, nil
 }
