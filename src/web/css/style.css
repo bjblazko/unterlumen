@@ -2621,6 +2621,12 @@ body.slideshow-active #app { height: 100vh; }
     font-weight: 500;
 }
 
+.library-list-header-actions {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 1);
+}
+
 .library-list-body {
     flex: 1;
     overflow-y: auto;
@@ -3109,43 +3115,92 @@ body.slideshow-active #app { height: 100vh; }
 
 .channel-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 4px;
     padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
     border-bottom: 1px solid var(--border);
-    gap: calc(var(--unit) * 2);
 }
 
 .channel-row:last-child { border-bottom: none; }
 
-.channel-row-info {
+.channel-row-top {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 2);
+}
+
+.channel-row-header {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--unit) * 1);
     min-width: 0;
+    overflow: hidden;
 }
 
 .channel-row-name {
     font-size: 13px;
     font-weight: 500;
     color: var(--text);
+    flex-shrink: 0;
 }
 
 .channel-row-slug {
     font-size: 11px;
     color: var(--text-sec);
     font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .channel-row-detail {
     font-size: 11px;
     color: var(--text-sec);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .channel-row-actions {
     display: flex;
+    align-items: center;
     gap: calc(var(--unit) * 0.5);
     flex-shrink: 0;
+}
+
+/* --- Path dropdown --- */
+
+.ch-path-wrap {
+    position: relative;
+}
+
+.ch-path-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    z-index: 200;
+    min-width: 160px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.ch-path-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    font-size: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+}
+
+.ch-path-item:hover {
+    background: var(--surface-alt);
 }
 
 .channel-loading,

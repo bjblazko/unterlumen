@@ -40,6 +40,11 @@ func NewStore(libRoot string) *Store {
 	return &Store{path: filepath.Join(libRoot, "channels.json")}
 }
 
+// OutputDir returns the filesystem path where output for the given channel slug is stored.
+func (s *Store) OutputDir(slug string) string {
+	return filepath.Join(filepath.Dir(s.path), "channels", slug)
+}
+
 // List returns all channels. Returns built-in defaults if channels.json does not exist yet.
 func (s *Store) List() ([]*Channel, error) {
 	s.mu.Lock()

@@ -1,12 +1,21 @@
 # Changelog
 
-*Last modified: 2026-04-27*
+*Last modified: 2026-04-28*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Global channel output** — Channel export output moves from `~/.unterlumen/libraries/<id>/channels/<slug>/` to `~/.unterlumen/channels/<slug>/`, shared across all libraries. Albums from any library now publish into the same channel directory, and site-export channels accumulate albums from all libraries into one unified site. Publishing still reads photos from a specific library; only the output path is now global.
+
+- **Channel path buttons** — Each channel row in the Channels dialog now shows three new buttons:
+  - *Copy path* — copies the channel output directory to the clipboard.
+  - *Show in Files* — opens the directory in Finder (macOS), Explorer (Windows), or the default file manager (Linux); creates the directory if it doesn't exist yet.
+  - *Open in Commander* — closes the dialog and navigates the left Commander pane to the channel directory.
+
+- **Channels accessible from library list** — "Channels" button added to the library list header alongside "New library", so channel config is reachable without first opening a specific library. Rebuild site also no longer requires a library context.
 
 - **Favicon & dock icon** — SVG favicon with dark-mode adaptive bar; 180×180 apple-touch-icon for Safari "Add to Dock".
 
@@ -21,7 +30,7 @@ All notable changes to this project are documented in this file.
 - **Publish to Channels** — From library mode, select photos and publish them to a named channel (Instagram, Mastodon, Website, or custom). Each publish action:
   - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel, account, post ID, and timestamp — non-destructive and portable. Merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
   - Caches the publish record in the library DB (`photo_meta` keys `published:<channel>`, `published:<channel>:account`, `published:<channel>:postid`) for fast search; rebuilt automatically from sidecars on re-index.
-  - Exports a platform-optimised copy to `~/.unterlumen/libraries/<id>/channels/<channel>/` with filename `<channel>_<datetime>_<basename>.<ext>`.
+  - Exports a platform-optimised copy to `~/.unterlumen/channels/<channel>/` with filename `<channel>_<datetime>_<basename>.<ext>`.
   - Multi-photo publishes share a **PostID** (24-char hex) linking all photos as one grouped post (e.g. Instagram carousel).
   - Three built-in channel presets (Instagram 1080px JPEG, Mastodon 1920px JPEG, Website 2400px JPEG), all fully editable.
   - **Accounts** — channels support named sub-accounts (e.g. two Mastodon logins). The publish modal shows an account dropdown when a channel has sub-accounts.
