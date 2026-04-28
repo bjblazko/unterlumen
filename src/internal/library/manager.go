@@ -186,3 +186,194 @@ func (m *Manager) TryLockIndex(id string) bool {
 func (m *Manager) UnlockIndex(id string) {
 	m.indexMu.Delete(id)
 }
+
+// AggregateExifFieldValues returns the merged, deduplicated distinct string values
+// for a given EXIF field across the requested libraries (or all if ids is nil).
+func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) > 0 {
+		set := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			set[id] = true
+		}
+		filtered := libs[:0]
+		for _, l := range libs {
+			if set[l.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		libs = filtered
+	}
+
+	seen := make(map[string]bool)
+	var out []string
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		vals, err := store.GetExifFieldValues(field)
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, v := range vals {
+			if !seen[v] {
+				seen[v] = true
+				out = append(out, v)
+			}
+		}
+	}
+	// Sort merged result.
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j] < out[j-1]; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out, nil
+}
+
+// SearchLibraries queries one or more libraries with the given filters and
+// returns a merged, IndexedAt-sorted result. Pass nil ids to search all libraries.
+// At most 200 photos are fetched per library; the total reflects the true match count.
+func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (CrossLibraryResult, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return CrossLibraryResult{}, err
+	}
+
+	// Filter to requested libraries when ids is specified.
+	if len(ids) > 0 {
+		set := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			set[id] = true
+		}
+		filtered := libs[:0]
+		for _, l := range libs {
+			if set[l.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		libs = filtered
+	}
+
+	type libResult struct {
+		photos []LibraryPhoto
+		total  int
+		err    error
+	}
+
+	type job struct {
+		lib    *Library
+		result libResult
+	}
+
+	results := make([]job, len(libs))
+	for i, l := range libs {
+		results[i].lib = l
+	}
+
+	// Query each library (sequentially; stores are single-connection SQLite).
+	for i, j := range results {
+		store, err := m.OpenStore(j.lib.ID)
+		if err != nil {
+			continue
+		}
+		page, err := store.ListPhotos("", textFilters, numericFilters, 0, 200)
+		store.Close()
+		if err != nil {
+			results[i].result.err = err
+			continue
+		}
+		photos := make([]LibraryPhoto, len(page.Photos))
+		for k, p := range page.Photos {
+			photos[k] = LibraryPhoto{
+				LibraryID:   j.lib.ID,
+				LibraryName: j.lib.Name,
+				Photo:       p,
+			}
+		}
+		results[i].result = libResult{photos: photos, total: page.Total}
+	}
+
+	// Merge and sort by IndexedAt DESC.
+	var all []LibraryPhoto
+	total := 0
+	for _, j := range results {
+		all = append(all, j.result.photos...)
+		total += j.result.total
+	}
+	sortLibraryPhotos(all)
+
+	// Apply offset/limit.
+	if offset >= len(all) {
+		return CrossLibraryResult{Results: []LibraryPhoto{}, Total: total}, nil
+	}
+	end := offset + limit
+	if end > len(all) {
+		end = len(all)
+	}
+	return CrossLibraryResult{Results: all[offset:end], Total: total}, nil
+}
+
+func sortLibraryPhotos(photos []LibraryPhoto) {
+	for i := 1; i < len(photos); i++ {
+		for j := i; j > 0 && photos[j].IndexedAt.After(photos[j-1].IndexedAt); j-- {
+			photos[j], photos[j-1] = photos[j-1], photos[j]
+		}
+	}
+}
+
+// AggregateExifRanges returns the combined min/max numeric EXIF ranges across
+// the given libraries. Pass nil ids to aggregate all libraries.
+func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) > 0 {
+		set := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			set[id] = true
+		}
+		filtered := libs[:0]
+		for _, l := range libs {
+			if set[l.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		libs = filtered
+	}
+
+	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "ISOSpeedRatings"}
+	agg := make(map[string]ExifRange)
+
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		ranges, err := store.GetExifRanges(numericFields)
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for field, r := range ranges {
+			if cur, ok := agg[field]; ok {
+				if r.Min < cur.Min {
+					cur.Min = r.Min
+				}
+				if r.Max > cur.Max {
+					cur.Max = r.Max
+				}
+				agg[field] = cur
+			} else {
+				agg[field] = r
+			}
+		}
+	}
+	return agg, nil
+}

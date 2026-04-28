@@ -44,6 +44,32 @@ class InfoPanel {
         this.render();
     }
 
+    async loadFromURL(url, key) {
+        if (key === this.currentPath && this.data) {
+            this.render();
+            return;
+        }
+        this.currentPath = key;
+        this.loading = true;
+        this.error = null;
+        this.data = null;
+        this.render();
+        const requestKey = key;
+        try {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(await r.text());
+            const result = await r.json();
+            if (this.currentPath !== requestKey) return;
+            this.data = result;
+        } catch (err) {
+            if (this.currentPath !== requestKey) return;
+            this.data = null;
+            this.error = err.message || 'Failed to load info';
+        }
+        this.loading = false;
+        this.render();
+    }
+
     clear() {
         this.data = null;
         this.error = null;
@@ -238,11 +264,11 @@ class InfoPanel {
 
         // Exposure section
         const expRows = [];
-        this.addTag(expRows, tags, used, 'ExposureTime', 'Shutter Speed');
-        this.addTag(expRows, tags, used, 'FNumber', 'Aperture');
+        this.addTag(expRows, tags, used, 'ExposureTime', 'Shutter Speed', v => this.decodeExposureTime(v));
+        this.addTag(expRows, tags, used, 'FNumber', 'Aperture', v => this.decodeFNumber(v));
         this.addTag(expRows, tags, used, 'ISOSpeedRatings', 'ISO');
-        this.addTag(expRows, tags, used, 'ExposureBiasValue', 'Exposure Bias');
-        this.addTag(expRows, tags, used, 'FocalLength', 'Focal Length');
+        this.addTag(expRows, tags, used, 'ExposureBiasValue', 'Exposure Bias', v => this.decodeExposureBias(v));
+        this.addTag(expRows, tags, used, 'FocalLength', 'Focal Length', v => this.decodeFocalLength(v));
         this.addTag(expRows, tags, used, 'MeteringMode', 'Metering', this.decodeMeteringMode);
         this.addTag(expRows, tags, used, 'ExposureProgram', 'Program', this.decodeExposureProgram);
         this.addTag(expRows, tags, used, 'Flash', 'Flash', this.decodeFlash);
@@ -415,6 +441,45 @@ class InfoPanel {
     formatExifDate(iso) {
         if (!iso) return '\u2014';
         return iso.replace('T', ' ').replace(/([+-]\d{2}:\d{2})$/, ' $1');
+    }
+
+    parseRational(s) {
+        const slash = s.indexOf('/');
+        if (slash >= 0) {
+            const num = parseFloat(s.slice(0, slash));
+            const den = parseFloat(s.slice(slash + 1));
+            if (den === 0 || isNaN(num) || isNaN(den)) return null;
+            return num / den;
+        }
+        const v = parseFloat(s);
+        return isNaN(v) ? null : v;
+    }
+
+    decodeFNumber(s) {
+        const v = this.parseRational(s);
+        if (v === null || v <= 0) return s;
+        return `f/${v.toFixed(1)}`;
+    }
+
+    decodeFocalLength(s) {
+        const v = this.parseRational(s);
+        if (v === null || v <= 0) return s;
+        return v < 10 ? `${v.toFixed(2).replace(/\.?0+$/, '')} mm` : `${Math.round(v)} mm`;
+    }
+
+    decodeExposureTime(s) {
+        const v = this.parseRational(s);
+        if (v === null) return s;
+        if (v >= 1) return Number.isInteger(v) ? `${v} s` : `${v.toFixed(1)} s`;
+        return `1/${Math.round(1 / v)}`;
+    }
+
+    decodeExposureBias(s) {
+        const v = this.parseRational(s);
+        if (v === null) return s;
+        if (v === 0) return '0 EV';
+        const sign = v > 0 ? '+' : '';
+        return `${sign}${v.toFixed(2).replace(/\.?0+$/, '')} EV`;
     }
 
     decodeMeteringMode(v) {

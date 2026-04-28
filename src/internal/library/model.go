@@ -31,3 +31,16 @@ type MetaEntry struct {
 	Value     string    `json:"value"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// LibraryPhoto is a Photo annotated with its library context, used in cross-library search results.
+type LibraryPhoto struct {
+	LibraryID   string `json:"libraryID"`
+	LibraryName string `json:"libraryName"`
+	Photo
+}
+
+// CrossLibraryResult holds paginated search results from one or more libraries.
+type CrossLibraryResult struct {
+	Results []LibraryPhoto `json:"results"`
+	Total   int            `json:"total"`
+}
