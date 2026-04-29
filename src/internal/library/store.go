@@ -3,6 +3,8 @@ package library
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -188,6 +190,71 @@ func (s *Store) UpsertExifIndex(photoID string, fields map[string]string, numeri
 func (s *Store) MarkAllMissing() error {
 	_, err := s.db.Exec(`UPDATE photos SET status='missing'`)
 	return err
+}
+
+// PurgeMissingPhotos deletes all photos still at status='missing' after a re-index,
+// along with their exif_index, photo_meta, and path_cache rows. Orphaned thumbnail
+// files are removed from disk. Returns the number of photos purged.
+func (s *Store) PurgeMissingPhotos() (int, error) {
+	rows, err := s.db.Query(`SELECT id, thumb_path FROM photos WHERE status='missing'`)
+	if err != nil {
+		return 0, err
+	}
+	type entry struct{ id, thumbPath string }
+	var victims []entry
+	for rows.Next() {
+		var e entry
+		var thumbPath *string
+		if err := rows.Scan(&e.id, &thumbPath); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if thumbPath != nil {
+			e.thumbPath = *thumbPath
+		}
+		victims = append(victims, e)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(victims) == 0 {
+		return 0, nil
+	}
+
+	ids := make([]any, len(victims))
+	placeholders := make([]string, len(victims))
+	for i, v := range victims {
+		ids[i] = v.id
+		placeholders[i] = "?"
+	}
+	ph := strings.Join(placeholders, ",")
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	for _, q := range []string{
+		`DELETE FROM path_cache  WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM exif_index  WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM photo_meta  WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM photos      WHERE id        IN (` + ph + `)`,
+	} {
+		if _, err := tx.Exec(q, ids...); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	for _, v := range victims {
+		if v.thumbPath != "" {
+			os.Remove(filepath.Join(s.dir, v.thumbPath)) //nolint:errcheck
+		}
+	}
+	return len(victims), nil
 }
 
 // CountPhotos returns the total number of indexed photos (status='ok').

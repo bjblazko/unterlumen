@@ -105,3 +105,42 @@ func TestListPhotosFocalLength35Filter(t *testing.T) {
 		t.Error("photo d (no focal length) should NOT match [30,40]")
 	}
 }
+
+// TestPurgeMissingPhotos verifies that PurgeMissingPhotos removes missing photos
+// and their dependent rows, leaving ok photos untouched.
+func TestPurgeMissingPhotos(t *testing.T) {
+	s := newTestStore(t)
+
+	insertPhoto(t, s, "keep", fp(50), nil)
+	insertPhoto(t, s, "gone", fp(35), nil)
+
+	// Simulate a re-scan that only found "keep".
+	if _, err := s.db.Exec(`UPDATE photos SET status='missing' WHERE id='gone'`); err != nil {
+		t.Fatalf("mark missing: %v", err)
+	}
+
+	n, err := s.PurgeMissingPhotos()
+	if err != nil {
+		t.Fatalf("PurgeMissingPhotos: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("purged %d, want 1", n)
+	}
+
+	// "keep" must still be present with status ok.
+	result, err := s.ListPhotos("", nil, nil, 0, 10)
+	if err != nil {
+		t.Fatalf("ListPhotos: %v", err)
+	}
+	if result.Total != 1 || result.Photos[0].ID != "keep" {
+		t.Errorf("expected only 'keep', got %+v", result.Photos)
+	}
+
+	// "gone" must be fully removed — no orphan rows.
+	var count int
+	s.db.QueryRow(`SELECT COUNT(1) FROM photos WHERE id='gone'`).Scan(&count)       //nolint:errcheck
+	s.db.QueryRow(`SELECT COUNT(1) FROM exif_index WHERE photo_id='gone'`).Scan(&count) //nolint:errcheck
+	if count != 0 {
+		t.Error("orphan exif_index rows remain after purge")
+	}
+}
