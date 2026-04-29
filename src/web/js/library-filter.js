@@ -68,6 +68,7 @@ class LibrarySearchPanel {
         this._options = options;
         this._ranges = {};
         this._active = {};
+        this._use35mm = false;
         this._debounceTimer = null;
         this._libraries = [];
         this._searchPane = null;
@@ -179,13 +180,15 @@ class LibrarySearchPanel {
         this._slidersWrap.innerHTML = '';
         this._active = {};
         const fields = EXIF_FILTER_FIELDS.filter(f => {
-            const r = this._ranges[f.field];
+            const activeField = (f.field === 'FocalLength' && this._use35mm) ? 'FocalLength35' : f.field;
+            const r = this._ranges[activeField];
             return r && r.min < r.max;
         });
         for (const spec of fields) {
-            const r = this._ranges[spec.field];
-            this._active[spec.field] = { min: r.min, max: r.max };
-            this._slidersWrap.appendChild(this._buildGroup(spec, r));
+            const activeField = (spec.field === 'FocalLength' && this._use35mm) ? 'FocalLength35' : spec.field;
+            const r = this._ranges[activeField];
+            this._active[activeField] = { min: r.min, max: r.max };
+            this._slidersWrap.appendChild(this._buildGroup(spec, activeField, r));
         }
         if (fields.length === 0) {
             const msg = document.createElement('div');
@@ -195,7 +198,7 @@ class LibrarySearchPanel {
         }
     }
 
-    _buildGroup(spec, range) {
+    _buildGroup(spec, activeField, range) {
         const group = document.createElement('div');
         group.className = 'lib-filter-group';
 
@@ -211,11 +214,28 @@ class LibrarySearchPanel {
         header.appendChild(displaySpan);
         group.appendChild(header);
 
-        group.appendChild(this._buildRangeSlider(spec, range, displaySpan));
+        group.appendChild(this._buildRangeSlider(spec, activeField, range, displaySpan));
+
+        if (spec.field === 'FocalLength') {
+            const label = document.createElement('label');
+            label.className = 'lib-filter-35mm';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = this._use35mm;
+            cb.addEventListener('change', () => {
+                this._use35mm = cb.checked;
+                this._rebuildSliders();
+                this._runQuery();
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode('35mm equivalent'));
+            group.appendChild(label);
+        }
+
         return group;
     }
 
-    _buildRangeSlider(spec, range, displaySpan) {
+    _buildRangeSlider(spec, activeField, range, displaySpan) {
         const wrap = document.createElement('div');
         wrap.className = 'lib-range-slider';
 
@@ -243,7 +263,7 @@ class LibrarySearchPanel {
             fill.style.width = `${(maxPos - minPos) * 100}%`;
             const minVal = sliderToValue(minPos, range.min, range.max, spec.log);
             const maxVal = sliderToValue(maxPos, range.min, range.max, spec.log);
-            this._active[spec.field] = { min: minVal, max: maxVal };
+            this._active[activeField] = { min: minVal, max: maxVal };
             displaySpan.textContent = spec.format(minVal) + ' – ' + spec.format(maxVal);
         };
 
@@ -355,6 +375,7 @@ class LibrarySearchPanel {
 
     _reset() {
         this._textActive = {};
+        this._use35mm = false;
         this._rebuildSliders();
         this._rebuildTextFilters();
         this._runQuery();

@@ -8,10 +8,11 @@ import (
 // numericExifFields maps EXIF field names to their parser functions.
 // Only these four fields are given numeric_value in the exif_index.
 var numericExifFields = map[string]func(string) (float64, bool){
-	"ExposureTime":     ParseExposureSeconds,
-	"FNumber":          ParseFNumber,
-	"FocalLength":      ParseFocalLengthMM,
-	"ISOSpeedRatings":  ParseISO,
+	"ExposureTime":          ParseExposureSeconds,
+	"FNumber":               ParseFNumber,
+	"FocalLength":           ParseFocalLengthMM,
+	"FocalLengthIn35mmFilm": ParseFocalLengthMM,
+	"ISOSpeedRatings":       ParseISO,
 }
 
 // NormalizeExifNumbers returns a map of EXIF field → float64 for all numeric

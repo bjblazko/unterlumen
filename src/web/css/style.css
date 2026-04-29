@@ -2980,6 +2980,22 @@ body.slideshow-active #app { height: 100vh; }
     font-variant-numeric: tabular-nums;
 }
 
+.lib-filter-35mm {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-sec);
+    cursor: pointer;
+    user-select: none;
+}
+
+.lib-filter-35mm input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
 /* --- Combined range slider --- */
 .lib-range-slider {
     position: relative;

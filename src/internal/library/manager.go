@@ -349,7 +349,7 @@ func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error
 		libs = filtered
 	}
 
-	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "ISOSpeedRatings"}
+	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "FocalLengthIn35mmFilm", "FocalLength35", "ISOSpeedRatings"}
 	agg := make(map[string]ExifRange)
 
 	for _, l := range libs {
