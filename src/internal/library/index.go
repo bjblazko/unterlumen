@@ -71,6 +71,8 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 		}
 	}
 
+	idx.store.PurgeMissingPhotos() //nolint:errcheck
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now)
 

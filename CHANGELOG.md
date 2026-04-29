@@ -16,6 +16,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Clean sweep after re-index** — Photos that have been deleted or moved out of a library's source directory are now fully removed from the database (along with their EXIF index, metadata, and path cache rows) and their thumbnail files are deleted from disk. Previously, missing photos accumulated as invisible dead records.
+
 - **35mm equivalent focal length filter** — The focal length range slider in the library search panel now has a "35mm equivalent" checkbox. When enabled, the slider operates on the `FocalLengthIn35mmFilm` EXIF value instead of the native focal length — useful for comparing photos across cameras with different sensor sizes. Photos without 35mm-equivalent EXIF data fall back to the native focal length automatically. Existing libraries are migrated on startup without re-indexing.
 
 - **Lazy loading for search/filter results** — Scrolling through EXIF-filtered or text-searched results now loads all matching photos, not just the first 100. When the user approaches the bottom of the currently loaded set, the next page is fetched from the server and appended to the grid seamlessly. Works in both the cross-library search panel and the per-library filter view. Backend limits raised to match: cross-library search now accepts up to 500 results per page, and the per-library internal fetch window scales with the requested offset so any page is reachable.
