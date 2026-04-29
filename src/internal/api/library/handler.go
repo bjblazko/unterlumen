@@ -372,7 +372,7 @@ func parseNumericFilters(vals map[string][]string) map[string]lib.NumericFilter 
 }
 
 func exifRanges(mgr *lib.Manager) http.HandlerFunc {
-	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "ISOSpeedRatings"}
+	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "FocalLengthIn35mmFilm", "FocalLength35", "ISOSpeedRatings"}
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		store, err := mgr.OpenStore(id)

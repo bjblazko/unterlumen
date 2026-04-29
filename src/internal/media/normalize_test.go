@@ -138,15 +138,16 @@ func TestParseISO(t *testing.T) {
 
 func TestNormalizeExifNumbers(t *testing.T) {
 	tags := map[string]string{
-		"ExposureTime":    `"1/500"`,
-		"FNumber":         `"28/10"`,
-		"FocalLength":     `"50/1"`,
-		"ISOSpeedRatings": "400",
-		"Make":            "Canon", // non-numeric, must be ignored
+		"ExposureTime":          `"1/500"`,
+		"FNumber":               `"28/10"`,
+		"FocalLength":           `"50/1"`,
+		"FocalLengthIn35mmFilm": "75",
+		"ISOSpeedRatings":       "400",
+		"Make":                  "Canon", // non-numeric, must be ignored
 	}
 	got := NormalizeExifNumbers(tags)
-	if len(got) != 4 {
-		t.Fatalf("expected 4 numeric values, got %d: %v", len(got), got)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 numeric values, got %d: %v", len(got), got)
 	}
 	if math.Abs(got["ExposureTime"]-0.002) > 1e-9 {
 		t.Errorf("ExposureTime = %v, want 0.002", got["ExposureTime"])
@@ -156,6 +157,9 @@ func TestNormalizeExifNumbers(t *testing.T) {
 	}
 	if math.Abs(got["FocalLength"]-50.0) > 1e-9 {
 		t.Errorf("FocalLength = %v, want 50.0", got["FocalLength"])
+	}
+	if math.Abs(got["FocalLengthIn35mmFilm"]-75.0) > 1e-9 {
+		t.Errorf("FocalLengthIn35mmFilm = %v, want 75.0", got["FocalLengthIn35mmFilm"])
 	}
 	if math.Abs(got["ISOSpeedRatings"]-400) > 1e-9 {
 		t.Errorf("ISOSpeedRatings = %v, want 400", got["ISOSpeedRatings"])

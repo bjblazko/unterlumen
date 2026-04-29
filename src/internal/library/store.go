@@ -72,6 +72,13 @@ func openStore(dbPath, dir string) (*Store, error) {
 	// Migration: add numeric_value column to existing databases (ignored for new ones).
 	db.Exec(`ALTER TABLE exif_index ADD COLUMN numeric_value REAL`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value)`)
+	// Migration: backfill FocalLengthIn35mmFilm numeric_value for photos indexed before
+	// this field was added to numericExifFields. The value is always a plain integer string.
+	db.Exec(`UPDATE exif_index
+		SET numeric_value = CAST(TRIM(value, '"') AS REAL)
+		WHERE field = 'FocalLengthIn35mmFilm'
+		  AND numeric_value IS NULL
+		  AND CAST(TRIM(value, '"') AS REAL) > 0`)
 	return &Store{db: db, dir: dir}, nil
 }
 
@@ -306,9 +313,32 @@ func (s *Store) ListPhotos(q string, filters map[string]string, numericFilters m
 	}
 
 	for field, r := range numericFilters {
-		where = append(where,
-			`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND e.numeric_value BETWEEN ? AND ?)`)
-		args = append(args, field, r.Min, r.Max)
+		if field == "FocalLength35" {
+			where = append(where, `(
+				EXISTS (
+					SELECT 1 FROM exif_index e35
+					WHERE e35.photo_id = p.id AND e35.field = 'FocalLengthIn35mmFilm'
+					  AND e35.numeric_value BETWEEN ? AND ?
+				)
+				OR (
+					NOT EXISTS (
+						SELECT 1 FROM exif_index e35
+						WHERE e35.photo_id = p.id AND e35.field = 'FocalLengthIn35mmFilm'
+						  AND e35.numeric_value IS NOT NULL
+					)
+					AND EXISTS (
+						SELECT 1 FROM exif_index efl
+						WHERE efl.photo_id = p.id AND efl.field = 'FocalLength'
+						  AND efl.numeric_value BETWEEN ? AND ?
+					)
+				)
+			)`)
+			args = append(args, r.Min, r.Max, r.Min, r.Max)
+		} else {
+			where = append(where,
+				`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND e.numeric_value BETWEEN ? AND ?)`)
+			args = append(args, field, r.Min, r.Max)
+		}
 	}
 
 	whereClause := strings.Join(where, " AND ")
@@ -503,16 +533,37 @@ type ExifRange struct {
 
 // GetExifRanges returns the min/max numeric_value for each of the requested EXIF fields.
 // Fields with no numeric data are omitted from the result.
+// The virtual key "FocalLength35" returns the combined range of FocalLengthIn35mmFilm
+// (where present) falling back to FocalLength — matching the filter semantics.
 func (s *Store) GetExifRanges(fields []string) (map[string]ExifRange, error) {
 	out := make(map[string]ExifRange)
 	for _, field := range fields {
 		var minVal, maxVal sql.NullFloat64
-		err := s.db.QueryRow(
-			`SELECT MIN(numeric_value), MAX(numeric_value) FROM exif_index WHERE field=? AND numeric_value IS NOT NULL`,
-			field,
-		).Scan(&minVal, &maxVal)
-		if err != nil {
-			return nil, err
+		if field == "FocalLength35" {
+			err := s.db.QueryRow(`
+				SELECT MIN(COALESCE(fl35.numeric_value, fl.numeric_value)),
+				       MAX(COALESCE(fl35.numeric_value, fl.numeric_value))
+				FROM   photos p
+				LEFT JOIN exif_index fl35
+				       ON fl35.photo_id = p.id AND fl35.field = 'FocalLengthIn35mmFilm'
+				      AND fl35.numeric_value IS NOT NULL
+				LEFT JOIN exif_index fl
+				       ON fl.photo_id = p.id AND fl.field = 'FocalLength'
+				      AND fl.numeric_value IS NOT NULL
+				WHERE  p.status = 'ok'
+				  AND  COALESCE(fl35.numeric_value, fl.numeric_value) IS NOT NULL`,
+			).Scan(&minVal, &maxVal)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			err := s.db.QueryRow(
+				`SELECT MIN(numeric_value), MAX(numeric_value) FROM exif_index WHERE field=? AND numeric_value IS NOT NULL`,
+				field,
+			).Scan(&minVal, &maxVal)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if minVal.Valid && maxVal.Valid {
 			out[field] = ExifRange{Min: minVal.Float64, Max: maxVal.Float64}
