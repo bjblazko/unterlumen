@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Library toolbar refinements** — Several visual improvements to the library UI:
+  - "New library" button removed from the library list header and merged into the top-right "Libraries" nav button as a small `+` affordance (separated by a thin line). Clicking `+` switches to library mode and immediately opens the new-library dialog.
+  - "Search" (library list) and "Filter" (library detail) toggle buttons now show a small orange dot when their panel is open, rather than filling solid orange. The button returns to its default appearance when the panel is closed.
+  - Vertical separator added between the toggle buttons (Search/Filter) and dialog-opening buttons (Channels) in both the list and detail headers.
+  - "Channels" button now carries a `›` suffix in both the list and detail views to signal it opens a dialog.
+
 ### Added
 
 - **Lazy loading for search/filter results** — Scrolling through EXIF-filtered or text-searched results now loads all matching photos, not just the first 100. When the user approaches the bottom of the currently loaded set, the next page is fetched from the server and appended to the grid seamlessly. Works in both the cross-library search panel and the per-library filter view. Backend limits raised to match: cross-library search now accepts up to 500 results per page, and the per-library internal fetch window scales with the requested offset so any page is reachable.

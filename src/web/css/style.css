@@ -160,6 +160,28 @@ body {
     font-weight: 600;
 }
 
+.workflow-step-create {
+    margin-left: calc(var(--unit) * 0.75);
+    padding-left: calc(var(--unit) * 0.75);
+    border-left: 1px solid rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+    line-height: 1;
+    color: var(--text-sec);
+    opacity: 0.7;
+    transition: opacity 0.1s;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.workflow-step.active .workflow-step-create {
+    border-left-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+.workflow-step-create:hover {
+    opacity: 1;
+}
+
 .workflow-badge {
     display: none;
     background: var(--accent);
@@ -2625,6 +2647,33 @@ body.slideshow-active #app { height: 100vh; }
     display: flex;
     align-items: center;
     gap: calc(var(--unit) * 1);
+}
+
+.header-actions-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.btn-toggle::after {
+    content: '·';
+    margin-left: 4px;
+    color: var(--text-sec);
+    font-size: 10px;
+}
+
+.btn-toggle.active {
+    background: var(--surface-alt);
+    border-color: var(--border);
+    color: var(--text);
+    font-weight: 400;
+}
+
+.btn-toggle.active::after {
+    content: '●';
+    color: var(--accent);
+    font-size: 10px;
 }
 
 .library-list-body {
