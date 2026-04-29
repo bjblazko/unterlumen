@@ -2805,20 +2805,44 @@ body.slideshow-active #app { height: 100vh; }
     display: flex;
 }
 
-/* On the list page, hide library cards and show search content when filter is open */
-.lib-search-panel.visible ~ .library-list-body {
+/* --- Library Search Body (sidebar wrapper, list page) --- */
+
+.lib-search-body {
     display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.lib-search-body:has(> .lib-search-panel.visible) {
+    display: flex;
+}
+
+.lib-search-body:has(> .lib-search-panel.visible) ~ .library-list-body {
+    display: none;
+}
+
+/* Detail view: body is always visible; sidebar slides in when filter opens */
+.library-detail .lib-search-body {
+    display: flex;
+}
+
+.lib-search-body > .lib-search-panel {
+    width: 210px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--border);
 }
 
 /* --- Library search results area (list page) --- */
 
 .lib-search-content {
-    display: none;
     flex: 1;
     overflow: hidden;
 }
 
-.lib-search-panel.visible ~ .lib-search-content {
+.lib-search-body > .lib-search-content {
     display: flex;
 }
 
@@ -2907,33 +2931,52 @@ body.slideshow-active #app { height: 100vh; }
     font-variant-numeric: tabular-nums;
 }
 
-.lib-slider-row {
+/* --- Combined range slider --- */
+.lib-range-slider {
+    position: relative;
+    height: 20px;
     display: flex;
     align-items: center;
-    gap: calc(var(--unit) * 1);
 }
 
-.lib-slider-tag {
-    font-size: 10px;
-    color: var(--text-sec);
-    width: 26px;
-    flex-shrink: 0;
+.lib-range-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
 }
 
-.lib-filter-range {
-    flex: 1;
-    accent-color: var(--accent);
-    cursor: pointer;
-    margin: 0;
+.lib-range-fill {
+    position: absolute;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
 }
 
-.lib-slider-val {
-    font-size: 10px;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-    min-width: 44px;
-    text-align: right;
-    flex-shrink: 0;
+.lib-range-handle {
+    position: absolute;
+    width: 13px;
+    height: 17px;
+    background: var(--accent);
+    cursor: ew-resize;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.lib-range-handle--min {
+    clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+}
+
+.lib-range-handle--max {
+    clip-path: polygon(100% 0%, 0% 50%, 100% 100%);
+}
+
+.lib-range-handle:hover {
+    background: var(--accent-hover);
 }
 
 .lib-search-status {
@@ -3011,6 +3054,56 @@ body.slideshow-active #app { height: 100vh; }
 .lib-text-filter-select {
     width: 100%;
     max-width: 220px;
+}
+
+/* --- Sidebar overrides for list-page filter panel --- */
+
+.lib-search-body .lib-search-controls {
+    flex-direction: column;
+    align-items: stretch;
+    padding: calc(var(--unit) * 2);
+    gap: calc(var(--unit) * 1.5);
+    border-bottom: none;
+}
+
+.lib-search-body .lib-search-select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.lib-search-body .lib-filter-groups {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: calc(var(--unit) * 2.5);
+    padding: calc(var(--unit) * 2);
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+}
+
+.lib-search-body .lib-filter-group {
+    max-width: none;
+    min-width: 0;
+    flex: none;
+}
+
+.lib-search-body .lib-text-filter-groups {
+    border-top: 1px solid var(--border);
+    padding-top: calc(var(--unit) * 2);
+}
+
+.lib-search-body .lib-text-filter-select {
+    max-width: none;
+}
+
+.lib-search-body .lib-search-status {
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
+}
+
+.lib-search-body .lib-search-reset {
+    align-self: flex-start;
+    padding: calc(var(--unit) * 0.5) 0;
 }
 
 /* --- Library Info Panel Meta section --- */

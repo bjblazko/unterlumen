@@ -11,6 +11,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -228,7 +229,9 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 			if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
 				continue
 			}
-			filters[k] = vals[0]
+			if vals[0] != "" {
+				filters[k] = vals[0]
+			}
 		}
 		numericFilters := parseNumericFilters(r.URL.Query())
 
@@ -330,26 +333,40 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 }
 
 func parseNumericFilters(vals map[string][]string) map[string]lib.NumericFilter {
-	out := make(map[string]lib.NumericFilter)
+	type bounds struct{ min, max *float64 }
+	bmap := make(map[string]*bounds)
+	ensure := func(field string) *bounds {
+		if bmap[field] == nil {
+			bmap[field] = &bounds{}
+		}
+		return bmap[field]
+	}
 	for k, vs := range vals {
 		if len(vs) == 0 {
 			continue
 		}
 		if field, suffix, ok := strings.Cut(k, "_min"); ok && suffix == "" {
 			if v, err := strconv.ParseFloat(vs[0], 64); err == nil {
-				f := out[field]
-				f.Min = v
-				out[field] = f
+				ensure(field).min = &v
 			}
 			continue
 		}
 		if field, suffix, ok := strings.Cut(k, "_max"); ok && suffix == "" {
 			if v, err := strconv.ParseFloat(vs[0], 64); err == nil {
-				f := out[field]
-				f.Max = v
-				out[field] = f
+				ensure(field).max = &v
 			}
 		}
+	}
+	out := make(map[string]lib.NumericFilter)
+	for field, b := range bmap {
+		f := lib.NumericFilter{Min: 0, Max: math.MaxFloat64}
+		if b.min != nil {
+			f.Min = *b.min
+		}
+		if b.max != nil {
+			f.Max = *b.max
+		}
+		out[field] = f
 	}
 	return out
 }
