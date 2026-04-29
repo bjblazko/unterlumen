@@ -257,7 +257,7 @@ func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 		numericFilters := parseNumericFilters(r.URL.Query())
 		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		if limit <= 0 || limit > 200 {
+		if limit <= 0 || limit > 500 {
 			limit = 100
 		}
 		result, err := mgr.SearchLibraries(ids, textFilters, numericFilters, offset, limit)

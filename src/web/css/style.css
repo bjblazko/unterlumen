@@ -2957,9 +2957,11 @@ body.slideshow-active #app { height: 100vh; }
 
 .lib-range-handle {
     position: absolute;
-    width: 13px;
+    width: 7px;
     height: 17px;
-    background: var(--accent);
+    background: none;
+    border: 2px solid var(--accent);
+    box-sizing: border-box;
     cursor: ew-resize;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -2968,15 +2970,15 @@ body.slideshow-active #app { height: 100vh; }
 }
 
 .lib-range-handle--min {
-    clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+    border-right: none;
 }
 
 .lib-range-handle--max {
-    clip-path: polygon(100% 0%, 0% 50%, 100% 100%);
+    border-left: none;
 }
 
 .lib-range-handle:hover {
-    background: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 .lib-search-status {

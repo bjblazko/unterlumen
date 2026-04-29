@@ -386,29 +386,34 @@ class LibrarySearchPanel {
 
     async _runQuery() {
         const params = this._buildParams();
+        this._lastParams = params;
         try {
             const result = await LibraryAPI.search({ limit: 100, ...params });
-            this._renderResults(result);
+            this._renderResults(result, params);
         } catch { /* ignore transient errors */ }
     }
 
-    _renderResults(result) {
+    _renderResults(result, params = this._lastParams || {}) {
         const { results, total } = result;
         const multiLib = !this._initialLibID && this._libraries.length > 1;
 
         if (this._statusEl) {
             this._statusEl.style.display = '';
-            const suffix = total > results.length ? ` · showing ${results.length}` : '';
-            this._statusEl.innerHTML = `<strong>${total}</strong> photo${total !== 1 ? 's' : ''} match${suffix}`;
+            this._statusEl.innerHTML = `<strong>${total}</strong> photo${total !== 1 ? 's' : ''} match`;
         }
 
+        const fetchPage = async (offset, limit) => {
+            const r = await LibraryAPI.search({ limit, offset, ...params });
+            return r.results;
+        };
+
         if (this._options.onResults) {
-            this._options.onResults(results, multiLib);
+            this._options.onResults(results, multiLib, { total, fetchPage });
             return;
         }
 
         if (this._searchPane) {
-            this._searchPane.loadResults(results, multiLib);
+            this._searchPane.loadResults(results, multiLib, { total, fetchPage });
         }
     }
 }
