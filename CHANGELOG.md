@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Lazy loading for search/filter results** — Scrolling through EXIF-filtered or text-searched results now loads all matching photos, not just the first 100. When the user approaches the bottom of the currently loaded set, the next page is fetched from the server and appended to the grid seamlessly. Works in both the cross-library search panel and the per-library filter view. Backend limits raised to match: cross-library search now accepts up to 500 results per page, and the per-library internal fetch window scales with the requested offset so any page is reachable.
+
 - **EXIF filter panel** — Slider-based filtering by shutter speed, aperture, focal length, ISO, camera, lens, and film simulation, available in two places:
   - **Per-library** — "Filter" button in the library detail header opens a sidebar filter panel to the left of the photo grid. Ranges are scoped to the current library.
   - **Cross-library search** — "Search" button on the library list opens the same sidebar with a library selector (defaults to "All libraries"), searching across the full indexed collection.

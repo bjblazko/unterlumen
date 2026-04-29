@@ -282,7 +282,8 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 		if err != nil {
 			continue
 		}
-		page, err := store.ListPhotos("", textFilters, numericFilters, 0, 200)
+		perLibLimit := offset + limit
+		page, err := store.ListPhotos("", textFilters, numericFilters, 0, perLibLimit)
 		store.Close()
 		if err != nil {
 			results[i].result.err = err

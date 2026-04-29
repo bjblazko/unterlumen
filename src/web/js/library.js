@@ -492,7 +492,7 @@ class LibraryTab {
             el.querySelector('#lib-filter-btn'),
             lib.id,
             {
-                onResults: (photos, multiLib) => this._showSearchResults(el, publishBtn, photos, multiLib),
+                onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, publishBtn, photos, multiLib, paginationOpts),
                 onClose: () => this._showLibraryPane(el, publishBtn),
             }
         );
@@ -521,7 +521,7 @@ class LibraryTab {
         this._pane.load(lib.relSourcePath || '');
     }
 
-    _showSearchResults(detailEl, publishBtn, photos, multiLib) {
+    _showSearchResults(detailEl, publishBtn, photos, multiLib, paginationOpts) {
         const paneEl = detailEl.querySelector('#lib-pane');
         const searchPaneEl = detailEl.querySelector('#lib-search-pane');
 
@@ -533,7 +533,7 @@ class LibraryTab {
             });
         }
 
-        this._searchPane.loadResults(photos, multiLib);
+        this._searchPane.loadResults(photos, multiLib, paginationOpts);
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
         publishBtn.disabled = true;
