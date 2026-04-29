@@ -209,9 +209,9 @@ class LibraryTab {
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
                 <div class="library-list-header-actions">
-                    <button class="btn" id="lib-search-btn">Search</button>
-                    <button class="btn" id="lib-channels-btn">Channels</button>
-                    <button class="btn btn-accent" id="lib-create-btn">New library</button>
+                    <button class="btn btn-toggle" id="lib-search-btn">Search</button>
+                    <div class="header-actions-sep"></div>
+                    <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
             <div class="lib-search-body">
@@ -227,7 +227,6 @@ class LibraryTab {
         this.container.appendChild(el);
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
-        el.querySelector('#lib-create-btn').addEventListener('click', () => this._showCreateDialog());
 
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
@@ -458,9 +457,9 @@ class LibraryTab {
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
-                    <button class="btn btn-sm" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
+                    <button class="btn btn-sm btn-toggle" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-reindex-btn">Re-index</button>
-                    <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels</button>
+                    <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
             <div class="lib-search-body">

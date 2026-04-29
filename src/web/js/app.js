@@ -34,6 +34,11 @@ const App = {
         document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
         document.getElementById('mode-library').addEventListener('click', () => this.setMode('library'));
+        document.getElementById('mode-library-create').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setMode('library');
+            if (this._libraryTab) this._libraryTab._showCreateDialog();
+        });
 
         document.getElementById('mode-browse').title = `Select (1)`;
         document.getElementById('mode-wastebin').title = `Review (2)`;
