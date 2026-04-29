@@ -301,8 +301,8 @@ func (s *Store) ListPhotos(q string, filters map[string]string, numericFilters m
 
 	for field, val := range filters {
 		where = append(where,
-			`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND e.value LIKE ?)`)
-		args = append(args, field, "%"+val+"%")
+			`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND TRIM(TRIM(e.value, '"')) = ?)`)
+		args = append(args, field, val)
 	}
 
 	for field, r := range numericFilters {
@@ -473,9 +473,9 @@ func (s *Store) ExifFields() ([]string, error) {
 // with surrounding quotes stripped. Empty or missing values are excluded.
 func (s *Store) GetExifFieldValues(field string) ([]string, error) {
 	rows, err := s.db.Query(
-		`SELECT DISTINCT TRIM(value, '"') FROM exif_index
-		 WHERE field=? AND value != '""' AND value != ''
-		 ORDER BY TRIM(value, '"')`,
+		`SELECT DISTINCT TRIM(TRIM(value, '"')) FROM exif_index
+		 WHERE field=? AND TRIM(TRIM(value, '"')) != ''
+		 ORDER BY TRIM(TRIM(value, '"'))`,
 		field,
 	)
 	if err != nil {

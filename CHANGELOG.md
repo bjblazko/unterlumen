@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-04-28*
+*Last modified: 2026-04-29*
 
 All notable changes to this project are documented in this file.
 
@@ -8,7 +8,14 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- **EXIF numeric search groundwork** — Foundation for slider-based library filtering. Numeric EXIF values (shutter speed, aperture, focal length, ISO) are now parsed at index time into canonical floats and stored in a new `numeric_value` column in `exif_index`. Handles format variations from mixed cameras and scanning software (`"1/500"`, `"1/500 s"`, `"0.004 sec"`, `"f/2.8"`, `"50 mm"`, etc.). New API: `GET /api/library/{id}/exif-ranges` returns min/max per field; `GET /api/library/{id}/photos` now accepts `Field_min`/`Field_max` range params. A collapsible filter panel with log-scale range sliders appears via the "Filter" button in the library header, showing matched photo count as sliders are adjusted.
+- **EXIF filter panel** — Slider-based filtering by shutter speed, aperture, focal length, ISO, camera, lens, and film simulation, available in two places:
+  - **Per-library** — "Filter" button in the library detail header opens a sidebar filter panel to the left of the photo grid. Ranges are scoped to the current library.
+  - **Cross-library search** — "Search" button on the library list opens the same sidebar with a library selector (defaults to "All libraries"), searching across the full indexed collection.
+  - Numeric EXIF values are normalised at index time into canonical floats (`numeric_value` column in `exif_index`), handling mixed camera formats (`"1/500 s"`, `"0.004 sec"`, `"f/2.8"`, `"50/1"`, etc.). Sliders use log scale for shutter speed, aperture, and ISO (matching photographic stops); linear for focal length.
+  - Custom dual-handle drag slider — no browser `<input type="range">`; handles are shaped triangles that snap correctly at the track edges.
+  - Text filters (camera, lens, film sim) use exact value matching after stripping any surrounding quotes from the EXIF index.
+  - 300 ms debounce; matched photo count shown in the sidebar. Results reuse the full grid/list/justified view with viewer and metadata panel.
+  - New API endpoints: `GET /api/library/{id}/exif-ranges`, `GET /api/library/search`, `GET /api/library/exif-ranges` (global), `GET /api/library/exif-values` (distinct text values).
 
 - **Global channel output** — Channel export output moves from `~/.unterlumen/libraries/<id>/channels/<slug>/` to `~/.unterlumen/channels/<slug>/`, shared across all libraries. Albums from any library now publish into the same channel directory, and site-export channels accumulate albums from all libraries into one unified site. Publishing still reads photos from a specific library; only the output path is now global.
 

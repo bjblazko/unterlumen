@@ -211,63 +211,73 @@ class LibrarySearchPanel {
         header.appendChild(displaySpan);
         group.appendChild(header);
 
-        // From row
-        const [fromRow, fromSlider, fromVal] = this._buildSliderRow('From', 0, spec, range);
-        // To row
-        const [toRow, toSlider, toVal] = this._buildSliderRow('To', 1000, spec, range);
-
-        fromSlider.addEventListener('input', () => {
-            if (+fromSlider.value > +toSlider.value) fromSlider.value = toSlider.value;
-            const v = sliderToValue(+fromSlider.value / 1000, range.min, range.max, spec.log);
-            fromVal.textContent = spec.format(v);
-            this._active[spec.field] = {
-                min: v,
-                max: sliderToValue(+toSlider.value / 1000, range.min, range.max, spec.log),
-            };
-            displaySpan.textContent = spec.format(this._active[spec.field].min) + ' – ' + spec.format(this._active[spec.field].max);
-            this._scheduleQuery();
-        });
-
-        toSlider.addEventListener('input', () => {
-            if (+toSlider.value < +fromSlider.value) toSlider.value = fromSlider.value;
-            const v = sliderToValue(+toSlider.value / 1000, range.min, range.max, spec.log);
-            toVal.textContent = spec.format(v);
-            this._active[spec.field] = {
-                min: sliderToValue(+fromSlider.value / 1000, range.min, range.max, spec.log),
-                max: v,
-            };
-            displaySpan.textContent = spec.format(this._active[spec.field].min) + ' – ' + spec.format(this._active[spec.field].max);
-            this._scheduleQuery();
-        });
-
-        group.appendChild(fromRow);
-        group.appendChild(toRow);
+        group.appendChild(this._buildRangeSlider(spec, range, displaySpan));
         return group;
     }
 
-    _buildSliderRow(tag, initialValue, spec, range) {
-        const row = document.createElement('div');
-        row.className = 'lib-slider-row';
+    _buildRangeSlider(spec, range, displaySpan) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lib-range-slider';
 
-        const tagEl = document.createElement('span');
-        tagEl.className = 'lib-slider-tag';
-        tagEl.textContent = tag;
+        const track = document.createElement('div');
+        track.className = 'lib-range-track';
+        const fill = document.createElement('div');
+        fill.className = 'lib-range-fill';
+        track.appendChild(fill);
+        wrap.appendChild(track);
 
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.className = 'lib-filter-range';
-        slider.min = 0;
-        slider.max = 1000;
-        slider.value = initialValue;
+        const minHandle = document.createElement('div');
+        minHandle.className = 'lib-range-handle lib-range-handle--min';
+        const maxHandle = document.createElement('div');
+        maxHandle.className = 'lib-range-handle lib-range-handle--max';
+        wrap.appendChild(minHandle);
+        wrap.appendChild(maxHandle);
 
-        const valEl = document.createElement('span');
-        valEl.className = 'lib-slider-val';
-        valEl.textContent = spec.format(sliderToValue(initialValue / 1000, range.min, range.max, spec.log));
+        let minPos = 0;
+        let maxPos = 1;
 
-        row.appendChild(tagEl);
-        row.appendChild(slider);
-        row.appendChild(valEl);
-        return [row, slider, valEl];
+        const updateUI = () => {
+            minHandle.style.left = `${minPos * 100}%`;
+            maxHandle.style.left = `${maxPos * 100}%`;
+            fill.style.left = `${minPos * 100}%`;
+            fill.style.width = `${(maxPos - minPos) * 100}%`;
+            const minVal = sliderToValue(minPos, range.min, range.max, spec.log);
+            const maxVal = sliderToValue(maxPos, range.min, range.max, spec.log);
+            this._active[spec.field] = { min: minVal, max: maxVal };
+            displaySpan.textContent = spec.format(minVal) + ' – ' + spec.format(maxVal);
+        };
+
+        const attachDrag = (handle, isMin) => {
+            handle.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                document.body.style.userSelect = 'none';
+
+                const onMove = (e) => {
+                    const rect = wrap.getBoundingClientRect();
+                    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    if (isMin) minPos = Math.min(pos, maxPos);
+                    else maxPos = Math.max(pos, minPos);
+                    updateUI();
+                    this._scheduleQuery();
+                };
+
+                const onUp = () => {
+                    document.body.style.userSelect = '';
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        };
+
+        attachDrag(minHandle, true);
+        attachDrag(maxHandle, false);
+
+        updateUI();
+        return wrap;
     }
 
     _buildTextFilters() {
@@ -361,8 +371,12 @@ class LibrarySearchPanel {
         for (const [field, active] of Object.entries(this._active)) {
             const r = this._ranges[field];
             if (!r) continue;
-            if (active.min > r.min + 1e-12) params[`${field}_min`] = active.min;
-            if (active.max < r.max - 1e-12) params[`${field}_max`] = active.max;
+            const minMoved = active.min > r.min + 1e-12;
+            const maxMoved = active.max < r.max - 1e-12;
+            if (minMoved || maxMoved) {
+                params[`${field}_min`] = active.min;
+                params[`${field}_max`] = active.max;
+            }
         }
         for (const [field, val] of Object.entries(this._textActive || {})) {
             if (val) params[field] = val;

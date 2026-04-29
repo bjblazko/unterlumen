@@ -214,10 +214,12 @@ class LibraryTab {
                     <button class="btn btn-accent" id="lib-create-btn">New library</button>
                 </div>
             </div>
-            <div class="lib-search-panel" id="lib-search-panel"></div>
-            <div class="lib-search-content" id="lib-search-content">
-                <div class="lib-search-results-area" id="lib-search-results-area"></div>
-                <div class="lib-info-panel-container" id="lib-search-info-panel"></div>
+            <div class="lib-search-body">
+                <div class="lib-search-panel" id="lib-search-panel"></div>
+                <div class="lib-search-content" id="lib-search-content">
+                    <div class="lib-search-results-area" id="lib-search-results-area"></div>
+                    <div class="lib-info-panel-container" id="lib-search-info-panel"></div>
+                </div>
             </div>
             <div class="library-list-body" id="lib-list-body">
                 <div class="library-loading">Loading…</div>
@@ -461,11 +463,13 @@ class LibraryTab {
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels</button>
                 </div>
             </div>
-            <div class="lib-search-panel" id="lib-search-panel"></div>
-            <div class="library-detail-body">
-                <div class="library-pane-wrap" id="lib-pane"></div>
-                <div class="library-pane-wrap" id="lib-search-pane" style="display:none"></div>
-                <div class="lib-info-panel-container" id="lib-info-panel"></div>
+            <div class="lib-search-body">
+                <div class="lib-search-panel" id="lib-search-panel"></div>
+                <div class="library-detail-body">
+                    <div class="library-pane-wrap" id="lib-pane"></div>
+                    <div class="library-pane-wrap" id="lib-search-pane" style="display:none"></div>
+                    <div class="lib-info-panel-container" id="lib-info-panel"></div>
+                </div>
             </div>`;
         this.container.appendChild(el);
 
