@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -108,11 +109,17 @@ func libraryFromStore(id string, store *Store) (*Library, error) {
 			lib.LastIndexed = &t
 		}
 	}
-	count, err := store.CountPhotos()
-	if err != nil {
-		return nil, err
+	if v, ok, _ := store.GetProp("photo_count"); ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			lib.PhotoCount = n
+		}
+	} else {
+		count, err := store.CountPhotos()
+		if err != nil {
+			return nil, err
+		}
+		lib.PhotoCount = count
 	}
-	lib.PhotoCount = count
 	return lib, nil
 }
 

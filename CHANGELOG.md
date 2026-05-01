@@ -1,12 +1,22 @@
 # Changelog
 
-*Last modified: 2026-04-29*
+*Last modified: 2026-05-01*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Slow first photo open in library mode on NAS** — The library pane previously called the browse API to list folder contents, which spawned a background goroutine reading every file over SMB to extract EXIF metadata. This saturated NAS bandwidth and delayed opening the first photo by up to 10 minutes. The library pane now reads folder contents and photo IDs directly from the SQLite database via a new `/api/library/{id}/browse` endpoint, with no filesystem reads during normal browsing. Thumbnails use pre-cached local files; full images stream on demand when a photo is opened.
+
+- **Slow library overview load with large libraries** — Loading the library list (`GET /api/library/`) was doing a full table scan (`SELECT COUNT(1) FROM photos WHERE status='ok'`) on a table with fat `exif_json` TEXT rows. With 50 000 photos across two libraries this took 5–6 seconds. Fixed by: (1) adding an index on `photos.status`; (2) caching the photo count in `library_props` after each re-index so the overview reads a single key-value row instead of counting all photos. Existing databases are migrated automatically on startup.
+
+- **Library folder browse path scoped to library root** — The `/api/library/{id}/browse` endpoint previously resolved the `path` parameter relative to the server's photo root directory. This meant libraries on a NAS or any path outside the server root would return empty results, and the breadcrumb showed the full native path (e.g., `Volumes / nas / Timo / Bilder / Fotos / 2024`). The endpoint now resolves paths relative to each library's own `source_path`, and the frontend always starts navigation at the library root. The breadcrumb shows a clean relative path (e.g., `Root / 2024 / June`) and updir navigation stops at the library root.
+
 ### Changed
+
+- **"New library" button redesigned as circle-plus glyph** — The `+` affordance in the Libraries tab button is now an SVG circle-with-plus icon. When the Libraries tab is active the glyph inverts: a filled white circle with an orange plus inside. On inactive tabs it renders as a thin outlined circle. The SVG eliminates the font-baseline centering offset that made the previous text character appear slightly off.
 
 - **Library toolbar refinements** — Several visual improvements to the library UI:
   - "New library" button removed from the library list header and merged into the top-right "Libraries" nav button as a small `+` affordance (separated by a thin line). Clicking `+` switches to library mode and immediately opens the new-library dialog.

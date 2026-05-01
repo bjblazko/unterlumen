@@ -24,6 +24,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/pathguard"
 )
 
 // Handle registers all library API routes on mux.
@@ -37,6 +38,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
 	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
+	mux.HandleFunc("GET /api/library/{id}/browse", browseFolder(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/photos", listPhotos(mgr))
 	mux.HandleFunc("GET /api/library/{id}/exif-ranges", exifRanges(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
@@ -209,6 +211,38 @@ func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
 }
 
 // --- Photos ---
+
+func browseFolder(mgr *lib.Manager, _ string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		sourcePath, ok, _ := store.GetProp("source_path")
+		if !ok || sourcePath == "" {
+			http.Error(w, "library has no source path", http.StatusInternalServerError)
+			return
+		}
+
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := pathguard.SafePath(sourcePath, relPath)
+		if !ok {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
+
+		result, err := store.BrowseFolder(absPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, result)
+	}
+}
 
 func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
