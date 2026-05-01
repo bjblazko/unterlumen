@@ -146,7 +146,15 @@ class SlideshowPlayer {
     _advance() {
         if (!this._running) return;
         const step = this._step();
-        this._cursor = (this._cursor + step) % this._images.length;
+        const next = this._cursor + step;
+        if (!this._options.loop && next >= this._images.length) {
+            this._running = false;
+            this._iconPause.style.display = 'none';
+            this._iconPlay.style.display = '';
+            this._playPauseLbl.textContent = 'Play';
+            return;
+        }
+        this._cursor = next % this._images.length;
         this._showFrame(this._currentPaths());
     }
 
