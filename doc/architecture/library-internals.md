@@ -1,6 +1,6 @@
 # Library Internals
 
-*Last modified: 2026-04-30*
+*Last modified: 2026-05-02*
 
 A deep-dive reference for how Unterlumen libraries work: what they are, how they are stored on disk, how indexing works, and how cross-library search is assembled.
 
@@ -97,7 +97,9 @@ erDiagram
 | `path_cache` | Fast re-index shortcut: if mtime + size match, skip full re-read. |
 | `exif_index` | Flat key/value store for every EXIF tag; numeric fields also have a parsed `numeric_value` for range queries. |
 | `photo_meta` | User-visible metadata written by Unterlumen (currently: publication history from XMP sidecar). |
-| `library_props` | Library-level config: name, description, source path, timestamps. |
+| `library_props` | Library-level config: name, description, source path, timestamps. Also caches `photo_count` (updated after each re-index) to avoid a full table scan on the library overview page. |
+
+An index on `photos(status)` (`photos_status_idx`) is created at schema init (and applied as a migration to existing databases) so `COUNT … WHERE status='ok'` hits only the index, not the fat `exif_json` rows.
 
 ---
 
@@ -270,7 +272,36 @@ WHERE  p.status = 'ok'
 
 ---
 
-## 8. API Surface
+## 8. Folder Browsing
+
+The library pane presents the library's source folder as a navigable tree. It does **not** call the general browse API — that would spawn a background goroutine reading every file over SMB to extract EXIF, saturating NAS bandwidth and delaying the first photo open by minutes.
+
+Instead, the pane calls `GET /api/library/{id}/browse?path=<relPath>`, which queries the DB:
+
+```
+SELECT id, path_hint, filename, file_size, indexed_at
+FROM photos
+WHERE status='ok' AND path_hint LIKE '<folderAbs>/%'
+```
+
+Go code then partitions results into:
+
+- **Immediate subfolders** — entries whose `path_hint` contains a `/` after the prefix (only the first path component is returned, de-duplicated).
+- **Direct photos** — entries whose `path_hint` contains no `/` after the prefix.
+
+### Path scoping
+
+The `path` query parameter is always **relative to the library's own `source_path`**, not the server's photo root. The handler reads `source_path` from `library_props` and resolves the parameter with `pathguard.SafePath(sourcePath, relPath)`. This means:
+
+- Libraries on a NAS or any path outside the server root work correctly.
+- The frontend breadcrumb shows a clean relative path (e.g., `Root / 2024 / June`).
+- Updir navigation stops at the library root (`path=""`) — the user cannot navigate above it.
+
+No filesystem reads occur. Thumbnail URLs resolve to `/api/library/{id}/thumb/{photoID}` (pre-cached local JPEG). Full images stream from `/api/library/{id}/photo/{photoID}` — a single NAS read only when the user actually opens a photo.
+
+---
+
+## 9. API Surface
 
 | Method | Route | Description |
 |---|---|---|
@@ -279,7 +310,8 @@ WHERE  p.status = 'ok'
 | `GET` | `/api/library/{id}` | Get library metadata + photo count |
 | `DELETE` | `/api/library/{id}` | Delete library (original files untouched) |
 | `POST` | `/api/library/{id}/reindex` | Start re-index; streams `Progress` JSON |
-| `GET` | `/api/library/{id}/photos` | List/filter photos in one library |
+| `GET` | `/api/library/{id}/browse` | Folder-level browse: subfolders + direct photos from DB |
+| `GET` | `/api/library/{id}/photos` | Flat filtered/paginated photo list |
 | `GET` | `/api/library/{id}/exif-ranges` | Min/max for each numeric EXIF field |
 | `GET` | `/api/library/{id}/thumb/{photoID}` | Serve thumbnail by photo ID |
 | `GET` | `/api/library/{id}/thumb-by-path` | Resolve thumbnail by file path |

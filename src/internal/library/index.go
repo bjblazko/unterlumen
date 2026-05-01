@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	_ "image/png"
@@ -72,6 +73,10 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	}
 
 	idx.store.PurgeMissingPhotos() //nolint:errcheck
+
+	if n, err := idx.store.CountPhotos(); err == nil {
+		idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now)

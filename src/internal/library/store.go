@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS library_props (
 	key         TEXT PRIMARY KEY,
 	value       TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS photos_status_idx ON photos(status);
 `
 
 // Store wraps the per-library SQLite database.
@@ -71,6 +72,8 @@ func openStore(dbPath, dir string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	// Migration: add status index to existing databases (ignored for new ones).
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_idx ON photos(status)`)
 	// Migration: add numeric_value column to existing databases (ignored for new ones).
 	db.Exec(`ALTER TABLE exif_index ADD COLUMN numeric_value REAL`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value)`)
@@ -590,6 +593,73 @@ func (s *Store) GetExifFieldValues(field string) ([]string, error) {
 		}
 	}
 	return vals, rows.Err()
+}
+
+// FolderBrowseResult holds the immediate subfolders and direct photos at a given folder level.
+type FolderBrowseResult struct {
+	Subfolders []string `json:"subfolders"`
+	Photos     []Photo  `json:"photos"`
+	Total      int      `json:"total"`
+}
+
+// BrowseFolder returns the immediate subdirectory names and photos directly inside folderAbs.
+// Photos nested in subdirectories are excluded from Photos but their parent directory appears
+// in Subfolders. No filesystem reads are performed; all data comes from the DB.
+func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
+	prefix := folderAbs + "/"
+	rows, err := s.db.Query(
+		`SELECT id, path_hint, filename, file_size, indexed_at FROM photos
+		 WHERE status='ok' AND path_hint LIKE ?`,
+		prefix+"%",
+	)
+	if err != nil {
+		return FolderBrowseResult{}, err
+	}
+	defer rows.Close()
+
+	subfolderSet := map[string]bool{}
+	var directPhotos []Photo
+
+	for rows.Next() {
+		var p Photo
+		var indexedAt string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt); err != nil {
+			return FolderBrowseResult{}, err
+		}
+		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
+		rel := strings.TrimPrefix(p.PathHint, prefix)
+		if idx := strings.Index(rel, "/"); idx >= 0 {
+			subfolderSet[rel[:idx]] = true
+		} else {
+			directPhotos = append(directPhotos, p)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return FolderBrowseResult{}, err
+	}
+
+	subfolders := make([]string, 0, len(subfolderSet))
+	for name := range subfolderSet {
+		subfolders = append(subfolders, name)
+	}
+	sortStrings(subfolders)
+
+	if directPhotos == nil {
+		directPhotos = []Photo{}
+	}
+	return FolderBrowseResult{
+		Subfolders: subfolders,
+		Photos:     directPhotos,
+		Total:      len(directPhotos),
+	}, nil
+}
+
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j] < s[j-1]; j-- {
+			s[j], s[j-1] = s[j-1], s[j]
+		}
+	}
 }
 
 // ExifRange holds the minimum and maximum numeric_value for a single EXIF field.

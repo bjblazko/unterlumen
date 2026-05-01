@@ -517,7 +517,7 @@ class LibraryTab {
             },
         });
 
-        this._pane.load(lib.relSourcePath || '');
+        this._pane.load('');
     }
 
     _showSearchResults(detailEl, publishBtn, photos, multiLib, paginationOpts) {

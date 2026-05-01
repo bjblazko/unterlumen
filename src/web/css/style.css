@@ -161,21 +161,35 @@ body {
 }
 
 .workflow-step-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin-left: calc(var(--unit) * 0.75);
     padding-left: calc(var(--unit) * 0.75);
     border-left: 1px solid rgba(0, 0, 0, 0.15);
-    font-size: 14px;
-    line-height: 1;
-    color: var(--text-sec);
-    opacity: 0.7;
+    opacity: 0.65;
     transition: opacity 0.1s;
     pointer-events: auto;
     cursor: pointer;
 }
+.workflow-step-create svg circle {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+}
+.workflow-step-create svg line {
+    stroke: currentColor;
+}
 
 .workflow-step.active .workflow-step-create {
     border-left-color: rgba(255, 255, 255, 0.3);
-    color: #fff;
+}
+.workflow-step.active .workflow-step-create svg circle {
+    fill: #fff;
+    stroke: none;
+}
+.workflow-step.active .workflow-step-create svg line {
+    stroke: var(--accent);
 }
 
 .workflow-step-create:hover {
