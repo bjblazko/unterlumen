@@ -300,9 +300,12 @@ const App = {
     handleSlideshowInvoke(pane) {
         pane = pane || this.browsePane;
         if (!pane) return;
+        // Resolve each path to its correct image URL (LibraryPane overrides viewerImageURL
+        // to use /api/library/{id}/photo/{photoID}; BrowsePane falls back to API.imageURL).
+        const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
         const images = pane.selection.selected.size > 0
-            ? Array.from(pane.selection.selected)
-            : pane.getImageEntries().map(e => pane.fullPath(e.name));
+            ? Array.from(pane.selection.selected).map(toURL)
+            : pane.getImageEntries().map(e => toURL(pane.fullPath(e.name)));
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
         this.slideshowModal.onStart = (imgs, opts) => this.openSlideshow(imgs, opts);
