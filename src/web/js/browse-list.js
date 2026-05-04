@@ -48,7 +48,7 @@ class ListRenderer {
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
         const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
         return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-            <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy"${onerror}></td>
+            <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy" decoding="async" fetchpriority="low"${onerror}></td>
             <td class="list-name">${label}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
             <td class="list-date">${formatDate(entry.date)}</td>
             <td class="list-size">${size}</td>

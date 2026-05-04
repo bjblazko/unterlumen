@@ -41,7 +41,7 @@ class GridRenderer {
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
         const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
         return `<div class="grid-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
-            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" onload="this.classList.add('img-loaded')"${onerror}>${badgesHtml}${nameHtml}
+            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" decoding="async" fetchpriority="low" onload="this.classList.add('img-loaded')"${onerror}>${badgesHtml}${nameHtml}
         </div>`;
     }
 }

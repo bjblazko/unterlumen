@@ -7,6 +7,7 @@ import (
 	"huepattl.de/unterlumen/internal/api/batchrename"
 	"huepattl.de/unterlumen/internal/api/browse"
 	apichannels "huepattl.de/unterlumen/internal/api/channels"
+	apicrop "huepattl.de/unterlumen/internal/api/crop"
 	apiexport "huepattl.de/unterlumen/internal/api/export"
 	"huepattl.de/unterlumen/internal/api/fileops"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
@@ -26,11 +27,12 @@ func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool, libMgr 
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 
-	mux.HandleFunc("/api/config", handleConfig(startPath, serverRole))
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, serverRole))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 
 	browse.Handle(mux, boundary, cache)
 	apiexport.Handle(mux, boundary, serverRole)
+	apicrop.Handle(mux, boundary)
 	fileops.Handle(mux, boundary, cache)
 	location.Handle(mux, boundary, cache)
 	batchrename.Handle(mux, boundary, cache)

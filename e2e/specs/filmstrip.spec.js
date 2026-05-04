@@ -19,6 +19,13 @@ test.describe('Film strip', () => {
     expect(display).toBe('none');
   });
 
+  test('film strip thumbnails are deferred until the strip is shown', async ({ page }) => {
+    await expect(page.locator('.filmstrip-thumb img')).toHaveCount(0);
+    await page.keyboard.press('f');
+    await expect(page.locator('.viewer-filmstrip')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.filmstrip-thumb img')).toHaveCount(3);
+  });
+
   test('F key shows the film strip', async ({ page }) => {
     await page.keyboard.press('f');
     await expect(page.locator('.viewer-filmstrip')).toBeVisible({ timeout: 3_000 });

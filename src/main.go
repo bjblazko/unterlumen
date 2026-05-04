@@ -50,9 +50,9 @@ func main() {
 	var startDir, boundary string
 
 	if flag.NArg() > 0 {
-		// cmdline arg: start there, no navigation restriction
+		// cmdline arg: use as both start dir and navigation boundary
 		startDir = flag.Arg(0)
-		boundary = "/"
+		boundary = flag.Arg(0)
 	} else if envPath := os.Getenv("UNTERLUMEN_ROOT_PATH"); envPath != "" {
 		// ENV var: start there, restrict navigation to that directory
 		startDir = envPath
@@ -111,9 +111,9 @@ func main() {
 		log.Fatalf("Failed to sub web FS: %v", err)
 	}
 
-	// Server mode: navigation is locked to a specific root (UNTERLUMEN_ROOT_PATH).
-	// Local mode: boundary is "/" — free filesystem navigation.
-	serverRole := absBoundary != "/"
+	// Server mode: explicitly deployed via UNTERLUMEN_ROOT_PATH (multi-user, restricted UI).
+	// Local mode: cmdline arg or default home dir; boundary still restricts navigation.
+	serverRole := os.Getenv("UNTERLUMEN_ROOT_PATH") != ""
 
 	var libMgr *library.Manager
 	var chStore *channels.Store

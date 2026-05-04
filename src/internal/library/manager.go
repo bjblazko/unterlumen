@@ -385,3 +385,111 @@ func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error
 	}
 	return agg, nil
 }
+
+// Statistics returns aggregated statistics across the requested libraries (or all if ids is nil).
+// pathPrefix, when non-empty, restricts each library's results to photos whose path starts with that prefix.
+func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistics, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) > 0 {
+		set := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			set[id] = true
+		}
+		filtered := libs[:0]
+		for _, l := range libs {
+			if set[l.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		libs = filtered
+	}
+
+	merged := &LibraryStatistics{ShootingDays: make(map[string]int)}
+	fmtMap    := make(map[string]int)
+	filmMap   := make(map[string]int)
+	clMap     := make(map[[2]string]int)
+	focalMap  := make(map[float64]int)
+	focal35Map := make(map[float64]int)
+	aperMap   := make(map[float64]int)
+	isoMap    := make(map[float64]int)
+
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		st, err := store.Statistics(pathPrefix)
+		store.Close()
+		if err != nil {
+			continue
+		}
+
+		merged.TotalPhotos += st.TotalPhotos
+		for _, nc := range st.Formats {
+			fmtMap[nc.Name] += nc.Count
+		}
+		for _, nc := range st.FilmSims {
+			filmMap[nc.Name] += nc.Count
+		}
+		for _, vc := range st.FocalLengths   { focalMap[vc.Value]   += vc.Count }
+		for _, vc := range st.FocalLengths35 { focal35Map[vc.Value] += vc.Count }
+		for _, vc := range st.Apertures      { aperMap[vc.Value]    += vc.Count }
+		for _, vc := range st.ISOs           { isoMap[vc.Value]     += vc.Count }
+		for _, clc := range st.CameraLens {
+			clMap[[2]string{clc.Camera, clc.Lens}] += clc.Count
+		}
+		for h, n := range st.ShootingHours {
+			merged.ShootingHours[h] += n
+		}
+		for day, n := range st.ShootingDays {
+			merged.ShootingDays[day] += n
+		}
+	}
+
+	for name, count := range fmtMap {
+		merged.Formats = append(merged.Formats, NameCount{Name: name, Count: count})
+	}
+	sortNameCounts(merged.Formats)
+
+	for name, count := range filmMap {
+		merged.FilmSims = append(merged.FilmSims, NameCount{Name: name, Count: count})
+	}
+	sortNameCounts(merged.FilmSims)
+
+	merged.FocalLengths   = mapToValueCounts(focalMap)
+	merged.FocalLengths35 = mapToValueCounts(focal35Map)
+	merged.Apertures      = mapToValueCounts(aperMap)
+	merged.ISOs           = mapToValueCounts(isoMap)
+
+	for key, count := range clMap {
+		merged.CameraLens = append(merged.CameraLens, CameraLensCount{Camera: key[0], Lens: key[1], Count: count})
+	}
+	// Sort camera×lens by count descending, cap at 100.
+	for i := 1; i < len(merged.CameraLens); i++ {
+		for j := i; j > 0 && merged.CameraLens[j].Count > merged.CameraLens[j-1].Count; j-- {
+			merged.CameraLens[j], merged.CameraLens[j-1] = merged.CameraLens[j-1], merged.CameraLens[j]
+		}
+	}
+	if len(merged.CameraLens) > 100 {
+		merged.CameraLens = merged.CameraLens[:100]
+	}
+
+	return merged, nil
+}
+
+// mapToValueCounts converts a value→count map to a []ValueCount sorted by value ascending.
+func mapToValueCounts(m map[float64]int) []ValueCount {
+	out := make([]ValueCount, 0, len(m))
+	for v, n := range m {
+		out = append(out, ValueCount{Value: v, Count: n})
+	}
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j].Value < out[j-1].Value; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out
+}

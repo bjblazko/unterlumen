@@ -60,6 +60,12 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async statistics(ids) {
+        const params = ids?.length ? `?ids=${ids.join(',')}` : '';
+        const r = await fetch(`/api/library/statistics${params}`);
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     thumbURL(libID, photoID) {
         return `/api/library/${libID}/thumb/${photoID}`;
     },
@@ -187,6 +193,25 @@ class LibraryTab {
         return this._searchPane || this._pane;
     }
 
+    async _openStats() {
+        const lib = this.currentLibrary;
+        const folderPath = this._pane?.path || '';
+        const libs = await LibraryAPI.list();
+        if (!lib) {
+            new StatsModal().open(libs);
+        } else {
+            const pathPrefix = folderPath
+                ? lib.sourcePath.replace(/\/$/, '') + '/' + folderPath
+                : lib.sourcePath;
+            new StatsModal().open(libs, {
+                pathPrefix,
+                libraryId: lib.id,
+                fixedScope: true,
+                scopeLabel: folderPath ? `${lib.name} / ${folderPath}` : lib.name,
+            });
+        }
+    }
+
     render() {
         this.container.innerHTML = '';
         this.container.className = 'library-root';
@@ -211,6 +236,8 @@ class LibraryTab {
                 <div class="library-list-header-actions">
                     <button class="btn btn-toggle" id="lib-search-btn">Search</button>
                     <div class="header-actions-sep"></div>
+                    <button class="btn" id="lib-stats-btn">Statistics</button>
+                    <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
@@ -227,6 +254,7 @@ class LibraryTab {
         this.container.appendChild(el);
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
+        el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
@@ -458,6 +486,7 @@ class LibraryTab {
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm btn-toggle" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
+                    <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm" id="lib-reindex-btn">Re-index</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
@@ -482,6 +511,7 @@ class LibraryTab {
 
         el.querySelector('#lib-reindex-btn').addEventListener('click', () => this._reindexDetail(el));
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
+        el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
 
         const publishBtn = el.querySelector('#lib-publish-btn');
         publishBtn.addEventListener('click', () => this._openPublishModal());

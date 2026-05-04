@@ -10,6 +10,11 @@ import (
 
 const thumbnailMaxDim = 300
 
+const (
+	thumbnailQualityStandard = "standard"
+	thumbnailQualityHigh     = "high"
+)
+
 func handleThumbnail(root string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -30,15 +35,16 @@ func handleThumbnail(root string) http.HandlerFunc {
 		}
 
 		size := parseThumbnailSize(r.URL.Query().Get("size"))
+		quality := parseThumbnailQuality(r.URL.Query().Get("quality"))
 
 		if media.IsHEIF(absPath) {
-			serveHEIFThumbnail(w, absPath, size)
+			serveHEIFThumbnail(w, absPath, size, quality)
 			return
 		}
 
 		orientation := media.ExtractOrientation(absPath)
 
-		if size <= thumbnailMaxDim {
+		if quality == thumbnailQualityStandard && size <= thumbnailMaxDim {
 			thumb, ct, err := media.ExtractThumbnail(absPath, orientation)
 			if err == nil {
 				serveThumbnail(w, thumb, ct)
@@ -46,7 +52,7 @@ func handleThumbnail(root string) http.HandlerFunc {
 			}
 		}
 
-		thumb, ct, err := media.GenerateThumbnail(absPath, size, orientation)
+		thumb, ct, err := media.GenerateThumbnailCached(absPath, size, orientation)
 		if err != nil {
 			http.Error(w, "Failed to generate thumbnail", http.StatusInternalServerError)
 			return
@@ -64,15 +70,27 @@ func parseThumbnailSize(s string) int {
 	return thumbnailMaxDim
 }
 
-func serveHEIFThumbnail(w http.ResponseWriter, absPath string, size int) {
-	jpegData, err := media.ExtractHEIFPreview(absPath)
-	if err != nil {
-		http.Error(w, "Failed to convert HEIF", http.StatusInternalServerError)
-		return
+func parseThumbnailQuality(s string) string {
+	if s == thumbnailQualityHigh {
+		return thumbnailQualityHigh
 	}
-	thumb, err := media.ResizeJPEGBytes(jpegData, size)
+	return thumbnailQualityStandard
+}
+
+func serveHEIFThumbnail(w http.ResponseWriter, absPath string, size int, quality string) {
+	var (
+		thumb []byte
+		err   error
+	)
+
+	if quality == thumbnailQualityHigh {
+		thumb, err = media.GenerateHEIFThumbnail(absPath, size)
+	} else {
+		thumb, err = media.ExtractHEIFPreviewThumbnail(absPath, size)
+	}
 	if err != nil {
-		thumb = jpegData
+		http.Error(w, "Failed to generate HEIF thumbnail", http.StatusInternalServerError)
+		return
 	}
 	serveThumbnail(w, thumb, "image/jpeg")
 }
