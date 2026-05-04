@@ -35,6 +35,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/search", searchLibraries(mgr))
 	mux.HandleFunc("GET /api/library/exif-ranges", globalExifRanges(mgr))
 	mux.HandleFunc("GET /api/library/exif-values", globalExifValues(mgr))
+	mux.HandleFunc("GET /api/library/statistics", libraryStatistics(mgr))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
 	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
@@ -332,6 +333,19 @@ func globalExifRanges(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, ranges)
+	}
+}
+
+func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		pathPrefix := r.URL.Query().Get("pathPrefix")
+		stats, err := mgr.Statistics(ids, pathPrefix)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, stats)
 	}
 }
 

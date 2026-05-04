@@ -3,10 +3,13 @@ package media
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -149,70 +152,37 @@ func ConvertHEIFToJPEG(path string) ([]byte, error) {
 		return cached, nil
 	}
 
-	data, err := extractBestJPEG(path)
-	if err != nil {
-		return nil, err
-	}
+	result := thumbnailWork.run(key, func() thumbnailWorkResult {
+		if cached := readCache(key); cached != nil {
+			return thumbnailWorkResult{data: cached}
+		}
 
-	// Apply HEIF container rotation (irot box)
-	orientation := ExtractHEIFOrientation(path)
-	data, _ = applyOrientationJPEG(data, orientation, 92)
+		data, err := extractBestJPEG(path)
+		if err != nil {
+			return thumbnailWorkResult{err: err}
+		}
 
-	writeCache(key, data)
-	return data, nil
+		orientation := ExtractHEIFOrientation(path)
+		data, _ = applyOrientationJPEG(data, orientation, 92)
+
+		writeCache(key, data)
+		return thumbnailWorkResult{data: data}
+	})
+	return result.data, result.err
 }
 
 // ExtractHEIFPreview extracts a JPEG preview suitable for thumbnails.
 // Uses the embedded preview or falls back to conversion.
 // Results are cached to disk.
 func ExtractHEIFPreview(path string) ([]byte, error) {
-	key := cacheKey(path, "preview-v3")
-	if cached := readCache(key); cached != nil {
-		return cached, nil
-	}
-
-	data, err := extractBestJPEG(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply HEIF container rotation (irot box)
-	orientation := ExtractHEIFOrientation(path)
-	data, _ = applyOrientationJPEG(data, orientation, 80)
-
-	writeCache(key, data)
-	return data, nil
+	return extractHEIFPreview(path, 0)
 }
 
 // extractBestJPEG probes a HEIF file and extracts the best available JPEG.
 // Priority: largest embedded JPEG preview (stream copy) > HEVC decode fallback.
 func extractBestJPEG(path string) ([]byte, error) {
-	// Probe for embedded JPEG streams
-	probeOut := ffmpegProbe(path)
-
-	// Find the largest embedded JPEG preview stream (not 160x120 thumbnails)
-	bestStream := -1
-	for _, line := range strings.Split(probeOut, "\n") {
-		if strings.Contains(line, "mjpeg") && strings.Contains(line, "Stream #0:") {
-			idx := parseStreamIndex(line)
-			if idx >= 0 && !strings.Contains(line, "160x") {
-				bestStream = idx
-				break
-			}
-		}
-	}
-
-	// Extract embedded JPEG via stream copy (instant, no re-encode)
-	if bestStream >= 0 {
-		data, err := ffmpegRun(path,
-			"-map", fmt.Sprintf("0:%d", bestStream),
-			"-c", "copy",
-			"-f", "image2pipe",
-			"pipe:1",
-		)
-		if err == nil && len(data) > 0 {
-			return data, nil
-		}
+	if data, err := extractEmbeddedHEIFJPEG(path, 0); err == nil && len(data) > 0 {
+		return data, nil
 	}
 
 	// Try sips (macOS) — handles multi-tile HEIF reliably via native decoder
@@ -233,6 +203,81 @@ func extractBestJPEG(path string) ([]byte, error) {
 		"-frames:v", "1",
 		"pipe:1",
 	)
+}
+
+func extractHEIFPreview(path string, maxDim int) ([]byte, error) {
+	streams, err := probeHEIFJPEGStreams(path)
+	if err == nil {
+		if stream, ok := chooseHEIFJPEGPreviewStream(streams, maxDim); ok {
+			key := cacheKey(path, fmt.Sprintf("preview-v4-%d-q80", stream.Index))
+			if cached := readCache(key); cached != nil {
+				return cached, nil
+			}
+
+			data, err := extractEmbeddedHEIFJPEGStream(path, stream.Index)
+			if err == nil && len(data) > 0 {
+				orientation := ExtractHEIFOrientation(path)
+				data, _ = applyOrientationJPEG(data, orientation, 80)
+				writeCache(key, data)
+				return data, nil
+			}
+		}
+	}
+
+	if data, err := extractPreviewFallbackJPEG(path); err == nil && len(data) > 0 {
+		return data, nil
+	}
+
+	return nil, fmt.Errorf("failed to extract HEIF preview")
+}
+
+func extractEmbeddedHEIFJPEG(path string, maxDim int) ([]byte, error) {
+	streams, err := probeHEIFJPEGStreams(path)
+	if err != nil {
+		return nil, err
+	}
+	stream, ok := chooseHEIFJPEGPreviewStream(streams, maxDim)
+	if !ok {
+		return nil, fmt.Errorf("no embedded JPEG preview stream found")
+	}
+	return extractEmbeddedHEIFJPEGStream(path, stream.Index)
+}
+
+func extractEmbeddedHEIFJPEGStream(path string, streamIndex int) ([]byte, error) {
+	return ffmpegRun(path,
+		"-map", fmt.Sprintf("0:%d", streamIndex),
+		"-c", "copy",
+		"-f", "image2pipe",
+		"pipe:1",
+	)
+}
+
+func extractPreviewFallbackJPEG(path string) ([]byte, error) {
+	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
+		orientation := ExtractHEIFOrientation(path)
+		data, _ = applyOrientationJPEG(data, orientation, 80)
+		return data, nil
+	}
+
+	if data, err := heifConvert(path); err == nil && len(data) > 0 {
+		orientation := ExtractHEIFOrientation(path)
+		data, _ = applyOrientationJPEG(data, orientation, 80)
+		return data, nil
+	}
+
+	data, err := ffmpegRun(path,
+		"-f", "image2pipe",
+		"-vcodec", "mjpeg",
+		"-q:v", "2",
+		"-frames:v", "1",
+		"pipe:1",
+	)
+	if err != nil {
+		return nil, err
+	}
+	orientation := ExtractHEIFOrientation(path)
+	data, _ = applyOrientationJPEG(data, orientation, 80)
+	return data, nil
 }
 
 // convertHEIFExport decodes a HEIF file to a full-resolution JPEG for export.
@@ -364,4 +409,149 @@ func parseStreamIndex(line string) int {
 		}
 	}
 	return n
+}
+
+type heifJPEGPreviewStream struct {
+	Index  int
+	Width  int
+	Height int
+}
+
+func (s heifJPEGPreviewStream) maxDim() int {
+	if s.Width > s.Height {
+		return s.Width
+	}
+	return s.Height
+}
+
+func chooseHEIFJPEGPreviewStream(streams []heifJPEGPreviewStream, maxDim int) (heifJPEGPreviewStream, bool) {
+	var (
+		best         heifJPEGPreviewStream
+		haveBest     bool
+		haveAdequate bool
+	)
+
+	for _, stream := range streams {
+		streamMaxDim := stream.maxDim()
+		adequate := maxDim > 0 && streamMaxDim >= maxDim
+
+		switch {
+		case adequate:
+			if !haveAdequate || streamMaxDim < best.maxDim() {
+				best = stream
+				haveBest = true
+				haveAdequate = true
+			}
+		case maxDim <= 0:
+			if !haveBest || streamMaxDim > best.maxDim() {
+				best = stream
+				haveBest = true
+			}
+		case !haveAdequate && (!haveBest || streamMaxDim > best.maxDim()):
+			best = stream
+			haveBest = true
+		}
+	}
+
+	return best, haveBest
+}
+
+func probeHEIFJPEGStreams(path string) ([]heifJPEGPreviewStream, error) {
+	streams, err := probeHEIFJPEGStreamsWithFFProbe(path)
+	if err == nil && len(streams) > 0 {
+		return streams, nil
+	}
+
+	streams = parseHEIFJPEGStreams(ffmpegProbe(path))
+	if len(streams) > 0 {
+		return streams, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("no embedded JPEG preview stream found")
+}
+
+func probeHEIFJPEGStreamsWithFFProbe(path string) ([]heifJPEGPreviewStream, error) {
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd := exec.Command(
+		"ffprobe",
+		"-v", "error",
+		"-select_streams", "v",
+		"-show_entries", "stream=index,codec_name,width,height",
+		"-of", "json",
+		path,
+	)
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("ffprobe failed: %v: %s", err, stderr.String())
+	}
+
+	var doc struct {
+		Streams []struct {
+			Index     int    `json:"index"`
+			CodecName string `json:"codec_name"`
+			Width     int    `json:"width"`
+			Height    int    `json:"height"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
+		return nil, err
+	}
+
+	streams := make([]heifJPEGPreviewStream, 0, len(doc.Streams))
+	for _, stream := range doc.Streams {
+		if stream.CodecName != "mjpeg" || stream.Width <= 0 || stream.Height <= 0 {
+			continue
+		}
+		streams = append(streams, heifJPEGPreviewStream{
+			Index:  stream.Index,
+			Width:  stream.Width,
+			Height: stream.Height,
+		})
+	}
+	return streams, nil
+}
+
+var dimensionPattern = regexp.MustCompile(`(\d+)x(\d+)`)
+
+func parseHEIFJPEGStreams(probeOutput string) []heifJPEGPreviewStream {
+	lines := strings.Split(probeOutput, "\n")
+	streams := make([]heifJPEGPreviewStream, 0, len(lines))
+	for _, line := range lines {
+		if !strings.Contains(line, "mjpeg") || !strings.Contains(line, "Stream #0:") {
+			continue
+		}
+		index := parseStreamIndex(line)
+		width, height, ok := parseStreamDimensions(line)
+		if index < 0 || !ok {
+			continue
+		}
+		streams = append(streams, heifJPEGPreviewStream{
+			Index:  index,
+			Width:  width,
+			Height: height,
+		})
+	}
+	return streams
+}
+
+func parseStreamDimensions(line string) (int, int, bool) {
+	match := dimensionPattern.FindStringSubmatch(line)
+	if len(match) != 3 {
+		return 0, 0, false
+	}
+	width, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	height, err := strconv.Atoi(match[2])
+	if err != nil {
+		return 0, 0, false
+	}
+	return width, height, true
 }

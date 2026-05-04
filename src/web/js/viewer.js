@@ -12,9 +12,13 @@ class Viewer {
         this.infoPanel = null;
         this.filmStripVisible = false;
         this.filmStripEl = null;
+        this._filmstripLoaded = false;
         this._imageURLFn = options.imageURLFn || ((p) => API.imageURL(p));
         this._thumbURLFn = options.thumbURLFn || ((p) => API.thumbnailURL(p, 80));
         this._infoLoadFn = options.infoLoadFn || ((p, ip) => ip.loadInfo(p));
+        this._cacheBust = null;
+        this._cropTool = null;
+        this._cropKeyHandler = null;
     }
 
     open(imagePath, imageList) {
@@ -31,9 +35,19 @@ class Viewer {
     }
 
     close() {
+        // Clean up crop mode without triggering a re-render that's about to be discarded
+        if (this._cropKeyHandler) {
+            document.removeEventListener('keydown', this._cropKeyHandler);
+            this._cropKeyHandler = null;
+        }
+        if (this._cropTool) {
+            this._cropTool.destroy();
+            this._cropTool = null;
+        }
         document.removeEventListener('keydown', this.keyHandler);
         this.infoPanel = null;
         this.filmStripEl = null;
+        this._filmstripLoaded = false;
         if (this.onClose) this.onClose();
     }
 
@@ -45,10 +59,6 @@ class Viewer {
             const thumb = document.createElement('div');
             thumb.className = 'filmstrip-thumb';
             thumb.dataset.index = i;
-            const img = document.createElement('img');
-            img.src = this._thumbURLFn(path);
-            img.loading = 'lazy';
-            thumb.appendChild(img);
             strip.appendChild(thumb);
         });
         strip.addEventListener('click', (e) => {
@@ -70,6 +80,7 @@ class Viewer {
     updateFilmStrip(instant) {
         if (!this.filmStripEl) return;
         this.filmStripEl.style.display = this.filmStripVisible ? 'flex' : 'none';
+        if (this.filmStripVisible) this._ensureFilmStripLoaded();
         const thumbs = this.filmStripEl.children;
         for (let i = 0; i < thumbs.length; i++) {
             thumbs[i].classList.toggle('filmstrip-active', i === this.currentIndex);
@@ -80,6 +91,21 @@ class Viewer {
                 active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: instant ? 'instant' : 'smooth' });
             }
         }
+    }
+
+    _ensureFilmStripLoaded() {
+        if (this._filmstripLoaded || !this.filmStripEl) return;
+        this._filmstripLoaded = true;
+        this.images.forEach((path, i) => {
+            const thumb = this.filmStripEl.children[i];
+            if (!thumb || thumb.querySelector('img')) return;
+            const img = document.createElement('img');
+            img.src = this._thumbURLFn(path);
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.fetchPriority = 'low';
+            thumb.appendChild(img);
+        });
     }
 
     navigate(delta) {
@@ -141,6 +167,7 @@ class Viewer {
     }
 
     handleKey(e) {
+        if (this._cropTool) return; // crop mode has its own key handler
         switch (e.key) {
             case 'ArrowLeft':
                 e.preventDefault();
@@ -194,6 +221,7 @@ class Viewer {
                     <span class="viewer-filmstrip-label">Film strip</span>
                     <div class="viewer-filmstrip-toggle-wrap" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
+                    <button class="btn viewer-crop-btn" title="Crop">Crop</button>
                     <button class="btn viewer-info ${infoActive ? 'active' : ''}" title="Info (I)">Info</button>
                     <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
                 </div>
@@ -201,7 +229,7 @@ class Viewer {
                     <div class="viewer-body">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}>‹</button>
                         <div class="viewer-image-container">
-                            <img src="${this._imageURLFn(this.currentPath)}" alt="${filename}">
+                            <img src="${this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
                         </div>
                         <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}>›</button>
                     </div>
@@ -211,6 +239,7 @@ class Viewer {
         `;
 
         this.container.querySelector('.viewer-back').addEventListener('click', () => this.close());
+        this.container.querySelector('.viewer-crop-btn').addEventListener('click', () => this._enterCropMode());
         this.container.querySelector('.viewer-info').addEventListener('click', () => this.toggleInfo());
         this.container.querySelector('.viewer-delete').addEventListener('click', () => this.markCurrentForDeletion());
         const prevBtn = this.container.querySelector('.viewer-prev');
@@ -238,6 +267,107 @@ class Viewer {
         if (this.infoPanel) {
             this.infoPanel.container = this.container.querySelector('.viewer-info-container');
             this.infoPanel.render();
+        }
+    }
+
+    _currentImageURL() {
+        const url = this._imageURLFn(this.currentPath);
+        return this._cacheBust ? `${url}&t=${this._cacheBust}` : url;
+    }
+
+    _enterCropMode() {
+        const toolbar = this.container.querySelector('.viewer-toolbar');
+        const filename = this.currentPath.split('/').pop();
+
+        toolbar.innerHTML = `
+            <button class="btn viewer-crop-cancel" title="Cancel (Esc)">Cancel</button>
+            <span class="viewer-filename">${filename}</span>
+            <select class="viewer-crop-ratio" title="Aspect ratio">
+                <option value="">Free</option>
+                <option disabled>──────────</option>
+                <option value="1">1:1</option>
+                <option value="1.3333">4:3</option>
+                <option value="0.75">3:4</option>
+                <option value="1.5">3:2</option>
+                <option value="0.6667">2:3</option>
+                <option value="1.7778">16:9</option>
+                <option value="0.5625">9:16</option>
+                <option disabled>──────────</option>
+                <option value="1.85">1.85:1 Flat</option>
+                <option value="2.35">2.35:1 Anamorphic</option>
+                <option value="2.39">2.39:1 DCI Scope</option>
+            </select>
+            <button class="btn viewer-crop-apply active" title="Apply crop (Enter)">Apply Crop</button>
+        `;
+
+        toolbar.querySelector('.viewer-crop-cancel').addEventListener('click', () => this._exitCropMode());
+        toolbar.querySelector('.viewer-crop-apply').addEventListener('click', () => this._applyCrop());
+        toolbar.querySelector('.viewer-crop-ratio').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (this._cropTool) this._cropTool.setAspectRatio(val ? parseFloat(val) : null);
+        });
+
+        // Hide nav and delete buttons — they remain in the DOM but are not usable during crop
+        const prevBtn = this.container.querySelector('.viewer-prev');
+        const nextBtn = this.container.querySelector('.viewer-next');
+        if (prevBtn) prevBtn.style.visibility = 'hidden';
+        if (nextBtn) nextBtn.style.visibility = 'hidden';
+
+        const img = this.container.querySelector('.viewer-image-container img');
+        this._cropTool = new CropTool(img);
+
+        // Add modal-overlay class so app-keyboard.js defers on this viewer
+        this._cropTool._overlay.classList.add('modal-overlay');
+
+        this._cropKeyHandler = (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this._exitCropMode(); }
+            if (e.key === 'Enter')  { e.preventDefault(); e.stopImmediatePropagation(); this._applyCrop(); }
+        };
+        document.addEventListener('keydown', this._cropKeyHandler);
+    }
+
+    _exitCropMode() {
+        if (this._cropKeyHandler) {
+            document.removeEventListener('keydown', this._cropKeyHandler);
+            this._cropKeyHandler = null;
+        }
+        if (this._cropTool) {
+            this._cropTool.destroy();
+            this._cropTool = null;
+        }
+        this.render();
+    }
+
+    async _applyCrop() {
+        if (!this._cropTool) return;
+        const rect = this._cropTool.getRect();
+        if (!rect) return;
+
+        const applyBtn = this.container.querySelector('.viewer-crop-apply');
+        if (applyBtn) {
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Saving…';
+        }
+
+        try {
+            await API.crop(this.currentPath, rect.x, rect.y, rect.width, rect.height);
+            this._cacheBust = Date.now();
+            this._exitCropMode();
+        } catch (err) {
+            if (applyBtn) {
+                applyBtn.disabled = false;
+                applyBtn.textContent = 'Apply Crop';
+            }
+            const toolbar = this.container.querySelector('.viewer-toolbar');
+            if (toolbar) {
+                let errEl = toolbar.querySelector('.viewer-crop-error');
+                if (!errEl) {
+                    errEl = document.createElement('span');
+                    errEl.className = 'viewer-crop-error';
+                    toolbar.appendChild(errEl);
+                }
+                errEl.textContent = err.message || 'Crop failed';
+            }
         }
     }
 }

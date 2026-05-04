@@ -1,12 +1,24 @@
 # Changelog
 
-*Last modified: 2026-05-01*
+*Last modified: 2026-05-03*
 
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Crop tool** — An interactive crop tool in the fullscreen viewer. Click "Crop" in the toolbar to enter crop mode, draw a rectangle on the photo, choose from free, standard (1:1, 4:3, 3:2, 16:9, 9:16 and their portrait variants), or cinema (1.85:1, 2.35:1, 2.39:1) aspect ratios, and apply. Crops are saved in-place. All metadata — including Fujifilm film simulation and MakerNotes — is preserved via exiftool. JPEG and GIF are re-encoded at high quality; PNG is lossless; WebP uses ffmpeg; HEIF/HEIC uses `sips` (macOS). Keyboard: Enter to apply, Escape to cancel.
+
+- **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
+
 ### Fixed
+
+- **Browse mode no longer stalls on large HIF film rolls** — Standard-quality browse thumbnails now send an explicit requested size, so the HEIF/HIF thumbnail path can choose the smallest embedded JPEG preview that still fits the UI instead of repeatedly extracting a larger preview. Uncached thumbnail work is also bounded and deduplicated on the server, which prevents large folders from pegging all CPU cores during first load. Opening the fullscreen viewer no longer eagerly loads the whole filmstrip, so the selected image can appear while background thumbnails are still pending.
+
+- **Deployed service can now find Homebrew tools (ffmpeg, exiftool)** — The launchd plist (`com.unterlumen.app`) was launched without `EnvironmentVariables`, so macOS gave the process only the bare system PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). `exec.LookPath` therefore reported ffmpeg and exiftool as missing even though both were installed. The plist now explicitly sets `PATH` to include `/opt/homebrew/bin` and `/opt/homebrew/sbin`, matching the user session environment.
+
+- **Thumbnail quality mode restored for HEIF browsing** — The browse thumbnail endpoint now receives the user's selected quality mode explicitly. In **Standard** mode, HEIF/HEIC thumbnails use the fast preview-based JPEG path and only resize when the preview is still larger than the requested thumbnail; resized results are cached by file and size. In **High** mode, HEIF thumbnails are generated from the full decoded source image and cached by size. Source-generated thumbnails for non-HEIF images are now cached as well, so repeated browsing no longer re-renders the same thumbnails on every request.
 
 - **Slow first photo open in library mode on NAS** — The library pane previously called the browse API to list folder contents, which spawned a background goroutine reading every file over SMB to extract EXIF metadata. This saturated NAS bandwidth and delayed opening the first photo by up to 10 minutes. The library pane now reads folder contents and photo IDs directly from the SQLite database via a new `/api/library/{id}/browse` endpoint, with no filesystem reads during normal browsing. Thumbnails use pre-cached local files; full images stream on demand when a photo is opened.
 

@@ -25,6 +25,12 @@ test.describe('Browse', () => {
     await expect(img).toHaveAttribute('src', /\/api\/thumbnail/);
   });
 
+  test('standard browse thumbnails request an explicit size', async ({ page }) => {
+    await waitForThumbnailsLoaded(page, 1);
+    const img = page.locator('[data-name="gps-jpeg.jpg"] img');
+    await expect(img).toHaveAttribute('src', /[?&]size=\d+/);
+  });
+
   test('status bar shows image count', async ({ page }) => {
     await waitForThumbnailsLoaded(page, 1);
     const statusText = await page.locator('.status-bar').textContent();

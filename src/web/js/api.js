@@ -9,9 +9,12 @@ const API = {
     },
 
     thumbnailURL(path, size) {
-        let url = `/api/thumbnail?path=${encodeURIComponent(path)}`;
-        if (size) url += `&size=${size}`;
-        return url;
+        const params = new URLSearchParams({
+            path,
+            quality: localStorage.getItem('thumbnail-quality') || 'standard',
+        });
+        if (size) params.set('size', size);
+        return `/api/thumbnail?${params.toString()}`;
     },
 
     imageURL(path) {
@@ -180,6 +183,16 @@ const API = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async crop(path, x, y, width, height) {
+        const resp = await fetch('/api/crop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, x, y, width, height }),
         });
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();

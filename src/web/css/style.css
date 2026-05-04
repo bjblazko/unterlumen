@@ -3698,3 +3698,301 @@ body.slideshow-active #app { height: 100vh; }
     padding: 2px 0;
 }
 
+/* --- Statistics modal --- */
+
+.stats-overlay .modal {
+    max-width: 1100px;
+    width: 90vw;
+}
+
+.stats-overlay .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.stats-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stats-scope-label {
+    font-size: 11px;
+    color: var(--text-sec);
+    font-weight: 400;
+}
+
+.stats-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stats-lib-select {
+    font-size: 12px;
+    padding: 3px 6px;
+    height: 28px;
+    min-width: 140px;
+    max-width: 240px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--surface-alt);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.stats-lib-select:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.stats-lib-select option {
+    background: var(--surface-alt);
+    color: var(--text);
+}
+
+.stats-body {
+    padding: 16px;
+}
+
+.stats-total {
+    font-size: 13px;
+    color: var(--text-sec);
+    margin-bottom: 14px;
+    letter-spacing: 0.02em;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.stats-chart {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 12px 14px 14px;
+    min-height: 160px;
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-chart--full {
+    grid-column: 1 / -1;
+}
+
+.stats-chart-title {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-sec);
+    margin-bottom: 10px;
+}
+
+.stats-chart-content {
+    position: relative;
+}
+
+.stats-nodata {
+    font-size: 12px;
+    color: var(--text-sec);
+    padding: 16px 0;
+}
+
+/* Focal length toggle */
+.stats-focal-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.stats-toggle-btn {
+    background: none;
+    border: none;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--text-sec);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.stats-toggle-btn:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.stats-toggle-btn.stats-toggle-active {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* D3 axis styling applied via inline attr, but override tick lines */
+.stats-chart .stats-axis .domain,
+.stats-chart .stats-axis .tick line {
+    stroke: var(--border);
+}
+
+.stats-chart .stats-axis .tick text {
+    fill: var(--text-sec);
+}
+
+/* Shared tooltip */
+.stats-tooltip {
+    position: absolute;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 5px 8px;
+    font-size: 11px;
+    color: var(--text);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+    line-height: 1.5;
+}
+
+.stats-loading,
+.stats-error {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-sec);
+    font-size: 13px;
+}
+
+.stats-error {
+    color: var(--accent);
+}
+
+.stats-cal-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.stats-cal-nav {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-sec);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 6px;
+}
+
+.stats-cal-nav:hover:not(:disabled) {
+    border-color: var(--text-sec);
+    color: var(--text);
+}
+
+.stats-cal-nav:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+/* --- Crop Tool --- */
+
+.crop-overlay {
+    position: fixed;
+    cursor: crosshair;
+    z-index: 10;
+    pointer-events: all;
+}
+
+.crop-shade {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+.crop-box {
+    position: absolute;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    cursor: move;
+    box-sizing: border-box;
+}
+
+.crop-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.crop-grid-line {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.crop-grid-v {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+.crop-grid-h {
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.crop-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+}
+
+.crop-handle[data-handle="nw"] { cursor: nw-resize; }
+.crop-handle[data-handle="n"]  { cursor: n-resize; }
+.crop-handle[data-handle="ne"] { cursor: ne-resize; }
+.crop-handle[data-handle="e"]  { cursor: e-resize; }
+.crop-handle[data-handle="se"] { cursor: se-resize; }
+.crop-handle[data-handle="s"]  { cursor: s-resize; }
+.crop-handle[data-handle="sw"] { cursor: sw-resize; }
+.crop-handle[data-handle="w"]  { cursor: w-resize; }
+
+/* Crop toolbar controls */
+.viewer-crop-ratio {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    padding: 3px 6px;
+    cursor: pointer;
+    height: 28px;
+}
+
+.viewer-crop-ratio:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.viewer-crop-error {
+    color: var(--accent);
+    font-size: 12px;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+/* --- Stats calendar --- */
+
+.stats-cal-year {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    min-width: 40px;
+    text-align: center;
+}

@@ -49,7 +49,7 @@ class JustifiedRenderer {
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
         const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
         return `<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(targetHeight * ar)}px;height:${targetHeight}px">
-            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" data-jidx="${idx}"${onerror}>${badgesHtml}${nameHtml}
+            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" decoding="async" fetchpriority="low" data-jidx="${idx}"${onerror}>${badgesHtml}${nameHtml}
         </div>`;
     }
 

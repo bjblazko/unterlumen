@@ -324,7 +324,7 @@ class BrowsePane {
                     </div>
                 </div>
             </div>
-            <button class="btn btn-sm slideshow-btn" title="Slideshow">
+            <button class="btn btn-sm dropdown-btn slideshow-btn" title="Slideshow">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polygon points="3,2 12,7 3,12" fill="currentColor" stroke="none"/>
                     <line x1="1" y1="2" x2="1" y2="12"/>
@@ -392,18 +392,20 @@ class BrowsePane {
     }
 
     _getThumbnailSize() {
-        if (localStorage.getItem('thumbnail-quality') !== 'high') return null;
+        const quality = localStorage.getItem('thumbnail-quality') || 'standard';
         const dpr = window.devicePixelRatio || 1;
+        const maxSize = quality === 'high' ? 1024 : 300;
+        const clampSize = (size) => Math.max(50, Math.min(maxSize, Math.round(size)));
         if (this.view === 'grid') {
             const grid = this.container.querySelector('.grid');
             if (grid) {
                 const item = grid.querySelector('.grid-item');
-                if (item) return Math.round(item.offsetWidth * dpr);
+                if (item) return clampSize(item.offsetWidth * dpr);
             }
-            return Math.round(200 * dpr);
+            return clampSize(200 * dpr);
         }
-        if (this.view === 'justified') return Math.round(this._justifiedTargetHeight * dpr);
-        return Math.round(32 * dpr);
+        if (this.view === 'justified') return clampSize(this._justifiedTargetHeight * dpr);
+        return clampSize(32 * dpr);
     }
 
     // --- Events ---
