@@ -19,6 +19,7 @@ class Viewer {
         this._cacheBust = null;
         this._cropTool = null;
         this._cropKeyHandler = null;
+        this._zoomTool = null;
     }
 
     open(imagePath, imageList) {
@@ -44,6 +45,7 @@ class Viewer {
             this._cropTool.destroy();
             this._cropTool = null;
         }
+        if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
         document.removeEventListener('keydown', this.keyHandler);
         this.infoPanel = null;
         this.filmStripEl = null;
@@ -207,6 +209,8 @@ class Viewer {
     }
 
     render() {
+        if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
+
         const filename = this.currentPath.split('/').pop();
         const counter = `${this.currentIndex + 1} / ${this.images.length}`;
         const hasPrev = this.currentIndex > 0;
@@ -221,6 +225,25 @@ class Viewer {
                     <span class="viewer-filmstrip-label">Film strip</span>
                     <div class="viewer-filmstrip-toggle-wrap" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
+                    <div class="viewer-zoom-group">
+                        <button class="btn viewer-zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                        <select class="viewer-zoom-select" title="Zoom level">
+                            <option value="fit">Fit</option>
+                            <option value="5">5%</option>
+                            <option value="10">10%</option>
+                            <option value="15">15%</option>
+                            <option value="25">25%</option>
+                            <option value="50">50%</option>
+                            <option value="75">75%</option>
+                            <option value="100">100%</option>
+                            <option value="150">150%</option>
+                            <option value="200">200%</option>
+                            <option value="300">300%</option>
+                            <option value="400">400%</option>
+                        </select>
+                        <button class="btn viewer-zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                        <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
+                    </div>
                     <button class="btn viewer-crop-btn" title="Crop">Crop</button>
                     <button class="btn viewer-info ${infoActive ? 'active' : ''}" title="Info (I)">Info</button>
                     <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
@@ -239,6 +262,20 @@ class Viewer {
         `;
 
         this.container.querySelector('.viewer-back').addEventListener('click', () => this.close());
+
+        const imgEl       = this.container.querySelector('.viewer-image-container img');
+        const containerEl = this.container.querySelector('.viewer-image-container');
+        this._zoomTool = new ZoomTool(imgEl, containerEl);
+        this._zoomTool._onchange = () => this._updateZoomUI();
+
+        this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
+        this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
+        this.container.querySelector('.viewer-zoom-reset').addEventListener('click', () => this._zoomTool.reset());
+        this.container.querySelector('.viewer-zoom-select').addEventListener('change', (e) => {
+            const v = e.target.value;
+            this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
+        });
+
         this.container.querySelector('.viewer-crop-btn').addEventListener('click', () => this._enterCropMode());
         this.container.querySelector('.viewer-info').addEventListener('click', () => this.toggleInfo());
         this.container.querySelector('.viewer-delete').addEventListener('click', () => this.markCurrentForDeletion());
@@ -268,6 +305,19 @@ class Viewer {
             this.infoPanel.container = this.container.querySelector('.viewer-info-container');
             this.infoPanel.render();
         }
+    }
+
+    _updateZoomUI() {
+        if (!this._zoomTool) return;
+        const level  = this._zoomTool.getCurrentLevel();
+        const select = this.container.querySelector('.viewer-zoom-select');
+        const outBtn = this.container.querySelector('.viewer-zoom-out');
+        const inBtn  = this.container.querySelector('.viewer-zoom-in');
+        const reset  = this.container.querySelector('.viewer-zoom-reset');
+        if (select) select.value = String(level);
+        if (outBtn) outBtn.disabled = this._zoomTool.isAtMin();
+        if (inBtn)  inBtn.disabled  = this._zoomTool.isAtMax();
+        if (reset)  reset.disabled  = (level === 'fit');
     }
 
     _currentImageURL() {
