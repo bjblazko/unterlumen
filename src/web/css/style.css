@@ -3987,6 +3987,37 @@ body.slideshow-active #app { height: 100vh; }
     white-space: nowrap;
 }
 
+/* --- Zoom Controls --- */
+
+.viewer-zoom-group {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+}
+
+.viewer-zoom-group .btn {
+    display: inline-flex;
+    align-items: center;
+}
+
+.viewer-zoom-select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    padding: 0 4px;
+    cursor: pointer;
+    min-width: 56px;
+    text-align: center;
+    font-family: inherit;
+}
+
+.viewer-zoom-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
 /* --- Stats calendar --- */
 
 .stats-cal-year {
