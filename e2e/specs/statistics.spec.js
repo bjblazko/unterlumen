@@ -8,7 +8,7 @@ test.describe('Statistics modal', () => {
         const res = await request.post('/api/library/', {
             data: { name: 'Stats test library', description: '', sourcePath: '/tmp' },
         });
-        expect(res.status()).toBe(200);
+        expect(res.status()).toBe(201);
         const body = await res.json();
         libID = body.id;
     });
