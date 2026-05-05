@@ -2701,13 +2701,35 @@ body.slideshow-active #app { height: 100vh; }
 
 .library-card {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: calc(var(--unit) * 2);
+    flex-direction: column;
     background: var(--surface-alt);
     border: 1px solid var(--border);
     border-radius: 2px;
+    overflow: hidden;
+}
+
+.library-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: calc(var(--unit) * 2);
     padding: calc(var(--unit) * 2) calc(var(--unit) * 3);
+}
+
+.library-card-filmstrip {
+    display: flex;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.library-card-filmstrip img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
 }
 
 .library-card-info {
@@ -2746,11 +2768,14 @@ body.slideshow-active #app { height: 100vh; }
 .library-card-progress {
     font-size: 11px;
     color: var(--text-sec);
-    margin-top: calc(var(--unit) * 1);
+    flex: 0 0 100%;
+    text-align: right;
 }
 
 .library-card-actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: calc(var(--unit) * 1);
     flex-shrink: 0;
     align-items: flex-start;

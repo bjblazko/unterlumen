@@ -67,9 +67,10 @@ func writeJSON(w http.ResponseWriter, v any) {
 type libraryJSON struct {
 	*lib.Library
 	RelSourcePath string `json:"relSourcePath"`
+	Scanning      bool   `json:"scanning"`
 }
 
-func toLibraryJSON(l *lib.Library, root string) libraryJSON {
+func toLibraryJSON(l *lib.Library, root string, scanning bool) libraryJSON {
 	var rel string
 	if root == "/" {
 		rel = strings.TrimPrefix(l.SourcePath, "/")
@@ -79,7 +80,7 @@ func toLibraryJSON(l *lib.Library, root string) libraryJSON {
 			rel = "" // not under root
 		}
 	}
-	return libraryJSON{Library: l, RelSourcePath: rel}
+	return libraryJSON{Library: l, RelSourcePath: rel, Scanning: scanning}
 }
 
 func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
@@ -91,7 +92,7 @@ func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
 		}
 		out := make([]libraryJSON, len(libs))
 		for i, l := range libs {
-			out[i] = toLibraryJSON(l, root)
+			out[i] = toLibraryJSON(l, root, mgr.IsScanning(l.ID))
 		}
 		writeJSON(w, out)
 	}
@@ -127,7 +128,7 @@ func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
-		writeJSON(w, toLibraryJSON(created, root))
+		writeJSON(w, toLibraryJSON(created, root, false))
 	}
 }
 
@@ -139,7 +140,7 @@ func getLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		writeJSON(w, toLibraryJSON(l, root))
+		writeJSON(w, toLibraryJSON(l, root, mgr.IsScanning(id)))
 	}
 }
 

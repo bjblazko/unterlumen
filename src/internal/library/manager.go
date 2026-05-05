@@ -221,6 +221,12 @@ func (m *Manager) EndScan(id string) {
 	m.UnlockIndex(id)
 }
 
+// IsScanning reports whether a scan is currently active for the library.
+func (m *Manager) IsScanning(id string) bool {
+	_, ok := m.scans.Load(id)
+	return ok
+}
+
 // AggregateExifFieldValues returns the merged, deduplicated distinct string values
 // for a given EXIF field across the requested libraries (or all if ids is nil).
 func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string, error) {

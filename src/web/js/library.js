@@ -374,7 +374,11 @@ class LibraryTab {
                 return;
             }
             for (const lib of libs) {
-                body.appendChild(this._libCard(lib));
+                const card = this._libCard(lib);
+                body.appendChild(card);
+                if (lib.scanning) {
+                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning');
+                }
             }
         } catch (err) {
             body.innerHTML = `<div class="library-error">Failed to load libraries: ${err.message}</div>`;
@@ -387,7 +391,10 @@ class LibraryTab {
         const lastIdx = lib.lastIndexed
             ? new Date(lib.lastIndexed).toLocaleDateString()
             : 'Never';
-        card.innerHTML = `
+
+        const top = document.createElement('div');
+        top.className = 'library-card-top';
+        top.innerHTML = `
             <div class="library-card-info">
                 <div class="library-card-name">${escapeHtml(lib.name)}</div>
                 <div class="library-card-meta">${escapeHtml(lib.sourcePath)}</div>
@@ -408,8 +415,16 @@ class LibraryTab {
                 </div>
                 <button class="btn btn-sm lib-delete">Delete</button>
             </div>`;
+        card.appendChild(top);
 
-        card.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
+        if (lib.photoCount > 0) {
+            const strip = document.createElement('div');
+            strip.className = 'library-card-filmstrip';
+            card.appendChild(strip);
+            this._loadFilmstrip(strip, lib.id);
+        }
+
+        top.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
         card.querySelector('.lib-delete').addEventListener('click', () => this._deleteLibrary(lib, card));
         const scanWrap = card.querySelector('.lib-scan-wrap');
         const scanMenu = scanWrap.querySelector('.lib-scan-menu');
@@ -426,11 +441,21 @@ class LibraryTab {
         return card;
     }
 
+    async _loadFilmstrip(strip, libID) {
+        const result = await LibraryAPI.photos(libID, { limit: 50 });
+        for (const photo of result.photos) {
+            const img = document.createElement('img');
+            img.src = LibraryAPI.thumbURL(libID, photo.id);
+            img.loading = 'lazy';
+            strip.appendChild(img);
+        }
+    }
+
     async _runScanCard(lib, card, scanFn, label) {
         const progressEl = card.querySelector('.library-card-progress') || (() => {
             const p = document.createElement('div');
             p.className = 'library-card-progress';
-            card.appendChild(p);
+            card.querySelector('.library-card-actions').appendChild(p);
             return p;
         })();
         const scanBtns = card.querySelectorAll('.lib-scan-new, .lib-scan-toggle');
