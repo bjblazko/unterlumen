@@ -73,37 +73,38 @@ func applyOrientation(img image.Image, orientation int) image.Image {
 	return dst
 }
 
-// ExtractThumbnail tries to extract the embedded EXIF thumbnail from a JPEG file.
-// When orientation > 1, the thumbnail is decoded, rotated, and re-encoded.
-// Returns an error if the thumbnail's aspect ratio doesn't match the actual image
-// (e.g., camera stores full-sensor thumbnail for an in-camera 1:1 crop).
-func ExtractThumbnail(path string, orientation int) ([]byte, string, error) {
+// extractOrientedEXIFThumbnail opens the file once, decodes EXIF, extracts the
+// embedded JPEG thumbnail, and applies orientation — all in a single file open.
+func extractOrientedEXIFThumbnail(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	defer f.Close()
 
 	x, err := exif.Decode(f)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	thumb, err := x.JpegThumbnail()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	if err := validateThumbnailAspect(x, thumb); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	if orientation > 1 {
-		if rotated, err := rotateThumbnail(thumb, orientation); err == nil {
-			return rotated, "image/jpeg", nil
+	if tag, err := x.Get(exif.Orientation); err == nil {
+		if v, err := tag.Int(0); err == nil && v > 1 {
+			if rotated, err := rotateThumbnail(thumb, v); err == nil {
+				thumb = rotated
+			}
 		}
 	}
-	return thumb, "image/jpeg", nil
+
+	return thumb, nil
 }
 
 func validateThumbnailAspect(x *exif.Exif, thumb []byte) error {

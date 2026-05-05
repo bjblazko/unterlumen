@@ -174,6 +174,66 @@ const LibraryAPI = {
                 .catch(err => { if (err.name !== 'AbortError') reject(err); });
         });
     },
+    cleanup(id, onProgress) {
+        return new Promise((resolve, reject) => {
+            fetch(`/api/library/${id}/cleanup`, { method: 'POST' })
+                .then(async r => {
+                    if (!r.ok) { reject(new Error(await r.text())); return; }
+                    const reader = r.body.getReader();
+                    const dec = new TextDecoder();
+                    let buf = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            const t = line.trim();
+                            if (t.startsWith('data:')) {
+                                try {
+                                    const p = JSON.parse(t.slice(5).trim());
+                                    onProgress(p);
+                                    if (p.finished) { resolve(); return; }
+                                } catch {}
+                            }
+                        }
+                    }
+                    resolve();
+                })
+                .catch(err => { if (err.name !== 'AbortError') reject(err); });
+        });
+    },
+    scanNew(id, onProgress) {
+        return new Promise((resolve, reject) => {
+            fetch(`/api/library/${id}/scan-new`, { method: 'POST' })
+                .then(async r => {
+                    if (!r.ok) { reject(new Error(await r.text())); return; }
+                    const reader = r.body.getReader();
+                    const dec = new TextDecoder();
+                    let buf = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            const t = line.trim();
+                            if (t.startsWith('data:')) {
+                                try {
+                                    const p = JSON.parse(t.slice(5).trim());
+                                    onProgress(p);
+                                    if (p.finished) { resolve(); return; }
+                                } catch {}
+                            }
+                        }
+                    }
+                    resolve();
+                })
+                .catch(err => { if (err.name !== 'AbortError') reject(err); });
+        });
+    },
 };
 
 /* --- LibraryTab --- */
@@ -336,41 +396,61 @@ class LibraryTab {
             </div>
             <div class="library-card-actions">
                 <button class="btn btn-sm btn-accent lib-open">Open</button>
-                <button class="btn btn-sm lib-reindex">Re-index</button>
+                <div class="dropdown-wrap lib-scan-wrap">
+                    <div class="dropdown-toggle">
+                        <button class="btn btn-sm lib-scan-new">Scan new and changed</button>
+                        <button class="btn btn-sm lib-scan-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
+                    </div>
+                    <div class="dropdown-menu lib-scan-menu dropdown-menu-right" style="display:none">
+                        <button class="btn dropdown-item lib-reindex">Re-index (full)</button>
+                        <button class="btn dropdown-item lib-cleanup">Cleanup deleted</button>
+                    </div>
+                </div>
                 <button class="btn btn-sm lib-delete">Delete</button>
             </div>`;
 
         card.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
-        card.querySelector('.lib-reindex').addEventListener('click', (e) => this._reindexCard(lib, card, e.target));
         card.querySelector('.lib-delete').addEventListener('click', () => this._deleteLibrary(lib, card));
+        const scanWrap = card.querySelector('.lib-scan-wrap');
+        const scanMenu = scanWrap.querySelector('.lib-scan-menu');
+        const { close: closeScanMenu } = Dropdown.init(scanWrap.querySelector('.lib-scan-toggle'), scanMenu);
+        scanWrap.querySelector('.lib-scan-new').addEventListener('click', () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning'));
+        scanWrap.querySelector('.lib-reindex').addEventListener('click', () => {
+            closeScanMenu();
+            this._runScanCard(lib, card, (id, cb) => LibraryAPI.reindex(id, cb), 'Indexing');
+        });
+        scanWrap.querySelector('.lib-cleanup').addEventListener('click', () => {
+            closeScanMenu();
+            this._runScanCard(lib, card, (id, cb) => LibraryAPI.cleanup(id, cb), 'Checking');
+        });
         return card;
     }
 
-    async _reindexCard(lib, card, btn) {
-        const progress = card.querySelector('.library-card-progress') || (() => {
+    async _runScanCard(lib, card, scanFn, label) {
+        const progressEl = card.querySelector('.library-card-progress') || (() => {
             const p = document.createElement('div');
             p.className = 'library-card-progress';
             card.appendChild(p);
             return p;
         })();
-        btn.disabled = true;
-        progress.textContent = 'Indexing…';
+        const scanBtns = card.querySelectorAll('.lib-scan-new, .lib-scan-toggle');
+        scanBtns.forEach(b => { b.disabled = true; });
+        progressEl.textContent = `${label}…`;
         try {
-            await LibraryAPI.reindex(lib.id, (p) => {
+            await scanFn(lib.id, (p) => {
                 if (p.finished) {
-                    progress.textContent = `Done — ${p.total} photos indexed.`;
+                    progressEl.textContent = `Done — ${p.total} photos.`;
                 } else {
-                    progress.textContent = `${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
+                    progressEl.textContent = `${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
                 }
             });
-            // Refresh card stats.
             const updated = await LibraryAPI.get(lib.id);
             card.querySelector('.library-card-stats').textContent =
                 `${updated.photoCount} photos · Last indexed: ${new Date(updated.lastIndexed).toLocaleDateString()}`;
         } catch (err) {
-            progress.textContent = `Error: ${err.message}`;
+            progressEl.textContent = `Error: ${err.message}`;
         } finally {
-            btn.disabled = false;
+            scanBtns.forEach(b => { b.disabled = false; });
         }
     }
 
@@ -487,7 +567,6 @@ class LibraryTab {
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm btn-toggle" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm" id="lib-reindex-btn">Re-index</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
@@ -509,7 +588,6 @@ class LibraryTab {
             this.render();
         });
 
-        el.querySelector('#lib-reindex-btn').addEventListener('click', () => this._reindexDetail(el));
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
 
@@ -793,30 +871,6 @@ class LibraryTab {
         }
     }
 
-    async _reindexDetail(detailEl) {
-        const lib = this.currentLibrary;
-        const btn = detailEl.querySelector('#lib-reindex-btn');
-        btn.disabled = true;
-        const statusEl = detailEl.querySelector('#lib-status');
-        if (statusEl) statusEl.textContent = 'Indexing…';
-
-        try {
-            await LibraryAPI.reindex(lib.id, (p) => {
-                if (!statusEl) return;
-                if (p.finished) {
-                    statusEl.textContent = `Done — ${p.total} photos`;
-                } else {
-                    statusEl.textContent = `Indexing ${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
-                }
-            });
-            this.currentLibrary = await LibraryAPI.get(lib.id);
-            if (this._pane) this._pane.load(this._pane.path);
-        } catch (err) {
-            if (statusEl) statusEl.textContent = 'Error: ' + err.message;
-        } finally {
-            btn.disabled = false;
-        }
-    }
 }
 
 /* --- Utilities --- */

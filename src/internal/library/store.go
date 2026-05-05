@@ -262,6 +262,36 @@ func (s *Store) PurgeMissingPhotos() (int, error) {
 	return len(victims), nil
 }
 
+// PhotoRef is a minimal photo record used for cleanup path checks.
+type PhotoRef struct {
+	ID       string
+	PathHint string
+}
+
+// ListAllPhotoRefs returns the ID and path_hint for every ok photo.
+func (s *Store) ListAllPhotoRefs() ([]PhotoRef, error) {
+	rows, err := s.db.Query(`SELECT id, path_hint FROM photos WHERE status='ok'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var refs []PhotoRef
+	for rows.Next() {
+		var r PhotoRef
+		if err := rows.Scan(&r.ID, &r.PathHint); err != nil {
+			return nil, err
+		}
+		refs = append(refs, r)
+	}
+	return refs, rows.Err()
+}
+
+// MarkPhotoMissing sets status='missing' for a single photo by ID.
+func (s *Store) MarkPhotoMissing(id string) error {
+	_, err := s.db.Exec(`UPDATE photos SET status='missing' WHERE id=?`, id)
+	return err
+}
+
 // CountPhotos returns the total number of indexed photos (status='ok').
 func (s *Store) CountPhotos() (int, error) {
 	var n int

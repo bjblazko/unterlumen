@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-03*
+*Last modified: 2026-05-05*
 
 All notable changes to this project are documented in this file.
 
@@ -8,11 +8,15 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Library scan modes** — A "Scan new and changed" combo button with a dropdown arrow replaces the standalone "Re-index" button on every library card. "Scan new and changed" (primary action) walks the source directory and adds new photos, updates changed ones, and re-links renamed files — without removing anything. "Re-index (full)" (dropdown) performs a full rescan that also purges deleted files. "Cleanup deleted" (dropdown) removes indexed photos whose source files are gone, without re-scanning or re-hashing. All three actions share live SSE progress; clicking while a scan is running joins the ongoing stream instead of erroring. Only one scan can run per library at a time.
+
 - **Crop tool** — An interactive crop tool in the fullscreen viewer. Click "Crop" in the toolbar to enter crop mode, draw a rectangle on the photo, choose from free, standard (1:1, 4:3, 3:2, 16:9, 9:16 and their portrait variants), or cinema (1.85:1, 2.35:1, 2.39:1) aspect ratios, and apply. Crops are saved in-place. All metadata — including Fujifilm film simulation and MakerNotes — is preserved via exiftool. JPEG and GIF are re-encoded at high quality; PNG is lossless; WebP uses ffmpeg; HEIF/HEIC uses `sips` (macOS). Keyboard: Enter to apply, Escape to cancel.
 
 - **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
 
 ### Fixed
+
+- **Interrupted re-index no longer shows 0 photos** — If a full re-index was cancelled mid-way (network drop, power-save, crash), the library overview showed 0 photos because the cached photo count was only written at the very end of a successful scan. The count is now always updated on exit, so the overview reflects however many photos were successfully indexed before the interruption.
 
 - **Browse mode no longer stalls on large HIF film rolls** — Standard-quality browse thumbnails now send an explicit requested size, so the HEIF/HIF thumbnail path can choose the smallest embedded JPEG preview that still fits the UI instead of repeatedly extracting a larger preview. Uncached thumbnail work is also bounded and deduplicated on the server, which prevents large folders from pegging all CPU cores during first load. Opening the fullscreen viewer no longer eagerly loads the whole filmstrip, so the selected image can appear while background thumbnails are still pending.
 
