@@ -3,6 +3,7 @@ package api
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"huepattl.de/unterlumen/internal/api/batchrename"
 	"huepattl.de/unterlumen/internal/api/browse"
@@ -44,6 +45,20 @@ func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool, libMgr 
 		apilibrary.Handle(mux, libMgr, boundary, chStore)
 	}
 
-	mux.Handle("/", http.FileServer(http.FS(webFS)))
+	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))
 	return mux
+}
+
+// noCacheAssets wraps a handler and adds Cache-Control: no-cache for JS and CSS
+// files so browsers always revalidate after a binary update rather than serving
+// stale embed.FS content (embed files have a fixed zero modification time, which
+// causes the same ETag across builds).
+func noCacheAssets(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if strings.HasSuffix(p, ".js") || strings.HasSuffix(p, ".css") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		h.ServeHTTP(w, r)
+	})
 }

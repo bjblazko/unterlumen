@@ -522,6 +522,279 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 	return merged, nil
 }
 
+// Timeline returns time-series statistics across the requested libraries (or all if ids is nil).
+func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*LibraryTimeline, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) > 0 {
+		set := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			set[id] = true
+		}
+		filtered := libs[:0]
+		for _, l := range libs {
+			if set[l.ID] {
+				filtered = append(filtered, l)
+			}
+		}
+		libs = filtered
+	}
+
+	var results []*LibraryTimeline
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		tl, err := store.Timeline(pathPrefix, granularity)
+		store.Close()
+		if err != nil {
+			continue
+		}
+		results = append(results, tl)
+	}
+	if len(results) == 0 {
+		return &LibraryTimeline{
+			Granularity:    coalesceGranularity(granularity),
+			Periods:        []string{},
+			CameraUsage:    []CameraTimeSlice{},
+			FocalStats:     []PeriodStats{},
+			ISOStats:       []PeriodStats{},
+			ApertureHeat:   []ApertureRow{},
+			AspectRatios:   []AspectSlice{},
+			MegapixelStats: []MegapixelStat{},
+		}, nil
+	}
+	if len(results) == 1 {
+		return results[0], nil
+	}
+	return mergeTLs(results), nil
+}
+
+func coalesceGranularity(g string) string {
+	if g == "year" {
+		return "year"
+	}
+	return "month"
+}
+
+func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
+	// Determine granularity: prefer "year" if any lib returned it.
+	granularity := "month"
+	for _, r := range results {
+		if r.Granularity == "year" {
+			granularity = "year"
+			break
+		}
+	}
+
+	// Build global period set.
+	periodSet := make(map[string]bool)
+	for _, r := range results {
+		for _, p := range r.Periods {
+			periodSet[p] = true
+		}
+	}
+	periods := make([]string, 0, len(periodSet))
+	for p := range periodSet {
+		periods = append(periods, p)
+	}
+	sortStrings(periods)
+	periodIdx := make(map[string]int, len(periods))
+	for i, p := range periods {
+		periodIdx[p] = i
+	}
+
+	// Merge camera usage: sum per (camera, period), then re-apply top-5.
+	camTotals := make(map[string]int)
+	camGrid := make(map[string][]int)
+	for _, r := range results {
+		srcIdx := make(map[string]int, len(r.Periods))
+		for i, p := range r.Periods {
+			srcIdx[p] = i
+		}
+		for _, cs := range r.CameraUsage {
+			if camGrid[cs.Camera] == nil {
+				camGrid[cs.Camera] = make([]int, len(periods))
+			}
+			for p, pi := range periodIdx {
+				if si, ok := srcIdx[p]; ok && si < len(cs.Counts) {
+					camGrid[cs.Camera][pi] += cs.Counts[si]
+					camTotals[cs.Camera] += cs.Counts[si]
+				}
+			}
+		}
+	}
+	type kv struct {
+		k string
+		v int
+	}
+	ranked := make([]kv, 0, len(camTotals))
+	for k, v := range camTotals {
+		ranked = append(ranked, kv{k, v})
+	}
+	for i := 1; i < len(ranked); i++ {
+		for j := i; j > 0 && ranked[j].v > ranked[j-1].v; j-- {
+			ranked[j], ranked[j-1] = ranked[j-1], ranked[j]
+		}
+	}
+	top := 5
+	if len(ranked) < top {
+		top = len(ranked)
+	}
+	topSet := make(map[string]bool, top)
+	for _, kv := range ranked[:top] {
+		topSet[kv.k] = true
+	}
+	cameras := make([]CameraTimeSlice, 0, top+1)
+	for _, kv := range ranked[:top] {
+		cameras = append(cameras, CameraTimeSlice{Camera: kv.k, Counts: camGrid[kv.k]})
+	}
+	other := make([]int, len(periods))
+	hasOther := false
+	for cam, counts := range camGrid {
+		if topSet[cam] {
+			continue
+		}
+		hasOther = true
+		for i, c := range counts {
+			other[i] += c
+		}
+	}
+	if hasOther {
+		cameras = append(cameras, CameraTimeSlice{Camera: "Other", Counts: other})
+	}
+
+	// Merge focal and ISO stats: weighted average for median/P25/P75.
+	focalStats := mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.FocalStats })
+	isoStats := mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.ISOStats })
+
+	// Merge aperture heatmap: sum bucket counts.
+	aperMap := make(map[string]map[string]int)
+	for _, r := range results {
+		for _, row := range r.ApertureHeat {
+			if aperMap[row.Period] == nil {
+				aperMap[row.Period] = make(map[string]int)
+			}
+			for k, v := range row.Buckets {
+				aperMap[row.Period][k] += v
+			}
+		}
+	}
+	aperRows := make([]ApertureRow, 0, len(periods))
+	for _, p := range periods {
+		if buckets := aperMap[p]; len(buckets) > 0 {
+			cp := make(map[string]int, len(buckets))
+			for k, v := range buckets {
+				cp[k] = v
+			}
+			aperRows = append(aperRows, ApertureRow{Period: p, Buckets: cp})
+		}
+	}
+
+	// Merge aspect ratios: sum counts per (ratio, period).
+	aspectGrid := make(map[string][]int)
+	for _, r := range results {
+		srcIdx := make(map[string]int, len(r.Periods))
+		for i, p := range r.Periods {
+			srcIdx[p] = i
+		}
+		for _, as := range r.AspectRatios {
+			if aspectGrid[as.Ratio] == nil {
+				aspectGrid[as.Ratio] = make([]int, len(periods))
+			}
+			for p, pi := range periodIdx {
+				if si, ok := srcIdx[p]; ok && si < len(as.Counts) {
+					aspectGrid[as.Ratio][pi] += as.Counts[si]
+				}
+			}
+		}
+	}
+	aspectSlices := make([]AspectSlice, 0, len(tlAspectOrder))
+	for _, ratio := range tlAspectOrder {
+		counts := aspectGrid[ratio]
+		for _, c := range counts {
+			if c > 0 {
+				cp := make([]int, len(counts))
+				copy(cp, counts)
+				aspectSlices = append(aspectSlices, AspectSlice{Ratio: ratio, Counts: cp})
+				break
+			}
+		}
+	}
+
+	// Merge megapixels: max of maxes, weighted avg.
+	mpMap := make(map[string]MegapixelStat)
+	for _, r := range results {
+		for _, ms := range r.MegapixelStats {
+			cur := mpMap[ms.Period]
+			if ms.Max > cur.Max {
+				cur.Max = ms.Max
+			}
+			// Weighted average: (cur.Avg*cur.Count + ms.Avg*ms.Count) / (cur.Count + ms.Count)
+			total := cur.Count + ms.Count
+			if total > 0 {
+				cur.Avg = (cur.Avg*float64(cur.Count) + ms.Avg*float64(ms.Count)) / float64(total)
+			}
+			cur.Count = total
+			cur.Period = ms.Period
+			mpMap[ms.Period] = cur
+		}
+	}
+	mpStats := make([]MegapixelStat, 0, len(periods))
+	for _, p := range periods {
+		if ms, ok := mpMap[p]; ok {
+			mpStats = append(mpStats, ms)
+		}
+	}
+
+	return &LibraryTimeline{
+		Granularity:    granularity,
+		Periods:        periods,
+		CameraUsage:    cameras,
+		FocalStats:     focalStats,
+		ISOStats:       isoStats,
+		ApertureHeat:   aperRows,
+		AspectRatios:   aspectSlices,
+		MegapixelStats: mpStats,
+	}
+}
+
+func mergePercentileStats(results []*LibraryTimeline, periods []string, getter func(*LibraryTimeline) []PeriodStats) []PeriodStats {
+	type acc struct {
+		sumMedian, sumP25, sumP75 float64
+		count                     int
+	}
+	byPeriod := make(map[string]acc)
+	for _, r := range results {
+		for _, ps := range getter(r) {
+			a := byPeriod[ps.Period]
+			a.sumMedian += ps.Median * float64(ps.Count)
+			a.sumP25 += ps.P25 * float64(ps.Count)
+			a.sumP75 += ps.P75 * float64(ps.Count)
+			a.count += ps.Count
+			byPeriod[ps.Period] = a
+		}
+	}
+	out := make([]PeriodStats, 0, len(periods))
+	for _, p := range periods {
+		a, ok := byPeriod[p]
+		if !ok || a.count == 0 {
+			continue
+		}
+		out = append(out, PeriodStats{
+			Period: p,
+			Median: a.sumMedian / float64(a.count),
+			P25:    a.sumP25 / float64(a.count),
+			P75:    a.sumP75 / float64(a.count),
+			Count:  a.count,
+		})
+	}
+	return out
+}
+
 // mapToValueCounts converts a value→count map to a []ValueCount sorted by value ascending.
 func mapToValueCounts(m map[float64]int) []ValueCount {
 	out := make([]ValueCount, 0, len(m))

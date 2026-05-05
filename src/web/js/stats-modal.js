@@ -10,6 +10,11 @@ class StatsModal {
         this._selectedId = opts.libraryId ?? null;
         this._pathPrefix = opts.pathPrefix ?? '';
         this._fixedScope = opts.fixedScope ?? false;
+        this._activeTab = 'snapshot';
+        this._granularity = '';
+        this._snapData = null;
+        this._tlData = null;
+        this._tlGeneration = 0;
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay stats-overlay';
@@ -72,31 +77,155 @@ class StatsModal {
     }
 
     async _load(body) {
+        this._body = body;
+        this._tlData = null;
         body.innerHTML = '<div class="stats-loading">Loading…</div>';
         try {
-            const params = new URLSearchParams();
-            if (this._selectedId) params.set('ids', this._selectedId);
-            if (this._pathPrefix) params.set('pathPrefix', this._pathPrefix);
-            const qs = params.toString() ? '?' + params.toString() : '';
+            const qs = this._buildQS();
             const r = await fetch(`/api/library/statistics${qs}`);
             if (!r.ok) throw new Error(await r.text());
-            const data = await r.json();
-            this._render(body, data);
+            this._snapData = await r.json();
+            this._renderWithTabs();
         } catch (err) {
             body.innerHTML = `<div class="stats-error">Failed to load statistics: ${escapeHtml(err.message)}</div>`;
         }
     }
 
-    _render(body, data) {
-        body.innerHTML = '';
-        const grid = document.createElement('div');
-        grid.className = 'stats-grid';
-        body.appendChild(grid);
+    _buildQS() {
+        const params = new URLSearchParams();
+        if (this._selectedId) params.set('ids', this._selectedId);
+        if (this._pathPrefix) params.set('pathPrefix', this._pathPrefix);
+        return params.toString() ? '?' + params.toString() : '';
+    }
 
+    _renderWithTabs() {
+        const body = this._body;
+        body.innerHTML = '';
+
+        const tabs = document.createElement('div');
+        tabs.className = 'stats-tabs';
+        const makeTab = (id, label) => {
+            const btn = document.createElement('button');
+            btn.className = 'stats-tab-btn' + (this._activeTab === id ? ' stats-tab-active' : '');
+            btn.textContent = label;
+            btn.addEventListener('click', () => {
+                this._activeTab = id;
+                this._renderWithTabs();
+            });
+            return btn;
+        };
+        tabs.appendChild(makeTab('snapshot', 'Snapshot'));
+        tabs.appendChild(makeTab('timeline', 'Timeline'));
+        body.appendChild(tabs);
+
+        if (this._activeTab === 'snapshot') {
+            this._renderSnapshot(body, this._snapData);
+        } else {
+            this._renderTimeline().catch(err => {
+                body.appendChild(Object.assign(document.createElement('div'), {
+                    className: 'stats-error',
+                    textContent: 'Failed to load timeline: ' + err.message,
+                }));
+            });
+        }
+    }
+
+    async _renderTimeline() {
+        const body = this._body;
+        const generation = ++this._tlGeneration;
+
+        const controls = document.createElement('div');
+        controls.className = 'stats-tl-controls';
+        const toggle = document.createElement('div');
+        toggle.className = 'stats-focal-toggle';
+        const granOptions = [
+            { value: '', label: 'Auto' },
+            { value: 'month', label: 'Month' },
+            { value: 'year', label: 'Year' },
+        ];
+        for (const opt of granOptions) {
+            const btn = document.createElement('button');
+            btn.className = 'stats-toggle-btn' + (this._granularity === opt.value ? ' stats-toggle-active' : '');
+            btn.textContent = opt.label;
+            btn.addEventListener('click', () => {
+                if (this._granularity === opt.value) return;
+                this._granularity = opt.value;
+                this._tlData = null;
+                this._renderWithTabs();
+            });
+            toggle.appendChild(btn);
+        }
+        controls.appendChild(toggle);
+        body.appendChild(controls);
+
+        if (!this._tlData) {
+            const loading = document.createElement('div');
+            loading.className = 'stats-loading';
+            loading.textContent = 'Loading timeline…';
+            body.appendChild(loading);
+
+            const params = new URLSearchParams();
+            if (this._selectedId) params.set('ids', this._selectedId);
+            if (this._pathPrefix) params.set('pathPrefix', this._pathPrefix);
+            if (this._granularity) params.set('granularity', this._granularity);
+            const qs = params.toString() ? '?' + params.toString() : '';
+            const r = await fetch(`/api/library/timeline${qs}`);
+            if (generation !== this._tlGeneration) return;
+            if (!r.ok) throw new Error(await r.text());
+            this._tlData = await r.json();
+            if (generation !== this._tlGeneration) return;
+            loading.remove();
+        }
+
+        const tlData = this._tlData;
+        toggle.querySelector('button').textContent = `Auto (${tlData.granularity})`;
+
+        const panel = document.createElement('div');
+        panel.className = 'stats-timeline';
+        body.appendChild(panel);
+
+        this._addTlChart(panel, 'Camera usage', 'Photos per camera per period',
+            el => renderCameraStream(el, tlData));
+        this._addTlChart(panel, 'Focal length drift', 'Median 35mm equiv. with IQR band',
+            el => renderFocalDrift(el, tlData));
+        this._addTlChart(panel, 'ISO evolution', 'Median ISO per period',
+            el => renderISOEvolution(el, tlData));
+        this._addTlChart(panel, 'Aperture usage', 'Normalised share of shots per f-stop',
+            el => renderApertureHeat(el, tlData));
+        this._addTlChart(panel, 'Aspect ratio mix', 'Proportion of frame shapes per period',
+            el => renderAspectRiver(el, tlData));
+        this._addTlChart(panel, 'Megapixel timeline', 'Max and average sensor resolution per period',
+            el => renderMegapixelTimeline(el, tlData));
+    }
+
+    _addTlChart(panel, title, subtitle, renderFn) {
+        const card = document.createElement('div');
+        card.className = 'stats-tl-chart';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'stats-tl-title';
+        titleEl.textContent = title;
+        const subtitleEl = document.createElement('div');
+        subtitleEl.className = 'stats-tl-subtitle';
+        subtitleEl.textContent = subtitle;
+        card.appendChild(titleEl);
+        card.appendChild(subtitleEl);
+        const content = document.createElement('div');
+        card.appendChild(content);
+        panel.appendChild(card);
+        try { renderFn(content); } catch (_) {
+            content.innerHTML = '<div class="stats-tl-nodata">No data</div>';
+        }
+    }
+
+    _renderSnapshot(body, data) {
         const totalEl = document.createElement('div');
         totalEl.className = 'stats-total';
         totalEl.textContent = `${data.totalPhotos.toLocaleString()} photos`;
-        body.insertBefore(totalEl, grid);
+        body.appendChild(totalEl);
+
+        const grid = document.createElement('div');
+        grid.className = 'stats-grid';
+        body.appendChild(grid);
 
         this._addChart(grid, 'Format', false, el => renderFormatDonut(el, data.formats));
         this._addChart(grid, 'Film simulation', false, el => renderFilmSimBar(el, data.filmSims));
@@ -661,4 +790,339 @@ function renderCalendarHeatmap(el, shootingDays) {
     nextBtn.addEventListener('click', () => { if (yearIdx < years.length - 1) { yearIdx++; renderYear(years[yearIdx]); } });
 
     renderYear(years[yearIdx]);
+}
+
+/* ─── Timeline helpers ──────────────────────────────────────────── */
+
+const TL_CAM_COLORS = ['#d35400', '#8b5a2b', '#c8a860', '#7a9e7e', '#6b8cba', '#9b7ec8'];
+
+function tlAxisBottom(g, x, periods, iH, c) {
+    const tickMod = periods.length > 24 ? Math.ceil(periods.length / 12) : 1;
+    g.append('g').attr('transform', `translate(0,${iH})`)
+        .call(d3.axisBottom(x).tickSizeOuter(0)
+            .tickValues(periods.filter((_, i) => i % tickMod === 0)))
+        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9)
+        .attr('transform', 'rotate(-45)').attr('text-anchor', 'end')
+        .attr('dx', '-0.5em').attr('dy', '0.5em');
+    g.selectAll('.domain, .tick line').attr('stroke', c.border);
+}
+
+function tlNoData(el, msg) {
+    el.innerHTML = `<div class="stats-tl-nodata">${escapeHtml(msg)}</div>`;
+}
+
+/* ─── TL 1. Camera stacked bar ──────────────────────────────────── */
+
+function renderCameraStream(el, tlData) {
+    const cameras = tlData.cameraUsage;
+    const periods = tlData.periods;
+    if (!cameras?.length || !periods?.length) { tlNoData(el, 'No camera data'); return; }
+    const c = chartColors();
+    const W = 680, H = 220;
+    const m = { top: 8, right: 16, bottom: 48, left: 16 };
+    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
+
+    const cameraNames = cameras.map(cs => cs.camera);
+    const stackData = periods.map((p, i) => {
+        const obj = { period: p };
+        for (const cs of cameras) obj[cs.camera] = cs.counts[i] ?? 0;
+        return obj;
+    });
+
+    const stack = d3.stack().keys(cameraNames)(stackData);
+    const colorScale = d3.scaleOrdinal().domain(cameraNames).range(TL_CAM_COLORS);
+
+    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.08);
+    const maxY = d3.max(stack[stack.length - 1], d => d[1]);
+    const y = d3.scaleLinear().domain([0, maxY]).range([iH, 0]).nice();
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+    tlAxisBottom(g, x, periods, iH, c);
+
+    const layers = g.selectAll('.cam-layer').data(stack).join('g')
+        .attr('class', 'cam-layer')
+        .attr('fill', d => colorScale(d.key));
+
+    layers.selectAll('rect').data(d => d).join('rect')
+        .attr('x', d => x(d.data.period))
+        .attr('y', d => y(d[1]))
+        .attr('height', d => Math.max(0, y(d[0]) - y(d[1])))
+        .attr('width', x.bandwidth());
+
+    const legend = document.createElement('div');
+    legend.className = 'stats-tl-legend';
+    cameraNames.forEach(cam => {
+        const item = document.createElement('div');
+        item.className = 'stats-tl-legend-item';
+        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${colorScale(cam)}"></span>${escapeHtml(cam)}`;
+        item.addEventListener('click', () => {
+            item.classList.toggle('tl-dim');
+            const dimmed = item.classList.contains('tl-dim');
+            layers.filter(d => d.key === cam).attr('opacity', dimmed ? 0.12 : 1);
+        });
+        legend.appendChild(item);
+    });
+    el.appendChild(legend);
+}
+
+/* ─── TL 2. Focal length drift ──────────────────────────────────── */
+
+function renderFocalDrift(el, tlData) {
+    const stats = tlData.focalStats;
+    const periods = tlData.periods;
+    if (!stats?.length || !periods?.length) { tlNoData(el, 'No focal length data'); return; }
+    const c = chartColors();
+    const W = 680, H = 180;
+    const m = { top: 8, right: 16, bottom: 48, left: 52 };
+    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
+
+    const statsMap = new Map(stats.map(s => [s.period, s]));
+    const validPeriods = periods.filter(p => statsMap.has(p));
+
+    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.1);
+    const xC = p => x(p) + x.bandwidth() / 2;
+    const allVals = stats.flatMap(s => [s.p25, s.p75]);
+    const y = d3.scaleLinear().domain([0, d3.max(allVals) * 1.1]).range([iH, 0]).nice();
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+    tlAxisBottom(g, x, periods, iH, c);
+    g.append('g').call(d3.axisLeft(y).ticks(5).tickSizeOuter(0).tickFormat(d => `${d}mm`))
+        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
+    g.selectAll('.domain, .tick line').attr('stroke', c.border);
+
+    // IQR band
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.area()
+            .x(p => xC(p)).y0(p => y(statsMap.get(p).p25)).y1(p => y(statsMap.get(p).p75))
+            .curve(d3.curveMonotoneX))
+        .attr('fill', c.accent).attr('opacity', 0.15);
+
+    // Median line
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+}
+
+/* ─── TL 3. ISO evolution ───────────────────────────────────────── */
+
+function renderISOEvolution(el, tlData) {
+    const stats = tlData.isoStats;
+    const periods = tlData.periods;
+    if (!stats?.length || !periods?.length) { tlNoData(el, 'No ISO data'); return; }
+    const c = chartColors();
+    const W = 680, H = 160;
+    const m = { top: 8, right: 16, bottom: 48, left: 56 };
+    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
+
+    const statsMap = new Map(stats.map(s => [s.period, s]));
+    const validPeriods = periods.filter(p => statsMap.has(p));
+    const allMedians = stats.map(s => s.median).filter(v => v >= 50);
+    const isoMax = Math.max(d3.max(allMedians) * 1.5, 200);
+
+    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.1);
+    const xC = p => x(p) + x.bandwidth() / 2;
+    const y = d3.scaleLog().domain([50, isoMax]).range([iH, 0]).base(2);
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+    // ISO grid lines
+    [100, 400, 1600, 6400, 25600].filter(v => v <= isoMax).forEach(iso => {
+        g.append('line').attr('x1', 0).attr('x2', iW).attr('y1', y(iso)).attr('y2', y(iso))
+            .attr('stroke', c.border).attr('stroke-dasharray', '3,3');
+    });
+
+    tlAxisBottom(g, x, periods, iH, c);
+    g.append('g').call(d3.axisLeft(y)
+        .tickValues([100, 400, 1600, 6400, 25600].filter(v => v <= isoMax))
+        .tickSizeOuter(0).tickFormat(d => d >= 1000 ? `${d/1000}K` : d))
+        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
+    g.selectAll('.domain, .tick line').attr('stroke', c.border);
+
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.area().x(p => xC(p)).y0(iH).y1(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
+        .attr('fill', c.accent).attr('opacity', 0.15);
+
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+}
+
+/* ─── TL 4. Aperture heatmap ────────────────────────────────────── */
+
+function renderApertureHeat(el, tlData) {
+    const heat = tlData.apertureHeat;
+    const periods = tlData.periods;
+    if (!heat?.length || !periods?.length) { tlNoData(el, 'No aperture data'); return; }
+    const c = chartColors();
+    const bucketOrder = ['f/1', 'f/1.4', 'f/2', 'f/2.8', 'f/4', 'f/5.6', 'f/8', 'f/11', 'f/16+'];
+    const cellW = Math.max(4, Math.min(22, Math.floor(600 / periods.length)));
+    const cellH = 17;
+    const m = { top: 4, right: 16, bottom: 48, left: 44 };
+    const iW = periods.length * cellW, iH = bucketOrder.length * cellH;
+    const W = m.left + iW + m.right, H = m.top + iH + m.bottom;
+
+    const rowMap = new Map(heat.map(r => [r.period, r.buckets]));
+    const totals = new Map(heat.map(r => [r.period, Object.values(r.buckets).reduce((a, b) => a + b, 0)]));
+    const colorScale = d3.scaleSequential([0, 1]).interpolator(d3.interpolateRgb(c.border, c.accent));
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+    bucketOrder.forEach((b, bi) => {
+        g.append('text').attr('x', -4).attr('y', bi * cellH + cellH * 0.72)
+            .attr('text-anchor', 'end').attr('fill', c.textSec).attr('font-size', 9).text(b);
+    });
+
+    const tickMod = periods.length > 30 ? Math.ceil(periods.length / 15) : 1;
+    periods.forEach((p, pi) => {
+        if (pi % tickMod !== 0) return;
+        g.append('text')
+            .attr('transform', `translate(${pi * cellW + cellW / 2},${iH + 6}) rotate(-45)`)
+            .attr('text-anchor', 'end').attr('fill', c.textSec).attr('font-size', 9).text(p);
+    });
+
+    const tooltip = d3.select(el).append('div').attr('class', 'stats-tooltip').style('display', 'none');
+
+    periods.forEach((p, pi) => {
+        const buckets = rowMap.get(p) ?? {};
+        const total = totals.get(p) ?? 1;
+        bucketOrder.forEach((b, bi) => {
+            const count = buckets[b] ?? 0;
+            const norm = count / total;
+            g.append('rect')
+                .attr('x', pi * cellW).attr('y', bi * cellH)
+                .attr('width', cellW - 1).attr('height', cellH - 1).attr('rx', 1)
+                .attr('fill', count > 0 ? colorScale(norm) : c.border)
+                .attr('opacity', count > 0 ? 1 : 0.2)
+                .on('mouseover', function(event) {
+                    if (!count) return;
+                    tooltip.style('display', 'block')
+                        .html(`${p} · ${b}<br>${count.toLocaleString()} shots (${(norm*100).toFixed(1)}%)`);
+                })
+                .on('mousemove', function(event) {
+                    const [mx, my] = d3.pointer(event, el);
+                    tooltip.style('left', mx + 12 + 'px').style('top', my - 28 + 'px');
+                })
+                .on('mouseout', () => tooltip.style('display', 'none'));
+        });
+    });
+}
+
+/* ─── TL 5. Aspect ratio river ──────────────────────────────────── */
+
+const TL_ASPECT_COLORS = { '3:2': '#b89070', '4:3': '#8b7355', '16:9+': '#d4a870', '1:1': '#7a8070', 'other': '#c0bab0' };
+
+function renderAspectRiver(el, tlData) {
+    const aspects = tlData.aspectRatios;
+    const periods = tlData.periods;
+    if (!aspects?.length || !periods?.length) { tlNoData(el, 'No aspect ratio data'); return; }
+    const c = chartColors();
+    const W = 680, H = 160;
+    const m = { top: 8, right: 16, bottom: 48, left: 44 };
+    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
+
+    const ratioNames = aspects.map(a => a.ratio);
+    const stackData = periods.map((p, i) => {
+        const obj = { period: p };
+        for (const as of aspects) obj[as.ratio] = as.counts[i] ?? 0;
+        return obj;
+    });
+
+    const stack = d3.stack().keys(ratioNames).offset(d3.stackOffsetExpand)(stackData);
+
+    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.05);
+    const xC = p => x(p) + x.bandwidth() / 2;
+    const y = d3.scaleLinear().domain([0, 1]).range([iH, 0]);
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+    tlAxisBottom(g, x, periods, iH, c);
+    g.append('g').call(d3.axisLeft(y).ticks(4).tickSizeOuter(0).tickFormat(d => `${(d*100).toFixed(0)}%`))
+        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
+    g.selectAll('.domain, .tick line').attr('stroke', c.border);
+
+    g.selectAll('.aspect-layer').data(stack).join('path')
+        .attr('class', 'aspect-layer')
+        .attr('fill', d => TL_ASPECT_COLORS[d.key] ?? '#c0bab0')
+        .attr('opacity', 0.85)
+        .attr('d', d3.area().x(d => xC(d.data.period)).y0(d => y(d[0])).y1(d => y(d[1])).curve(d3.curveMonotoneX));
+
+    const legend = document.createElement('div');
+    legend.className = 'stats-tl-legend';
+    ratioNames.forEach(ratio => {
+        const item = document.createElement('div');
+        item.className = 'stats-tl-legend-item';
+        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${TL_ASPECT_COLORS[ratio] ?? '#c0bab0'}"></span>${escapeHtml(ratio)}`;
+        legend.appendChild(item);
+    });
+    el.appendChild(legend);
+}
+
+/* ─── TL 6. Megapixel timeline ──────────────────────────────────── */
+
+function renderMegapixelTimeline(el, tlData) {
+    const stats = tlData.megapixelStats;
+    const periods = tlData.periods;
+    if (!stats?.length || !periods?.length) { tlNoData(el, 'No megapixel data'); return; }
+    const c = chartColors();
+    const W = 680, H = 160;
+    const m = { top: 16, right: 16, bottom: 48, left: 52 };
+    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
+
+    const byPeriod = new Map(stats.map(s => [s.period, s]));
+    const validPeriods = periods.filter(p => byPeriod.has(p));
+
+    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.1);
+    const xC = p => x(p) + x.bandwidth() / 2;
+    const maxMP = d3.max(stats, s => s.max);
+    const y = d3.scaleLinear().domain([0, maxMP * 1.15]).range([iH, 0]).nice();
+
+    const svg = svgBase(el, W, H);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+    tlAxisBottom(g, x, periods, iH, c);
+    g.append('g').call(d3.axisLeft(y).ticks(4).tickSizeOuter(0).tickFormat(d => `${d.toFixed(0)}MP`))
+        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
+    g.selectAll('.domain, .tick line').attr('stroke', c.border);
+
+    // Avg line (dashed)
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.line().x(p => xC(p)).y(p => y(byPeriod.get(p).avg)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none').attr('stroke', c.textSec).attr('stroke-width', 1.5).attr('stroke-dasharray', '4,3');
+
+    // Max line (step)
+    g.append('path')
+        .datum(validPeriods)
+        .attr('d', d3.line().x(p => xC(p)).y(p => y(byPeriod.get(p).max)).curve(d3.curveStepAfter))
+        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+
+    // Mark significant max jumps (>20%)
+    for (let i = 1; i < validPeriods.length; i++) {
+        const prev = byPeriod.get(validPeriods[i - 1]);
+        const curr = byPeriod.get(validPeriods[i]);
+        if (curr.max > prev.max * 1.2) {
+            g.append('circle').attr('cx', xC(validPeriods[i])).attr('cy', y(curr.max))
+                .attr('r', 4).attr('fill', c.accent).attr('stroke', '#f5f2ed').attr('stroke-width', 2);
+        }
+    }
+
+    const legend = document.createElement('div');
+    legend.className = 'stats-tl-legend';
+    legend.innerHTML = `
+        <div class="stats-tl-legend-item">
+            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.accent}" stroke-width="2"/></svg>
+            Max MP
+        </div>
+        <div class="stats-tl-legend-item">
+            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.textSec}" stroke-width="1.5" stroke-dasharray="4,3"/></svg>
+            Avg MP
+        </div>`;
+    el.appendChild(legend);
 }
