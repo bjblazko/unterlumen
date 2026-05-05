@@ -36,6 +36,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/exif-ranges", globalExifRanges(mgr))
 	mux.HandleFunc("GET /api/library/exif-values", globalExifValues(mgr))
 	mux.HandleFunc("GET /api/library/statistics", libraryStatistics(mgr))
+	mux.HandleFunc("GET /api/library/timeline", libraryTimeline(mgr))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
 	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
@@ -388,6 +389,23 @@ func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, stats)
+	}
+}
+
+func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		pathPrefix := r.URL.Query().Get("pathPrefix")
+		granularity := r.URL.Query().Get("granularity")
+		if granularity != "month" && granularity != "year" {
+			granularity = ""
+		}
+		tl, err := mgr.Timeline(ids, pathPrefix, granularity)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, tl)
 	}
 }
 

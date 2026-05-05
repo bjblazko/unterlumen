@@ -77,3 +77,50 @@ type LibraryStatistics struct {
 	ShootingHours  [24]int           `json:"shootingHours"` // index = hour 0–23
 	ShootingDays   map[string]int    `json:"shootingDays"`  // "YYYY-MM-DD": count
 }
+
+// LibraryTimeline holds time-series statistics across one or more libraries.
+type LibraryTimeline struct {
+	Granularity    string            `json:"granularity"`    // "month" or "year"
+	Periods        []string          `json:"periods"`        // sorted period labels
+	CameraUsage    []CameraTimeSlice `json:"cameraUsage"`
+	FocalStats     []PeriodStats     `json:"focalStats"`
+	ISOStats       []PeriodStats     `json:"isoStats"`
+	ApertureHeat   []ApertureRow     `json:"apertureHeat"`
+	AspectRatios   []AspectSlice     `json:"aspectRatios"`
+	MegapixelStats []MegapixelStat   `json:"megapixelStats"`
+}
+
+// CameraTimeSlice holds per-period photo counts for one camera, aligned to LibraryTimeline.Periods.
+type CameraTimeSlice struct {
+	Camera string `json:"camera"`
+	Counts []int  `json:"counts"`
+}
+
+// PeriodStats holds distribution statistics for a numeric EXIF field in one time period.
+type PeriodStats struct {
+	Period string  `json:"period"`
+	Median float64 `json:"median"`
+	P25    float64 `json:"p25"`
+	P75    float64 `json:"p75"`
+	Count  int     `json:"count"`
+}
+
+// ApertureRow holds per-f-stop-bucket counts for one time period.
+type ApertureRow struct {
+	Period  string         `json:"period"`
+	Buckets map[string]int `json:"buckets"`
+}
+
+// AspectSlice holds per-period photo counts for one aspect ratio label, aligned to LibraryTimeline.Periods.
+type AspectSlice struct {
+	Ratio  string `json:"ratio"`  // "1:1", "4:3", "3:2", "16:9+", "other"
+	Counts []int  `json:"counts"`
+}
+
+// MegapixelStat holds max and average megapixels for one time period.
+type MegapixelStat struct {
+	Period string  `json:"period"`
+	Max    float64 `json:"max"`
+	Avg    float64 `json:"avg"`
+	Count  int     `json:"count"`
+}
