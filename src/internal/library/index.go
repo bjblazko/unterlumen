@@ -44,6 +44,11 @@ func NewIndexer(store *Store, libDir, sourcePath string) *Indexer {
 // Progress events on the provided channel. The channel is closed when done.
 func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
 
 	files, err := collectFiles(idx.sourcePath)
 	if err != nil {
@@ -74,12 +79,46 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 
 	idx.store.PurgeMissingPhotos() //nolint:errcheck
 
-	if n, err := idx.store.CountPhotos(); err == nil {
-		idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// RunScanNew walks the source directory and indexes new or changed photos without
+// removing photos for files that no longer exist on disk. Safe to call after an
+// interrupted full index, or when new files were added by an external tool.
+func (idx *Indexer) RunScanNew(ctx context.Context, progress chan<- Progress) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	files, err := collectFiles(idx.sourcePath)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		if err := idx.indexFile(absPath); err != nil {
+			continue
+		}
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	idx.store.SetProp("last_indexed", now)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
 	progress <- Progress{Done: total, Total: total, Finished: true}
 }
@@ -252,6 +291,70 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 			idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
 		}
 	}
+}
+
+// RunCleanup removes indexed photos whose source files no longer exist on disk.
+// It does not re-hash or re-index anything — it only checks whether each photo's
+// last-known path still exists. Renamed files that have not yet been synced will
+// appear absent and be removed; run "Index new photos" first if you have renames.
+func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	presentPaths, err := collectFileSet(idx.sourcePath)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	refs, err := idx.store.ListAllPhotoRefs()
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(refs)
+	missing := 0
+	for i, ref := range refs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(ref.PathHint)}
+
+		if !presentPaths[ref.PathHint] {
+			if err := idx.store.MarkPhotoMissing(ref.ID); err == nil {
+				missing++
+			}
+		}
+	}
+
+	if missing > 0 {
+		idx.store.PurgeMissingPhotos() //nolint:errcheck
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+func collectFileSet(root string) (map[string]bool, error) {
+	files, err := collectFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool, len(files))
+	for _, f := range files {
+		set[f] = true
+	}
+	return set, nil
 }
 
 func collectFiles(root string) ([]string, error) {

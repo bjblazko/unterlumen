@@ -44,6 +44,30 @@ func GenerateThumbnail(path string, maxDim int, orientation int) ([]byte, string
 	return resizeImage(img, path, maxDim, w, h)
 }
 
+// ExtractThumbnailCached extracts the embedded EXIF thumbnail (orientation-corrected)
+// and caches the result to disk. Concurrency is limited by the shared worker pool.
+// Returns an error if the file has no usable embedded thumbnail.
+func ExtractThumbnailCached(path string) ([]byte, string, error) {
+	key := cacheKey(path, "thumb-exif-v2")
+	if cached := readCache(key); cached != nil {
+		return cached, "image/jpeg", nil
+	}
+
+	result := thumbnailWork.run(key, func() thumbnailWorkResult {
+		if cached := readCache(key); cached != nil {
+			return thumbnailWorkResult{data: cached, contentType: "image/jpeg"}
+		}
+
+		data, err := extractOrientedEXIFThumbnail(path)
+		if err != nil {
+			return thumbnailWorkResult{err: err}
+		}
+		writeCache(key, data)
+		return thumbnailWorkResult{data: data, contentType: "image/jpeg"}
+	})
+	return result.data, result.contentType, result.err
+}
+
 // GenerateThumbnailCached caches source-based thumbnails by file mtime and size.
 func GenerateThumbnailCached(path string, maxDim int, orientation int) ([]byte, string, error) {
 	key := cacheKey(path, fmt.Sprintf("thumb-source-%s-%d-%d", thumbnailCacheVersion, orientation, maxDim))

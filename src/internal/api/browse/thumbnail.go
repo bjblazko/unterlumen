@@ -42,16 +42,18 @@ func handleThumbnail(root string) http.HandlerFunc {
 			return
 		}
 
-		orientation := media.ExtractOrientation(absPath)
-
+		// Standard quality: try the embedded EXIF thumbnail first (single NAS read,
+		// disk-cached, concurrency-limited). Fall through only when unavailable.
 		if quality == thumbnailQualityStandard && size <= thumbnailMaxDim {
-			thumb, ct, err := media.ExtractThumbnail(absPath, orientation)
+			thumb, ct, err := media.ExtractThumbnailCached(absPath)
 			if err == nil {
 				serveThumbnail(w, thumb, ct)
 				return
 			}
 		}
 
+		// Full decode fallback (always used for high quality).
+		orientation := media.ExtractOrientation(absPath)
 		thumb, ct, err := media.GenerateThumbnailCached(absPath, size, orientation)
 		if err != nil {
 			http.Error(w, "Failed to generate thumbnail", http.StatusInternalServerError)

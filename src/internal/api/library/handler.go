@@ -39,6 +39,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
 	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/scan-new", scanNewLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/cleanup", cleanupLibrary(mgr))
 	mux.HandleFunc("GET /api/library/{id}/browse", browseFolder(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/photos", listPhotos(mgr))
 	mux.HandleFunc("GET /api/library/{id}/exif-ranges", exifRanges(mgr))
@@ -155,8 +157,36 @@ func deleteLibrary(mgr *lib.Manager) http.HandlerFunc {
 // --- Indexing (SSE) ---
 
 func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		idx.Run(context.Background(), ch)
+	})
+}
+
+func scanNewLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		idx.RunScanNew(context.Background(), ch)
+	})
+}
+
+func cleanupLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		idx.RunCleanup(context.Background(), ch)
+	})
+}
+
+// libraryScan returns a handler that starts a scan or joins an in-progress one.
+// If the library is already being scanned the caller connects to the live progress
+// stream instead of receiving a 409. Scans run on context.Background() so they
+// continue even when the originating HTTP connection closes.
+func libraryScan(mgr *lib.Manager, scan func(*lib.Indexer, chan<- lib.Progress)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
 
 		libInfo, err := mgr.GetLibrary(id)
 		if err != nil {
@@ -164,24 +194,39 @@ func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 
-		if !mgr.TryLockIndex(id) {
-			http.Error(w, "indexing already in progress", http.StatusConflict)
-			return
-		}
+		var viewerCh <-chan lib.Progress
 
-		store, err := mgr.OpenStore(id)
-		if err != nil {
-			mgr.UnlockIndex(id)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			store.Close()
-			mgr.UnlockIndex(id)
-			http.Error(w, "streaming not supported", http.StatusInternalServerError)
-			return
+		b, started := mgr.StartScan(id)
+		if started {
+			store, err := mgr.OpenStore(id)
+			if err != nil {
+				mgr.EndScan(id)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// Subscribe before starting goroutines to avoid missing early events.
+			viewerCh = b.Subscribe()
+			rawCh := make(chan lib.Progress, 8)
+			go func() {
+				defer b.Close() // safety net for interrupted scans
+				for p := range rawCh {
+					b.Send(p)
+				}
+			}()
+			go func() {
+				defer store.Close()
+				defer mgr.EndScan(id)
+				indexer := lib.NewIndexer(store, mgr.LibDir(id), libInfo.SourcePath)
+				scan(indexer, rawCh)
+			}()
+		} else {
+			existing, ok := mgr.JoinScan(id)
+			if !ok {
+				// Scan ended between TryLockIndex and here — extremely rare race.
+				http.Error(w, "indexing already in progress", http.StatusConflict)
+				return
+			}
+			viewerCh = existing.Subscribe()
 		}
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -189,24 +234,20 @@ func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 
-		progress := make(chan lib.Progress, 8)
-		ctx, cancel := context.WithCancel(r.Context())
-		defer cancel()
-
-		sourcePath := libInfo.SourcePath
-		go func() {
-			defer store.Close()
-			defer mgr.UnlockIndex(id)
-			indexer := lib.NewIndexer(store, mgr.LibDir(id), sourcePath)
-			indexer.Run(ctx, progress)
-		}()
-
 		enc := json.NewEncoder(w)
-		for p := range progress {
-			fmt.Fprintf(w, "data: ")
-			enc.Encode(p)
-			fmt.Fprintf(w, "\n")
-			flusher.Flush()
+		for {
+			select {
+			case p, ok := <-viewerCh:
+				if !ok {
+					return
+				}
+				fmt.Fprintf(w, "data: ")
+				enc.Encode(p) //nolint:errcheck
+				fmt.Fprintf(w, "\n")
+				flusher.Flush()
+			case <-r.Context().Done():
+				return
+			}
 		}
 	}
 }

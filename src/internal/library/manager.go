@@ -14,6 +14,7 @@ import (
 type Manager struct {
 	root    string
 	indexMu sync.Map // map[libraryID]bool — prevents concurrent reindex of same library
+	scans   sync.Map // map[libraryID]*Broadcaster — active scan progress broadcasters
 }
 
 func newUUID() (string, error) {
@@ -192,6 +193,32 @@ func (m *Manager) TryLockIndex(id string) bool {
 // UnlockIndex releases the indexing lock for a library.
 func (m *Manager) UnlockIndex(id string) {
 	m.indexMu.Delete(id)
+}
+
+// StartScan acquires the index lock and registers a broadcaster for the library.
+// Returns the broadcaster and true on success, or nil and false if already scanning.
+func (m *Manager) StartScan(id string) (*Broadcaster, bool) {
+	if !m.TryLockIndex(id) {
+		return nil, false
+	}
+	b := newBroadcaster()
+	m.scans.Store(id, b)
+	return b, true
+}
+
+// JoinScan returns the active broadcaster for the library, if any.
+func (m *Manager) JoinScan(id string) (*Broadcaster, bool) {
+	if v, ok := m.scans.Load(id); ok {
+		return v.(*Broadcaster), true
+	}
+	return nil, false
+}
+
+// EndScan removes the broadcaster and releases the index lock.
+// The broadcaster itself must be closed separately (by the bridge goroutine).
+func (m *Manager) EndScan(id string) {
+	m.scans.Delete(id)
+	m.UnlockIndex(id)
 }
 
 // AggregateExifFieldValues returns the merged, deduplicated distinct string values
