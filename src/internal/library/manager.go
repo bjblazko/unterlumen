@@ -440,7 +440,16 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 		libs = filtered
 	}
 
-	merged := &LibraryStatistics{ShootingDays: make(map[string]int)}
+	merged := &LibraryStatistics{
+		Formats:        []NameCount{},
+		FilmSims:       []NameCount{},
+		FocalLengths:   []ValueCount{},
+		FocalLengths35: []ValueCount{},
+		Apertures:      []ValueCount{},
+		ISOs:           []ValueCount{},
+		CameraLens:     []CameraLensCount{},
+		ShootingDays:   make(map[string]int),
+	}
 	fmtMap    := make(map[string]int)
 	filmMap   := make(map[string]int)
 	clMap     := make(map[[2]string]int)

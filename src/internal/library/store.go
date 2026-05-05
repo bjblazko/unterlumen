@@ -690,7 +690,14 @@ func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 // pathPrefix, when non-empty, restricts results to photos whose path_hint starts with that prefix.
 func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 	st := &LibraryStatistics{
-		ShootingDays: make(map[string]int),
+		Formats:        []NameCount{},
+		FilmSims:       []NameCount{},
+		FocalLengths:   []ValueCount{},
+		FocalLengths35: []ValueCount{},
+		Apertures:      []ValueCount{},
+		ISOs:           []ValueCount{},
+		CameraLens:     []CameraLensCount{},
+		ShootingDays:   make(map[string]int),
 	}
 
 	// pathGlob is the LIKE pattern used on path_hint; empty means no path filter.
