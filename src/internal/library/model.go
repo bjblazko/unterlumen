@@ -67,6 +67,8 @@ type CameraLensCount struct {
 // LibraryStatistics holds aggregated statistics across one or more libraries.
 type LibraryStatistics struct {
 	TotalPhotos    int               `json:"totalPhotos"`
+	IndexingPhotos int               `json:"indexingPhotos,omitempty"`
+	Warnings       []string          `json:"warnings,omitempty"`
 	Formats        []NameCount       `json:"formats"`
 	FilmSims       []NameCount       `json:"filmSims"`
 	FocalLengths   []ValueCount      `json:"focalLengths"`   // native mm: {value, count} pairs

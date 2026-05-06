@@ -3829,6 +3829,21 @@ body.slideshow-active #app { height: 100vh; }
     padding: 16px 0;
 }
 
+.stats-warning {
+    padding: 8px 12px;
+    background: #fdf3e3;
+    border-left: 3px solid var(--accent);
+    color: #6a3800;
+    font-size: 12px;
+    margin-bottom: 14px;
+}
+
+.stats-chart-subtitle {
+    font-size: 11px;
+    color: var(--text-sec);
+    margin-bottom: 6px;
+}
+
 /* Focal length toggle */
 .stats-focal-toggle {
     display: inline-flex;

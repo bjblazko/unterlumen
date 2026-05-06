@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-05*
+*Last modified: 2026-05-06*
 
 All notable changes to this project are documented in this file.
 
@@ -17,6 +17,10 @@ All notable changes to this project are documented in this file.
 - **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
 
 ### Fixed
+
+- **Statistics reflect all photos correctly** — The statistics modal now shows the true total across all fully-indexed libraries. When a library is actively being scanned, an amber banner informs the user how many photos are still being indexed. Libraries that could not be read (e.g. due to a database lock during heavy indexing) now surface a warning instead of being silently dropped from the totals. The Camera × Lens chart now uses a LEFT JOIN on `LensModel`, so cameras without a lens tag (smartphones, film scanners) appear as "(no lens)" rather than being excluded entirely. Histogram charts (Focal length, Aperture, ISO) show a "N of M photos" subtitle when not all photos carry that EXIF field.
+
+- **Malformed `exif_json` no longer breaks statistics** — Photos whose EXIF could not be extracted were stored with an empty string in `exif_json` rather than valid JSON. SQLite's `json_extract()` throws "malformed JSON" on empty strings (unlike `NULL`), causing the entire Statistics and Timeline query pipeline to fail for any library containing such photos. The indexer now writes `{}` for photos without parsable EXIF. Existing affected rows are repaired on the fly.
 
 - **Interrupted re-index no longer shows 0 photos** — If a full re-index was cancelled mid-way (network drop, power-save, crash), the library overview showed 0 photos because the cached photo count was only written at the very end of a successful scan. The count is now always updated on exit, so the overview reflects however many photos were successfully indexed before the interruption.
 

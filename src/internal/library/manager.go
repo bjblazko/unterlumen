@@ -461,15 +461,18 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 	for _, l := range libs {
 		store, err := m.OpenStore(l.ID)
 		if err != nil {
+			merged.Warnings = append(merged.Warnings, fmt.Sprintf("library %q could not be read", l.Name))
 			continue
 		}
 		st, err := store.Statistics(pathPrefix)
 		store.Close()
 		if err != nil {
+			merged.Warnings = append(merged.Warnings, fmt.Sprintf("library %q statistics unavailable", l.Name))
 			continue
 		}
 
 		merged.TotalPhotos += st.TotalPhotos
+		merged.IndexingPhotos += st.IndexingPhotos
 		for _, nc := range st.Formats {
 			fmtMap[nc.Name] += nc.Count
 		}

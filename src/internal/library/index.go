@@ -168,7 +168,7 @@ func (idx *Indexer) indexFile(absPath string) error {
 	}
 
 	// New photo: extract EXIF.
-	var exifJSON string
+	exifJSON := "{}"
 	exifFields := make(map[string]string)
 	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
 		for k, v := range exifData.Tags {
