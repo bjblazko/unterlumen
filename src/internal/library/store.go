@@ -724,10 +724,14 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			[]any{pathGlob}
 	}
 
-	// Total count.
+	// Total count (indexed) and in-progress count (still being scanned).
 	pcWhere, pcArgs := photosCond()
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE status='ok'`+pcWhere,
 		pcArgs...).Scan(&st.TotalPhotos); err != nil {
+		return nil, err
+	}
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE status='missing'`+pcWhere,
+		pcArgs...).Scan(&st.IndexingPhotos); err != nil {
 		return nil, err
 	}
 
@@ -882,20 +886,21 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 		rows.Close()
 	}
 
-	// Camera × lens combinations.
+	// Camera × lens combinations. LEFT JOIN on LensModel so cameras without a lens
+	// tag (smartphones, film scanners) still appear under "(no lens)".
 	{
-		pathCondStr2 := ""
-		var pathCondArgs2 []any
+		cameraJoin := " JOIN photos _ph ON _ph.id = c.photo_id AND _ph.status='ok'"
+		var cameraArgs []any
 		if pathGlob != "" {
-			pathCondStr2 = " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ?)"
-			pathCondArgs2 = []any{pathGlob}
+			cameraJoin += " AND _ph.path_hint LIKE ?"
+			cameraArgs = []any{pathGlob}
 		}
 		rows, err := s.db.Query(`
-			SELECT c.value AS camera, l.value AS lens, COUNT(*) AS n
-			FROM   exif_index c
-			JOIN   exif_index l ON c.photo_id = l.photo_id AND l.field = 'LensModel'
-			WHERE  c.field = 'Model'`+pathCondStr2+
-			` GROUP BY camera, lens ORDER BY n DESC LIMIT 100`, pathCondArgs2...)
+			SELECT c.value AS camera, COALESCE(l.value, '(no lens)') AS lens, COUNT(*) AS n
+			FROM   exif_index c`+cameraJoin+`
+			LEFT JOIN exif_index l ON c.photo_id = l.photo_id AND l.field = 'LensModel'
+			WHERE  c.field = 'Model'
+			GROUP BY camera, lens ORDER BY n DESC LIMIT 100`, cameraArgs...)
 		if err != nil {
 			return nil, err
 		}

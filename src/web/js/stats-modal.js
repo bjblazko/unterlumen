@@ -223,27 +223,55 @@ class StatsModal {
         totalEl.textContent = `${data.totalPhotos.toLocaleString()} photos`;
         body.appendChild(totalEl);
 
+        const warnings = [];
+        if (data.indexingPhotos > 0)
+            warnings.push(`${data.indexingPhotos.toLocaleString()} photos are still being indexed — statistics are incomplete.`);
+        for (const w of (data.warnings ?? []))
+            warnings.push(w);
+        if (warnings.length) {
+            const banner = document.createElement('div');
+            banner.className = 'stats-warning';
+            banner.textContent = warnings.join(' ');
+            body.appendChild(banner);
+        }
+
         const grid = document.createElement('div');
         grid.className = 'stats-grid';
         body.appendChild(grid);
 
+        const total = data.totalPhotos;
+        const sumCounts = arr => (arr ?? []).reduce((s, v) => s + v.count, 0);
+        const coverageSub = count => (count < total && total > 0)
+            ? `${count.toLocaleString()} of ${total.toLocaleString()} photos`
+            : null;
+
+        const focalCount  = sumCounts(data.focalLengths);
+        const aperCount   = sumCounts(data.apertures);
+        const isoCount    = sumCounts(data.isos);
+
         this._addChart(grid, 'Format', false, el => renderFormatDonut(el, data.formats));
         this._addChart(grid, 'Film simulation', false, el => renderFilmSimBar(el, data.filmSims));
-        this._addChart(grid, 'Focal length', true, el => renderFocalHistogram(el, expandValues(data.focalLengths), expandValues(data.focalLengths35)));
-        this._addChart(grid, 'Aperture', false, el => renderApertureHistogram(el, expandValues(data.apertures)));
-        this._addChart(grid, 'ISO', false, el => renderISOHistogram(el, expandValues(data.isos)));
+        this._addChart(grid, 'Focal length', true, el => renderFocalHistogram(el, expandValues(data.focalLengths), expandValues(data.focalLengths35)), coverageSub(focalCount));
+        this._addChart(grid, 'Aperture', false, el => renderApertureHistogram(el, expandValues(data.apertures)), coverageSub(aperCount));
+        this._addChart(grid, 'ISO', false, el => renderISOHistogram(el, expandValues(data.isos)), coverageSub(isoCount));
         this._addChart(grid, 'Camera × Lens', true, el => renderCameraLensTreemap(el, data.cameraLens, data.totalPhotos));
         this._addChart(grid, 'Time of day', false, el => renderShootingClock(el, data.shootingHours));
         this._addChart(grid, 'Shooting calendar', true, el => renderCalendarHeatmap(el, data.shootingDays));
     }
 
-    _addChart(grid, title, fullWidth, renderFn) {
+    _addChart(grid, title, fullWidth, renderFn, subtitle) {
         const card = document.createElement('div');
         card.className = 'stats-chart' + (fullWidth ? ' stats-chart--full' : '');
         const h = document.createElement('div');
         h.className = 'stats-chart-title';
         h.textContent = title;
         card.appendChild(h);
+        if (subtitle) {
+            const sub = document.createElement('div');
+            sub.className = 'stats-chart-subtitle';
+            sub.textContent = subtitle;
+            card.appendChild(sub);
+        }
         const content = document.createElement('div');
         content.className = 'stats-chart-content';
         card.appendChild(content);
