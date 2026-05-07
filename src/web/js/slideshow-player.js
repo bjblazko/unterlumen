@@ -100,6 +100,14 @@ class SlideshowPlayer {
     }
 
     _setupAudio(options) {
+        if (options.audioMode === 'builtin' && options.builtinTrack) {
+            this._audio = new Audio(`/music/${options.builtinTrack}`);
+            this._audio.volume = 0.7;
+            this._audio.loop = true;
+            this._audio.play().catch(() => {});
+            return;
+        }
+
         if (options.audioMode === 'none' || !options.audioFiles || options.audioFiles.length === 0) return;
 
         const files = [...options.audioFiles];
@@ -107,6 +115,18 @@ class SlideshowPlayer {
             const j = Math.floor(Math.random() * (i + 1));
             [files[i], files[j]] = [files[j], files[i]];
         }
+
+        if (files.length === 1) {
+            this._audio = new Audio();
+            this._audio.volume = 0.7;
+            const url = URL.createObjectURL(files[0]);
+            this._audioObjectURLs.push(url);
+            this._audio.src = url;
+            this._audio.loop = true;
+            this._audio.play().catch(() => {});
+            return;
+        }
+
         this._audioFiles = files;
         this._audioIndex = 0;
 
