@@ -87,6 +87,14 @@ class SlideshowModal {
                             <label class="export-radio-row">
                                 <input type="radio" name="ss-audio" value="folder"> Folder…
                             </label>
+                            <label class="export-radio-row">
+                                <input type="radio" name="ss-audio" value="builtin"> Built-in
+                            </label>
+                            <div class="ss-builtin-track" style="display:none">
+                                <select class="ss-builtin-select">
+                                    <option value="Sunlight_Through_Leaves.mp3">Sunlight Through Leaves</option>
+                                </select>
+                            </div>
                             <div class="ss-audio-file-label"></div>
                         </div>
                     </div>
@@ -130,6 +138,7 @@ class SlideshowModal {
         const fileInput = this.overlay.querySelector('.ss-file-input');
         const folderInput = this.overlay.querySelector('.ss-folder-input');
         const audioLabel = this.overlay.querySelector('.ss-audio-file-label');
+        const builtinTrackContainer = this.overlay.querySelector('.ss-builtin-track');
 
         const updateAudioLabel = (files) => {
             this._audioFiles = Array.from(files);
@@ -150,13 +159,15 @@ class SlideshowModal {
         });
 
         // Restore state from current session or localStorage
-        const restoredMode = this._audioMode !== 'none' && this._audioFiles.length > 0
+        const restoredMode = this._audioMode === 'builtin' || (this._audioMode !== 'none' && this._audioFiles.length > 0)
             ? this._audioMode
             : localStorage.getItem('slideshow-audio-mode') || 'none';
         const restoredRadio = this.overlay.querySelector(`input[name="ss-audio"][value="${restoredMode}"]`);
         if (restoredRadio) restoredRadio.checked = true;
 
-        if (this._audioFiles.length > 0) {
+        if (restoredMode === 'builtin') {
+            builtinTrackContainer.style.display = '';
+        } else if (this._audioFiles.length > 0) {
             // Files still in memory from this session — show their names
             updateAudioLabel(this._audioFiles);
         } else if (restoredMode !== 'none') {
@@ -168,11 +179,12 @@ class SlideshowModal {
         this.overlay.querySelectorAll('input[name="ss-audio"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 this._audioMode = radio.value;
+                builtinTrackContainer.style.display = radio.value === 'builtin' ? '' : 'none';
                 if (radio.value === 'file') {
                     fileInput.click();
                 } else if (radio.value === 'folder') {
                     folderInput.click();
-                } else {
+                } else if (radio.value === 'none') {
                     this._audioFiles = [];
                     audioLabel.textContent = '';
                 }
@@ -211,13 +223,19 @@ class SlideshowModal {
         const display = this.overlay.querySelector('[data-display].active')?.dataset.display || 'single';
         const audioMode = this.overlay.querySelector('input[name="ss-audio"]:checked')?.value || 'none';
         const loop = this.overlay.querySelector('.ss-loop-check').checked;
-        return { delay, transition, display, loop, audioMode, audioFiles: this._audioFiles };
+        const builtinTrack = audioMode === 'builtin'
+            ? (this.overlay.querySelector('.ss-builtin-select')?.value || '')
+            : '';
+        return { delay, transition, display, loop, audioMode, audioFiles: this._audioFiles, builtinTrack };
     }
 
     _onStart() {
         const options = this._getOptions();
         // Persist audio selection for next session
-        if (options.audioMode !== 'none' && this._audioFiles.length > 0) {
+        if (options.audioMode === 'builtin') {
+            localStorage.setItem('slideshow-audio-mode', 'builtin');
+            localStorage.setItem('slideshow-audio-label', 'Built-in');
+        } else if (options.audioMode !== 'none' && this._audioFiles.length > 0) {
             localStorage.setItem('slideshow-audio-mode', options.audioMode);
             const label = this._audioFiles.length === 1
                 ? this._audioFiles[0].name

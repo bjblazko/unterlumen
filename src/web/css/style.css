@@ -2626,6 +2626,23 @@ body.slideshow-active #app { height: 100vh; }
     padding-left: 20px;
 }
 
+.ss-builtin-track {
+    margin-top: 4px;
+    padding-left: 20px;
+}
+
+.ss-builtin-select {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #c8c4bd;
+    border-radius: 2px;
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+}
+
 /* --- Libraries --- */
 
 .library-root {
