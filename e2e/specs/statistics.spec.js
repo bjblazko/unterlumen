@@ -5,6 +5,10 @@ test.describe('Statistics modal', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
+        // Clean up stale libraries from interrupted previous runs
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'Stats test library').map(l => request.delete(`/api/library/${l.id}`)));
+
         // Create a test library (unindexed — stats will be empty but modal structure is testable)
         const res = await request.post('/api/library/', {
             data: { name: 'Stats test library', description: '', sourcePath: '/tmp' },
