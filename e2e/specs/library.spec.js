@@ -5,6 +5,10 @@ test.describe('Library list view', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
+        // Clean up stale libraries from interrupted previous runs
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'E2E Library UI').map(l => request.delete(`/api/library/${l.id}`)));
+
         const res = await request.post('/api/library/', {
             data: { name: 'E2E Library UI', description: '', sourcePath: '/tmp' },
         });

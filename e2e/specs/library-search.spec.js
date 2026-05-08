@@ -11,6 +11,10 @@ test.describe('Search panel — no EXIF data', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
+        // Clean up stale libraries from interrupted previous runs
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'E2E Empty Library').map(l => request.delete(`/api/library/${l.id}`)));
+
         const res = await request.post('/api/library/', {
             data: { name: 'E2E Empty Library', description: '', sourcePath: '/tmp' },
         });
@@ -74,6 +78,10 @@ test.describe('Library search with indexed fixtures', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
+        // Clean up stale libraries from interrupted previous runs
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'E2E Indexed Library').map(l => request.delete(`/api/library/${l.id}`)));
+
         const res = await request.post('/api/library/', {
             data: { name: 'E2E Indexed Library', description: '', sourcePath: FIXTURES_PATH },
         });
@@ -108,17 +116,14 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForSelector('.library-list-view', { timeout: 8_000 });
             await page.locator('#lib-search-btn').click();
             await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-            // Wait for async panel build, then scope to the indexed test library
+            // Wait for panel async build, then scope to the indexed test library.
+            // Scoping avoids slow "All libraries" queries on production-data DBs.
             await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
             await waitForSearchStatus(page);
-            const prevStatus = await page.locator('.lib-search-status').textContent();
             await page.locator('.lib-search-select').first().selectOption(String(libID));
-            // Wait for the panel to rebuild with scoped results
-            await page.waitForFunction(
-                (prev) => document.querySelector('.lib-search-status')?.textContent !== prev,
-                prevStatus,
-                { timeout: 10_000 },
-            );
+            // Scoped rebuild is fast (< 200ms); a fixed wait is more reliable than
+            // polling status text, which may not change when CI has only this library.
+            await page.waitForTimeout(500);
         });
 
         test('range sliders render when EXIF data exists', async ({ page }) => {
