@@ -10,6 +10,7 @@ class SearchResultPane extends BrowsePane {
         this._serverFetchPage = null;
         this._isFetching = false;
         this._fetchGeneration = 0;
+        this._onClose = options.onClose || null;
     }
 
     // Load an array of LibraryPhoto objects (from cross- or single-library search).
@@ -100,7 +101,18 @@ class SearchResultPane extends BrowsePane {
 
     _renderBreadcrumb() {
         const n = this._serverTotal || this.entries.length;
-        return `<nav class="breadcrumb"><span class="crumb-current">Search results · ${n} photo${n !== 1 ? 's' : ''}</span></nav>`;
+        const closeBtn = this._onClose
+            ? `<button class="search-close-btn" title="Close search results">×</button>`
+            : '';
+        return `<nav class="breadcrumb search-breadcrumb"><span class="crumb-current">Search results · ${n} photo${n !== 1 ? 's' : ''}</span>${closeBtn}</nav>`;
+    }
+
+    attachEvents() {
+        super.attachEvents();
+        const btn = this.container.querySelector('.search-close-btn');
+        if (btn && this._onClose) {
+            btn.addEventListener('click', () => this._onClose());
+        }
     }
 
     // --- Lazy loading from server ---

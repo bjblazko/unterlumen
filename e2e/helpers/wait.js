@@ -1,5 +1,16 @@
 import { expect } from '@playwright/test';
 
+// Waits for the App initialization Promise.all (API.config + API.toolsCheck) to
+// complete.  The init sequence ends with setMode('browse'), which creates the
+// .browse-layout div.  Without this guard, clicking #mode-library in a beforeEach
+// can race with the deferred setMode('browse') call and switch back to browse mode.
+export async function waitForAppReady(page) {
+  await page.waitForFunction(
+    () => document.querySelector('.browse-layout') !== null,
+    { timeout: 15_000 },
+  );
+}
+
 // Waits for at least `count` image items to be rendered in the DOM.
 // This does NOT wait for thumbnail images to download — just for the
 // grid/justified items to exist so selectors like [data-type="image"] work.

@@ -662,6 +662,7 @@ class LibraryTab {
                 onImageClick: (path) => App.openViewer(path, this._searchPane),
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
+                onClose: () => this._filterPanel.close(),
             });
         }
 
