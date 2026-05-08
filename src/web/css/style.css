@@ -2897,6 +2897,29 @@ body.slideshow-active #app { height: 100vh; }
     border-left: 1px solid var(--border);
 }
 
+/* --- Search Result Pane --- */
+
+.search-breadcrumb {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.search-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-sec);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+
+.search-close-btn:hover {
+    color: var(--text);
+}
+
 /* --- Library Search / Filter Panel --- */
 
 .lib-search-panel {

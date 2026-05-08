@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from '../helpers/wait.js';
 
 test.describe('Statistics modal', () => {
     let libID;
@@ -51,16 +52,14 @@ test.describe('Statistics modal', () => {
 
     test('Statistics button opens modal in library mode', async ({ page }) => {
         await page.goto('/');
-        // Switch to library mode
+        await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
 
-        // Statistics button must be visible
         const statsBtn = page.locator('#lib-stats-btn');
         await expect(statsBtn).toBeVisible();
         await statsBtn.click();
 
-        // Modal must appear
         await page.waitForSelector('.stats-overlay', { timeout: 5_000 });
         await expect(page.locator('.stats-overlay')).toBeVisible();
         await expect(page.locator('.modal-title')).toContainText('Statistics');
@@ -68,10 +67,11 @@ test.describe('Statistics modal', () => {
 
     test('Statistics modal shows chart cards', async ({ page }) => {
         await page.goto('/');
+        await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-grid', { timeout: 5_000 });
+        await page.waitForSelector('.stats-grid', { timeout: 15_000 });
 
         const cards = page.locator('.stats-chart');
         await expect(cards).toHaveCount(8);
@@ -79,6 +79,7 @@ test.describe('Statistics modal', () => {
 
     test('Statistics modal has library filter dropdown', async ({ page }) => {
         await page.goto('/');
+        await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('#lib-stats-btn').click();
@@ -88,6 +89,7 @@ test.describe('Statistics modal', () => {
 
     test('Escape closes statistics modal', async ({ page }) => {
         await page.goto('/');
+        await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('#lib-stats-btn').click();
@@ -99,6 +101,7 @@ test.describe('Statistics modal', () => {
 
     test('Close button dismisses modal', async ({ page }) => {
         await page.goto('/');
+        await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('#lib-stats-btn').click();

@@ -76,12 +76,17 @@ class LibrarySearchPanel {
         toggleBtn.addEventListener('click', () => this._toggle());
     }
 
+    close() {
+        if (!this._container.classList.contains('visible')) return;
+        this._container.classList.remove('visible');
+        this._toggleBtn.classList.remove('active');
+        if (this._options.onClose) this._options.onClose();
+    }
+
     async _toggle() {
         const opening = !this._container.classList.contains('visible');
         if (!opening) {
-            this._container.classList.remove('visible');
-            this._toggleBtn.classList.remove('active');
-            if (this._options.onClose) this._options.onClose();
+            this.close();
             return;
         }
         this._container.classList.add('visible');
@@ -370,6 +375,7 @@ class LibrarySearchPanel {
             onImageClick: (path) => App.openViewer(path, this._searchPane),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
             onFocusChange: this._options.onFocusChange || null,
+            onClose: () => this.close(),
         });
     }
 

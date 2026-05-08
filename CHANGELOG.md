@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-06*
+*Last modified: 2026-05-08*
 
 All notable changes to this project are documented in this file.
 
@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 - **Crop tool** — An interactive crop tool in the fullscreen viewer. Click "Crop" in the toolbar to enter crop mode, draw a rectangle on the photo, choose from free, standard (1:1, 4:3, 3:2, 16:9, 9:16 and their portrait variants), or cinema (1.85:1, 2.35:1, 2.39:1) aspect ratios, and apply. Crops are saved in-place. All metadata — including Fujifilm film simulation and MakerNotes — is preserved via exiftool. JPEG and GIF are re-encoded at high quality; PNG is lossless; WebP uses ffmpeg; HEIF/HEIC uses `sips` (macOS). Keyboard: Enter to apply, Escape to cancel.
 
 - **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
+
+- **E2E test coverage for library search and filter** — Added two new Playwright spec files (`library.spec.js`, `library-search.spec.js`) and a shared `reindexLibrary` helper covering library card UI, search panel open/close, EXIF range sliders, text filter dropdowns, the 35mm focal length toggle, the detail-view filter panel, and six API contract tests. Applied `waitForAppReady` guard to the statistics spec to eliminate a race condition with the app initialisation sequence.
 
 ### Fixed
 
