@@ -47,7 +47,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/{id}/exif-ranges", exifRanges(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb-by-path", thumbByPath(mgr, root))
-	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr, root))
+	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
@@ -543,7 +543,7 @@ func thumbByPath(mgr *lib.Manager, root string) http.HandlerFunc {
 	}
 }
 
-func photoIDByPath(mgr *lib.Manager, root string) http.HandlerFunc {
+func photoIDByPath(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		relPath := r.URL.Query().Get("path")
@@ -551,7 +551,6 @@ func photoIDByPath(mgr *lib.Manager, root string) http.HandlerFunc {
 			http.Error(w, "path required", http.StatusBadRequest)
 			return
 		}
-		absPath := filepath.Join(root, relPath)
 
 		store, err := mgr.OpenStore(id)
 		if err != nil {
@@ -560,7 +559,14 @@ func photoIDByPath(mgr *lib.Manager, root string) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		photoID, err := store.GetPhotoIDByAbsPath(absPath)
+		sourcePath, ok, _ := store.GetProp("source_path")
+		if !ok || sourcePath == "" {
+			http.Error(w, "library has no source path", http.StatusInternalServerError)
+			return
+		}
+
+		absPath := filepath.Join(sourcePath, relPath)
+		photoID, err := store.GetPhotoIDByPathHint(absPath)
 		if err != nil || photoID == "" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return

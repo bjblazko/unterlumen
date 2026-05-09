@@ -583,6 +583,17 @@ func (s *Store) GetPhotoIDByAbsPath(absPath string) (string, error) {
 	return id, err
 }
 
+// GetPhotoIDByPathHint returns the photo id for a given absolute path by querying
+// the photos table directly. Returns empty string (no error) when not found.
+func (s *Store) GetPhotoIDByPathHint(pathHint string) (string, error) {
+	var id string
+	err := s.db.QueryRow(`SELECT id FROM photos WHERE path_hint=? AND status='ok'`, pathHint).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return id, err
+}
+
 // ExifFields returns the sorted distinct field names present in the exif_index.
 func (s *Store) ExifFields() ([]string, error) {
 	rows, err := s.db.Query(`SELECT DISTINCT field FROM exif_index ORDER BY field`)
