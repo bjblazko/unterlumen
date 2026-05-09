@@ -880,16 +880,18 @@ class LibraryTab {
         if (!infoPanel || !infoPanel.expanded) return;
         if (!path) { infoPanel.clear(); return; }
 
+        const info = this._pane?._photoMap?.get(path);
+        if (!info) { infoPanel.clear(); return; }
+
+        infoPanel.loadFromURL(`/api/library/${lib.id}/photo/${info.photoID}/info`, `lib:${lib.id}:${info.photoID}`);
+
         try {
-            const photoID = await LibraryAPI.photoIDByPath(lib.id, path);
-            if (!photoID) { infoPanel.clear(); return; }
-            infoPanel.loadFromURL(`/api/library/${lib.id}/photo/${photoID}/info`, `lib:${lib.id}:${photoID}`);
-            const entries = await LibraryAPI.getMeta(lib.id, photoID);
+            const entries = await LibraryAPI.getMeta(lib.id, info.photoID);
             infoPanel.setMetaContext({
                 entries,
-                onUpsert: (k, v) => LibraryAPI.upsertMeta(lib.id, photoID, k, v),
-                onDelete: (k) => LibraryAPI.deleteMeta(lib.id, photoID, k),
-                refresh: () => LibraryAPI.getMeta(lib.id, photoID),
+                onUpsert: (k, v) => LibraryAPI.upsertMeta(lib.id, info.photoID, k, v),
+                onDelete: (k) => LibraryAPI.deleteMeta(lib.id, info.photoID, k),
+                refresh: () => LibraryAPI.getMeta(lib.id, info.photoID),
             });
         } catch {
             infoPanel.setMetaContext(null);
