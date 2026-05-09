@@ -880,8 +880,13 @@ class LibraryTab {
         if (!infoPanel || !infoPanel.expanded) return;
         if (!path) { infoPanel.clear(); return; }
 
-        const info = this._pane?._photoMap?.get(path);
-        if (!info) { infoPanel.clear(); return; }
+        let info = this._pane?._photoMap?.get(path);
+        if (!info) {
+            console.warn('[library] _photoMap miss for', path, 'mapSize:', this._pane?._photoMap?.size);
+            const photoID = await LibraryAPI.photoIDByPath(lib.id, path);
+            if (!photoID) { infoPanel.clear(); return; }
+            info = { photoID };
+        }
 
         infoPanel.loadFromURL(`/api/library/${lib.id}/photo/${info.photoID}/info`, `lib:${lib.id}:${info.photoID}`);
 
