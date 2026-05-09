@@ -880,11 +880,10 @@ class LibraryTab {
         if (!infoPanel || !infoPanel.expanded) return;
         if (!path) { infoPanel.clear(); return; }
 
-        infoPanel.loadInfo(path);
-
         try {
             const photoID = await LibraryAPI.photoIDByPath(lib.id, path);
-            if (!photoID) { infoPanel.setMetaContext(null); return; }
+            if (!photoID) { infoPanel.clear(); return; }
+            infoPanel.loadFromURL(`/api/library/${lib.id}/photo/${photoID}/info`, `lib:${lib.id}:${photoID}`);
             const entries = await LibraryAPI.getMeta(lib.id, photoID);
             infoPanel.setMetaContext({
                 entries,
