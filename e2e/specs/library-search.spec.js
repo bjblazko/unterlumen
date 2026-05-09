@@ -252,6 +252,33 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
             await expect(page.locator('#lib-filter-btn')).not.toHaveClass(/active/);
         });
+
+        test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {
+            // Wait for photos to appear in the library pane
+            await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 10_000 });
+
+            // Focus the first photo by clicking it
+            await page.locator('#lib-pane [data-type="image"]').first().click();
+
+            // Open the info panel with the keyboard shortcut
+            await page.keyboard.press('i');
+            await page.waitForSelector('.info-panel.expanded', { timeout: 5_000 });
+
+            // Wait for data to load (spinner gone)
+            await page.waitForFunction(
+                () => {
+                    const panel = document.querySelector('.info-panel.expanded');
+                    return panel && !panel.textContent.includes('Loading');
+                },
+                { timeout: 10_000 },
+            );
+
+            const panelText = await page.locator('.info-panel.expanded').textContent();
+            expect(panelText).not.toMatch(/error.*invalid path/i);
+            // File section always rendered — name and format must be present
+            expect(panelText).toMatch(/Name/i);
+            expect(panelText).toMatch(/JPEG/i);
+        });
     });
 
     // ── API contracts ────────────────────────────────────────────────────────
