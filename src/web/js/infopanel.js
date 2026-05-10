@@ -21,8 +21,8 @@ class InfoPanel {
     }
 
     async loadInfo(path) {
-        if (path === this.currentPath && this.data) {
-            this.render();
+        if (path === this.currentPath && (this.data || this.loading)) {
+            if (!this.loading) this.render();
             return;
         }
         this.currentPath = path;
@@ -45,8 +45,8 @@ class InfoPanel {
     }
 
     async loadFromURL(url, key) {
-        if (key === this.currentPath && this.data) {
-            this.render();
+        if (key === this.currentPath && (this.data || this.loading)) {
+            if (!this.loading) this.render();
             return;
         }
         this.currentPath = key;
