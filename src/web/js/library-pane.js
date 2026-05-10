@@ -6,6 +6,8 @@ class LibraryPane extends BrowsePane {
         super(container, options);
         this._libID = libID;
         this._photoMap = new Map(); // relPath → { photoID }
+        this.sort = 'taken';
+        this.order = 'desc';
     }
 
     async load(path) {
@@ -49,11 +51,12 @@ class LibraryPane extends BrowsePane {
                 name: photo.filename,
                 type: 'image',
                 date: new Date(photo.indexedAt),
+                exifDate: photo.dateTaken || null,
                 size: photo.fileSize,
             };
         });
         this.entries = [...folderEntries, ...photoEntries];
-        this.render();
+        this._resortAndRender();
         this.keyboard.updateFocusClass();
         if (isReload && savedScroll > 0) {
             (this._contentEl || this.container).scrollTop = savedScroll;

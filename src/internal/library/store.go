@@ -664,9 +664,13 @@ func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 	prefix := folderAbs + "/"
 
 	// Direct photos only — GLOB rules out any nested path (extra slash).
+	// DateTaken is joined from exif_index for client-side sorting support.
 	photoRows, err := s.db.Query(
-		`SELECT id, path_hint, filename, file_size, indexed_at FROM photos
-		 WHERE status='ok' AND path_hint GLOB ? AND path_hint NOT GLOB ?`,
+		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at,
+		        COALESCE(e.value, '') AS date_taken
+		 FROM photos p
+		 LEFT JOIN exif_index e ON e.photo_id = p.id AND e.field = 'DateTaken'
+		 WHERE p.status='ok' AND p.path_hint GLOB ? AND p.path_hint NOT GLOB ?`,
 		prefix+"*", prefix+"*/*",
 	)
 	if err != nil {
@@ -678,7 +682,7 @@ func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 	for photoRows.Next() {
 		var p Photo
 		var indexedAt string
-		if err := photoRows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt); err != nil {
+		if err := photoRows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken); err != nil {
 			return FolderBrowseResult{}, err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)

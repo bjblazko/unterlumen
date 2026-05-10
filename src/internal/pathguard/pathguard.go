@@ -46,3 +46,24 @@ func SafePath(root, relative string) (string, bool) {
 
 	return resolved, true
 }
+
+// SafePathLogical validates path traversal without requiring the path to exist on disk.
+// Use this when the resulting path is used only as a string (e.g. a DB query prefix),
+// not for filesystem access, so the target directory need not be mounted or reachable.
+func SafePathLogical(root, relative string) (string, bool) {
+	if relative == "" {
+		return root, true
+	}
+
+	cleaned := filepath.Clean(relative)
+	if filepath.IsAbs(cleaned) {
+		return "", false
+	}
+
+	full := filepath.Join(root, cleaned)
+	if !strings.HasPrefix(full, root+string(filepath.Separator)) && full != root {
+		return "", false
+	}
+
+	return full, true
+}
