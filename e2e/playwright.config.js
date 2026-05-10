@@ -22,6 +22,7 @@ export default defineConfig({
     timeout: 15_000,
     env: {
       UNTERLUMEN_ROOT_PATH: path.resolve(__dirname, 'fixtures'),
+      UNTERLUMEN_LIB_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-test'),
     },
   },
   projects: [

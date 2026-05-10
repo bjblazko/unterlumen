@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS library_props (
 	value       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS photos_status_idx ON photos(status);
+CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint);
+CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at);
 `
 
 // Store wraps the per-library SQLite database.
@@ -61,7 +63,9 @@ type Store struct {
 	dir string
 }
 
-func openStore(dbPath, dir string) (*Store, error) {
+// openDB opens and migrates a SQLite database, returning the underlying *sql.DB.
+// The connection is long-lived; callers must not close it — use Store.Close() which is a no-op.
+func openDB(dbPath string) (*sql.DB, error) {
 	dsn := fmt.Sprintf("file:%s?_journal_mode=WAL&_foreign_keys=on", dbPath)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -86,11 +90,19 @@ func openStore(dbPath, dir string) (*Store, error) {
 		  AND CAST(TRIM(value, '"') AS REAL) > 0`)
 	// Migration: index path_hint for fast folder-scoped stats queries.
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_path_hint_idx ON photos(path_hint)`)
-	return &Store{db: db, dir: dir}, nil
+	// Migration: composite (status, path_hint) index and indexed_at index for browse/sort.
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint)`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at)`)
+	return db, nil
 }
 
+func newStore(db *sql.DB, dir string) *Store {
+	return &Store{db: db, dir: dir}
+}
+
+// Close is a no-op. The underlying *sql.DB lifetime is managed by Manager.
 func (s *Store) Close() error {
-	return s.db.Close()
+	return nil
 }
 
 // SetProp stores a library-level property.
@@ -650,45 +662,65 @@ type FolderBrowseResult struct {
 // in Subfolders. No filesystem reads are performed; all data comes from the DB.
 func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 	prefix := folderAbs + "/"
-	rows, err := s.db.Query(
+
+	// Direct photos only — GLOB rules out any nested path (extra slash).
+	photoRows, err := s.db.Query(
 		`SELECT id, path_hint, filename, file_size, indexed_at FROM photos
-		 WHERE status='ok' AND path_hint LIKE ?`,
-		prefix+"%",
+		 WHERE status='ok' AND path_hint GLOB ? AND path_hint NOT GLOB ?`,
+		prefix+"*", prefix+"*/*",
 	)
 	if err != nil {
 		return FolderBrowseResult{}, err
 	}
-	defer rows.Close()
+	defer photoRows.Close()
 
-	subfolderSet := map[string]bool{}
 	var directPhotos []Photo
-
-	for rows.Next() {
+	for photoRows.Next() {
 		var p Photo
 		var indexedAt string
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt); err != nil {
+		if err := photoRows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt); err != nil {
 			return FolderBrowseResult{}, err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
-		rel := strings.TrimPrefix(p.PathHint, prefix)
-		if idx := strings.Index(rel, "/"); idx >= 0 {
-			subfolderSet[rel[:idx]] = true
-		} else {
-			directPhotos = append(directPhotos, p)
-		}
+		directPhotos = append(directPhotos, p)
 	}
-	if err := rows.Err(); err != nil {
+	if err := photoRows.Err(); err != nil {
 		return FolderBrowseResult{}, err
 	}
 
-	subfolders := make([]string, 0, len(subfolderSet))
-	for name := range subfolderSet {
-		subfolders = append(subfolders, name)
+	// Subfolders: extract the first path segment below prefix for all nested photos.
+	// SUBSTR/INSTR in SQL avoids returning full rows; DISTINCT collapses duplicates.
+	sfRows, err := s.db.Query(
+		`SELECT DISTINCT SUBSTR(path_hint, length(?)+1, INSTR(SUBSTR(path_hint, length(?)+1), '/')-1)
+		 FROM photos
+		 WHERE status='ok' AND path_hint GLOB ?`,
+		prefix, prefix, prefix+"*/*",
+	)
+	if err != nil {
+		return FolderBrowseResult{}, err
+	}
+	defer sfRows.Close()
+
+	var subfolders []string
+	for sfRows.Next() {
+		var name string
+		if err := sfRows.Scan(&name); err != nil {
+			return FolderBrowseResult{}, err
+		}
+		if name != "" {
+			subfolders = append(subfolders, name)
+		}
+	}
+	if err := sfRows.Err(); err != nil {
+		return FolderBrowseResult{}, err
 	}
 	sortStrings(subfolders)
 
 	if directPhotos == nil {
 		directPhotos = []Photo{}
+	}
+	if subfolders == nil {
+		subfolders = []string{}
 	}
 	return FolderBrowseResult{
 		Subfolders: subfolders,

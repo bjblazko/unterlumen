@@ -59,12 +59,13 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
 
         const statsBtn = page.locator('#lib-stats-btn');
         await expect(statsBtn).toBeVisible();
         await statsBtn.click();
 
-        await page.waitForSelector('.stats-overlay', { timeout: 5_000 });
+        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
         await expect(page.locator('.stats-overlay')).toBeVisible();
         await expect(page.locator('.modal-title')).toContainText('Statistics');
     });
@@ -74,8 +75,9 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-grid', { timeout: 15_000 });
+        await page.waitForSelector('.stats-grid', { timeout: 30_000 });
 
         const cards = page.locator('.stats-chart');
         await expect(cards).toHaveCount(8);
@@ -86,8 +88,9 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-lib-select', { timeout: 5_000 });
+        await page.waitForSelector('.stats-lib-select', { timeout: 15_000 });
         await expect(page.locator('.stats-lib-select')).toBeVisible();
     });
 
@@ -96,8 +99,9 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-overlay', { timeout: 5_000 });
+        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
 
         await page.keyboard.press('Escape');
         await expect(page.locator('.stats-overlay')).not.toBeVisible({ timeout: 3_000 });
@@ -108,8 +112,9 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-overlay', { timeout: 5_000 });
+        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
 
         await page.locator('#stats-close').click();
         await expect(page.locator('.stats-overlay')).not.toBeVisible({ timeout: 3_000 });

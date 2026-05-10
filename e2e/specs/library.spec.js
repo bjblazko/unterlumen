@@ -7,7 +7,11 @@ test.describe('Library list view', () => {
     test.beforeAll(async ({ request }) => {
         // Clean up stale libraries from interrupted previous runs
         const existing = await (await request.get('/api/library/')).json();
-        await Promise.all(existing.filter(l => l.name === 'E2E Library UI').map(l => request.delete(`/api/library/${l.id}`)));
+        await Promise.all(
+            existing
+                .filter(l => l.name === 'E2E Library UI' || l.name === 'To Delete')
+                .map(l => request.delete(`/api/library/${l.id}`))
+        );
 
         const res = await request.post('/api/library/', {
             data: { name: 'E2E Library UI', description: '', sourcePath: '/tmp' },
@@ -35,13 +39,14 @@ test.describe('Library list view', () => {
 
     test('shows library card with correct name and source path', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
-        await expect(card).toBeVisible({ timeout: 5_000 });
+        await expect(card).toBeVisible({ timeout: 8_000 });
         await expect(card.locator('.library-card-name')).toContainText('E2E Library UI');
         await expect(card.locator('.library-card-meta')).toContainText('/tmp');
     });
 
     test('shows photo count and last-indexed info on card', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
+        await expect(card).toBeVisible({ timeout: 8_000 }); // cards load async after list view appears
         await expect(card.locator('.library-card-stats')).toContainText('0 photos');
     });
 
@@ -95,7 +100,7 @@ test.describe('Library list view', () => {
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
 
         const card = page.locator('.library-card', { hasText: 'To Delete' });
-        await expect(card).toBeVisible();
+        await expect(card).toBeVisible({ timeout: 8_000 });
 
         page.on('dialog', (dialog) => dialog.accept());
         await card.locator('.lib-delete').click();

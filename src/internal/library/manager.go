@@ -2,6 +2,7 @@ package library
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ type Manager struct {
 	root    string
 	indexMu sync.Map // map[libraryID]bool — prevents concurrent reindex of same library
 	scans   sync.Map // map[libraryID]*Broadcaster — active scan progress broadcasters
+	openDBs sync.Map // map[libraryID]*sql.DB — long-lived per-library connections
 }
 
 func newUUID() (string, error) {
@@ -41,15 +43,34 @@ func (m *Manager) LibDir(id string) string {
 	return filepath.Join(m.root, "libraries", id)
 }
 
-// OpenStore opens the SQLite store for the library with the given ID.
-// The caller is responsible for closing the store.
-func (m *Manager) OpenStore(id string) (*Store, error) {
-	dir := m.LibDir(id)
-	dbPath := filepath.Join(dir, "library.db")
+// getDB returns a cached *sql.DB for the library, opening and migrating it on first access.
+func (m *Manager) getDB(id string) (*sql.DB, error) {
+	if db, ok := m.openDBs.Load(id); ok {
+		return db.(*sql.DB), nil
+	}
+	dbPath := filepath.Join(m.LibDir(id), "library.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return nil, fmt.Errorf("library %s not found", id)
 	}
-	return openStore(dbPath, dir)
+	db, err := openDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	if actual, loaded := m.openDBs.LoadOrStore(id, db); loaded {
+		db.Close() // another goroutine won the race; discard ours
+		return actual.(*sql.DB), nil
+	}
+	return db, nil
+}
+
+// OpenStore returns a Store backed by a cached *sql.DB for the library.
+// Store.Close is a no-op; the connection lifetime is managed by Manager.
+func (m *Manager) OpenStore(id string) (*Store, error) {
+	db, err := m.getDB(id)
+	if err != nil {
+		return nil, err
+	}
+	return newStore(db, m.LibDir(id)), nil
 }
 
 // ListLibraries returns all known libraries by scanning the libraries directory.
@@ -138,12 +159,13 @@ func (m *Manager) CreateLibrary(name, description, sourcePath string) (*Library,
 		return nil, fmt.Errorf("create thumbs dir: %w", err)
 	}
 
-	store, err := openStore(filepath.Join(dir, "library.db"), dir)
+	db, err := openDB(filepath.Join(dir, "library.db"))
 	if err != nil {
 		os.RemoveAll(dir)
 		return nil, err
 	}
-	defer store.Close()
+	m.openDBs.Store(id, db) // cache before any failure so it's always cleaned up via DeleteLibrary
+	store := newStore(db, dir)
 
 	now := time.Now().UTC()
 	for k, v := range map[string]string{
@@ -153,6 +175,8 @@ func (m *Manager) CreateLibrary(name, description, sourcePath string) (*Library,
 		"created_at":  now.Format(time.RFC3339),
 	} {
 		if err := store.SetProp(k, v); err != nil {
+			m.openDBs.Delete(id)
+			db.Close()
 			os.RemoveAll(dir)
 			return nil, err
 		}
@@ -175,6 +199,9 @@ func (m *Manager) DeleteLibrary(id string) error {
 		return fmt.Errorf("library %s is currently being indexed", id)
 	}
 	defer m.indexMu.Delete(id)
+	if db, ok := m.openDBs.LoadAndDelete(id); ok {
+		db.(*sql.DB).Close()
+	}
 	return os.RemoveAll(m.LibDir(id))
 }
 
