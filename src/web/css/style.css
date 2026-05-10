@@ -883,6 +883,11 @@ body {
     font-weight: 500;
 }
 
+.dir-item.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
 /* —— Justified view —— */
 
 .justified {
@@ -1013,6 +1018,11 @@ body {
 
 .dir-row .list-name {
     font-weight: 500;
+}
+
+.dir-row.selected {
+    background: var(--accent-light);
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .list-date, .list-size {
