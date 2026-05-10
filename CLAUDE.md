@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-04-27*
+*Last modified: 2026-05-10*
 
 ## Project
 
@@ -86,5 +86,5 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
   - When a feature is completed, move its file from `open/` to `done/`.
   - Each doc should include: Summary, Details, and Acceptance Criteria (checkboxes).
   - When the user prompts for a new feature, create the feature doc as part of the work.
-- **Changelog** — update `CHANGELOG.md` for every user-visible change (new features, bug fixes, format support, API changes). Add entries under `## [Unreleased]`. When the README Documentation section lists ADRs, keep it in sync when new ADRs are added.
+- **Changelog** — update `CHANGELOG.md` for every user-visible change (new features, bug fixes, format support, API changes). Add entries under `## [Unreleased]`. Each subsection heading (`### Added`, `### Changed`, `### Fixed`, etc.) must appear **at most once per version block** — merge new entries into the existing subsection rather than adding a duplicate heading. When the README Documentation section lists ADRs, keep it in sync when new ADRs are added.
 - **Date modified** — all documentation files (except README.md) must include a `*Last modified: YYYY-MM-DD*` line below the title. Update this date whenever the document is changed.

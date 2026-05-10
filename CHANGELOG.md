@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-08*
+*Last modified: 2026-05-10*
 
 All notable changes to this project are documented in this file.
 
@@ -17,38 +17,6 @@ All notable changes to this project are documented in this file.
 - **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
 
 - **E2E test coverage for library search and filter** — Added two new Playwright spec files (`library.spec.js`, `library-search.spec.js`) and a shared `reindexLibrary` helper covering library card UI, search panel open/close, EXIF range sliders, text filter dropdowns, the 35mm focal length toggle, the detail-view filter panel, and six API contract tests. Applied `waitForAppReady` guard to the statistics spec to eliminate a race condition with the app initialisation sequence.
-
-### Fixed
-
-- **Statistics reflect all photos correctly** — The statistics modal now shows the true total across all fully-indexed libraries. When a library is actively being scanned, an amber banner informs the user how many photos are still being indexed. Libraries that could not be read (e.g. due to a database lock during heavy indexing) now surface a warning instead of being silently dropped from the totals. The Camera × Lens chart now uses a LEFT JOIN on `LensModel`, so cameras without a lens tag (smartphones, film scanners) appear as "(no lens)" rather than being excluded entirely. Histogram charts (Focal length, Aperture, ISO) show a "N of M photos" subtitle when not all photos carry that EXIF field.
-
-- **Malformed `exif_json` no longer breaks statistics** — Photos whose EXIF could not be extracted were stored with an empty string in `exif_json` rather than valid JSON. SQLite's `json_extract()` throws "malformed JSON" on empty strings (unlike `NULL`), causing the entire Statistics and Timeline query pipeline to fail for any library containing such photos. The indexer now writes `{}` for photos without parsable EXIF. Existing affected rows are repaired on the fly.
-
-- **Interrupted re-index no longer shows 0 photos** — If a full re-index was cancelled mid-way (network drop, power-save, crash), the library overview showed 0 photos because the cached photo count was only written at the very end of a successful scan. The count is now always updated on exit, so the overview reflects however many photos were successfully indexed before the interruption.
-
-- **Browse mode no longer stalls on large HIF film rolls** — Standard-quality browse thumbnails now send an explicit requested size, so the HEIF/HIF thumbnail path can choose the smallest embedded JPEG preview that still fits the UI instead of repeatedly extracting a larger preview. Uncached thumbnail work is also bounded and deduplicated on the server, which prevents large folders from pegging all CPU cores during first load. Opening the fullscreen viewer no longer eagerly loads the whole filmstrip, so the selected image can appear while background thumbnails are still pending.
-
-- **Deployed service can now find Homebrew tools (ffmpeg, exiftool)** — The launchd plist (`com.unterlumen.app`) was launched without `EnvironmentVariables`, so macOS gave the process only the bare system PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). `exec.LookPath` therefore reported ffmpeg and exiftool as missing even though both were installed. The plist now explicitly sets `PATH` to include `/opt/homebrew/bin` and `/opt/homebrew/sbin`, matching the user session environment.
-
-- **Thumbnail quality mode restored for HEIF browsing** — The browse thumbnail endpoint now receives the user's selected quality mode explicitly. In **Standard** mode, HEIF/HEIC thumbnails use the fast preview-based JPEG path and only resize when the preview is still larger than the requested thumbnail; resized results are cached by file and size. In **High** mode, HEIF thumbnails are generated from the full decoded source image and cached by size. Source-generated thumbnails for non-HEIF images are now cached as well, so repeated browsing no longer re-renders the same thumbnails on every request.
-
-- **Slow first photo open in library mode on NAS** — The library pane previously called the browse API to list folder contents, which spawned a background goroutine reading every file over SMB to extract EXIF metadata. This saturated NAS bandwidth and delayed opening the first photo by up to 10 minutes. The library pane now reads folder contents and photo IDs directly from the SQLite database via a new `/api/library/{id}/browse` endpoint, with no filesystem reads during normal browsing. Thumbnails use pre-cached local files; full images stream on demand when a photo is opened.
-
-- **Slow library overview load with large libraries** — Loading the library list (`GET /api/library/`) was doing a full table scan (`SELECT COUNT(1) FROM photos WHERE status='ok'`) on a table with fat `exif_json` TEXT rows. With 50 000 photos across two libraries this took 5–6 seconds. Fixed by: (1) adding an index on `photos.status`; (2) caching the photo count in `library_props` after each re-index so the overview reads a single key-value row instead of counting all photos. Existing databases are migrated automatically on startup.
-
-- **Library folder browse path scoped to library root** — The `/api/library/{id}/browse` endpoint previously resolved the `path` parameter relative to the server's photo root directory. This meant libraries on a NAS or any path outside the server root would return empty results, and the breadcrumb showed the full native path (e.g., `Volumes / nas / Timo / Bilder / Fotos / 2024`). The endpoint now resolves paths relative to each library's own `source_path`, and the frontend always starts navigation at the library root. The breadcrumb shows a clean relative path (e.g., `Root / 2024 / June`) and updir navigation stops at the library root.
-
-### Changed
-
-- **"New library" button redesigned as circle-plus glyph** — The `+` affordance in the Libraries tab button is now an SVG circle-with-plus icon. When the Libraries tab is active the glyph inverts: a filled white circle with an orange plus inside. On inactive tabs it renders as a thin outlined circle. The SVG eliminates the font-baseline centering offset that made the previous text character appear slightly off.
-
-- **Library toolbar refinements** — Several visual improvements to the library UI:
-  - "New library" button removed from the library list header and merged into the top-right "Libraries" nav button as a small `+` affordance (separated by a thin line). Clicking `+` switches to library mode and immediately opens the new-library dialog.
-  - "Search" (library list) and "Filter" (library detail) toggle buttons now show a small orange dot when their panel is open, rather than filling solid orange. The button returns to its default appearance when the panel is closed.
-  - Vertical separator added between the toggle buttons (Search/Filter) and dialog-opening buttons (Channels) in both the list and detail headers.
-  - "Channels" button now carries a `›` suffix in both the list and detail views to signal it opens a dialog.
-
-### Added
 
 - **Clean sweep after re-index** — Photos that have been deleted or moved out of a library's source directory are now fully removed from the database (along with their EXIF index, metadata, and path cache rows) and their thumbnail files are deleted from disk. Previously, missing photos accumulated as invisible dead records.
 
@@ -105,7 +73,23 @@ All notable changes to this project are documented in this file.
   - Re-indexing progress streamed via Server-Sent Events.
   - `--lib-dir` CLI flag and `UNTERLUMEN_LIB_DIR` environment variable override the library root (default: `~/.unterlumen`); useful for testing with temporary directories.
 
+- **E2E integration tests** — Playwright test suite covering browse, image viewer, EXIF overlay badges, and wastebin mark/restore workflow. Tests run headlessly via `cd e2e && npm test` and are integrated into GitHub Actions CI (`.github/workflows/e2e.yml`), triggering on every push and pull request.
+
+- **Slideshow** — New "Slideshow" button in the browse toolbar (between Tools and the status bar). Operates on selected images, or all images in the current folder if nothing is selected. An options dialog lets you set the delay between images (1–60 s), choose a transition effect (Fade, Slide, Zoom, or Instant), and pick a display style: Single image, Ken Burns (slow animated pan and zoom), 2-up (two images side by side), or 4-up (2×2 grid). Optional audio: choose a local audio file or a folder of tracks (shuffled, looping). The player shows a minimal HUD with Prev / Pause-Play / Next / Close controls that autohides after 3 seconds; keyboard shortcuts Space (pause/resume), ← / → (navigate), and Esc (close) are supported.
+
+- **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
+
+- **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
+
 ### Changed
+
+- **"New library" button redesigned as circle-plus glyph** — The `+` affordance in the Libraries tab button is now an SVG circle-with-plus icon. When the Libraries tab is active the glyph inverts: a filled white circle with an orange plus inside. On inactive tabs it renders as a thin outlined circle. The SVG eliminates the font-baseline centering offset that made the previous text character appear slightly off.
+
+- **Library toolbar refinements** — Several visual improvements to the library UI:
+  - "New library" button removed from the library list header and merged into the top-right "Libraries" nav button as a small `+` affordance (separated by a thin line). Clicking `+` switches to library mode and immediately opens the new-library dialog.
+  - "Search" (library list) and "Filter" (library detail) toggle buttons now show a small orange dot when their panel is open, rather than filling solid orange. The button returns to its default appearance when the panel is closed.
+  - Vertical separator added between the toggle buttons (Search/Filter) and dialog-opening buttons (Channels) in both the list and detail headers.
+  - "Channels" button now carries a `›` suffix in both the list and detail views to signal it opens a dialog.
 
 - **Internal refactoring (ADR-0015)** — No user-visible behaviour changes; structural cleanup only.
   - Go: `src/internal/api/` flat package split into domain subpackages: `browse`, `export`, `fileops`, `location`, `batchrename`. Path-traversal guard extracted to `src/internal/pathguard`.
@@ -114,14 +98,27 @@ All notable changes to this project are documented in this file.
   - JS: `browse.js` (1 174 lines) split into `browse.js` (orchestration), `browse-selection.js`, `browse-keyboard.js`, `browse-grid.js`, `browse-list.js`, `browse-justified.js`.
   - JS: `app.js` (767 lines) split into `app.js` (orchestration), `app-theme.js`, `app-wastebin.js`, `app-keyboard.js`.
 
-### Added
+### Fixed
 
-- **E2E integration tests** — Playwright test suite covering browse, image viewer, EXIF overlay badges, and wastebin mark/restore workflow. Tests run headlessly via `cd e2e && npm test` and are integrated into GitHub Actions CI (`.github/workflows/e2e.yml`), triggering on every push and pull request.
+- **Library overview header height** — The library overview header ("Libraries" with Search, Statistics, Channels buttons) now has the same fixed 48px height as the in-library detail header. Previously, it used 24px vertical padding instead of a fixed height, making it roughly 70px tall.
 
-- **Slideshow** — New "Slideshow" button in the browse toolbar (between Tools and the status bar). Operates on selected images, or all images in the current folder if nothing is selected. An options dialog lets you set the delay between images (1–60 s), choose a transition effect (Fade, Slide, Zoom, or Instant), and pick a display style: Single image, Ken Burns (slow animated pan and zoom), 2-up (two images side by side), or 4-up (2×2 grid). Optional audio: choose a local audio file or a folder of tracks (shuffled, looping). The player shows a minimal HUD with Prev / Pause-Play / Next / Close controls that autohides after 3 seconds; keyboard shortcuts Space (pause/resume), ← / → (navigate), and Esc (close) are supported.
+- **Statistics reflect all photos correctly** — The statistics modal now shows the true total across all fully-indexed libraries. When a library is actively being scanned, an amber banner informs the user how many photos are still being indexed. Libraries that could not be read (e.g. due to a database lock during heavy indexing) now surface a warning instead of being silently dropped from the totals. The Camera × Lens chart now uses a LEFT JOIN on `LensModel`, so cameras without a lens tag (smartphones, film scanners) appear as "(no lens)" rather than being excluded entirely. Histogram charts (Focal length, Aperture, ISO) show a "N of M photos" subtitle when not all photos carry that EXIF field.
 
-- **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
-- **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
+- **Malformed `exif_json` no longer breaks statistics** — Photos whose EXIF could not be extracted were stored with an empty string in `exif_json` rather than valid JSON. SQLite's `json_extract()` throws "malformed JSON" on empty strings (unlike `NULL`), causing the entire Statistics and Timeline query pipeline to fail for any library containing such photos. The indexer now writes `{}` for photos without parsable EXIF. Existing affected rows are repaired on the fly.
+
+- **Interrupted re-index no longer shows 0 photos** — If a full re-index was cancelled mid-way (network drop, power-save, crash), the library overview showed 0 photos because the cached photo count was only written at the very end of a successful scan. The count is now always updated on exit, so the overview reflects however many photos were successfully indexed before the interruption.
+
+- **Browse mode no longer stalls on large HIF film rolls** — Standard-quality browse thumbnails now send an explicit requested size, so the HEIF/HIF thumbnail path can choose the smallest embedded JPEG preview that still fits the UI instead of repeatedly extracting a larger preview. Uncached thumbnail work is also bounded and deduplicated on the server, which prevents large folders from pegging all CPU cores during first load. Opening the fullscreen viewer no longer eagerly loads the whole filmstrip, so the selected image can appear while background thumbnails are still pending.
+
+- **Deployed service can now find Homebrew tools (ffmpeg, exiftool)** — The launchd plist (`com.unterlumen.app`) was launched without `EnvironmentVariables`, so macOS gave the process only the bare system PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). `exec.LookPath` therefore reported ffmpeg and exiftool as missing even though both were installed. The plist now explicitly sets `PATH` to include `/opt/homebrew/bin` and `/opt/homebrew/sbin`, matching the user session environment.
+
+- **Thumbnail quality mode restored for HEIF browsing** — The browse thumbnail endpoint now receives the user's selected quality mode explicitly. In **Standard** mode, HEIF/HEIC thumbnails use the fast preview-based JPEG path and only resize when the preview is still larger than the requested thumbnail; resized results are cached by file and size. In **High** mode, HEIF thumbnails are generated from the full decoded source image and cached by size. Source-generated thumbnails for non-HEIF images are now cached as well, so repeated browsing no longer re-renders the same thumbnails on every request.
+
+- **Slow first photo open in library mode on NAS** — The library pane previously called the browse API to list folder contents, which spawned a background goroutine reading every file over SMB to extract EXIF metadata. This saturated NAS bandwidth and delayed opening the first photo by up to 10 minutes. The library pane now reads folder contents and photo IDs directly from the SQLite database via a new `/api/library/{id}/browse` endpoint, with no filesystem reads during normal browsing. Thumbnails use pre-cached local files; full images stream on demand when a photo is opened.
+
+- **Slow library overview load with large libraries** — Loading the library list (`GET /api/library/`) was doing a full table scan (`SELECT COUNT(1) FROM photos WHERE status='ok'`) on a table with fat `exif_json` TEXT rows. With 50 000 photos across two libraries this took 5–6 seconds. Fixed by: (1) adding an index on `photos.status`; (2) caching the photo count in `library_props` after each re-index so the overview reads a single key-value row instead of counting all photos. Existing databases are migrated automatically on startup.
+
+- **Library folder browse path scoped to library root** — The `/api/library/{id}/browse` endpoint previously resolved the `path` parameter relative to the server's photo root directory. This meant libraries on a NAS or any path outside the server root would return empty results, and the breadcrumb showed the full native path (e.g., `Volumes / nas / Timo / Bilder / Fotos / 2024`). The endpoint now resolves paths relative to each library's own `source_path`, and the frontend always starts navigation at the library root. The breadcrumb shows a clean relative path (e.g., `Root / 2024 / June`) and updir navigation stops at the library root.
 
 ## [0.5.0] - 2026-04-08
 
