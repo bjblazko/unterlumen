@@ -2663,13 +2663,15 @@ body.slideshow-active #app { height: 100vh; }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
+    height: calc(var(--unit) * 6);
+    padding: 0 calc(var(--unit) * 3);
     border-bottom: 1px solid var(--border);
     background: var(--surface-alt);
     flex-shrink: 0;
 }
 
 .library-list-title {
+    margin: 0;
     font-size: 14px;
     font-weight: 500;
 }
