@@ -1,6 +1,6 @@
 # Info Panel
 
-*Last modified: 2026-02-22*
+*Last modified: 2026-05-10*
 
 ## Summary
 
@@ -15,6 +15,7 @@ A collapsible right-side panel that displays file metadata and EXIF data for the
 - Sections displayed (when data exists): File, Image, Camera, Exposure, Dates, Location, Other
 - Numeric EXIF values (metering mode, exposure program, flash, white balance) decoded to human-readable labels
 - Panel updates on single selection, clears on multi-select or no selection
+- Opening the panel (pressing `I`) while a photo is already focused immediately loads that photo's metadata — no need to navigate away and back first
 - Browse grid auto-reflows when panel opens/closes via flex layout
 - Fullscreen viewer: separate InfoPanel instance with dark theme styling matching the viewer UI
 - Viewer Info button in toolbar toggles panel; `I` key works in viewer
@@ -43,3 +44,4 @@ A collapsible right-side panel that displays file metadata and EXIF data for the
 - [x] Dark theme styling for viewer info panel (dark backgrounds, light text)
 - [x] Panel updates automatically when navigating between images in viewer
 - [x] Closing viewer does not affect browse mode info panel state
+- [x] Opening the panel while a photo is focused loads metadata immediately (no "Select an image" stuck state)

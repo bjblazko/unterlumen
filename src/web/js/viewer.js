@@ -304,6 +304,9 @@ class Viewer {
         if (this.infoPanel) {
             this.infoPanel.container = this.container.querySelector('.viewer-info-container');
             this.infoPanel.render();
+            if (this.infoPanel.expanded && !this.infoPanel.data && !this.infoPanel.loading && !this.infoPanel.error) {
+                this._infoLoadFn(this.currentPath, this.infoPanel);
+            }
         }
     }
 
