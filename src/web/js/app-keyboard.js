@@ -50,6 +50,12 @@ class GlobalKeyboard {
         if (e.key === 'Escape' && app.mode === 'browse' && app.browsePane) {
             if (document.querySelector('.viewer')) return;
             e.preventDefault();
+            if (app.browsePane.selectedDirs.size > 0) {
+                app.browsePane.selectedDirs.clear();
+                app.browsePane._updateDirSelectionClasses();
+                if (app.browsePane.onSelectionChange) app.browsePane.onSelectionChange([]);
+                return;
+            }
             if (app.browsePane.selection.selected.size > 0) {
                 app.browsePane.selection.clear();
                 app.browsePane.updateSelectionClasses();
@@ -66,11 +72,17 @@ class GlobalKeyboard {
         // Escape: clear selection in library mode
         if (e.key === 'Escape' && app.mode === 'library' && app._libraryTab) {
             const pane = app._libraryTab.getActivePaneForKeyboard();
-            if (pane && pane.selection.selected.size > 0) {
+            if (pane && (pane.selectedDirs?.size > 0 || pane.selection.selected.size > 0)) {
                 e.preventDefault();
-                pane.selection.clear();
-                pane.updateSelectionClasses();
-                if (pane.onSelectionChange) pane.onSelectionChange([]);
+                if (pane.selectedDirs?.size > 0) {
+                    pane.selectedDirs.clear();
+                    pane._updateDirSelectionClasses();
+                    if (pane.onSelectionChange) pane.onSelectionChange([]);
+                } else {
+                    pane.selection.clear();
+                    pane.updateSelectionClasses();
+                    if (pane.onSelectionChange) pane.onSelectionChange([]);
+                }
             }
         }
 
@@ -78,6 +90,12 @@ class GlobalKeyboard {
         if (e.key === 'Escape' && app.mode === 'commander' && app.commander) {
             e.preventDefault();
             const pane = app.commander.getActivePane();
+            if (pane.selectedDirs?.size > 0) {
+                pane.selectedDirs.clear();
+                pane._updateDirSelectionClasses();
+                if (pane.onSelectionChange) pane.onSelectionChange([]);
+                return;
+            }
             if (pane.selection.selected.size > 0) {
                 pane.selection.clear();
                 pane.updateSelectionClasses();

@@ -181,6 +181,11 @@ const App = {
                     if (this.browsePane && this.browsePane.view === 'justified') {
                         this.browsePane._justifiedRenderer.scheduleRelayout();
                     }
+                    if (this.infoPanel.expanded) {
+                        const path = this.browsePane ? this.browsePane.getFocusedFile() : null;
+                        if (path) this.infoPanel.loadInfo(path);
+                        else this.infoPanel.clear();
+                    }
                 };
                 this.browsePane.load(this.currentBrowsePath);
             }
@@ -297,15 +302,25 @@ const App = {
         this.viewer.open(imagePath, images);
     },
 
-    handleSlideshowInvoke(pane) {
+    async handleSlideshowInvoke(pane) {
         pane = pane || this.browsePane;
         if (!pane) return;
         // Resolve each path to its correct image URL (LibraryPane overrides viewerImageURL
         // to use /api/library/{id}/photo/{photoID}; BrowsePane falls back to API.imageURL).
         const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
-        const images = pane.selection.selected.size > 0
-            ? Array.from(pane.selection.selected).map(toURL)
-            : pane.getImageEntries().map(e => toURL(pane.fullPath(e.name)));
+        let images;
+        if (pane.selectedDirs?.size > 0) {
+            const allPaths = [];
+            for (const dirPath of pane.selectedDirs) {
+                const paths = await pane.fetchRecursivePhotoPaths(dirPath);
+                allPaths.push(...paths);
+            }
+            images = allPaths.map(toURL);
+        } else if (pane.selection.selected.size > 0) {
+            images = Array.from(pane.selection.selected).map(toURL);
+        } else {
+            images = pane.getImageEntries().map(e => toURL(pane.fullPath(e.name)));
+        }
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
         this.slideshowModal.onStart = (imgs, opts) => this.openSlideshow(imgs, opts);

@@ -101,4 +101,16 @@ class LibraryPane extends BrowsePane {
             infoPanel.loadInfo(path);
         }
     }
+
+    async fetchRecursivePhotoPaths(dirPath) {
+        const r = await fetch(
+            `/api/library/${this._libID}/browse-recursive?path=${encodeURIComponent(dirPath)}`
+        );
+        if (!r.ok) return [];
+        const data = await r.json();
+        return (data.photos || []).map(photo => {
+            this._photoMap.set(photo.relPath, { photoID: photo.id });
+            return photo.relPath;
+        });
+    }
 }

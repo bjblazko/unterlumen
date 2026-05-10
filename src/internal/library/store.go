@@ -733,6 +733,42 @@ func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 	}, nil
 }
 
+// BrowseFolderRecursive returns all photos nested anywhere under folderAbs (including subdirectories).
+// No filesystem reads are performed; all data comes from the DB.
+func (s *Store) BrowseFolderRecursive(folderAbs string) ([]Photo, error) {
+	prefix := folderAbs + "/"
+	rows, err := s.db.Query(
+		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at,
+		        COALESCE(e.value, '') AS date_taken
+		 FROM photos p
+		 LEFT JOIN exif_index e ON e.photo_id = p.id AND e.field = 'DateTaken'
+		 WHERE p.status='ok' AND p.path_hint GLOB ?`,
+		prefix+"*",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var photos []Photo
+	for rows.Next() {
+		var p Photo
+		var indexedAt string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken); err != nil {
+			return nil, err
+		}
+		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
+		photos = append(photos, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if photos == nil {
+		photos = []Photo{}
+	}
+	return photos, nil
+}
+
 // Statistics returns aggregated statistics for photos with status='ok' in this library.
 // pathPrefix, when non-empty, restricts results to photos whose path_hint starts with that prefix.
 func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {

@@ -61,6 +61,13 @@ const API = {
         return resp.json();
     },
 
+    async browseRecursive(path = '') {
+        const params = new URLSearchParams({ path });
+        const resp = await fetch(`/api/browse/recursive?${params}`);
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     async delete(files) {
         const resp = await fetch('/api/delete', {
             method: 'POST',

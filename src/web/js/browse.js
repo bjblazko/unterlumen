@@ -30,6 +30,7 @@ class BrowsePane {
         this._justifiedTargetHeight = 200;
         this._resizeHandler = null;
         this._contentEl = null;
+        this.selectedDirs = new Set();
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
@@ -48,9 +49,11 @@ class BrowsePane {
             if (e.target.classList.contains('grid') ||
                 e.target.classList.contains('justified') ||
                 e.target.classList.contains('list-view')) {
-                if (this.selection.selected.size === 0) return;
+                if (this.selection.selected.size === 0 && this.selectedDirs.size === 0) return;
                 this.selection.clear();
                 this.selection.updateClasses(this.container);
+                this.selectedDirs.clear();
+                this._updateDirSelectionClasses();
                 if (this.onSelectionChange) this.onSelectionChange([]);
                 return;
             }
@@ -61,11 +64,29 @@ class BrowsePane {
                 this.keyboard.focusedIndex = idx;
                 this.keyboard.updateFocusClass();
                 this._notifyFocusChange();
+                const fp = this.fullPath(item.dataset.name);
+                if (e.ctrlKey || e.metaKey) {
+                    if (this.selectedDirs.has(fp)) this.selectedDirs.delete(fp);
+                    else this.selectedDirs.add(fp);
+                } else {
+                    this.selectedDirs.clear();
+                    this.selectedDirs.add(fp);
+                }
+                // Dir and photo selection are mutually exclusive
+                this.selection.clear();
+                this.selection.updateClasses(this.container);
+                this._updateDirSelectionClasses();
+                if (this.onSelectionChange) this.onSelectionChange([]);
             } else if (item.dataset.type === 'image') {
                 const fp = item.dataset.path;
                 this.keyboard.focusedIndex = idx;
                 this.keyboard.updateFocusClass();
                 this._notifyFocusChange();
+                // Clear dir selection when switching to photo selection
+                if (this.selectedDirs.size > 0) {
+                    this.selectedDirs.clear();
+                    this._updateDirSelectionClasses();
+                }
                 this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
                 this.selection.updateClasses(this.container);
             }
@@ -99,6 +120,7 @@ class BrowsePane {
         const savedScroll = isReload ? scrollEl.scrollTop : 0;
         this.path = path || '';
         this.selection.clear();
+        this.selectedDirs.clear();
         this.keyboard.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];
@@ -181,12 +203,30 @@ class BrowsePane {
     toggleFocusedSelection() { this.keyboard.toggleFocusedSelection(); }
 
     selectAll() {
+        this.selectedDirs.clear();
         this.selection.selectAll(this.entries, n => this.fullPath(n));
         this.render();
     }
 
     fullPath(name) {
         return this.path ? `${this.path}/${name}` : name;
+    }
+
+    _updateDirSelectionClasses() {
+        this.container.querySelectorAll('[data-type="dir"]').forEach(el => {
+            el.classList.toggle('selected', this.selectedDirs.has(this.fullPath(el.dataset.name)));
+        });
+        this._updateSlideshowButton();
+    }
+
+    _updateSlideshowButton() {
+        const btn = this.container.querySelector('.slideshow-btn');
+        if (btn) btn.disabled = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
+    }
+
+    async fetchRecursivePhotoPaths(dirPath) {
+        const data = await API.browseRecursive(dirPath);
+        return data.paths || [];
     }
 
     thumbURL(entry, size) {
@@ -368,7 +408,7 @@ class BrowsePane {
                     </div>
                 </div>
             </div>
-            <button class="btn btn-sm dropdown-btn slideshow-btn" title="Slideshow">
+            <button class="btn btn-sm dropdown-btn slideshow-btn" ${imageCount === 0 ? 'disabled' : ''} title="Slideshow">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polygon points="3,2 12,7 3,12" fill="currentColor" stroke="none"/>
                     <line x1="1" y1="2" x2="1" y2="12"/>

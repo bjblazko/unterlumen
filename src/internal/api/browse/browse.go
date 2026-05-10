@@ -2,6 +2,7 @@ package browse
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,6 +38,7 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
 	mux.HandleFunc("/api/browse", handleBrowse(root, cache))
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(root, cache))
+	mux.HandleFunc("/api/browse/recursive", handleBrowseRecursive(root))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root))
 	mux.HandleFunc("/api/image", handleImage(root))
 	mux.HandleFunc("/api/info", handleInfo(root))
@@ -213,6 +215,42 @@ func extractExifBackground(absPath string, cached *media.CachedScan) {
 		}
 	}
 	cached.MarkExifDone()
+}
+
+type browseRecursiveResponse struct {
+	Paths []string `json:"paths"`
+}
+
+func handleBrowseRecursive(root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := pathguard.SafePath(root, relPath)
+		if !ok {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+		var paths []string
+		_ = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if media.IsSupportedImage(d.Name()) {
+				rel, relErr := filepath.Rel(root, path)
+				if relErr == nil {
+					paths = append(paths, filepath.ToSlash(rel))
+				}
+			}
+			return nil
+		})
+		if paths == nil {
+			paths = []string{}
+		}
+		writeJSON(w, browseRecursiveResponse{Paths: paths})
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

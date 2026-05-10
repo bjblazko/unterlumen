@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Slideshow folder selection** — Clicking a folder entry in the browse or library grid now selects it (orange border; Ctrl+click for multi-select). Triggering the slideshow with folders selected plays all photos from those folders recursively — including nested subfolders. Selecting a photo clears the folder selection and vice versa.
+
+- **Slideshow button disabled state** — The Slideshow button is now greyed out and unclickable when the current folder contains no photos and no folder entry is selected.
+
 - **Timeline statistics** — A "Timeline" tab in the Statistics modal showing how shooting habits evolved over time. Six D3 charts: Camera usage (stacked bar with top-5 cameras), Focal length drift (median + IQR band), ISO evolution (log-scale area chart), Aperture usage (normalised heatmap), Aspect ratio mix (100% stacked area), and Megapixel timeline (max step-line + avg). Granularity auto-detects from library date span (month ≤ 4 years, year otherwise), with a manual Month/Year/Auto toggle. Timeline data is lazy-loaded on first tab click. Backed by a new `GET /api/library/timeline` endpoint.
 
 - **Library scan modes** — A "Scan new and changed" combo button with a dropdown arrow replaces the standalone "Re-index" button on every library card. "Scan new and changed" (primary action) walks the source directory and adds new photos, updates changed ones, and re-links renamed files — without removing anything. "Re-index (full)" (dropdown) performs a full rescan that also purges deleted files. "Cleanup deleted" (dropdown) removes indexed photos whose source files are gone, without re-scanning or re-hashing. All three actions share live SSE progress; clicking while a scan is running joins the ongoing stream instead of erroring. Only one scan can run per library at a time.
@@ -99,6 +103,8 @@ All notable changes to this project are documented in this file.
   - JS: `app.js` (767 lines) split into `app.js` (orchestration), `app-theme.js`, `app-wastebin.js`, `app-keyboard.js`.
 
 ### Fixed
+
+- **Info panel now loads immediately when opened** — In browse mode, pressing I to open the info panel while a photo is focused now loads that photo's metadata straight away. Previously, the panel stayed at "Select an image to view info" until the user navigated to another photo and back. In the fullscreen viewer, a defensive guard ensures the info loads even if the initial trigger was missed due to a race condition.
 
 - **Library overview header height** — The library overview header ("Libraries" with Search, Statistics, Channels buttons) now has the same fixed 48px height as the in-library detail header. Previously, it used 24px vertical padding instead of a fixed height, making it roughly 70px tall.
 
