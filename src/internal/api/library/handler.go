@@ -273,7 +273,9 @@ func browseFolder(mgr *lib.Manager, _ string) http.HandlerFunc {
 		}
 
 		relPath := r.URL.Query().Get("path")
-		absPath, ok := pathguard.SafePath(sourcePath, relPath)
+		// SafePathLogical: BrowseFolder uses the path only as a DB string pattern,
+		// so the source volume need not be mounted (e.g. NAS offline).
+		absPath, ok := pathguard.SafePathLogical(sourcePath, relPath)
 		if !ok {
 			http.Error(w, "invalid path", http.StatusBadRequest)
 			return

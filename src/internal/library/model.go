@@ -20,6 +20,7 @@ type Photo struct {
 	Filename  string            `json:"filename"`
 	FileSize  int64             `json:"fileSize"`
 	IndexedAt time.Time         `json:"indexedAt"`
+	DateTaken string            `json:"dateTaken,omitempty"`
 	Status    string            `json:"status"`
 	Exif      map[string]string `json:"exif,omitempty"`
 	Meta      map[string]string `json:"meta,omitempty"`
