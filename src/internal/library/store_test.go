@@ -8,12 +8,12 @@ import (
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := openStore(":memory:", t.TempDir())
+	db, err := openDB(":memory:")
 	if err != nil {
-		t.Fatalf("openStore: %v", err)
+		t.Fatalf("openDB: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
-	return s
+	t.Cleanup(func() { db.Close() })
+	return newStore(db, t.TempDir())
 }
 
 func insertPhoto(t *testing.T, s *Store, id string, fl, fl35 *float64) {

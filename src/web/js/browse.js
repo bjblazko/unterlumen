@@ -38,6 +38,50 @@ class BrowsePane {
         this._gridRenderer = new GridRenderer(this);
         this._listRenderer = new ListRenderer(this);
         this._justifiedRenderer = new JustifiedRenderer(this);
+
+        this._attachDelegatedEvents();
+    }
+
+    _attachDelegatedEvents() {
+        this.container.addEventListener('click', (e) => {
+            // Background click on the grid/list/justified container deselects all
+            if (e.target.classList.contains('grid') ||
+                e.target.classList.contains('justified') ||
+                e.target.classList.contains('list-view')) {
+                if (this.selection.selected.size === 0) return;
+                this.selection.clear();
+                this.selection.updateClasses(this.container);
+                if (this.onSelectionChange) this.onSelectionChange([]);
+                return;
+            }
+            const item = e.target.closest('[data-index]');
+            if (!item) return;
+            const idx = parseInt(item.dataset.index);
+            if (item.dataset.type === 'dir') {
+                this.keyboard.focusedIndex = idx;
+                this.keyboard.updateFocusClass();
+                this._notifyFocusChange();
+            } else if (item.dataset.type === 'image') {
+                const fp = item.dataset.path;
+                this.keyboard.focusedIndex = idx;
+                this.keyboard.updateFocusClass();
+                this._notifyFocusChange();
+                this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
+                this.selection.updateClasses(this.container);
+            }
+        });
+
+        this.container.addEventListener('dblclick', (e) => {
+            const item = e.target.closest('[data-index]');
+            if (!item) return;
+            if (item.dataset.type === 'dir') {
+                const path = this.fullPath(item.dataset.name);
+                this.load(path);
+                if (this.onNavigate) this.onNavigate(path);
+            } else if (item.dataset.type === 'image') {
+                if (this.onImageClick) this.onImageClick(item.dataset.path);
+            }
+        });
     }
 
     // Getters so external code (commander.js, renderers) can access sub-object state via the pane directly
@@ -376,7 +420,9 @@ class BrowsePane {
         }
 
         this._renderedCount = end;
-        this._attachItemEvents(start, end);
+        if (this.view === 'justified') {
+            this._attachJustifiedImgLoad(start, end);
+        }
 
         if (end >= this.entries.length) {
             const sentinel = ct.querySelector('.scroll-sentinel');
@@ -492,63 +538,26 @@ class BrowsePane {
         const sortOrder = this.container.querySelector('.sort-order');
         if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
 
-        const gridEl = this.container.querySelector('.grid, .justified, .list-view');
-        if (gridEl) {
-            gridEl.addEventListener('click', (e) => {
-                if (e.target !== gridEl) return;
-                if (this.selection.selected.size === 0) return;
-                this.selection.clear();
-                this.selection.updateClasses(this.container);
-                if (this.onSelectionChange) this.onSelectionChange([]);
-            });
+        if (this.view === 'justified') {
+            this._attachJustifiedImgLoad(0, this._renderedCount);
         }
-
-        this._attachItemEvents(0, this._renderedCount);
     }
 
-    _attachItemEvents(start, end) {
+    // Attaches img.load listeners for justified-view aspect-ratio recording on newly rendered items.
+    _attachJustifiedImgLoad(start, end) {
         this.container.querySelectorAll('[data-index]').forEach(el => {
             const idx = parseInt(el.dataset.index);
-            if (idx < start || idx >= end) return;
-
-            if (el.dataset.type === 'dir') {
-                el.addEventListener('click', () => {
-                    this.keyboard.focusedIndex = idx;
-                    this.keyboard.updateFocusClass();
-                    this._notifyFocusChange();
-                });
-                el.addEventListener('dblclick', () => {
-                    const path = this.fullPath(el.dataset.name);
-                    this.load(path);
-                    if (this.onNavigate) this.onNavigate(path);
-                });
-            } else if (el.dataset.type === 'image') {
-                el.addEventListener('click', (e) => {
-                    const fp = el.dataset.path;
-                    this.keyboard.focusedIndex = idx;
-                    this.keyboard.updateFocusClass();
-                    this._notifyFocusChange();
-                    this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
-                    this.selection.updateClasses(this.container);
-                });
-                el.addEventListener('dblclick', () => {
-                    if (this.onImageClick) this.onImageClick(el.dataset.path);
-                });
-
-                if (this.view === 'justified') {
-                    const img = el.querySelector('img');
-                    if (img) {
-                        const recordAR = () => {
-                            if (img.naturalWidth && img.naturalHeight) {
-                                this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
-                                this._justifiedRenderer.scheduleRelayout();
-                            }
-                        };
-                        if (img.naturalWidth) recordAR();
-                        else img.addEventListener('load', recordAR);
-                    }
+            if (idx < start || idx >= end || el.dataset.type !== 'image') return;
+            const img = el.querySelector('img');
+            if (!img) return;
+            const recordAR = () => {
+                if (img.naturalWidth && img.naturalHeight) {
+                    this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
+                    this._justifiedRenderer.scheduleRelayout();
                 }
-            }
+            };
+            if (img.naturalWidth) recordAR();
+            else img.addEventListener('load', recordAR);
         });
     }
 

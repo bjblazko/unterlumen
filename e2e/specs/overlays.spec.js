@@ -25,14 +25,13 @@ test.describe('Overlays and EXIF metadata', () => {
   });
 
   test('JPEG files show JPEG file-type badge', async ({ page }) => {
-    // File-type badges are rendered synchronously on first load
-    const badge = page.locator('[data-name="gps-jpeg.jpg"] .overlay-badge').first();
-    await expect(badge).toContainText('JPEG', { timeout: 5_000 });
+    const badge = page.locator('[data-name="gps-jpeg.jpg"] .overlay-badge', { hasText: 'JPEG' });
+    await expect(badge).toBeVisible({ timeout: 5_000 });
   });
 
   test('HEIC file shows HEIF file-type badge', async ({ page }) => {
-    const badge = page.locator('[data-name="heic-sample.heic"] .overlay-badge').first();
-    await expect(badge).toContainText('HEIF', { timeout: 5_000 });
+    const badge = page.locator('[data-name="heic-sample.heic"] .overlay-badge', { hasText: 'HEIF' });
+    await expect(badge).toBeVisible({ timeout: 5_000 });
   });
 
   test('info panel shows Location section for GPS JPEG', async ({ page }) => {

@@ -247,6 +247,7 @@ class LibraryTab {
         this._searchPane = null;
         this._listInfoPanel = null;
         this._listSearchPanel = null;
+        this._cachedLibs = null;
     }
 
     getActivePaneForKeyboard() {
@@ -256,7 +257,7 @@ class LibraryTab {
     async _openStats() {
         const lib = this.currentLibrary;
         const folderPath = this._pane?.path || '';
-        const libs = await LibraryAPI.list();
+        const libs = this._cachedLibs ?? await LibraryAPI.list();
         if (!lib) {
             new StatsModal().open(libs);
         } else {
@@ -368,6 +369,7 @@ class LibraryTab {
     async _loadList(body) {
         try {
             const libs = await LibraryAPI.list();
+            this._cachedLibs = libs;
             body.innerHTML = '';
             if (libs.length === 0) {
                 body.innerHTML = '<div class="library-empty">No libraries yet. Create one to get started.</div>';
@@ -483,6 +485,7 @@ class LibraryTab {
         if (!confirm(`Delete library "${lib.name}"?\n\nThis removes the index and thumbnails. Your original photos are not affected.`)) return;
         try {
             await LibraryAPI.delete(lib.id);
+            this._cachedLibs = null;
             card.remove();
             App.refreshLibraryVisibility();
         } catch (err) {
@@ -539,6 +542,7 @@ class LibraryTab {
 
             try {
                 const lib = await LibraryAPI.create(name, descEl.value.trim(), path);
+                this._cachedLibs = null;
                 progressEl.textContent = 'Indexing photos…';
                 await LibraryAPI.reindex(lib.id, (p) => {
                     if (p.finished) {
