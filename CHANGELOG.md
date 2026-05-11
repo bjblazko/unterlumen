@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Focus vs. selection visual distinction** — The keyboard cursor (focused item) now looks identical to mouse hover: a subtle gray border. Selected items show a uniform 2px inset orange ring with a light orange tint, consistent across all grid positions. Previously both states used the accent orange, making them indistinguishable.
+
 ### Added
 
 - **Slideshow folder selection** — Clicking a folder entry in the browse or library grid now selects it (orange border; Ctrl+click for multi-select). Triggering the slideshow with folders selected plays all photos from those folders recursively — including nested subfolders. Selecting a photo clears the folder selection and vice versa.
