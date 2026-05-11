@@ -36,26 +36,33 @@ func handleThumbnail(root string) http.HandlerFunc {
 
 		size := parseThumbnailSize(r.URL.Query().Get("size"))
 		quality := parseThumbnailQuality(r.URL.Query().Get("quality"))
+		ctx := r.Context()
 
 		if media.IsHEIF(absPath) {
-			serveHEIFThumbnail(w, absPath, size, quality)
+			serveHEIFThumbnail(w, r, absPath, size, quality)
 			return
 		}
 
 		// Standard quality: try the embedded EXIF thumbnail first (single NAS read,
 		// disk-cached, concurrency-limited). Fall through only when unavailable.
 		if quality == thumbnailQualityStandard && size <= thumbnailMaxDim {
-			thumb, ct, err := media.ExtractThumbnailCached(absPath)
+			thumb, ct, err := media.ExtractThumbnailCached(ctx, absPath)
 			if err == nil {
 				serveThumbnail(w, thumb, ct)
+				return
+			}
+			if ctx.Err() != nil {
 				return
 			}
 		}
 
 		// Full decode fallback (always used for high quality).
 		orientation := media.ExtractOrientation(absPath)
-		thumb, ct, err := media.GenerateThumbnailCached(absPath, size, orientation)
+		thumb, ct, err := media.GenerateThumbnailCached(ctx, absPath, size, orientation)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			http.Error(w, "Failed to generate thumbnail", http.StatusInternalServerError)
 			return
 		}
@@ -79,18 +86,22 @@ func parseThumbnailQuality(s string) string {
 	return thumbnailQualityStandard
 }
 
-func serveHEIFThumbnail(w http.ResponseWriter, absPath string, size int, quality string) {
+func serveHEIFThumbnail(w http.ResponseWriter, r *http.Request, absPath string, size int, quality string) {
+	ctx := r.Context()
 	var (
 		thumb []byte
 		err   error
 	)
 
 	if quality == thumbnailQualityHigh {
-		thumb, err = media.GenerateHEIFThumbnail(absPath, size)
+		thumb, err = media.GenerateHEIFThumbnail(ctx, absPath, size)
 	} else {
-		thumb, err = media.ExtractHEIFPreviewThumbnail(absPath, size)
+		thumb, err = media.ExtractHEIFPreviewThumbnail(ctx, absPath, size)
 	}
 	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
 		http.Error(w, "Failed to generate HEIF thumbnail", http.StatusInternalServerError)
 		return
 	}
