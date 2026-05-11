@@ -5,6 +5,7 @@ class LibraryPane extends BrowsePane {
     constructor(container, libID, options = {}) {
         super(container, options);
         this._libID = libID;
+        this._sourcePath = options.sourcePath || '';
         this._photoMap = new Map(); // relPath → { photoID }
         this.sort = 'taken';
         this.order = 'desc';
@@ -62,7 +63,19 @@ class LibraryPane extends BrowsePane {
             (this._contentEl || this.container).scrollTop = savedScroll;
         }
         this._notifyFocusChange();
+        this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
+    }
+
+    getOpenInCommanderTarget() {
+        if (this.selectedDirs.size !== 1) return null;
+        const relDir = Array.from(this.selectedDirs)[0];
+        const dir = this._sourcePath + (relDir ? '/' + relDir : '');
+        return { dir, names: [] };
+    }
+
+    commanderBtnHint() {
+        return 'Select a folder to open in Organise view';
     }
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.

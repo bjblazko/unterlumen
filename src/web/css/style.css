@@ -253,6 +253,13 @@ body {
     right: 0;
 }
 
+.dropdown-menu-up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: calc(var(--unit) * 0.5);
+}
+
 .dropdown-section {
     display: flex;
     align-items: center;
@@ -1099,6 +1106,13 @@ body {
     position: relative;
     overflow: hidden;
     min-height: 0;
+}
+
+.cmd-lib-actions {
+    flex-shrink: 0;
+    padding-top: calc(var(--unit) * 2);
+    border-top: 1px solid var(--border);
+    margin-top: calc(var(--unit) * 2);
 }
 
 .cmd-arrow {

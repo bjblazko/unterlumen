@@ -31,6 +31,7 @@ class BrowsePane {
         this._resizeHandler = null;
         this._contentEl = null;
         this.selectedDirs = new Set();
+        this._pendingPreselect = null;
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
@@ -160,6 +161,7 @@ class BrowsePane {
             this._pollOverlayMeta();
         }
 
+        this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
     }
 
@@ -210,6 +212,25 @@ class BrowsePane {
 
     fullPath(name) {
         return this.path ? `${this.path}/${name}` : name;
+    }
+
+    primePreselect(names) {
+        this._pendingPreselect = names && names.length ? new Set(names) : null;
+    }
+
+    _applyPendingPreselect() {
+        if (!this._pendingPreselect) return;
+        const names = this._pendingPreselect;
+        this._pendingPreselect = null;
+        for (const entry of this.entries) {
+            if (entry.type === 'image' && names.has(entry.name)) {
+                this.selection.selected.add(this.fullPath(entry.name));
+            }
+        }
+        if (this.selection.selected.size > 0) {
+            this.selection.updateClasses(this.container);
+            if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+        }
     }
 
     _updateDirSelectionClasses() {
@@ -636,7 +657,7 @@ class BrowsePane {
     _updateToolsLibraryState() {
         const section = this.container.querySelector('.tools-library-section');
         if (!section) return;
-        section.style.display = this.getFocusedDir() ? '' : 'none';
+        section.style.display = (this.getFocusedDir() && App.mode !== 'library') ? '' : 'none';
     }
 
     // --- Focus change notification ---

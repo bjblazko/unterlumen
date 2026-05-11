@@ -109,6 +109,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **"Make library" hidden in Tools menu while in library mode** — The Tools → "Make library" button is no longer visible when already in library mode.
+- **"Organise: jump to folder" now works correctly when server root is `/`** — Navigating from a library folder to the Organise view (and vice-versa via "Jump to library…") was always landing at root instead of the correct subfolder when the server was started with `/` as the photo directory. Fixed boundary-stripping logic in `app.js` and `commander.js` to correctly compute the relative path for root-anchored servers.
+- **"Organise: jump to folder" button now enables on folder selection** — In the library browse view, the button previously enabled as soon as any photos were selected. It now enables only when a single folder entry is selected, and clicking it opens that folder in the Organise view.
+
 - **Library HEIF images load from cache when source volume is offline** — Opening a HEIF/HEIC photo in the library viewer no longer returns HTTP 500 when the source NAS is unmounted. Previously the conversion cache key included the file's modification time, which changed to an empty string when `os.Stat` failed (volume offline), causing a cache miss on every request. The key is now path-stable so a previously converted image is served from cache regardless of volume status. Converted JPEGs are now stored in the OS persistent cache directory (`~/Library/Caches/unterlumen/` on macOS via `os.UserCacheDir()`) instead of the OS temp directory, so cached conversions survive reboots. When a HEIF file has never been cached and the source is unreachable, the response is now 404 instead of 500.
 
 - **Info panel opens correctly from search/filter results** — Pressing I while viewing library search or filter results now loads the focused photo's metadata immediately. Previously the panel showed "Select an image to view info" because the keyboard handler was notifying the browse pane instead of the active search-results pane, causing `infoPanel.clear()` to cancel the correct load.
