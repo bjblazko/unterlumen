@@ -254,6 +254,33 @@ class LibraryTab {
         return this._searchPane || this._pane;
     }
 
+    _getActiveDetailPane() {
+        if (this._searchPane && this._searchPane.container.style.display !== 'none') {
+            return this._searchPane;
+        }
+        return this._pane;
+    }
+
+    _updateCommanderBtn() {
+        const btn = this._detailEl && this._detailEl.querySelector('#lib-commander-btn');
+        if (!btn) return;
+        const pane = this._getActiveDetailPane();
+        const target = pane ? pane.getOpenInCommanderTarget() : null;
+        if (!target) {
+            btn.disabled = true;
+            btn.title = pane ? pane.commanderBtnHint() : 'Select a folder to open in Organise view';
+            return;
+        }
+        const boundary = (App.config && App.config.boundary)
+            ? App.config.boundary.replace(/\/$/, '') : '';
+        const sp = target.dir.replace(/\/$/, '');
+        const withinBoundary = !boundary || sp === boundary || sp.startsWith(boundary + '/');
+        btn.disabled = !withinBoundary;
+        btn.title = withinBoundary
+            ? 'Open selected photos in Commander'
+            : 'Library folder is outside the server root — cannot open in Commander';
+    }
+
     async _openStats() {
         const lib = this.currentLibrary;
         const folderPath = this._pane?.path || '';
@@ -593,6 +620,7 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
+                    <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm btn-toggle" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
@@ -608,6 +636,7 @@ class LibraryTab {
                 </div>
             </div>`;
         this.container.appendChild(el);
+        this._detailEl = el;
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -622,6 +651,14 @@ class LibraryTab {
 
         const publishBtn = el.querySelector('#lib-publish-btn');
         publishBtn.addEventListener('click', () => this._openPublishModal());
+
+        const commanderBtn = el.querySelector('#lib-commander-btn');
+        commanderBtn.addEventListener('click', () => {
+            const pane = this._getActiveDetailPane();
+            const target = pane ? pane.getOpenInCommanderTarget() : null;
+            if (!target) return;
+            App.openCommanderAt(target.dir, target.names);
+        });
 
         this._filterPanel = new LibrarySearchPanel(
             el.querySelector('#lib-search-panel'),
@@ -645,12 +682,14 @@ class LibraryTab {
         };
 
         this._pane = new LibraryPane(paneEl, lib.id, {
+            sourcePath: lib.sourcePath,
             onImageClick: (path) => App.openViewer(path, this._pane),
             onFocusChange: (path) => this._onPhotoFocus(path),
             onToolInvoke: (params) => App.handleToolInvoke(params),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: (files) => {
                 publishBtn.disabled = files.length === 0;
+                this._updateCommanderBtn();
             },
         });
 
@@ -666,6 +705,7 @@ class LibraryTab {
                 onImageClick: (path) => App.openViewer(path, this._searchPane),
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
+                onSelectionChange: () => this._updateCommanderBtn(),
                 onClose: () => this._filterPanel.close(),
             });
         }
@@ -674,6 +714,7 @@ class LibraryTab {
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
         publishBtn.disabled = true;
+        this._updateCommanderBtn();
     }
 
     _showLibraryPane(detailEl, publishBtn) {
@@ -685,6 +726,7 @@ class LibraryTab {
         // Keep _searchPane alive so it can be reused if the filter is reopened.
 
         publishBtn.disabled = this._pane ? this._pane.getSelectedFiles().length === 0 : true;
+        this._updateCommanderBtn();
     }
 
     async _onPhotoFocusFromSearch(path) {

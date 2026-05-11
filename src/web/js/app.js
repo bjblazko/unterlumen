@@ -11,6 +11,7 @@ const App = {
     commander: null,
     viewer: null,
     currentBrowsePath: '',
+    _commanderPreselect: null,
     config: null,
     toolsStatus: null,
     _browseEl: null,
@@ -196,7 +197,10 @@ const App = {
                 this._commanderEl = document.createElement('div');
                 this._commanderEl.style.height = '100%';
                 appEl.appendChild(this._commanderEl);
-                this.commander = new Commander(this._commanderEl, this.currentBrowsePath);
+                this.commander = new Commander(this._commanderEl, this.currentBrowsePath, {
+                    preselectFiles: this._commanderPreselect,
+                });
+                this._commanderPreselect = null;
                 this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
                 this.commander.onToolInvoke = (params) => this.handleToolInvoke(params);
                 this.commander.init();
@@ -379,6 +383,37 @@ const App = {
 
     refreshLibraryVisibility() {
         this._updateLibraryButton();
+    },
+
+    openCommanderAt(physicalDir, preselectNames) {
+        const boundary = (this.config && this.config.boundary)
+            ? this.config.boundary.replace(/\/$/, '') : '';
+        let relPath;
+        const sp = physicalDir.replace(/\/$/, '');
+        if (sp === boundary) {
+            relPath = '';
+        } else if (!boundary) {
+            relPath = sp.replace(/^\//, '');
+        } else if (sp.startsWith(boundary + '/')) {
+            relPath = sp.substring(boundary.length + 1);
+        } else {
+            return;
+        }
+
+        const wasCreated = !!this._commanderEl;
+        this.currentBrowsePath = relPath;
+
+        if (!wasCreated) {
+            this._commanderPreselect = preselectNames;
+        }
+
+        this.setMode('commander');
+
+        if (wasCreated) {
+            const pane = this.commander.getActivePane();
+            if (preselectNames && preselectNames.length) pane.primePreselect(preselectNames);
+            pane.load(relPath);
+        }
     },
 
     getActiveBrowsePane() {

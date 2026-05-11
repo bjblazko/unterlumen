@@ -61,6 +61,22 @@ class SearchResultPane extends BrowsePane {
         return this._photoMap.get(pathHint);
     }
 
+    // Returns { dir, names } if all selected photos share the same parent folder, else null.
+    getOpenInCommanderTarget() {
+        if (this.selection.selected.size === 0) return null;
+        const paths = Array.from(this.selection.selected);
+        const dirs = paths.map(p => p.substring(0, p.lastIndexOf('/')));
+        const firstDir = dirs[0];
+        if (!dirs.every(d => d === firstDir)) return null;
+        return { dir: firstDir, names: paths.map(p => p.split('/').pop()) };
+    }
+
+    commanderBtnHint() {
+        return this.selection.selected.size > 0
+            ? 'Select photos from the same folder to open in Commander'
+            : 'Select photos to open in Commander';
+    }
+
     // pathHint is already an absolute path — no prefix needed.
     fullPath(name) {
         return name;
