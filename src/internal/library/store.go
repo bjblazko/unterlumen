@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS photos (
 	indexed_at  DATETIME NOT NULL,
 	exif_json   TEXT,
 	thumb_path  TEXT,
-	status      TEXT NOT NULL DEFAULT 'ok'
+	status      TEXT NOT NULL DEFAULT 'ok',
+	date_taken  TEXT,
+	ext         TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS path_cache (
@@ -72,6 +74,9 @@ func openDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
+	// Increase page cache to 64 MB and keep temp tables in RAM.
+	db.Exec(`PRAGMA cache_size = -65536`)
+	db.Exec(`PRAGMA temp_store = MEMORY`)
 	if _, err := db.Exec(dbSchema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
@@ -93,6 +98,35 @@ func openDB(dbPath string) (*sql.DB, error) {
 	// Migration: composite (status, path_hint) index and indexed_at index for browse/sort.
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint)`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at)`)
+	// Migration: date_taken column for fast date-based stats and timeline queries.
+	db.Exec(`ALTER TABLE photos ADD COLUMN date_taken TEXT`)
+	db.Exec(`UPDATE photos SET date_taken = json_extract(exif_json,'$.dateTaken') WHERE date_taken IS NULL`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_date_taken_idx ON photos(date_taken)`)
+	// Migration: ext column for fast format distribution queries.
+	db.Exec(`ALTER TABLE photos ADD COLUMN ext TEXT NOT NULL DEFAULT ''`)
+	db.Exec(`UPDATE photos SET ext =
+		CASE
+		  WHEN LOWER(SUBSTR(filename,-5)) = '.jpeg' THEN 'jpeg'
+		  WHEN LOWER(SUBSTR(filename,-5)) = '.heic' THEN 'heif'
+		  WHEN LOWER(SUBSTR(filename,-5)) = '.heif' THEN 'heif'
+		  WHEN LOWER(SUBSTR(filename,-5)) = '.tiff' THEN 'tiff'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.jpg'  THEN 'jpeg'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.hif'  THEN 'heif'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.raf'  THEN 'raf'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.dng'  THEN 'dng'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.arw'  THEN 'arw'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.nef'  THEN 'nef'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.cr2'  THEN 'cr2'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.cr3'  THEN 'cr3'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.tif'  THEN 'tif'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.mov'  THEN 'mov'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.mp4'  THEN 'mp4'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.png'  THEN 'png'
+		  WHEN LOWER(SUBSTR(filename,-4)) = '.gif'  THEN 'gif'
+		  ELSE LOWER(LTRIM(SUBSTR(filename, INSTR(filename,'.')+1), '.'))
+		END
+		WHERE ext = ''`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_ext_idx ON photos(status, ext)`)
 	return db, nil
 }
 
@@ -156,10 +190,10 @@ func (s *Store) PhotoExists(id string) (bool, error) {
 }
 
 // UpsertPhoto inserts or updates a photo record.
-func (s *Store) UpsertPhoto(id, pathHint, filename string, fileSize int64, indexedAt time.Time, exifJSON, thumbPath string) error {
+func (s *Store) UpsertPhoto(id, pathHint, filename string, fileSize int64, indexedAt time.Time, exifJSON, thumbPath, dateTaken, ext string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO photos(id,path_hint,filename,file_size,indexed_at,exif_json,thumb_path,status)
-		 VALUES(?,?,?,?,?,?,?,'ok')
+		`INSERT INTO photos(id,path_hint,filename,file_size,indexed_at,exif_json,thumb_path,status,date_taken,ext)
+		 VALUES(?,?,?,?,?,?,?,'ok',?,?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   path_hint=excluded.path_hint,
 		   filename=excluded.filename,
@@ -167,8 +201,10 @@ func (s *Store) UpsertPhoto(id, pathHint, filename string, fileSize int64, index
 		   indexed_at=excluded.indexed_at,
 		   exif_json=excluded.exif_json,
 		   thumb_path=excluded.thumb_path,
-		   status='ok'`,
-		id, pathHint, filename, fileSize, indexedAt.UTC(), exifJSON, thumbPath,
+		   status='ok',
+		   date_taken=excluded.date_taken,
+		   ext=excluded.ext`,
+		id, pathHint, filename, fileSize, indexedAt.UTC(), exifJSON, thumbPath, dateTaken, ext,
 	)
 	return err
 }
@@ -405,25 +441,21 @@ type NumericFilter struct {
 }
 
 // ListPhotos returns a filtered, paginated list of photos.
-// q is a full-text search term; filters is field→value for EXIF text filtering;
+// filters is field→value for EXIF text filtering;
 // numericFilters is field→range for numeric EXIF filtering (e.g. ExposureTime).
-func (s *Store) ListPhotos(q string, filters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (ListPhotosResult, error) {
-	args := []any{}
+func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (ListPhotosResult, error) {
+	var joinClauses []string
+	var joinArgs []any
+	var whereArgs []any
 	where := []string{"p.status='ok'"}
-
-	if q != "" {
-		like := "%" + q + "%"
-		where = append(where,
-			`(p.filename LIKE ?
-			  OR EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.value LIKE ?)
-			  OR EXISTS (SELECT 1 FROM photo_meta m WHERE m.photo_id=p.id AND m.value LIKE ?))`)
-		args = append(args, like, like, like)
-	}
+	i := 0
 
 	for field, val := range filters {
-		where = append(where,
-			`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND TRIM(TRIM(e.value, '"')) = ?)`)
-		args = append(args, field, val)
+		a := fmt.Sprintf("ef%d", i)
+		i++
+		joinClauses = append(joinClauses,
+			fmt.Sprintf(`JOIN exif_index %s ON %s.photo_id=p.id AND %s.field=? AND TRIM(TRIM(%s.value,'"'))=?`, a, a, a, a))
+		joinArgs = append(joinArgs, field, val)
 	}
 
 	for field, r := range numericFilters {
@@ -447,30 +479,39 @@ func (s *Store) ListPhotos(q string, filters map[string]string, numericFilters m
 					)
 				)
 			)`)
-			args = append(args, r.Min, r.Max, r.Min, r.Max)
+			whereArgs = append(whereArgs, r.Min, r.Max, r.Min, r.Max)
 		} else {
-			where = append(where,
-				`EXISTS (SELECT 1 FROM exif_index e WHERE e.photo_id=p.id AND e.field=? AND e.numeric_value BETWEEN ? AND ?)`)
-			args = append(args, field, r.Min, r.Max)
+			a := fmt.Sprintf("en%d", i)
+			i++
+			joinClauses = append(joinClauses,
+				fmt.Sprintf(`JOIN exif_index %s ON %s.photo_id=p.id AND %s.field=? AND %s.numeric_value BETWEEN ? AND ?`, a, a, a, a))
+			joinArgs = append(joinArgs, field, r.Min, r.Max)
 		}
 	}
 
-	whereClause := strings.Join(where, " AND ")
+	joinSQL := strings.Join(joinClauses, " ")
+	whereSQL := strings.Join(where, " AND ")
+	allArgs := append(joinArgs, whereArgs...)
+
+	fromSQL := "FROM photos p"
+	if joinSQL != "" {
+		fromSQL += " " + joinSQL
+	}
 
 	var total int
-	countArgs := append([]any{}, args...)
+	countArgs := append([]any{}, allArgs...)
 	if err := s.db.QueryRow(
-		`SELECT COUNT(DISTINCT p.id) FROM photos p WHERE `+whereClause, countArgs...,
+		`SELECT COUNT(p.id) `+fromSQL+` WHERE `+whereSQL, countArgs...,
 	).Scan(&total); err != nil {
 		return ListPhotosResult{}, err
 	}
 
-	pageArgs := append(args, limit, offset)
+	pageArgs := append(allArgs, limit, offset)
 	rows, err := s.db.Query(
 		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status,
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1)
-		 FROM photos p WHERE `+whereClause+
+		 `+fromSQL+` WHERE `+whereSQL+
 			` ORDER BY p.indexed_at DESC LIMIT ? OFFSET ?`,
 		pageArgs...,
 	)
@@ -818,34 +859,21 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 		return nil, err
 	}
 
-	// Format distribution: query all filenames and extract extension in Go
-	// (SQL INSTR finds the first dot; filepath.Ext finds the last, which is correct).
+	// Format distribution: use the pre-computed ext column — O(distinct formats) instead of O(n).
 	{
-		frows, ferr := s.db.Query(`SELECT LOWER(filename) FROM photos WHERE status='ok'`+pcWhere, pcArgs...)
+		frows, ferr := s.db.Query(`SELECT ext, COUNT(*) AS n FROM photos WHERE status='ok' AND ext != ''`+pcWhere+` GROUP BY ext ORDER BY n DESC`, pcArgs...)
 		if ferr != nil {
 			return nil, ferr
 		}
 		defer frows.Close()
-		extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
-		fmtMap := make(map[string]int)
 		for frows.Next() {
-			var name string
-			if err := frows.Scan(&name); err != nil {
+			var nc NameCount
+			if err := frows.Scan(&nc.Name, &nc.Count); err != nil {
 				return nil, err
 			}
-			ext := strings.TrimPrefix(filepath.Ext(name), ".")
-			if norm, ok := extNorm[ext]; ok {
-				ext = norm
-			}
-			if ext != "" {
-				fmtMap[ext]++
-			}
+			st.Formats = append(st.Formats, nc)
 		}
 		frows.Close()
-		for name, count := range fmtMap {
-			st.Formats = append(st.Formats, NameCount{Name: name, Count: count})
-		}
-		sortNameCounts(st.Formats)
 	}
 
 	_, exifPathCond, exifPathArgs := exifJoin()
@@ -1001,11 +1029,11 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 	// Shooting hours distribution.
 	{
 		rows, err := s.db.Query(`
-			SELECT CAST(SUBSTR(json_extract(exif_json,'$.dateTaken'), 12, 2) AS INTEGER) AS hr, COUNT(*) AS n
+			SELECT CAST(SUBSTR(date_taken, 12, 2) AS INTEGER) AS hr, COUNT(*) AS n
 			FROM   photos
 			WHERE  status='ok'
-			  AND  json_extract(exif_json,'$.dateTaken') IS NOT NULL
-			  AND  LENGTH(json_extract(exif_json,'$.dateTaken')) >= 13`+pcWhere+
+			  AND  date_taken IS NOT NULL
+			  AND  LENGTH(date_taken) >= 13`+pcWhere+
 			` GROUP BY hr`, pcArgs...)
 		if err != nil {
 			return nil, err
@@ -1026,9 +1054,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 	// Shooting days distribution (calendar heatmap).
 	{
 		rows, err := s.db.Query(`
-			SELECT SUBSTR(json_extract(exif_json,'$.dateTaken'), 1, 10) AS day, COUNT(*) AS n
+			SELECT SUBSTR(date_taken, 1, 10) AS day, COUNT(*) AS n
 			FROM   photos
-			WHERE  status='ok' AND json_extract(exif_json,'$.dateTaken') IS NOT NULL`+pcWhere+
+			WHERE  status='ok' AND date_taken IS NOT NULL`+pcWhere+
 			` GROUP BY day`, pcArgs...)
 		if err != nil {
 			return nil, err
@@ -1127,10 +1155,10 @@ func tlAliasCond(pathGlob string) (string, []any) {
 func tlDetectGranularity(db *sql.DB, pcWhere string, pcArgs []any) string {
 	var minP, maxP sql.NullString
 	db.QueryRow(`
-		SELECT MIN(SUBSTR(json_extract(exif_json,'$.dateTaken'),1,7)),
-		       MAX(SUBSTR(json_extract(exif_json,'$.dateTaken'),1,7))
+		SELECT MIN(SUBSTR(date_taken,1,7)),
+		       MAX(SUBSTR(date_taken,1,7))
 		FROM photos WHERE status='ok'
-		  AND json_extract(exif_json,'$.dateTaken') IS NOT NULL`+pcWhere,
+		  AND date_taken IS NOT NULL`+pcWhere,
 		pcArgs...).Scan(&minP, &maxP)
 	if !minP.Valid || !maxP.Valid || len(minP.String) < 7 || len(maxP.String) < 7 {
 		return "month"
@@ -1155,11 +1183,11 @@ type tlCameraRow struct {
 
 func tlCameraRows(db *sql.DB, N int, pWhere string, pArgs []any) ([]tlCameraRow, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(json_extract(p.exif_json,'$.dateTaken'),1,?), e.value, COUNT(*)
+		SELECT SUBSTR(p.date_taken,1,?), e.value, COUNT(*)
 		FROM photos p
 		JOIN exif_index e ON e.photo_id = p.id AND e.field = 'Model'
 		WHERE p.status='ok'
-		  AND json_extract(p.exif_json,'$.dateTaken') IS NOT NULL`+pWhere+`
+		  AND p.date_taken IS NOT NULL`+pWhere+`
 		GROUP BY 1, 2 ORDER BY 1, 3 DESC`,
 		append([]any{N}, pArgs...)...)
 	if err != nil {
@@ -1180,11 +1208,11 @@ func tlCameraRows(db *sql.DB, N int, pWhere string, pArgs []any) ([]tlCameraRow,
 
 func tlOrderedFloats(db *sql.DB, field string, N int, pWhere string, pArgs []any) (map[string][]float64, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(json_extract(p.exif_json,'$.dateTaken'),1,?), e.numeric_value
+		SELECT SUBSTR(p.date_taken,1,?), e.numeric_value
 		FROM photos p
 		JOIN exif_index e ON e.photo_id = p.id AND e.field = ?
 		WHERE p.status='ok'
-		  AND json_extract(p.exif_json,'$.dateTaken') IS NOT NULL
+		  AND p.date_taken IS NOT NULL
 		  AND e.numeric_value IS NOT NULL`+pWhere+`
 		ORDER BY 1, 2`,
 		append([]any{N, field}, pArgs...)...)
@@ -1206,7 +1234,7 @@ func tlOrderedFloats(db *sql.DB, field string, N int, pWhere string, pArgs []any
 
 func tlApertureMap(db *sql.DB, N int, pWhere string, pArgs []any) (map[string]map[string]int, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(json_extract(p.exif_json,'$.dateTaken'),1,?),
+		SELECT SUBSTR(p.date_taken,1,?),
 		       CASE
 		         WHEN e.numeric_value <= 1.2  THEN 'f/1'
 		         WHEN e.numeric_value <= 1.6  THEN 'f/1.4'
@@ -1222,7 +1250,7 @@ func tlApertureMap(db *sql.DB, N int, pWhere string, pArgs []any) (map[string]ma
 		FROM photos p
 		JOIN exif_index e ON e.photo_id = p.id AND e.field = 'FNumber'
 		WHERE p.status='ok'
-		  AND json_extract(p.exif_json,'$.dateTaken') IS NOT NULL
+		  AND p.date_taken IS NOT NULL
 		  AND e.numeric_value IS NOT NULL`+pWhere+`
 		GROUP BY 1, 2 ORDER BY 1`,
 		append([]any{N}, pArgs...)...)
@@ -1247,7 +1275,7 @@ func tlApertureMap(db *sql.DB, N int, pWhere string, pArgs []any) (map[string]ma
 
 func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]map[string]int, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(json_extract(exif_json,'$.dateTaken'),1,?),
+		SELECT SUBSTR(date_taken,1,?),
 		       CASE
 		         WHEN CAST(json_extract(exif_json,'$.width') AS REAL) /
 		              CAST(json_extract(exif_json,'$.height') AS REAL) BETWEEN 0.98 AND 1.02 THEN '1:1'
@@ -1262,7 +1290,7 @@ func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]ma
 		       COUNT(*)
 		FROM photos
 		WHERE status='ok'
-		  AND json_extract(exif_json,'$.dateTaken') IS NOT NULL
+		  AND date_taken IS NOT NULL
 		  AND CAST(json_extract(exif_json,'$.width') AS INTEGER) > 0
 		  AND CAST(json_extract(exif_json,'$.height') AS INTEGER) > 0`+pcWhere+`
 		GROUP BY 1, 2 ORDER BY 1`,
@@ -1288,7 +1316,7 @@ func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]ma
 
 func tlMegapixels(db *sql.DB, N int, pcWhere string, pcArgs []any) ([]MegapixelStat, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(json_extract(exif_json,'$.dateTaken'),1,?),
+		SELECT SUBSTR(date_taken,1,?),
 		       MAX(CAST(json_extract(exif_json,'$.width') AS REAL) *
 		           CAST(json_extract(exif_json,'$.height') AS REAL) / 1000000.0),
 		       AVG(CAST(json_extract(exif_json,'$.width') AS REAL) *
@@ -1296,7 +1324,7 @@ func tlMegapixels(db *sql.DB, N int, pcWhere string, pcArgs []any) ([]MegapixelS
 		       COUNT(*)
 		FROM photos
 		WHERE status='ok'
-		  AND json_extract(exif_json,'$.dateTaken') IS NOT NULL
+		  AND date_taken IS NOT NULL
 		  AND CAST(json_extract(exif_json,'$.width') AS INTEGER) > 0
 		  AND CAST(json_extract(exif_json,'$.height') AS INTEGER) > 0`+pcWhere+`
 		GROUP BY 1 ORDER BY 1`,
@@ -1516,40 +1544,71 @@ type ExifRange struct {
 // GetExifRanges returns the min/max numeric_value for each of the requested EXIF fields.
 // Fields with no numeric data are omitted from the result.
 // The virtual key "FocalLength35" returns the combined range of FocalLengthIn35mmFilm
-// (where present) falling back to FocalLength — matching the filter semantics.
+// and FocalLength — matching the filter semantics for the 35mm slider.
 func (s *Store) GetExifRanges(fields []string) (map[string]ExifRange, error) {
 	out := make(map[string]ExifRange)
-	for _, field := range fields {
-		var minVal, maxVal sql.NullFloat64
-		if field == "FocalLength35" {
-			err := s.db.QueryRow(`
-				SELECT MIN(COALESCE(fl35.numeric_value, fl.numeric_value)),
-				       MAX(COALESCE(fl35.numeric_value, fl.numeric_value))
-				FROM   photos p
-				LEFT JOIN exif_index fl35
-				       ON fl35.photo_id = p.id AND fl35.field = 'FocalLengthIn35mmFilm'
-				      AND fl35.numeric_value IS NOT NULL
-				LEFT JOIN exif_index fl
-				       ON fl.photo_id = p.id AND fl.field = 'FocalLength'
-				      AND fl.numeric_value IS NOT NULL
-				WHERE  p.status = 'ok'
-				  AND  COALESCE(fl35.numeric_value, fl.numeric_value) IS NOT NULL`,
-			).Scan(&minVal, &maxVal)
-			if err != nil {
-				return nil, err
-			}
+
+	// Separate "FocalLength35" (virtual, needs special query) from real fields.
+	var realFields []string
+	hasFocal35 := false
+	for _, f := range fields {
+		if f == "FocalLength35" {
+			hasFocal35 = true
 		} else {
-			err := s.db.QueryRow(
-				`SELECT MIN(numeric_value), MAX(numeric_value) FROM exif_index WHERE field=? AND numeric_value IS NOT NULL`,
-				field,
-			).Scan(&minVal, &maxVal)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if minVal.Valid && maxVal.Valid {
-			out[field] = ExifRange{Min: minVal.Float64, Max: maxVal.Float64}
+			realFields = append(realFields, f)
 		}
 	}
+
+	// Batch all real fields into a single GROUP BY query.
+	if len(realFields) > 0 {
+		placeholders := strings.Repeat("?,", len(realFields))
+		placeholders = placeholders[:len(placeholders)-1]
+		args := make([]any, len(realFields))
+		for i, f := range realFields {
+			args[i] = f
+		}
+		rows, err := s.db.Query(
+			`SELECT field, MIN(numeric_value), MAX(numeric_value)
+			 FROM exif_index
+			 WHERE field IN (`+placeholders+`) AND numeric_value IS NOT NULL
+			 GROUP BY field`,
+			args...,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var field string
+			var minVal, maxVal sql.NullFloat64
+			if err := rows.Scan(&field, &minVal, &maxVal); err != nil {
+				return nil, err
+			}
+			if minVal.Valid && maxVal.Valid {
+				out[field] = ExifRange{Min: minVal.Float64, Max: maxVal.Float64}
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+
+	// FocalLength35: combined range of FocalLengthIn35mmFilm and FocalLength.
+	if hasFocal35 {
+		var minVal, maxVal sql.NullFloat64
+		err := s.db.QueryRow(
+			`SELECT MIN(numeric_value), MAX(numeric_value)
+			 FROM exif_index
+			 WHERE field IN ('FocalLengthIn35mmFilm','FocalLength')
+			   AND numeric_value IS NOT NULL`,
+		).Scan(&minVal, &maxVal)
+		if err != nil {
+			return nil, err
+		}
+		if minVal.Valid && maxVal.Valid {
+			out["FocalLength35"] = ExifRange{Min: minVal.Float64, Max: maxVal.Float64}
+		}
+	}
+
 	return out, nil
 }

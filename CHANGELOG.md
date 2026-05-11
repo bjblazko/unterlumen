@@ -1,7 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-10*
-
+*Last modified: 2026-05-11*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -87,6 +86,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Search panel performance** — Opening the library search/filter panel is significantly faster for large libraries. EXIF range queries are batched from 6 serial SQL statements into 2 (one GROUP BY for all scalar fields, one combined query for the 35mm focal-length range). EXIF ranges and distinct text values (camera, lens, film sim) are now cached in memory and invalidated automatically when a scan starts or completes — making every panel open after the first instant. The panel also shows "Loading filters…" immediately on first open instead of appearing as a blank box.
+
+- **Statistics and timeline performance** — Opening the Statistics modal is significantly faster for large libraries (20k+ photos). Key improvements: a `date_taken` column is now stored directly in the photos table (backfilled from `exif_json` on startup), eliminating per-row JSON extraction in all shooting hours, shooting days, and timeline queries; format distribution is computed with a `GROUP BY` on a pre-computed `ext` column instead of fetching all filenames; the SQLite page cache is raised to 64 MB. Statistics and timeline results are cached in memory and invalidated automatically when a scan starts or completes.
+
+- **Filter query performance** — EXIF filter queries now use JOINs instead of correlated EXISTS subqueries, allowing SQLite to start from the small set of indexed EXIF rows rather than iterating every photo. The unused `q` / LIKE wildcard search parameter (which was never sent by any UI element and prevented index use) has been removed.
+
 - **"New library" button redesigned as circle-plus glyph** — The `+` affordance in the Libraries tab button is now an SVG circle-with-plus icon. When the Libraries tab is active the glyph inverts: a filled white circle with an orange plus inside. On inactive tabs it renders as a thin outlined circle. The SVG eliminates the font-baseline centering offset that made the previous text character appear slightly off.
 
 - **Library toolbar refinements** — Several visual improvements to the library UI:
@@ -103,6 +108,10 @@ All notable changes to this project are documented in this file.
   - JS: `app.js` (767 lines) split into `app.js` (orchestration), `app-theme.js`, `app-wastebin.js`, `app-keyboard.js`.
 
 ### Fixed
+
+- **Library HEIF images load from cache when source volume is offline** — Opening a HEIF/HEIC photo in the library viewer no longer returns HTTP 500 when the source NAS is unmounted. Previously the conversion cache key included the file's modification time, which changed to an empty string when `os.Stat` failed (volume offline), causing a cache miss on every request. The key is now path-stable so a previously converted image is served from cache regardless of volume status. Converted JPEGs are now stored in the OS persistent cache directory (`~/Library/Caches/unterlumen/` on macOS via `os.UserCacheDir()`) instead of the OS temp directory, so cached conversions survive reboots. When a HEIF file has never been cached and the source is unreachable, the response is now 404 instead of 500.
+
+- **Info panel opens correctly from search/filter results** — Pressing I while viewing library search or filter results now loads the focused photo's metadata immediately. Previously the panel showed "Select an image to view info" because the keyboard handler was notifying the browse pane instead of the active search-results pane, causing `infoPanel.clear()` to cancel the correct load.
 
 - **Info panel now loads immediately when opened** — In browse mode, pressing I to open the info panel while a photo is focused now loads that photo's metadata straight away. Previously, the panel stayed at "Select an image to view info" until the user navigated to another photo and back. In the fullscreen viewer, a defensive guard ensures the info loads even if the initial trigger was missed due to a race condition.
 

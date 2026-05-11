@@ -18,7 +18,7 @@ func newTestStore(t *testing.T) *Store {
 
 func insertPhoto(t *testing.T, s *Store, id string, fl, fl35 *float64) {
 	t.Helper()
-	if err := s.UpsertPhoto(id, "", id+".jpg", 0, time.Now(), "", ""); err != nil {
+	if err := s.UpsertPhoto(id, "", id+".jpg", 0, time.Now(), "", "", "", "jpeg"); err != nil {
 		t.Fatalf("UpsertPhoto %s: %v", id, err)
 	}
 	fields := map[string]string{}
@@ -84,7 +84,7 @@ func TestListPhotosFocalLength35Filter(t *testing.T) {
 	numericFilters := map[string]NumericFilter{
 		"FocalLength35": {Min: 30, Max: 40},
 	}
-	result, err := s.ListPhotos("", nil, numericFilters, 0, 100)
+	result, err := s.ListPhotos(nil, numericFilters, 0, 100)
 	if err != nil {
 		t.Fatalf("ListPhotos: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestPurgeMissingPhotos(t *testing.T) {
 	}
 
 	// "keep" must still be present with status ok.
-	result, err := s.ListPhotos("", nil, nil, 0, 10)
+	result, err := s.ListPhotos(nil, nil, 0, 10)
 	if err != nil {
 		t.Fatalf("ListPhotos: %v", err)
 	}

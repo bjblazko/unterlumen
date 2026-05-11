@@ -141,11 +141,13 @@ class GlobalKeyboard {
 
         // I: toggle info panel in library mode
         if ((e.key === 'i' || e.key === 'I') && app.mode === 'library' && app._libraryTab && app._libraryTab._infoPanel) {
+            if (document.querySelector('.viewer')) return;
             e.preventDefault();
             const ip = app._libraryTab._infoPanel;
             ip.toggle();
-            if (ip.expanded && app._libraryTab._pane) {
-                app._libraryTab._pane._notifyFocusChange();
+            if (ip.expanded) {
+                const activePane = app._libraryTab._searchPane || app._libraryTab._pane;
+                if (activePane) activePane._notifyFocusChange();
             }
         }
 
