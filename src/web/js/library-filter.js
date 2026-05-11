@@ -93,6 +93,7 @@ class LibrarySearchPanel {
         this._toggleBtn.classList.add('active');
 
         if (!this._built) {
+            this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';
             await this._build();
         }
     }

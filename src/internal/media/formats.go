@@ -98,30 +98,33 @@ func CheckSips() bool {
 	return sipsAvailable
 }
 
-// --- Disk cache in OS temp directory ---
+// --- Persistent disk cache ---
 
 var (
 	cacheDir     string
 	cacheDirOnce sync.Once
 )
 
-// getCacheDir returns the cache directory, creating it if needed.
+// getCacheDir returns a persistent cache directory (~/Library/Caches/unterlumen on macOS),
+// falling back to the OS temp dir if UserCacheDir is unavailable.
 func getCacheDir() string {
 	cacheDirOnce.Do(func() {
-		cacheDir = filepath.Join(os.TempDir(), "unterlumen-cache")
+		if dir, err := os.UserCacheDir(); err == nil {
+			cacheDir = filepath.Join(dir, "unterlumen")
+		} else {
+			cacheDir = filepath.Join(os.TempDir(), "unterlumen-cache")
+		}
 		os.MkdirAll(cacheDir, 0700)
 	})
 	return cacheDir
 }
 
 // cacheKey returns a unique filename for a source file + purpose.
+// The key is path-stable so cached conversions are found even when the source
+// volume is offline (e.g. NAS unmounted). Photos in a library are read-only, so
+// cache invalidation on modification time is unnecessary.
 func cacheKey(path string, purpose string) string {
-	info, err := os.Stat(path)
-	var modStr string
-	if err == nil {
-		modStr = info.ModTime().String()
-	}
-	h := sha256.Sum256([]byte(path + "|" + modStr + "|" + purpose))
+	h := sha256.Sum256([]byte(path + "|" + purpose))
 	return fmt.Sprintf("%x.jpg", h[:12])
 }
 

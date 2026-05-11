@@ -2735,6 +2735,7 @@ body.slideshow-active #app { height: 100vh; }
     border: 1px solid var(--border);
     border-radius: 2px;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .library-card-top {
@@ -3135,6 +3136,12 @@ body.slideshow-active #app { height: 100vh; }
 
 .lib-range-handle:hover {
     border-color: var(--accent-hover);
+}
+
+.lib-search-loading {
+    padding: 16px;
+    font-size: 11px;
+    color: var(--text-sec);
 }
 
 .lib-search-status {

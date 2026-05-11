@@ -345,10 +345,9 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		q := r.URL.Query().Get("q")
 		filters := make(map[string]string)
 		for k, vals := range r.URL.Query() {
-			if k == "q" || k == "offset" || k == "limit" || k == "ids" || len(vals) == 0 {
+			if k == "offset" || k == "limit" || k == "ids" || len(vals) == 0 {
 				continue
 			}
 			if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
@@ -366,7 +365,7 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 			limit = 100
 		}
 
-		result, err := store.ListPhotos(q, filters, numericFilters, offset, limit)
+		result, err := store.ListPhotos(filters, numericFilters, offset, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -675,7 +674,11 @@ func servePhoto(mgr *lib.Manager) http.HandlerFunc {
 		if media.IsHEIF(pathHint) {
 			jpegData, convErr := media.ConvertHEIFToJPEG(pathHint)
 			if convErr != nil {
-				http.Error(w, "Failed to convert HEIF: "+convErr.Error(), http.StatusInternalServerError)
+				if _, statErr := os.Stat(pathHint); os.IsNotExist(statErr) {
+					http.Error(w, "photo not found on disk", http.StatusNotFound)
+				} else {
+					http.Error(w, "Failed to convert HEIF: "+convErr.Error(), http.StatusInternalServerError)
+				}
 				return
 			}
 			w.Header().Set("Content-Type", "image/jpeg")

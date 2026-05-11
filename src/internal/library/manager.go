@@ -6,17 +6,55 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
 // Manager manages the set of libraries rooted at a base directory.
 type Manager struct {
-	root    string
-	indexMu sync.Map // map[libraryID]bool — prevents concurrent reindex of same library
-	scans   sync.Map // map[libraryID]*Broadcaster — active scan progress broadcasters
-	openDBs sync.Map // map[libraryID]*sql.DB — long-lived per-library connections
+	root              string
+	indexMu           sync.Map // map[libraryID]bool — prevents concurrent reindex of same library
+	scans             sync.Map // map[libraryID]*Broadcaster — active scan progress broadcasters
+	openDBs           sync.Map // map[libraryID]*sql.DB — long-lived per-library connections
+	statsCache        sync.Map // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
+	timelineCache     sync.Map // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
+	exifRangesCache   sync.Map // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
+	exifValuesCache   sync.Map // map[cacheKey+"|"+field][]string — invalidated on scan start/end
+}
+
+func statsCacheKey(ids []string, pathPrefix string) string {
+	sorted := append([]string(nil), ids...)
+	sort.Strings(sorted)
+	return strings.Join(sorted, ",") + "|" + pathPrefix
+}
+
+func timelineCacheKey(ids []string, pathPrefix, granularity string) string {
+	sorted := append([]string(nil), ids...)
+	sort.Strings(sorted)
+	return strings.Join(sorted, ",") + "|" + pathPrefix + "|" + granularity
+}
+
+// InvalidateStatsCache removes cached statistics for all entries that include the given library ID.
+func (m *Manager) InvalidateStatsCache(id string) {
+	invalidateByID := func(cache *sync.Map) {
+		cache.Range(func(k, _ any) bool {
+			before, _, _ := strings.Cut(k.(string), "|")
+			for _, part := range strings.Split(before, ",") {
+				if part == id {
+					cache.Delete(k)
+					break
+				}
+			}
+			return true
+		})
+	}
+	invalidateByID(&m.statsCache)
+	invalidateByID(&m.timelineCache)
+	invalidateByID(&m.exifRangesCache)
+	invalidateByID(&m.exifValuesCache)
 }
 
 func newUUID() (string, error) {
@@ -228,6 +266,7 @@ func (m *Manager) StartScan(id string) (*Broadcaster, bool) {
 	if !m.TryLockIndex(id) {
 		return nil, false
 	}
+	m.InvalidateStatsCache(id)
 	b := newBroadcaster()
 	m.scans.Store(id, b)
 	return b, true
@@ -246,6 +285,7 @@ func (m *Manager) JoinScan(id string) (*Broadcaster, bool) {
 func (m *Manager) EndScan(id string) {
 	m.scans.Delete(id)
 	m.UnlockIndex(id)
+	m.InvalidateStatsCache(id)
 }
 
 // IsScanning reports whether a scan is currently active for the library.
@@ -275,6 +315,15 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 		libs = filtered
 	}
 
+	libIDs := make([]string, len(libs))
+	for i, l := range libs {
+		libIDs[i] = l.ID
+	}
+	cacheKey := statsCacheKey(libIDs, "") + "|" + field
+	if v, ok := m.exifValuesCache.Load(cacheKey); ok {
+		return v.([]string), nil
+	}
+
 	seen := make(map[string]bool)
 	var out []string
 	for _, l := range libs {
@@ -300,6 +349,7 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 			out[j], out[j-1] = out[j-1], out[j]
 		}
 	}
+	m.exifValuesCache.Store(cacheKey, out)
 	return out, nil
 }
 
@@ -350,7 +400,7 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 			continue
 		}
 		perLibLimit := offset + limit
-		page, err := store.ListPhotos("", textFilters, numericFilters, 0, perLibLimit)
+		page, err := store.ListPhotos(textFilters, numericFilters, 0, perLibLimit)
 		store.Close()
 		if err != nil {
 			results[i].result.err = err
@@ -416,6 +466,15 @@ func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error
 		libs = filtered
 	}
 
+	libIDs := make([]string, len(libs))
+	for i, l := range libs {
+		libIDs[i] = l.ID
+	}
+	cacheKey := statsCacheKey(libIDs, "")
+	if v, ok := m.exifRangesCache.Load(cacheKey); ok {
+		return v.(map[string]ExifRange), nil
+	}
+
 	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "FocalLengthIn35mmFilm", "FocalLength35", "ISOSpeedRatings"}
 	agg := make(map[string]ExifRange)
 
@@ -443,6 +502,7 @@ func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error
 			}
 		}
 	}
+	m.exifRangesCache.Store(cacheKey, agg)
 	return agg, nil
 }
 
@@ -465,6 +525,15 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 			}
 		}
 		libs = filtered
+	}
+
+	libIDs := make([]string, len(libs))
+	for i, l := range libs {
+		libIDs[i] = l.ID
+	}
+	cacheKey := statsCacheKey(libIDs, pathPrefix)
+	if v, ok := m.statsCache.Load(cacheKey); ok {
+		return v.(*LibraryStatistics), nil
 	}
 
 	merged := &LibraryStatistics{
@@ -549,6 +618,7 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 		merged.CameraLens = merged.CameraLens[:100]
 	}
 
+	m.statsCache.Store(cacheKey, merged)
 	return merged, nil
 }
 
@@ -570,6 +640,15 @@ func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*Libra
 			}
 		}
 		libs = filtered
+	}
+
+	tlLibIDs := make([]string, len(libs))
+	for i, l := range libs {
+		tlLibIDs[i] = l.ID
+	}
+	tlCacheKey := timelineCacheKey(tlLibIDs, pathPrefix, granularity)
+	if v, ok := m.timelineCache.Load(tlCacheKey); ok {
+		return v.(*LibraryTimeline), nil
 	}
 
 	var results []*LibraryTimeline
@@ -597,10 +676,14 @@ func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*Libra
 			MegapixelStats: []MegapixelStat{},
 		}, nil
 	}
+	var tl *LibraryTimeline
 	if len(results) == 1 {
-		return results[0], nil
+		tl = results[0]
+	} else {
+		tl = mergeTLs(results)
 	}
-	return mergeTLs(results), nil
+	m.timelineCache.Store(tlCacheKey, tl)
+	return tl, nil
 }
 
 func coalesceGranularity(g string) string {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "image/png"
@@ -170,22 +171,30 @@ func (idx *Indexer) indexFile(absPath string) error {
 	// New photo: extract EXIF.
 	exifJSON := "{}"
 	exifFields := make(map[string]string)
+	dateTaken := ""
 	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
 		for k, v := range exifData.Tags {
 			exifFields[k] = v
 		}
 		if exifData.DateTaken != nil {
-			exifFields["DateTaken"] = *exifData.DateTaken
+			dateTaken = *exifData.DateTaken
+			exifFields["DateTaken"] = dateTaken
 		}
 		if b, err := json.Marshal(exifData); err == nil {
 			exifJSON = string(b)
 		}
 	}
 
+	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
+	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
+	if n, ok := extNorm[ext]; ok {
+		ext = n
+	}
+
 	// Generate and store HQ thumbnail.
 	thumbRel, _ := idx.ensureThumbnail(absPath, photoID) // non-fatal on error
 
-	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel); err != nil {
+	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
 		return err
 	}
 	numericValues := media.NormalizeExifNumbers(exifFields)
