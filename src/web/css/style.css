@@ -1016,17 +1016,14 @@ body {
     transition: background 0.1s;
 }
 
-.list-view tr:hover {
+.list-view tr:hover,
+.list-view tr.focused {
     background: var(--accent-light);
 }
 
 .list-view tr.selected {
     background: var(--accent-light);
     box-shadow: inset 3px 0 0 var(--accent);
-}
-
-.list-view tr.focused {
-    box-shadow: inset 3px 0 0 var(--border);
 }
 
 .list-icon img {
