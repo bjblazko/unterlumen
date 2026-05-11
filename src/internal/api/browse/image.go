@@ -31,7 +31,7 @@ func handleImage(root string) http.HandlerFunc {
 		}
 
 		if media.IsHEIF(absPath) {
-			jpegData, err := media.ConvertHEIFToJPEG(absPath)
+			jpegData, err := media.ConvertHEIFToJPEG(r.Context(), absPath)
 			if err != nil {
 				http.Error(w, "Failed to convert HEIF: "+err.Error(), http.StatusInternalServerError)
 				return

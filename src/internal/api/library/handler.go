@@ -672,7 +672,7 @@ func servePhoto(mgr *lib.Manager) http.HandlerFunc {
 		}
 
 		if media.IsHEIF(pathHint) {
-			jpegData, convErr := media.ConvertHEIFToJPEG(pathHint)
+			jpegData, convErr := media.ConvertHEIFToJPEG(r.Context(), pathHint)
 			if convErr != nil {
 				if _, statErr := os.Stat(pathHint); os.IsNotExist(statErr) {
 					http.Error(w, "photo not found on disk", http.StatusNotFound)

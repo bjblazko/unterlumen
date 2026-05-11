@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -149,13 +150,13 @@ func writeCache(key string, data []byte) {
 // falls back to sips (macOS) for reliable multi-tile HEIF support,
 // and finally to HEVC decoding for simple HEIF files without previews.
 // Results are cached to disk.
-func ConvertHEIFToJPEG(path string) ([]byte, error) {
+func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
 	key := cacheKey(path, "full-v3")
 	if cached := readCache(key); cached != nil {
 		return cached, nil
 	}
 
-	result := thumbnailWork.run(key, func() thumbnailWorkResult {
+	result := thumbnailWork.run(ctx, key, func() thumbnailWorkResult {
 		if cached := readCache(key); cached != nil {
 			return thumbnailWorkResult{data: cached}
 		}

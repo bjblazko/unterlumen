@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"runtime"
 	"sync"
 )
@@ -33,19 +34,33 @@ func newThumbnailWorkCoordinator(limit int) *thumbnailWorkCoordinator {
 	}
 }
 
-func (c *thumbnailWorkCoordinator) run(key string, fn func() thumbnailWorkResult) thumbnailWorkResult {
+func (c *thumbnailWorkCoordinator) run(ctx context.Context, key string, fn func() thumbnailWorkResult) thumbnailWorkResult {
 	c.mu.Lock()
 	if call, ok := c.inflight[key]; ok {
 		c.mu.Unlock()
-		<-call.done
-		return call.result
+		select {
+		case <-call.done:
+			return call.result
+		case <-ctx.Done():
+			return thumbnailWorkResult{err: ctx.Err()}
+		}
 	}
 
 	call := &thumbnailWorkCall{done: make(chan struct{})}
 	c.inflight[key] = call
 	c.mu.Unlock()
 
-	c.slots <- struct{}{}
+	select {
+	case c.slots <- struct{}{}:
+	case <-ctx.Done():
+		c.mu.Lock()
+		delete(c.inflight, key)
+		call.result = thumbnailWorkResult{err: ctx.Err()}
+		close(call.done)
+		c.mu.Unlock()
+		return call.result
+	}
+
 	result := fn()
 	<-c.slots
 

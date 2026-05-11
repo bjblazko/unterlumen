@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -44,7 +45,7 @@ func TestGenerateThumbnailCachedUsesCache(t *testing.T) {
 		t.Fatalf("write source image: %v", err)
 	}
 
-	thumb, ct, err := GenerateThumbnailCached(sourcePath, 100, 1)
+	thumb, ct, err := GenerateThumbnailCached(context.Background(), sourcePath, 100, 1)
 	if err != nil {
 		t.Fatalf("GenerateThumbnailCached first call: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestGenerateThumbnailCachedUsesCache(t *testing.T) {
 		t.Fatalf("restore mtime: %v", err)
 	}
 
-	cached, cachedCT, err := GenerateThumbnailCached(sourcePath, 100, 1)
+	cached, cachedCT, err := GenerateThumbnailCached(context.Background(), sourcePath, 100, 1)
 	if err != nil {
 		t.Fatalf("GenerateThumbnailCached second call: %v", err)
 	}
