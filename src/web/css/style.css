@@ -820,13 +820,23 @@ body {
     transition: border-color 0.1s;
 }
 
-.grid-item:hover {
+.grid-item:hover,
+.grid-item.focused {
     border-color: var(--text-sec);
 }
 
 .grid-item.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
+    position: relative;
+}
+
+.grid-item.selected::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent-light);
+    pointer-events: none;
+    z-index: 1;
 }
 
 .grid-item.marked-for-deletion {
@@ -842,10 +852,6 @@ body {
     z-index: 1;
 }
 
-.grid-item.focused {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-}
 
 .grid-item img {
     width: 100%;
@@ -891,8 +897,17 @@ body {
 }
 
 .dir-item.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
+    position: relative;
+}
+
+.dir-item.selected::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent-light);
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* —— Justified view —— */
@@ -920,12 +935,21 @@ body {
     image-orientation: from-image;
 }
 
-.justified-item.selected::after,
+.justified-item:hover::after,
 .justified-item.focused::after {
     content: '';
     position: absolute;
     inset: 0;
+    box-shadow: inset 0 0 0 2px var(--border);
+    pointer-events: none;
+}
+
+.justified-item.selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
     box-shadow: inset 0 0 0 2px var(--accent);
+    background: var(--accent-light);
     pointer-events: none;
 }
 
@@ -1002,8 +1026,7 @@ body {
 }
 
 .list-view tr.focused {
-    box-shadow: inset 3px 0 0 var(--accent);
-    background: var(--accent-light);
+    box-shadow: inset 3px 0 0 var(--border);
 }
 
 .list-icon img {
