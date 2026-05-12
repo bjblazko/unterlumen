@@ -1,15 +1,19 @@
 # Changelog
 
-*Last modified: 2026-05-11*
+*Last modified: 2026-05-12*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Changed
 
+- **E2E fixture source** — Test fixtures are no longer downloaded from external URLs. `npm run setup` now copies `src/examples` (79 real-world images, 2004–2026, multiple cameras) into `e2e/fixtures/photos/`. New specs cover folder navigation, HIF thumbnails, GPS add/remove, export ZIP, crop API, and aspect-ratio rendering.
+
 - **Focus vs. selection visual distinction** — The keyboard cursor (focused item) now looks identical to mouse hover: a subtle gray border. Selected items show a uniform 2px inset orange ring with a light orange tint, consistent across all grid positions. Previously both states used the accent orange, making them indistinguishable.
 
 ### Added
+
+- **Cache management** — A "Cache" section in the Settings dropdown shows how much disk space the thumbnail cache occupies (in MB) and its location. A "Clear cache" button deletes all cached files immediately, with the size display refreshing afterwards.
 
 - **Slideshow folder selection** — Clicking a folder entry in the browse or library grid now selects it (orange border; Ctrl+click for multi-select). Triggering the slideshow with folders selected plays all photos from those folders recursively — including nested subfolders. Selecting a photo clears the folder selection and vice versa.
 

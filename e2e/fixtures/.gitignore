@@ -1,9 +1,2 @@
-*.jpg
-*.jpeg
-*.heic
-*.heif
-*.hif
-*.png
-*.gif
-*.webp
-subdir/
+photos/
+.unterlumen-test/

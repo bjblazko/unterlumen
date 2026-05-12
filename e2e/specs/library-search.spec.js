@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
 
-const FIXTURES_PATH = path.resolve(new URL('../fixtures', import.meta.url).pathname);
+// fixtures/photos is a copy of src/examples used by both the test server and the library.
+// Using the same path ensures that library photo paths resolve correctly via /api/info.
+const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
 // ─── Search panel — no EXIF data ─────────────────────────────────────────────
 
@@ -11,7 +13,6 @@ test.describe('Search panel — no EXIF data', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
-        // Clean up stale libraries from interrupted previous runs
         const existing = await (await request.get('/api/library/')).json();
         await Promise.all(existing.filter(l => l.name === 'E2E Empty Library').map(l => request.delete(`/api/library/${l.id}`)));
 
@@ -34,11 +35,8 @@ test.describe('Search panel — no EXIF data', () => {
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('#lib-search-btn').click();
         await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-        // Panel builds asynchronously; wait for the library selector to appear
         await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
-        // Scope to the empty test library to isolate from production libraries
         await page.locator('.lib-search-select').first().selectOption(String(libID));
-        // Wait for the panel to rebuild with scoped results
         await page.waitForFunction(
             () => {
                 const el = document.querySelector('.lib-search-status');
@@ -71,19 +69,17 @@ test.describe('Search panel — no EXIF data', () => {
 });
 
 // ─── All tests that require an indexed library ────────────────────────────────
-// Single outer describe so the indexed library is created once and shared across
-// the search panel, detail view filter, and API contract sub-groups.
 
 test.describe('Library search with indexed fixtures', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
-        // Clean up stale libraries from interrupted previous runs
+        test.setTimeout(200_000); // indexing 79 images can take up to 3 minutes under load
         const existing = await (await request.get('/api/library/')).json();
         await Promise.all(existing.filter(l => l.name === 'E2E Indexed Library').map(l => request.delete(`/api/library/${l.id}`)));
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Indexed Library', description: '', sourcePath: FIXTURES_PATH },
+            data: { name: 'E2E Indexed Library', description: '', sourcePath: EXAMPLES_PATH },
         });
         expect(res.status()).toBe(201);
         const body = await res.json();
@@ -95,7 +91,6 @@ test.describe('Library search with indexed fixtures', () => {
         if (libID) await request.delete(`/api/library/${libID}`);
     });
 
-    // Helper used by beforeEach hooks below to wait for the panel status to settle
     async function waitForSearchStatus(page) {
         await page.waitForFunction(
             () => {
@@ -116,14 +111,10 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForSelector('.library-list-view', { timeout: 8_000 });
             await page.locator('#lib-search-btn').click();
             await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-            // Wait for panel async build, then scope to the indexed test library.
-            // Scoping avoids slow "All libraries" queries on production-data DBs.
             await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
             await waitForSearchStatus(page);
             await page.locator('.lib-search-select').first().selectOption(String(libID));
-            // Scoped rebuild is fast (< 200ms); a fixed wait is more reliable than
-            // polling status text, which may not change when CI has only this library.
-            await page.waitForTimeout(500);
+            await waitForSearchStatus(page);
         });
 
         test('range sliders render when EXIF data exists', async ({ page }) => {
@@ -139,7 +130,8 @@ test.describe('Library search with indexed fixtures', () => {
 
         test('status shows total photo count', async ({ page }) => {
             const countText = await page.locator('.lib-search-status strong').textContent();
-            expect(parseInt(countText, 10)).toBeGreaterThanOrEqual(3);
+            // src/examples has 79 images; indexer may skip unsupported formats
+            expect(parseInt(countText, 10)).toBeGreaterThan(50);
         });
 
         test('search breadcrumb shows photo count in results area', async ({ page }) => {
@@ -157,7 +149,7 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('text filter dropdowns appear for libraries with multiple camera models', async ({ page }) => {
-            // Fixtures: Nikon COOLPIX P6000 + Canon EOS 40D → 2 distinct models → dropdown visible
+            // src/examples: X-T50, iPhone 12 Pro, Canon EOS 200D, Canon EOS 500D, etc. → multiple models → dropdown visible
             await expect(page.locator('.lib-text-filter-select').first()).toBeVisible({ timeout: 5_000 });
         });
 
@@ -254,30 +246,26 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {
-            // Wait for photos to appear in the library pane
-            await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 10_000 });
-
-            // Focus the first photo by clicking it
+            // Library root only has subdirs; navigate into folder-b to reach images
+            await page.waitForSelector('#lib-pane [data-type="dir"]', { timeout: 15_000 });
+            await page.locator('#lib-pane [data-name="folder-b"]').dblclick();
+            await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 15_000 });
             await page.locator('#lib-pane [data-type="image"]').first().click();
-
-            // Open the info panel with the keyboard shortcut
             await page.keyboard.press('i');
-            await page.waitForSelector('.info-panel.expanded', { timeout: 5_000 });
-
-            // Wait for data to load (spinner gone)
+            await page.waitForSelector('.info-panel.expanded', { timeout: 10_000 });
             await page.waitForFunction(
                 () => {
                     const panel = document.querySelector('.info-panel.expanded');
                     return panel && !panel.textContent.includes('Loading');
                 },
-                { timeout: 10_000 },
+                { timeout: 15_000 },
             );
 
             const panelText = await page.locator('.info-panel.expanded').textContent();
             expect(panelText).not.toMatch(/error.*invalid path/i);
-            // File section always rendered — name and format must be present
             expect(panelText).toMatch(/Name/i);
-            expect(panelText).toMatch(/JPEG/i);
+            // Library contains JPEG and HIF images
+            expect(panelText).toMatch(/JPEG|HEIF/i);
         });
     });
 
@@ -293,20 +281,21 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('search with ids= scopes to a single library', async ({ request }) => {
-            const res = await request.get(`/api/library/search?ids=${libID}&limit=50`);
+            const res = await request.get(`/api/library/search?ids=${libID}&limit=100`);
             expect(res.status()).toBe(200);
             const body = await res.json();
-            expect(body.total).toBeGreaterThanOrEqual(3);
+            // src/examples has 79 images; indexer may skip unsupported formats
+            expect(body.total).toBeGreaterThan(50);
         });
 
         test('ISO range filter scopes results to matching photos', async ({ request }) => {
             const allRes = await request.get(`/api/library/search?ids=${libID}&limit=1`);
             const allTotal = (await allRes.json()).total;
 
-            // Canon EOS 40D = ISO 100, Nikon COOLPIX P6000 = ISO 64
-            // Filtering ISO 90–110 should return only Canon photos (fewer than total)
+            // iPhone 12 Pro = ISO 25; X-T50 = ISO 500; Canon EOS 500D = ISO 400
+            // Filtering ISO 20–30 should return only the low-ISO iPhone shots (fewer than total)
             const res = await request.get(
-                `/api/library/search?ids=${libID}&ISOSpeedRatings_min=90&ISOSpeedRatings_max=110`,
+                `/api/library/search?ids=${libID}&ISOSpeedRatings_min=20&ISOSpeedRatings_max=30`,
             );
             expect(res.status()).toBe(200);
             const body = await res.json();
@@ -330,7 +319,8 @@ test.describe('Library search with indexed fixtures', () => {
             const body = await res.json();
             expect(Array.isArray(body)).toBe(true);
             const models = body.map((m) => (typeof m === 'string' ? m : String(m)));
-            expect(models.some((m) => m.includes('COOLPIX'))).toBe(true);
+            // src/examples contains Fujifilm X-T50 and Canon EOS cameras
+            expect(models.some((m) => m.includes('X-T50'))).toBe(true);
             expect(models.some((m) => m.includes('Canon'))).toBe(true);
         });
 
@@ -339,7 +329,7 @@ test.describe('Library search with indexed fixtures', () => {
             const allTotal = (await allRes.json()).total;
 
             const res = await request.get(
-                `/api/library/search?ids=${libID}&Model=COOLPIX+P6000`,
+                `/api/library/search?ids=${libID}&Model=X-T50`,
             );
             expect(res.status()).toBe(200);
             const body = await res.json();
