@@ -318,6 +318,27 @@ body {
     cursor: default;
 }
 
+.cache-size-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: right;
+    font-size: 13px;
+}
+
+.cache-info-path {
+    font-size: 11px;
+    color: var(--text-sec);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.cache-clear-section {
+    border-top: none !important;
+}
+
 /* —— Toggle switch —— */
 
 .toggle {

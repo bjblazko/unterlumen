@@ -106,6 +106,9 @@ var (
 	cacheDirOnce sync.Once
 )
 
+// GetCacheDir returns the persistent cache directory used for thumbnails and conversions.
+func GetCacheDir() string { return getCacheDir() }
+
 // getCacheDir returns a persistent cache directory (~/Library/Caches/unterlumen on macOS),
 // falling back to the OS temp dir if UserCacheDir is unavailable.
 func getCacheDir() string {

@@ -158,6 +158,15 @@ const API = {
         return fetch('/api/config').then(r => r.json());
     },
 
+    cacheInfo() {
+        return fetch('/api/cache/info').then(r => r.json());
+    },
+
+    async cacheClear() {
+        const resp = await fetch('/api/cache/clear', { method: 'POST' });
+        if (!resp.ok) throw new Error(await resp.text());
+    },
+
     async exportEstimate(payload, signal) {
         const resp = await fetch('/api/export/estimate', {
             method: 'POST',

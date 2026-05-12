@@ -96,7 +96,17 @@ const App = {
         const btn = document.getElementById('settings-btn');
         const menu = document.getElementById('settings-menu');
 
-        const { close: closeMenu } = Dropdown.init(btn, menu);
+        const loadCacheInfo = () => {
+            API.cacheInfo().then(info => {
+                const mb = (info.bytes / 1048576).toFixed(1);
+                document.getElementById('settings-cache-size').textContent = mb + ' MB';
+                document.getElementById('settings-cache-path').textContent = info.path;
+            }).catch(() => {
+                document.getElementById('settings-cache-size').textContent = 'unavailable';
+            });
+        };
+
+        const { close: closeMenu } = Dropdown.init(btn, menu, { onOpen: loadCacheInfo });
 
         menu.addEventListener('click', (e) => {
             const themeBtn = e.target.closest('[data-theme-set]');
@@ -118,6 +128,12 @@ const App = {
                 this.toggleUIVisibility();
                 closeMenu();
             }
+        });
+
+        document.getElementById('settings-clear-cache').addEventListener('click', () => {
+            const btn = document.getElementById('settings-clear-cache');
+            btn.disabled = true;
+            API.cacheClear().then(loadCacheInfo).finally(() => { btn.disabled = false; });
         });
 
         document.getElementById('settings-check-deps').addEventListener('click', () => {
