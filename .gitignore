@@ -42,8 +42,7 @@ e2e/playwright-report/
 e2e/test-results/
 e2e/fixtures/.unterlumen-test/
 
-# Local development assets (large media files, runtime data)
-src/examples/
+# Local development assets (runtime data)
 src/data/
 
 # macOS metadata
