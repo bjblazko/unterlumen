@@ -30,6 +30,8 @@ func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool, libMgr 
 
 	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, serverRole))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
+	mux.HandleFunc("/api/cache/info", handleCacheInfo())
+	mux.HandleFunc("/api/cache/clear", handleCacheClear())
 
 	browse.Handle(mux, boundary, cache)
 	apiexport.Handle(mux, boundary, serverRole)
