@@ -41,3 +41,10 @@ e2e/node_modules/
 e2e/playwright-report/
 e2e/test-results/
 e2e/fixtures/.unterlumen-test/
+
+# Local development assets (large media files, runtime data)
+src/examples/
+src/data/
+
+# macOS metadata
+.DS_Store
