@@ -526,17 +526,13 @@ func parseNumericFilters(vals map[string][]string) map[string]lib.NumericFilter 
 }
 
 func exifRanges(mgr *lib.Manager) http.HandlerFunc {
-	numericFields := []string{"ExposureTime", "FNumber", "FocalLength", "FocalLengthIn35mmFilm", "FocalLength35", "ISOSpeedRatings"}
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		store, err := mgr.OpenStore(id)
-		if err != nil {
+		if _, err := mgr.OpenStore(id); err != nil {
 			http.Error(w, "library not found", http.StatusNotFound)
 			return
 		}
-		defer store.Close()
-
-		ranges, err := store.GetExifRanges(numericFields)
+		ranges, err := mgr.AggregateExifRanges([]string{id})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

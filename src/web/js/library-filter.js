@@ -415,10 +415,31 @@ class LibrarySearchPanel {
     async _runQuery() {
         const params = this._buildParams();
         this._lastParams = params;
+        this._setLoading(true);
         try {
             const result = await LibraryAPI.search({ limit: 100, ...params });
             this._renderResults(result, params);
         } catch { /* ignore transient errors */ }
+        finally { this._setLoading(false); }
+    }
+
+    _setLoading(on) {
+        if (this._options.onLoading) {
+            this._options.onLoading(on);
+            return;
+        }
+        // List-view path: overlay a spinner on the results container.
+        const container = this._searchPane?.container;
+        if (!container) return;
+        if (on) {
+            if (!container.querySelector('.lib-results-spinner-wrap')) {
+                container.insertAdjacentHTML('afterbegin',
+                    '<div class="lib-results-spinner-wrap lib-results-spinner-overlay">' +
+                    '<div class="lib-results-spinner"></div></div>');
+            }
+        } else {
+            container.querySelector('.lib-results-spinner-wrap')?.remove();
+        }
     }
 
     _renderResults(result, params = this._lastParams || {}) {

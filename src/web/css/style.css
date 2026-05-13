@@ -3048,6 +3048,7 @@ body.slideshow-active #app { height: 100vh; }
     flex-direction: column;
     overflow: hidden;
     padding: 0 calc(var(--unit) * 3);
+    position: relative;
 }
 
 .lib-search-controls {
@@ -3197,6 +3198,31 @@ body.slideshow-active #app { height: 100vh; }
     padding: 16px;
     font-size: 11px;
     color: var(--text-sec);
+}
+
+.lib-results-spinner-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+}
+
+.lib-results-spinner-wrap.lib-results-spinner-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--surface, var(--bg));
+    z-index: 2;
+    min-height: unset;
+}
+
+.lib-results-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
 
 .lib-search-status {

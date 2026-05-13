@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS library_props (
 CREATE INDEX IF NOT EXISTS photos_status_idx ON photos(status);
 CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint);
 CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at);
+CREATE INDEX IF NOT EXISTS photos_status_indexed_at_idx ON photos(status, indexed_at);
 `
 
 // Store wraps the per-library SQLite database.
@@ -127,6 +128,8 @@ func openDB(dbPath string) (*sql.DB, error) {
 		END
 		WHERE ext = ''`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_ext_idx ON photos(status, ext)`)
+	// Migration: compound (status, indexed_at) index for sorted pagination in ListPhotos.
+	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_indexed_at_idx ON photos(status, indexed_at)`)
 	return db, nil
 }
 
