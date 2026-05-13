@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/api"
+	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/library"
 )
 
 //go:embed web
@@ -32,17 +34,25 @@ func main() {
 		bindDefault = v
 	}
 
+	libDirDefault := ""
+	if v := os.Getenv("UNTERLUMEN_LIB_DIR"); v != "" {
+		libDirDefault = v
+	} else if home, err := os.UserHomeDir(); err == nil {
+		libDirDefault = filepath.Join(home, ".unterlumen")
+	}
+
 	port := flag.Int("port", portDefault, "HTTP server port (env: UNTERLUMEN_PORT)")
 	bind := flag.String("bind", bindDefault, "Address to bind to (env: UNTERLUMEN_BIND)")
+	libDir := flag.String("lib-dir", libDirDefault, "Library data directory (env: UNTERLUMEN_LIB_DIR)")
 	flag.Parse()
 
 	// Priority: cmdline arg > UNTERLUMEN_ROOT_PATH env > user home dir
 	var startDir, boundary string
 
 	if flag.NArg() > 0 {
-		// cmdline arg: start there, no navigation restriction
+		// cmdline arg: use as both start dir and navigation boundary
 		startDir = flag.Arg(0)
-		boundary = "/"
+		boundary = flag.Arg(0)
 	} else if envPath := os.Getenv("UNTERLUMEN_ROOT_PATH"); envPath != "" {
 		// ENV var: start there, restrict navigation to that directory
 		startDir = envPath
@@ -101,11 +111,22 @@ func main() {
 		log.Fatalf("Failed to sub web FS: %v", err)
 	}
 
-	// Server mode: navigation is locked to a specific root (UNTERLUMEN_ROOT_PATH).
-	// Local mode: boundary is "/" — free filesystem navigation.
-	serverRole := absBoundary != "/"
+	// Server mode: explicitly deployed via UNTERLUMEN_ROOT_PATH (multi-user, restricted UI).
+	// Local mode: cmdline arg or default home dir; boundary still restricts navigation.
+	serverRole := os.Getenv("UNTERLUMEN_ROOT_PATH") != ""
 
-	mux := api.NewRouter(absBoundary, relStart, sub, serverRole)
+	var libMgr *library.Manager
+	var chStore *channels.Store
+	if *libDir != "" {
+		if mgr, err := library.NewManager(*libDir); err != nil {
+			log.Printf("Warning: library manager init failed: %v", err)
+		} else {
+			libMgr = mgr
+		}
+		chStore = channels.NewStore(*libDir)
+	}
+
+	mux := api.NewRouter(absBoundary, relStart, sub, serverRole, libMgr, chStore)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

@@ -36,11 +36,30 @@ class BrowseKeyboard {
         const pane = this._pane;
         if (this.focusedIndex < 0 || this.focusedIndex >= pane.entries.length) return;
         const entry = pane.entries[this.focusedIndex];
-        if (entry.type !== 'image') return;
         const fp = pane.fullPath(entry.name);
-        pane.selection.toggle(fp);
-        pane.selection.updateClasses(pane.container);
-        if (pane.onSelectionChange) pane.onSelectionChange(pane.selection.getSelectedFiles());
+        if (entry.type === 'dir') {
+            if (pane.selectedDirs.has(fp)) {
+                pane.selectedDirs.delete(fp);
+            } else {
+                // Mutual exclusion: clear photo selection when adding a dir
+                if (pane.selection.selected.size > 0) {
+                    pane.selection.clear();
+                    pane.selection.updateClasses(pane.container);
+                }
+                pane.selectedDirs.add(fp);
+            }
+            pane._updateDirSelectionClasses();
+            if (pane.onSelectionChange) pane.onSelectionChange([]);
+        } else {
+            // Clear dir selection when toggling a photo
+            if (pane.selectedDirs.size > 0) {
+                pane.selectedDirs.clear();
+                pane._updateDirSelectionClasses();
+            }
+            pane.selection.toggle(fp);
+            pane.selection.updateClasses(pane.container);
+            if (pane.onSelectionChange) pane.onSelectionChange(pane.selection.getSelectedFiles());
+        }
     }
 
     getFocusedEntry() {

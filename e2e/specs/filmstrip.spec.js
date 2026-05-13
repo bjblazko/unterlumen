@@ -1,22 +1,35 @@
 import { test, expect } from '@playwright/test';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
+import { FOLDER_A_A1_IMAGE_COUNT, navigateToFolder } from '../helpers/fixtures.js';
+
+// folder-a/a1 has 7 images (6 JPEG + 1 HIF) — small enough to assert exact thumb counts.
 
 test.describe('Film strip', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
+    await navigateToFolder(page, 'folder-a');
+    const a1 = page.locator('.grid-item.dir-item[data-name="a1"]');
+    await a1.dblclick();
+    await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
-    // Open viewer on first image
-    await page.locator('[data-name="gps-jpeg.jpg"]').dblclick();
+    // Open viewer on the first image so data-index="0" assertions hold
+    await page.locator('[data-type="image"]').first().dblclick();
     await expect(page.locator('.viewer')).toBeVisible({ timeout: 5_000 });
   });
 
   test('film strip is hidden by default when viewer opens', async ({ page }) => {
     const strip = page.locator('.viewer-filmstrip');
     await expect(strip).toBeAttached();
-    // Hidden via display:none
     const display = await strip.evaluate((el) => el.style.display);
     expect(display).toBe('none');
+  });
+
+  test('film strip thumbnails are deferred until the strip is shown', async ({ page }) => {
+    await expect(page.locator('.filmstrip-thumb img')).toHaveCount(0);
+    await page.keyboard.press('f');
+    await expect(page.locator('.viewer-filmstrip')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.filmstrip-thumb img')).toHaveCount(FOLDER_A_A1_IMAGE_COUNT);
   });
 
   test('F key shows the film strip', async ({ page }) => {
@@ -32,12 +45,11 @@ test.describe('Film strip', () => {
     expect(display).toBe('none');
   });
 
-  test('film strip has one thumb per image in the fixture', async ({ page }) => {
+  test('film strip has one thumb per image in the folder', async ({ page }) => {
     await page.keyboard.press('f');
     await expect(page.locator('.viewer-filmstrip')).toBeVisible({ timeout: 3_000 });
-    // We have 3 images: gps-jpeg, heic-sample, no-gps-jpeg
     const thumbs = page.locator('.filmstrip-thumb');
-    await expect(thumbs).toHaveCount(3);
+    await expect(thumbs).toHaveCount(FOLDER_A_A1_IMAGE_COUNT);
   });
 
   test('first thumb is marked active when viewer opens on first image', async ({ page }) => {

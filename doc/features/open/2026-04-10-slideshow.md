@@ -1,6 +1,6 @@
 # Slideshow
 
-*Last modified: 2026-04-10*
+*Last modified: 2026-05-10*
 
 ## Summary
 
@@ -47,8 +47,10 @@ Closing the player restores the browse grid with the same scroll position.
 ## Acceptance Criteria
 
 - [ ] "Slideshow" button appears between Tools dropdown and status bar in browse controls
-- [ ] Button does nothing (no dialog) when current folder contains no images
-- [ ] Options dialog shows the count of images to be played (selected or all)
+- [x] Slideshow button is disabled (greyed out, unclickable) when the current folder contains no photos and no folder entry is selected
+- [ ] Clicking a folder entry in the grid selects it (orange border/inset); Ctrl+click adds to selection; single-clicking a photo clears folder selection
+- [ ] When folder entries are selected, the slideshow button activates and plays all photos from those folders recursively (both browse and library modes)
+- [ ] Options dialog shows the count of images to be played (selected photos, selected folder contents, or all)
 - [ ] All four transitions animate correctly with no ghost frames
 - [ ] Ken Burns pan/zoom fills the full delay duration; odd/even frames pan in opposite directions
 - [ ] 2-up advances two images per frame; 4-up advances four; cursor wraps at end

@@ -1,0 +1,384 @@
+package library
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"image"
+	"image/jpeg"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	_ "image/png"
+
+	"huepattl.de/unterlumen/internal/media"
+)
+
+// Progress reports the state of an ongoing index operation.
+type Progress struct {
+	Done     int    `json:"done"`
+	Total    int    `json:"total"`
+	Current  string `json:"current,omitempty"`
+	Finished bool   `json:"finished,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
+
+// Indexer walks a source directory and populates a library store.
+type Indexer struct {
+	store      *Store
+	libDir     string
+	sourcePath string
+}
+
+// NewIndexer creates an Indexer for the given store and source path.
+func NewIndexer(store *Store, libDir, sourcePath string) *Indexer {
+	return &Indexer{store: store, libDir: libDir, sourcePath: sourcePath}
+}
+
+// Run walks the source directory, indexes all supported photos, and sends
+// Progress events on the provided channel. The channel is closed when done.
+func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	files, err := collectFiles(idx.sourcePath)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	if err := idx.store.MarkAllMissing(); err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		if err := idx.indexFile(absPath); err != nil {
+			// Log but continue — single-file errors should not abort the index.
+			continue
+		}
+	}
+
+	idx.store.PurgeMissingPhotos() //nolint:errcheck
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// RunScanNew walks the source directory and indexes new or changed photos without
+// removing photos for files that no longer exist on disk. Safe to call after an
+// interrupted full index, or when new files were added by an external tool.
+func (idx *Indexer) RunScanNew(ctx context.Context, progress chan<- Progress) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	files, err := collectFiles(idx.sourcePath)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		if err := idx.indexFile(absPath); err != nil {
+			continue
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+func (idx *Indexer) indexFile(absPath string) error {
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return err
+	}
+
+	mtimeNs := info.ModTime().UnixNano()
+	fileSize := info.Size()
+
+	// Fast-path: if mtime and size match the cache, file is unchanged.
+	cachedID, cachedMtime, cachedSize, found, err := idx.store.GetPathCache(absPath)
+	if err != nil {
+		return err
+	}
+	if found && cachedMtime == mtimeNs && cachedSize == fileSize {
+		if err := idx.store.MarkPhotoPresent(cachedID, absPath, filepath.Base(absPath)); err != nil {
+			return err
+		}
+		idx.indexSidecar(absPath, cachedID)
+		return nil
+	}
+
+	// Compute SHA-256 canonical identity.
+	photoID, err := hashFile(absPath)
+	if err != nil {
+		return err
+	}
+
+	// Rename case: photo already indexed under a different path.
+	exists, err := idx.store.PhotoExists(photoID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		if err := idx.store.MarkPhotoPresent(photoID, absPath, filepath.Base(absPath)); err != nil {
+			return err
+		}
+		if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+			return err
+		}
+		idx.indexSidecar(absPath, photoID)
+		return nil
+	}
+
+	// New photo: extract EXIF.
+	exifJSON := "{}"
+	exifFields := make(map[string]string)
+	dateTaken := ""
+	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
+		for k, v := range exifData.Tags {
+			exifFields[k] = v
+		}
+		if exifData.DateTaken != nil {
+			dateTaken = *exifData.DateTaken
+			exifFields["DateTaken"] = dateTaken
+		}
+		if b, err := json.Marshal(exifData); err == nil {
+			exifJSON = string(b)
+		}
+	}
+
+	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
+	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
+	if n, ok := extNorm[ext]; ok {
+		ext = n
+	}
+
+	// Generate and store HQ thumbnail.
+	thumbRel, _ := idx.ensureThumbnail(absPath, photoID) // non-fatal on error
+
+	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
+		return err
+	}
+	numericValues := media.NormalizeExifNumbers(exifFields)
+	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
+		return err
+	}
+	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+		return err
+	}
+	idx.indexSidecar(absPath, photoID)
+	return nil
+}
+
+const thumbMaxDim = 1200
+
+func (idx *Indexer) ensureThumbnail(absPath, photoID string) (string, error) {
+	prefix := photoID[:2]
+	relPath := filepath.Join("thumbs", prefix, photoID+".jpg")
+	absThumb := filepath.Join(idx.libDir, relPath)
+
+	if _, err := os.Stat(absThumb); err == nil {
+		return relPath, nil // already exists
+	}
+
+	if err := os.MkdirAll(filepath.Dir(absThumb), 0o700); err != nil {
+		return "", err
+	}
+
+	var jpegData []byte
+	if media.IsHEIF(absPath) {
+		data, err := media.ExtractHEIFPreview(absPath)
+		if err != nil {
+			return "", err
+		}
+		data, err = media.ResizeJPEGBytes(data, thumbMaxDim)
+		if err != nil {
+			return "", err
+		}
+		jpegData = data
+	} else {
+		orientation := media.ExtractOrientation(absPath)
+		data, ct, err := media.GenerateThumbnail(absPath, thumbMaxDim, orientation)
+		if err != nil {
+			return "", err
+		}
+		if ct != "image/jpeg" {
+			// Re-encode non-JPEG formats as JPEG for consistent thumbnail storage.
+			img, _, decErr := image.Decode(bytes.NewReader(data))
+			if decErr == nil {
+				var buf bytes.Buffer
+				if encErr := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); encErr == nil {
+					data = buf.Bytes()
+				}
+			}
+		}
+		jpegData = data
+	}
+
+	return relPath, os.WriteFile(absThumb, jpegData, 0o600)
+}
+
+func hashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// indexSidecar reads XMP sidecar publications for absPath and upserts them into photo_meta.
+// Non-fatal: errors are silently ignored (sidecar may not exist).
+func (idx *Indexer) indexSidecar(absPath, photoID string) {
+	pubs, err := media.ReadSidecar(absPath)
+	if err != nil || len(pubs) == 0 {
+		return
+	}
+
+	type latestEntry struct {
+		ts      string
+		account string
+		postID  string
+	}
+	latest := make(map[string]latestEntry)
+
+	for _, p := range pubs {
+		ts := p.PublishedAt.UTC().Format(time.RFC3339)
+		if e, ok := latest[p.Channel]; !ok || ts > e.ts {
+			latest[p.Channel] = latestEntry{ts: ts, account: p.Account, postID: p.PostID}
+		}
+	}
+
+	for ch, e := range latest {
+		idx.store.UpsertMeta(photoID, "published:"+ch, e.ts) //nolint:errcheck
+		if e.account != "" {
+			idx.store.UpsertMeta(photoID, "published:"+ch+":account", e.account) //nolint:errcheck
+		}
+		if e.postID != "" {
+			idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
+		}
+	}
+}
+
+// RunCleanup removes indexed photos whose source files no longer exist on disk.
+// It does not re-hash or re-index anything — it only checks whether each photo's
+// last-known path still exists. Renamed files that have not yet been synced will
+// appear absent and be removed; run "Index new photos" first if you have renames.
+func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	presentPaths, err := collectFileSet(idx.sourcePath)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	refs, err := idx.store.ListAllPhotoRefs()
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(refs)
+	missing := 0
+	for i, ref := range refs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(ref.PathHint)}
+
+		if !presentPaths[ref.PathHint] {
+			if err := idx.store.MarkPhotoMissing(ref.ID); err == nil {
+				missing++
+			}
+		}
+	}
+
+	if missing > 0 {
+		idx.store.PurgeMissingPhotos() //nolint:errcheck
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+func collectFileSet(root string) (map[string]bool, error) {
+	files, err := collectFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool, len(files))
+	for _, f := range files {
+		set[f] = true
+	}
+	return set, nil
+}
+
+func collectFiles(root string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if media.IsSupportedImage(d.Name()) {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
+}

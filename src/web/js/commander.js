@@ -9,9 +9,10 @@ const CMD_ICONS = {
 };
 
 class Commander {
-    constructor(container, initialPath) {
+    constructor(container, initialPath, options = {}) {
         this.container = container;
         this.initialPath = initialPath || '';
+        this._initialPreselect = options.preselectFiles || null;
         this.leftPane = null;
         this.rightPane = null;
         this.activePane = 'left';
@@ -42,6 +43,15 @@ class Commander {
                         </svg>
                         <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy</button>
                         <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move</button>
+                    </div>
+                    <div class="cmd-lib-actions">
+                        <div class="dropdown-wrap">
+                            <button class="btn btn-action dropdown-btn" id="cmd-lib-btn" title="Navigate active pane to a library folder">Jump to library… <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
+                            <div class="dropdown-menu dropdown-menu-up" id="cmd-lib-menu" style="display:none">
+                                <div class="cmd-lib-loading" style="display:none">Loading…</div>
+                                <div class="cmd-lib-items"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="commander-pane right-pane" id="right-pane"></div>
@@ -104,8 +114,51 @@ class Commander {
         this.leftPane.view = 'grid';
         this.rightPane.view = 'list';
 
-        // Load both panes
+        // Wire Libraries dropdown
+        const libBtn = document.getElementById('cmd-lib-btn');
+        const libMenu = document.getElementById('cmd-lib-menu');
+        const { close: closeLibMenu } = Dropdown.init(libBtn, libMenu, {
+            onOpen: async () => {
+                const loading = libMenu.querySelector('.cmd-lib-loading');
+                const itemsEl = libMenu.querySelector('.cmd-lib-items');
+                loading.style.display = '';
+                itemsEl.innerHTML = '';
+                try {
+                    const libs = await LibraryAPI.list();
+                    loading.style.display = 'none';
+                    const boundary = (App.config && App.config.boundary)
+                        ? App.config.boundary.replace(/\/$/, '') : '';
+                    if (libs.length === 0) {
+                        itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--text-sec);font-size:12px">No libraries</div>';
+                        return;
+                    }
+                    libs.forEach(lib => {
+                        let relPath = null;
+                        const sp = lib.sourcePath.replace(/\/$/, '');
+                        if (sp === boundary) relPath = '';
+                        else if (!boundary) relPath = sp.replace(/^\//, '');
+                        else if (sp.startsWith(boundary + '/')) relPath = sp.substring(boundary.length + 1);
+                        const btn = document.createElement('button');
+                        btn.className = 'btn dropdown-item';
+                        btn.textContent = lib.name;
+                        btn.disabled = relPath === null;
+                        btn.title = relPath === null ? 'Outside server root — cannot navigate here' : sp;
+                        btn.addEventListener('click', () => {
+                            this.getActivePane().load(relPath);
+                            closeLibMenu();
+                        });
+                        itemsEl.appendChild(btn);
+                    });
+                } catch {
+                    loading.style.display = 'none';
+                    itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--text-sec);font-size:12px">Failed to load</div>';
+                }
+            },
+        });
+
+        // Load both panes (prime preselect before loading left pane)
         leftEl.classList.add('active');
+        if (this._initialPreselect) this.leftPane.primePreselect(this._initialPreselect);
         this.leftPane.load(this.initialPath);
         this.rightPane.load(this.initialPath);
 

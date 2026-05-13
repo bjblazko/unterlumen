@@ -11,7 +11,10 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **Browse & Cull mode** — Justified, grid, or list view of photos in a directory with breadcrumb navigation
 - **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
+- **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search, key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
+- **Publish to Channels** — From library mode, select photos and record where and when they were published. Writes an XMP sidecar (`.xmp`) using a custom `xmlns:ul` namespace — non-destructive and portable. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, back-dating, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json`
 - **Image viewer** — Full-screen image view with keyboard navigation
+- **Crop tool** — Interactive crop in the fullscreen viewer. Draw a rectangle, pick an aspect ratio (free, standard, or cinema formats), and save in-place. All metadata including Fujifilm film simulation is preserved via exiftool
 - **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. Available in browse and fullscreen viewer
 - **Convert & Export** — Export selected images to JPEG, PNG, or WebP with quality control, flexible scaling (original, percentage, max dimension), and EXIF metadata options (strip, keep, or keep without GPS). Shows per-file estimated output size and pixel dimensions. Saves to a local folder or downloads as a ZIP; server mode (`UNTERLUMEN_ROOT_PATH`) is ZIP-only
 - **Batch rename** — Rename multiple photos using EXIF-based patterns (date, camera, film simulation, etc.) with color-coded draggable token pills, live preview, conflict resolution, and progress indication. Also includes a simple single-file rename option
@@ -27,23 +30,66 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 
 ### Screenshots
 
-Browse mode:
-![Browse mode](doc/screenshot-1-overview.png)
+#### Browse mode:
 
-Fullscreen (here with optional file and EXIF data):
-![File Manager mode](doc/screenshot-2-fullscreen-and-exif.png)
+- theme switching
+- justified/list/grid view
+- show EXIF/metadata
+- large/fullscreen viewing
+    - app header visible/hidden
+    - metadata (including geolocation) visible/hidden
+    - filmstrip visible/hidden
 
-File manager  ("Commander style") mode:
-![File Manager mode](doc/screenshot-3-filemanager.png)
+![Browsing](doc/01-browsing.gif)
 
-Waste bin (marked for deletion during culling) mode:
-![Marked for deletion](doc/screenshot-4-wastebin.png)
+#### Slideshow
 
-Add (or remove) geolocation to one or more files:
-![Marked for deletion](doc/screenshot-5-addgeolocation.png)
+![Slideshow](doc/02-slideshow.gif)
 
-Export to ZIP (download) or destination folder and convert to JPEG, PNG or WebP with optional scaling:
-![Export and resize](doc/screenshot-6-export.png)
+#### Review (culling)
+
+- review/browse photos in grid or fullscreen
+- mark candidates for deletions using del/backspace
+- review them
+- select the ones to finally delete
+- select the ones to keep when in doubt
+
+![Review](doc/03-review.gif)
+
+#### Organize
+
+- two panes: source and destination
+- just like Nortcon Commander, Midnight Commander, Total Commander etc.
+- copy or move files
+- create folders etc.
+- shortcuts for library locations
+
+![Organize files](doc/04-organize.gif)
+
+
+#### Tools
+
+- set or remove geolocation
+    ![Set or remove geolocation](doc/05-tools-geolocation.gif)
+- batch renaming with metadata fields in filename
+    ![batch renaming](doc/06-tools-batchrename.gif)
+- export and convert, including as Zip file
+    ![export](doc/07-tools-export.gif)
+
+
+#### Digital Asset Management (DAM, optional)
+
+- fast thumbnails
+- multiple libraries
+- search/filter within or accross libraries
+    - by aperture
+    - by focal lenth (incl. option to recalculate to 35mm equivalent)
+    - by camera and lens
+    - by Fujifilm film simulation (if you have them)
+- multiple statistics
+
+![filter/search](doc/08-dam-filter.gif)
+![statistics](doc/09-dam-stats.gif)
 
 ## Install
 
@@ -88,6 +134,7 @@ cd src && go build -o ../unterlumen .
 |------|---------|-------------|
 | `-port` | `8080` | HTTP server port (env: `UNTERLUMEN_PORT`) |
 | `-bind` | `localhost` | Bind address (`0.0.0.0` for remote access) (env: `UNTERLUMEN_BIND`) |
+| `-lib-dir` | `~/.unterlumen` | Root directory for library data (env: `UNTERLUMEN_LIB_DIR`) |
 
 **Environment variables:**
 
@@ -96,6 +143,7 @@ cd src && go build -o ../unterlumen .
 | `UNTERLUMEN_PORT` | HTTP server port. Overridden by `-port` flag. |
 | `UNTERLUMEN_BIND` | Bind address. Overridden by `-bind` flag. |
 | `UNTERLUMEN_ROOT_PATH` | Restrict navigation to this directory. The server starts here and users cannot navigate above it. Takes effect only when no `directory` argument is provided. |
+| `UNTERLUMEN_LIB_DIR` | Root directory for library data (SQLite databases, thumbnails, channel exports). Default: `~/.unterlumen`. Overridden by `-lib-dir` flag. |
 
 **Path resolution priority:**
 
@@ -210,7 +258,7 @@ Test reports and failure screenshots/videos are saved to `e2e/playwright-report/
 
 ## Notes
 
-- All state is in-memory and discarded on exit — no database, no config files written
+- Browse/cull/file-manager state is in-memory and discarded on exit. Library mode writes SQLite databases and thumbnails to `~/.unterlumen/` (or the configured `lib-dir`)
 - By default the server binds to `localhost` only; use `-bind 0.0.0.0` if you need remote access (no authentication is provided)
 - HEIF/HEIC/HIF conversion shells out to ffmpeg; file paths are passed as arguments (not interpolated into a shell string)
 - `UNTERLUMEN_ROOT_PATH` is ignored when a directory argument is also provided on the command line

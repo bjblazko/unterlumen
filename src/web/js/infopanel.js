@@ -10,6 +10,7 @@ class InfoPanel {
         this.loading = false;
         this.collapsedSections = new Set();
         this.onToggle = null;
+        this._metaContext = null;
         this.render();
     }
 
@@ -20,8 +21,8 @@ class InfoPanel {
     }
 
     async loadInfo(path) {
-        if (path === this.currentPath && this.data) {
-            this.render();
+        if (path === this.currentPath && (this.data || this.loading)) {
+            if (!this.loading) this.render();
             return;
         }
         this.currentPath = path;
@@ -43,13 +44,45 @@ class InfoPanel {
         this.render();
     }
 
+    async loadFromURL(url, key) {
+        if (key === this.currentPath && (this.data || this.loading)) {
+            if (!this.loading) this.render();
+            return;
+        }
+        this.currentPath = key;
+        this.loading = true;
+        this.error = null;
+        this.data = null;
+        this.render();
+        const requestKey = key;
+        try {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(await r.text());
+            const result = await r.json();
+            if (this.currentPath !== requestKey) return;
+            this.data = result;
+        } catch (err) {
+            if (this.currentPath !== requestKey) return;
+            this.data = null;
+            this.error = err.message || 'Failed to load info';
+        }
+        this.loading = false;
+        this.render();
+    }
+
     clear() {
         this.data = null;
         this.error = null;
         this.currentPath = null;
         this.loading = false;
+        this._metaContext = null;
         this.destroyMap();
         this.render();
+    }
+
+    setMetaContext(ctx) {
+        this._metaContext = ctx;
+        if (this.expanded && this.data) this.render();
     }
 
     destroyMap() {
@@ -106,6 +139,8 @@ class InfoPanel {
                 this.render();
             });
         });
+
+        if (this._metaContext) this._attachMetaEvents();
 
         this.initMap();
     }
@@ -229,11 +264,11 @@ class InfoPanel {
 
         // Exposure section
         const expRows = [];
-        this.addTag(expRows, tags, used, 'ExposureTime', 'Shutter Speed');
-        this.addTag(expRows, tags, used, 'FNumber', 'Aperture');
+        this.addTag(expRows, tags, used, 'ExposureTime', 'Shutter Speed', v => this.decodeExposureTime(v));
+        this.addTag(expRows, tags, used, 'FNumber', 'Aperture', v => this.decodeFNumber(v));
         this.addTag(expRows, tags, used, 'ISOSpeedRatings', 'ISO');
-        this.addTag(expRows, tags, used, 'ExposureBiasValue', 'Exposure Bias');
-        this.addTag(expRows, tags, used, 'FocalLength', 'Focal Length');
+        this.addTag(expRows, tags, used, 'ExposureBiasValue', 'Exposure Bias', v => this.decodeExposureBias(v));
+        this.addTag(expRows, tags, used, 'FocalLength', 'Focal Length', v => this.decodeFocalLength(v));
         this.addTag(expRows, tags, used, 'MeteringMode', 'Metering', this.decodeMeteringMode);
         this.addTag(expRows, tags, used, 'ExposureProgram', 'Program', this.decodeExposureProgram);
         this.addTag(expRows, tags, used, 'Flash', 'Flash', this.decodeFlash);
@@ -263,7 +298,34 @@ class InfoPanel {
         }
         if (otherRows.length) sections.push(this.section('Other', otherRows));
 
+        if (this._metaContext) sections.push(this._renderMetaSection());
+
         return sections.join('');
+    }
+
+    _renderMetaSection() {
+        const ctx = this._metaContext;
+        const rows = [];
+
+        for (const e of (ctx.entries || [])) {
+            rows.push(
+                `<div class="info-meta-row" data-meta-key="${escapeHtml(e.key)}">` +
+                    `<span class="info-label">${escapeHtml(e.key)}</span>` +
+                    `<span class="info-meta-val info-value" contenteditable="true" data-key="${escapeHtml(e.key)}">${escapeHtml(e.value)}</span>` +
+                    `<button class="info-meta-del" title="Remove" data-key="${escapeHtml(e.key)}">\u00d7</button>` +
+                `</div>`
+            );
+        }
+
+        rows.push(
+            `<div class="info-meta-add">` +
+                `<input class="info-meta-key-input" type="text" placeholder="Key" autocomplete="off">` +
+                `<input class="info-meta-val-input" type="text" placeholder="Value" autocomplete="off">` +
+                `<button class="btn btn-sm info-meta-add-btn">Add</button>` +
+            `</div>`
+        );
+
+        return this.section('Meta', rows);
     }
 
     section(title, rows) {
@@ -381,6 +443,45 @@ class InfoPanel {
         return iso.replace('T', ' ').replace(/([+-]\d{2}:\d{2})$/, ' $1');
     }
 
+    parseRational(s) {
+        const slash = s.indexOf('/');
+        if (slash >= 0) {
+            const num = parseFloat(s.slice(0, slash));
+            const den = parseFloat(s.slice(slash + 1));
+            if (den === 0 || isNaN(num) || isNaN(den)) return null;
+            return num / den;
+        }
+        const v = parseFloat(s);
+        return isNaN(v) ? null : v;
+    }
+
+    decodeFNumber(s) {
+        const v = this.parseRational(s);
+        if (v === null || v <= 0) return s;
+        return `f/${v.toFixed(1)}`;
+    }
+
+    decodeFocalLength(s) {
+        const v = this.parseRational(s);
+        if (v === null || v <= 0) return s;
+        return v < 10 ? `${v.toFixed(2).replace(/\.?0+$/, '')} mm` : `${Math.round(v)} mm`;
+    }
+
+    decodeExposureTime(s) {
+        const v = this.parseRational(s);
+        if (v === null) return s;
+        if (v >= 1) return Number.isInteger(v) ? `${v} s` : `${v.toFixed(1)} s`;
+        return `1/${Math.round(1 / v)}`;
+    }
+
+    decodeExposureBias(s) {
+        const v = this.parseRational(s);
+        if (v === null) return s;
+        if (v === 0) return '0 EV';
+        const sign = v > 0 ? '+' : '';
+        return `${sign}${v.toFixed(2).replace(/\.?0+$/, '')} EV`;
+    }
+
     decodeMeteringMode(v) {
         const modes = { '0': 'Unknown', '1': 'Average', '2': 'Center-weighted', '3': 'Spot',
             '4': 'Multi-spot', '5': 'Multi-segment', '6': 'Partial' };
@@ -419,5 +520,55 @@ class InfoPanel {
 
     decodeColorSpace(v) {
         return v === '1' ? 'sRGB' : v === '65535' ? 'Uncalibrated' : v;
+    }
+
+    _attachMetaEvents() {
+        const ctx = this._metaContext;
+
+        this.container.querySelectorAll('.info-meta-val').forEach(valEl => {
+            const key = valEl.dataset.key;
+            let originalValue = valEl.textContent;
+            valEl.addEventListener('blur', () => {
+                const newVal = valEl.textContent.trim();
+                if (newVal !== originalValue) {
+                    ctx.onUpsert(key, newVal).catch(err => alert('Save failed: ' + err.message));
+                    originalValue = newVal;
+                }
+            });
+            valEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); valEl.blur(); }
+            });
+        });
+
+        this.container.querySelectorAll('.info-meta-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const key = btn.dataset.key;
+                try {
+                    await ctx.onDelete(key);
+                    ctx.entries = ctx.entries.filter(e => e.key !== key);
+                    this.render();
+                } catch (err) {
+                    alert('Delete failed: ' + err.message);
+                }
+            });
+        });
+
+        const addBtn = this.container.querySelector('.info-meta-add-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', async () => {
+                const keyInput = this.container.querySelector('.info-meta-key-input');
+                const valInput = this.container.querySelector('.info-meta-val-input');
+                const key = keyInput.value.trim();
+                const val = valInput.value.trim();
+                if (!key || !val) return;
+                try {
+                    await ctx.onUpsert(key, val);
+                    ctx.entries = await ctx.refresh();
+                    this.render();
+                } catch (err) {
+                    alert('Failed to save: ' + err.message);
+                }
+            });
+        }
     }
 }
