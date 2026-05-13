@@ -667,6 +667,19 @@ class LibraryTab {
             {
                 onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, publishBtn, photos, multiLib, paginationOpts),
                 onClose: () => this._showLibraryPane(el, publishBtn),
+                onLoading: (isLoading) => {
+                    const paneEl = el.querySelector('#lib-pane');
+                    const searchPaneEl = el.querySelector('#lib-search-pane');
+                    if (isLoading && paneEl.style.display !== 'none') {
+                        paneEl.style.display = 'none';
+                        if (!this._searchPane) {
+                            searchPaneEl.innerHTML = '<div class="lib-results-spinner-wrap"><div class="lib-results-spinner"></div></div>';
+                        }
+                        searchPaneEl.style.display = '';
+                    } else if (!isLoading) {
+                        searchPaneEl.querySelector('.lib-results-spinner-wrap')?.remove();
+                    }
+                },
             }
         );
 
