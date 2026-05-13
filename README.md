@@ -30,11 +30,21 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 
 ### Screenshots
 
-Browse mode:
-![Browse mode](doc/screenshot-1-overview.png)
+#### Browse mode:
 
-Fullscreen (here with optional file and EXIF data):
-![File Manager mode](doc/screenshot-2-fullscreen-and-exif.png)
+- theme switching
+- justified/list/grid view
+- show EXIF/metadata
+- large/fullscreen viewing
+    - app header visible/hidden
+    - metadata (including geolocation) visible/hidden
+    - filmstrip visible/hidden
+
+![Browsing](doc/01-browsing.gif)
+
+#### Slideshow
+
+![Slideshow](doc/02-slideshow.gif)
 
 File manager  ("Commander style") mode:
 ![File Manager mode](doc/screenshot-3-filemanager.png)
