@@ -4,8 +4,7 @@ project_name: unterlumen
 
 before:
   hooks:
-    - cmd: go mod tidy
-      dir: src
+    - sh -c "cd src && go mod tidy"
 
 builds:
   - dir: src
