@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-05-12*
+*Last modified: 2026-05-14*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-05-14
 
 ### Changed
 
