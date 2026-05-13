@@ -46,17 +46,50 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 
 ![Slideshow](doc/02-slideshow.gif)
 
-File manager  ("Commander style") mode:
-![File Manager mode](doc/screenshot-3-filemanager.png)
+#### Review (culling)
 
-Waste bin (marked for deletion during culling) mode:
-![Marked for deletion](doc/screenshot-4-wastebin.png)
+- review/browse photos in grid or fullscreen
+- mark candidates for deletions using del/backspace
+- review them
+- select the ones to finally delete
+- select the ones to keep when in doubt
 
-Add (or remove) geolocation to one or more files:
-![Marked for deletion](doc/screenshot-5-addgeolocation.png)
+![Review](doc/03-review.gif)
 
-Export to ZIP (download) or destination folder and convert to JPEG, PNG or WebP with optional scaling:
-![Export and resize](doc/screenshot-6-export.png)
+#### Organize
+
+- two panes: source and destination
+- just like Nortcon Commander, Midnight Commander, Total Commander etc.
+- copy or move files
+- create folders etc.
+- shortcuts for library locations
+
+![Organize files](doc/04-organize.gif)
+
+
+#### Tools
+
+- set or remove geolocation
+    ![Set or remove geolocation](doc/05-tools-geolocation.gif)
+- batch renaming with metadata fields in filename
+    ![batch renaming](doc/06-tools-batchrename.gif)
+- export and convert, including as Zip file
+    ![export](doc/07-tools-export.gif)
+
+
+#### Digital Asset Management (DAM, optional)
+
+- fast thumbnails
+- multiple libraries
+- search/filter within or accross libraries
+    - by aperture
+    - by focal lenth (incl. option to recalculate to 35mm equivalent)
+    - by camera and lens
+    - by Fujifilm film simulation (if you have them)
+- multiple statistics
+
+![filter/search](doc/08-dam-filter.gif)
+![statistics](doc/09-dam-stats.gif)
 
 ## Install
 
