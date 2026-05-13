@@ -9,11 +9,13 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
+  timeout: 60_000,
   use: {
     baseURL: 'http://localhost:8082',
     headless: true,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    actionTimeout: 20_000,
   },
   webServer: {
     command: `${path.resolve(__dirname, '../unterlumen')} --port 8082 --bind 127.0.0.1`,
@@ -21,7 +23,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 15_000,
     env: {
-      UNTERLUMEN_ROOT_PATH: path.resolve(__dirname, 'fixtures'),
+      UNTERLUMEN_ROOT_PATH: path.resolve(__dirname, 'fixtures', 'photos'),
+      UNTERLUMEN_LIB_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-test'),
     },
   },
   projects: [

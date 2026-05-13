@@ -19,8 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ffmpeg and libheif
-        run: sudo apt-get install -y ffmpeg libheif-examples
+      - name: Install system dependencies
+        run: sudo apt-get install -y ffmpeg libheif-examples libimage-exiftool-perl
 
       - uses: actions/setup-go@v5
         with:
@@ -46,13 +46,14 @@ jobs:
       - name: Download test fixtures
         run: cd e2e && npm run setup
 
-      - name: Diagnose HEIC conversion
+      - name: Diagnose tool availability
         run: |
-          heif-convert --version || true
-          heif-convert e2e/fixtures/heic-sample.heic /tmp/heic-test.jpg && echo "heif-convert OK" || echo "heif-convert FAILED: exit $?"
-          ls -lh /tmp/heic-test*.jpg 2>/dev/null || echo "no output files found"
           ffmpeg -version | head -1
-          ffmpeg -i e2e/fixtures/heic-sample.heic 2>&1 | grep -i "heif\|heic\|Stream\|error" | head -10 || true
+          heif-convert --version || true
+          exiftool -ver || true
+          HIF=e2e/fixtures/photos/folder-a/a1/2026-04-24_X-T50-XF23mmF2-R-WR-DSCF6850.hif
+          heif-convert "$HIF" /tmp/heic-test.jpg && echo "heif-convert OK" || echo "heif-convert FAILED"
+          ffmpeg -i "$HIF" 2>&1 | grep -i "Stream\|heif\|error" | head -5 || true
 
       - name: Run E2E tests
         run: cd e2e && npm test

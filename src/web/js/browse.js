@@ -30,6 +30,8 @@ class BrowsePane {
         this._justifiedTargetHeight = 200;
         this._resizeHandler = null;
         this._contentEl = null;
+        this.selectedDirs = new Set();
+        this._pendingPreselect = null;
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
@@ -38,6 +40,70 @@ class BrowsePane {
         this._gridRenderer = new GridRenderer(this);
         this._listRenderer = new ListRenderer(this);
         this._justifiedRenderer = new JustifiedRenderer(this);
+
+        this._attachDelegatedEvents();
+    }
+
+    _attachDelegatedEvents() {
+        this.container.addEventListener('click', (e) => {
+            // Background click on the grid/list/justified container deselects all
+            if (e.target.classList.contains('grid') ||
+                e.target.classList.contains('justified') ||
+                e.target.classList.contains('list-view')) {
+                if (this.selection.selected.size === 0 && this.selectedDirs.size === 0) return;
+                this.selection.clear();
+                this.selection.updateClasses(this.container);
+                this.selectedDirs.clear();
+                this._updateDirSelectionClasses();
+                if (this.onSelectionChange) this.onSelectionChange([]);
+                return;
+            }
+            const item = e.target.closest('[data-index]');
+            if (!item) return;
+            const idx = parseInt(item.dataset.index);
+            if (item.dataset.type === 'dir') {
+                this.keyboard.focusedIndex = idx;
+                this.keyboard.updateFocusClass();
+                this._notifyFocusChange();
+                const fp = this.fullPath(item.dataset.name);
+                if (e.ctrlKey || e.metaKey) {
+                    if (this.selectedDirs.has(fp)) this.selectedDirs.delete(fp);
+                    else this.selectedDirs.add(fp);
+                } else {
+                    this.selectedDirs.clear();
+                    this.selectedDirs.add(fp);
+                }
+                // Dir and photo selection are mutually exclusive
+                this.selection.clear();
+                this.selection.updateClasses(this.container);
+                this._updateDirSelectionClasses();
+                if (this.onSelectionChange) this.onSelectionChange([]);
+            } else if (item.dataset.type === 'image') {
+                const fp = item.dataset.path;
+                this.keyboard.focusedIndex = idx;
+                this.keyboard.updateFocusClass();
+                this._notifyFocusChange();
+                // Clear dir selection when switching to photo selection
+                if (this.selectedDirs.size > 0) {
+                    this.selectedDirs.clear();
+                    this._updateDirSelectionClasses();
+                }
+                this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
+                this.selection.updateClasses(this.container);
+            }
+        });
+
+        this.container.addEventListener('dblclick', (e) => {
+            const item = e.target.closest('[data-index]');
+            if (!item) return;
+            if (item.dataset.type === 'dir') {
+                const path = this.fullPath(item.dataset.name);
+                this.load(path);
+                if (this.onNavigate) this.onNavigate(path);
+            } else if (item.dataset.type === 'image') {
+                if (this.onImageClick) this.onImageClick(item.dataset.path);
+            }
+        });
     }
 
     // Getters so external code (commander.js, renderers) can access sub-object state via the pane directly
@@ -55,6 +121,7 @@ class BrowsePane {
         const savedScroll = isReload ? scrollEl.scrollTop : 0;
         this.path = path || '';
         this.selection.clear();
+        this.selectedDirs.clear();
         this.keyboard.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];
@@ -94,6 +161,7 @@ class BrowsePane {
             this._pollOverlayMeta();
         }
 
+        this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
     }
 
@@ -137,12 +205,57 @@ class BrowsePane {
     toggleFocusedSelection() { this.keyboard.toggleFocusedSelection(); }
 
     selectAll() {
+        this.selectedDirs.clear();
         this.selection.selectAll(this.entries, n => this.fullPath(n));
         this.render();
     }
 
     fullPath(name) {
         return this.path ? `${this.path}/${name}` : name;
+    }
+
+    primePreselect(names) {
+        this._pendingPreselect = names && names.length ? new Set(names) : null;
+    }
+
+    _applyPendingPreselect() {
+        if (!this._pendingPreselect) return;
+        const names = this._pendingPreselect;
+        this._pendingPreselect = null;
+        for (const entry of this.entries) {
+            if (entry.type === 'image' && names.has(entry.name)) {
+                this.selection.selected.add(this.fullPath(entry.name));
+            }
+        }
+        if (this.selection.selected.size > 0) {
+            this.selection.updateClasses(this.container);
+            if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+        }
+    }
+
+    _updateDirSelectionClasses() {
+        this.container.querySelectorAll('[data-type="dir"]').forEach(el => {
+            el.classList.toggle('selected', this.selectedDirs.has(this.fullPath(el.dataset.name)));
+        });
+        this._updateSlideshowButton();
+    }
+
+    _updateSlideshowButton() {
+        const btn = this.container.querySelector('.slideshow-btn');
+        if (btn) btn.disabled = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
+    }
+
+    async fetchRecursivePhotoPaths(dirPath) {
+        const data = await API.browseRecursive(dirPath);
+        return data.paths || [];
+    }
+
+    thumbURL(entry, size) {
+        return API.thumbnailURL(this.fullPath(entry.name), size);
+    }
+
+    isMarkedForDeletion(fp) {
+        return App.isMarkedForDeletion(fp);
     }
 
     updateMarkedForDeletion() {
@@ -307,10 +420,16 @@ class BrowsePane {
                                 <button class="btn btn-sm tool-item" data-tool="export">Convert &amp; Export</button>
                             </div>
                         </div>
+                        <div class="dropdown-section tools-library-section" style="display:none">
+                            <label class="dropdown-label">Library</label>
+                            <div class="dropdown-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="make-library">Make library</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <button class="btn btn-sm slideshow-btn" title="Slideshow">
+            <button class="btn btn-sm dropdown-btn slideshow-btn" ${imageCount === 0 ? 'disabled' : ''} title="Slideshow">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polygon points="3,2 12,7 3,12" fill="currentColor" stroke="none"/>
                     <line x1="1" y1="2" x2="1" y2="12"/>
@@ -362,7 +481,9 @@ class BrowsePane {
         }
 
         this._renderedCount = end;
-        this._attachItemEvents(start, end);
+        if (this.view === 'justified') {
+            this._attachJustifiedImgLoad(start, end);
+        }
 
         if (end >= this.entries.length) {
             const sentinel = ct.querySelector('.scroll-sentinel');
@@ -378,18 +499,20 @@ class BrowsePane {
     }
 
     _getThumbnailSize() {
-        if (localStorage.getItem('thumbnail-quality') !== 'high') return null;
+        const quality = localStorage.getItem('thumbnail-quality') || 'standard';
         const dpr = window.devicePixelRatio || 1;
+        const maxSize = quality === 'high' ? 1024 : 300;
+        const clampSize = (size) => Math.max(50, Math.min(maxSize, Math.round(size)));
         if (this.view === 'grid') {
             const grid = this.container.querySelector('.grid');
             if (grid) {
                 const item = grid.querySelector('.grid-item');
-                if (item) return Math.round(item.offsetWidth * dpr);
+                if (item) return clampSize(item.offsetWidth * dpr);
             }
-            return Math.round(200 * dpr);
+            return clampSize(200 * dpr);
         }
-        if (this.view === 'justified') return Math.round(this._justifiedTargetHeight * dpr);
-        return Math.round(32 * dpr);
+        if (this.view === 'justified') return clampSize(this._justifiedTargetHeight * dpr);
+        return clampSize(32 * dpr);
     }
 
     // --- Events ---
@@ -427,14 +550,22 @@ class BrowsePane {
                 onOpen: () => {
                     this._updateToolsGeoLabel();
                     this._updateToolsRenameState();
+                    this._updateToolsLibraryState();
                     this._checkToolsAvailability();
                 },
             });
             toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
                 btn.addEventListener('click', () => {
+                    const tool = btn.dataset.tool;
+                    if (tool === 'make-library') {
+                        const dir = this.getFocusedDir();
+                        if (!dir) return;
+                        if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
+                        closeToolsMenu();
+                        return;
+                    }
                     const files = this.getActionableFiles();
                     if (files.length === 0) { alert('No images selected.'); return; }
-                    const tool = btn.dataset.tool;
                     const params = {};
                     if (tool === 'rotate') params.angle = parseInt(btn.dataset.angle);
                     if (this.onToolInvoke) this.onToolInvoke({ tool, files, ...params });
@@ -468,63 +599,26 @@ class BrowsePane {
         const sortOrder = this.container.querySelector('.sort-order');
         if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
 
-        const gridEl = this.container.querySelector('.grid, .justified, .list-view');
-        if (gridEl) {
-            gridEl.addEventListener('click', (e) => {
-                if (e.target !== gridEl) return;
-                if (this.selection.selected.size === 0) return;
-                this.selection.clear();
-                this.selection.updateClasses(this.container);
-                if (this.onSelectionChange) this.onSelectionChange([]);
-            });
+        if (this.view === 'justified') {
+            this._attachJustifiedImgLoad(0, this._renderedCount);
         }
-
-        this._attachItemEvents(0, this._renderedCount);
     }
 
-    _attachItemEvents(start, end) {
+    // Attaches img.load listeners for justified-view aspect-ratio recording on newly rendered items.
+    _attachJustifiedImgLoad(start, end) {
         this.container.querySelectorAll('[data-index]').forEach(el => {
             const idx = parseInt(el.dataset.index);
-            if (idx < start || idx >= end) return;
-
-            if (el.dataset.type === 'dir') {
-                el.addEventListener('click', () => {
-                    this.keyboard.focusedIndex = idx;
-                    this.keyboard.updateFocusClass();
-                    this._notifyFocusChange();
-                });
-                el.addEventListener('dblclick', () => {
-                    const path = this.fullPath(el.dataset.name);
-                    this.load(path);
-                    if (this.onNavigate) this.onNavigate(path);
-                });
-            } else if (el.dataset.type === 'image') {
-                el.addEventListener('click', (e) => {
-                    const fp = el.dataset.path;
-                    this.keyboard.focusedIndex = idx;
-                    this.keyboard.updateFocusClass();
-                    this._notifyFocusChange();
-                    this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
-                    this.selection.updateClasses(this.container);
-                });
-                el.addEventListener('dblclick', () => {
-                    if (this.onImageClick) this.onImageClick(el.dataset.path);
-                });
-
-                if (this.view === 'justified') {
-                    const img = el.querySelector('img');
-                    if (img) {
-                        const recordAR = () => {
-                            if (img.naturalWidth && img.naturalHeight) {
-                                this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
-                                this._justifiedRenderer.scheduleRelayout();
-                            }
-                        };
-                        if (img.naturalWidth) recordAR();
-                        else img.addEventListener('load', recordAR);
-                    }
+            if (idx < start || idx >= end || el.dataset.type !== 'image') return;
+            const img = el.querySelector('img');
+            if (!img) return;
+            const recordAR = () => {
+                if (img.naturalWidth && img.naturalHeight) {
+                    this._aspectRatios[idx] = img.naturalWidth / img.naturalHeight;
+                    this._justifiedRenderer.scheduleRelayout();
                 }
-            }
+            };
+            if (img.naturalWidth) recordAR();
+            else img.addEventListener('load', recordAR);
         });
     }
 
@@ -558,6 +652,12 @@ class BrowsePane {
     _updateToolsRenameState() {
         const btn = this.container.querySelector('[data-tool="rename"]');
         if (btn) btn.disabled = this.getActionableFiles().length !== 1;
+    }
+
+    _updateToolsLibraryState() {
+        const section = this.container.querySelector('.tools-library-section');
+        if (!section) return;
+        section.style.display = (this.getFocusedDir() && App.mode !== 'library') ? '' : 'none';
     }
 
     // --- Focus change notification ---

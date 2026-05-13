@@ -23,6 +23,7 @@ class SlideshowPlayer {
         this._audioIndex = 0;
         this._audioObjectURLs = [];
         this._preloadCache = [];
+        this._generation = 0;
         this._handleKey = this._handleKey.bind(this);
         this._onMouseMove = this._showHUD.bind(this);
     }
@@ -99,6 +100,14 @@ class SlideshowPlayer {
     }
 
     _setupAudio(options) {
+        if (options.audioMode === 'builtin' && options.builtinTrack) {
+            this._audio = new Audio(`/music/${options.builtinTrack}`);
+            this._audio.volume = 0.7;
+            this._audio.loop = true;
+            this._audio.play().catch(() => {});
+            return;
+        }
+
         if (options.audioMode === 'none' || !options.audioFiles || options.audioFiles.length === 0) return;
 
         const files = [...options.audioFiles];
@@ -106,6 +115,18 @@ class SlideshowPlayer {
             const j = Math.floor(Math.random() * (i + 1));
             [files[i], files[j]] = [files[j], files[i]];
         }
+
+        if (files.length === 1) {
+            this._audio = new Audio();
+            this._audio.volume = 0.7;
+            const url = URL.createObjectURL(files[0]);
+            this._audioObjectURLs.push(url);
+            this._audio.src = url;
+            this._audio.loop = true;
+            this._audio.play().catch(() => {});
+            return;
+        }
+
         this._audioFiles = files;
         this._audioIndex = 0;
 
@@ -134,7 +155,6 @@ class SlideshowPlayer {
 
     _start() {
         this._showFrame(this._currentPaths());
-        this._scheduleNext();
     }
 
     _scheduleNext() {
@@ -146,9 +166,16 @@ class SlideshowPlayer {
     _advance() {
         if (!this._running) return;
         const step = this._step();
-        this._cursor = (this._cursor + step) % this._images.length;
+        const next = this._cursor + step;
+        if (!this._options.loop && next >= this._images.length) {
+            this._running = false;
+            this._iconPause.style.display = 'none';
+            this._iconPlay.style.display = '';
+            this._playPauseLbl.textContent = 'Play';
+            return;
+        }
+        this._cursor = next % this._images.length;
         this._showFrame(this._currentPaths());
-        this._scheduleNext();
     }
 
     _prev() {
@@ -156,7 +183,6 @@ class SlideshowPlayer {
         const step = this._step();
         this._cursor = (this._cursor - step + this._images.length) % this._images.length;
         this._showFrame(this._currentPaths());
-        if (this._running) this._scheduleNext();
     }
 
     _skip() {
@@ -187,54 +213,97 @@ class SlideshowPlayer {
         const effectiveTransition = isKenBurns ? 'fade' : (transition || 'fade');
         // Safety fallback duration matches the longest CSS animation (fade=600ms, slide/zoom=500ms)
         const animMs = effectiveTransition === 'fade' ? 600 : effectiveTransition === 'instant' ? 0 : 500;
+        const gen = ++this._generation;
 
         const frame = document.createElement('div');
         frame.className = 'ss-frame';
         frame.dataset.display = display === 'single' ? 'single' : display;
 
-        const buildImg = (path) => {
+        const buildImg = (url) => {
             const img = document.createElement('img');
             img.className = 'ss-img';
-            img.src = API.imageURL(path);
+            img.src = url;
             img.decoding = 'async';
             return img;
+        };
+
+        // Swap outgoing frame for the new one and start the next-frame timer.
+        // Kept as a closure so it can be called from a load event — the previous
+        // photo stays visible while the next one is still downloading.
+        const attachFrame = () => {
+            if (gen !== this._generation) return;
+            const outgoing = this._stage.querySelector('.ss-frame');
+            if (outgoing && effectiveTransition !== 'instant') {
+                outgoing.classList.add(`ss-exit-${effectiveTransition}`);
+                outgoing.addEventListener('animationend', () => outgoing.remove(), { once: true });
+                setTimeout(() => { if (outgoing.parentNode) outgoing.remove(); }, animMs + 50);
+            } else if (outgoing) {
+                outgoing.remove();
+            }
+            this._stage.appendChild(frame);
+            if (effectiveTransition !== 'instant') {
+                frame.classList.add(`ss-enter-${effectiveTransition}`);
+            }
+            this._updateCounter();
+            this._preloadNext();
+            if (this._running) this._scheduleNext();
         };
 
         if (display === 'single' || isKenBurns) {
             const img = buildImg(paths[0]);
             frame.appendChild(img);
-            if (isKenBurns) {
-                const kb = this._randomKenBurns();
-                img.animate(
-                    [{ transform: kb.from }, { transform: kb.to }],
-                    { duration: delay * 1000, easing: 'ease-in-out', fill: 'forwards' }
-                );
+
+            const onLoad = () => {
+                if (isKenBurns) {
+                    // Portrait photos: use contain so the full image is visible with letterboxing
+                    // rather than cropping heavily to fill the landscape container
+                    if (img.naturalHeight > img.naturalWidth) {
+                        img.style.objectFit = 'contain';
+                    }
+                    const kb = this._randomKenBurns();
+                    img.animate(
+                        [{ transform: kb.from }, { transform: kb.to }],
+                        { duration: delay * 1000, easing: 'ease-in-out', fill: 'forwards' }
+                    );
+                }
+                attachFrame();
+            };
+
+            if (img.complete && img.naturalWidth > 0) {
+                onLoad();
+            } else {
+                img.addEventListener('load', onLoad, { once: true });
+                // On error still show the frame (broken-image icon) rather than hanging
+                img.addEventListener('error', attachFrame, { once: true });
             }
         } else {
-            paths.forEach(path => {
+            // 2-up / 4-up: wait for all images before swapping the frame
+            const imgs = paths.map(path => {
                 const cell = document.createElement('div');
                 cell.className = 'ss-cell';
-                cell.appendChild(buildImg(path));
+                const img = buildImg(path);
+                cell.appendChild(img);
                 frame.appendChild(cell);
+                return img;
+            });
+            let loaded = 0;
+            const onImgDone = () => { if (++loaded === imgs.length) attachFrame(); };
+            imgs.forEach(img => {
+                const onLoad = () => {
+                    // Portrait cells: contain so the full photo is visible without face-cropping
+                    if (img.naturalWidth > 0 && img.naturalHeight > img.naturalWidth) {
+                        img.style.objectFit = 'contain';
+                    }
+                    onImgDone();
+                };
+                if (img.complete && img.naturalWidth > 0) {
+                    onLoad();
+                } else {
+                    img.addEventListener('load', onLoad, { once: true });
+                    img.addEventListener('error', onImgDone, { once: true });
+                }
             });
         }
-
-        const outgoing = this._stage.querySelector('.ss-frame');
-        if (outgoing && effectiveTransition !== 'instant') {
-            outgoing.classList.add(`ss-exit-${effectiveTransition}`);
-            outgoing.addEventListener('animationend', () => outgoing.remove(), { once: true });
-            setTimeout(() => { if (outgoing.parentNode) outgoing.remove(); }, animMs + 50);
-        } else if (outgoing) {
-            outgoing.remove();
-        }
-
-        this._stage.appendChild(frame);
-        if (effectiveTransition !== 'instant') {
-            frame.classList.add(`ss-enter-${effectiveTransition}`);
-        }
-
-        this._updateCounter();
-        this._preloadNext();
     }
 
     _randomKenBurns() {
@@ -261,7 +330,7 @@ class SlideshowPlayer {
         this._preloadCache = [];
         for (let i = 0; i < step; i++) {
             const img = new Image();
-            img.src = API.imageURL(this._images[(nextCursor + i) % this._images.length]);
+            img.src = this._images[(nextCursor + i) % this._images.length];
             this._preloadCache.push(img);
         }
     }

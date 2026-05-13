@@ -9,9 +9,12 @@ const API = {
     },
 
     thumbnailURL(path, size) {
-        let url = `/api/thumbnail?path=${encodeURIComponent(path)}`;
-        if (size) url += `&size=${size}`;
-        return url;
+        const params = new URLSearchParams({
+            path,
+            quality: localStorage.getItem('thumbnail-quality') || 'standard',
+        });
+        if (size) params.set('size', size);
+        return `/api/thumbnail?${params.toString()}`;
     },
 
     imageURL(path) {
@@ -54,6 +57,13 @@ const API = {
     async browseMeta(path = '') {
         const params = new URLSearchParams({ path });
         const resp = await fetch(`/api/browse/meta?${params}`);
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async browseRecursive(path = '') {
+        const params = new URLSearchParams({ path });
+        const resp = await fetch(`/api/browse/recursive?${params}`);
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();
     },
@@ -148,6 +158,15 @@ const API = {
         return fetch('/api/config').then(r => r.json());
     },
 
+    cacheInfo() {
+        return fetch('/api/cache/info').then(r => r.json());
+    },
+
+    async cacheClear() {
+        const resp = await fetch('/api/cache/clear', { method: 'POST' });
+        if (!resp.ok) throw new Error(await resp.text());
+    },
+
     async exportEstimate(payload, signal) {
         const resp = await fetch('/api/export/estimate', {
             method: 'POST',
@@ -184,4 +203,22 @@ const API = {
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();
     },
+
+    async crop(path, x, y, width, height) {
+        const resp = await fetch('/api/crop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, x, y, width, height }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
 };
+
+function escapeHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}

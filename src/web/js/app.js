@@ -11,11 +11,14 @@ const App = {
     commander: null,
     viewer: null,
     currentBrowsePath: '',
+    _commanderPreselect: null,
     config: null,
     toolsStatus: null,
     _browseEl: null,
     _commanderEl: null,
     _wastebinEl: null,
+    _libraryEl: null,
+    _libraryTab: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -31,16 +34,25 @@ const App = {
         document.getElementById('mode-browse').addEventListener('click', () => this.setMode('browse'));
         document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
         document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
+        document.getElementById('mode-library').addEventListener('click', () => this.setMode('library'));
+        document.getElementById('mode-library-create').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setMode('library');
+            if (this._libraryTab) this._libraryTab._showCreateDialog();
+        });
 
         document.getElementById('mode-browse').title = `Select (1)`;
         document.getElementById('mode-wastebin').title = `Review (2)`;
         document.getElementById('mode-commander').title = `Organize (3)`;
+        document.getElementById('mode-library').title = `Libraries (4)`;
 
         this.keyboard.attach();
         this.theme.init();
         this.theme.initThumbnailQuality();
         this._initUIVisibility();
         this.initSettingsMenu();
+
+        this._updateLibraryButton();
 
         Promise.all([
             API.config(),
@@ -84,7 +96,17 @@ const App = {
         const btn = document.getElementById('settings-btn');
         const menu = document.getElementById('settings-menu');
 
-        const { close: closeMenu } = Dropdown.init(btn, menu);
+        const loadCacheInfo = () => {
+            API.cacheInfo().then(info => {
+                const mb = (info.bytes / 1048576).toFixed(1);
+                document.getElementById('settings-cache-size').textContent = mb + ' MB';
+                document.getElementById('settings-cache-path').textContent = info.path;
+            }).catch(() => {
+                document.getElementById('settings-cache-size').textContent = 'unavailable';
+            });
+        };
+
+        const { close: closeMenu } = Dropdown.init(btn, menu, { onOpen: loadCacheInfo });
 
         menu.addEventListener('click', (e) => {
             const themeBtn = e.target.closest('[data-theme-set]');
@@ -108,6 +130,12 @@ const App = {
             }
         });
 
+        document.getElementById('settings-clear-cache').addEventListener('click', () => {
+            const btn = document.getElementById('settings-clear-cache');
+            btn.disabled = true;
+            API.cacheClear().then(loadCacheInfo).finally(() => { btn.disabled = false; });
+        });
+
         document.getElementById('settings-check-deps').addEventListener('click', () => {
             closeMenu();
             new DepsModal().open(this.toolsStatus);
@@ -128,7 +156,7 @@ const App = {
 
         this.mode = mode;
 
-        const stepOrder = { browse: 0, wastebin: 1, commander: 2 };
+        const stepOrder = { browse: 0, wastebin: 1, commander: 2, library: 3 };
         const prevIdx = stepOrder[prevMode] ?? 0;
         const currIdx = stepOrder[mode];
 
@@ -136,6 +164,7 @@ const App = {
             { el: document.getElementById('mode-browse'), idx: 0 },
             { el: document.getElementById('mode-wastebin'), idx: 1 },
             { el: document.getElementById('mode-commander'), idx: 2 },
+            { el: document.getElementById('mode-library'), idx: 3 },
         ];
         for (const step of steps) {
             step.el.classList.remove('active', 'completed');
@@ -169,6 +198,11 @@ const App = {
                     if (this.browsePane && this.browsePane.view === 'justified') {
                         this.browsePane._justifiedRenderer.scheduleRelayout();
                     }
+                    if (this.infoPanel.expanded) {
+                        const path = this.browsePane ? this.browsePane.getFocusedFile() : null;
+                        if (path) this.infoPanel.loadInfo(path);
+                        else this.infoPanel.clear();
+                    }
                 };
                 this.browsePane.load(this.currentBrowsePath);
             }
@@ -179,7 +213,10 @@ const App = {
                 this._commanderEl = document.createElement('div');
                 this._commanderEl.style.height = '100%';
                 appEl.appendChild(this._commanderEl);
-                this.commander = new Commander(this._commanderEl, this.currentBrowsePath);
+                this.commander = new Commander(this._commanderEl, this.currentBrowsePath, {
+                    preselectFiles: this._commanderPreselect,
+                });
+                this._commanderPreselect = null;
                 this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
                 this.commander.onToolInvoke = (params) => this.handleToolInvoke(params);
                 this.commander.init();
@@ -196,12 +233,24 @@ const App = {
             this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
         }
 
+        if (mode === 'library') {
+            if (!this._libraryEl) {
+                this._libraryEl = document.createElement('div');
+                this._libraryEl.style.height = '100%';
+                appEl.appendChild(this._libraryEl);
+                this._libraryTab = new LibraryTab(this._libraryEl);
+            }
+            this._libraryTab.render();
+        }
+
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
+        if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
 
         const activeEl = mode === 'browse' ? this._browseEl :
-                         mode === 'commander' ? this._commanderEl : this._wastebinEl;
+                         mode === 'commander' ? this._commanderEl :
+                         mode === 'library' ? this._libraryEl : this._wastebinEl;
         if (activeEl && prevMode !== mode) {
             const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
             activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
@@ -257,7 +306,11 @@ const App = {
         viewerEl.style.height = '100%';
         appEl.appendChild(viewerEl);
 
-        this.viewer = new Viewer(viewerEl);
+        this.viewer = new Viewer(viewerEl, {
+            imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
+            thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
+            infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
+        });
         this.viewer.onClose = () => {
             viewerEl.remove();
             savedDisplay.forEach((display, el) => { el.style.display = display; });
@@ -269,12 +322,25 @@ const App = {
         this.viewer.open(imagePath, images);
     },
 
-    handleSlideshowInvoke() {
-        const pane = this.browsePane;
+    async handleSlideshowInvoke(pane) {
+        pane = pane || this.browsePane;
         if (!pane) return;
-        const images = pane.selection.selected.size > 0
-            ? Array.from(pane.selection.selected)
-            : pane.getImageEntries().map(e => pane.fullPath(e.name));
+        // Resolve each path to its correct image URL (LibraryPane overrides viewerImageURL
+        // to use /api/library/{id}/photo/{photoID}; BrowsePane falls back to API.imageURL).
+        const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
+        let images;
+        if (pane.selectedDirs?.size > 0) {
+            const allPaths = [];
+            for (const dirPath of pane.selectedDirs) {
+                const paths = await pane.fetchRecursivePhotoPaths(dirPath);
+                allPaths.push(...paths);
+            }
+            images = allPaths.map(toURL);
+        } else if (pane.selection.selected.size > 0) {
+            images = Array.from(pane.selection.selected).map(toURL);
+        } else {
+            images = pane.getImageEntries().map(e => toURL(pane.fullPath(e.name)));
+        }
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
         this.slideshowModal.onStart = (imgs, opts) => this.openSlideshow(imgs, opts);
@@ -290,6 +356,8 @@ const App = {
         appEl.querySelectorAll('.browse-container').forEach(el => scrollPositions.set(el, el.scrollTop));
         existingChildren.forEach(el => el.style.display = 'none');
 
+        document.body.classList.add('slideshow-active');
+
         const slideshowEl = document.createElement('div');
         slideshowEl.id = 'slideshow-container';
         slideshowEl.style.height = '100%';
@@ -298,6 +366,7 @@ const App = {
         const player = new SlideshowPlayer(slideshowEl);
         player.onClose = () => {
             slideshowEl.remove();
+            document.body.classList.remove('slideshow-active');
             savedDisplay.forEach((display, el) => { el.style.display = display; });
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };
@@ -317,13 +386,60 @@ const App = {
         }
     },
 
+    async _updateLibraryButton() {
+        const btn = document.getElementById('mode-library');
+        if (!btn) return;
+        try {
+            const libs = await LibraryAPI.list();
+            btn.style.display = libs.length === 0 ? 'none' : '';
+        } catch {
+            btn.style.display = 'none';
+        }
+    },
+
+    refreshLibraryVisibility() {
+        this._updateLibraryButton();
+    },
+
+    openCommanderAt(physicalDir, preselectNames) {
+        const boundary = (this.config && this.config.boundary)
+            ? this.config.boundary.replace(/\/$/, '') : '';
+        let relPath;
+        const sp = physicalDir.replace(/\/$/, '');
+        if (sp === boundary) {
+            relPath = '';
+        } else if (!boundary) {
+            relPath = sp.replace(/^\//, '');
+        } else if (sp.startsWith(boundary + '/')) {
+            relPath = sp.substring(boundary.length + 1);
+        } else {
+            return;
+        }
+
+        const wasCreated = !!this._commanderEl;
+        this.currentBrowsePath = relPath;
+
+        if (!wasCreated) {
+            this._commanderPreselect = preselectNames;
+        }
+
+        this.setMode('commander');
+
+        if (wasCreated) {
+            const pane = this.commander.getActivePane();
+            if (preselectNames && preselectNames.length) pane.primePreselect(preselectNames);
+            pane.load(relPath);
+        }
+    },
+
     getActiveBrowsePane() {
         if (this.mode === 'browse') return this.browsePane;
         if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();
+        if (this.mode === 'library' && this._libraryTab) return this._libraryTab.getActivePaneForKeyboard();
         return null;
     },
 
-    handleToolInvoke({ tool, files }) {
+    handleToolInvoke({ tool, files, path }) {
         if (!this.locationModal) this.locationModal = new LocationModal();
         if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
@@ -336,7 +452,19 @@ const App = {
                 }
             }
         };
-        if (tool === 'set-location') {
+        if (tool === 'make-library') {
+            // Ensure LibraryTab exists so it can open the dialog.
+            if (!this._libraryEl) {
+                this._libraryEl = document.createElement('div');
+                this._libraryEl.style.height = '100%';
+                document.getElementById('app').appendChild(this._libraryEl);
+                this._libraryTab = new LibraryTab(this._libraryEl);
+                this._libraryEl.style.display = 'none';
+            }
+            const absPath = path && !path.startsWith('/') ? '/' + path : (path || '');
+            this._libraryTab.openCreateDialogForPath(absPath);
+            return;
+        } else if (tool === 'set-location') {
             this.locationModal.open(files, onSuccess);
         } else if (tool === 'remove-location') {
             this.locationModal.openRemove(files, onSuccess);

@@ -1,12 +1,112 @@
 # Changelog
 
-*Last modified: 2026-04-24*
-
+*Last modified: 2026-05-12*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Changed
+
+- **E2E fixture source** — Test fixtures are no longer downloaded from external URLs. `npm run setup` now copies `src/examples` (79 real-world images, 2004–2026, multiple cameras) into `e2e/fixtures/photos/`. New specs cover folder navigation, HIF thumbnails, GPS add/remove, export ZIP, crop API, and aspect-ratio rendering.
+
+- **Focus vs. selection visual distinction** — The keyboard cursor (focused item) now looks identical to mouse hover: a subtle gray border. Selected items show a uniform 2px inset orange ring with a light orange tint, consistent across all grid positions. Previously both states used the accent orange, making them indistinguishable.
+
+### Added
+
+- **Cache management** — A "Cache" section in the Settings dropdown shows how much disk space the thumbnail cache occupies (in MB) and its location. A "Clear cache" button deletes all cached files immediately, with the size display refreshing afterwards.
+
+- **Slideshow folder selection** — Clicking a folder entry in the browse or library grid now selects it (orange border; Ctrl+click for multi-select). Triggering the slideshow with folders selected plays all photos from those folders recursively — including nested subfolders. Selecting a photo clears the folder selection and vice versa.
+
+- **Slideshow button disabled state** — The Slideshow button is now greyed out and unclickable when the current folder contains no photos and no folder entry is selected.
+
+- **Timeline statistics** — A "Timeline" tab in the Statistics modal showing how shooting habits evolved over time. Six D3 charts: Camera usage (stacked bar with top-5 cameras), Focal length drift (median + IQR band), ISO evolution (log-scale area chart), Aperture usage (normalised heatmap), Aspect ratio mix (100% stacked area), and Megapixel timeline (max step-line + avg). Granularity auto-detects from library date span (month ≤ 4 years, year otherwise), with a manual Month/Year/Auto toggle. Timeline data is lazy-loaded on first tab click. Backed by a new `GET /api/library/timeline` endpoint.
+
+- **Library scan modes** — A "Scan new and changed" combo button with a dropdown arrow replaces the standalone "Re-index" button on every library card. "Scan new and changed" (primary action) walks the source directory and adds new photos, updates changed ones, and re-links renamed files — without removing anything. "Re-index (full)" (dropdown) performs a full rescan that also purges deleted files. "Cleanup deleted" (dropdown) removes indexed photos whose source files are gone, without re-scanning or re-hashing. All three actions share live SSE progress; clicking while a scan is running joins the ongoing stream instead of erroring. Only one scan can run per library at a time.
+
+- **Crop tool** — An interactive crop tool in the fullscreen viewer. Click "Crop" in the toolbar to enter crop mode, draw a rectangle on the photo, choose from free, standard (1:1, 4:3, 3:2, 16:9, 9:16 and their portrait variants), or cinema (1.85:1, 2.35:1, 2.39:1) aspect ratios, and apply. Crops are saved in-place. All metadata — including Fujifilm film simulation and MakerNotes — is preserved via exiftool. JPEG and GIF are re-encoded at high quality; PNG is lossless; WebP uses ffmpeg; HEIF/HEIC uses `sips` (macOS). Keyboard: Enter to apply, Escape to cancel.
+
+- **Statistics modal** — A context-aware "Statistics" button in the library header shows stats for all libraries (list view), the current library (library root), or the current subfolder. Eight D3.js charts cover formats, film simulation, focal length (with 35mm-equivalent toggle), aperture, ISO, camera × lens, time of day, and a shooting calendar heatmap. D3.js v7 is bundled locally — no CDN dependency. The stats API returns deduplicated `{value, count}` pairs for histogram data instead of raw float arrays, significantly reducing response size for large libraries. A `path_hint` index is added on first startup to speed up folder-scoped queries.
+
+- **E2E test coverage for library search and filter** — Added two new Playwright spec files (`library.spec.js`, `library-search.spec.js`) and a shared `reindexLibrary` helper covering library card UI, search panel open/close, EXIF range sliders, text filter dropdowns, the 35mm focal length toggle, the detail-view filter panel, and six API contract tests. Applied `waitForAppReady` guard to the statistics spec to eliminate a race condition with the app initialisation sequence.
+
+- **Clean sweep after re-index** — Photos that have been deleted or moved out of a library's source directory are now fully removed from the database (along with their EXIF index, metadata, and path cache rows) and their thumbnail files are deleted from disk. Previously, missing photos accumulated as invisible dead records.
+
+- **35mm equivalent focal length filter** — The focal length range slider in the library search panel now has a "35mm equivalent" checkbox. When enabled, the slider operates on the `FocalLengthIn35mmFilm` EXIF value instead of the native focal length — useful for comparing photos across cameras with different sensor sizes. Photos without 35mm-equivalent EXIF data fall back to the native focal length automatically. Existing libraries are migrated on startup without re-indexing.
+
+- **Lazy loading for search/filter results** — Scrolling through EXIF-filtered or text-searched results now loads all matching photos, not just the first 100. When the user approaches the bottom of the currently loaded set, the next page is fetched from the server and appended to the grid seamlessly. Works in both the cross-library search panel and the per-library filter view. Backend limits raised to match: cross-library search now accepts up to 500 results per page, and the per-library internal fetch window scales with the requested offset so any page is reachable.
+
+- **EXIF filter panel** — Slider-based filtering by shutter speed, aperture, focal length, ISO, camera, lens, and film simulation, available in two places:
+  - **Per-library** — "Filter" button in the library detail header opens a sidebar filter panel to the left of the photo grid. Ranges are scoped to the current library.
+  - **Cross-library search** — "Search" button on the library list opens the same sidebar with a library selector (defaults to "All libraries"), searching across the full indexed collection.
+  - Numeric EXIF values are normalised at index time into canonical floats (`numeric_value` column in `exif_index`), handling mixed camera formats (`"1/500 s"`, `"0.004 sec"`, `"f/2.8"`, `"50/1"`, etc.). Sliders use log scale for shutter speed, aperture, and ISO (matching photographic stops); linear for focal length.
+  - Custom dual-handle drag slider — no browser `<input type="range">`; handles are shaped triangles that snap correctly at the track edges.
+  - Text filters (camera, lens, film sim) use exact value matching after stripping any surrounding quotes from the EXIF index.
+  - 300 ms debounce; matched photo count shown in the sidebar. Results reuse the full grid/list/justified view with viewer and metadata panel.
+  - New API endpoints: `GET /api/library/{id}/exif-ranges`, `GET /api/library/search`, `GET /api/library/exif-ranges` (global), `GET /api/library/exif-values` (distinct text values).
+
+- **Global channel output** — Channel export output moves from `~/.unterlumen/libraries/<id>/channels/<slug>/` to `~/.unterlumen/channels/<slug>/`, shared across all libraries. Albums from any library now publish into the same channel directory, and site-export channels accumulate albums from all libraries into one unified site. Publishing still reads photos from a specific library; only the output path is now global.
+
+- **Channel path buttons** — Each channel row in the Channels dialog now shows three new buttons:
+  - *Copy path* — copies the channel output directory to the clipboard.
+  - *Show in Files* — opens the directory in Finder (macOS), Explorer (Windows), or the default file manager (Linux); creates the directory if it doesn't exist yet.
+  - *Open in Commander* — closes the dialog and navigates the left Commander pane to the channel directory.
+
+- **Channels accessible from library list** — "Channels" button added to the library list header alongside "New library", so channel config is reachable without first opening a specific library. Rebuild site also no longer requires a library context.
+
+- **Favicon & dock icon** — SVG favicon with dark-mode adaptive bar; 180×180 apple-touch-icon for Safari "Add to Dock".
+
+- **Multi-Album Static Website** — Channels now offer a third export mode: *Multi-album site*. Each publish adds a new album subfolder (`site/albums/<postID>/`) with full-res photos, thumbnails, a download ZIP, and a standalone `index.html`. A `site.json` statefile records every published album (including the full photo list so pages can be rebuilt without re-exporting); from it the root `site/index.html` is regenerated on each publish. Albums are ordered newest-first by publish date — inserting an older album (via the date picker) places it correctly in the grid. Old album folders can be deleted locally after rsyncing — the statefile remembers them. Transfer with `rsync -avz site/ user@host:/var/www/` and only deltas are sent.
+
+- **Light/Dark Theme Toggle** — All generated gallery and website pages now include a theme toggle button. Single-gallery pages default to dark; multi-album site pages default to whatever theme is configured on the channel. Visitor preference is stored in `localStorage` under the key `ul-theme` and shared across all pages of a site, including when navigating back via the browser's back/forward cache. The website uses a single shared `assets/style.css` with CSS custom properties so both themes are defined once; `assets/toggle.js` is fully static (reads the default from a `data-default-theme` attribute) and safe to cache indefinitely.
+
+- **Rebuild Site** — A "Rebuild site" button appears in the channel list for site-export channels. Clicking it regenerates `assets/style.css`, `assets/toggle.js`, every album's `index.html`, and the root `index.html` from the existing `site.json` statefile — no photo re-export needed. Albums published before photo metadata was added to the statefile are handled by scanning the album directory on disk. Use this after changing the channel's default theme or site title.
+
+- **Static Website Gallery Export** — Any channel can opt in to HTML gallery generation via a "Generate HTML gallery on publish" toggle in Channel Settings (the built-in Website channel has it enabled by default). When publishing to a gallery-capable channel, a `<title>` field appears in the Publish modal; the backend generates a self-contained `index.html` alongside the exported photos in a per-publish subfolder (`channels/<slug>/<postID>/`). The gallery uses static HTML with native `loading="lazy"` for SEO-friendly lazy loading without JavaScript. The folder can be transferred directly to any web host via `scp` or `rsync`.
+
+- **Publish to Channels** — From library mode, select photos and publish them to a named channel (Instagram, Mastodon, Website, or custom). Each publish action:
+  - Writes an XMP sidecar (`.xmp` alongside the original) using a custom `xmlns:ul` namespace to record channel, account, post ID, and timestamp — non-destructive and portable. Merge-safe: existing sidecar namespaces (darktable, Lightroom, etc.) are preserved.
+  - Caches the publish record in the library DB (`photo_meta` keys `published:<channel>`, `published:<channel>:account`, `published:<channel>:postid`) for fast search; rebuilt automatically from sidecars on re-index.
+  - Exports a platform-optimised copy to `~/.unterlumen/channels/<channel>/` with filename `<channel>_<datetime>_<basename>.<ext>`.
+  - Multi-photo publishes share a **PostID** (24-char hex) linking all photos as one grouped post (e.g. Instagram carousel).
+  - Three built-in channel presets (Instagram 1080px JPEG, Mastodon 1920px JPEG, Website 2400px JPEG), all fully editable.
+  - **Accounts** — channels support named sub-accounts (e.g. two Mastodon logins). The publish modal shows an account dropdown when a channel has sub-accounts.
+  - **Channel management UI** — "Channels" button in the library header opens a settings modal to add, edit, or delete channels. Each channel has format, quality, scale, EXIF mode, an optional handler identifier (for future upload automation), free-form handler config (key→value), and zero or more named accounts (each with their own key→value config). Channel configurations are stored globally in `~/.unterlumen/channels.json`.
+  - Publish button in the library toolbar becomes active when photos are selected; a modal lets you choose channel, account, and date/time (defaults to now, can be back-dated).
+
+- **DAM Libraries** — New "Libraries" tab (4th mode) adds optional Digital Asset Management. A library indexes a photo folder recursively into `~/.unterlumen/libraries/<id>/library.db` (SQLite via `modernc.org/sqlite` — no CGo, no external process). Features:
+  - Create a library from any folder; background indexing walks all subfolders.
+  - Photos are identified by SHA-256 content hash: metadata survives external renames.
+  - Fast re-scan path using mtime + file size to skip unchanged files.
+  - HQ thumbnails (1200px, JPEG 85) stored on disk keyed by content hash, sharded into `thumbs/<prefix>/` subdirectories.
+  - EXIF metadata stored in an EAV table (`exif_index`) for full-text and field-filtered search.
+  - User-defined key/value annotations per photo (`photo_meta` EAV table); inline editable in the annotation panel.
+  - Missing photos (deleted from source) are marked `status='missing'`; metadata and thumbnails are preserved.
+  - Re-indexing progress streamed via Server-Sent Events.
+  - `--lib-dir` CLI flag and `UNTERLUMEN_LIB_DIR` environment variable override the library root (default: `~/.unterlumen`); useful for testing with temporary directories.
+
+- **E2E integration tests** — Playwright test suite covering browse, image viewer, EXIF overlay badges, and wastebin mark/restore workflow. Tests run headlessly via `cd e2e && npm test` and are integrated into GitHub Actions CI (`.github/workflows/e2e.yml`), triggering on every push and pull request.
+
+- **Slideshow** — New "Slideshow" button in the browse toolbar (between Tools and the status bar). Operates on selected images, or all images in the current folder if nothing is selected. An options dialog lets you set the delay between images (1–60 s), choose a transition effect (Fade, Slide, Zoom, or Instant), and pick a display style: Single image, Ken Burns (slow animated pan and zoom), 2-up (two images side by side), or 4-up (2×2 grid). Optional audio: choose a local audio file or a folder of tracks (shuffled, looping). The player shows a minimal HUD with Prev / Pause-Play / Next / Close controls that autohides after 3 seconds; keyboard shortcuts Space (pause/resume), ← / → (navigate), and Esc (close) are supported.
+
+- **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
+
+- **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
+
+### Changed
+
+- **Search panel performance** — Opening the library search/filter panel is significantly faster for large libraries. EXIF range queries are batched from 6 serial SQL statements into 2 (one GROUP BY for all scalar fields, one combined query for the 35mm focal-length range). EXIF ranges and distinct text values (camera, lens, film sim) are now cached in memory and invalidated automatically when a scan starts or completes — making every panel open after the first instant. The panel also shows "Loading filters…" immediately on first open instead of appearing as a blank box.
+
+- **Statistics and timeline performance** — Opening the Statistics modal is significantly faster for large libraries (20k+ photos). Key improvements: a `date_taken` column is now stored directly in the photos table (backfilled from `exif_json` on startup), eliminating per-row JSON extraction in all shooting hours, shooting days, and timeline queries; format distribution is computed with a `GROUP BY` on a pre-computed `ext` column instead of fetching all filenames; the SQLite page cache is raised to 64 MB. Statistics and timeline results are cached in memory and invalidated automatically when a scan starts or completes.
+
+- **Filter query performance** — EXIF filter queries now use JOINs instead of correlated EXISTS subqueries, allowing SQLite to start from the small set of indexed EXIF rows rather than iterating every photo. The unused `q` / LIKE wildcard search parameter (which was never sent by any UI element and prevented index use) has been removed.
+
+- **"New library" button redesigned as circle-plus glyph** — The `+` affordance in the Libraries tab button is now an SVG circle-with-plus icon. When the Libraries tab is active the glyph inverts: a filled white circle with an orange plus inside. On inactive tabs it renders as a thin outlined circle. The SVG eliminates the font-baseline centering offset that made the previous text character appear slightly off.
+
+- **Library toolbar refinements** — Several visual improvements to the library UI:
+  - "New library" button removed from the library list header and merged into the top-right "Libraries" nav button as a small `+` affordance (separated by a thin line). Clicking `+` switches to library mode and immediately opens the new-library dialog.
+  - "Search" (library list) and "Filter" (library detail) toggle buttons now show a small orange dot when their panel is open, rather than filling solid orange. The button returns to its default appearance when the panel is closed.
+  - Vertical separator added between the toggle buttons (Search/Filter) and dialog-opening buttons (Channels) in both the list and detail headers.
+  - "Channels" button now carries a `›` suffix in both the list and detail views to signal it opens a dialog.
 
 - **Internal refactoring (ADR-0015)** — No user-visible behaviour changes; structural cleanup only.
   - Go: `src/internal/api/` flat package split into domain subpackages: `browse`, `export`, `fileops`, `location`, `batchrename`. Path-traversal guard extracted to `src/internal/pathguard`.
@@ -15,14 +115,37 @@ All notable changes to this project are documented in this file.
   - JS: `browse.js` (1 174 lines) split into `browse.js` (orchestration), `browse-selection.js`, `browse-keyboard.js`, `browse-grid.js`, `browse-list.js`, `browse-justified.js`.
   - JS: `app.js` (767 lines) split into `app.js` (orchestration), `app-theme.js`, `app-wastebin.js`, `app-keyboard.js`.
 
-### Added
+### Fixed
 
-- **E2E integration tests** — Playwright test suite covering browse, image viewer, EXIF overlay badges, and wastebin mark/restore workflow. Tests run headlessly via `cd e2e && npm test` and are integrated into GitHub Actions CI (`.github/workflows/e2e.yml`), triggering on every push and pull request.
+- **"Make library" hidden in Tools menu while in library mode** — The Tools → "Make library" button is no longer visible when already in library mode.
+- **"Organise: jump to folder" now works correctly when server root is `/`** — Navigating from a library folder to the Organise view (and vice-versa via "Jump to library…") was always landing at root instead of the correct subfolder when the server was started with `/` as the photo directory. Fixed boundary-stripping logic in `app.js` and `commander.js` to correctly compute the relative path for root-anchored servers.
+- **"Organise: jump to folder" button now enables on folder selection** — In the library browse view, the button previously enabled as soon as any photos were selected. It now enables only when a single folder entry is selected, and clicking it opens that folder in the Organise view.
 
-- **Slideshow** — New "Slideshow" button in the browse toolbar (between Tools and the status bar). Operates on selected images, or all images in the current folder if nothing is selected. An options dialog lets you set the delay between images (1–60 s), choose a transition effect (Fade, Slide, Zoom, or Instant), and pick a display style: Single image, Ken Burns (slow animated pan and zoom), 2-up (two images side by side), or 4-up (2×2 grid). Optional audio: choose a local audio file or a folder of tracks (shuffled, looping). The player shows a minimal HUD with Prev / Pause-Play / Next / Close controls that autohides after 3 seconds; keyboard shortcuts Space (pause/resume), ← / → (navigate), and Esc (close) are supported.
+- **Library HEIF images load from cache when source volume is offline** — Opening a HEIF/HEIC photo in the library viewer no longer returns HTTP 500 when the source NAS is unmounted. Previously the conversion cache key included the file's modification time, which changed to an empty string when `os.Stat` failed (volume offline), causing a cache miss on every request. The key is now path-stable so a previously converted image is served from cache regardless of volume status. Converted JPEGs are now stored in the OS persistent cache directory (`~/Library/Caches/unterlumen/` on macOS via `os.UserCacheDir()`) instead of the OS temp directory, so cached conversions survive reboots. When a HEIF file has never been cached and the source is unreachable, the response is now 404 instead of 500.
 
-- **Dependency check** — New "Check dependencies" entry in the Settings menu opens a modal listing the status of all required external tools (ffmpeg, exiftool, sips on macOS). Missing or misconfigured tools are shown with a plain-language explanation and platform-specific install instructions.
-- **Container image** — Docker image published to GHCR (`ghcr.io/bjblazko/unterlumen`) for `linux/amd64` and `linux/arm64`. Image bundles ffmpeg and exiftool; defaults to server mode with `/photos` as the root.
+- **Info panel opens correctly from search/filter results** — Pressing I while viewing library search or filter results now loads the focused photo's metadata immediately. Previously the panel showed "Select an image to view info" because the keyboard handler was notifying the browse pane instead of the active search-results pane, causing `infoPanel.clear()` to cancel the correct load.
+
+- **Info panel now loads immediately when opened** — In browse mode, pressing I to open the info panel while a photo is focused now loads that photo's metadata straight away. Previously, the panel stayed at "Select an image to view info" until the user navigated to another photo and back. In the fullscreen viewer, a defensive guard ensures the info loads even if the initial trigger was missed due to a race condition.
+
+- **Library overview header height** — The library overview header ("Libraries" with Search, Statistics, Channels buttons) now has the same fixed 48px height as the in-library detail header. Previously, it used 24px vertical padding instead of a fixed height, making it roughly 70px tall.
+
+- **Statistics reflect all photos correctly** — The statistics modal now shows the true total across all fully-indexed libraries. When a library is actively being scanned, an amber banner informs the user how many photos are still being indexed. Libraries that could not be read (e.g. due to a database lock during heavy indexing) now surface a warning instead of being silently dropped from the totals. The Camera × Lens chart now uses a LEFT JOIN on `LensModel`, so cameras without a lens tag (smartphones, film scanners) appear as "(no lens)" rather than being excluded entirely. Histogram charts (Focal length, Aperture, ISO) show a "N of M photos" subtitle when not all photos carry that EXIF field.
+
+- **Malformed `exif_json` no longer breaks statistics** — Photos whose EXIF could not be extracted were stored with an empty string in `exif_json` rather than valid JSON. SQLite's `json_extract()` throws "malformed JSON" on empty strings (unlike `NULL`), causing the entire Statistics and Timeline query pipeline to fail for any library containing such photos. The indexer now writes `{}` for photos without parsable EXIF. Existing affected rows are repaired on the fly.
+
+- **Interrupted re-index no longer shows 0 photos** — If a full re-index was cancelled mid-way (network drop, power-save, crash), the library overview showed 0 photos because the cached photo count was only written at the very end of a successful scan. The count is now always updated on exit, so the overview reflects however many photos were successfully indexed before the interruption.
+
+- **Browse mode no longer stalls on large HIF film rolls** — Standard-quality browse thumbnails now send an explicit requested size, so the HEIF/HIF thumbnail path can choose the smallest embedded JPEG preview that still fits the UI instead of repeatedly extracting a larger preview. Uncached thumbnail work is also bounded and deduplicated on the server, which prevents large folders from pegging all CPU cores during first load. Opening the fullscreen viewer no longer eagerly loads the whole filmstrip, so the selected image can appear while background thumbnails are still pending.
+
+- **Deployed service can now find Homebrew tools (ffmpeg, exiftool)** — The launchd plist (`com.unterlumen.app`) was launched without `EnvironmentVariables`, so macOS gave the process only the bare system PATH (`/usr/bin:/bin:/usr/sbin:/sbin`). `exec.LookPath` therefore reported ffmpeg and exiftool as missing even though both were installed. The plist now explicitly sets `PATH` to include `/opt/homebrew/bin` and `/opt/homebrew/sbin`, matching the user session environment.
+
+- **Thumbnail quality mode restored for HEIF browsing** — The browse thumbnail endpoint now receives the user's selected quality mode explicitly. In **Standard** mode, HEIF/HEIC thumbnails use the fast preview-based JPEG path and only resize when the preview is still larger than the requested thumbnail; resized results are cached by file and size. In **High** mode, HEIF thumbnails are generated from the full decoded source image and cached by size. Source-generated thumbnails for non-HEIF images are now cached as well, so repeated browsing no longer re-renders the same thumbnails on every request.
+
+- **Slow first photo open in library mode on NAS** — The library pane previously called the browse API to list folder contents, which spawned a background goroutine reading every file over SMB to extract EXIF metadata. This saturated NAS bandwidth and delayed opening the first photo by up to 10 minutes. The library pane now reads folder contents and photo IDs directly from the SQLite database via a new `/api/library/{id}/browse` endpoint, with no filesystem reads during normal browsing. Thumbnails use pre-cached local files; full images stream on demand when a photo is opened.
+
+- **Slow library overview load with large libraries** — Loading the library list (`GET /api/library/`) was doing a full table scan (`SELECT COUNT(1) FROM photos WHERE status='ok'`) on a table with fat `exif_json` TEXT rows. With 50 000 photos across two libraries this took 5–6 seconds. Fixed by: (1) adding an index on `photos.status`; (2) caching the photo count in `library_props` after each re-index so the overview reads a single key-value row instead of counting all photos. Existing databases are migrated automatically on startup.
+
+- **Library folder browse path scoped to library root** — The `/api/library/{id}/browse` endpoint previously resolved the `path` parameter relative to the server's photo root directory. This meant libraries on a NAS or any path outside the server root would return empty results, and the breadcrumb showed the full native path (e.g., `Volumes / nas / Timo / Bilder / Fotos / 2024`). The endpoint now resolves paths relative to each library's own `source_path`, and the frontend always starts navigation at the library root. The breadcrumb shows a clean relative path (e.g., `Root / 2024 / June`) and updir navigation stops at the library root.
 
 ## [0.5.0] - 2026-04-08
 

@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-04-24*
+*Last modified: 2026-05-02*
 
 ## 1. Introduction and Goals
 
@@ -275,6 +275,8 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0013](adr/0013-maplibre-location-maps.md) — MapLibre GL JS for location maps
 - [ADR-0014](adr/0014-thumbnail-quality-tiers.md) — Thumbnail quality tiers
 - [ADR-0015](adr/0015-coding-standards.md) — Coding standards and quality guidelines
+- [ADR-0016](adr/0016-global-channel-output.md) — Global channel output directory
+- [ADR-0017](adr/0017-d3-vendored-bundle.md) — Vendor D3.js for statistics visualisations
 
 ## 10. Quality Requirements
 

@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
+import { GPS_IMAGE, navigatePaneToFolder } from '../helpers/fixtures.js';
 
 test.describe('Commander (Organize mode)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await page.locator('#mode-commander').click();
-    // Wait for both panes to load
     await page.waitForSelector('#left-pane', { timeout: 5_000 });
     await page.waitForSelector('#right-pane', { timeout: 5_000 });
   });
@@ -47,10 +47,12 @@ test.describe('Commander (Organize mode)', () => {
     await expect(page.locator('#right-pane .breadcrumb')).toBeVisible({ timeout: 5_000 });
   });
 
-  test('both panes show the fixture images', async ({ page }) => {
+  test('both panes show fixture images after navigating into folder-b', async ({ page }) => {
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
+    await navigatePaneToFolder(page, '#right-pane', 'folder-b', 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    await expect(page.locator('#left-pane [data-name="gps-jpeg.jpg"]')).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('#right-pane [data-name="gps-jpeg.jpg"]')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator(`#left-pane [data-name="${GPS_IMAGE}"]`)).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator(`#right-pane [data-name="${GPS_IMAGE}"]`)).toBeVisible({ timeout: 5_000 });
   });
 
   // --- Pane focus ---
@@ -76,62 +78,56 @@ test.describe('Commander (Organize mode)', () => {
   // --- Keyboard navigation (non-destructive) ---
 
   test('ArrowRight moves focus in left pane', async ({ page }) => {
-    // Wait for left pane specifically — waitForThumbnailsLoaded may count right-pane or hidden browse-pane items
     await page.waitForFunction(
       () => document.querySelectorAll('#left-pane [data-index]').length >= 1,
       { timeout: 10_000 },
     );
     await page.keyboard.press('ArrowRight');
-    // Some item in left pane should gain .focused class
     await expect(page.locator('#left-pane [data-index].focused')).toBeVisible({ timeout: 3_000 });
   });
 
   test('Enter on a directory navigates into it', async ({ page }) => {
-    await waitForThumbnailsLoaded(page, 1);
-    // Focus the subdir item and press Enter
-    const subdir = page.locator('#left-pane [data-name="subdir"]');
-    await subdir.click();
+    // Root shows folder-a and folder-b; click folder-a and press Enter
+    const folderA = page.locator('#left-pane [data-name="folder-a"]');
+    await expect(folderA).toBeVisible({ timeout: 5_000 });
+    await folderA.click();
     await page.keyboard.press('Enter');
-    await expect(page.locator('#left-pane .crumb[data-path="subdir"]')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('#left-pane .crumb[data-path="folder-a"]')).toBeVisible({ timeout: 3_000 });
   });
 
   test('breadcrumb click navigates back to root in left pane', async ({ page }) => {
-    await waitForThumbnailsLoaded(page, 1);
-    // Navigate into subdir first
-    await page.locator('#left-pane [data-name="subdir"]').dblclick();
-    await expect(page.locator('#left-pane .crumb[data-path="subdir"]')).toBeVisible({ timeout: 3_000 });
-    // Click root crumb
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await page.locator('#left-pane .crumb[data-path=""]').click();
-    await expect(page.locator('#left-pane [data-name="gps-jpeg.jpg"]')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('#left-pane [data-name="folder-a"]')).toBeVisible({ timeout: 3_000 });
   });
 
   test('clicking an item selects it in left pane', async ({ page }) => {
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    const item = page.locator('#left-pane [data-name="gps-jpeg.jpg"]');
+    const item = page.locator(`#left-pane [data-name="${GPS_IMAGE}"]`);
     await item.click();
     await expect(item).toHaveClass(/selected/);
   });
 
   test('Space toggles selection on focused image in left pane', async ({ page }) => {
-    // Wait for left pane specifically — waitForThumbnailsLoaded may count right-pane items
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await page.waitForFunction(
       () => document.querySelectorAll('#left-pane [data-type="image"]').length >= 1,
       { timeout: 10_000 },
     );
-    // focusedIndex starts at 0 (subdir) after load(). One ArrowRight moves to index 1 = gps-jpeg.jpg.
+    // focusedIndex starts at 0 (first image in folder-b) after navigation
     await page.keyboard.press('ArrowRight');
-    const item = page.locator('#left-pane [data-name="gps-jpeg.jpg"]');
-    await expect(item).toHaveClass(/focused/, { timeout: 3_000 });
-    await expect(item).not.toHaveClass(/selected/);
+    const focused = page.locator('#left-pane [data-index].focused');
+    await expect(focused).toBeVisible({ timeout: 3_000 });
+    await expect(focused).not.toHaveClass(/selected/);
     await page.keyboard.press('Space');
-    await expect(item).toHaveClass(/selected/);
+    await expect(focused).toHaveClass(/selected/);
   });
 
   test('Ctrl+A selects all images in left pane', async ({ page }) => {
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    // Click an image first to ensure keyboard events land in the app (not the mode button)
-    await page.locator('#left-pane [data-name="gps-jpeg.jpg"]').click();
-    // devices['Desktop Chrome'] uses Win32 platform so isMac=false; use Control+a
+    await page.locator(`#left-pane [data-name="${GPS_IMAGE}"]`).click();
     await page.keyboard.press('Control+a');
     const selectedItems = page.locator('#left-pane [data-type="image"].selected');
     await expect(selectedItems.first()).toBeVisible({ timeout: 3_000 });
@@ -142,14 +138,15 @@ test.describe('Commander (Organize mode)', () => {
   // --- Action button states ---
 
   test('copy and move buttons are enabled when a focused item exists', async ({ page }) => {
-    // focusedIndex=0 (subdir) is set on load, so getActionableFiles() is non-empty immediately
+    // focusedIndex=0 (folder-a) is set on root load — getActionableFiles() is non-empty immediately
     await expect(page.locator('#cmd-copy')).toBeEnabled({ timeout: 3_000 });
     await expect(page.locator('#cmd-move')).toBeEnabled({ timeout: 3_000 });
   });
 
   test('copy and move buttons remain enabled after clicking a file', async ({ page }) => {
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    await page.locator('#left-pane [data-name="gps-jpeg.jpg"]').click();
+    await page.locator(`#left-pane [data-name="${GPS_IMAGE}"]`).click();
     await expect(page.locator('#cmd-copy')).toBeEnabled({ timeout: 3_000 });
     await expect(page.locator('#cmd-move')).toBeEnabled({ timeout: 3_000 });
   });
@@ -157,8 +154,9 @@ test.describe('Commander (Organize mode)', () => {
   // --- Double-click opens viewer ---
 
   test('double-click image in left pane opens the viewer', async ({ page }) => {
+    await navigatePaneToFolder(page, '#left-pane', 'folder-b', 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    await page.locator('#left-pane [data-name="gps-jpeg.jpg"]').dblclick();
+    await page.locator(`#left-pane [data-name="${GPS_IMAGE}"]`).dblclick();
     await expect(page.locator('.viewer')).toBeVisible({ timeout: 5_000 });
     await page.keyboard.press('Escape');
     await expect(page.locator('.viewer')).not.toBeVisible({ timeout: 3_000 });
