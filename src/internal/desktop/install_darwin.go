@@ -113,8 +113,11 @@ func generateDarwinIcon(iconPNG []byte, resourcesDir string) error {
 }
 
 func writeDarwinLaunchScript(path string, config InstallConfig) error {
+	// Prepend common Homebrew and system tool locations. Apps launched from
+	// Spotlight or Launchpad receive a minimal PATH that excludes these dirs,
+	// causing tools like ffmpeg and exiftool to appear unavailable.
 	script := fmt.Sprintf(
-		"#!/bin/bash\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop -port %d -lib-dir %s %s\n",
+		"#!/bin/bash\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop -port %d -lib-dir %s %s\n",
 		config.Port, shellescape(config.LibDir), shellescape(config.Path),
 	)
 	return os.WriteFile(path, []byte(script), 0755)
