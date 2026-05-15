@@ -125,10 +125,12 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
    cd ~/Downloads
    ```
 
-3. **Allow the file to run** — type the following and press **Enter**:
+3. **Allow the file to run** — type the following two commands, pressing **Enter** after each:
    ```
+   xattr -d com.apple.quarantine unterlumen
    chmod +x unterlumen
    ```
+   The first command removes macOS's download restriction — macOS blocks programs downloaded from the internet by default, and this tells it the file is safe to run. The second makes the file executable.
 
 4. **Run the installer** — type the following and press **Enter**:
    ```
@@ -141,8 +143,6 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
    - **Library directory** — where Unterlumen stores its database and thumbnails (default: `~/Library/Application Support/Unterlumen`)
 
 6. **Done.** Unterlumen now appears in **Spotlight** (press **Cmd + Space** and type "Unterlumen") and in **Launchpad**. You can close the Terminal window.
-
-> **Note:** macOS may show a security warning the first time you run the installer ("cannot verify the developer"). If so, open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
 
 #### Windows
 
