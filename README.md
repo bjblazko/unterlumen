@@ -9,6 +9,12 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 ## Contents
 
 - [Features](#features)
+  - [Browse mode](#browse-mode)
+  - [Slideshow](#slideshow)
+  - [Review (culling)](#review-culling)
+  - [Organize](#organize)
+  - [Tools](#tools)
+  - [Digital Asset Management (DAM)](#digital-asset-management-dam-optional)
 - [Install](#install)
   - [macOS](#macos)
   - [Windows](#windows)
