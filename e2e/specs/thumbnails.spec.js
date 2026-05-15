@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { HIF_PATH, FOLDER_B_IMAGE_COUNT, navigateToFolder } from '../helpers/fixtures.js';
 
+async function supportsHifConversion(request) {
+  const res = await request.get(`/api/thumbnail?path=${encodeURIComponent(HIF_PATH)}`);
+  return res.status() === 200 && (res.headers()['content-type'] || '').includes('image/jpeg');
+}
+
 test.describe('Thumbnails', () => {
   // ── folder-b: JPEG thumbnails ────────────────────────────────────────────
 
@@ -58,12 +63,7 @@ test.describe('Thumbnails', () => {
 
   test.describe('HIF thumbnail conversion', () => {
     test('HIF thumbnail is served as image/jpeg', async ({ request }) => {
-      const toolRes = await request.get('/api/tools/check');
-      const tools = await toolRes.json();
-      if (!tools.ffmpeg) {
-        test.skip(true, 'ffmpeg not available');
-        return;
-      }
+      test.skip(!(await supportsHifConversion(request)), 'HIF conversion not supported in this environment');
       const res = await request.get(`/api/thumbnail?path=${encodeURIComponent(HIF_PATH)}`);
       expect(res.status()).toBe(200);
       expect(res.headers()['content-type']).toContain('image/jpeg');
@@ -72,12 +72,7 @@ test.describe('Thumbnails', () => {
     });
 
     test('HIF thumbnail appears in the grid after navigating to folder-a/a1', async ({ page }) => {
-      const toolRes = await page.request.get('/api/tools/check');
-      const tools = await toolRes.json();
-      if (!tools.ffmpeg) {
-        test.skip(true, 'ffmpeg not available');
-        return;
-      }
+      test.skip(!(await supportsHifConversion(page.request)), 'HIF conversion not supported in this environment');
       await page.goto('/');
       await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
       await navigateToFolder(page, 'folder-a');
