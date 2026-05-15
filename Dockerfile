@@ -36,11 +36,14 @@ COPY --from=builder /unterlumen /unterlumen
 #   UNTERLUMEN_BIND=0.0.0.0      — listen on all interfaces
 #   UNTERLUMEN_PORT=8080         — standard port
 #   UNTERLUMEN_ROOT_PATH=/photos — server mode, navigation locked to mount
+#   UNTERLUMEN_CACHE_DIR=/cache  — persistent cache volume; mount /cache for reuse across restarts
 ENV UNTERLUMEN_BIND=0.0.0.0 \
     UNTERLUMEN_PORT=8080 \
-    UNTERLUMEN_ROOT_PATH=/photos
+    UNTERLUMEN_ROOT_PATH=/photos \
+    UNTERLUMEN_CACHE_DIR=/cache
 
 VOLUME /photos
+VOLUME /cache
 EXPOSE 8080
 
 ENTRYPOINT ["/unterlumen"]

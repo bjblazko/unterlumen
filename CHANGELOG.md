@@ -1,9 +1,15 @@
 # Changelog
 
-*Last modified: 2026-05-14*
+*Last modified: 2026-05-15*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Desktop mode** — `-desktop` flag opens the app in a Chrome/Chromium app window (no URL bar, no tab strip). The server shuts down automatically when the window is closed. Falls back to the default system browser if Chrome is not installed.
+- **Desktop install** — `-desktop-install` flag runs an interactive wizard that copies the binary into a native app launcher (macOS `.app` bundle in `~/Applications`, Linux `.desktop` entry, Windows Start Menu shortcut) with an icon, so the app can be launched from Spotlight/Launchpad, the application grid, or the Start Menu without a terminal.
+- `UNTERLUMEN_CACHE_DIR` environment variable and `-cache-dir` flag to configure the thumbnail and conversion cache directory (defaults to OS cache conventions; falls back to `/tmp/unterlumen-cache` when unavailable)
 
 ## [0.7.0] - 2026-05-14
 
