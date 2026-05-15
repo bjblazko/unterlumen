@@ -150,6 +150,12 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
 
 6. **Done.** Unterlumen now appears in **Spotlight** (press **Cmd + Space** and type "Unterlumen") and in **Launchpad**. You can close the Terminal window.
 
+> **If macOS blocks the app when you first open it** ("cannot be opened because the developer cannot be verified"), open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**. If that button does not appear (common on macOS Sonoma and later), open Terminal and run:
+> ```
+> xattr -d com.apple.quarantine ~/Applications/Unterlumen.app
+> ```
+> Then try opening Unterlumen again from Spotlight or Launchpad.
+
 #### Windows
 
 1. **Open PowerShell** — press the **Windows key**, type `PowerShell`, and press **Enter**. A blue window with a text prompt appears.
