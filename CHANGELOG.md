@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-15
+
 ### Added
 
 - **Desktop mode** — `-desktop` flag opens the app in a Chrome/Chromium app window (no URL bar, no tab strip). The server shuts down automatically when the window is closed. Falls back to the default system browser if Chrome is not installed.
