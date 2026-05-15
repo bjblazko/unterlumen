@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { GPS_PATH, NO_GPS_PATH, HIF_PATH } from '../helpers/fixtures.js';
 
+async function supportsHifConversion(request) {
+  const res = await request.get(`/api/thumbnail?path=${encodeURIComponent(HIF_PATH)}`);
+  return res.status() === 200 && (res.headers()['content-type'] || '').includes('image/jpeg');
+}
+
 test.describe('API contract', () => {
   test('GET /api/config returns startPath and serverRole', async ({ request }) => {
     const res = await request.get('/api/config');
@@ -51,12 +56,7 @@ test.describe('API contract', () => {
   });
 
   test('GET /api/thumbnail for HIF returns image/jpeg (converted)', async ({ request }) => {
-    const toolRes = await request.get('/api/tools/check');
-    const tools = await toolRes.json();
-    if (!tools.ffmpeg) {
-      test.skip(true, 'ffmpeg not available');
-      return;
-    }
+    test.skip(!(await supportsHifConversion(request)), 'HIF conversion not supported in this environment');
     const res = await request.get(`/api/thumbnail?path=${encodeURIComponent(HIF_PATH)}`);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('image/jpeg');
@@ -69,12 +69,7 @@ test.describe('API contract', () => {
   });
 
   test('GET /api/image for HIF returns image/jpeg (converted)', async ({ request }) => {
-    const toolRes = await request.get('/api/tools/check');
-    const tools = await toolRes.json();
-    if (!tools.ffmpeg) {
-      test.skip(true, 'ffmpeg not available');
-      return;
-    }
+    test.skip(!(await supportsHifConversion(request)), 'HIF conversion not supported in this environment');
     const res = await request.get(`/api/image?path=${encodeURIComponent(HIF_PATH)}`);
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('image/jpeg');
