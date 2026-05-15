@@ -1,20 +1,27 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"huepattl.de/unterlumen/internal/api"
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/desktop"
 	"huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 )
 
 //go:embed web
@@ -41,10 +48,28 @@ func main() {
 		libDirDefault = filepath.Join(home, ".unterlumen")
 	}
 
+	cacheDirDefault := os.Getenv("UNTERLUMEN_CACHE_DIR")
+
 	port := flag.Int("port", portDefault, "HTTP server port (env: UNTERLUMEN_PORT)")
 	bind := flag.String("bind", bindDefault, "Address to bind to (env: UNTERLUMEN_BIND)")
 	libDir := flag.String("lib-dir", libDirDefault, "Library data directory (env: UNTERLUMEN_LIB_DIR)")
+	cacheDir := flag.String("cache-dir", cacheDirDefault, "Thumbnail and conversion cache directory (env: UNTERLUMEN_CACHE_DIR)")
+	desktopMode := flag.Bool("desktop", false, "Open in a Chrome app window (no URL bar); server shuts down when the window is closed")
+	desktopInstall := flag.Bool("desktop-install", false, "Install as a native app launcher (macOS .app, Linux .desktop, Windows Start Menu)")
 	flag.Parse()
+
+	if *desktopInstall {
+		iconData, _ := webFS.ReadFile("web/logo.png")
+		execPath, _ := os.Executable()
+		if err := desktop.Install(execPath, iconData); err != nil {
+			log.Fatalf("Install failed: %v", err)
+		}
+		return
+	}
+
+	if *cacheDir != "" {
+		media.SetCacheDir(*cacheDir)
+	}
 
 	// Priority: cmdline arg > UNTERLUMEN_ROOT_PATH env > user home dir
 	var startDir, boundary string
@@ -131,7 +156,52 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)
 	log.Printf("Listening on http://%s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		log.Fatalf("Server error: %v", err)
+
+	if !*desktopMode {
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			log.Fatalf("Server error: %v", err)
+		}
+		return
+	}
+
+	// Desktop mode: bind the port first so Chrome can connect immediately.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("Failed to bind %s: %v", addr, err)
+	}
+	srv := &http.Server{Handler: mux}
+	go func() {
+		if serveErr := srv.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", serveErr)
+		}
+	}()
+
+	appURL := fmt.Sprintf("http://%s", addr)
+	instance, err := desktop.LaunchApp(appURL)
+	if err != nil {
+		log.Fatalf("Failed to open browser: %v", err)
+	}
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	if instance != nil {
+		done := make(chan struct{})
+		go func() { instance.Wait(); close(done) }()
+		select {
+		case <-done:
+			log.Println("Browser window closed, shutting down")
+		case <-sigCh:
+			log.Println("Signal received, shutting down")
+		}
+	} else {
+		<-sigCh
+		log.Println("Signal received, shutting down")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Shutdown error: %v", err)
 	}
 }

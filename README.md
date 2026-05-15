@@ -6,6 +6,23 @@
 
 A photo browser and culler that runs as a local web server. Browse your photo library in the browser, view images full-screen, and organize files using a dual-pane File Manager interface.
 
+## Contents
+
+- [Features](#features)
+- [Install](#install)
+  - [macOS](#macos)
+  - [Windows](#windows)
+  - [Linux](#linux)
+  - [Docker / Podman](#docker--podman)
+  - [Build from source](#build-from-source)
+- [Usage](#usage)
+  - [Advanced usage (command line)](#advanced-usage-command-line)
+- [Docker / Podman](#docker--podman-1)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Documentation](#documentation)
+- [Development & Testing](#development--testing)
+- [Notes](#notes)
+
 ## Features
 
 - **Browse & Cull mode** — Justified, grid, or list view of photos in a directory with breadcrumb navigation
@@ -87,17 +104,96 @@ A photo browser and culler that runs as a local web server. Browse your photo li
     - by camera and lens
     - by Fujifilm film simulation (if you have them)
 - multiple statistics
-
-![filter/search](doc/08-dam-filter.gif)
-![statistics](doc/09-dam-stats.gif)
+    ![filter/search](doc/08-dam-filter.gif)
+- statistics over time
+    ![statistics](doc/09-dam-stats.gif)
 
 ## Install
 
-Three options — pick the one that fits your setup:
-
 ### Pre-built binary (recommended)
 
-Download the latest release for your platform from the [Releases page](https://github.com/bjblazko/unterlumen/releases). Extract the archive and run the binary directly — no runtime dependencies required (ffmpeg and exiftool are optional extras, see below).
+Download the latest release for your platform from the [Releases page](https://github.com/bjblazko/unterlumen/releases) and extract the archive — you will get a single file called `unterlumen` (or `unterlumen.exe` on Windows).
+
+The installer sets Unterlumen up as a proper desktop application with an icon, so you can open it from Spotlight, Launchpad, or the Start Menu just like any other app — no terminal needed afterwards.
+
+#### macOS
+
+1. **Open Terminal** — press **Cmd + Space**, type `Terminal`, and press **Enter**. A window with a text prompt appears.
+
+2. **Go to your Downloads folder** — type the following and press **Enter**:
+   ```
+   cd ~/Downloads
+   ```
+
+3. **Allow the file to run** — type the following and press **Enter**:
+   ```
+   chmod +x unterlumen
+   ```
+
+4. **Run the installer** — type the following and press **Enter**:
+   ```
+   ./unterlumen -desktop-install
+   ```
+
+5. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
+   - **Port** — the internal network port the app uses (default: `8090`; fine to leave as-is unless something else is already using that port)
+   - **Photos directory** — the folder Unterlumen opens by default (default: `~/Pictures`). If you want to be able to browse **any folder** on your Mac — not just Pictures — type `/` here. That sets the root of your entire filesystem as the starting point and lets you navigate anywhere.
+   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `~/Library/Application Support/Unterlumen`)
+
+6. **Done.** Unterlumen now appears in **Spotlight** (press **Cmd + Space** and type "Unterlumen") and in **Launchpad**. You can close the Terminal window.
+
+> **Note:** macOS may show a security warning the first time you run the installer ("cannot verify the developer"). If so, open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
+
+#### Windows
+
+1. **Open PowerShell** — press the **Windows key**, type `PowerShell`, and press **Enter**. A blue window with a text prompt appears.
+
+2. **Go to your Downloads folder** — type the following and press **Enter**:
+   ```
+   cd $HOME\Downloads
+   ```
+
+3. **Run the installer** — type the following and press **Enter**:
+   ```
+   .\unterlumen.exe -desktop-install
+   ```
+
+4. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
+   - **Port** — the internal network port the app uses (default: `8090`)
+   - **Photos directory** — the folder Unterlumen opens by default (default: your Pictures folder). If you want to browse **any folder** on a drive, type the drive root here — for example `C:\` for your main drive, or `D:\` for a second drive. You can only browse within one drive root at a time; to switch drives, re-run `-desktop-install` and change this setting.
+   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `%APPDATA%\Unterlumen`)
+
+5. **Done.** Unterlumen now appears in the **Start Menu**. You can close the PowerShell window.
+
+#### Linux
+
+1. **Open a terminal** — on GNOME, press the **Super key** (the Windows key on most keyboards), type `Terminal`, and press **Enter**. On KDE, right-click the desktop and choose **Open Terminal**. The terminal name varies by distribution (GNOME Terminal, Konsole, xterm, etc.) but any of them will work.
+
+2. **Go to your Downloads folder** — type the following and press **Enter**:
+   ```
+   cd ~/Downloads
+   ```
+
+3. **Allow the file to run** — type the following and press **Enter**:
+   ```
+   chmod +x unterlumen
+   ```
+
+4. **Run the installer** — type the following and press **Enter**:
+   ```
+   ./unterlumen -desktop-install
+   ```
+
+5. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
+   - **Port** — the internal network port the app uses (default: `8090`)
+   - **Photos directory** — the folder Unterlumen opens by default (default: `~/Pictures`). If you want to be able to browse **any folder** on your system — not just Pictures — type `/` here. That sets the filesystem root as the starting point and lets you navigate anywhere.
+   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `~/.local/share/unterlumen`)
+
+6. **Done.** Unterlumen now appears in your application launcher (GNOME Activities, KDE application menu, etc.). You can close the terminal window.
+
+#### Re-installing or updating
+
+To update Unterlumen, download the new binary and run `-desktop-install` again — it overwrites the previous installation automatically.
 
 ### Docker / Podman
 
@@ -118,6 +214,12 @@ cd src && go build -o ../unterlumen .
 
 ## Usage
 
+Once installed with `-desktop-install`, just open Unterlumen from your OS launcher (Spotlight / Launchpad on macOS, Start Menu on Windows, application grid on Linux). The app opens in its own window and closes cleanly when you are done.
+
+### Advanced usage (command line)
+
+You can also run Unterlumen directly from the terminal without installing it. This is useful for scripting, server deployments, or trying it out before installing.
+
 ```
 ./unterlumen [flags] [directory]
 ```
@@ -135,6 +237,8 @@ cd src && go build -o ../unterlumen .
 | `-port` | `8080` | HTTP server port (env: `UNTERLUMEN_PORT`) |
 | `-bind` | `localhost` | Bind address (`0.0.0.0` for remote access) (env: `UNTERLUMEN_BIND`) |
 | `-lib-dir` | `~/.unterlumen` | Root directory for library data (env: `UNTERLUMEN_LIB_DIR`) |
+| `-desktop` | off | Open in a Chrome/Chromium app window (no URL bar). Server exits when the window is closed. Falls back to the default browser if Chrome is not found. |
+| `-desktop-install` | — | Interactive installer: sets up a native app launcher with icon (macOS `.app`, Linux `.desktop`, Windows Start Menu shortcut). |
 
 **Environment variables:**
 
@@ -154,8 +258,11 @@ cd src && go build -o ../unterlumen .
 **Examples:**
 
 ```
-# Browse photos in ~/Pictures; navigate freely around the filesystem
+# Browse photos in ~/Pictures and open in the browser manually
 ./unterlumen ~/Pictures
+
+# Open as a desktop app window (Chrome required; falls back to default browser)
+./unterlumen -desktop ~/Pictures
 
 # Use a different port
 ./unterlumen -port 3000 ~/Pictures
@@ -165,12 +272,9 @@ cd src && go build -o ../unterlumen .
 
 # Restrict navigation to /mnt/photos (useful for self-hosted setups)
 UNTERLUMEN_ROOT_PATH=/mnt/photos ./unterlumen
-
-# Run on port 3000 via environment variable
-UNTERLUMEN_PORT=3000 ./unterlumen ~/Pictures
 ```
 
-Then open `http://localhost:8080` in your browser.
+Then open `http://localhost:8080` in your browser (or whichever port you configured).
 
 ## Docker / Podman
 

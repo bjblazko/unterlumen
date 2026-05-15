@@ -109,6 +109,15 @@ var (
 // GetCacheDir returns the persistent cache directory used for thumbnails and conversions.
 func GetCacheDir() string { return getCacheDir() }
 
+// SetCacheDir overrides the auto-detected cache location. Must be called before
+// any thumbnail or conversion operation (i.e. before the HTTP server starts).
+func SetCacheDir(dir string) {
+	cacheDirOnce.Do(func() {
+		cacheDir = dir
+		os.MkdirAll(cacheDir, 0700)
+	})
+}
+
 // getCacheDir returns a persistent cache directory (~/Library/Caches/unterlumen on macOS),
 // falling back to the OS temp dir if UserCacheDir is unavailable.
 func getCacheDir() string {
