@@ -37,7 +37,12 @@ func LaunchApp(url string) (*AppInstance, error) {
 	// even when another Chrome instance is already running (required on macOS).
 	tmpDir, _ := os.MkdirTemp("", "unterlumen-chrome-*")
 
-	args := []string{"--app=" + url}
+	args := []string{
+		"--app=" + url,
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-search-engine-choice-screen",
+	}
 	if tmpDir != "" {
 		args = append(args, "--user-data-dir="+tmpDir)
 	}

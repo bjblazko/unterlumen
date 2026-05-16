@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-16
+
 ### Added
 
 - **Up-directory button** — A `↑` button now appears before the breadcrumb in every grid view (browse, library folder browser, both commander panes). The button is disabled at the root and navigates up one level on click.
@@ -13,6 +15,7 @@ All notable changes to this project are documented in this file.
 
 - **Library keyboard navigation** — Arrow keys, Enter, Space, Escape, Ctrl+A, and `I` no longer stop working after the search/filter panel is opened and then closed. The active pane resolver now checks DOM visibility before returning the search-results pane, so keyboard events correctly target the visible library pane.
 - **Library Escape key** — Pressing Escape in library mode now clears selections first, then navigates up one directory level (matching browse and commander behaviour). When the fullscreen viewer is open, Escape is correctly delegated to the viewer.
+- **Desktop mode Chrome prompts** — Chrome no longer shows "Make this your default browser?" or the search-engine choice screen when launched via `-desktop`. Added `--no-first-run`, `--no-default-browser-check`, and `--disable-search-engine-choice-screen` flags on startup.
 
 ## [0.8.0] - 2026-05-15
 
