@@ -336,6 +336,7 @@ class BrowsePane {
     _renderBreadcrumb() {
         const parts = this.path ? this.path.split('/') : [];
         const isAtRoot = parts.length === 0;
+        const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}>↑</button>`;
         let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
         let accumulated = '';
         for (let i = 0; i < parts.length; i++) {
@@ -344,7 +345,7 @@ class BrowsePane {
             const isCurrent = i === parts.length - 1;
             crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
-        return `<nav class="breadcrumb">${crumbs}</nav>`;
+        return `<div class="breadcrumb-row">${upBtn}<nav class="breadcrumb">${crumbs}</nav></div>`;
     }
 
     _renderControls() {
@@ -534,6 +535,18 @@ class BrowsePane {
                 if (this.onNavigate) this.onNavigate(path);
             });
         });
+
+        const upBtn = this.container.querySelector('.up-dir-btn');
+        if (upBtn) {
+            upBtn.addEventListener('click', () => {
+                const parts = this.path.split('/').filter(Boolean);
+                if (parts.length === 0) return;
+                parts.pop();
+                const parentPath = parts.join('/');
+                this.load(parentPath);
+                if (this.onNavigate) this.onNavigate(parentPath);
+            });
+        }
 
         this.container.querySelectorAll('[data-view]').forEach(el => {
             el.addEventListener('click', () => this.setView(el.dataset.view));

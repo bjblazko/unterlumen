@@ -251,7 +251,10 @@ class LibraryTab {
     }
 
     getActivePaneForKeyboard() {
-        return this._searchPane || this._pane;
+        if (this._searchPane && this._searchPane.container.style.display !== 'none') {
+            return this._searchPane;
+        }
+        return this._pane;
     }
 
     _getActiveDetailPane() {
