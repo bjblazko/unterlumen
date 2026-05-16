@@ -1,122 +1,58 @@
 ---
 name: unterlumen-deploy
-description: Build and deploy Unterlumen as a local background service (launchd). Prompts for port and photo directory. Use when the user says "deploy unterlumen", "install unterlumen locally", or "set up unterlumen service".
+description: Build from source and update the binary of the local Unterlumen installation created by 'unterlumen -desktop-install'. Use when the user says "deploy unterlumen", "update unterlumen", "install unterlumen locally", or "update the installed app".
 allowed-tools: Bash
 ---
 
-Build Unterlumen from source, install the binary to `~/.local/bin/`, register it as a launchd LaunchAgent, and start it.
+Build Unterlumen from source and hot-swap the binary inside `~/Applications/Unterlumen.app` (installed via `unterlumen -desktop-install`).
 
 ## Steps
 
-### Step 1 — Detect existing install
-
-Run this to check whether a previous deployment exists and read its settings:
+### Step 1 — Check that the app bundle exists
 
 ```bash
-PLIST="$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
-if [ -f "$PLIST" ]; then
-    EXISTING_PORT=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:2" "$PLIST" 2>/dev/null)
-    EXISTING_DIR=$(/usr/libexec/PlistBuddy -c "Print :ProgramArguments:3" "$PLIST" 2>/dev/null)
-    echo "port=$EXISTING_PORT dir=$EXISTING_DIR"
+BUNDLE="$HOME/Applications/Unterlumen.app/Contents/MacOS/unterlumen"
+if [ -f "$BUNDLE" ]; then
+    echo "bundle-found"
 else
-    echo "no-existing-install"
+    echo "bundle-missing"
 fi
 ```
 
-### Step 2 — Ask the user what to do
+If the bundle is missing, tell the user:
+> "No installation found at ~/Applications/Unterlumen.app. Run `./unterlumen -desktop-install` first to create it."
 
-**If an existing install was found**, tell the user the current settings and ask:
-> "Existing install found — port **X**, directory **Y**. Update the binary and restart with the same settings, or change the configuration?"
+Then stop.
 
-- If the user wants to **update only** (keep same settings): proceed to Step 3a.
-- If the user wants to **change config**: ask for the new port (default: existing port) and photo directory (default: existing dir), then proceed to Step 3b.
-
-**If no existing install was found**, ask:
-> "No existing install. What port and photo directory? (defaults: 8080, ~/Pictures)"
-
-Then proceed to Step 3b (fresh install).
-
-### Step 3a — Update only (same settings, new binary)
-
-Build and install the binary:
+### Step 2 — Build the new binary
 
 ```bash
-mkdir -p "$HOME/.local/bin" && \
-  cd /Users/blazko/Development/unterlumen/src && \
-  go build -o "$HOME/.local/bin/unterlumen" . && \
-  echo "Build succeeded."
+cd /Users/blazko/Development/unterlumen/src && go build -o ../unterlumen . && echo "Build succeeded."
 ```
 
 If the build fails, report the errors and stop.
 
-Stop the running service cleanly (before the binary is replaced, so launchd releases the file):
+### Step 3 — Stop any running instance
 
 ```bash
-launchctl bootout gui/$(id -u)/com.unterlumen.app 2>/dev/null || true
+pkill -f "Unterlumen.app/Contents/MacOS/unterlumen" 2>/dev/null || true
+sleep 1
 ```
 
-Start the service again with the existing plist (no plist rewrite needed):
+### Step 4 — Copy the new binary into the bundle
 
 ```bash
-launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
+cp /Users/blazko/Development/unterlumen/unterlumen \
+   "$HOME/Applications/Unterlumen.app/Contents/MacOS/unterlumen" && \
+echo "Binary updated."
 ```
 
-Skip to Step 5 to verify.
-
-### Step 3b — Fresh install or config change
-
-Build and install the binary:
+### Step 5 — Relaunch the app
 
 ```bash
-mkdir -p "$HOME/.local/bin" && \
-  cd /Users/blazko/Development/unterlumen/src && \
-  go build -o "$HOME/.local/bin/unterlumen" . && \
-  echo "Build succeeded."
+open "$HOME/Applications/Unterlumen.app"
+sleep 2
+pgrep -f "Unterlumen.app/Contents/MacOS/unterlumen" > /dev/null && echo "Running." || echo "App did not start — launch it manually from Launchpad or Spotlight."
 ```
 
-If the build fails, report the errors and stop.
-
-Write the launchd plist with the chosen PORT and fully-expanded PHOTO_DIR (launchd does not expand `~`; resolve it to the absolute path before writing):
-
-```bash
-cat > "$HOME/Library/LaunchAgents/com.unterlumen.app.plist" << PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.unterlumen.app</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/blazko/.local/bin/unterlumen</string>
-        <string>-port</string>
-        <string>PORT</string>
-        <string>PHOTO_DIR</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <false/>
-    <key>StandardOutPath</key>
-    <string>/tmp/unterlumen.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/unterlumen.log</string>
-</dict>
-</plist>
-PLIST
-```
-
-Unload any existing registration, then load the new one:
-
-```bash
-launchctl bootout gui/$(id -u)/com.unterlumen.app 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.unterlumen.app.plist"
-```
-
-### Step 5 — Verify
-
-```bash
-launchctl print gui/$(id -u)/com.unterlumen.app 2>&1 | grep -E 'state|pid'
-```
-
-Report success: the URL (`http://localhost:PORT`) and the log file (`/tmp/unterlumen.log`). If the service did not start, show the relevant launchctl output.
+Report success: the installed app has been updated and relaunched.

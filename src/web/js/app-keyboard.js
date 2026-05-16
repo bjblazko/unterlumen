@@ -69,19 +69,29 @@ class GlobalKeyboard {
             app.currentBrowsePath = parentPath;
         }
 
-        // Escape: clear selection in library mode
+        // Escape: clear selection or go up in library mode
         if (e.key === 'Escape' && app.mode === 'library' && app._libraryTab) {
+            if (document.querySelector('.viewer')) return;
             const pane = app._libraryTab.getActivePaneForKeyboard();
-            if (pane && (pane.selectedDirs?.size > 0 || pane.selection.selected.size > 0)) {
-                e.preventDefault();
-                if (pane.selectedDirs?.size > 0) {
-                    pane.selectedDirs.clear();
-                    pane._updateDirSelectionClasses();
-                    if (pane.onSelectionChange) pane.onSelectionChange([]);
-                } else {
-                    pane.selection.clear();
-                    pane.updateSelectionClasses();
-                    if (pane.onSelectionChange) pane.onSelectionChange([]);
+            if (!pane) return;
+            e.preventDefault();
+            if (pane.selectedDirs?.size > 0) {
+                pane.selectedDirs.clear();
+                pane._updateDirSelectionClasses();
+                if (pane.onSelectionChange) pane.onSelectionChange([]);
+                return;
+            }
+            if (pane.selection.selected.size > 0) {
+                pane.selection.clear();
+                pane.updateSelectionClasses();
+                if (pane.onSelectionChange) pane.onSelectionChange([]);
+                return;
+            }
+            if (pane === app._libraryTab._pane && pane.path) {
+                const parts = pane.path.split('/').filter(Boolean);
+                if (parts.length > 0) {
+                    parts.pop();
+                    pane.load(parts.join('/'));
                 }
             }
         }
@@ -146,7 +156,7 @@ class GlobalKeyboard {
             const ip = app._libraryTab._infoPanel;
             ip.toggle();
             if (ip.expanded) {
-                const activePane = app._libraryTab._searchPane || app._libraryTab._pane;
+                const activePane = app._libraryTab.getActivePaneForKeyboard();
                 if (activePane) activePane._notifyFocusChange();
             }
         }

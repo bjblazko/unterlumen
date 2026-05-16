@@ -506,6 +506,19 @@ body {
 
 /* —— Breadcrumb —— */
 
+.breadcrumb-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+}
+
+.up-dir-btn {
+    font-size: 13px;
+    padding: 1px 6px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .breadcrumb {
     padding: var(--unit) 0;
     font-size: 12px;
