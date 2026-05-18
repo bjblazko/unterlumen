@@ -10,7 +10,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,14 +35,16 @@ type exportRequest struct {
 	Scale       media.ScaleOptions `json:"scale"`
 	ExifMode    string             `json:"exifMode"`
 	Destination string             `json:"destination"`
+	SourcePath  string             `json:"sourcePath,omitempty"`
 }
 
 type estimateRequest struct {
-	Files   []string           `json:"files"`
-	Format  string             `json:"format"`
-	Quality int                `json:"quality"`
-	Scale   media.ScaleOptions `json:"scale"`
-	Method  string             `json:"method"` // "heuristic" or "encode"
+	Files      []string           `json:"files"`
+	Format     string             `json:"format"`
+	Quality    int                `json:"quality"`
+	Scale      media.ScaleOptions `json:"scale"`
+	Method     string             `json:"method"` // "heuristic" or "encode"
+	SourcePath string             `json:"sourcePath,omitempty"`
 }
 
 type estimateEntry struct {
@@ -84,6 +89,7 @@ func Handle(mux *http.ServeMux, root string, serverRole bool) {
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
 	if !serverRole {
 		mux.HandleFunc("/api/export/save", handleExportSave(root))
+		mux.HandleFunc("/api/export/folder-picker", handleFolderPicker())
 	}
 }
 
@@ -101,9 +107,10 @@ func handleExportEstimate(root string) http.HandlerFunc {
 		}
 
 		opts := media.ExportOptions{Format: req.Format, Quality: req.Quality, Scale: req.Scale}
+		eRoot := effectiveRoot(root, req.SourcePath)
 		var estimates []estimateEntry
 		for _, relPath := range req.Files {
-			absPath, ok := pathguard.SafePath(root, relPath)
+			absPath, ok := pathguard.SafePath(eRoot, relPath)
 			if !ok {
 				estimates = append(estimates, estimateEntry{File: relPath})
 				continue
@@ -175,6 +182,7 @@ func handleExportZip(root string) http.HandlerFunc {
 		}
 
 		opts := exportOpts(req)
+		eRoot := effectiveRoot(root, req.SourcePath)
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", `attachment; filename="export.zip"`)
 
@@ -182,7 +190,7 @@ func handleExportZip(root string) http.HandlerFunc {
 		defer zw.Close()
 
 		for _, relPath := range req.Files {
-			absPath, ok := pathguard.SafePath(root, relPath)
+			absPath, ok := pathguard.SafePath(eRoot, relPath)
 			if !ok {
 				continue
 			}
@@ -222,7 +230,7 @@ func handleExportSave(root string) http.HandlerFunc {
 		}
 
 		opts := exportOpts(req)
-		results := processExportBatch(root, req.Files, req.Destination, req.Format, opts)
+		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, req.Destination, req.Format, opts)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(exportSaveResponse{Results: results})
@@ -279,7 +287,7 @@ func handleExportZipStream(root string) http.HandlerFunc {
 		send := sseWriter(w, flusher)
 		opts := exportOpts(req)
 
-		tmpPath, err := buildZipFile(r.Context(), root, req.Files, req.Format, opts, send)
+		tmpPath, err := buildZipFile(r.Context(), effectiveRoot(root, req.SourcePath), req.Files, req.Format, opts, send)
 		if err != nil {
 			return // buildZipFile already sent the error event or client disconnected
 		}
@@ -384,6 +392,71 @@ func handleExportZipDownload() http.HandlerFunc {
 		w.Header().Set("Content-Disposition", `attachment; filename="export.zip"`)
 		io.Copy(w, f)
 	}
+}
+
+func handleFolderPicker() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		path, err := openFolderPicker()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"path": path})
+	}
+}
+
+// openFolderPicker invokes the OS-native folder chooser dialog and returns the
+// selected path, or "" if the user cancelled. Returns an error only when no
+// picker is available on the current platform.
+func openFolderPicker() (string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		out, err := exec.Command("osascript", "-e", "POSIX path of (choose folder)").Output()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return "", nil // user cancelled
+			}
+			return "", err
+		}
+		return strings.TrimRight(string(out), "\n"), nil
+	case "linux":
+		for _, tool := range [][]string{
+			{"zenity", "--file-selection", "--directory"},
+			{"kdialog", "--getexistingdirectory"},
+		} {
+			if _, err := exec.LookPath(tool[0]); err != nil {
+				continue
+			}
+			out, err := exec.Command(tool[0], tool[1:]...).Output()
+			if err != nil {
+				return "", nil // user cancelled
+			}
+			return strings.TrimRight(string(out), "\n"), nil
+		}
+		return "", fmt.Errorf("no folder picker available; install zenity or kdialog")
+	default:
+		return "", fmt.Errorf("folder picker not supported on %s", runtime.GOOS)
+	}
+}
+
+// effectiveRoot returns sourcePath when it is a valid existing directory,
+// falling back to browseRoot otherwise. This allows library-mode exports whose
+// file paths are relative to the library source (which may differ from the
+// browse root) to resolve correctly.
+func effectiveRoot(browseRoot, sourcePath string) string {
+	if sourcePath == "" {
+		return browseRoot
+	}
+	info, err := os.Stat(sourcePath)
+	if err != nil || !info.IsDir() {
+		return browseRoot
+	}
+	return sourcePath
 }
 
 func exportOpts(req exportRequest) media.ExportOptions {

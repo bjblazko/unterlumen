@@ -701,7 +701,7 @@ class LibraryTab {
             sourcePath: lib.sourcePath,
             onImageClick: (path) => App.openViewer(path, this._pane),
             onFocusChange: (path) => this._onPhotoFocus(path),
-            onToolInvoke: (params) => App.handleToolInvoke(params),
+            onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: (files) => {
                 publishBtn.disabled = files.length === 0;

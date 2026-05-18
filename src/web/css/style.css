@@ -2462,10 +2462,14 @@ body.slideshow-active #app { height: 100vh; }
 
 .export-destination-wrap {
     margin: 4px 0 4px 20px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
 }
 
 .export-destination-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);

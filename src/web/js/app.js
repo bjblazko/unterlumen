@@ -439,7 +439,7 @@ const App = {
         return null;
     },
 
-    handleToolInvoke({ tool, files, path }) {
+    handleToolInvoke({ tool, files, path, sourcePath }) {
         if (!this.locationModal) this.locationModal = new LocationModal();
         if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
@@ -494,6 +494,7 @@ const App = {
             this.exportModal.open(files, {
                 serverRole: this.config?.serverRole ?? false,
                 exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
+                sourcePath: sourcePath || null,
             });
         }
     },
