@@ -1,9 +1,17 @@
 # Changelog
 
-*Last modified: 2026-05-16*
+*Last modified: 2026-05-18*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Export folder picker** — A `…` button next to the destination path input opens the native OS folder chooser dialog (macOS: system dialog via osascript; Linux: zenity or kdialog). The selected path is filled into the input automatically; cancelling leaves it unchanged.
+
+### Fixed
+
+- **Library export "invalid path"** — Exporting photos from library mode no longer fails with "invalid path". The library's source directory is now passed alongside the export request so the backend resolves file paths against the correct root instead of the browse boundary.
 
 ## [0.8.1] - 2026-05-16
 

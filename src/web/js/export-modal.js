@@ -9,11 +9,12 @@ class ExportModal {
         this._estimateAbort = null; // AbortController for exact estimation
     }
 
-    open(files, { serverRole = false, exiftoolAvailable = false } = {}) {
+    open(files, { serverRole = false, exiftoolAvailable = false, sourcePath = null } = {}) {
         if (this.overlay) this.close();
         this._files = files;
         this._serverRole = serverRole;
         this._exiftoolAvailable = exiftoolAvailable;
+        this._sourcePath = sourcePath;
 
         this._buildDOM();
         document.body.appendChild(this.overlay);
@@ -54,6 +55,7 @@ class ExportModal {
                 </label>
                 <div class="export-destination-wrap">
                     <input type="text" class="export-destination-input" placeholder="/path/to/output/folder">
+                    <button type="button" class="btn btn-sm export-destination-btn" title="Choose folder">…</button>
                 </div>
                 <label class="export-radio-row">
                     <input type="radio" name="output-mode" value="zip"> Download as ZIP
@@ -213,6 +215,19 @@ class ExportModal {
             }
         });
 
+        // Folder picker button
+        const pickerBtn = this.overlay.querySelector('.export-destination-btn');
+        if (pickerBtn) {
+            pickerBtn.addEventListener('click', async () => {
+                try {
+                    const resp = await fetch('/api/export/folder-picker');
+                    if (!resp.ok) return;
+                    const { path } = await resp.json();
+                    if (path) this.overlay.querySelector('.export-destination-input').value = path;
+                } catch (_) {}
+            });
+        }
+
         // Export button
         this.overlay.querySelector('#export-confirm-btn').addEventListener('click', () => this._doExport());
 
@@ -308,6 +323,7 @@ class ExportModal {
             format: this._getFormat(),
             quality: this._getQuality(),
             scale: this._getScaleOptions(),
+            ...(this._sourcePath ? { sourcePath: this._sourcePath } : {}),
         };
         const method = this._getEstimateMethod();
         const totalInEl = this.overlay.querySelector('.export-total-in');
@@ -442,6 +458,7 @@ class ExportModal {
             quality: this._getQuality(),
             scale: this._getScaleOptions(),
             exifMode: this._getExifMode(),
+            ...(this._sourcePath ? { sourcePath: this._sourcePath } : {}),
         };
 
         const outputMode = this._getOutputMode();
