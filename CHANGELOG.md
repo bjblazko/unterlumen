@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-18*
+*Last modified: 2026-05-19*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - **Library export "invalid path"** — Exporting photos from library mode no longer fails with "invalid path". The library's source directory is now passed alongside the export request so the backend resolves file paths against the correct root instead of the browse boundary.
+- **Tools menu in library search/filter results** — Set Geolocation, Export, and other tool actions now fire correctly when invoked from filter results within a library or from cross-library search results. Previously the tools menu appeared but clicking items had no effect because the search-result panes were wired without an `onToolInvoke` callback.
+- **Export from library search/filter results** — Exporting photos selected in filter or cross-library search result grids no longer fails with "invalid path". Library photos are tracked by absolute filesystem paths; the export handler now accepts absolute paths in non-server-role (desktop) mode, validated by file existence.
 
 ## [0.8.1] - 2026-05-16
 
