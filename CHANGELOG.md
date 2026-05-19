@@ -7,10 +7,12 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Design system** — Applied Hüpattl! Design System v1 to the UI. Tokens now use OKLCH colour space with warm-neutral backgrounds, orange accent (`#d35400`), and IBM Plex Mono as the UI typeface. Light and dark themes are fully token-driven; the theme toggle is unchanged.
 - **Export folder picker** — A `…` button next to the destination path input opens the native OS folder chooser dialog (macOS: system dialog via osascript; Linux: zenity or kdialog). The selected path is filled into the input automatically; cancelling leaves it unchanged.
 
 ### Fixed
 
+- **Focus ring invisible in dark/light mode** — Hovering or keyboard-focusing a photo in grid or justified view now shows a soft-orange pulsing ring (4 px inset, 0.9 s breathing animation) that is visible in both themes. Previously the indicator used `--border`, a token designed to match the background, making it effectively invisible.
 - **Library export "invalid path"** — Exporting photos from library mode no longer fails with "invalid path". The library's source directory is now passed alongside the export request so the backend resolves file paths against the correct root instead of the browse boundary.
 - **Tools menu in library search/filter results** — Set Geolocation, Export, and other tool actions now fire correctly when invoked from filter results within a library or from cross-library search results. Previously the tools menu appeared but clicking items had no effect because the search-result panes were wired without an `onToolInvoke` callback.
 - **Export from library search/filter results** — Exporting photos selected in filter or cross-library search result grids no longer fails with "invalid path". Library photos are tracked by absolute filesystem paths; the export handler now accepts absolute paths in non-server-role (desktop) mode, validated by file existence.
