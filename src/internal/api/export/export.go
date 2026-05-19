@@ -83,9 +83,9 @@ type zipStreamEvent struct {
 
 // Handle registers all /api/export/* routes on mux.
 func Handle(mux *http.ServeMux, root string, serverRole bool) {
-	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root))
-	mux.HandleFunc("/api/export/zip", handleExportZip(root))
-	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root))
+	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root, serverRole))
+	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole))
+	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole))
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
 	if !serverRole {
 		mux.HandleFunc("/api/export/save", handleExportSave(root))
@@ -93,7 +93,7 @@ func Handle(mux *http.ServeMux, root string, serverRole bool) {
 	}
 }
 
-func handleExportEstimate(root string) http.HandlerFunc {
+func handleExportEstimate(root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -110,7 +110,7 @@ func handleExportEstimate(root string) http.HandlerFunc {
 		eRoot := effectiveRoot(root, req.SourcePath)
 		var estimates []estimateEntry
 		for _, relPath := range req.Files {
-			absPath, ok := pathguard.SafePath(eRoot, relPath)
+			absPath, ok := resolveFilePath(eRoot, serverRole, relPath)
 			if !ok {
 				estimates = append(estimates, estimateEntry{File: relPath})
 				continue
@@ -168,7 +168,7 @@ func estimateHeuristic(relPath, absPath string, opts media.ExportOptions) estima
 	}
 }
 
-func handleExportZip(root string) http.HandlerFunc {
+func handleExportZip(root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -190,7 +190,7 @@ func handleExportZip(root string) http.HandlerFunc {
 		defer zw.Close()
 
 		for _, relPath := range req.Files {
-			absPath, ok := pathguard.SafePath(eRoot, relPath)
+			absPath, ok := resolveFilePath(eRoot, serverRole, relPath)
 			if !ok {
 				continue
 			}
@@ -230,17 +230,17 @@ func handleExportSave(root string) http.HandlerFunc {
 		}
 
 		opts := exportOpts(req)
-		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, req.Destination, req.Format, opts)
+		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, req.Destination, req.Format, opts, false)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(exportSaveResponse{Results: results})
 	}
 }
 
-func processExportBatch(root string, files []string, dest, format string, opts media.ExportOptions) []exportResult {
+func processExportBatch(root string, files []string, dest, format string, opts media.ExportOptions, serverRole bool) []exportResult {
 	var results []exportResult
 	for _, relPath := range files {
-		absPath, ok := pathguard.SafePath(root, relPath)
+		absPath, ok := resolveFilePath(root, serverRole, relPath)
 		if !ok {
 			results = append(results, exportResult{File: relPath, Error: "invalid path"})
 			continue
@@ -260,7 +260,7 @@ func processExportBatch(root string, files []string, dest, format string, opts m
 	return results
 }
 
-func handleExportZipStream(root string) http.HandlerFunc {
+func handleExportZipStream(root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -287,7 +287,7 @@ func handleExportZipStream(root string) http.HandlerFunc {
 		send := sseWriter(w, flusher)
 		opts := exportOpts(req)
 
-		tmpPath, err := buildZipFile(r.Context(), effectiveRoot(root, req.SourcePath), req.Files, req.Format, opts, send)
+		tmpPath, err := buildZipFile(r.Context(), effectiveRoot(root, req.SourcePath), serverRole, req.Files, req.Format, opts, send)
 		if err != nil {
 			return // buildZipFile already sent the error event or client disconnected
 		}
@@ -302,7 +302,7 @@ func handleExportZipStream(root string) http.HandlerFunc {
 	}
 }
 
-func buildZipFile(ctx context.Context, root string, files []string, format string, opts media.ExportOptions, send func(zipStreamEvent)) (string, error) {
+func buildZipFile(ctx context.Context, root string, serverRole bool, files []string, format string, opts media.ExportOptions, send func(zipStreamEvent)) (string, error) {
 	tmpFile, err := os.CreateTemp("", "unterlumen-zip-*.zip")
 	if err != nil {
 		send(zipStreamEvent{Error: err.Error()})
@@ -325,7 +325,7 @@ func buildZipFile(ctx context.Context, root string, files []string, format strin
 
 		send(zipStreamEvent{File: filepath.Base(relPath), Done: i, Total: total})
 
-		absPath, ok := pathguard.SafePath(root, relPath)
+		absPath, ok := resolveFilePath(root, serverRole, relPath)
 		if !ok {
 			continue
 		}
@@ -457,6 +457,22 @@ func effectiveRoot(browseRoot, sourcePath string) string {
 		return browseRoot
 	}
 	return sourcePath
+}
+
+// resolveFilePath resolves a file for export. Relative paths are validated via
+// pathguard against root. Absolute paths are permitted in non-server-role mode
+// and validated by checking the file exists on disk.
+func resolveFilePath(root string, serverRole bool, filePath string) (string, bool) {
+	if filepath.IsAbs(filePath) {
+		if serverRole {
+			return "", false
+		}
+		if _, err := os.Stat(filePath); err != nil {
+			return "", false
+		}
+		return filePath, true
+	}
+	return pathguard.SafePath(root, filePath)
 }
 
 func exportOpts(req exportRequest) media.ExportOptions {

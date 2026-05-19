@@ -376,6 +376,7 @@ class LibrarySearchPanel {
             onImageClick: (path) => App.openViewer(path, this._searchPane),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
             onFocusChange: this._options.onFocusChange || null,
+            onToolInvoke: this._options.onToolInvoke || null,
             onClose: () => this.close(),
         });
     }

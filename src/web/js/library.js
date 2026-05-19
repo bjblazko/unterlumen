@@ -362,6 +362,7 @@ class LibraryTab {
             {
                 resultsContainer: el.querySelector('#lib-search-results-area'),
                 onFocusChange: (path) => this._onListSearchFocus(path),
+                onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: null }),
                 onClose: () => { if (this._listInfoPanel) this._listInfoPanel.clear(); },
             }
         );
@@ -721,6 +722,7 @@ class LibraryTab {
                 onImageClick: (path) => App.openViewer(path, this._searchPane),
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
+                onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
                 onSelectionChange: () => this._updateCommanderBtn(),
                 onClose: () => this._filterPanel.close(),
             });
