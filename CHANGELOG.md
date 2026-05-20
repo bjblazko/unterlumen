@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-19*
+*Last modified: 2026-05-20*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -10,8 +10,18 @@ All notable changes to this project are documented in this file.
 - **Design system** — Applied Hüpattl! Design System v1 to the UI. Tokens now use OKLCH colour space with warm-neutral backgrounds, orange accent (`#d35400`), and IBM Plex Mono as the UI typeface. Light and dark themes are fully token-driven; the theme toggle is unchanged.
 - **Export folder picker** — A `…` button next to the destination path input opens the native OS folder chooser dialog (macOS: system dialog via osascript; Linux: zenity or kdialog). The selected path is filled into the input automatically; cancelling leaves it unchanged.
 
+### Changed
+
+- **Search / Filter toggle switches** — The "Search" button in the library list view and the "Filter" button in the library detail view now use the design system's pill toggle switch (track + sliding thumb, turns orange when active) instead of a text button with a dot indicator.
+- **Viewer toolbar button groups** — Zoom controls (zoom-out, Fit, zoom-in, reset) and action buttons (Crop, Delete) are now visually connected groups: 1 px separator, shared border, flush inner buttons, matching the design system button-group pattern used elsewhere in the UI.
+- **Viewer info button removed** — The "Info" toolbar button is removed; the `i` keyboard shortcut and the collapsed-panel toggle are the primary controls. The collapsed panel now shows a stroked SVG ⓘ icon instead of the italic serif "i".
+- **SVG navigation icons** — The Back, Previous, and Next buttons in the large-photo viewer now use stroke-based SVG chevrons instead of typographic characters (`← Back`, `‹`, `›`). The up-directory button in all grid views likewise uses an SVG arrow with even padding.
+- **Photo navigation as hover overlays** — Previous and Next chevrons are now absolutely-positioned overlays that fade in on mouse-over and are invisible otherwise, so the photo fills the full window width at all zoom levels and when the UI is hidden with `h`.
+
 ### Fixed
 
+- **Overlay badges missing in library folder view** — GPS pin, film-simulation, and aspect-ratio badges now appear in library folder thumbnails when "Show details" is enabled. The library browse API now fetches GPS, film simulation, and image dimensions from the SQLite DB, and the library pane populates the badge overlay data directly from the response instead of leaving it empty.
+- **Keyboard navigation in cross-library search** — Arrow keys, `i` (info panel), and all other shortcuts now work in the list-view cross-library search results pane. Previously, `getActivePaneForKeyboard()` did not know about the list-view search pane and returned `null`, silently dropping all keyboard events.
 - **Focus ring invisible in dark/light mode** — Hovering or keyboard-focusing a photo in grid or justified view now shows a soft-orange pulsing ring (4 px inset, 0.9 s breathing animation) that is visible in both themes. Previously the indicator used `--border`, a token designed to match the background, making it effectively invisible.
 - **Library export "invalid path"** — Exporting photos from library mode no longer fails with "invalid path". The library's source directory is now passed alongside the export request so the backend resolves file paths against the correct root instead of the browse boundary.
 - **Tools menu in library search/filter results** — Set Geolocation, Export, and other tool actions now fire correctly when invoked from filter results within a library or from cross-library search results. Previously the tools menu appeared but clicking items had no effect because the search-result panes were wired without an `onToolInvoke` callback.

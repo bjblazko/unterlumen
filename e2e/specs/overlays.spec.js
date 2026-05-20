@@ -1,6 +1,10 @@
+import path from 'path';
 import { test, expect } from '@playwright/test';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { GPS_IMAGE, NO_GPS_IMAGE, HIF_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
+import { reindexLibrary } from '../helpers/library.js';
+
+const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
 test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
   test.beforeEach(async ({ page }) => {
@@ -70,5 +74,64 @@ test.describe('Overlays — folder-a/a1 (HIF)', () => {
   test('HIF file shows HEIF file-type badge', async ({ page }) => {
     const badge = page.locator(`[data-name="${HIF_IMAGE}"] .overlay-badge`, { hasText: 'HEIF' });
     await expect(badge).toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe('Overlays — library folder view', () => {
+  let libID;
+
+  test.beforeAll(async ({ request }) => {
+    test.setTimeout(200_000);
+    const existing = await (await request.get('/api/library/')).json();
+    await Promise.all(
+      existing.filter(l => l.name === 'E2E Overlay Library').map(l => request.delete(`/api/library/${l.id}`))
+    );
+    const res = await request.post('/api/library/', {
+      data: { name: 'E2E Overlay Library', description: '', sourcePath: EXAMPLES_PATH },
+    });
+    expect(res.status()).toBe(201);
+    libID = (await res.json()).id;
+    await reindexLibrary(request, libID);
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (libID) await request.delete(`/api/library/${libID}`);
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
+    await page.locator('#mode-library').click();
+    const card = page.locator('.library-card', { hasText: 'E2E Overlay Library' });
+    await card.waitFor({ state: 'visible', timeout: 10_000 });
+    await card.locator('.lib-open').click();
+    await page.waitForSelector('.library-detail', { timeout: 8_000 });
+
+    // Navigate into folder-b
+    const folderB = page.locator('#lib-pane .grid-item.dir-item[data-name="folder-b"]');
+    await folderB.waitFor({ state: 'visible', timeout: 10_000 });
+    await folderB.dblclick();
+    await waitForThumbnailsLoaded(page, 1);
+  });
+
+  test('GPS JPEG gets GPS overlay badge in library view', async ({ page }) => {
+    const gpsBadge = page.locator(`[data-name="${GPS_IMAGE}"] .overlay-badge-gps`);
+    await expect(gpsBadge).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('non-GPS JPEG does not get GPS overlay badge in library view', async ({ page }) => {
+    await expect(page.locator(`[data-name="${GPS_IMAGE}"] .overlay-badge-gps`)).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator(`[data-name="${NO_GPS_IMAGE}"] .overlay-badge-gps`)).not.toBeVisible();
+  });
+
+  test('JPEG files show JPEG file-type badge in library view', async ({ page }) => {
+    const badge = page.locator(`[data-name="${GPS_IMAGE}"] .overlay-badge`, { hasText: 'JPEG' });
+    await expect(badge).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('Fujifilm X-T50 JPEG shows film-simulation badge in library view', async ({ page }) => {
+    // GPS_IMAGE is a Fujifilm X-T50 shot — always records a film simulation in MakerNote
+    const filmBadge = page.locator(`[data-name="${GPS_IMAGE}"] .overlay-badge`).filter({ hasNotText: 'JPEG' }).first();
+    await expect(filmBadge).toBeVisible({ timeout: 5_000 });
   });
 });
