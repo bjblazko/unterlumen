@@ -48,6 +48,13 @@ class LibraryPane extends BrowsePane {
         const photoEntries = (data.photos || []).map(photo => {
             const relPath = this.path ? `${this.path}/${photo.filename}` : photo.filename;
             this._photoMap.set(relPath, { photoID: photo.id });
+            if (photo.exif) {
+                const m = {};
+                if (photo.exif.GPSLatitude)    m.hasGPS = true;
+                if (photo.exif.FilmSimulation) m.filmSimulation = photo.exif.FilmSimulation;
+                if (photo.exif.AspectRatio)    m.aspectRatio = photo.exif.AspectRatio;
+                if (Object.keys(m).length > 0) this._entryMeta[photo.filename] = m;
+            }
             return {
                 name: photo.filename,
                 type: 'image',
@@ -80,7 +87,7 @@ class LibraryPane extends BrowsePane {
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.
     _pollExifDates() {}
-    _pollOverlayMeta() {}
+    _pollOverlayMeta() { if (this.showOverlays) this._updateOverlays(); }
 
     thumbURL(entry, size) {
         const info = this._photoMap.get(this.fullPath(entry.name));
