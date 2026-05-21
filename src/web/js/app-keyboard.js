@@ -150,10 +150,11 @@ class GlobalKeyboard {
         }
 
         // I: toggle info panel in library mode
-        if ((e.key === 'i' || e.key === 'I') && app.mode === 'library' && app._libraryTab && app._libraryTab._infoPanel) {
+        if ((e.key === 'i' || e.key === 'I') && app.mode === 'library' && app._libraryTab) {
             if (document.querySelector('.viewer')) return;
+            const ip = app._libraryTab._infoPanel || app._libraryTab._listInfoPanel;
+            if (!ip) return;
             e.preventDefault();
-            const ip = app._libraryTab._infoPanel;
             ip.toggle();
             if (ip.expanded) {
                 const activePane = app._libraryTab.getActivePaneForKeyboard();

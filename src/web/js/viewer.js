@@ -128,10 +128,6 @@ class Viewer {
         if (this.infoPanel.expanded) {
             this._infoLoadFn(this.currentPath, this.infoPanel);
         }
-        const btn = this.container.querySelector('.viewer-info');
-        if (btn) {
-            btn.classList.toggle('active', this.infoPanel.expanded);
-        }
     }
 
     markCurrentForDeletion() {
@@ -220,7 +216,7 @@ class Viewer {
         this.container.innerHTML = `
             <div class="viewer">
                 <div class="viewer-toolbar">
-                    <button class="btn viewer-back" title="Back (Esc)">← Back</button>
+                    <button class="btn viewer-back" title="Back (Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> Back</button>
                     <span class="viewer-filename">${filename}</span>
                     <span class="viewer-filmstrip-label">Film strip</span>
                     <div class="viewer-filmstrip-toggle-wrap" title="Film strip (F)"></div>
@@ -244,17 +240,18 @@ class Viewer {
                         <button class="btn viewer-zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                         <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
                     </div>
-                    <button class="btn viewer-crop-btn" title="Crop">Crop</button>
-                    <button class="btn viewer-info ${infoActive ? 'active' : ''}" title="Info (I)">Info</button>
-                    <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
+                    <div class="viewer-action-group">
+                        <button class="btn viewer-crop-btn" title="Crop">Crop</button>
+                        <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
+                    </div>
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
-                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}>‹</button>
+                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
                             <img src="${this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
                         </div>
-                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}>›</button>
+                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
                     </div>
                     <div class="viewer-info-container"></div>
                 </div>
@@ -277,7 +274,6 @@ class Viewer {
         });
 
         this.container.querySelector('.viewer-crop-btn').addEventListener('click', () => this._enterCropMode());
-        this.container.querySelector('.viewer-info').addEventListener('click', () => this.toggleInfo());
         this.container.querySelector('.viewer-delete').addEventListener('click', () => this.markCurrentForDeletion());
         const prevBtn = this.container.querySelector('.viewer-prev');
         const nextBtn = this.container.querySelector('.viewer-next');
