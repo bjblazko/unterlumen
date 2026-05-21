@@ -56,7 +56,7 @@ test.describe('Library list view', () => {
 
         await page.locator('#lib-search-btn').click();
         await expect(panel).toHaveClass(/visible/);
-        await expect(page.locator('#lib-search-btn')).toHaveClass(/active/);
+        await expect(page.locator('#lib-search-btn')).toHaveAttribute('data-state', 'on');
 
         await page.locator('#lib-search-btn').click();
         await expect(panel).not.toHaveClass(/visible/);

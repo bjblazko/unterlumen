@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-05-10*
+*Last modified: 2026-05-19*
 
 ## Project
 
@@ -44,7 +44,7 @@ Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignore
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0015)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0018)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 
@@ -52,10 +52,10 @@ Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignore
 
 The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md)), inspired by Braun products (1961–1995). Key rules:
 
-- **Palette**: Off-white (#f5f2ed), warm grays, functional orange (#d35400) for accents
-- **Typography**: Helvetica/system sans-serif, restrained sizes, medium weight
-- **Controls**: Labeled, minimal, no gradients or heavy shadows, 2px border-radius max
-- **Layout**: 8px grid, generous whitespace, photos without ornament
+- **Palette**: Warm neutrals (OKLCH-based), functional orange (#d35400) for accents — see [ADR-0018](doc/architecture/adr/0018-design-system-tokens.md)
+- **Typography**: IBM Plex Mono as UI voice (`--font-mono`); system sans-serif for display/body; restrained sizes, medium weight
+- **Controls**: Labeled, minimal, no gradients or heavy shadows; border-radius uses design system tokens (`--radius-sm` 6px → `--radius-lg` 14px)
+- **Layout**: 8px grid (`--unit`), 4px base spacing scale (`--space-1` … `--space-10`), generous whitespace, photos without ornament
 - **Principle**: "Remove until it breaks." Every element must justify its existence.
 - Apply these principles to all future UI changes.
 

@@ -277,6 +277,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0015](adr/0015-coding-standards.md) — Coding standards and quality guidelines
 - [ADR-0016](adr/0016-global-channel-output.md) — Global channel output directory
 - [ADR-0017](adr/0017-d3-vendored-bundle.md) — Vendor D3.js for statistics visualisations
+- [ADR-0018](adr/0018-design-system-tokens.md) — Adopt Hüpattl! Design System token vocabulary
 
 ## 10. Quality Requirements
 
