@@ -79,7 +79,8 @@ class LibrarySearchPanel {
     close() {
         if (!this._container.classList.contains('visible')) return;
         this._container.classList.remove('visible');
-        this._toggleBtn.classList.remove('active');
+        this._toggleBtn.dataset.state = 'off';
+        this._toggleBtn.setAttribute('aria-checked', 'false');
         if (this._options.onClose) this._options.onClose();
     }
 
@@ -90,7 +91,8 @@ class LibrarySearchPanel {
             return;
         }
         this._container.classList.add('visible');
-        this._toggleBtn.classList.add('active');
+        this._toggleBtn.dataset.state = 'on';
+        this._toggleBtn.setAttribute('aria-checked', 'true');
 
         if (!this._built) {
             this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';

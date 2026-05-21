@@ -415,6 +415,13 @@ body {
     cursor: pointer;
 }
 
+button.toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+}
+
 .toggle-label {
     font-size: 10px;
     text-transform: uppercase;
@@ -592,10 +599,12 @@ body {
 }
 
 .up-dir-btn {
-    font-size: 13px;
-    padding: 1px 6px;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--unit) * 0.75);
     flex-shrink: 0;
+    line-height: 0;
 }
 
 .breadcrumb {
@@ -1352,6 +1361,7 @@ body {
     display: flex;
     align-items: center;
     overflow: hidden;
+    position: relative;
 }
 
 .viewer-image-container {
@@ -1371,24 +1381,35 @@ body {
 }
 
 .viewer-prev, .viewer-next {
-    font-size: 24px;
-    padding: calc(var(--unit) * 3) calc(var(--unit) * 2);
-    background: transparent;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    padding: 0 calc(var(--unit) * 2);
     border: none;
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.75);
     cursor: pointer;
-    flex-shrink: 0;
-    height: 100%;
-    transition: color 0.1s;
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1;
 }
 
-.viewer-prev:hover, .viewer-next:hover {
-    color: rgba(255, 255, 255, 0.7);
+.viewer-prev {
+    left: 0;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.25), transparent);
 }
 
-.viewer-prev.disabled, .viewer-next.disabled {
-    opacity: 0.15;
-    cursor: default;
+.viewer-next {
+    right: 0;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.25), transparent);
+}
+
+.viewer-body:hover .viewer-prev:not(:disabled),
+.viewer-body:hover .viewer-next:not(:disabled) {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .viewer-content {
@@ -1674,10 +1695,6 @@ body.ui-hidden .viewer-filmstrip {
     pointer-events: none;
 }
 
-.viewer-toolbar .viewer-info {
-    margin-left: auto;
-}
-
 /* —— Browse layout —— */
 
 .browse-layout {
@@ -1706,14 +1723,13 @@ body.ui-hidden .viewer-filmstrip {
     background: none;
     border: none;
     color: var(--fg-2);
-    font-size: 16px;
-    font-style: italic;
-    font-family: Georgia, 'Times New Roman', serif;
     cursor: pointer;
     padding: calc(var(--unit) * 1.5);
     width: 100%;
     border-radius: var(--radius-sm);
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .info-toggle-btn:hover {
@@ -4268,15 +4284,34 @@ body.slideshow-active #app { height: 100vh; }
 
 /* --- Zoom Controls --- */
 
-.viewer-zoom-group {
+.viewer-zoom-group,
+.viewer-action-group {
     display: flex;
     align-items: stretch;
-    gap: 2px;
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
 }
 
-.viewer-zoom-group .btn {
+.viewer-zoom-group .btn,
+.viewer-action-group .btn {
     display: inline-flex;
     align-items: center;
+    border: none;
+    border-radius: 0;
+    background: #333;
+}
+
+.viewer-zoom-group .viewer-zoom-select {
+    border: none;
+    border-radius: 0;
+    background: #333;
+}
+
+.viewer-action-group {
+    margin-left: auto;
 }
 
 .viewer-zoom-select {

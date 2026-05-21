@@ -336,7 +336,7 @@ class BrowsePane {
     _renderBreadcrumb() {
         const parts = this.path ? this.path.split('/') : [];
         const isAtRoot = parts.length === 0;
-        const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}>↑</button>`;
+        const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6.5" y1="10.5" x2="6.5" y2="2.5"/><polyline points="3 6 6.5 2.5 10 6"/></svg></button>`;
         let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
         let accumulated = '';
         for (let i = 0; i < parts.length; i++) {

@@ -254,6 +254,9 @@ class LibraryTab {
         if (this._searchPane && this._searchPane.container.style.display !== 'none') {
             return this._searchPane;
         }
+        if (this._listSearchPanel?._searchPane) {
+            return this._listSearchPanel._searchPane;
+        }
         return this._pane;
     }
 
@@ -325,7 +328,10 @@ class LibraryTab {
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
                 <div class="library-list-header-actions">
-                    <button class="btn btn-toggle" id="lib-search-btn">Search</button>
+                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn">
+                        <span class="toggle-label">Search</span>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
@@ -626,7 +632,10 @@ class LibraryTab {
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
-                    <button class="btn btn-sm btn-toggle" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
+                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">
+                        <span class="toggle-label">Filter</span>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>

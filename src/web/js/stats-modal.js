@@ -294,13 +294,24 @@ function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+function resolveColor(cssValue) {
+    const el = document.createElement('div');
+    el.style.color = cssValue;
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    const rgb = getComputedStyle(el).color;
+    document.body.removeChild(el);
+    return rgb;
+}
+
 function chartColors() {
     return {
-        text:    cssVar('--text'),
-        textSec: cssVar('--text-sec'),
-        border:  cssVar('--border'),
-        surface: cssVar('--surface'),
+        text:    cssVar('--fg'),
+        textSec: cssVar('--fg-2'),
+        border:  resolveColor(cssVar('--border')),
+        surface: cssVar('--bg'),
         accent:  cssVar('--accent'),
+        accentRgb: resolveColor(cssVar('--accent')),
         // warm-gray palette for categorical series
         cats: ['#8b7355','#a08060','#b89070','#c8a880','#d4b890','#b8a090','#9a8878','#7a6858'],
     };
@@ -706,10 +717,7 @@ function renderCalendarHeatmap(el, shootingDays) {
     const years = [...new Set(Object.keys(shootingDays).map(d => d.slice(0, 4)))].sort();
     if (!years.length) { el.textContent = 'No data'; return; }
 
-    const maxCount = d3.max(Object.values(shootingDays));
-    const color = d3.scaleSequential()
-        .domain([0, maxCount])
-        .interpolator(d3.interpolateRgb(c.border, c.accent));
+    const maxCount = d3.max(Object.values(shootingDays)) || 1;
 
     let yearIdx = years.length - 1;
 
@@ -798,8 +806,8 @@ function renderCalendarHeatmap(el, shootingDays) {
                     .attr('y', monthLabelHeight + di * step)
                     .attr('width', cellSize).attr('height', cellSize)
                     .attr('rx', 2)
-                    .attr('fill', n > 0 ? color(n) : c.border)
-                    .attr('opacity', n > 0 ? 1 : 0.3);
+                    .attr('fill', n > 0 ? c.accent : c.border)
+                    .attr('opacity', n > 0 ? (0.15 + 0.85 * Math.sqrt(n / maxCount)) : 0.25);
                 if (n > 0) {
                     rect.on('mouseover', function(event) {
                             tooltip.style('display','block').html(`${key}<br>${n} photo${n !== 1 ? 's':''}`);
@@ -998,7 +1006,7 @@ function renderApertureHeat(el, tlData) {
 
     const rowMap = new Map(heat.map(r => [r.period, r.buckets]));
     const totals = new Map(heat.map(r => [r.period, Object.values(r.buckets).reduce((a, b) => a + b, 0)]));
-    const colorScale = d3.scaleSequential([0, 1]).interpolator(d3.interpolateRgb(c.border, c.accent));
+    const cellOpacity = norm => norm > 0 ? (0.15 + 0.85 * Math.sqrt(norm)) : 0;
 
     const svg = svgBase(el, W, H);
     const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
@@ -1027,8 +1035,8 @@ function renderApertureHeat(el, tlData) {
             g.append('rect')
                 .attr('x', pi * cellW).attr('y', bi * cellH)
                 .attr('width', cellW - 1).attr('height', cellH - 1).attr('rx', 1)
-                .attr('fill', count > 0 ? colorScale(norm) : c.border)
-                .attr('opacity', count > 0 ? 1 : 0.2)
+                .attr('fill', count > 0 ? c.accent : c.border)
+                .attr('opacity', count > 0 ? cellOpacity(norm) : 0.2)
                 .on('mouseover', function(event) {
                     if (!count) return;
                     tooltip.style('display', 'block')
