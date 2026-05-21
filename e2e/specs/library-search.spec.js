@@ -64,7 +64,7 @@ test.describe('Search panel — no EXIF data', () => {
     test('closing search panel hides it', async ({ page }) => {
         await page.locator('#lib-search-btn').click();
         await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
-        await expect(page.locator('#lib-search-btn')).not.toHaveClass(/active/);
+        await expect(page.locator('#lib-search-btn')).toHaveAttribute('data-state', 'off');
     });
 });
 
@@ -206,6 +206,24 @@ test.describe('Library search with indexed fixtures', () => {
                 page.locator('.lib-filter-35mm input[type="checkbox"]'),
             ).toBeVisible({ timeout: 5_000 });
         });
+
+        test('arrow key moves focus through search results', async ({ page }) => {
+            // Results render in justified view; photos use .justified-item
+            const results = page.locator('#lib-search-results-area [data-type="image"]');
+            await expect(results.first()).toBeVisible({ timeout: 10_000 });
+            // loadResults sets focusedIndex=0 so first item is already focused
+            await expect(page.locator('#lib-search-results-area .focused')).toHaveCount(1, { timeout: 3_000 });
+            // ArrowRight moves focus to second item — still exactly 1 focused
+            await page.keyboard.press('ArrowRight');
+            await expect(page.locator('#lib-search-results-area .focused')).toHaveCount(1);
+        });
+
+        test('i key opens info panel in list-view search results', async ({ page }) => {
+            const results = page.locator('#lib-search-results-area [data-type="image"]');
+            await expect(results.first()).toBeVisible({ timeout: 10_000 });
+            await page.keyboard.press('i');
+            await expect(page.locator('.info-panel.expanded')).toBeVisible({ timeout: 5_000 });
+        });
     });
 
     // ── Filter panel in library detail view ─────────────────────────────────
@@ -224,7 +242,7 @@ test.describe('Library search with indexed fixtures', () => {
         test('Filter button opens the filter panel in detail view', async ({ page }) => {
             await page.locator('#lib-filter-btn').click();
             await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 5_000 });
-            await expect(page.locator('#lib-filter-btn')).toHaveClass(/active/);
+            await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'on');
         });
 
         test('filter panel in detail view shows sliders', async ({ page }) => {
@@ -242,7 +260,7 @@ test.describe('Library search with indexed fixtures', () => {
 
             await page.locator('#lib-filter-btn').click();
             await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
-            await expect(page.locator('#lib-filter-btn')).not.toHaveClass(/active/);
+            await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'off');
         });
 
         test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {
