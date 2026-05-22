@@ -92,7 +92,9 @@ class SlideshowModal {
                             </label>
                             <div class="ss-builtin-track" style="display:none">
                                 <select class="ss-builtin-select">
-                                    <option value="Sunlight_Through_Leaves.mp3">Sunlight Through Leaves</option>
+                                    <option value="After_Hours_Transit.mp3" selected>After Hours Transit (Electro-Pop)</option>
+                                    <option value="Mahogany_Gravity.mp3">Mahogany Gravity (Classic)</option>
+                                    <option value="Sunlight_Through_Leaves.mp3">Sunlight through the leaves (Piano Pop)</option>
                                 </select>
                             </div>
                             <div class="ss-audio-file-label"></div>
