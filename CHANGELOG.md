@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-05-20*
+*Last modified: 2026-05-22*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -17,6 +17,10 @@ All notable changes to this project are documented in this file.
 - **Viewer info button removed** — The "Info" toolbar button is removed; the `i` keyboard shortcut and the collapsed-panel toggle are the primary controls. The collapsed panel now shows a stroked SVG ⓘ icon instead of the italic serif "i".
 - **SVG navigation icons** — The Back, Previous, and Next buttons in the large-photo viewer now use stroke-based SVG chevrons instead of typographic characters (`← Back`, `‹`, `›`). The up-directory button in all grid views likewise uses an SVG arrow with even padding.
 - **Photo navigation as hover overlays** — Previous and Next chevrons are now absolutely-positioned overlays that fade in on mouse-over and are invisible otherwise, so the photo fills the full window width at all zoom levels and when the UI is hidden with `h`.
+
+### Security
+
+- **golang.org/x/image** updated from v0.39.0 to v0.41.0, picking up fixes for a TIFF out-of-memory amplification (CVE-2026-33809), an SFNT/font parsing OOM (CVE-2026-33812), and a WebP panic on 32-bit platforms (CVE-2026-33813). None of the changed decoders are used by Unterlumen directly; the update is precautionary.
 
 ### Fixed
 
