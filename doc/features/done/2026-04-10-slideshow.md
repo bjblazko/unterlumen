@@ -17,7 +17,7 @@ A **Slideshow** button (play-bar icon, labelled "Slideshow") appears in the brow
 | Delay | 1–60 s (slider) | 5 s |
 | Transition | Fade, Slide, Zoom, Instant | Fade |
 | Display | Single, Ken Burns, 2-up, 4-up | Single |
-| Audio | None, local file, local folder | None |
+| Audio | None, local file, local folder, built-in | None |
 
 **Display modes:**
 - **Single** — one image per frame, centered, `object-fit: contain`
@@ -28,6 +28,7 @@ A **Slideshow** button (play-bar icon, labelled "Slideshow") appears in the brow
 **Audio:**
 - **File…** — opens a file picker for a single audio track; plays on start
 - **Folder…** — opens a directory picker for a folder of audio files; only audio MIME types are used; shuffled and played in sequence, looping back after the last track
+- **Built-in** — three bundled tracks selectable via a checklist; any combination plays in sequence and loops forever; an "In order / Shuffled" sub-toggle controls playback order; selection is persisted to localStorage
 - No online/remote music library (requires API key, network reliability, and a backend proxy — outside scope of the local-first design)
 
 **Transitions** are implemented as CSS keyframe animations applied to the incoming and outgoing `.ss-frame` elements. Ken Burns frames always fade in regardless of the selected transition option (the pan/zoom movement is the visual transition).
@@ -57,6 +58,10 @@ Closing the player restores the browse grid with the same scroll position.
 - [x] 4-up pads gracefully when fewer than 4 images remain at end
 - [x] Single local audio file plays from start of slideshow
 - [x] Audio folder: files are shuffled, loop continuously through all tracks
+- [x] Built-in audio: checklist selects any combination of tracks; tracks play in sequence and loop
+- [x] Built-in "Shuffled" order randomises track sequence before playback
+- [x] Starting with no built-in tracks checked shows an inline error and prevents slideshow start
+- [x] Built-in track selection and order preference persist to localStorage across sessions
 - [x] HUD autohides after 3 s, reappears on mouse movement
 - [x] Esc key and Close button both close the player and restore browse state
 - [x] Dark mode: options modal respects theme variables; player overlay is always black

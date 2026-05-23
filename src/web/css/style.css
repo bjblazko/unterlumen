@@ -2781,18 +2781,53 @@ body.slideshow-active #app { height: 100vh; }
 .ss-builtin-track {
     margin-top: 4px;
     padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.ss-builtin-select {
-    width: 100%;
-    padding: 4px 6px;
-    border: 1px solid #c8c4bd;
-    border-radius: var(--radius-sm);
-    background: var(--bg);
-    font-family: inherit;
+.ss-track-check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     font-size: 0.85rem;
     color: var(--fg);
     cursor: pointer;
+    user-select: none;
+}
+
+.ss-track-check input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.ss-track-order {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+.ss-track-order-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 0.85rem;
+    color: var(--fg-2);
+    cursor: pointer;
+    user-select: none;
+}
+
+.ss-track-order-label input[type="radio"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.ss-track-none-error {
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 2px;
 }
 
 /* --- Libraries --- */

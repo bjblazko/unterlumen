@@ -100,10 +100,22 @@ class SlideshowPlayer {
     }
 
     _setupAudio(options) {
-        if (options.audioMode === 'builtin' && options.builtinTrack) {
-            this._audio = new Audio(`/music/${options.builtinTrack}`);
+        if (options.audioMode === 'builtin' && options.builtinTracks?.length) {
+            let tracks = [...options.builtinTracks];
+            if (options.builtinShuffle) this._shuffleArray(tracks);
+            let idx = 0;
+            this._audio = new Audio(`/music/${tracks[0]}`);
             this._audio.volume = 0.7;
-            this._audio.loop = true;
+            if (tracks.length === 1) {
+                this._audio.loop = true;
+            } else {
+                const playNext = () => {
+                    idx = (idx + 1) % tracks.length;
+                    this._audio.src = `/music/${tracks[idx]}`;
+                    this._audio.play().catch(() => {});
+                };
+                this._audio.addEventListener('ended', playNext);
+            }
             this._audio.play().catch(() => {});
             return;
         }
@@ -111,10 +123,7 @@ class SlideshowPlayer {
         if (options.audioMode === 'none' || !options.audioFiles || options.audioFiles.length === 0) return;
 
         const files = [...options.audioFiles];
-        for (let i = files.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [files[i], files[j]] = [files[j], files[i]];
-        }
+        this._shuffleArray(files);
 
         if (files.length === 1) {
             this._audio = new Audio();
@@ -151,6 +160,13 @@ class SlideshowPlayer {
         this._audioObjectURLs.push(firstURL);
         this._audio.src = firstURL;
         this._audio.play().catch(() => {});
+    }
+
+    _shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
     }
 
     _start() {

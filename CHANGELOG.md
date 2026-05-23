@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Slideshow multi-track built-in music** — The "Built-in" audio option now shows a checklist instead of a single dropdown. Any combination of the three built-in tracks can be selected; they play sequentially and loop forever. An "In order / Shuffled" sub-toggle controls playback order. Track selection and order preference are persisted across sessions.
+
 - **Film simulation "Show photos without" toggle** — The Film Simulation chart now has a pill toggle (off by default) that includes or excludes photos with no Fujifilm film simulation tag. Hiding the dominant "None" bar makes the distribution of actual simulations much easier to read.
 
 ### Changed

@@ -89,11 +89,20 @@ class SlideshowModal {
                                 <input type="radio" name="ss-audio" value="builtin"> Built-in
                             </label>
                             <div class="ss-builtin-track" style="display:none">
-                                <select class="ss-builtin-select">
-                                    <option value="After_Hours_Transit.mp3" selected>After Hours Transit (Electro-Pop)</option>
-                                    <option value="Mahogany_Gravity.mp3">Mahogany Gravity (Classic)</option>
-                                    <option value="Sunlight_Through_Leaves.mp3">Sunlight through the leaves (Piano Pop)</option>
-                                </select>
+                                <label class="ss-track-check">
+                                    <input type="checkbox" class="ss-track-cb" value="After_Hours_Transit.mp3" checked> After Hours Transit (Electro-Pop)
+                                </label>
+                                <label class="ss-track-check">
+                                    <input type="checkbox" class="ss-track-cb" value="Mahogany_Gravity.mp3" checked> Mahogany Gravity (Classic)
+                                </label>
+                                <label class="ss-track-check">
+                                    <input type="checkbox" class="ss-track-cb" value="Sunlight_Through_Leaves.mp3" checked> Sunlight through the leaves (Piano Pop)
+                                </label>
+                                <div class="ss-track-order">
+                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="inorder" checked> In order</label>
+                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="shuffle"> Shuffled</label>
+                                </div>
+                                <span class="ss-track-none-error" style="display:none">Select at least one track.</span>
                             </div>
                             <div class="ss-audio-file-label"></div>
                         </div>
@@ -167,6 +176,15 @@ class SlideshowModal {
 
         if (restoredMode === 'builtin') {
             builtinTrackContainer.style.display = '';
+            const savedTracks = JSON.parse(localStorage.getItem('slideshow-builtin-tracks') || 'null');
+            if (savedTracks) {
+                builtinTrackContainer.querySelectorAll('.ss-track-cb').forEach(cb => {
+                    cb.checked = savedTracks.includes(cb.value);
+                });
+            }
+            if (localStorage.getItem('slideshow-builtin-shuffle') === 'true') {
+                builtinTrackContainer.querySelector('input[value="shuffle"]').checked = true;
+            }
         } else if (this._audioFiles.length > 0) {
             // Files still in memory from this session — show their names
             updateAudioLabel(this._audioFiles);
@@ -213,6 +231,13 @@ class SlideshowModal {
             }
         });
 
+        // Hide track-selection error on any checkbox change
+        builtinTrackContainer.querySelectorAll('.ss-track-cb').forEach(cb => {
+            cb.addEventListener('change', () => {
+                builtinTrackContainer.querySelector('.ss-track-none-error').style.display = 'none';
+            });
+        });
+
         // Start button
         this.overlay.querySelector('.ss-start-btn').addEventListener('click', () => this._onStart());
     }
@@ -223,18 +248,26 @@ class SlideshowModal {
         const display = this.overlay.querySelector('[data-display].active')?.dataset.display || 'single';
         const audioMode = this.overlay.querySelector('input[name="ss-audio"]:checked')?.value || 'none';
         const loop = this._loopToggle.state();
-        const builtinTrack = audioMode === 'builtin'
-            ? (this.overlay.querySelector('.ss-builtin-select')?.value || '')
-            : '';
-        return { delay, transition, display, loop, audioMode, audioFiles: this._audioFiles, builtinTrack };
+        const builtinTracks = audioMode === 'builtin'
+            ? [...this.overlay.querySelectorAll('.ss-track-cb:checked')].map(cb => cb.value)
+            : [];
+        const builtinShuffle = audioMode === 'builtin' &&
+            this.overlay.querySelector('input[name="ss-track-order"]:checked')?.value === 'shuffle';
+        return { delay, transition, display, loop, audioMode, audioFiles: this._audioFiles, builtinTracks, builtinShuffle };
     }
 
     _onStart() {
         const options = this._getOptions();
+        if (options.audioMode === 'builtin' && options.builtinTracks.length === 0) {
+            this.overlay.querySelector('.ss-track-none-error').style.display = '';
+            return;
+        }
         // Persist audio selection for next session
         if (options.audioMode === 'builtin') {
             localStorage.setItem('slideshow-audio-mode', 'builtin');
             localStorage.setItem('slideshow-audio-label', 'Built-in');
+            localStorage.setItem('slideshow-builtin-tracks', JSON.stringify(options.builtinTracks));
+            localStorage.setItem('slideshow-builtin-shuffle', options.builtinShuffle ? 'true' : 'false');
         } else if (options.audioMode !== 'none' && this._audioFiles.length > 0) {
             localStorage.setItem('slideshow-audio-mode', options.audioMode);
             const label = this._audioFiles.length === 1
