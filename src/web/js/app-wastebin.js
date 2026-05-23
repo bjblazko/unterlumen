@@ -40,7 +40,7 @@ class Wastebin {
         this._items.forEach((_, p) => this.selected.add(p));
     }
 
-    async permanentlyDelete(paths, onRefresh) {
+    async permanentlyDelete(paths, onRefresh, afterDelete) {
         const filePaths = Array.from(paths);
 
         if (filePaths.length > 5) {
@@ -62,6 +62,7 @@ class Wastebin {
                 onComplete: () => {
                     this._updateBadge();
                     if (onRefresh) onRefresh();
+                    if (afterDelete) afterDelete();
                 },
             });
             return;
@@ -76,6 +77,7 @@ class Wastebin {
             }
             this._updateBadge();
             if (onRefresh) onRefresh();
+            if (afterDelete) afterDelete();
 
             const failures = result.results.filter(r => !r.success && !r.error.includes('no such file'));
             if (failures.length > 0) {
@@ -131,9 +133,11 @@ class Wastebin {
         document.getElementById('wb-delete').addEventListener('click', async () => {
             const count = this.selected.size;
             if (!confirm(`Permanently delete ${count} file${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
-            await this.permanentlyDelete(this.selected, onRefresh);
-            this.selected.clear();
-            this.render(containerEl, onRefresh);
+            const afterDelete = () => {
+                this.selected.clear();
+                this.render(containerEl, onRefresh);
+            };
+            await this.permanentlyDelete(this.selected, onRefresh, afterDelete);
         });
 
         containerEl.querySelectorAll('[data-type="image"]').forEach(el => {

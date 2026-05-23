@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Wastebin view not refreshing after permanent delete** — When more than five photos were selected for permanent deletion, the ProgressDialog ran asynchronously and the wastebin grid was re-rendered before any files were actually removed, leaving deleted photos still visible. The grid now re-renders only after all deletions complete, in both the single-batch (≤ 5 files) and ProgressDialog (> 5 files) code paths.
+
 - **Statistics format legend truncation** — Format labels (JPEG, HEIF, …) were clipped by the SVG viewBox boundary. The donut SVG is now wider so all labels fit without overflow.
 
 - **Design system** — Applied Hüpattl! Design System v1 to the UI. Tokens now use OKLCH colour space with warm-neutral backgrounds, orange accent (`#d35400`), and IBM Plex Mono as the UI typeface. Light and dark themes are fully token-driven; the theme toggle is unchanged.
