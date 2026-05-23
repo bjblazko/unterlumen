@@ -384,6 +384,7 @@ class LibrarySearchPanel {
     }
 
     _reset() {
+        clearTimeout(this._debounceTimer);
         this._textActive = {};
         this._use35mm = false;
         this._rebuildSliders();

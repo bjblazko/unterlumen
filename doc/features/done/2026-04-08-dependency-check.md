@@ -1,6 +1,6 @@
 # Dependency Check
 
-*Last modified: 2026-04-08*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -32,11 +32,11 @@ The `/api/tools/check` response is extended to:
 
 ## Acceptance Criteria
 
-- [ ] Settings menu contains a "Check dependencies" button
-- [ ] Clicking it opens a modal listing ffmpeg, exiftool, and (on macOS) sips
-- [ ] Available tools show a green checkmark
-- [ ] Missing or broken tools show an orange warning with explanation and install command
-- [ ] ffmpeg installed without HEVC support shows a specific warning (not just "not installed")
-- [ ] Install commands are correct for the current platform (macOS, Linux, Windows)
-- [ ] sips row is only shown on macOS
-- [ ] Modal closes on Escape, overlay click, or Close button
+- [x] Settings menu contains a "Check dependencies" button
+- [x] Clicking it opens a modal listing ffmpeg, exiftool, and (on macOS) sips
+- [x] Available tools show a green checkmark
+- [x] Missing or broken tools show an orange warning with explanation and install command
+- [x] ffmpeg installed without HEVC support shows a specific warning (not just "not installed")
+- [x] Install commands are correct for the current platform (macOS, Linux, Windows)
+- [x] sips row is only shown on macOS
+- [x] Modal closes on Escape, overlay click, or Close button

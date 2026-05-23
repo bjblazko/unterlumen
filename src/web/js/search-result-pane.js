@@ -118,9 +118,9 @@ class SearchResultPane extends BrowsePane {
     _renderBreadcrumb() {
         const n = this._serverTotal || this.entries.length;
         const closeBtn = this._onClose
-            ? `<button class="search-close-btn" title="Close search results">×</button>`
+            ? `<button class="search-close-btn" title="Close filter results">×</button>`
             : '';
-        return `<nav class="breadcrumb search-breadcrumb"><span class="crumb-current">Search results · ${n} photo${n !== 1 ? 's' : ''}</span>${closeBtn}</nav>`;
+        return `<nav class="breadcrumb search-breadcrumb"><span class="crumb-current">Filter results · ${n} photo${n !== 1 ? 's' : ''}</span>${closeBtn}</nav>`;
     }
 
     attachEvents() {

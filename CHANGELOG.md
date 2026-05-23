@@ -1,18 +1,30 @@
 # Changelog
 
-*Last modified: 2026-05-22*
+*Last modified: 2026-05-23*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
 
+- **Film simulation "Show photos without" toggle** — The Film Simulation chart now has a pill toggle (off by default) that includes or excludes photos with no Fujifilm film simulation tag. Hiding the dominant "None" bar makes the distribution of actual simulations much easier to read.
+
+### Changed
+
+- **Statistics snapshot layout** — Time of Day (radial clock) is now in row 1 next to Format, giving the most-glanceable charts top billing. Film Simulation moves to a full-width row below; it is hidden entirely when no Fujifilm film simulation data exists (e.g. iPhone-only libraries), reducing unnecessary scrolling.
+
+### Fixed
+
+- **Statistics format legend truncation** — Format labels (JPEG, HEIF, …) were clipped by the SVG viewBox boundary. The donut SVG is now wider so all labels fit without overflow.
+
 - **Design system** — Applied Hüpattl! Design System v1 to the UI. Tokens now use OKLCH colour space with warm-neutral backgrounds, orange accent (`#d35400`), and IBM Plex Mono as the UI typeface. Light and dark themes are fully token-driven; the theme toggle is unchanged.
 - **Export folder picker** — A `…` button next to the destination path input opens the native OS folder chooser dialog (macOS: system dialog via osascript; Linux: zenity or kdialog). The selected path is filled into the input automatically; cancelling leaves it unchanged.
 
 ### Changed
 
-- **Search / Filter toggle switches** — The "Search" button in the library list view and the "Filter" button in the library detail view now use the design system's pill toggle switch (track + sliding thumb, turns orange when active) instead of a text button with a dot indicator.
+- **Library card spacing** — Cards in the library list are spaced further apart (32 px gap instead of 16 px), aligning with the design system 8 px grid.
+- **Filter toggle switches** — The "Filter" button in both the library list view (cross-library) and the library detail view now use the design system's pill toggle switch (track + sliding thumb, turns orange when active) instead of a text button with a dot indicator.
+- **Cross-library panel renamed to "Filter"** — The toggle button in the library list view that opens the cross-library EXIF panel is now labelled "Filter" (was "Search"), matching the equivalent button in the library detail view. The results breadcrumb likewise reads "Filter results".
 - **Viewer toolbar button groups** — Zoom controls (zoom-out, Fit, zoom-in, reset) and action buttons (Crop, Delete) are now visually connected groups: 1 px separator, shared border, flush inner buttons, matching the design system button-group pattern used elsewhere in the UI.
 - **Viewer info button removed** — The "Info" toolbar button is removed; the `i` keyboard shortcut and the collapsed-panel toggle are the primary controls. The collapsed panel now shows a stroked SVG ⓘ icon instead of the italic serif "i".
 - **SVG navigation icons** — The Back, Previous, and Next buttons in the large-photo viewer now use stroke-based SVG chevrons instead of typographic characters (`← Back`, `‹`, `›`). The up-directory button in all grid views likewise uses an SVG arrow with even padding.
@@ -24,6 +36,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Library filter reset race** — Clicking "Reset filters" while a debounced slider or dropdown query was in flight no longer causes the reset result to be silently overridden. The reset now cancels any pending debounce before issuing its own query.
 - **Overlay badges missing in library folder view** — GPS pin, film-simulation, and aspect-ratio badges now appear in library folder thumbnails when "Show details" is enabled. The library browse API now fetches GPS, film simulation, and image dimensions from the SQLite DB, and the library pane populates the badge overlay data directly from the response instead of leaving it empty.
 - **Keyboard navigation in cross-library search** — Arrow keys, `i` (info panel), and all other shortcuts now work in the list-view cross-library search results pane. Previously, `getActivePaneForKeyboard()` did not know about the list-view search pane and returned `null`, silently dropping all keyboard events.
 - **Focus ring invisible in dark/light mode** — Hovering or keyboard-focusing a photo in grid or justified view now shows a soft-orange pulsing ring (4 px inset, 0.9 s breathing animation) that is visible in both themes. Previously the indicator used `--border`, a token designed to match the background, making it effectively invisible.

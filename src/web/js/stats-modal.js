@@ -250,12 +250,14 @@ class StatsModal {
         const isoCount    = sumCounts(data.isos);
 
         this._addChart(grid, 'Format', false, el => renderFormatDonut(el, data.formats));
-        this._addChart(grid, 'Film simulation', false, el => renderFilmSimBar(el, data.filmSims));
+        this._addChart(grid, 'Time of day', false, el => renderShootingClock(el, data.shootingHours));
+        if (data.filmSims?.some(s => s.name !== 'None')) {
+            this._addChart(grid, 'Film simulation', true, el => renderFilmSimBar(el, data.filmSims));
+        }
         this._addChart(grid, 'Focal length', true, el => renderFocalHistogram(el, expandValues(data.focalLengths), expandValues(data.focalLengths35)), coverageSub(focalCount));
         this._addChart(grid, 'Aperture', false, el => renderApertureHistogram(el, expandValues(data.apertures)), coverageSub(aperCount));
         this._addChart(grid, 'ISO', false, el => renderISOHistogram(el, expandValues(data.isos)), coverageSub(isoCount));
         this._addChart(grid, 'Camera × Lens', true, el => renderCameraLensTreemap(el, data.cameraLens, data.totalPhotos));
-        this._addChart(grid, 'Time of day', false, el => renderShootingClock(el, data.shootingHours));
         this._addChart(grid, 'Shooting calendar', true, el => renderCalendarHeatmap(el, data.shootingDays));
     }
 
@@ -329,7 +331,7 @@ function svgBase(el, w, h) {
 function renderFormatDonut(el, formats) {
     if (!formats?.length) { el.textContent = 'No data'; return; }
     const c = chartColors();
-    const W = 260, H = 220, R = 80, r = 44;
+    const W = 320, H = 220, R = 80, r = 44;
     const svg = svgBase(el, W, H);
     const g = svg.append('g').attr('transform', `translate(${W/2},${H/2})`);
 
@@ -403,32 +405,58 @@ const FILMSIM_COLORS = {
 
 function renderFilmSimBar(el, filmSims) {
     if (!filmSims?.length) { el.textContent = 'No data'; return; }
-    const c = chartColors();
-    const top = filmSims.slice(0, 12);
-    const W = 320, barH = 22, pad = { top: 8, left: 130, right: 50, bottom: 8 };
-    const H = pad.top + top.length * barH + pad.bottom;
-    const svg = svgBase(el, W, H);
 
-    const maxVal = d3.max(top, d => d.count);
-    const x = d3.scaleLinear().domain([0, maxVal]).range([0, W - pad.left - pad.right]);
+    let showNone = false;
 
-    top.forEach((d, i) => {
-        const y = pad.top + i * barH;
-        const name = cleanExif(d.name);
-        const barColor = FILMSIM_COLORS[name] ?? c.cats[i % c.cats.length];
-        svg.append('text')
-            .attr('x', pad.left - 8).attr('y', y + barH/2 + 4)
-            .attr('text-anchor','end').attr('fill', c.text).attr('font-size', 11)
-            .text(name);
-        svg.append('rect')
-            .attr('x', pad.left).attr('y', y + 3)
-            .attr('width', x(d.count)).attr('height', barH - 6)
-            .attr('rx', 2).attr('fill', barColor).attr('opacity', 0.85);
-        svg.append('text')
-            .attr('x', pad.left + x(d.count) + 5).attr('y', y + barH/2 + 4)
-            .attr('fill', c.textSec).attr('font-size', 10)
-            .text(d.count.toLocaleString());
+    const toggleRow = document.createElement('div');
+    toggleRow.className = 'stats-filmsim-toggle-row';
+    toggleRow.innerHTML =
+        '<button class="toggle" role="switch" aria-checked="false" data-state="off">' +
+        '<span class="toggle-label">Show photos without</span>' +
+        '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+        '</button>';
+    el.appendChild(toggleRow);
+
+    const btn = toggleRow.querySelector('.toggle');
+    btn.addEventListener('click', () => {
+        showNone = !showNone;
+        btn.dataset.state = showNone ? 'on' : 'off';
+        btn.setAttribute('aria-checked', String(showNone));
+        svgEl.remove();
+        svgEl = drawSVG();
     });
+
+    let svgEl = drawSVG();
+
+    function drawSVG() {
+        const data = (showNone ? filmSims : filmSims.filter(s => s.name !== 'None')).slice(0, 12);
+        const c = chartColors();
+        const W = 680, barH = 22, pad = { top: 8, left: 130, right: 50, bottom: 8 };
+        const H = pad.top + data.length * barH + pad.bottom;
+        const svg = svgBase(el, W, H);
+
+        const maxVal = d3.max(data, d => d.count);
+        const x = d3.scaleLinear().domain([0, maxVal]).range([0, W - pad.left - pad.right]);
+
+        data.forEach((d, i) => {
+            const y = pad.top + i * barH;
+            const name = cleanExif(d.name);
+            const barColor = FILMSIM_COLORS[name] ?? c.cats[i % c.cats.length];
+            svg.append('text')
+                .attr('x', pad.left - 8).attr('y', y + barH/2 + 4)
+                .attr('text-anchor','end').attr('fill', c.text).attr('font-size', 11)
+                .text(name);
+            svg.append('rect')
+                .attr('x', pad.left).attr('y', y + 3)
+                .attr('width', x(d.count)).attr('height', barH - 6)
+                .attr('rx', 2).attr('fill', barColor).attr('opacity', 0.85);
+            svg.append('text')
+                .attr('x', pad.left + x(d.count) + 5).attr('y', y + barH/2 + 4)
+                .attr('fill', c.textSec).attr('font-size', 10)
+                .text(d.count.toLocaleString());
+        });
+        return svg.node();
+    }
 }
 
 /* ─── 3. Focal length histogram (with 35mm toggle) ─────────────── */

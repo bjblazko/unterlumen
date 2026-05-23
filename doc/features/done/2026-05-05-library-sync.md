@@ -1,6 +1,6 @@
 # Library Sync (Incremental Indexing)
 
-*Last modified: 2026-05-05*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -36,10 +36,10 @@ The combo is only on the library overview cards; the detail view has no scan but
 
 ## Acceptance Criteria
 
-- [ ] After an interrupted re-index, refreshing the library overview shows the partial count already indexed (not 0)
-- [ ] "Scan new and changed" adds new photos, updates changed ones, and re-links renamed files without removing anything
-- [ ] "Scan new and changed" is significantly faster than "Re-index" for large libraries with few changes (path-cache fast-path skips unchanged files without re-hashing)
-- [ ] "Re-index (full)" detects and removes photos for files deleted from disk
-- [ ] "Cleanup deleted" removes photos whose path_hint no longer exists, without re-hashing
-- [ ] Clicking a scan button while a scan is running shows live progress of the ongoing scan (no 409 error)
-- [ ] All scan buttons are disabled while a scan is running; only one scan can run per library at a time
+- [x] After an interrupted re-index, refreshing the library overview shows the partial count already indexed (not 0)
+- [x] "Scan new and changed" adds new photos, updates changed ones, and re-links renamed files without removing anything
+- [x] "Scan new and changed" is significantly faster than "Re-index" for large libraries with few changes (path-cache fast-path skips unchanged files without re-hashing)
+- [x] "Re-index (full)" detects and removes photos for files deleted from disk
+- [x] "Cleanup deleted" removes photos whose path_hint no longer exists, without re-hashing
+- [x] Clicking a scan button while a scan is running shows live progress of the ongoing scan (no 409 error)
+- [x] All scan buttons are disabled while a scan is running; only one scan can run per library at a time

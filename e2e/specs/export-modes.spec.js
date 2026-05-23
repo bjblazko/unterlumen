@@ -1,6 +1,6 @@
 /**
  * Export modes — verifies export works in all four UI contexts:
- *   browse mode, library detail, in-library filter, cross-library search.
+ *   browse mode, library detail, in-library filter, cross-library filter.
  *
  * API tests use actual pathHints (absolute paths) from the library search API
  * to confirm the backend fix for "invalid path" errors.
@@ -116,7 +116,7 @@ test.describe('Export modes', () => {
         });
     });
 
-    // ── A2/A3: library/cross-lib search — save, absolute paths, no sourcePath ─
+    // ── A2/A3: library/cross-lib filter — save, absolute paths, no sourcePath ─
 
     test('A2 library search (no sourcePath): save 2 absolute-path files at 50% scale, strip EXIF', async ({ request }) => {
         await runSaveExport(request, [absPath1, absPath2], {
@@ -124,13 +124,13 @@ test.describe('Export modes', () => {
         });
     });
 
-    test('A3 cross-library search (no sourcePath): zip 2 absolute-path files, max 2048px', async ({ request }) => {
+    test('A3 cross-library filter (no sourcePath): zip 2 absolute-path files, max 2048px', async ({ request }) => {
         await runZipExport(request, [absPath1, absPath2], {
             scale: SCALE_2048W, sourcePath: '',
         });
     });
 
-    // ── B2/B3: library/cross-lib search — zip, absolute paths, no sourcePath ─
+    // ── B2/B3: library/cross-lib filter — zip, absolute paths, no sourcePath ─
 
     test('B2 library search (no sourcePath): zip 2 absolute-path files as JPEG, max 2048px', async ({ request }) => {
         await runZipExport(request, [absPath1, absPath2], {
@@ -138,7 +138,7 @@ test.describe('Export modes', () => {
         });
     });
 
-    test('B3 cross-library search (no sourcePath): save 2 absolute-path files at 50% scale', async ({ request }) => {
+    test('B3 cross-library filter (no sourcePath): save 2 absolute-path files at 50% scale', async ({ request }) => {
         await runSaveExport(request, [absPath1, absPath2], {
             scale: SCALE_50PCT, exifMode: 'strip', sourcePath: '',
         });
@@ -230,24 +230,23 @@ test.describe('Export modes', () => {
         await page.keyboard.press('Escape');
     });
 
-    test('UI cross-library search: photos from list-view search open export modal', async ({ page }) => {
+    test('UI cross-library filter: photos from list-view filter open export modal', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
 
-        // Open the cross-library search panel (list view search).
+        // Open the cross-library filter panel (list view filter).
         await page.locator('#lib-search-btn').click();
         await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
         await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
 
         // Scope to our test library to ensure results appear.
         await page.locator('.lib-search-select').first().selectOption(String(libID));
-        await page.waitForFunction(
-            () => {
-                const el = document.querySelector('.lib-search-status');
-                return el && el.textContent.includes('match');
-            },
+        await page.waitForResponse(
+            res => res.url().includes('/api/library/search')
+                && new URL(res.url()).searchParams.get('ids') === String(libID)
+                && res.status() === 200,
             { timeout: 15_000 },
         );
         await page.waitForSelector('#lib-search-results-area [data-type="image"]', { timeout: 15_000 });

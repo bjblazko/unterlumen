@@ -1,6 +1,6 @@
 # Selection-Filtered Viewer
 
-*Last modified: 2026-04-03*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -15,9 +15,9 @@ When 2 or more images are selected in the gallery, the fullscreen viewer (filmst
 
 ## Acceptance Criteria
 
-- [ ] Selecting 2+ images and opening the viewer shows only those images in the filmstrip
-- [ ] Prev/next and arrow keys navigate only through the selected images
-- [ ] Counter reflects the filtered count (e.g. "1 / 3" for 3 selected images)
-- [ ] Opening the viewer with 0 or 1 selected image shows all folder images
-- [ ] "Deselect" button appears in the status bar when any images are selected
-- [ ] Clicking "Deselect" clears all selections (equivalent to Escape)
+- [x] Selecting 2+ images and opening the viewer shows only those images in the filmstrip
+- [x] Prev/next and arrow keys navigate only through the selected images
+- [x] Counter reflects the filtered count (e.g. "1 / 3" for 3 selected images)
+- [x] Opening the viewer with 0 or 1 selected image shows all folder images
+- [x] "Deselect" button appears in the status bar when any images are selected
+- [x] Clicking "Deselect" clears all selections (equivalent to Escape)

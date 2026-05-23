@@ -2894,7 +2894,7 @@ body.slideshow-active #app { height: 100vh; }
     padding: calc(var(--unit) * 3) calc(var(--unit) * 4);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--unit) * 2);
+    gap: calc(var(--unit) * 4);
 }
 
 .library-card {
@@ -4097,6 +4097,11 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
     color: var(--fg-2);
     margin-bottom: 6px;
+}
+
+/* Film simulation toggle row */
+.stats-filmsim-toggle-row {
+    margin-bottom: 10px;
 }
 
 /* Focal length toggle */

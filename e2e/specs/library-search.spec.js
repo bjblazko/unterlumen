@@ -7,9 +7,9 @@ import { reindexLibrary } from '../helpers/library.js';
 // Using the same path ensures that library photo paths resolve correctly via /api/info.
 const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
-// ─── Search panel — no EXIF data ─────────────────────────────────────────────
+// ─── Filter panel — no EXIF data ─────────────────────────────────────────────
 
-test.describe('Search panel — no EXIF data', () => {
+test.describe('Filter panel — no EXIF data', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
@@ -46,7 +46,7 @@ test.describe('Search panel — no EXIF data', () => {
         );
     });
 
-    test('search panel opens with library selector and reset button', async ({ page }) => {
+    test('filter panel opens with library selector and reset button', async ({ page }) => {
         await expect(page.locator('.lib-search-select').first()).toBeVisible();
         await expect(page.locator('.lib-search-reset')).toBeVisible();
     });
@@ -61,7 +61,7 @@ test.describe('Search panel — no EXIF data', () => {
         await expect(page.locator('.lib-search-status')).toContainText('0');
     });
 
-    test('closing search panel hides it', async ({ page }) => {
+    test('closing filter panel hides it', async ({ page }) => {
         await page.locator('#lib-search-btn').click();
         await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
         await expect(page.locator('#lib-search-btn')).toHaveAttribute('data-state', 'off');
@@ -101,9 +101,9 @@ test.describe('Library search with indexed fixtures', () => {
         );
     }
 
-    // ── Search panel in list view ────────────────────────────────────────────
+    // ── Filter panel in list view ────────────────────────────────────────────
 
-    test.describe('Search panel in list view', () => {
+    test.describe('Filter panel in list view', () => {
         test.beforeEach(async ({ page }) => {
             await page.goto('/');
             await waitForAppReady(page);
@@ -114,7 +114,15 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
             await waitForSearchStatus(page);
             await page.locator('.lib-search-select').first().selectOption(String(libID));
-            await waitForSearchStatus(page);
+            // waitForSearchStatus would pass immediately (status already says "match" from the
+            // initial global search). Wait for the library-specific response instead so that the
+            // count shown in the DOM belongs to this library, not all libraries combined.
+            await page.waitForResponse(
+                res => res.url().includes('/api/library/search')
+                    && new URL(res.url()).searchParams.get('ids') === String(libID)
+                    && res.status() === 200,
+                { timeout: 15_000 },
+            );
         });
 
         test('range sliders render when EXIF data exists', async ({ page }) => {
@@ -134,8 +142,8 @@ test.describe('Library search with indexed fixtures', () => {
             expect(parseInt(countText, 10)).toBeGreaterThan(50);
         });
 
-        test('search breadcrumb shows photo count in results area', async ({ page }) => {
-            await expect(page.locator('.search-breadcrumb')).toContainText('Search results');
+        test('filter breadcrumb shows photo count in results area', async ({ page }) => {
+            await expect(page.locator('.search-breadcrumb')).toContainText('Filter results');
             await expect(page.locator('.search-breadcrumb')).toContainText('photo');
         });
 
@@ -189,15 +197,19 @@ test.describe('Library search with indexed fixtures', () => {
                 { timeout: 5_000 },
             );
 
-            await page.locator('.lib-search-reset').click();
-            await page.waitForFunction(
-                (prev) => {
-                    const el = document.querySelector('.lib-search-status strong');
-                    return el && parseInt(el.textContent, 10) === prev;
-                },
-                total,
-                { timeout: 5_000 },
+            // Register before clicking so the response is never missed.
+            // Match only library-scoped reset queries (ids=libID, no text filter params).
+            const resetResponse = page.waitForResponse(
+                res => res.url().includes('/api/library/search')
+                    && new URL(res.url()).searchParams.get('ids') === String(libID)
+                    && !new URL(res.url()).searchParams.has('Model')
+                    && !new URL(res.url()).searchParams.has('LensModel')
+                    && !new URL(res.url()).searchParams.has('FilmSimulation')
+                    && res.status() === 200,
+                { timeout: 30_000 },
             );
+            await page.locator('.lib-search-reset').click();
+            await resetResponse;
             await expect(status).toHaveText(String(total));
         });
 
@@ -207,7 +219,7 @@ test.describe('Library search with indexed fixtures', () => {
             ).toBeVisible({ timeout: 5_000 });
         });
 
-        test('arrow key moves focus through search results', async ({ page }) => {
+        test('arrow key moves focus through filter results', async ({ page }) => {
             // Results render in justified view; photos use .justified-item
             const results = page.locator('#lib-search-results-area [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
@@ -218,7 +230,7 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('#lib-search-results-area .focused')).toHaveCount(1);
         });
 
-        test('i key opens info panel in list-view search results', async ({ page }) => {
+        test('i key opens info panel in list-view filter results', async ({ page }) => {
             const results = page.locator('#lib-search-results-area [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
             await page.keyboard.press('i');

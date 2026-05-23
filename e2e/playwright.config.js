@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   testDir: './specs',
   fullyParallel: false,
-  retries: process.env.CI ? 1 : 0,
+  retries: 1,
   reporter: process.env.CI ? 'github' : 'list',
   timeout: 60_000,
   use: {

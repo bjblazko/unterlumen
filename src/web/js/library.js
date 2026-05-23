@@ -328,8 +328,8 @@ class LibraryTab {
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
                 <div class="library-list-header-actions">
-                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn">
-                        <span class="toggle-label">Search</span>
+                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">
+                        <span class="toggle-label">Filter</span>
                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
                     </button>
                     <div class="header-actions-sep"></div>

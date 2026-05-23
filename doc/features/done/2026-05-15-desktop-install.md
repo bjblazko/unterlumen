@@ -1,6 +1,6 @@
 # Desktop Install
 
-*Last modified: 2026-05-15*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -44,10 +44,10 @@ No external Go dependencies are introduced.
 
 ## Acceptance Criteria
 
-- [ ] `./unterlumen -desktop-install` prompts for port, photos path, library dir with platform defaults
-- [ ] Pressing Enter at each prompt accepts the default
-- [ ] macOS: `~/Applications/Unterlumen.app` is created; app opens from Spotlight and Launchpad with icon
-- [ ] Linux: `.desktop` file created; app appears in application launcher with icon
-- [ ] Windows: `%LOCALAPPDATA%\Unterlumen\` created; shortcut visible in Start Menu with icon
-- [ ] All platforms: the launcher starts the server on the configured port and opens Chrome in app mode
-- [ ] `go vet ./...` and `go build` pass with no errors
+- [x] `./unterlumen -desktop-install` prompts for port, photos path, library dir with platform defaults
+- [x] Pressing Enter at each prompt accepts the default
+- [x] macOS: `~/Applications/Unterlumen.app` is created; app opens from Spotlight and Launchpad with icon
+- [x] Linux: `.desktop` file created; app appears in application launcher with icon
+- [x] Windows: `%LOCALAPPDATA%\Unterlumen\` created; shortcut visible in Start Menu with icon
+- [x] All platforms: the launcher starts the server on the configured port and opens Chrome in app mode
+- [x] `go vet ./...` and `go build` pass with no errors

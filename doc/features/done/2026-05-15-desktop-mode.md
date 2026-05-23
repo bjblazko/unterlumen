@@ -1,6 +1,6 @@
 # Desktop Mode
 
-*Last modified: 2026-05-15*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -28,9 +28,9 @@ See also: [Desktop Install](2026-05-15-desktop-install.md) — the companion fla
 
 ## Acceptance Criteria
 
-- [ ] `./unterlumen -desktop ~/Pictures` opens a frameless Chrome app window
-- [ ] Closing the Chrome window exits the server process
-- [ ] Ctrl+C also exits cleanly in desktop mode
-- [ ] With Chrome absent, the default browser opens and the server stays alive
-- [ ] `./unterlumen ~/Pictures` (no flag) behaves exactly as before
-- [ ] `go vet ./...` and `go build` pass with no errors
+- [x] `./unterlumen -desktop ~/Pictures` opens a frameless Chrome app window
+- [x] Closing the Chrome window exits the server process
+- [x] Ctrl+C also exits cleanly in desktop mode
+- [x] With Chrome absent, the default browser opens and the server stays alive
+- [x] `./unterlumen ~/Pictures` (no flag) behaves exactly as before
+- [x] `go vet ./...` and `go build` pass with no errors

@@ -79,8 +79,10 @@ test.describe('Statistics modal', () => {
         await page.locator('#lib-stats-btn').click();
         await page.waitForSelector('.stats-grid', { timeout: 30_000 });
 
+        // Film simulation card is absent when the library has no Fuji film sim EXIF data
         const cards = page.locator('.stats-chart');
-        await expect(cards).toHaveCount(8);
+        await expect(cards).toHaveCount(7);
+        await expect(page.locator('.stats-chart-title', { hasText: 'Film simulation' })).toHaveCount(0);
     });
 
     test('Statistics modal has library filter dropdown', async ({ page }) => {

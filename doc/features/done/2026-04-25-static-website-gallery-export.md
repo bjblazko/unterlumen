@@ -1,4 +1,4 @@
-*Last modified: 2026-04-25*
+*Last modified: 2026-05-23*
 
 # Feature: Static Website Gallery Export
 
@@ -56,12 +56,12 @@ This feature is designed to grow into a complete static website generator:
 
 ## Acceptance Criteria
 
-- [ ] Channel Settings shows "Generate HTML gallery on publish" toggle; saved to channel JSON.
-- [ ] Built-in Website channel has `galleryExport: true` by default.
-- [ ] Publish modal shows "Gallery title" input only when the selected channel has `galleryExport` enabled.
-- [ ] Publishing to a gallery channel creates `channels/<slug>/<postID>/` subfolder with photos and `index.html`.
-- [ ] `index.html` contains the gallery title as `<h1>`, all exported photos with `loading="lazy"`, correct `width`/`height` attributes.
-- [ ] HTML is self-contained (no external CSS/JS/fonts).
-- [ ] Publishing to a non-gallery channel writes to the existing flat `channels/<slug>/` folder (no regression).
-- [ ] Toast after gallery publish shows the output folder path.
-- [ ] `GenerateGallery()` unit tests pass.
+- [x] Channel Settings shows "Generate HTML gallery on publish" toggle; saved to channel JSON.
+- [x] Built-in Website channel has `galleryExport: true` by default.
+- [x] Publish modal shows "Gallery title" input only when the selected channel has `galleryExport` enabled.
+- [x] Publishing to a gallery channel creates `channels/<slug>/<postID>/` subfolder with photos and `index.html`.
+- [x] `index.html` contains the gallery title as `<h1>`, all exported photos with `loading="lazy"`, correct `width`/`height` attributes.
+- [x] HTML is self-contained (no external CSS/JS/fonts).
+- [x] Publishing to a non-gallery channel writes to the existing flat `channels/<slug>/` folder (no regression).
+- [x] Toast after gallery publish shows the output folder path.
+- [x] `GenerateGallery()` unit tests pass.

@@ -1,6 +1,6 @@
 # Timeline Statistics
 
-*Last modified: 2026-05-05*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -35,12 +35,12 @@ A "Timeline" tab in the Statistics modal showing how shooting habits evolved ove
 
 ## Acceptance Criteria
 
-- [ ] Statistics modal shows "Snapshot" and "Timeline" tab buttons
-- [ ] "Snapshot" tab shows all existing 8 charts unchanged
-- [ ] "Timeline" tab lazy-loads on first click (shows loading indicator while fetching)
-- [ ] All 6 timeline charts render with real data
-- [ ] Auto granularity detects correctly (month for short libraries, year for long ones)
-- [ ] Month / Year / Auto toggle re-fetches timeline data and re-renders
-- [ ] Library dropdown change clears cached timeline data and re-fetches on next Timeline click
-- [ ] Libraries with no date EXIF show "No data" gracefully in each chart without JS errors
-- [ ] Camera names shown without surrounding quotes in legend
+- [x] Statistics modal shows "Snapshot" and "Timeline" tab buttons
+- [x] "Snapshot" tab shows all existing 8 charts unchanged
+- [x] "Timeline" tab lazy-loads on first click (shows loading indicator while fetching)
+- [x] All 6 timeline charts render with real data
+- [x] Auto granularity detects correctly (month for short libraries, year for long ones)
+- [x] Month / Year / Auto toggle re-fetches timeline data and re-renders
+- [x] Library dropdown change clears cached timeline data and re-fetches on next Timeline click
+- [x] Libraries with no date EXIF show "No data" gracefully in each chart without JS errors
+- [x] Camera names shown without surrounding quotes in legend

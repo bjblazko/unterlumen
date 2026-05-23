@@ -1,6 +1,6 @@
 # Slideshow
 
-*Last modified: 2026-05-10*
+*Last modified: 2026-05-23*
 
 ## Summary
 
@@ -46,17 +46,17 @@ Closing the player restores the browse grid with the same scroll position.
 
 ## Acceptance Criteria
 
-- [ ] "Slideshow" button appears between Tools dropdown and status bar in browse controls
+- [x] "Slideshow" button appears between Tools dropdown and status bar in browse controls
 - [x] Slideshow button is disabled (greyed out, unclickable) when the current folder contains no photos and no folder entry is selected
-- [ ] Clicking a folder entry in the grid selects it (orange border/inset); Ctrl+click adds to selection; single-clicking a photo clears folder selection
-- [ ] When folder entries are selected, the slideshow button activates and plays all photos from those folders recursively (both browse and library modes)
-- [ ] Options dialog shows the count of images to be played (selected photos, selected folder contents, or all)
-- [ ] All four transitions animate correctly with no ghost frames
-- [ ] Ken Burns pan/zoom fills the full delay duration; odd/even frames pan in opposite directions
-- [ ] 2-up advances two images per frame; 4-up advances four; cursor wraps at end
-- [ ] 4-up pads gracefully when fewer than 4 images remain at end
-- [ ] Single local audio file plays from start of slideshow
-- [ ] Audio folder: files are shuffled, loop continuously through all tracks
-- [ ] HUD autohides after 3 s, reappears on mouse movement
-- [ ] Esc key and Close button both close the player and restore browse state
-- [ ] Dark mode: options modal respects theme variables; player overlay is always black
+- [x] Clicking a folder entry in the grid selects it (orange border/inset); Ctrl+click adds to selection; single-clicking a photo clears folder selection
+- [x] When folder entries are selected, the slideshow button activates and plays all photos from those folders recursively (both browse and library modes)
+- [x] Options dialog shows the count of images to be played (selected photos, selected folder contents, or all)
+- [x] All four transitions animate correctly with no ghost frames
+- [x] Ken Burns pan/zoom fills the full delay duration; odd/even frames pan in opposite directions
+- [x] 2-up advances two images per frame; 4-up advances four; cursor wraps at end
+- [x] 4-up pads gracefully when fewer than 4 images remain at end
+- [x] Single local audio file plays from start of slideshow
+- [x] Audio folder: files are shuffled, loop continuously through all tracks
+- [x] HUD autohides after 3 s, reappears on mouse movement
+- [x] Esc key and Close button both close the player and restore browse state
+- [x] Dark mode: options modal respects theme variables; player overlay is always black

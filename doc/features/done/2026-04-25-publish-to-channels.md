@@ -1,4 +1,4 @@
-*Last modified: 2026-04-25 (rev 2)*
+*Last modified: 2026-05-23*
 
 # Feature: Publish to Channels
 
@@ -322,18 +322,18 @@ Go has no first-class XMP library. `src/internal/media/xmp.go` will use `encodin
 
 ## Acceptance Criteria
 
-- [ ] `GET /api/channels` returns the three default channels on first run
-- [ ] Channel CRUD: create, edit name/format/quality/scale/exifMode, delete
-- [ ] Slug is immutable after creation; auto-derived from name on create
-- [ ] `POST /api/library/:id/publish` writes XMP sidecar next to the original
-- [ ] Sidecar contains correct `ul:Channel` and `ul:PublishedAt`
-- [ ] Publishing a second time to the same channel appends a new entry
-- [ ] Publishing to a different channel merges into the same sidecar without losing other namespaces
-- [ ] `photo_meta` key `published:<slug>` is set after successful publish
-- [ ] Export file written to `~/.unterlumen/libraries/<uuid>/channels/<slug>/` with correct filename
-- [ ] Filename format: `<slug>_<YYYYMMDDTHHmmssZ>_<original-basename>.<ext>`
-- [ ] Re-index restores `photo_meta` from sidecars after DB deletion
-- [ ] Publish button appears in library selection toolbar; modal shows channel + date + output path preview
-- [ ] Channel settings screen: list, edit, delete, add channel
-- [ ] `go vet ./...` passes
-- [ ] E2E: publish photo to instagram → check export file exists → delete DB → re-index → check `photo_meta` restored
+- [x] `GET /api/channels` returns the three default channels on first run
+- [x] Channel CRUD: create, edit name/format/quality/scale/exifMode, delete
+- [x] Slug is immutable after creation; auto-derived from name on create
+- [x] `POST /api/library/:id/publish` writes XMP sidecar next to the original
+- [x] Sidecar contains correct `ul:Channel` and `ul:PublishedAt`
+- [x] Publishing a second time to the same channel appends a new entry
+- [x] Publishing to a different channel merges into the same sidecar without losing other namespaces
+- [x] `photo_meta` key `published:<slug>` is set after successful publish
+- [x] Export file written to `~/.unterlumen/libraries/<uuid>/channels/<slug>/` with correct filename
+- [x] Filename format: `<slug>_<YYYYMMDDTHHmmssZ>_<original-basename>.<ext>`
+- [x] Re-index restores `photo_meta` from sidecars after DB deletion
+- [x] Publish button appears in library selection toolbar; modal shows channel + date + output path preview
+- [x] Channel settings screen: list, edit, delete, add channel
+- [x] `go vet ./...` passes
+- [x] E2E: publish photo to instagram → check export file exists → delete DB → re-index → check `photo_meta` restored
