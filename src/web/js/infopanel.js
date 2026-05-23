@@ -183,24 +183,26 @@ class InfoPanel {
         const controls = this.container.querySelector('.info-map-controls');
         if (!controls) return;
 
-        controls.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            const action = btn.dataset.action;
-            if (action === '2d') {
-                this.mapStyle = '2d';
-                this.map.setPitch(0);
-                this.map.setBearing(0);
-            } else if (action === '3d') {
-                this.mapStyle = '3d';
-                this.map.setPitch(60);
-            } else if (action === 'open') {
-                window.open('https://www.openstreetmap.org/#map=16/' + lat + '/' + lon, '_blank');
-                return;
-            }
-            controls.querySelectorAll('button[data-action="2d"], button[data-action="3d"]').forEach(b => {
-                b.classList.toggle('active', b.dataset.action === this.mapStyle);
+        const styleWrap = controls.querySelector('.info-map-style-wrap');
+        if (styleWrap) {
+            Toggle.create(styleWrap, {
+                initial: false,
+                labelOn: '3D',
+                labelOff: '2D',
+                onChange: (on) => {
+                    this.mapStyle = on ? '3d' : '2d';
+                    if (on) {
+                        this.map.setPitch(60);
+                    } else {
+                        this.map.setPitch(0);
+                        this.map.setBearing(0);
+                    }
+                }
             });
+        }
+
+        controls.querySelector('[data-action="open"]')?.addEventListener('click', () => {
+            window.open('https://www.openstreetmap.org/#map=16/' + lat + '/' + lon, '_blank');
         });
     }
 
@@ -228,8 +230,7 @@ class InfoPanel {
             const locRows = [];
             locRows.push('<div id="info-map" class="info-map-container" data-lat="' + lat + '" data-lon="' + lon + '"></div>');
             locRows.push('<div class="info-map-controls">' +
-                '<button class="btn btn-sm active" data-action="2d">2D</button>' +
-                '<button class="btn btn-sm" data-action="3d">3D</button>' +
+                '<div class="info-map-style-wrap"></div>' +
                 '<button class="btn btn-sm" data-action="open">\u2197 Open</button>' +
             '</div>');
             locRows.push(this.row('Latitude', lat));

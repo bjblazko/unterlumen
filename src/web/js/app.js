@@ -48,7 +48,6 @@ const App = {
 
         this.keyboard.attach();
         this.theme.init();
-        this.theme.initThumbnailQuality();
         this._initUIVisibility();
         this.initSettingsMenu();
 
@@ -116,10 +115,14 @@ const App = {
                 this.theme._apply(preference);
                 this.theme._updateButtons(preference);
             }
-            const thumbBtn = e.target.closest('[data-thumb-quality]');
-            if (thumbBtn) {
-                this.theme.setQuality(thumbBtn.dataset.thumbQuality);
-            }
+        });
+
+        const savedQ = localStorage.getItem('thumbnail-quality') || 'standard';
+        this._qualityToggle = Toggle.create(document.getElementById('settings-thumb-quality-wrap'), {
+            initial: savedQ === 'high',
+            labelOn: 'High',
+            labelOff: 'Standard',
+            onChange: (on) => this.theme.setQuality(on ? 'high' : 'standard')
         });
 
         this._hideUiToggle = Toggle.create(document.getElementById('settings-hide-ui-wrap'), {

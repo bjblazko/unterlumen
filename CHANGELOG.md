@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Toggle sliders — three-label rule enforced** — Every binary on/off toggle now shows three visible labels: a purpose label, an ON-state label, and an OFF-state label, so state is readable without depending on colour alone. Concretely: the library "Filter" toggles and the statistics film-simulation toggle gain ON/OFF labels; the settings "Interface" label is renamed to "Show interface"; the slideshow loop checkbox, library filter 35mm-equivalent checkbox, statistics focal-length Native/35mm selector, info-panel map 2D/3D selector, and settings thumbnail-quality Standard/High selector are all converted to proper toggle sliders. `Toggle.create()` gains `labelOn`/`labelOff` options for contextual state labels.
+
 - **Statistics snapshot layout** — Time of Day (radial clock) is now in row 1 next to Format, giving the most-glanceable charts top billing. Film Simulation moves to a full-width row below; it is hidden entirely when no Fujifilm film simulation data exists (e.g. iPhone-only libraries), reducing unnecessary scrolling.
 
 ### Fixed

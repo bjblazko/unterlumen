@@ -412,8 +412,10 @@ function renderFilmSimBar(el, filmSims) {
     toggleRow.className = 'stats-filmsim-toggle-row';
     toggleRow.innerHTML =
         '<button class="toggle" role="switch" aria-checked="false" data-state="off">' +
-        '<span class="toggle-label">Show photos without</span>' +
+        '<span class="toggle-label">Include untagged</span>' +
+        '<span class="toggle-label toggle-label-on">ON</span>' +
         '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
+        '<span class="toggle-label toggle-label-off">OFF</span>' +
         '</button>';
     el.appendChild(toggleRow);
 
@@ -466,20 +468,19 @@ function renderFocalHistogram(el, focalLengths, focalLengths35) {
     let show35 = false;
 
     if (has35) {
-        const toggle = document.createElement('div');
-        toggle.className = 'stats-focal-toggle';
-        toggle.innerHTML = `
-            <button class="stats-toggle-btn stats-toggle-active" data-mode="native">Native</button>
-            <button class="stats-toggle-btn" data-mode="35mm">35mm equiv</button>`;
-        el.appendChild(toggle);
-        toggle.addEventListener('click', e => {
-            const btn = e.target.closest('.stats-toggle-btn');
-            if (!btn) return;
-            show35 = btn.dataset.mode === '35mm';
-            toggle.querySelectorAll('.stats-toggle-btn').forEach(b => b.classList.toggle('stats-toggle-active', b === btn));
-            svgEl.remove();
-            svgEl = drawFocalSVG(show35 ? focalLengths35 : focalLengths);
+        const wrap = document.createElement('div');
+        wrap.className = 'stats-focal-toggle';
+        Toggle.create(wrap, {
+            initial: false,
+            labelOn: '35mm',
+            labelOff: 'Native',
+            onChange: (on) => {
+                show35 = on;
+                svgEl.remove();
+                svgEl = drawFocalSVG(show35 ? focalLengths35 : focalLengths);
+            }
         });
+        el.appendChild(wrap);
     }
 
     let svgEl = drawFocalSVG(focalLengths);

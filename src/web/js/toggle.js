@@ -4,15 +4,17 @@ const Toggle = {
     create(container, options = {}) {
         const initial = options.initial || false;
         const onChange = options.onChange || null;
+        const labelOn = options.labelOn || 'ON';
+        const labelOff = options.labelOff || 'OFF';
         const el = document.createElement('div');
         el.className = 'toggle';
         el.dataset.state = initial ? 'on' : 'off';
         el.setAttribute('role', 'switch');
         el.setAttribute('aria-checked', String(initial));
         el.innerHTML =
-            '<span class="toggle-label toggle-label-on">ON</span>' +
+            `<span class="toggle-label toggle-label-on">${labelOn}</span>` +
             '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
-            '<span class="toggle-label toggle-label-off">OFF</span>';
+            `<span class="toggle-label toggle-label-off">${labelOff}</span>`;
         el.addEventListener('click', () => {
             const on = el.dataset.state !== 'on';
             el.dataset.state = on ? 'on' : 'off';

@@ -71,9 +71,7 @@ class SlideshowModal {
                     </div>
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Loop</span>
-                        <label class="export-radio-row">
-                            <input type="checkbox" class="ss-loop-check"> Repeat endlessly
-                        </label>
+                        <div class="ss-loop-wrap"></div>
                     </div>
                     <div class="ss-opt-section ss-opt-audio-section">
                         <span class="ss-opt-label">Audio</span>
@@ -154,10 +152,10 @@ class SlideshowModal {
         };
 
         // Restore loop preference
-        const loopCheck = this.overlay.querySelector('.ss-loop-check');
-        loopCheck.checked = localStorage.getItem('slideshow-loop') !== 'false';
-        loopCheck.addEventListener('change', () => {
-            localStorage.setItem('slideshow-loop', loopCheck.checked);
+        const savedLoop = localStorage.getItem('slideshow-loop') !== 'false';
+        this._loopToggle = Toggle.create(this.overlay.querySelector('.ss-loop-wrap'), {
+            initial: savedLoop,
+            onChange: (on) => { localStorage.setItem('slideshow-loop', on); }
         });
 
         // Restore state from current session or localStorage
@@ -224,7 +222,7 @@ class SlideshowModal {
         const transition = this.overlay.querySelector('[data-transition].active')?.dataset.transition || 'fade';
         const display = this.overlay.querySelector('[data-display].active')?.dataset.display || 'single';
         const audioMode = this.overlay.querySelector('input[name="ss-audio"]:checked')?.value || 'none';
-        const loop = this.overlay.querySelector('.ss-loop-check').checked;
+        const loop = this._loopToggle.state();
         const builtinTrack = audioMode === 'builtin'
             ? (this.overlay.querySelector('.ss-builtin-select')?.value || '')
             : '';

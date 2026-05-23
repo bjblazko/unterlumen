@@ -225,19 +225,19 @@ class LibrarySearchPanel {
         group.appendChild(this._buildRangeSlider(spec, activeField, range, displaySpan));
 
         if (spec.field === 'FocalLength') {
-            const label = document.createElement('label');
-            label.className = 'lib-filter-35mm';
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = this._use35mm;
-            cb.addEventListener('change', () => {
-                this._use35mm = cb.checked;
-                this._rebuildSliders();
-                this._runQuery();
+            const wrap = document.createElement('div');
+            wrap.className = 'lib-filter-35mm';
+            Toggle.create(wrap, {
+                initial: this._use35mm,
+                labelOn: '35mm',
+                labelOff: 'Native',
+                onChange: (on) => {
+                    this._use35mm = on;
+                    this._rebuildSliders();
+                    this._runQuery();
+                }
             });
-            label.appendChild(cb);
-            label.appendChild(document.createTextNode('35mm equivalent'));
-            group.appendChild(label);
+            group.appendChild(wrap);
         }
 
         return group;

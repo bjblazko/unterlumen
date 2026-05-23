@@ -30,20 +30,8 @@ class ThemeManager {
         });
     }
 
-    initThumbnailQuality() {
-        const saved = localStorage.getItem('thumbnail-quality') || 'standard';
-        this._updateQualityButtons(saved);
-    }
-
-    _updateQualityButtons(quality) {
-        document.querySelectorAll('[data-thumb-quality]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.thumbQuality === quality);
-        });
-    }
-
     setQuality(quality) {
         localStorage.setItem('thumbnail-quality', quality);
-        this._updateQualityButtons(quality);
         const app = this._app;
         if (app.browsePane) app.browsePane.reloadThumbnails();
         if (app.commander) {
