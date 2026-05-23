@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Slideshow ghost image on portrait photos** — When a portrait photo followed a landscape photo, the old image remained faintly visible in the letterbox areas during the fade transition. The `.ss-frame` container now carries a `background: #000` so transparent regions in portrait (contain-fit) frames are solid black, hiding the outgoing frame behind them. Fix applies to all display modes and transition types.
+
 - **Wastebin view not refreshing after permanent delete** — When more than five photos were selected for permanent deletion, the ProgressDialog ran asynchronously and the wastebin grid was re-rendered before any files were actually removed, leaving deleted photos still visible. The grid now re-renders only after all deletions complete, in both the single-batch (≤ 5 files) and ProgressDialog (> 5 files) code paths.
 
 - **Statistics format legend truncation** — Format labels (JPEG, HEIF, …) were clipped by the SVG viewBox boundary. The donut SVG is now wider so all labels fit without overflow.

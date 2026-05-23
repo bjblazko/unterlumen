@@ -2591,6 +2591,7 @@ body.slideshow-active #app { height: 100vh; }
 .ss-frame {
     position: absolute;
     inset: 0;
+    background: #000;
     display: flex;
     align-items: stretch;
     justify-content: center;
