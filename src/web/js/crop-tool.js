@@ -63,22 +63,13 @@ class CropTool {
     }
 
     // Bounding rect of the visible image content in viewport coordinates.
-    // object-fit: contain may letterbox/pillarbox the image inside the element;
-    // we need the inner rect, not the element rect.
+    // The img element is sized by CSS (max-width/max-height: 100%) to exactly
+    // the visual image dimensions, so getBoundingClientRect() == content area.
+    // Using naturalWidth/naturalHeight is unreliable for EXIF-rotated images
+    // across browsers, so we rely on the element bounds directly.
     _imgRect() {
-        const el = this._img.getBoundingClientRect();
-        const nw = this._img.naturalWidth;
-        const nh = this._img.naturalHeight;
-        if (nw <= 0 || nh <= 0) return el;
-        const scale = Math.min(el.width / nw, el.height / nh);
-        const rw = nw * scale;
-        const rh = nh * scale;
-        return {
-            left:   el.left + (el.width  - rw) / 2,
-            top:    el.top  + (el.height - rh) / 2,
-            width:  rw,
-            height: rh,
-        };
+        const r = this._img.getBoundingClientRect();
+        return { left: r.left, top: r.top, width: r.width, height: r.height };
     }
 
     // Convert viewport coords to fraction coords relative to the image.

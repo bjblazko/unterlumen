@@ -362,6 +362,9 @@ class Viewer {
         if (prevBtn) prevBtn.style.visibility = 'hidden';
         if (nextBtn) nextBtn.style.visibility = 'hidden';
 
+        // Reset zoom to fit so the overlay covers the full visible image.
+        if (this._zoomTool) this._zoomTool.reset();
+
         const img = this.container.querySelector('.viewer-image-container img');
         this._cropTool = new CropTool(img);
 
@@ -401,6 +404,14 @@ class Viewer {
         try {
             await API.crop(this.currentPath, rect.x, rect.y, rect.width, rect.height);
             this._cacheBust = Date.now();
+            // Refresh the film strip thumbnail so it reflects the cropped image.
+            if (this.filmStripEl) {
+                const thumb = this.filmStripEl.children[this.currentIndex];
+                if (thumb) {
+                    const tImg = thumb.querySelector('img');
+                    if (tImg) tImg.src = this._thumbURLFn(this.currentPath) + '&t=' + this._cacheBust;
+                }
+            }
             this._exitCropMode();
         } catch (err) {
             if (applyBtn) {

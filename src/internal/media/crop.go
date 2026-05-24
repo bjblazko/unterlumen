@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -153,47 +152,77 @@ func cropHEIF(srcPath string, x, y, w, h float64) error {
 		return fmt.Errorf("HEIF crop requires sips (macOS only)")
 	}
 
-	// sips reports visual (orientation-applied) pixel dimensions.
-	vW, vH, err := sipsGetDimensions(srcPath)
+	// sips --cropOffset uses an ambiguous coordinate space that varies with how the
+	// HEIC stores rotation metadata (irot box vs. embedded-JPEG EXIF). To avoid this,
+	// decode to a visual JPEG first (sips applies all orientation sources, baking
+	// rotation into pixel data), crop in Go image space (unambiguous), then re-encode
+	// back to HEIC. This two-pass approach is slower but guarantees correct coordinates.
+	displayJPEG, err := sipsConvert(srcPath)
 	if err != nil {
-		return fmt.Errorf("get dimensions: %w", err)
+		return fmt.Errorf("HEIF decode: %w", err)
 	}
 
-	cX := clampInt(int(x*float64(vW)), 0, vW)
-	cY := clampInt(int(y*float64(vH)), 0, vH)
-	cW := clampInt(int(w*float64(vW)), 0, vW-cX)
-	cH := clampInt(int(h*float64(vH)), 0, vH-cY)
-	if cW <= 0 || cH <= 0 {
-		return fmt.Errorf("crop region is empty")
+	img, err := jpeg.Decode(bytes.NewReader(displayJPEG))
+	if err != nil {
+		return fmt.Errorf("JPEG decode: %w", err)
 	}
 
-	// Create temp file with .heic extension so sips outputs HEIF.
-	tmp, err := os.CreateTemp(filepath.Dir(srcPath), ".crop_tmp_*.heic")
+	// sipsConvert may return the stored (encoded) pixels with EXIF orientation
+	// preserved rather than baked in. Apply orientation explicitly so the crop
+	// is computed in the visual (display) coordinate space.
+	if ori := extractJPEGOrientation(displayJPEG); ori > 1 {
+		img = applyOrientation(img, ori)
+	}
+
+	cropped, err := cropRect(img, x, y, w, h)
 	if err != nil {
 		return err
 	}
-	tmp.Close()
-	tmpPath := tmp.Name()
-	os.Remove(tmpPath) // sips creates the output file itself
+
+	var jpegBuf bytes.Buffer
+	if err := jpeg.Encode(&jpegBuf, cropped, &jpeg.Options{Quality: 92}); err != nil {
+		return fmt.Errorf("JPEG encode: %w", err)
+	}
+
+	dir := filepath.Dir(srcPath)
+
+	// Write cropped JPEG to a temp file.
+	tmpJPG, err := os.CreateTemp(dir, ".crop_tmp_*.jpg")
+	if err != nil {
+		return err
+	}
+	tmpJPGPath := tmpJPG.Name()
+	_, writeErr := tmpJPG.Write(jpegBuf.Bytes())
+	tmpJPG.Close()
+	if writeErr != nil {
+		os.Remove(tmpJPGPath)
+		return writeErr
+	}
+	defer os.Remove(tmpJPGPath)
+
+	// Convert cropped JPEG to HEIC.
+	tmpHEIC, err := os.CreateTemp(dir, ".crop_tmp_*.heic")
+	if err != nil {
+		return err
+	}
+	tmpHEIC.Close()
+	tmpHEICPath := tmpHEIC.Name()
+	os.Remove(tmpHEICPath) // sips creates the output file itself
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("sips",
-		"--cropToHeightWidth", strconv.Itoa(cH), strconv.Itoa(cW),
-		"--cropOffset", strconv.Itoa(cY), strconv.Itoa(cX),
-		srcPath, "--out", tmpPath,
-	)
+	cmd := exec.Command("sips", "-s", "format", "heic", tmpJPGPath, "--out", tmpHEICPath)
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("sips crop: %v: %s", err, stderr.String())
+		os.Remove(tmpHEICPath)
+		return fmt.Errorf("sips HEIC encode: %v: %s", err, stderr.String())
 	}
 
-	if err := cropCopyMetadata(srcPath, tmpPath); err != nil {
-		os.Remove(tmpPath)
+	if err := cropCopyMetadata(srcPath, tmpHEICPath); err != nil {
+		os.Remove(tmpHEICPath)
 		return err
 	}
 
-	return os.Rename(tmpPath, srcPath)
+	return os.Rename(tmpHEICPath, srcPath)
 }
 
 // cropCopyMetadata copies all metadata from srcPath to dstPath using exiftool,
@@ -222,47 +251,6 @@ func cropCopyMetadata(srcPath, dstPath string) error {
 		return fmt.Errorf("exiftool metadata copy: %v: %s", err, stderr.String())
 	}
 	return nil
-}
-
-// sipsGetDimensions returns the visual (orientation-applied) pixel dimensions
-// of an image file as reported by sips.
-func sipsGetDimensions(path string) (int, int, error) {
-	var out, stderr bytes.Buffer
-	cmd := exec.Command("sips", "-g", "pixelWidth", "-g", "pixelHeight", path)
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return 0, 0, fmt.Errorf("sips -g: %v: %s", err, stderr.String())
-	}
-	return parseSipsDimensions(out.String())
-}
-
-// parseSipsDimensions parses output like:
-//
-//	/path/to/file.heic
-//	  pixelWidth: 4032
-//	  pixelHeight: 3024
-func parseSipsDimensions(output string) (int, int, error) {
-	var w, h int
-	for _, line := range strings.Split(output, "\n") {
-		line = strings.TrimSpace(line)
-		if after, ok := strings.CutPrefix(line, "pixelWidth: "); ok {
-			v, err := strconv.Atoi(strings.TrimSpace(after))
-			if err == nil {
-				w = v
-			}
-		}
-		if after, ok := strings.CutPrefix(line, "pixelHeight: "); ok {
-			v, err := strconv.Atoi(strings.TrimSpace(after))
-			if err == nil {
-				h = v
-			}
-		}
-	}
-	if w <= 0 || h <= 0 {
-		return 0, 0, fmt.Errorf("could not parse sips dimensions from output: %q", output)
-	}
-	return w, h, nil
 }
 
 func clampInt(v, lo, hi int) int {

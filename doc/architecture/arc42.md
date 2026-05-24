@@ -281,6 +281,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0017](adr/0017-d3-vendored-bundle.md) — Vendor D3.js for statistics visualisations
 - [ADR-0018](adr/0018-design-system-tokens.md) — Adopt Hüpattl! Design System token vocabulary
 - [ADR-0019](adr/0019-toggle-three-label-rule.md) — Toggle sliders must carry three visible labels
+- [ADR-0020](adr/0020-heic-crop-pipeline.md) — HEIC in-place crop via JPEG intermediary
 
 ## 10. Quality Requirements
 

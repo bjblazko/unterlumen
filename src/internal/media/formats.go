@@ -155,6 +155,37 @@ func writeCache(key string, data []byte) {
 	os.WriteFile(filepath.Join(getCacheDir(), key), data, 0600)
 }
 
+// EvictFile removes all cached thumbnails and conversions for the given source file.
+// Called after in-place edits (e.g. crop) to prevent stale cache entries.
+func EvictFile(srcPath string) {
+	sizes := []int{50, 100, 150, 200, 300, 400, 600, 800, 1024}
+	orientations := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	streamIndices := []int{0, 1, 2, 3, 4}
+
+	purposes := []string{"thumb-exif-v2", "full-v3"}
+	for _, sz := range sizes {
+		purposes = append(purposes,
+			fmt.Sprintf("thumb-heif-preview-%s-%d", thumbnailCacheVersion, sz),
+			fmt.Sprintf("thumb-heif-source-%s-%d", thumbnailCacheVersion, sz),
+		)
+		for _, ori := range orientations {
+			purposes = append(purposes,
+				fmt.Sprintf("thumb-source-%s-%d-%d", thumbnailCacheVersion, ori, sz),
+			)
+		}
+		for _, si := range streamIndices {
+			purposes = append(purposes,
+				fmt.Sprintf("preview-v4-%d-q80-%d", si, sz),
+			)
+		}
+	}
+
+	dir := getCacheDir()
+	for _, p := range purposes {
+		os.Remove(filepath.Join(dir, cacheKey(srcPath, p)))
+	}
+}
+
 // --- HEIF conversion ---
 
 // ConvertHEIFToJPEG extracts the best available JPEG from a HEIF file.

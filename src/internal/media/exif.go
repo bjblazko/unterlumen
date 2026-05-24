@@ -141,6 +141,24 @@ func buildEntryMeta(x *exif.Exif) *EntryMeta {
 	return meta
 }
 
+// extractJPEGOrientation reads the EXIF orientation tag from raw JPEG bytes.
+// Returns 1 (normal) on any error or missing tag.
+func extractJPEGOrientation(data []byte) int {
+	x, err := exif.Decode(bytes.NewReader(data))
+	if err != nil {
+		return 1
+	}
+	tag, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 1
+	}
+	v, err := tag.Int(0)
+	if err != nil || v < 1 || v > 8 {
+		return 1
+	}
+	return v
+}
+
 // ExtractOrientation reads the EXIF orientation tag (1–8) from an image file.
 // Returns 1 (normal) on any error or missing tag.
 func ExtractOrientation(path string) int {

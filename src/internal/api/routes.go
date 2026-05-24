@@ -36,7 +36,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 
 	browse.Handle(mux, boundary, cache)
 	apiexport.Handle(mux, boundary, serverRole)
-	apicrop.Handle(mux, boundary)
+	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache)
 	location.Handle(mux, boundary, cache)
 	batchrename.Handle(mux, boundary, cache)

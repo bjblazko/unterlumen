@@ -3,6 +3,7 @@ package crop
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
@@ -17,11 +18,11 @@ type cropRequest struct {
 }
 
 // Handle registers the /api/crop route on mux.
-func Handle(mux *http.ServeMux, root string) {
-	mux.HandleFunc("/api/crop", handleCrop(root))
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
+	mux.HandleFunc("/api/crop", handleCrop(root, cache))
 }
 
-func handleCrop(root string) http.HandlerFunc {
+func handleCrop(root string, cache *media.ScanCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -61,6 +62,9 @@ func handleCrop(root string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		media.EvictFile(absPath)
+		cache.Invalidate(filepath.Dir(absPath))
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})

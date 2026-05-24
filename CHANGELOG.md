@@ -17,11 +17,19 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- **Crop handles — larger hit target** — Resize handles on the crop selection box are now 12×12 px (up from 10×10 px) to make them easier to click and drag for fine adjustments.
+
 - **Toggle sliders — three-label rule enforced** — Every binary on/off toggle now shows three visible labels: a purpose label, an ON-state label, and an OFF-state label, so state is readable without depending on colour alone. Concretely: the library "Filter" toggles and the statistics film-simulation toggle gain ON/OFF labels; the settings "Interface" label is renamed to "Show interface"; the slideshow loop checkbox, library filter 35mm-equivalent checkbox, statistics focal-length Native/35mm selector, info-panel map 2D/3D selector, and settings thumbnail-quality Standard/High selector are all converted to proper toggle sliders. `Toggle.create()` gains `labelOn`/`labelOff` options for contextual state labels.
 
 - **Statistics snapshot layout** — Time of Day (radial clock) is now in row 1 next to Format, giving the most-glanceable charts top billing. Film Simulation moves to a full-width row below; it is hidden entirely when no Fujifilm film simulation data exists (e.g. iPhone-only libraries), reducing unnecessary scrolling.
 
 ### Fixed
+
+- **Crop — stale thumbnail after apply** — After cropping an image, the server-side disk cache (thumbnails, HEIF conversions) is now evicted so subsequent requests return the updated image. The directory scan cache is also invalidated. The film strip thumbnail refreshes immediately without a page reload.
+
+- **Crop — coordinate mismatch for EXIF-rotated images** — The crop overlay previously computed its bounds from `naturalWidth`/`naturalHeight`, which is browser-inconsistent for EXIF-rotated JPEGs. The overlay now uses `getBoundingClientRect()` directly, which always reflects the visual image area. Entering crop mode also resets the zoom level to fit, preventing the overlay from being placed partially off-screen when the user was zoomed in.
+
+- **Crop (HEIC) — wrong region and 90° rotation after apply** — HEIF/HEIC crops now use a decode-crop-encode pipeline (sipsConvert → apply EXIF orientation in Go → cropRect → sips JPEG→HEIC) instead of `sips --cropOffset`. The previous approach was unreliable because `sips --cropOffset` uses visual coordinates while `sips -g pixelWidth/Height` returns stored dimensions; for cameras like Fujifilm that store rotation in the embedded JPEG's EXIF rather than the HEIC irot box, this mismatch placed the crop in the wrong region and produced a 90° rotated result. Additionally, `sips -s format jpeg` preserves the EXIF orientation tag rather than baking it into pixels for these files, so orientation must be applied explicitly with `extractJPEGOrientation` + `applyOrientation` before cropping. See ADR-0020.
 
 - **Slideshow ghost image on portrait photos** — When a portrait photo followed a landscape photo, the old image remained faintly visible in the letterbox areas during the fade transition. The `.ss-frame` container now carries a `background: #000` so transparent regions in portrait (contain-fit) frames are solid black, hiding the outgoing frame behind them. Fix applies to all display modes and transition types.
 
