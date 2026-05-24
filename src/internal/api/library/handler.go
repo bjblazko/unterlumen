@@ -44,6 +44,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("POST /api/library/{id}/cleanup", cleanupLibrary(mgr))
 	mux.HandleFunc("GET /api/library/{id}/browse", browseFolder(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/browse-recursive", browseFolderRecursive(mgr))
+	mux.HandleFunc("GET /api/library/{id}/folder-stats", libraryFolderStats(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photos", listPhotos(mgr))
 	mux.HandleFunc("GET /api/library/{id}/exif-ranges", exifRanges(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
@@ -332,6 +333,48 @@ func browseFolderRecursive(mgr *lib.Manager) http.HandlerFunc {
 			entries = append(entries, entry{ID: p.ID, RelPath: filepath.ToSlash(rel)})
 		}
 		writeJSON(w, map[string]interface{}{"photos": entries})
+	}
+}
+
+func libraryFolderStats(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		sourcePath, ok, _ := store.GetProp("source_path")
+		if !ok || sourcePath == "" {
+			http.Error(w, "library has no source path", http.StatusInternalServerError)
+			return
+		}
+
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := pathguard.SafePath(sourcePath, relPath)
+		if !ok {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
+
+		fi, statErr := os.Stat(absPath)
+		if statErr != nil {
+			http.Error(w, "path not found", http.StatusNotFound)
+			return
+		}
+		if !fi.IsDir() {
+			http.Error(w, "not a directory", http.StatusBadRequest)
+			return
+		}
+
+		stats, err := media.WalkFolderStats(absPath, relPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, stats)
 	}
 }
 

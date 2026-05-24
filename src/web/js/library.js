@@ -710,11 +710,17 @@ class LibraryTab {
                 if (activePane) activePane._notifyFocusChange();
             }
         };
+        this._infoPanel.onDirNavigate = (subPath) => {
+            if (this._pane) this._pane.load(subPath);
+        };
 
         this._pane = new LibraryPane(paneEl, lib.id, {
             sourcePath: lib.sourcePath,
             onImageClick: (path) => App.openViewer(path, this._pane),
-            onFocusChange: (path) => this._onPhotoFocus(path),
+            onFocusChange: (path, type) => {
+                if (type === 'dir') this._onDirFocus(path);
+                else this._onPhotoFocus(path);
+            },
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: (files) => {
@@ -978,6 +984,16 @@ class LibraryTab {
         } catch {
             infoPanel.setMetaContext(null);
         }
+    }
+
+    _onDirFocus(path) {
+        const lib = this.currentLibrary;
+        const infoPanel = this._infoPanel;
+        if (!infoPanel || !infoPanel.expanded) return;
+        if (!path) { infoPanel.clear(); return; }
+        const sourcePath = lib.sourcePath.replace(/\/$/, '');
+        const pathPrefix = path ? sourcePath + '/' + path : sourcePath;
+        infoPanel.loadFolderInfo(path, { libId: lib.id, pathPrefix });
     }
 
 }

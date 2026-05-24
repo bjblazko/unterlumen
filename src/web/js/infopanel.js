@@ -5,11 +5,14 @@ class InfoPanel {
         this.container = container;
         this.expanded = false;
         this.data = null;
+        this.folderData = null;
+        this.libraryStats = null;
         this.error = null;
         this.currentPath = null;
         this.loading = false;
         this.collapsedSections = new Set();
         this.onToggle = null;
+        this.onDirNavigate = null;
         this._metaContext = null;
         this.render();
     }
@@ -70,8 +73,49 @@ class InfoPanel {
         this.render();
     }
 
+    async loadFolderInfo(path, opts = {}) {
+        if (path === this.currentPath && (this.folderData || this.loading)) {
+            if (!this.loading) this.render();
+            return;
+        }
+        this.currentPath = path;
+        this.data = null;
+        this.folderData = null;
+        this.libraryStats = null;
+        this.loading = true;
+        this.error = null;
+        this._metaContext = null;
+        this.render();
+        const requestPath = path;
+
+        try {
+            const statsURL = opts.libId
+                ? `/api/library/${opts.libId}/folder-stats?path=${encodeURIComponent(path)}`
+                : `/api/browse/folder-stats?path=${encodeURIComponent(path)}`;
+
+            const fetches = [fetch(statsURL).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))];
+
+            if (opts.libId && opts.pathPrefix != null) {
+                const statsQ = new URLSearchParams({ ids: opts.libId, pathPrefix: opts.pathPrefix });
+                fetches.push(fetch(`/api/library/statistics?${statsQ}`).then(r => r.ok ? r.json() : null).catch(() => null));
+            }
+
+            const [folderData, libStats] = await Promise.all(fetches);
+            if (this.currentPath !== requestPath) return;
+            this.folderData = folderData;
+            this.libraryStats = libStats || null;
+        } catch (err) {
+            if (this.currentPath !== requestPath) return;
+            this.error = err.message || 'Failed to load folder info';
+        }
+        this.loading = false;
+        this.render();
+    }
+
     clear() {
         this.data = null;
+        this.folderData = null;
+        this.libraryStats = null;
         this.error = null;
         this.currentPath = null;
         this.loading = false;
@@ -116,6 +160,8 @@ class InfoPanel {
             body = '<div class="info-empty">Loading\u2026</div>';
         } else if (this.error) {
             body = '<div class="info-empty">Error: ' + this.error + '</div>';
+        } else if (this.folderData) {
+            body = this.renderFolderData(this.folderData);
         } else if (!this.data) {
             body = '<div class="info-empty">Select an image to view info</div>';
         } else {
@@ -147,6 +193,7 @@ class InfoPanel {
         });
 
         if (this._metaContext) this._attachMetaEvents();
+        if (this.folderData) this._attachFolderEvents();
 
         this.initMap();
     }
@@ -577,5 +624,260 @@ class InfoPanel {
                 }
             });
         }
+    }
+
+    // --- Folder info ---
+
+    renderFolderData(d) {
+        const sections = [];
+
+        // Folder section
+        const folderRows = [];
+        folderRows.push(this.row('Name', d.name));
+        folderRows.push(this.row('Path', d.path || '/'));
+        folderRows.push(this.row('Modified', this.formatDate(d.modified)));
+        sections.push(this.section('Folder', folderRows));
+
+        // Contents section
+        const contRows = [];
+        contRows.push(this.row('Total size', formatSize(d.totalSize)));
+        contRows.push(this.row('Files', d.fileCount.toLocaleString()));
+        contRows.push(this.row('Subfolders', d.dirCount.toLocaleString()));
+        contRows.push(this.row('Max depth', d.maxDepth + (d.maxDepth === 1 ? ' level' : ' levels')));
+        sections.push(this.section('Contents', contRows));
+
+        // Size map (treemap)
+        if (d.subfolders && d.subfolders.length > 0) {
+            const treemap = this._renderTreemap(d.subfolders, d.totalSize);
+            sections.push(this.section('Size Map', [treemap]));
+        }
+
+        // Nesting depth histogram
+        if (d.subfolders && d.subfolders.some(s => s.maxDepth > 0)) {
+            sections.push(this.section('Nesting Depth', [this._renderDepthHistogram(d.subfolders)]));
+        }
+
+        // File types (browse mode — no library stats)
+        if (!this.libraryStats && d.fileTypes && Object.keys(d.fileTypes).length > 0) {
+            sections.push(this.section('File Types', [this._renderFileTypeChart(d.fileTypes)]));
+        }
+
+        // Library EXIF stats
+        if (this.libraryStats) {
+            sections.push(...this._renderLibraryStats(this.libraryStats));
+        }
+
+        return sections.join('');
+    }
+
+    _renderTreemap(subfolders, totalSize) {
+        const W = 260;
+        const maxH = 200;
+        const sorted = [...subfolders].sort((a, b) => b.size - a.size);
+        const total = sorted.reduce((s, f) => s + f.size, 0) || 1;
+        const H = Math.max(80, Math.min(maxH, Math.round(W * Math.min(total / (1024 * 1024 * 1024) + 0.5, 1))));
+
+        const layout = this._squarify(sorted, 0, 0, W, H);
+        const colors = [
+            '#c27833', '#4a8c5c', '#4a6fa5', '#8c6b4a',
+            '#7b5299', '#3a8a8a', '#b5443a', '#6a6a7a',
+        ];
+
+        let rects = '';
+        layout.forEach((cell, i) => {
+            const color = colors[i % colors.length];
+            const label = cell.item.name.length > 14 ? cell.item.name.slice(0, 13) + '…' : cell.item.name;
+            const sizeLabel = formatSize(cell.item.size);
+            const countLabel = cell.item.fileCount + ' file' + (cell.item.fileCount !== 1 ? 's' : '');
+            const showText = cell.w > 40 && cell.h > 30;
+            const showCount = cell.w > 60 && cell.h > 52;
+            const subPath = (this.currentPath ? this.currentPath + '/' : '') + cell.item.name;
+
+            rects += `<g class="folder-treemap-cell" data-path="${escapeHtml(subPath)}" style="cursor:pointer">` +
+                `<rect x="${cell.x.toFixed(1)}" y="${cell.y.toFixed(1)}" width="${cell.w.toFixed(1)}" height="${cell.h.toFixed(1)}" fill="${color}" rx="2"/>` +
+                (showText ? `<text x="${(cell.x + 6).toFixed(1)}" y="${(cell.y + 16).toFixed(1)}" class="folder-treemap-name">${escapeHtml(label)}</text>` : '') +
+                (showText ? `<text x="${(cell.x + 6).toFixed(1)}" y="${(cell.y + 30).toFixed(1)}" class="folder-treemap-size">${escapeHtml(sizeLabel)}</text>` : '') +
+                (showCount ? `<text x="${(cell.x + 6).toFixed(1)}" y="${(cell.y + 44).toFixed(1)}" class="folder-treemap-count">${escapeHtml(countLabel)}</text>` : '') +
+                '</g>';
+        });
+
+        return `<div class="folder-treemap"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${rects}</svg></div>`;
+    }
+
+    _squarify(items, x, y, w, h) {
+        if (!items.length) return [];
+        const total = items.reduce((s, f) => s + (f.size || 1), 0);
+        const result = [];
+        this._squarifyRow(items, x, y, w, h, total, result);
+        return result;
+    }
+
+    _squarifyRow(items, x, y, w, h, total, result) {
+        if (!items.length) return;
+        if (items.length === 1) {
+            result.push({ x, y, w, h, item: items[0] });
+            return;
+        }
+
+        const area = w * h;
+        let row = [];
+        let rowSize = 0;
+        let bestWorst = Infinity;
+        let i = 0;
+
+        while (i < items.length) {
+            const item = items[i];
+            const size = item.size || 1;
+            row.push(item);
+            rowSize += size;
+
+            const side = Math.min(w, h);
+            const rowArea = (rowSize / total) * area;
+            const rowLen = rowArea / side;
+            let worst = 0;
+            for (const r of row) {
+                const rArea = ((r.size || 1) / total) * area;
+                const rSide = rArea / rowLen;
+                const ratio = Math.max(rowLen / rSide, rSide / rowLen);
+                if (ratio > worst) worst = ratio;
+            }
+
+            if (worst >= bestWorst) {
+                row.pop();
+                rowSize -= size;
+                break;
+            }
+            bestWorst = worst;
+            i++;
+        }
+
+        // Lay out the row
+        const rowFrac = rowSize / total;
+        let offset = 0;
+        const isWide = w >= h;
+        const rowDim = isWide ? w * rowFrac : h * rowFrac;
+
+        for (const r of row) {
+            const frac = (r.size || 1) / rowSize;
+            if (isWide) {
+                const rh = h * frac;
+                result.push({ x, y: y + offset, w: rowDim, h: rh, item: r });
+                offset += rh;
+            } else {
+                const rw = w * frac;
+                result.push({ x: x + offset, y, w: rw, h: rowDim, item: r });
+                offset += rw;
+            }
+        }
+
+        // Recurse on remaining items
+        const remainingItems = items.slice(row.length);
+        if (!remainingItems.length) return;
+        const remainTotal = total - rowSize;
+        if (isWide) {
+            this._squarifyRow(remainingItems, x + rowDim, y, w - rowDim, h, remainTotal, result);
+        } else {
+            this._squarifyRow(remainingItems, x, y + rowDim, w, h - rowDim, remainTotal, result);
+        }
+    }
+
+    _renderDepthHistogram(subfolders) {
+        const maxDepth = Math.max(...subfolders.map(s => s.maxDepth), 1);
+        const bars = subfolders.map(s => {
+            const pct = Math.round((s.maxDepth / maxDepth) * 100);
+            const label = s.name.length > 8 ? s.name.slice(0, 7) + '…' : s.name;
+            return `<div class="folder-depth-col" title="${escapeHtml(s.name)}: ${s.maxDepth} level${s.maxDepth !== 1 ? 's' : ''} deep">` +
+                `<div class="folder-depth-bar" style="height:${pct}%"></div>` +
+                `<div class="folder-depth-label">${escapeHtml(label)}</div>` +
+                '</div>';
+        }).join('');
+        return `<div class="folder-depth-histogram">${bars}</div>`;
+    }
+
+    _renderFileTypeChart(fileTypes) {
+        const entries = Object.entries(fileTypes).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const max = entries[0]?.[1] || 1;
+        const bars = entries.map(([ext, count]) => {
+            const pct = Math.round((count / max) * 100);
+            const extUpper = ext.toUpperCase();
+            return `<div class="folder-type-row">` +
+                `<span class="folder-type-ext">${escapeHtml(extUpper)}</span>` +
+                `<div class="folder-type-bar-wrap"><div class="folder-type-bar" style="width:${pct}%"></div></div>` +
+                `<span class="folder-type-count">${count}</span>` +
+                '</div>';
+        }).join('');
+        return `<div class="folder-type-chart">${bars}</div>`;
+    }
+
+    _renderLibraryStats(stats) {
+        const sections = [];
+
+        // Shooting date range from shootingDays
+        const days = Object.keys(stats.shootingDays || {}).sort();
+        if (days.length > 0) {
+            const first = days[0];
+            const last = days[days.length - 1];
+            const totalDays = days.length;
+            const rows = [];
+            rows.push(this.row('First shot', first));
+            rows.push(this.row('Last shot', last));
+            rows.push(this.row('Active days', totalDays.toLocaleString()));
+            rows.push(this.row('Total photos', (stats.totalPhotos || 0).toLocaleString()));
+            sections.push(this.section('Photos', rows));
+        }
+
+        // Format breakdown
+        if (stats.formats && stats.formats.length > 0) {
+            const max = Math.max(...stats.formats.map(f => f.count), 1);
+            const bars = stats.formats.slice(0, 8).map(f => {
+                const pct = Math.round((f.count / max) * 100);
+                return `<div class="folder-type-row">` +
+                    `<span class="folder-type-ext">${escapeHtml(f.name.toUpperCase())}</span>` +
+                    `<div class="folder-type-bar-wrap"><div class="folder-type-bar" style="width:${pct}%"></div></div>` +
+                    `<span class="folder-type-count">${f.count}</span>` +
+                    '</div>';
+            }).join('');
+            sections.push(this.section('Formats', [`<div class="folder-type-chart">${bars}</div>`]));
+        }
+
+        // Camera × lens
+        if (stats.cameraLens && stats.cameraLens.length > 0) {
+            const rows = stats.cameraLens.slice(0, 5).map(cl => {
+                const cam = cl.camera || 'Unknown';
+                const lens = cl.lens || '—';
+                const label = cam + (lens !== '—' ? ' / ' + lens : '');
+                return this.row(cl.count + 'x', label);
+            });
+            sections.push(this.section('Camera', rows));
+        }
+
+        // Shooting hours (24-bar chart)
+        if (stats.shootingHours && stats.shootingHours.some(h => h > 0)) {
+            sections.push(this.section('Shooting Hours', [this._renderHoursChart(stats.shootingHours)]));
+        }
+
+        return sections;
+    }
+
+    _renderHoursChart(hours) {
+        const max = Math.max(...hours, 1);
+        const bars = hours.map((count, h) => {
+            const pct = Math.round((count / max) * 100);
+            const label = h === 0 ? '12a' : h < 12 ? h + 'a' : h === 12 ? '12p' : (h - 12) + 'p';
+            return `<div class="folder-hours-col" title="${label}: ${count}">` +
+                `<div class="folder-hours-bar" style="height:${pct}%"></div>` +
+                `<div class="folder-hours-label">${h % 6 === 0 ? label : ''}</div>` +
+                '</div>';
+        }).join('');
+        return `<div class="folder-hours-chart">${bars}</div>`;
+    }
+
+    _attachFolderEvents() {
+        this.container.querySelectorAll('.folder-treemap-cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                const path = cell.dataset.path;
+                if (path && this.onDirNavigate) this.onDirNavigate(path);
+            });
+        });
     }
 }

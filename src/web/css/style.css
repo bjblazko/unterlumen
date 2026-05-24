@@ -3540,6 +3540,175 @@ body.slideshow-active #app { height: 100vh; }
     border-color: var(--accent);
 }
 
+/* --- Folder Info --- */
+
+.folder-treemap {
+    margin: var(--space-2) 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.folder-treemap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.folder-treemap-cell rect {
+    stroke: var(--bg);
+    stroke-width: 2;
+    opacity: 0.9;
+    transition: opacity 0.1s;
+}
+
+.folder-treemap-cell:hover rect {
+    opacity: 1;
+}
+
+.folder-treemap-name {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    fill: rgba(255, 255, 255, 0.92);
+    pointer-events: none;
+}
+
+.folder-treemap-size {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    fill: rgba(255, 255, 255, 0.72);
+    pointer-events: none;
+}
+
+.folder-treemap-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    fill: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+}
+
+.folder-depth-histogram {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 60px;
+    padding-bottom: 18px;
+    margin: var(--space-2) 0;
+    overflow-x: auto;
+}
+
+.folder-depth-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 14px;
+    height: 100%;
+    justify-content: flex-end;
+    cursor: default;
+}
+
+.folder-depth-bar {
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+}
+
+.folder-depth-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--fg-2);
+    text-align: center;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.folder-type-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: var(--space-2) 0;
+}
+
+.folder-type-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.folder-type-ext {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--fg-2);
+    width: 30px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.folder-type-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.folder-type-bar {
+    height: 100%;
+    background: var(--accent);
+    opacity: 0.7;
+    border-radius: 2px;
+    min-width: 2px;
+}
+
+.folder-type-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--fg-2);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.folder-hours-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 52px;
+    padding-bottom: 14px;
+    margin: var(--space-2) 0;
+}
+
+.folder-hours-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    height: 100%;
+    justify-content: flex-end;
+    cursor: default;
+}
+
+.folder-hours-bar {
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.6;
+    border-radius: 1px 1px 0 0;
+    min-height: 1px;
+}
+
+.folder-hours-label {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--fg-2);
+    margin-top: 2px;
+    text-align: center;
+}
+
 .library-status-bar {
     height: 28px;
     display: flex;

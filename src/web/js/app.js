@@ -192,7 +192,7 @@ const App = {
                     onNavigate: (path) => { this.currentBrowsePath = path; },
                     onImageClick: (path) => this.openViewer(path, this.browsePane),
                     onSelectionChange: (selected) => this.handleSelectionChange(selected),
-                    onFocusChange: (path) => this.handleFocusChange(path),
+                    onFocusChange: (path, type) => this.handleFocusChange(path, type),
                     onToolInvoke: (params) => this.handleToolInvoke(params),
                     onSlideshowInvoke: () => this.handleSlideshowInvoke(),
                 });
@@ -202,9 +202,17 @@ const App = {
                         this.browsePane._justifiedRenderer.scheduleRelayout();
                     }
                     if (this.infoPanel.expanded) {
-                        const path = this.browsePane ? this.browsePane.getFocusedFile() : null;
-                        if (path) this.infoPanel.loadInfo(path);
+                        const filePath = this.browsePane ? this.browsePane.getFocusedFile() : null;
+                        const dirPath = this.browsePane ? this.browsePane.getFocusedDir() : null;
+                        if (filePath) this.infoPanel.loadInfo(filePath);
+                        else if (dirPath) this.infoPanel.loadFolderInfo(dirPath);
                         else this.infoPanel.clear();
+                    }
+                };
+                this.infoPanel.onDirNavigate = (path) => {
+                    if (this.browsePane) {
+                        this.browsePane.load(path);
+                        this.currentBrowsePath = path;
                     }
                 };
                 this.browsePane.load(this.currentBrowsePath);
@@ -380,10 +388,12 @@ const App = {
         // Selection changes don't drive the info panel; focus does.
     },
 
-    handleFocusChange(path) {
+    handleFocusChange(path, type) {
         if (!this.infoPanel || !this.infoPanel.expanded) return;
-        if (path) {
+        if (path && type === 'image') {
             this.infoPanel.loadInfo(path);
+        } else if (path && type === 'dir') {
+            this.infoPanel.loadFolderInfo(path);
         } else {
             this.infoPanel.clear();
         }

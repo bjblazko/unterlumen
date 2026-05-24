@@ -39,6 +39,7 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(root, cache))
 	mux.HandleFunc("/api/browse/recursive", handleBrowseRecursive(root))
+	mux.HandleFunc("/api/browse/folder-stats", handleFolderStats(root))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root))
 	mux.HandleFunc("/api/image", handleImage(root))
 	mux.HandleFunc("/api/info", handleInfo(root))

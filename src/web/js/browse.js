@@ -691,10 +691,15 @@ class BrowsePane {
     _notifyFocusChange() {
         if (!this.onFocusChange) return;
         const idx = this.keyboard.focusedIndex;
-        if (idx < 0 || idx >= this.entries.length) { this.onFocusChange(null); return; }
+        if (idx < 0 || idx >= this.entries.length) { this.onFocusChange(null, null); return; }
         const entry = this.entries[idx];
-        if (entry.type !== 'image') { this.onFocusChange(null); return; }
-        this.onFocusChange(this.fullPath(entry.name));
+        if (entry.type === 'image') {
+            this.onFocusChange(this.fullPath(entry.name), 'image');
+        } else if (entry.type === 'dir') {
+            this.onFocusChange(this.fullPath(entry.name), 'dir');
+        } else {
+            this.onFocusChange(null, null);
+        }
     }
 
     // --- EXIF date polling ---

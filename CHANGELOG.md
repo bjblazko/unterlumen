@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Folder metadata panel** — Clicking a folder in browse or library mode now loads it in the info panel. The panel shows folder name, path, total size, file count, subfolder count, and max nesting depth. A squarified SVG treemap visualises immediate subfolders by recursive size (click any segment to navigate into it). A nesting-depth histogram shows how deeply each subfolder branches. In browse mode a file-type breakdown lists all extensions found recursively. In library mode, EXIF-based sections are added: shooting date range, format breakdown, top camera × lens combinations, and a 24-hour shooting-activity chart.
+
 - **Home button in breadcrumb navigation** — In browse and commander modes, a home icon button appears next to the up-dir arrow in the breadcrumb row. Clicking it navigates to the OS home directory when the app can reach it (desktop mode; boundary is `/`), or to the boundary root when the app is restricted to a specific folder. The button is disabled when already at the home target. The backend exposes the resolved home path via a new `homePath` field in `/api/config`.
 
 - **Slideshow multi-track built-in music** — The "Built-in" audio option now shows a checklist instead of a single dropdown. Any combination of the three built-in tracks can be selected; they play sequentially and loop forever. An "In order / Shuffled" sub-toggle controls playback order. Track selection and order preference are persisted across sessions.
