@@ -27,6 +27,8 @@ import (
 //go:embed web
 var webFS embed.FS
 
+var Version = "dev"
+
 func main() {
 	portDefault := 8080
 	if v := os.Getenv("UNTERLUMEN_PORT"); v != "" {
@@ -164,7 +166,7 @@ func main() {
 		chStore = channels.NewStore(*libDir)
 	}
 
-	mux := api.NewRouter(absBoundary, relStart, homeRelPath, sub, serverRole, libMgr, chStore)
+	mux := api.NewRouter(absBoundary, relStart, homeRelPath, sub, serverRole, libMgr, chStore, Version)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

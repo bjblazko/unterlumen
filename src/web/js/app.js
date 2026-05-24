@@ -23,11 +23,19 @@ const App = {
     wastebin: null,
     theme: null,
     keyboard: null,
+    aboutModal: null,
 
     init() {
         this.wastebin = new Wastebin();
         this.theme = new ThemeManager(this);
         this.keyboard = new GlobalKeyboard(this);
+        this.aboutModal = new AboutModal();
+
+        const aboutTrigger = document.getElementById('about-trigger');
+        aboutTrigger.addEventListener('click', () => this.aboutModal.open(this.config?.version));
+        aboutTrigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.aboutModal.open(this.config?.version); }
+        });
 
         this.viewer = new Viewer(document.getElementById('app'));
 

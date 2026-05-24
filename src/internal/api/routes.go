@@ -25,11 +25,12 @@ import (
 // serverRole controls export behaviour: true = ZIP download only, false = local filesystem save + ZIP.
 // libMgr is the library manager; may be nil if library support could not be initialised.
 // chStore is the global channel store; may be nil if the lib dir is not configured.
-func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store) http.Handler {
+// version is the build version string injected at link time (e.g. "v1.2.3" or "dev").
+func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 
-	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole))
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
