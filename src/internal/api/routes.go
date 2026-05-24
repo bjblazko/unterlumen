@@ -21,14 +21,15 @@ import (
 // NewRouter sets up the HTTP routes for the application.
 // boundary is the root directory that all file paths must remain within.
 // startPath is the initial path (relative to boundary) the frontend should navigate to.
+// homePath is the OS home directory expressed as a path relative to boundary (empty = boundary root).
 // serverRole controls export behaviour: true = ZIP download only, false = local filesystem save + ZIP.
 // libMgr is the library manager; may be nil if library support could not be initialised.
 // chStore is the global channel store; may be nil if the lib dir is not configured.
-func NewRouter(boundary, startPath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store) http.Handler {
+func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 
-	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, serverRole))
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())

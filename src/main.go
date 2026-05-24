@@ -131,6 +131,19 @@ func main() {
 		}
 	}
 
+	// Compute homePath: OS home dir relative to boundary (for the frontend home button).
+	// Falls back to "" (boundary root) when home dir is outside the boundary.
+	var homeRelPath string
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		if absBoundary == "/" {
+			homeRelPath = strings.TrimPrefix(homeDir, "/")
+		} else if strings.HasPrefix(homeDir+"/", absBoundary+"/") || homeDir == absBoundary {
+			if rel, relErr := filepath.Rel(absBoundary, homeDir); relErr == nil && rel != "." {
+				homeRelPath = rel
+			}
+		}
+	}
+
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		log.Fatalf("Failed to sub web FS: %v", err)
@@ -151,7 +164,7 @@ func main() {
 		chStore = channels.NewStore(*libDir)
 	}
 
-	mux := api.NewRouter(absBoundary, relStart, sub, serverRole, libMgr, chStore)
+	mux := api.NewRouter(absBoundary, relStart, homeRelPath, sub, serverRole, libMgr, chStore)
 
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)

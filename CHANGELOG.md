@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- **Home button in breadcrumb navigation** — In browse and commander modes, a home icon button appears next to the up-dir arrow in the breadcrumb row. Clicking it navigates directly to the configured start directory (the user's home directory in default desktop mode, or the boundary root when a path is given on the command line). The button is disabled when already at the start directory.
+- **Home button in breadcrumb navigation** — In browse and commander modes, a home icon button appears next to the up-dir arrow in the breadcrumb row. Clicking it navigates to the OS home directory when the app can reach it (desktop mode; boundary is `/`), or to the boundary root when the app is restricted to a specific folder. The button is disabled when already at the home target. The backend exposes the resolved home path via a new `homePath` field in `/api/config`.
 
 - **Slideshow multi-track built-in music** — The "Built-in" audio option now shows a checklist instead of a single dropdown. Any combination of the three built-in tracks can be selected; they play sequentially and loop forever. An "In order / Shuffled" sub-toggle controls playback order. Track selection and order preference are persisted across sessions.
 
