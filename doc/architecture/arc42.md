@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-05-23*
+*Last modified: 2026-05-24*
 
 ## 1. Introduction and Goals
 
@@ -90,6 +90,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `/api/info` | HTTP GET | JSON (file metadata + EXIF) |
 | `/api/delete` | HTTP POST | JSON request/response |
 | `/api/browse/dates` | HTTP GET | JSON (deferred EXIF dates for a directory) |
+| `/api/browse/folder-stats` | HTTP GET | JSON (recursive size/count/depth stats for a folder) |
+| `/api/library/{id}/folder-stats` | HTTP GET | JSON (same, resolved against library source path) |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
 
 ## 4. Solution Strategy
@@ -135,13 +137,13 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 |---------|---------------|
 | `main` | CLI flag parsing, HTTP server startup |
 | `internal/api` | HTTP route registration; delegates to domain subpackages |
-| `internal/api/browse` | `/api/browse`, `/api/browse/dates`, `/api/browse/meta`, `/api/thumbnail`, `/api/image`, `/api/info` handlers |
+| `internal/api/browse` | `/api/browse`, `/api/browse/dates`, `/api/browse/meta`, `/api/browse/folder-stats`, `/api/thumbnail`, `/api/image`, `/api/info` handlers |
 | `internal/api/export` | `/api/export/*` handlers; ZIP token store |
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
-| `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go) |
+| `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
 ### 5.3 Level 2 — Frontend Modules
 
@@ -159,7 +161,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
 | `commander.js` | `Commander` class — dual-pane layout, copy/move orchestration |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
-| `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data |
+| `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
 | `maplibre-gl.js` | External dependency (CDN) — MapLibre GL JS for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md)) |
 
