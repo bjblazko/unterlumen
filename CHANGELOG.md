@@ -1,11 +1,13 @@
 # Changelog
 
-*Last modified: 2026-05-23*
+*Last modified: 2026-05-24*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Home button in breadcrumb navigation** — In browse and commander modes, a home icon button appears next to the up-dir arrow in the breadcrumb row. Clicking it navigates directly to the configured start directory (the user's home directory in default desktop mode, or the boundary root when a path is given on the command line). The button is disabled when already at the start directory.
 
 - **Slideshow multi-track built-in music** — The "Built-in" audio option now shows a checklist instead of a single dropdown. Any combination of the three built-in tracks can be selected; they play sequentially and loop forever. An "In order / Shuffled" sub-toggle controls playback order. Track selection and order preference are persisted across sessions.
 

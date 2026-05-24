@@ -598,7 +598,8 @@ button.toggle {
     gap: calc(var(--unit) * 0.75);
 }
 
-.up-dir-btn {
+.up-dir-btn,
+.home-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
