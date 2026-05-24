@@ -349,7 +349,7 @@ class BrowsePane {
             const isCurrent = i === parts.length - 1;
             crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
-        return `<div class="breadcrumb-row">${upBtn}${homeBtn}<nav class="breadcrumb">${crumbs}</nav></div>`;
+        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav></div>`;
     }
 
     _renderControls() {
