@@ -215,7 +215,7 @@ test.describe('Library search with indexed fixtures', () => {
 
         test('focal length 35mm equivalent checkbox is present', async ({ page }) => {
             await expect(
-                page.locator('.lib-filter-35mm input[type="checkbox"]'),
+                page.locator('.lib-filter-35mm [role="switch"]'),
             ).toBeVisible({ timeout: 5_000 });
         });
 

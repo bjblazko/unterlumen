@@ -75,8 +75,12 @@ test.describe('Statistics modal', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
-        await page.locator('#lib-stats-btn').click();
+        // Navigate into the Stats test library so stats are scoped to it (not all libraries)
+        const card = page.locator('.library-card', { hasText: 'Stats test library' });
+        await card.waitFor({ timeout: 15_000 });
+        await card.locator('.lib-open').click();
+        await page.waitForSelector('.library-detail', { timeout: 8_000 });
+        await page.locator('#lib-detail-stats-btn').click();
         await page.waitForSelector('.stats-grid', { timeout: 30_000 });
 
         // Film simulation card is absent when the library has no Fuji film sim EXIF data
