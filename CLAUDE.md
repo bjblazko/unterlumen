@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-05-19*
+*Last modified: 2026-05-24*
 
 ## Project
 
@@ -32,6 +32,8 @@ npm run test:headed  # run with browser visible
 
 Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignored).
 
+See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, library search async build, modifier key differences between platforms.
+
 ## Architecture
 
 - `src/main.go` — entry point, CLI flags, HTTP server
@@ -44,7 +46,7 @@ Test specs live in `e2e/specs/`. Fixtures download to `e2e/fixtures/` (gitignore
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0018)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0020)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 
@@ -73,6 +75,16 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
   - **`.modal-overlay`** (used by `deps-modal`, `slideshow-modal`, `location-modal`, `export-modal`, `progress-dialog`, `batch-rename-modal`): register your own `document.addEventListener('keydown', ...)` that calls `this.close()` on Escape — the global guard returns early and defers to your listener.
   - **`.modal-backdrop` / `.library-dialog-backdrop`** (used by channel settings, publish dialog, new-library dialog): the global guard handles Escape centrally by clicking the first `.modal-close` or `[id$="-cancel"]` button it finds — make sure your dialog has one. Do **not** also add a separate keydown listener.
   - If you introduce a third root class, add it to the `querySelector` selector in `_handle()` in `app-keyboard.js`.
+
+## Gotchas
+
+Non-obvious bugs that have already occurred and are easy to repeat:
+
+- **Library keyboard shortcuts — two search paths**: `LibraryTab` (`src/web/js/library.js`) has two separate code paths: `_searchPane` (single-library filter view) and `_listSearchPanel._searchPane` (cross-library list-view search). Any code routing keyboard events, info-panel updates, or selection state must handle both. Always go through `getActivePaneForKeyboard()`; never assume `_searchPane` or `_infoPanel` is non-null in list-view mode. Info panel must fall back to `_listInfoPanel` when `_infoPanel` is null.
+
+- **Library pane interface**: `LibraryPane` (`src/web/js/library-pane.js`) satisfies the same pane interface as browse panes. `entry.name = photo.id` (SHA-256), `entry.label = photo.filename`. Info panel uses `loadInfoData(photoInfo)`, not `loadInfo(path)` — pathguard rejects absolute paths. `PhotoInfo` struct needs camelCase JSON tags (`json:"filename"` etc.).
+
+- **HEIC/sips orientation**: `sips -s format jpeg` preserves EXIF orientation as a tag (does not bake it into pixels) for cameras like Fujifilm that store rotation in the embedded JPEG's EXIF rather than the HEIC irot box. Go's `jpeg.Decode` ignores EXIF orientation. Any pipeline using `sipsConvert` output must call `extractJPEGOrientation(data)` + `applyOrientation(img, ori)` before pixel-space operations. Do not use `sips --cropOffset` — its coordinate space is ambiguous across camera manufacturers. See ADR-0020.
 
 ## Reminders
 
