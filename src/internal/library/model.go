@@ -65,6 +65,24 @@ type CameraLensCount struct {
 	Count  int    `json:"count"`
 }
 
+// LibraryFolderStats holds DB-backed statistics for a single folder within a library.
+// It is computed from indexed photos only and excludes sidecar files.
+type LibraryFolderStats struct {
+	PhotoCount int            `json:"photoCount"`
+	TotalSize  int64          `json:"totalSize"`
+	Formats    []NameCount    `json:"formats"`
+	Subfolders []LibSubfolder `json:"subfolders"`
+	DateFirst  string         `json:"dateFirst,omitempty"`
+	DateLast   string         `json:"dateLast,omitempty"`
+}
+
+// LibSubfolder holds aggregated photo stats for one immediate subdirectory.
+type LibSubfolder struct {
+	Name       string `json:"name"`
+	PhotoCount int    `json:"photoCount"`
+	TotalSize  int64  `json:"totalSize"`
+}
+
 // LibraryStatistics holds aggregated statistics across one or more libraries.
 type LibraryStatistics struct {
 	TotalPhotos    int               `json:"totalPhotos"`

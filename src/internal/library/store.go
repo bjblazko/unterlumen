@@ -1117,6 +1117,93 @@ func sortStrings(s []string) {
 	}
 }
 
+// FolderStats returns DB-backed statistics for all indexed photos under folderAbs.
+// Results are derived entirely from the photos table and exif_index; no filesystem access.
+func (s *Store) FolderStats(folderAbs string) (*LibraryFolderStats, error) {
+	prefix := folderAbs + "/"
+	glob := prefix + "*"
+
+	// Summary: total photo count, size, and date range.
+	var dateFirst, dateLast *string
+	st := &LibraryFolderStats{Formats: []NameCount{}, Subfolders: []LibSubfolder{}}
+	if err := s.db.QueryRow(
+		`SELECT COUNT(*), COALESCE(SUM(file_size),0), MIN(date_taken), MAX(date_taken)
+		 FROM photos WHERE status='ok' AND path_hint GLOB ?`,
+		glob,
+	).Scan(&st.PhotoCount, &st.TotalSize, &dateFirst, &dateLast); err != nil {
+		return nil, err
+	}
+	if dateFirst != nil {
+		st.DateFirst = *dateFirst
+	}
+	if dateLast != nil {
+		st.DateLast = *dateLast
+	}
+
+	// Format distribution by file extension.
+	{
+		rows, err := s.db.Query(
+			`SELECT ext, COUNT(*) AS n FROM photos
+			 WHERE status='ok' AND ext != '' AND path_hint GLOB ?
+			 GROUP BY ext ORDER BY n DESC`,
+			glob,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var nc NameCount
+			if err := rows.Scan(&nc.Name, &nc.Count); err != nil {
+				return nil, err
+			}
+			st.Formats = append(st.Formats, nc)
+		}
+		rows.Close()
+	}
+
+	// Immediate subfolders: extract first path segment below prefix.
+	// Reuses the GLOB+SUBSTR pattern from BrowseFolder.
+	{
+		sfRows, err := s.db.Query(
+			`SELECT DISTINCT SUBSTR(path_hint, length(?)+1, INSTR(SUBSTR(path_hint, length(?)+1), '/')-1)
+			 FROM photos WHERE status='ok' AND path_hint GLOB ?`,
+			prefix, prefix, prefix+"*/*",
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer sfRows.Close()
+		var names []string
+		for sfRows.Next() {
+			var name string
+			if err := sfRows.Scan(&name); err != nil {
+				return nil, err
+			}
+			if name != "" {
+				names = append(names, name)
+			}
+		}
+		sfRows.Close()
+		sortStrings(names)
+
+		for _, name := range names {
+			var sub LibSubfolder
+			sub.Name = name
+			if err := s.db.QueryRow(
+				`SELECT COUNT(*), COALESCE(SUM(file_size),0) FROM photos
+				 WHERE status='ok' AND path_hint GLOB ?`,
+				prefix+name+"/*",
+			).Scan(&sub.PhotoCount, &sub.TotalSize); err != nil {
+				return nil, err
+			}
+			st.Subfolders = append(st.Subfolders, sub)
+		}
+	}
+
+	return st, nil
+}
+
 // Timeline returns time-series statistics for the given path scope.
 // granularity is "month", "year", or "" (auto-detect from date span).
 func (s *Store) Timeline(pathPrefix, granularity string) (*LibraryTimeline, error) {

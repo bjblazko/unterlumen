@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"fmt"
@@ -23,6 +24,7 @@ type Manager struct {
 	timelineCache     sync.Map // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
 	exifRangesCache   sync.Map // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
 	exifValuesCache   sync.Map // map[cacheKey+"|"+field][]string — invalidated on scan start/end
+	folderStatsCache  sync.Map // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 }
 
 func statsCacheKey(ids []string, pathPrefix string) string {
@@ -55,6 +57,87 @@ func (m *Manager) InvalidateStatsCache(id string) {
 	invalidateByID(&m.timelineCache)
 	invalidateByID(&m.exifRangesCache)
 	invalidateByID(&m.exifValuesCache)
+	// Folder stats keys are "<libID>|<absPath>" — prefix match is exact.
+	m.folderStatsCache.Range(func(k, _ any) bool {
+		if strings.HasPrefix(k.(string), id+"|") {
+			m.folderStatsCache.Delete(k)
+		}
+		return true
+	})
+}
+
+// FolderStats returns DB-backed folder statistics for the given library and relative path.
+// Results are cached and invalidated when the library is scanned.
+func (m *Manager) FolderStats(id, relPath string) (*LibraryFolderStats, error) {
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+
+	sourcePath, ok, _ := store.GetProp("source_path")
+	if !ok || sourcePath == "" {
+		return nil, fmt.Errorf("library has no source path")
+	}
+
+	folderAbs := sourcePath
+	if relPath != "" {
+		folderAbs = filepath.Join(sourcePath, relPath)
+	}
+
+	cacheKey := id + "|" + folderAbs
+	if v, ok := m.folderStatsCache.Load(cacheKey); ok {
+		return v.(*LibraryFolderStats), nil
+	}
+
+	stats, err := store.FolderStats(folderAbs)
+	if err != nil {
+		return nil, err
+	}
+	m.folderStatsCache.Store(cacheKey, stats)
+	return stats, nil
+}
+
+// prewarmFolderStats pre-computes and caches FolderStats for every unique ancestor
+// directory found in the library's indexed photos. Called in a background goroutine
+// after each scan so that first-access latency is zero.
+func (m *Manager) prewarmFolderStats(id string) {
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return
+	}
+	defer store.Close()
+
+	sourcePath, ok, _ := store.GetProp("source_path")
+	if !ok || sourcePath == "" {
+		return
+	}
+
+	refs, err := store.ListAllPhotoRefs()
+	if err != nil {
+		return
+	}
+
+	// Collect all unique ancestor directories between each photo and sourcePath.
+	dirs := map[string]bool{sourcePath: true}
+	for _, ref := range refs {
+		dir := filepath.Dir(ref.PathHint)
+		for dir != sourcePath && strings.HasPrefix(dir, sourcePath) && !dirs[dir] {
+			dirs[dir] = true
+			dir = filepath.Dir(dir)
+		}
+	}
+
+	for absDir := range dirs {
+		relPath, err := filepath.Rel(sourcePath, absDir)
+		if err != nil {
+			continue
+		}
+		if relPath == "." {
+			relPath = ""
+		}
+		m.FolderStats(id, relPath) //nolint:errcheck
+	}
 }
 
 func newUUID() (string, error) {
@@ -248,6 +331,80 @@ func (m *Manager) ThumbDir(id string) string {
 	return filepath.Join(m.LibDir(id), "thumbs")
 }
 
+// FindLibraryForPath returns the Library whose source_path covers absPath
+// (exact match or a path within it). Returns nil, false if no library matches.
+func (m *Manager) FindLibraryForPath(absPath string) (*Library, bool) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, false
+	}
+	for _, l := range libs {
+		sp := strings.TrimSuffix(l.SourcePath, "/")
+		if sp == "" {
+			continue
+		}
+		if absPath == sp || strings.HasPrefix(absPath, sp+"/") {
+			return l, true
+		}
+	}
+	return nil, false
+}
+
+// FindThumbnailForPath returns the path of the pre-generated library thumbnail for absPath,
+// if the file is indexed in a library's path_cache and the thumbnail exists on disk.
+func (m *Manager) FindThumbnailForPath(absPath string) (string, bool) {
+	lib, ok := m.FindLibraryForPath(absPath)
+	if !ok {
+		return "", false
+	}
+	store, err := m.OpenStore(lib.ID)
+	if err != nil {
+		return "", false
+	}
+	photoID, _, _, found, err := store.GetPathCache(absPath)
+	if err != nil || !found || len(photoID) < 2 {
+		return "", false
+	}
+	tp := filepath.Join(m.ThumbDir(lib.ID), photoID[:2], photoID+".jpg")
+	if _, statErr := os.Stat(tp); statErr != nil {
+		return "", false
+	}
+	return tp, true
+}
+
+// TriggerScanNewBackground starts an incremental scan for the library in a background
+// goroutine. It is a no-op when a scan is already running for that library.
+func (m *Manager) TriggerScanNewBackground(id string) {
+	b, started := m.StartScan(id)
+	if !started {
+		return
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	libInfo, err := libraryFromStore(id, store)
+	if err != nil || libInfo.SourcePath == "" {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	rawCh := make(chan Progress, 8)
+	go func() {
+		defer b.Close()
+		for p := range rawCh {
+			b.Send(p)
+		}
+	}()
+	go func() {
+		defer m.EndScan(id)
+		idx := NewIndexer(store, m.LibDir(id), libInfo.SourcePath)
+		idx.RunScanNew(context.Background(), rawCh)
+	}()
+}
+
 // TryLockIndex acquires the indexing lock for a library.
 // Returns true if the lock was acquired (not already indexing).
 func (m *Manager) TryLockIndex(id string) bool {
@@ -286,6 +443,7 @@ func (m *Manager) EndScan(id string) {
 	m.scans.Delete(id)
 	m.UnlockIndex(id)
 	m.InvalidateStatsCache(id)
+	go m.prewarmFolderStats(id)
 }
 
 // IsScanning reports whether a scan is currently active for the library.

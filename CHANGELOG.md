@@ -1,9 +1,21 @@
 # Changelog
 
-*Last modified: 2026-05-24*
+*Last modified: 2026-05-25*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+
+- **Instant folder info in library mode** — The folder info panel in library mode now loads from the indexed database instead of walking the filesystem on each click. Photo count, total size, date range, subfolder treemap, and file type breakdown are returned in milliseconds. After each scan, all folder stats are pre-computed in a background goroutine so first-access latency is zero. Browse-mode folder stats (filesystem walk with depth histogram) are unchanged. Treemap cells now show a tooltip with the full folder name, size, and item count on hover — especially useful for small cells where labels are hidden.
+
+- **Library thumbnail fast path in organizer mode** — When browsing a folder in the organizer that is covered by a library's source path, thumbnails for already-indexed photos are served from the pre-generated library JPEG (1200 px) rather than decoded from the original file. This eliminates sips/ffmpeg processing for HEIF files on every browse-cache miss. A small library name badge appears in the breadcrumb row to indicate the current folder is tracked by a library.
+
+- **Auto-index new files after copy/move into library folder** — When files are successfully copied or moved into a library folder, an incremental scan (`scan-new`) starts automatically in the background. Newly arrived files are indexed and thumbnailed without requiring a manual "Scan new" trigger. The scan joins the normal SSE progress stream if a client is watching.
+
+### Fixed
+
+- **Navigation no longer blocked during folder load** — Clicking a subfolder while a large directory is still loading now works immediately. The previous in-flight request is cancelled (browser shows it as cancelled in DevTools) and the new folder loads right away. Previously the click was silently ignored until the current load completed.
 
 ## [0.9.0] - 2026-05-24
 

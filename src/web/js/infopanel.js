@@ -629,6 +629,8 @@ class InfoPanel {
     // --- Folder info ---
 
     renderFolderData(d) {
+        if (d.photoCount !== undefined) return this._renderLibraryFolderData(d);
+
         const sections = [];
 
         // Folder section
@@ -670,6 +672,48 @@ class InfoPanel {
         return sections.join('');
     }
 
+    _renderLibraryFolderData(d) {
+        const sections = [];
+
+        // Folder section — derive name/path from currentPath since LibraryFolderStats has no FS metadata
+        const folderRows = [];
+        const pathStr = this.currentPath || '';
+        const name = pathStr ? pathStr.split('/').pop() : '(root)';
+        folderRows.push(this.row('Name', name));
+        folderRows.push(this.row('Path', pathStr || '/'));
+        sections.push(this.section('Folder', folderRows));
+
+        // Contents section
+        const contRows = [];
+        contRows.push(this.row('Total size', formatSize(d.totalSize)));
+        contRows.push(this.row('Photos', d.photoCount.toLocaleString()));
+        if (d.dateFirst && d.dateLast) {
+            const first = d.dateFirst.slice(0, 10);
+            const last = d.dateLast.slice(0, 10);
+            contRows.push(this.row('Date range', first === last ? first : first + ' – ' + last));
+        }
+        sections.push(this.section('Contents', contRows));
+
+        // Size map treemap — adapt LibSubfolder to the shape _renderTreemap expects
+        if (d.subfolders && d.subfolders.length > 0) {
+            const adapted = d.subfolders.map(s => ({ name: s.name, size: s.totalSize, fileCount: s.photoCount }));
+            sections.push(this.section('Size Map', [this._renderTreemap(adapted, d.totalSize)]));
+        }
+
+        // File Types — only when libraryStats is not rendering formats already
+        if (!this.libraryStats && d.formats && d.formats.length > 0) {
+            const fileTypes = Object.fromEntries(d.formats.map(f => [f.name, f.count]));
+            sections.push(this.section('File Types', [this._renderFileTypeChart(fileTypes)]));
+        }
+
+        // Library EXIF stats (cameras, focal lengths, shooting hours, etc.)
+        if (this.libraryStats) {
+            sections.push(...this._renderLibraryStats(this.libraryStats));
+        }
+
+        return sections.join('');
+    }
+
     _renderTreemap(subfolders, totalSize) {
         const W = 260;
         const maxH = 200;
@@ -693,7 +737,9 @@ class InfoPanel {
             const showCount = cell.w > 60 && cell.h > 52;
             const subPath = (this.currentPath ? this.currentPath + '/' : '') + cell.item.name;
 
+            const tooltip = `${cell.item.name}\n${sizeLabel} · ${countLabel}`;
             rects += `<g class="folder-treemap-cell" data-path="${escapeHtml(subPath)}" style="cursor:pointer">` +
+                `<title>${escapeHtml(tooltip)}</title>` +
                 `<rect x="${cell.x.toFixed(1)}" y="${cell.y.toFixed(1)}" width="${cell.w.toFixed(1)}" height="${cell.h.toFixed(1)}" fill="${color}" rx="2"/>` +
                 (showText ? `<text x="${(cell.x + 6).toFixed(1)}" y="${(cell.y + 16).toFixed(1)}" class="folder-treemap-name">${escapeHtml(label)}</text>` : '') +
                 (showText ? `<text x="${(cell.x + 6).toFixed(1)}" y="${(cell.y + 30).toFixed(1)}" class="folder-treemap-size">${escapeHtml(sizeLabel)}</text>` : '') +
@@ -863,7 +909,7 @@ class InfoPanel {
         const max = Math.max(...hours, 1);
         const bars = hours.map((count, h) => {
             const pct = Math.round((count / max) * 100);
-            const label = h === 0 ? '12a' : h < 12 ? h + 'a' : h === 12 ? '12p' : (h - 12) + 'p';
+            const label = h + 'h';
             return `<div class="folder-hours-col" title="${label}: ${count}">` +
                 `<div class="folder-hours-bar" style="height:${pct}%"></div>` +
                 `<div class="folder-hours-label">${h % 6 === 0 ? label : ''}</div>` +

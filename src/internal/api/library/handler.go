@@ -32,6 +32,7 @@ import (
 func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels.Store) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
+	mux.HandleFunc("GET /api/library/detect", detectLibrary(mgr, root))
 	mux.HandleFunc("GET /api/library/search", searchLibraries(mgr))
 	mux.HandleFunc("GET /api/library/exif-ranges", globalExifRanges(mgr))
 	mux.HandleFunc("GET /api/library/exif-values", globalExifValues(mgr))
@@ -98,6 +99,28 @@ func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
 			out[i] = toLibraryJSON(l, root, mgr.IsScanning(l.ID))
 		}
 		writeJSON(w, out)
+	}
+}
+
+// detectLibrary returns the library (id + name) whose source path covers the
+// requested path, or an empty object when no library matches.
+func detectLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := pathguard.SafePath(root, relPath)
+		if !ok {
+			writeJSON(w, struct{}{})
+			return
+		}
+		l, ok := mgr.FindLibraryForPath(absPath)
+		if !ok {
+			writeJSON(w, struct{}{})
+			return
+		}
+		writeJSON(w, struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}{ID: l.ID, Name: l.Name})
 	}
 }
 
@@ -339,39 +362,14 @@ func browseFolderRecursive(mgr *lib.Manager) http.HandlerFunc {
 func libraryFolderStats(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		store, err := mgr.OpenStore(id)
-		if err != nil {
-			http.Error(w, "library not found", http.StatusNotFound)
-			return
-		}
-		defer store.Close()
-
-		sourcePath, ok, _ := store.GetProp("source_path")
-		if !ok || sourcePath == "" {
-			http.Error(w, "library has no source path", http.StatusInternalServerError)
-			return
-		}
-
 		relPath := r.URL.Query().Get("path")
-		absPath, ok := pathguard.SafePath(sourcePath, relPath)
-		if !ok {
-			http.Error(w, "invalid path", http.StatusBadRequest)
-			return
-		}
-
-		fi, statErr := os.Stat(absPath)
-		if statErr != nil {
-			http.Error(w, "path not found", http.StatusNotFound)
-			return
-		}
-		if !fi.IsDir() {
-			http.Error(w, "not a directory", http.StatusBadRequest)
-			return
-		}
-
-		stats, err := media.WalkFolderStats(absPath, relPath)
+		stats, err := mgr.FolderStats(id, relPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			if strings.Contains(err.Error(), "not found") {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		writeJSON(w, stats)
