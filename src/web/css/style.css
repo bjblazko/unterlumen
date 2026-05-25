@@ -636,6 +636,19 @@ button.toggle {
     font-weight: bold;
 }
 
+/* --- Browse library badge --- */
+.browse-library-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-3);
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1px var(--space-2);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 /* —— Controls —— */
 
 .controls {
@@ -1060,15 +1073,23 @@ button.toggle {
 }
 
 .grid-item.selected {
-    box-shadow: inset 0 0 0 3px var(--accent);
     position: relative;
+}
+
+.grid-item.selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 3px var(--accent);
+    background: color-mix(in oklch, var(--accent) 18%, transparent);
+    pointer-events: none;
 }
 
 .grid-item.marked-for-deletion {
     position: relative;
 }
 
-.grid-item.marked-for-deletion::after {
+.grid-item.marked-for-deletion::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -1122,8 +1143,15 @@ button.toggle {
 }
 
 .dir-item.selected {
-    box-shadow: inset 0 0 0 3px var(--accent);
     position: relative;
+}
+
+.dir-item.selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 3px var(--accent);
+    pointer-events: none;
 }
 
 /* —— Justified view —— */
@@ -1151,8 +1179,8 @@ button.toggle {
     image-orientation: from-image;
 }
 
-.justified-item:hover::after,
-.justified-item.focused::after {
+.justified-item:not(.selected):hover::after,
+.justified-item:not(.selected).focused::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -1166,6 +1194,7 @@ button.toggle {
     position: absolute;
     inset: 0;
     box-shadow: inset 0 0 0 3px var(--accent);
+    background: color-mix(in oklch, var(--accent) 18%, transparent);
     pointer-events: none;
 }
 
@@ -1238,7 +1267,7 @@ button.toggle {
 }
 
 .list-view tr.selected {
-    background: var(--accentsoft);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -1264,7 +1293,7 @@ button.toggle {
 }
 
 .dir-row.selected {
-    background: var(--accentsoft);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
