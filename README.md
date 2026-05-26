@@ -5,17 +5,76 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
-A photo browser and culler that runs as a local web server. Browse your photo library in the browser, view images full-screen, and organize files using a dual-pane File Manager interface.
+Unterlumen is a local image browser and culler. It runs as a lightweight web server — open it in any browser, no cloud, no subscription.
+
+**What it does:**
+- Browse photos in justified, grid, or list view with breadcrumb navigation
+- Cull: review shots, mark rejects, restore or delete in bulk
+- Organize: dual-pane file manager (copy/move, create folders)
+- Batch rename using EXIF fields (date, camera, film simulation, …)
+- Export & convert: resize, change format (JPEG/PNG/WebP), strip GPS, download as ZIP
+- Geolocation: set or remove GPS coordinates via interactive map
+- **Optional — Digital Asset Management (DAM):** build a persistent, searchable catalog of your photos. Search by aperture, focal length, camera, lens, or Fujifilm film simulation across multiple libraries. Track where and when photos were published, with platform presets (Instagram 1080 px, Mastodon 1920 px, …).
+
+**What it is not:**
+- Not an image editor — no color grading, no retouching, no compositing
+- No RAW file support — JPEG, PNG, WebP, and HEIF/HEIC (via ffmpeg) only
+
+## Screenshots
+
+#### Browse mode
+
+- Theme switching, justified/list/grid view, EXIF metadata panel
+- Full-screen viewer with toggleable header, metadata, and filmstrip
+
+![Browsing](doc/01-browsing.gif)
+
+#### Slideshow
+
+![Slideshow](doc/02-slideshow.gif)
+
+#### Review (culling)
+
+- Grid or full-screen review; mark rejects with Del/Backspace
+- Dedicated waste-bin view — restore keepers or permanently delete
+
+![Review](doc/03-review.gif)
+
+#### Organize
+
+- Dual-pane file manager (Norton/Midnight/Total Commander style)
+- Copy, move, create folders; shortcuts to library locations
+
+![Organize files](doc/04-organize.gif)
+
+#### Tools
+
+- Set or remove geolocation
+
+  ![Set or remove geolocation](doc/05-tools-geolocation.gif)
+
+- Batch rename with EXIF token pills and live preview
+
+  ![Batch renaming](doc/06-tools-batchrename.gif)
+
+- Export/convert with resize, format, and GPS options; ZIP download
+
+  ![Export](doc/07-tools-export.gif)
+
+#### Digital Asset Management (DAM, optional)
+
+- Persistent multi-library catalog; search/filter by aperture, focal length, camera, lens, film simulation
+- EXIF statistics, folder dashboards, squarified treemap
+
+  ![Filter/search](doc/08-dam-filter.gif)
+
+- Statistics over time and shooting-activity charts
+
+  ![Statistics](doc/09-dam-stats.gif)
 
 ## Contents
 
 - [Features](#features)
-  - [Browse mode](#browse-mode)
-  - [Slideshow](#slideshow)
-  - [Review (culling)](#review-culling)
-  - [Organize](#organize)
-  - [Tools](#tools)
-  - [Digital Asset Management (DAM)](#digital-asset-management-dam-optional)
 - [Install](#install)
   - [macOS](#macos)
   - [Windows](#windows)
@@ -51,69 +110,6 @@ A photo browser and culler that runs as a local web server. Browse your photo li
 - **HEIF support** — Automatic conversion via ffmpeg (requires ffmpeg installed)
 - **Fujifilm film simulation** — Film simulation name (e.g. Classic Chrome, Velvia, Acros) shown in the info panel and as a grid overlay badge for Fujifilm images
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
-
-### Screenshots
-
-#### Browse mode:
-
-- theme switching
-- justified/list/grid view
-- show EXIF/metadata
-- large/fullscreen viewing
-    - app header visible/hidden
-    - metadata (including geolocation) visible/hidden
-    - filmstrip visible/hidden
-
-![Browsing](doc/01-browsing.gif)
-
-#### Slideshow
-
-![Slideshow](doc/02-slideshow.gif)
-
-#### Review (culling)
-
-- review/browse photos in grid or fullscreen
-- mark candidates for deletions using del/backspace
-- review them
-- select the ones to finally delete
-- select the ones to keep when in doubt
-
-![Review](doc/03-review.gif)
-
-#### Organize
-
-- two panes: source and destination
-- just like Nortcon Commander, Midnight Commander, Total Commander etc.
-- copy or move files
-- create folders etc.
-- shortcuts for library locations
-
-![Organize files](doc/04-organize.gif)
-
-
-#### Tools
-
-- set or remove geolocation
-    ![Set or remove geolocation](doc/05-tools-geolocation.gif)
-- batch renaming with metadata fields in filename
-    ![batch renaming](doc/06-tools-batchrename.gif)
-- export and convert, including as Zip file
-    ![export](doc/07-tools-export.gif)
-
-
-#### Digital Asset Management (DAM, optional)
-
-- fast thumbnails
-- multiple libraries
-- search/filter within or accross libraries
-    - by aperture
-    - by focal lenth (incl. option to recalculate to 35mm equivalent)
-    - by camera and lens
-    - by Fujifilm film simulation (if you have them)
-- multiple statistics
-    ![filter/search](doc/08-dam-filter.gif)
-- statistics over time
-    ![statistics](doc/09-dam-stats.gif)
 
 ## Install
 
