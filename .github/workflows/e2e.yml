@@ -2,13 +2,8 @@ name: E2E Tests
 
 on:
   push:
-    branches: ["**"]
-    paths:
-      - "src/**"
-      - "e2e/**"
-      - ".github/workflows/e2e.yml"
-  pull_request:
-    branches: ["**"]
+    tags:
+      - "v*.*.*"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
