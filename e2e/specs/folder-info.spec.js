@@ -147,7 +147,7 @@ test.describe('Folder info panel — library mode', () => {
         const panel = page.locator('#lib-info-panel');
         await expect(panel).toContainText('a1');
         await expect(panel).toContainText('Contents');
-        await expect(panel).toContainText('Files');
+        await expect(panel).toContainText('Photos');
     });
 
     test('library folder info shows EXIF stats sections for indexed photos', async ({ page }) => {
