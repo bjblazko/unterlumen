@@ -1,9 +1,9 @@
 // API client functions
 
 const API = {
-    async browse(path = '', sort = 'name', order = 'asc') {
+    async browse(path = '', sort = 'name', order = 'asc', signal) {
         const params = new URLSearchParams({ path, sort, order });
-        const resp = await fetch(`/api/browse?${params}`);
+        const resp = await fetch(`/api/browse?${params}`, signal ? { signal } : undefined);
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();
     },
@@ -44,6 +44,12 @@ const API = {
     async info(path) {
         const resp = await fetch(`/api/info?path=${encodeURIComponent(path)}`);
         if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async detectLibrary(path) {
+        const resp = await fetch(`/api/library/detect?path=${encodeURIComponent(path)}`);
+        if (!resp.ok) return {};
         return resp.json();
     },
 

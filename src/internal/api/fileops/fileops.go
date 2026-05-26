@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -31,9 +32,9 @@ type fileOpResponse struct {
 }
 
 // Handle registers all file-operation routes on mux.
-func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
-	mux.HandleFunc("/api/copy", handleCopy(root, cache))
-	mux.HandleFunc("/api/move", handleMove(root, cache))
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *library.Manager) {
+	mux.HandleFunc("/api/copy", handleCopy(root, cache, libMgr))
+	mux.HandleFunc("/api/move", handleMove(root, cache, libMgr))
 	mux.HandleFunc("/api/delete", handleDelete(root, cache))
 	mux.HandleFunc("/api/mkdir", handleMkdir(root, cache))
 	mux.HandleFunc("/api/rename", handleRename(root, cache))
@@ -99,27 +100,27 @@ func deleteEntry(root, file string, cache *media.ScanCache) (fileOpResult, strin
 	return fileOpResult{File: file, Success: true}, filepath.Dir(filePath)
 }
 
-func handleCopy(root string, cache *media.ScanCache) http.HandlerFunc {
+func handleCopy(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, copyFile, cache)
+		handleFileOp(w, r, root, copyFile, cache, libMgr)
 	}
 }
 
-func handleMove(root string, cache *media.ScanCache) http.HandlerFunc {
+func handleMove(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, moveFile, cache)
+		handleFileOp(w, r, root, moveFile, cache, libMgr)
 	}
 }
 
-func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache) {
+func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache, libMgr *library.Manager) {
 	var req fileOpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -160,6 +161,23 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 	}
 	for dir := range dirsToInvalidate {
 		cache.Invalidate(dir)
+	}
+
+	// When files land in a library folder, kick off an incremental scan so the
+	// new arrivals are indexed (and thumbnailed) without manual intervention.
+	if libMgr != nil {
+		anySuccess := false
+		for _, res := range results {
+			if res.Success {
+				anySuccess = true
+				break
+			}
+		}
+		if anySuccess {
+			if lib, ok := libMgr.FindLibraryForPath(destDir); ok {
+				libMgr.TriggerScanNewBackground(lib.ID)
+			}
+		}
 	}
 
 	writeJSON(w, fileOpResponse{Results: results})

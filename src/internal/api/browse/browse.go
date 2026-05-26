@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -34,13 +35,13 @@ type browseMetaResponse struct {
 }
 
 // Handle registers all /api/browse/* routes on mux.
-func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *library.Manager) {
 	mux.HandleFunc("/api/browse", handleBrowse(root, cache))
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(root, cache))
 	mux.HandleFunc("/api/browse/recursive", handleBrowseRecursive(root))
 	mux.HandleFunc("/api/browse/folder-stats", handleFolderStats(root))
-	mux.HandleFunc("/api/thumbnail", handleThumbnail(root))
+	mux.HandleFunc("/api/thumbnail", handleThumbnail(root, libMgr))
 	mux.HandleFunc("/api/image", handleImage(root))
 	mux.HandleFunc("/api/info", handleInfo(root))
 }

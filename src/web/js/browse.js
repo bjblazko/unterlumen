@@ -21,6 +21,7 @@ class BrowsePane {
         this.onSlideshowInvoke = options.onSlideshowInvoke || null;
         this._toolsChecked = null;
         this._loading = false;
+        this._loadController = null;
         this._renderedCount = 0;
         this._observer = null;
         this._exifPollPath = null;
@@ -32,6 +33,7 @@ class BrowsePane {
         this._contentEl = null;
         this.selectedDirs = new Set();
         this._pendingPreselect = null;
+        this._libraryInfo = null;
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
@@ -114,7 +116,12 @@ class BrowsePane {
     // --- Public API ---
 
     async load(path) {
-        if (this._loading) return;
+        // Cancel any in-flight load so navigation is always immediately responsive.
+        // The aborted load() will receive an AbortError and return silently.
+        if (this._loadController) this._loadController.abort();
+        const controller = new AbortController();
+        this._loadController = controller;
+
         this._loading = true;
         const isReload = (path || '') === this.path;
         const scrollEl = this._contentEl || this.container;
@@ -133,14 +140,18 @@ class BrowsePane {
 
         let data;
         try {
-            data = await API.browse(this.path, this.sort, this.order);
+            data = await API.browse(this.path, this.sort, this.order, controller.signal);
         } catch (err) {
+            if (err.name === 'AbortError' || this._loadController !== controller) return;
             this._loading = false;
+            this._loadController = null;
             this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
             return;
         }
 
+        if (this._loadController !== controller) return;
         this._loading = false;
+        this._loadController = null;
         this.entries = data.entries || [];
         this.warnings = data.warnings || [];
         this.render();
@@ -163,6 +174,7 @@ class BrowsePane {
 
         this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
+        this._detectLibrary(this.path);
     }
 
     setView(view) {
@@ -276,6 +288,29 @@ class BrowsePane {
         this._pollOverlayMeta();
     }
 
+    async _detectLibrary(path) {
+        this._libraryInfo = null;
+        this._updateLibraryBadge();
+        try {
+            const data = await API.detectLibrary(path);
+            if (this.path === path && data && data.id) {
+                this._libraryInfo = data;
+                this._updateLibraryBadge();
+            }
+        } catch { /* ignore */ }
+    }
+
+    _updateLibraryBadge() {
+        const badge = this.container.querySelector('.browse-library-badge');
+        if (!badge) return;
+        if (this._libraryInfo) {
+            badge.textContent = this._libraryInfo.name;
+            badge.style.display = '';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
     // --- Rendering ---
 
     render() {
@@ -349,7 +384,7 @@ class BrowsePane {
             const isCurrent = i === parts.length - 1;
             crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
-        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav></div>`;
+        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span></div>`;
     }
 
     _renderControls() {

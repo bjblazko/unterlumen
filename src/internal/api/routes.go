@@ -35,10 +35,10 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
 
-	browse.Handle(mux, boundary, cache)
+	browse.Handle(mux, boundary, cache, libMgr)
 	apiexport.Handle(mux, boundary, serverRole)
 	apicrop.Handle(mux, boundary, cache)
-	fileops.Handle(mux, boundary, cache)
+	fileops.Handle(mux, boundary, cache, libMgr)
 	location.Handle(mux, boundary, cache)
 	batchrename.Handle(mux, boundary, cache)
 

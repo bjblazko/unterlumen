@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -15,7 +16,7 @@ const (
 	thumbnailQualityHigh     = "high"
 )
 
-func handleThumbnail(root string) http.HandlerFunc {
+func handleThumbnail(root string, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -37,6 +38,22 @@ func handleThumbnail(root string) http.HandlerFunc {
 		size := parseThumbnailSize(r.URL.Query().Get("size"))
 		quality := parseThumbnailQuality(r.URL.Query().Get("quality"))
 		ctx := r.Context()
+
+		// Library fast path: if this file is indexed in a library, serve the
+		// pre-generated thumbnail instead of decoding the original (especially
+		// valuable for HEIF files where decoding requires sips/ffmpeg).
+		if libMgr != nil && quality == thumbnailQualityStandard {
+			if libThumbPath, found := libMgr.FindThumbnailForPath(absPath); found {
+				data, _, err := media.GenerateThumbnailCached(ctx, libThumbPath, size, 0)
+				if err == nil {
+					serveThumbnail(w, data, "image/jpeg")
+					return
+				}
+				if ctx.Err() != nil {
+					return
+				}
+			}
+		}
 
 		if media.IsHEIF(absPath) {
 			serveHEIFThumbnail(w, r, absPath, size, quality)
