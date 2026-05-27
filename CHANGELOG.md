@@ -1,9 +1,13 @@
 # Changelog
 
-*Last modified: 2026-05-26*
+*Last modified: 2026-05-27*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+
+- **Camera × lens bars in folder info panel** — The CAMERA section in the library folder info panel now shows proportional horizontal bars instead of plain text rows. Each entry displays the count label (`Nx`) in front of the bar, with the camera/lens name printed below the bar on its own line. Long lens strings wrap naturally without disrupting the bar layout.
 
 ## [0.9.1] - 2026-05-26
 

@@ -56,6 +56,8 @@ class InfoPanel {
         this.loading = true;
         this.error = null;
         this.data = null;
+        this.folderData = null;
+        this.libraryStats = null;
         this.render();
         const requestKey = key;
         try {
@@ -888,13 +890,21 @@ class InfoPanel {
 
         // Camera × lens
         if (stats.cameraLens && stats.cameraLens.length > 0) {
-            const rows = stats.cameraLens.slice(0, 5).map(cl => {
+            const max = Math.max(...stats.cameraLens.map(cl => cl.count), 1);
+            const items = stats.cameraLens.slice(0, 5).map(cl => {
+                const pct = Math.round((cl.count / max) * 100);
                 const cam = cl.camera || 'Unknown';
                 const lens = cl.lens || '—';
                 const label = cam + (lens !== '—' ? ' / ' + lens : '');
-                return this.row(cl.count + 'x', label);
-            });
-            sections.push(this.section('Camera', rows));
+                return `<div class="folder-cam-item">` +
+                    `<div class="folder-cam-bar-row">` +
+                    `<span class="folder-cam-count">${cl.count}x</span>` +
+                    `<div class="folder-cam-bar-wrap"><div class="folder-cam-bar" style="width:${pct}%"></div></div>` +
+                    `</div>` +
+                    `<div class="folder-cam-label">${escapeHtml(label)}</div>` +
+                    `</div>`;
+            }).join('');
+            sections.push(this.section('Camera', [`<div class="folder-cam-chart">${items}</div>`]));
         }
 
         // Shooting hours (24-bar chart)
