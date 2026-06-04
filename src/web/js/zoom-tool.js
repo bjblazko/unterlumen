@@ -63,8 +63,7 @@ class ZoomTool {
         if (!this._naturalW || !this._naturalH) return 100;
         const scale = Math.min(
             this._container.clientWidth  / this._naturalW,
-            this._container.clientHeight / this._naturalH,
-            1.0
+            this._container.clientHeight / this._naturalH
         );
         return scale * 100;
     }

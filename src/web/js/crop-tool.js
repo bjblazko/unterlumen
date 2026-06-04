@@ -63,13 +63,32 @@ class CropTool {
     }
 
     // Bounding rect of the visible image content in viewport coordinates.
-    // The img element is sized by CSS (max-width/max-height: 100%) to exactly
-    // the visual image dimensions, so getBoundingClientRect() == content area.
-    // Using naturalWidth/naturalHeight is unreliable for EXIF-rotated images
-    // across browsers, so we rely on the element bounds directly.
+    // The img element fills its container (width/height: 100%) with object-fit:contain,
+    // so we compute the rendered image sub-rect rather than using the element bounds directly.
+    // naturalWidth/naturalHeight reflect oriented (post-EXIF-rotation) dimensions in
+    // all modern browsers when image-orientation:from-image is applied.
     _imgRect() {
-        const r = this._img.getBoundingClientRect();
-        return { left: r.left, top: r.top, width: r.width, height: r.height };
+        const el = this._img;
+        const outer = el.getBoundingClientRect();
+        const nw = el.naturalWidth;
+        const nh = el.naturalHeight;
+        if (!nw || !nh) return { left: outer.left, top: outer.top, width: outer.width, height: outer.height };
+        const outerAR = outer.width / outer.height;
+        const natAR   = nw / nh;
+        let imgW, imgH;
+        if (natAR >= outerAR) {
+            imgW = outer.width;
+            imgH = outer.width / natAR;
+        } else {
+            imgH = outer.height;
+            imgW = outer.height * natAR;
+        }
+        return {
+            left:   outer.left + (outer.width  - imgW) / 2,
+            top:    outer.top  + (outer.height - imgH) / 2,
+            width:  imgW,
+            height: imgH,
+        };
     }
 
     // Convert viewport coords to fraction coords relative to the image.

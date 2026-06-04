@@ -3,9 +3,11 @@
 *Last modified: 2026-06-04*
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.9.2] - 2026-06-04
 
 ### Fixed
+
+- **Photo viewer fills available space on large monitors** — The viewer's "fit" zoom mode now correctly upscales photos to fill the viewport on high-resolution displays. Previously `max-width/max-height: 100%` prevented upscaling, so photos whose native CSS-pixel dimensions were smaller than the viewport (e.g. on a 32" 1440p display with DPR=1) rendered at natural size with large margins. Changed to `width/height: 100%; object-fit: contain`, and updated the crop-tool overlay positioning to compute the rendered image rect within the `object-fit` box.
 
 - **About dialog shows correct version in container builds** — The Docker image now receives the release tag via a build-arg (`VERSION`) and bakes it into the binary with `-X main.Version`. Previously the container always displayed "dev".
 
