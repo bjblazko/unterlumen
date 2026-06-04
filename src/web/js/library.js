@@ -541,7 +541,7 @@ class LibraryTab {
                 <label class="library-dialog-label">Name</label>
                 <input class="library-dialog-input" id="lib-dlg-name" type="text" placeholder="My Photos" autocomplete="off">
                 <label class="library-dialog-label">Source folder</label>
-                <input class="library-dialog-input" id="lib-dlg-path" type="text" placeholder="/path/to/photos">
+                <input class="library-dialog-input" id="lib-dlg-path" type="text" placeholder="/Fotos/2024">
                 <label class="library-dialog-label">Description (optional)</label>
                 <input class="library-dialog-input" id="lib-dlg-desc" type="text" placeholder="">
                 <div class="library-dialog-note">The folder will be scanned when you click Create. Large folders may take a few minutes.</div>

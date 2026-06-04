@@ -3,6 +3,8 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /build/src
 
+ARG VERSION=dev
+
 # Cache dependencies before copying source
 COPY src/go.mod src/go.sum ./
 RUN go mod download
@@ -10,7 +12,7 @@ RUN go mod download
 COPY src/ .
 
 RUN CGO_ENABLED=0 GOOS=linux \
-    go build -ldflags="-s -w" -o /unterlumen .
+    go build -ldflags="-s -w -X main.Version=${VERSION}" -o /unterlumen .
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM debian:bookworm-slim

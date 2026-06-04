@@ -139,8 +139,9 @@ func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			http.Error(w, "name and sourcePath are required", http.StatusBadRequest)
 			return
 		}
-		absPath, err := filepath.Abs(body.SourcePath)
-		if err != nil {
+		rel := strings.TrimPrefix(body.SourcePath, "/")
+		absPath, ok := pathguard.SafePath(root, rel)
+		if !ok {
 			http.Error(w, "invalid sourcePath", http.StatusBadRequest)
 			return
 		}

@@ -1,9 +1,15 @@
 # Changelog
 
-*Last modified: 2026-05-27*
+*Last modified: 2026-06-04*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+
+- **About dialog shows correct version in container builds** — The Docker image now receives the release tag via a build-arg (`VERSION`) and bakes it into the binary with `-X main.Version`. Previously the container always displayed "dev".
+
+- **Library creation works in server/container mode** — Creating a library by right-clicking a folder in Browse mode (or typing a path manually in the New Library dialog) now resolves the path correctly when Unterlumen is started with a root other than `/` (e.g. `UNTERLUMEN_ROOT_PATH=/photos` in a container). Previously the submitted path was interpreted as a filesystem-absolute path, causing "sourcePath must be an existing directory" for any root-relative path. The dialog placeholder is also updated to show the expected root-relative format.
 
 ### Changed
 
