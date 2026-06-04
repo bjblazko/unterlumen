@@ -1,10 +1,7 @@
-import path from 'path';
 import { test, expect } from '@playwright/test';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { GPS_IMAGE, NO_GPS_IMAGE, HIF_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 import { reindexLibrary } from '../helpers/library.js';
-
-const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
 test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
   test.beforeEach(async ({ page }) => {
@@ -87,7 +84,7 @@ test.describe('Overlays — library folder view', () => {
       existing.filter(l => l.name === 'E2E Overlay Library').map(l => request.delete(`/api/library/${l.id}`))
     );
     const res = await request.post('/api/library/', {
-      data: { name: 'E2E Overlay Library', description: '', sourcePath: EXAMPLES_PATH },
+      data: { name: 'E2E Overlay Library', description: '', sourcePath: '/' },
     });
     expect(res.status()).toBe(201);
     libID = (await res.json()).id;

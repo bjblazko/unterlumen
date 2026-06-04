@@ -11,7 +11,7 @@ test.describe('Statistics modal', () => {
 
         // Create a test library (unindexed — stats will be empty but modal structure is testable)
         const res = await request.post('/api/library/', {
-            data: { name: 'Stats test library', description: '', sourcePath: '/tmp' },
+            data: { name: 'Stats test library', description: '', sourcePath: 'folder-a' },
         });
         expect(res.status()).toBe(201);
         const body = await res.json();

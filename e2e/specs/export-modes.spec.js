@@ -8,13 +8,10 @@
  * search-result panes (which previously had no onToolInvoke callback).
  */
 
-import path from 'path';
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
 import { GPS_IMAGE, NO_GPS_IMAGE, GPS_PATH, NO_GPS_PATH, navigateToFolder } from '../helpers/fixtures.js';
-
-const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
 // ─── Scale / EXIF payloads ───────────────────────────────────────────────────
 
@@ -78,7 +75,7 @@ test.describe('Export modes', () => {
         );
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Export Modes Library', description: '', sourcePath: EXAMPLES_PATH },
+            data: { name: 'E2E Export Modes Library', description: '', sourcePath: '/' },
         });
         expect(res.status()).toBe(201);
         const lib = await res.json();

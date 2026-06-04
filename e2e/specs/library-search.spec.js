@@ -1,11 +1,6 @@
-import path from 'path';
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
-
-// fixtures/photos is a copy of src/examples used by both the test server and the library.
-// Using the same path ensures that library photo paths resolve correctly via /api/info.
-const EXAMPLES_PATH = path.resolve(new URL('../fixtures/photos', import.meta.url).pathname);
 
 // ─── Filter panel — no EXIF data ─────────────────────────────────────────────
 
@@ -17,7 +12,7 @@ test.describe('Filter panel — no EXIF data', () => {
         await Promise.all(existing.filter(l => l.name === 'E2E Empty Library').map(l => request.delete(`/api/library/${l.id}`)));
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Empty Library', description: '', sourcePath: '/tmp' },
+            data: { name: 'E2E Empty Library', description: '', sourcePath: 'folder-a' },
         });
         expect(res.status()).toBe(201);
         const body = await res.json();
@@ -79,7 +74,7 @@ test.describe('Library search with indexed fixtures', () => {
         await Promise.all(existing.filter(l => l.name === 'E2E Indexed Library').map(l => request.delete(`/api/library/${l.id}`)));
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Indexed Library', description: '', sourcePath: EXAMPLES_PATH },
+            data: { name: 'E2E Indexed Library', description: '', sourcePath: '/' },
         });
         expect(res.status()).toBe(201);
         const body = await res.json();

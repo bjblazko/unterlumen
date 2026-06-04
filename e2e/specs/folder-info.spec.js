@@ -1,13 +1,5 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { waitForAppReady } from '../helpers/wait.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURES_PATH = path.resolve(__dirname, '../fixtures/photos');
-// Use only folder-a for library mode tests — faster indexing (~30s) since
-// all of FIXTURES_PATH takes 3+ minutes due to EXIF extraction for many files.
-const FIXTURES_FOLDER_A = path.resolve(__dirname, '../fixtures/photos/folder-a');
 
 async function openInfoPanel(page) {
     await page.keyboard.press('i');
@@ -103,7 +95,7 @@ test.describe('Folder info panel — library mode', () => {
         );
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Folder Info', description: '', sourcePath: FIXTURES_FOLDER_A },
+            data: { name: 'E2E Folder Info', description: '', sourcePath: 'folder-a' },
         });
         expect(res.status()).toBe(201);
         libID = (await res.json()).id;

@@ -14,7 +14,7 @@ test.describe('Library list view', () => {
         );
 
         const res = await request.post('/api/library/', {
-            data: { name: 'E2E Library UI', description: '', sourcePath: '/tmp' },
+            data: { name: 'E2E Library UI', description: '', sourcePath: 'folder-a' },
         });
         expect(res.status()).toBe(201);
         const body = await res.json();
@@ -41,7 +41,7 @@ test.describe('Library list view', () => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await expect(card).toBeVisible({ timeout: 8_000 });
         await expect(card.locator('.library-card-name')).toContainText('E2E Library UI');
-        await expect(card.locator('.library-card-meta')).toContainText('/tmp');
+        await expect(card.locator('.library-card-meta')).toContainText('folder-a');
     });
 
     test('shows photo count and last-indexed info on card', async ({ page }) => {
@@ -89,7 +89,7 @@ test.describe('Library list view', () => {
     test('Delete button removes library card after confirmation', async ({ page }) => {
         // Create a disposable library inline for this test
         const res = await page.request.post('/api/library/', {
-            data: { name: 'To Delete', description: '', sourcePath: '/tmp' },
+            data: { name: 'To Delete', description: '', sourcePath: 'folder-a' },
         });
         const body = await res.json();
         const deleteID = body.id;
