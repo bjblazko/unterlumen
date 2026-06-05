@@ -466,6 +466,25 @@ class BrowsePane {
                                 <button class="btn btn-sm tool-item" data-tool="make-library">Make library</button>
                             </div>
                         </div>
+                        <div class="dropdown-section tools-cache-section">
+                            <label class="dropdown-label tools-cache-label">Cache</label>
+                            <div class="dropdown-toggle">
+                                <button class="btn btn-sm tool-item" data-tool="clear-cache">Clear cache for selection</button>
+                            </div>
+                        </div>
+                        <div class="dropdown-section tools-lib-scan-section" style="display:none">
+                            <label class="dropdown-label">Library</label>
+                            <div class="dropdown-wrap lib-scan-tools-wrap">
+                                <div class="dropdown-toggle">
+                                    <button class="btn btn-sm tool-item" data-tool="lib-scan-new">Scan new and changed</button>
+                                    <button class="btn btn-sm lib-scan-tools-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
+                                </div>
+                                <div class="dropdown-menu lib-scan-tools-menu" style="display:none">
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-reindex">Re-index (full)</button>
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-cleanup">Cleanup deleted</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -607,12 +626,22 @@ class BrowsePane {
         const toolsMenuBtn = this.container.querySelector('.tools-menu-btn');
         const toolsMenu = this.container.querySelector('.tools-menu');
         if (toolsMenuBtn && toolsMenu) {
+            let closeScanToolsMenu = () => {};
+            const libScanToggle = toolsMenu.querySelector('.lib-scan-tools-toggle');
+            const libScanToolsMenu = toolsMenu.querySelector('.lib-scan-tools-menu');
+            if (libScanToggle && libScanToolsMenu) {
+                const { close } = Dropdown.init(libScanToggle, libScanToolsMenu);
+                closeScanToolsMenu = close;
+            }
+
             const { close: closeToolsMenu } = Dropdown.init(toolsMenuBtn, toolsMenu, {
                 onOpen: () => {
                     this._updateToolsGeoLabel();
                     this._updateToolsRenameState();
                     this._updateToolsLibraryState();
+                    this._updateToolsCacheLabel();
                     this._checkToolsAvailability();
+                    closeScanToolsMenu();
                 },
             });
             toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
@@ -623,6 +652,31 @@ class BrowsePane {
                         if (!dir) return;
                         if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
                         closeToolsMenu();
+                        return;
+                    }
+                    if (tool === 'clear-cache') {
+                        const files = this.getActionableFiles();
+                        const dir = this.getFocusedDir();
+                        if (files.length === 0 && !dir) return;
+                        const toolsBtn = this.container.querySelector('.tools-menu-btn');
+                        if (toolsBtn) toolsBtn.disabled = true;
+                        closeToolsMenu();
+                        if (this.onToolInvoke) this.onToolInvoke({
+                            tool, files,
+                            path: dir || this.path,
+                            onDone: () => { if (toolsBtn) toolsBtn.disabled = false; },
+                        });
+                        return;
+                    }
+                    if (tool === 'lib-scan-new' || tool === 'lib-reindex' || tool === 'lib-cleanup') {
+                        const toolsBtn = this.container.querySelector('.tools-menu-btn');
+                        if (toolsBtn) toolsBtn.disabled = true;
+                        closeScanToolsMenu();
+                        closeToolsMenu();
+                        if (this.onToolInvoke) this.onToolInvoke({
+                            tool, files: [],
+                            onDone: () => { if (toolsBtn) toolsBtn.disabled = false; },
+                        });
                         return;
                     }
                     const files = this.getActionableFiles();
@@ -716,9 +770,29 @@ class BrowsePane {
     }
 
     _updateToolsLibraryState() {
-        const section = this.container.querySelector('.tools-library-section');
-        if (!section) return;
-        section.style.display = (this.getFocusedDir() && App.mode !== 'library') ? '' : 'none';
+        const makeSection = this.container.querySelector('.tools-library-section');
+        if (makeSection) makeSection.style.display =
+            (this.getFocusedDir() && App.mode !== 'library') ? '' : 'none';
+        const scanSection = this.container.querySelector('.tools-lib-scan-section');
+        if (scanSection) scanSection.style.display = App.mode === 'library' ? '' : 'none';
+    }
+
+    _updateToolsCacheLabel() {
+        const label = this.container.querySelector('.tools-cache-label');
+        const btn = this.container.querySelector('[data-tool="clear-cache"]');
+        if (!label || !btn) return;
+        const files = this.getActionableFiles();
+        const dir = this.getFocusedDir();
+        if (files.length > 0) {
+            label.textContent = `Cache (${files.length} file${files.length !== 1 ? 's' : ''})`;
+            btn.disabled = false;
+        } else if (dir) {
+            label.textContent = 'Cache (folder)';
+            btn.disabled = false;
+        } else {
+            label.textContent = 'Cache';
+            btn.disabled = true;
+        }
     }
 
     // --- Focus change notification ---

@@ -99,6 +99,15 @@ const App = {
         this._uiHintTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
     },
 
+    showToast(msg) {
+        const hint = document.getElementById('ui-hint');
+        if (!hint) return;
+        hint.textContent = msg;
+        hint.classList.add('visible');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
+    },
+
     initSettingsMenu() {
         const btn = document.getElementById('settings-btn');
         const menu = document.getElementById('settings-menu');
@@ -460,7 +469,7 @@ const App = {
         return null;
     },
 
-    handleToolInvoke({ tool, files, path, sourcePath }) {
+    handleToolInvoke({ tool, files, path, sourcePath, onDone }) {
         if (!this.locationModal) this.locationModal = new LocationModal();
         if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
@@ -516,6 +525,36 @@ const App = {
                 serverRole: this.config?.serverRole ?? false,
                 exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
                 sourcePath: sourcePath || null,
+            });
+        } else if (tool === 'clear-cache') {
+            const prefix = sourcePath || '';
+            const toPath = f => prefix ? `${prefix}/${f}` : f;
+            const evictPaths = files.length > 0
+                ? files.map(toPath)
+                : path ? [toPath(path)] : [];
+            if (evictPaths.length === 0) { if (onDone) onDone(); return; }
+            App.showToast('Clearing cache…');
+            API.cacheEvict(evictPaths)
+                .then(r => App.showToast(`Cache cleared for ${r.evicted} file${r.evicted !== 1 ? 's' : ''}`))
+                .catch(e => App.showToast(`Cache clear failed: ${e.message}`))
+                .finally(() => { if (onDone) onDone(); });
+        } else if (tool === 'lib-scan-new' || tool === 'lib-reindex' || tool === 'lib-cleanup') {
+            const lib = this._libraryTab?.currentLibrary;
+            if (!lib) { if (onDone) onDone(); return; }
+            const opMap = { 'lib-scan-new': 'scanNew', 'lib-reindex': 'reindex', 'lib-cleanup': 'cleanup' };
+            const labelMap = { 'lib-scan-new': 'Scanning', 'lib-reindex': 'Indexing', 'lib-cleanup': 'Checking' };
+            App.showToast(`${labelMap[tool]}…`);
+            LibraryAPI[opMap[tool]](lib.id, (p) => {
+                if (p.finished) {
+                    App.showToast(`Done — ${p.done} photo${p.done !== 1 ? 's' : ''}`);
+                    if (onDone) onDone();
+                } else {
+                    const cur = p.current ? ' · ' + p.current.split('/').pop() : '';
+                    App.showToast(`${p.done}${p.total ? ' / ' + p.total : ''}${cur}`);
+                }
+            }).catch(e => {
+                App.showToast(`Error: ${e.message}`);
+                if (onDone) onDone();
             });
         }
     },

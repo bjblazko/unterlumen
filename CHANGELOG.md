@@ -3,6 +3,14 @@
 *Last modified: 2026-06-05*
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Selective cache clearing from Tools menu** — The Tools menu now has a "Cache" section with a "Clear cache" button. In browse mode it evicts all cached thumbnails for the selected file(s); if a folder is focused it recursively clears cache for every file inside. In library mode the same button is available for selected photos. New backend endpoint `POST /api/cache/evict` accepts a list of absolute paths and calls `EvictFile` per file (or walks directories recursively). Feedback: Tools button disables while running, toast shows "Clearing cache…" then "Cache cleared for N file(s)".
+
+- **Library scan shortcuts in Tools menu** — When browsing inside a library (`App.mode === 'library'`), the Tools menu gains a "Library scan" section with "Scan new", "Re-index", and "Cleanup" buttons. These call the same SSE-backed library API endpoints as the library overview card buttons. Progress streams as a live toast ("Scanning… 15/100 · filename"); on completion a toast shows "Done — N photos". Existing "Make library" entry hides when in library mode.
+
 ## [0.9.3] - 2026-06-05
 
 ### Fixed

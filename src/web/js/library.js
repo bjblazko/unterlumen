@@ -934,9 +934,9 @@ class LibraryTab {
                     if (errors.length > 0) {
                         alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
                     } else if (resp.sitePath) {
-                        _showToast(`Album added · site at ${resp.sitePath}`);
+                        App.showToast(`Album added · site at ${resp.sitePath}`);
                     } else {
-                        _showToast(`Gallery ready: ${resp.galleryPath}`);
+                        App.showToast(`Gallery ready: ${resp.galleryPath}`);
                     }
                 } else {
                     const resp = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt });
@@ -945,7 +945,7 @@ class LibraryTab {
                     if (errors.length > 0) {
                         alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
                     } else {
-                        _showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
+                        App.showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
                     }
                 }
             } catch (err) {
@@ -1008,12 +1008,4 @@ function stripQuotes(s) {
     return s;
 }
 
-function _showToast(msg) {
-    const hint = document.getElementById('ui-hint');
-    if (!hint) return;
-    hint.textContent = msg;
-    hint.classList.add('visible');
-    clearTimeout(_showToast._timer);
-    _showToast._timer = setTimeout(() => hint.classList.remove('visible'), 3000);
-}
 
