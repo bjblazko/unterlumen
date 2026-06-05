@@ -206,7 +206,7 @@ To update Unterlumen, download the new binary and run `-desktop-install` again �
 
 ### Docker / Podman
 
-Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container Registry and include ffmpeg and exiftool — no separate install needed. Jump to the [Docker / Podman](#docker--podman) section below.
+Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container Registry and include ffmpeg, heif-convert, and exiftool — no separate install needed. Jump to the [Docker / Podman](#docker--podman) section below.
 
 ### Build from source
 
@@ -218,7 +218,8 @@ cd src && go build -o ../unterlumen .
 
 ### Optional dependencies
 
-- **ffmpeg** — required for HEIF/HEIC/HIF support
+- **ffmpeg** — required for HEIF/HEIC/HIF support (embedded preview extraction and HEVC decode fallback)
+- **heif-convert** (from `libheif-examples` / `libheif`) — recommended alongside ffmpeg; handles HEIF files that ffmpeg cannot parse, such as standard Fujifilm HEIC files that carry no embedded JPEG preview stream. Without it those files show a placeholder instead of a thumbnail.
 - **exiftool** — required for Set/Remove Geolocation, Batch Rename, and Export EXIF copy/GPS-strip
 
 ## Usage
@@ -287,7 +288,7 @@ Then open `http://localhost:8080` in your browser (or whichever port you configu
 
 ## Docker / Podman
 
-Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg and exiftool.
+Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg, heif-convert, and exiftool.
 
 ```
 docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/bjblazko/unterlumen:latest

@@ -18,12 +18,15 @@ RUN CGO_ENABLED=0 GOOS=linux \
 FROM debian:bookworm-slim
 
 # Install external tools bundled in the image:
-#   ffmpeg         — HEIF/HEIC display and WebP export
-#   exiftool       — GPS metadata editing and EXIF stripping on export
-#   ca-certificates — TLS roots (for future HTTPS or CDN map tiles)
+#   ffmpeg            — HEIF/HEIC display (embedded preview extraction) and WebP export
+#   libheif-examples  — heif-convert; handles HEIF files that ffmpeg cannot parse
+#                       (e.g. standard Fujifilm HEIC files without an embedded JPEG stream)
+#   exiftool          — GPS metadata editing and EXIF stripping on export
+#   ca-certificates   — TLS roots (for future HTTPS or CDN map tiles)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
+        libheif-examples \
         libimage-exiftool-perl \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*

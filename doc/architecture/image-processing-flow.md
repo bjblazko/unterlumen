@@ -1,6 +1,6 @@
 # Image Processing Flow: Thumbnails, Full Images, ffmpeg, and Caching
 
-*Last modified: 2026-05-12*
+*Last modified: 2026-06-05*
 
 This document describes the exact runtime behavior for every code path that
 produces image data for the browser — from the HTTP request to the bytes on
@@ -169,17 +169,23 @@ even if the thumbnail was already generated.
 
 ---
 
-## 4. ffmpeg invocations — complete list
+## 4. External tool invocations — complete list
 
-| Call site | Command | When | Notes |
-|---|---|---|---|
-| `CheckFFmpeg()` | `ffmpeg -decoders` | Once at startup | Checks availability + HEVC decoder support; result cached for process lifetime |
-| `probeHEIFJPEGStreams()` | `ffprobe -v quiet -print_format json -show_streams <path>` | Per HEIF request (cache miss) | Enumerates embedded JPEG streams; no decode |
-| `extractEmbeddedHEIFJPEGStream()` | `ffmpeg -i <path> -map 0:<idx> -c copy -f image2pipe pipe:1` | Per HEIF request (cache miss, adequate stream found) | Fast; no re-encode |
-| `ffmpegRun()` HEVC decode | `ffmpeg -i <path> -f image2pipe -vcodec mjpeg -q:v 2 -frames:v 1 pipe:1` | Per HEIF request (cache miss, no adequate stream, sips also failed) | Slowest path |
+| Call site | Tool | Command | When | Notes |
+|---|---|---|---|---|
+| `CheckFFmpeg()` | ffmpeg | `ffmpeg -decoders` | Once at startup | Checks availability + HEVC decoder support; result cached for process lifetime |
+| `probeHEIFJPEGStreamsWithFFProbe()` | ffprobe | `ffprobe -v error -select_streams v -show_entries stream=index,codec_name,width,height -of json <path>` | Per HEIF request (cache miss) | Enumerates embedded JPEG streams; no decode. Fails for HEIF files with no ISOBMFF moov atom (e.g. standard Fujifilm HEIC). |
+| `parseHEIFJPEGStreams()` (fallback) | ffmpeg | `ffmpeg -i <path>` (stderr parse) | Per HEIF request (ffprobe failed) | Parses stream info from ffmpeg's error output; no decode |
+| `extractEmbeddedHEIFJPEGStream()` | ffmpeg | `ffmpeg -i <path> -map 0:<idx> -c copy -f image2pipe pipe:1` | Per HEIF request (cache miss, adequate stream found) | Fast; no re-encode |
+| `heifConvert()` | heif-convert | `heif-convert <path> <tmpdir>/out.jpg` | Per HEIF request (cache miss, no adequate stream, sips failed) | Uses libheif native decoder; handles HEIF files ffmpeg cannot parse. Reads first file in output directory to support multi-image HEIC. |
+| `ffmpegRun()` HEVC decode | ffmpeg | `ffmpeg -i <path> -f image2pipe -vcodec mjpeg -q:v 2 -frames:v 1 pipe:1` | Per HEIF request (cache miss, no adequate stream, sips and heif-convert also failed) | Slowest path; cannot decode files without a parseable ISOBMFF container |
 
-`sips` (macOS only) is tried before the ffmpeg HEVC decode. It writes to
+`sips` (macOS only) is tried before `heif-convert` and the ffmpeg HEVC decode. It writes to
 a unique OS temp file that is deleted immediately after reading.
+
+**Tool priority for HEIF fallback:** `sips` (macOS) → `heif-convert` → ffmpeg HEVC decode.
+`heif-convert` is the most broadly capable on Linux — install `libheif-examples` (Debian/Ubuntu)
+or `libheif` (Arch/Homebrew) to enable it.
 
 **No ffmpeg is called on a cache hit.** After the first successful conversion,
 subsequent requests for the same file are served entirely from the disk cache.

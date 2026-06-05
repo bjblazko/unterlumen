@@ -1,7 +1,13 @@
 # Changelog
 
-*Last modified: 2026-06-04*
+*Last modified: 2026-06-05*
 All notable changes to this project are documented in this file.
+
+## [0.9.3] - 2026-06-05
+
+### Fixed
+
+- **HEIC thumbnails failing for standard Fujifilm HEIC files** — Added `libheif-examples` (`heif-convert`) to the Docker image. Fujifilm's standard HEIC files (`DSCF*.heic`) carry no embedded JPEG preview stream that ffmpeg can parse, causing ffprobe to report "moov atom not found" and all fallback paths to fail. `heif-convert` from libheif decodes these files natively. Film Simulation Bracket files (`_DSF*.heic`) were unaffected because they embed a JPEG preview stream that ffprobe can find directly. Users running unterlumen outside Docker should install `libheif-examples` (Debian/Ubuntu) or `libheif` (Homebrew/Arch) alongside ffmpeg for full HEIF coverage.
 
 ## [0.9.2] - 2026-06-04
 
