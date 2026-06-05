@@ -108,6 +108,9 @@ class ChannelSettingsModal {
         const accountCount = (ch.accounts || []).length;
         const handlerDesc = ch.handler ? ` · handler: ${ch.handler}` : '';
         const accountDesc = accountCount > 0 ? ` · ${accountCount} account${accountCount !== 1 ? 's' : ''}` : '';
+        const outputDesc = ch.outputMode === 'download'
+            ? ' · → download ZIP'
+            : (ch.outputPath ? ` · → ${ch.outputPath.split('/').pop() || ch.outputPath}` : '');
         row.innerHTML = `
             <div class="channel-row-top">
                 <div class="channel-row-header">
@@ -128,7 +131,7 @@ class ChannelSettingsModal {
                     <button class="btn btn-sm ch-delete">Delete</button>
                 </div>
             </div>
-            <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}</span>`;
+            <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}${escapeHtml(outputDesc)}</span>`;
 
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
@@ -232,6 +235,7 @@ class ChannelSettingsModal {
             scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
             handler: '', handlerConfig: {}, accounts: [],
             galleryExport: false, siteExport: false, siteTitle: '', siteTheme: 'light',
+            outputMode: '', outputPath: '',
         };
 
         const form = document.createElement('div');
@@ -292,6 +296,21 @@ class ChannelSettingsModal {
                         </select>
                     </div>
 
+                    <label class="form-label">Output (default)</label>
+                    <select class="form-select" id="chf-output-mode">
+                        <option value="save"     ${(ch.outputMode||'save')==='save'?'selected':''}>Save to folder</option>
+                        <option value="download" ${ch.outputMode==='download'?'selected':''}>Download as ZIP</option>
+                    </select>
+                    <div id="chf-output-path-wrap" style="display:${ch.outputMode==='download'?'none':''}">
+                        <label class="form-label">Output folder <span class="form-hint">(leave empty for default)</span></label>
+                        <div class="export-destination-wrap">
+                            <input class="form-input export-destination-input" id="chf-output-path"
+                                   value="${escapeHtml(ch.outputPath || '')}"
+                                   placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<slug>')}/">
+                            <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
+                        </div>
+                    </div>
+
                     <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
                     <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
 
@@ -323,6 +342,20 @@ class ChannelSettingsModal {
         const siteOptsEl   = form.querySelector('#chf-site-opts');
         exportModeEl.addEventListener('change', () => {
             siteOptsEl.style.display = exportModeEl.value === 'site' ? '' : 'none';
+        });
+
+        // Output mode toggle
+        const outputModeEl = form.querySelector('#chf-output-mode');
+        const outputPathWrap = form.querySelector('#chf-output-path-wrap');
+        outputModeEl.addEventListener('change', () => {
+            outputPathWrap.style.display = outputModeEl.value === 'download' ? 'none' : '';
+        });
+
+        // Output folder picker
+        form.querySelector('#chf-output-pick').addEventListener('click', async () => {
+            const current = form.querySelector('#chf-output-path').value.trim();
+            const chosen = await new FolderPicker().open(current || '');
+            if (chosen !== null) form.querySelector('#chf-output-path').value = chosen;
         });
 
         // Handler config add row
@@ -377,6 +410,8 @@ class ChannelSettingsModal {
                 handler:       form.querySelector('#chf-handler').value.trim() || undefined,
                 handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
                 accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),
+                outputMode:    form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
+                outputPath:    form.querySelector('#chf-output-path')?.value.trim() || undefined,
             };
             try {
                 if (isNew) {

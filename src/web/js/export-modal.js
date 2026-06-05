@@ -47,15 +47,16 @@ class ExportModal {
         const gpsNote = exiftoolAvailable ? '' : ' <span class="export-note">(requires exiftool)</span>';
         const gpsDisabled = exiftoolAvailable ? '' : ' disabled';
 
-        const outputSection = serverRole ? '' : `
+        const folderPlaceholder = serverRole ? 'relative path, e.g. exports/batch' : '/path/to/folder or relative/subfolder';
+        const outputSection = `
             <div class="export-section">
                 <div class="export-section-title">Output</div>
                 <label class="export-radio-row">
                     <input type="radio" name="output-mode" value="folder" checked> Save to folder
                 </label>
                 <div class="export-destination-wrap">
-                    <input type="text" class="export-destination-input" placeholder="/path/to/output/folder">
-                    <button type="button" class="btn btn-sm export-destination-btn" title="Choose folder">…</button>
+                    <input type="text" class="export-destination-input" placeholder="${folderPlaceholder}">
+                    <button type="button" class="btn btn-sm export-destination-btn" title="Browse folders">…</button>
                 </div>
                 <label class="export-radio-row">
                     <input type="radio" name="output-mode" value="zip"> Download as ZIP
@@ -215,16 +216,16 @@ class ExportModal {
             }
         });
 
-        // Folder picker button
+        // Folder picker button — opens the in-app folder browser
         const pickerBtn = this.overlay.querySelector('.export-destination-btn');
         if (pickerBtn) {
             pickerBtn.addEventListener('click', async () => {
-                try {
-                    const resp = await fetch('/api/export/folder-picker');
-                    if (!resp.ok) return;
-                    const { path } = await resp.json();
-                    if (path) this.overlay.querySelector('.export-destination-input').value = path;
-                } catch (_) {}
+                const current = this.overlay.querySelector('.export-destination-input').value.trim();
+                const picker = new FolderPicker();
+                const chosen = await picker.open(current || '');
+                if (chosen !== null && this.overlay) {
+                    this.overlay.querySelector('.export-destination-input').value = chosen;
+                }
             });
         }
 
@@ -295,7 +296,6 @@ class ExportModal {
     }
 
     _getOutputMode() {
-        if (this._serverRole) return 'zip';
         const checked = this.overlay.querySelector('[name="output-mode"]:checked');
         return checked ? checked.value : 'folder';
     }
@@ -464,7 +464,7 @@ class ExportModal {
         const outputMode = this._getOutputMode();
 
         try {
-            if (outputMode === 'zip' || this._serverRole) {
+            if (outputMode === 'zip') {
                 // Stream SSE progress while the server builds the ZIP, then download.
                 this._setProgress(true, 0, this._files.length, 'Exporting…', false);
 

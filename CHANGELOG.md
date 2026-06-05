@@ -1,11 +1,30 @@
 # Changelog
 
-*Last modified: 2026-06-05*
+*Last modified: 2026-06-06*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Publish from filter results** — The Publish button in the single-library detail view is now active when photos are selected from EXIF filter results, not only from the folder tree. In the cross-library list view a new Publish button appears in the header; it enables whenever filter results have a selection. Photos are published using their already-resolved IDs (no extra API lookups). If a cross-library selection spans multiple libraries, plain publish runs one call per library group; gallery/site export and ZIP download require all selected photos to be from one library (an error is shown otherwise).
+
+### Changed
+
+- **Generated website footer** — The "Built with Unterlumen" footer now links to the product page at huepattl.de and includes an orange heart icon. A GitHub icon linking to the repository is added alongside it. Applies to multi-album site (root index and album pages) and single-gallery exports.
+- **Generated website icons** — Replaced thin Unicode arrow characters with clean SVG icons: chevron arrows for lightbox navigation and back-to-albums, a download icon for the ZIP link. Applies to both site and single-gallery templates.
+
+### Fixed
+
+- **Publish dialog — album title required for site export** — Publishing to a multi-album site channel now validates that an album title is provided. If the field is left blank, an error message is shown and publishing is blocked rather than silently falling back to a titleless export.
+
+### Added
+
+- **In-app folder picker** — A new in-browser directory browser replaces the OS-native folder picker (`osascript`/`zenity`) in the export dialog. Works in desktop and server/container mode alike. New `GET /api/browse/dirs` endpoint returns subdirectories at a given path.
+
+- **Export "Save to folder" in server mode** — The export dialog now shows the full output section (folder save + ZIP download) in server/container mode. Folder paths can be typed as root-relative (e.g. `exports/batch`); absolute paths are still accepted in desktop mode.
+
+- **Channel publish "Download ZIP"** — The publish dialog gains a **Download ZIP** button alongside the existing **Publish** button. It exports selected photos with channel settings and delivers them as a ZIP download without writing to the channel folder or updating XMP sidecars. Available in all modes.
 
 - **Selective cache clearing from Tools menu** — The Tools menu now has a "Cache" section with a "Clear cache" button. In browse mode it evicts all cached thumbnails for the selected file(s); if a folder is focused it recursively clears cache for every file inside. In library mode the same button is available for selected photos. New backend endpoint `POST /api/cache/evict` accepts a list of absolute paths and calls `EvictFile` per file (or walks directories recursively). Feedback: Tools button disables while running, toast shows "Clearing cache…" then "Cache cleared for N file(s)".
 

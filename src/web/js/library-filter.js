@@ -57,10 +57,11 @@ class LibrarySearchPanel {
     // toggleBtn    — the button that opens/closes the panel
     // initialLibID — pre-select this library (null = all)
     // options      — { onResults(photos, multiLib), onClose(), resultsContainer, onFocusChange }
-    //   onResults:        if set, called with results instead of rendering a pane inside the panel
-    //   onClose:          called when the panel is closed
-    //   resultsContainer: DOM element where SearchResultPane is mounted (list-page path)
-    //   onFocusChange:    forwarded to SearchResultPane for info panel integration
+    //   onResults:          if set, called with results instead of rendering a pane inside the panel
+    //   onClose:            called when the panel is closed
+    //   resultsContainer:   DOM element where SearchResultPane is mounted (list-page path)
+    //   onFocusChange:      forwarded to SearchResultPane for info panel integration
+    //   onSelectionChange:  forwarded to SearchResultPane; called when selection changes
     constructor(container, toggleBtn, initialLibID = null, options = {}) {
         this._container = container;
         this._toggleBtn = toggleBtn;
@@ -378,6 +379,7 @@ class LibrarySearchPanel {
             onImageClick: (path) => App.openViewer(path, this._searchPane),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
             onFocusChange: this._options.onFocusChange || null,
+            onSelectionChange: this._options.onSelectionChange || null,
             onToolInvoke: this._options.onToolInvoke || null,
             onClose: () => this.close(),
         });

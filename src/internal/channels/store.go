@@ -40,8 +40,13 @@ func NewStore(libRoot string) *Store {
 	return &Store{path: filepath.Join(libRoot, "channels.json")}
 }
 
-// OutputDir returns the filesystem path where output for the given channel slug is stored.
+// OutputDir returns the effective output directory for the given channel slug.
+// If the channel has a custom OutputPath, that is returned. Otherwise the default
+// ~/.unterlumen/channels/<slug>/ path is used.
 func (s *Store) OutputDir(slug string) string {
+	if ch, err := s.Get(slug); err == nil && ch.OutputPath != "" {
+		return ch.OutputPath
+	}
 	return filepath.Join(filepath.Dir(s.path), "channels", slug)
 }
 

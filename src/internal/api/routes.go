@@ -47,7 +47,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		apichannels.Handle(mux, chStore)
 	}
 	if libMgr != nil {
-		apilibrary.Handle(mux, libMgr, boundary, chStore)
+		apilibrary.Handle(mux, libMgr, boundary, serverRole, chStore)
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))

@@ -40,6 +40,7 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *lib
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(root, cache))
 	mux.HandleFunc("/api/browse/recursive", handleBrowseRecursive(root))
+	mux.HandleFunc("/api/browse/dirs", handleBrowseDirs(root))
 	mux.HandleFunc("/api/browse/folder-stats", handleFolderStats(root))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root, libMgr))
 	mux.HandleFunc("/api/image", handleImage(root))
@@ -252,6 +253,51 @@ func handleBrowseRecursive(root string) http.HandlerFunc {
 			paths = []string{}
 		}
 		writeJSON(w, browseRecursiveResponse{Paths: paths})
+	}
+}
+
+type browseDirsResponse struct {
+	Path   string    `json:"path"`
+	Parent *string   `json:"parent"` // null at root, parent relative path otherwise
+	Dirs   []dirInfo `json:"dirs"`
+}
+
+type dirInfo struct {
+	Name string `json:"name"`
+}
+
+func handleBrowseDirs(root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		relPath := r.URL.Query().Get("path")
+		absPath, ok := pathguard.SafePath(root, relPath)
+		if !ok {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
+		entries, err := os.ReadDir(absPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var dirs []dirInfo
+		for _, e := range entries {
+			if e.IsDir() && len(e.Name()) > 0 && e.Name()[0] != '.' {
+				dirs = append(dirs, dirInfo{Name: e.Name()})
+			}
+		}
+		var parent *string
+		if relPath != "" {
+			p := filepath.ToSlash(filepath.Dir(relPath))
+			if p == "." {
+				p = ""
+			}
+			parent = &p
+		}
+		writeJSON(w, browseDirsResponse{Path: relPath, Parent: parent, Dirs: dirs})
 	}
 }
 

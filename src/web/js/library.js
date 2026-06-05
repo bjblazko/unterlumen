@@ -83,20 +83,20 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publish(libID, { photoIDs, channel, account, publishedAt }) {
+    async publish(libID, { photoIDs, channel, account, publishedAt, recordXMP, outputPath }) {
         const r = await fetch(`/api/library/${libID}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt }),
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt, recordXMP, outputPath }),
         });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle }, onProgress) {
+    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath }, onProgress) {
         const r = await fetch(`/api/library/${libID}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle }),
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath }),
         });
         if (!r.ok) throw new Error(await r.text());
 
@@ -123,6 +123,15 @@ const LibraryAPI = {
         }
         if (!finalEvt) throw new Error('Gallery stream ended without completion event');
         return finalEvt;
+    },
+    async publishDownload(libID, { photoIDs, channel, recordXMP }) {
+        const r = await fetch(`/api/library/${libID}/publish-download`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoIDs, channel, recordXMP }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.blob();
     },
     async upsertMeta(libID, photoID, key, value) {
         const r = await fetch(`/api/library/${libID}/photo/${photoID}/meta`, {
@@ -248,6 +257,9 @@ class LibraryTab {
         this._listInfoPanel = null;
         this._listSearchPanel = null;
         this._cachedLibs = null;
+        this._detailPublishBtn = null;
+        this._listPublishBtn = null;
+        this._detailEl = null;
     }
 
     getActivePaneForKeyboard() {
@@ -337,6 +349,8 @@ class LibraryTab {
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
+                    <button class="btn lib-publish-btn" id="lib-list-publish-btn" disabled>Publish…</button>
+                    <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
@@ -355,6 +369,9 @@ class LibraryTab {
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
+        this._listPublishBtn = el.querySelector('#lib-list-publish-btn');
+        this._listPublishBtn.addEventListener('click', () => this._openPublishModal());
+
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
         this._listInfoPanel.onToggle = () => {
@@ -371,6 +388,12 @@ class LibraryTab {
                 resultsContainer: el.querySelector('#lib-search-results-area'),
                 onFocusChange: (path) => this._onListSearchFocus(path),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: null }),
+                onSelectionChange: () => {
+                    if (this._listPublishBtn) {
+                        this._listPublishBtn.disabled =
+                            (this._listSearchPanel?._searchPane?.selection.selected.size ?? 0) === 0;
+                    }
+                },
                 onClose: () => { if (this._listInfoPanel) this._listInfoPanel.clear(); },
             }
         );
@@ -633,7 +656,6 @@ class LibraryTab {
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
-                    <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">
                         <span class="toggle-label">Filter</span>
                         <span class="toggle-label toggle-label-on">ON</span>
@@ -641,6 +663,7 @@ class LibraryTab {
                         <span class="toggle-label toggle-label-off">OFF</span>
                     </button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
+                    <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
@@ -654,6 +677,7 @@ class LibraryTab {
             </div>`;
         this.container.appendChild(el);
         this._detailEl = el;
+        this._detailPublishBtn = el.querySelector('#lib-publish-btn');
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -682,8 +706,8 @@ class LibraryTab {
             el.querySelector('#lib-filter-btn'),
             lib.id,
             {
-                onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, publishBtn, photos, multiLib, paginationOpts),
-                onClose: () => this._showLibraryPane(el, publishBtn),
+                onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, photos, multiLib, paginationOpts),
+                onClose: () => this._showLibraryPane(el),
                 onLoading: (isLoading) => {
                     const paneEl = el.querySelector('#lib-pane');
                     const searchPaneEl = el.querySelector('#lib-search-pane');
@@ -723,8 +747,8 @@ class LibraryTab {
             },
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
-            onSelectionChange: (files) => {
-                publishBtn.disabled = files.length === 0;
+            onSelectionChange: () => {
+                this._updateDetailPublishBtn();
                 this._updateCommanderBtn();
             },
         });
@@ -732,7 +756,7 @@ class LibraryTab {
         this._pane.load('');
     }
 
-    _showSearchResults(detailEl, publishBtn, photos, multiLib, paginationOpts) {
+    _showSearchResults(detailEl, photos, multiLib, paginationOpts) {
         const paneEl = detailEl.querySelector('#lib-pane');
         const searchPaneEl = detailEl.querySelector('#lib-search-pane');
 
@@ -742,7 +766,7 @@ class LibraryTab {
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
-                onSelectionChange: () => this._updateCommanderBtn(),
+                onSelectionChange: () => { this._updateDetailPublishBtn(); this._updateCommanderBtn(); },
                 onClose: () => this._filterPanel.close(),
             });
         }
@@ -750,11 +774,11 @@ class LibraryTab {
         this._searchPane.loadResults(photos, multiLib, paginationOpts);
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
-        publishBtn.disabled = true;
+        this._updateDetailPublishBtn();
         this._updateCommanderBtn();
     }
 
-    _showLibraryPane(detailEl, publishBtn) {
+    _showLibraryPane(detailEl) {
         const paneEl = detailEl.querySelector('#lib-pane');
         const searchPaneEl = detailEl.querySelector('#lib-search-pane');
 
@@ -762,7 +786,7 @@ class LibraryTab {
         paneEl.style.display = '';
         // Keep _searchPane alive so it can be reused if the filter is reopened.
 
-        publishBtn.disabled = this._pane ? this._pane.getSelectedFiles().length === 0 : true;
+        this._updateDetailPublishBtn();
         this._updateCommanderBtn();
     }
 
@@ -792,13 +816,54 @@ class LibraryTab {
         }
     }
 
-    async _openPublishModal() {
-        const lib = this.currentLibrary;
-        const pane = this._pane;
-        if (!pane) return;
+    _updateDetailPublishBtn() {
+        if (!this._detailPublishBtn) return;
+        const searchPaneEl = this._detailEl?.querySelector('#lib-search-pane');
+        const searchActive = searchPaneEl && searchPaneEl.style.display !== 'none';
+        if (searchActive) {
+            this._detailPublishBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
+        } else {
+            this._detailPublishBtn.disabled =
+                (this._pane?.getSelectedFiles().length ?? 0) === 0 &&
+                !(this._pane?.selectedDirs?.size);
+        }
+    }
 
-        const selectedPaths = pane.getSelectedFiles();
-        if (selectedPaths.length === 0) return;
+    async _openPublishModal() {
+        // Detect source — SearchResultPane takes priority over LibraryPane
+        const searchPane = (() => {
+            if (this._searchPane && this._detailEl?.querySelector('#lib-search-pane')?.style.display !== 'none'
+                && this._searchPane.selection.selected.size > 0) return this._searchPane;
+            if (this._listSearchPanel?._searchPane?.selection.selected.size > 0)
+                return this._listSearchPanel._searchPane;
+            return null;
+        })();
+
+        let lib = this.currentLibrary;
+        let selectedPaths, hasDirs, selectedDirs = [];
+        let photoGroups = null; // [{libID, photoIDs}] for SearchResultPane sources
+
+        if (searchPane) {
+            const hints = searchPane.getSelectedFiles();
+            const byLib = new Map();
+            for (const h of hints) {
+                const info = searchPane.getPhotoInfo(h);
+                if (!info) continue;
+                if (!byLib.has(info.libID)) byLib.set(info.libID, []);
+                byLib.get(info.libID).push(info.photoID);
+            }
+            photoGroups = Array.from(byLib.entries()).map(([libID, photoIDs]) => ({ libID, photoIDs }));
+            selectedPaths = hints;
+            hasDirs = false;
+        } else {
+            const pane = this._pane;
+            if (!pane) return;
+            const selectedFiles = pane.getSelectedFiles();
+            selectedDirs = Array.from(pane.selectedDirs || []);
+            hasDirs = selectedDirs.length > 0;
+            if (selectedFiles.length === 0 && !hasDirs) return;
+            selectedPaths = hasDirs ? [] : selectedFiles;
+        }
 
         let channels;
         try {
@@ -815,12 +880,14 @@ class LibraryTab {
         const now = new Date();
         const localISO = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
+        const initialTitle = hasDirs ? 'Counting photos…' : `Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
+
         const dlg = document.createElement('div');
         dlg.className = 'modal-backdrop';
         dlg.innerHTML = `
             <div class="modal publish-modal">
                 <div class="modal-header">
-                    <span class="modal-title">Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}</span>
+                    <span class="modal-title">${initialTitle}</span>
                     <button class="modal-close" id="pub-close">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -836,21 +903,85 @@ class LibraryTab {
                     <input class="form-input" id="pub-date" type="datetime-local" value="${localISO}">
                     <div class="publish-info" id="pub-info"></div>
                     <div id="pub-gallery-wrap" style="display:none">
-                        <label class="form-label">Gallery title</label>
+                        <label class="form-label" id="pub-gallery-label">Gallery title</label>
                         <input class="form-input" id="pub-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
                     </div>
-                    ${selectedPaths.length > 1 ? `<div class="publish-group-note">${selectedPaths.length} photos will be grouped as one post (shared post ID in XMP).</div>` : ''}
+                    <div class="pub-output-section">
+                        <label class="form-label">Output</label>
+                        <select class="form-select" id="pub-output-mode">
+                            <option value="save">Save to folder</option>
+                            <option value="download">Download as ZIP</option>
+                        </select>
+                        <div id="pub-folder-wrap">
+                            <div class="export-destination-wrap">
+                                <input class="form-input export-destination-input" id="pub-output-path" autocomplete="off">
+                                <button type="button" class="btn btn-sm" id="pub-output-pick" title="Browse folders">…</button>
+                            </div>
+                            <div class="pub-destination" id="pub-destination"></div>
+                        </div>
+                    </div>
+                    <div class="pub-xmp-row">
+                        <div class="pub-xmp-header">
+                            <button class="toggle" role="switch" id="pub-record-xmp" data-state="on" aria-checked="true">
+                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            </button>
+                            <span class="pub-xmp-label">Record publication in XMP sidecar</span>
+                        </div>
+                        <span class="pub-xmp-note">Writes channel name, post ID, and timestamp into the photo's .xmp sidecar. Used by the library to track what has been published.</span>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <div class="publish-error" id="pub-error" style="display:none"></div>
                     <div class="publish-progress" id="pub-progress" style="display:none"></div>
                     <button class="btn" id="pub-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="pub-confirm">Publish</button>
+                    <button class="btn btn-accent" id="pub-confirm"${hasDirs ? ' disabled' : ''}>Publish</button>
                 </div>
             </div>`;
         document.body.appendChild(dlg);
 
-        const updateChannel = () => {
+        // Expand folder selections asynchronously (LibraryPane with dir selections only)
+        if (hasDirs) {
+            Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d)))
+                .then(arrays => {
+                    selectedPaths = arrays.flat();
+                    if (dlg.isConnected) {
+                        dlg.querySelector('.modal-title').textContent =
+                            `Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
+                        dlg.querySelector('#pub-confirm').disabled = selectedPaths.length === 0;
+                    }
+                });
+        }
+
+        const setXmpState = (on) => {
+            const btn = dlg.querySelector('#pub-record-xmp');
+            btn.dataset.state = on ? 'on' : 'off';
+            btn.setAttribute('aria-checked', String(on));
+        };
+
+        const updateOutputDisplay = async (ch, mode) => {
+            const folderWrap = dlg.querySelector('#pub-folder-wrap');
+            const destEl = dlg.querySelector('#pub-destination');
+            const pathInput = dlg.querySelector('#pub-output-path');
+            if (mode === 'download') {
+                folderWrap.style.display = 'none';
+            } else {
+                folderWrap.style.display = '';
+                if (!pathInput.value.trim()) {
+                    destEl.textContent = '…';
+                    try {
+                        const path = await ChannelAPI.path(ch.slug);
+                        if (destEl.isConnected && !pathInput.value.trim()) {
+                            pathInput.placeholder = path;
+                            destEl.textContent = '';
+                        }
+                    } catch {
+                        if (destEl.isConnected) destEl.textContent = '';
+                    }
+                }
+            }
+        };
+
+        const updateChannel = async () => {
             const slug = dlg.querySelector('#pub-channel').value;
             const ch = channels.find(c => c.slug === slug);
             if (!ch) return;
@@ -870,7 +1001,7 @@ class LibraryTab {
 
             // Gallery / album title field
             const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-            galleryWrap.querySelector('.form-label').textContent = ch.siteExport ? 'Album title' : 'Gallery title';
+            dlg.querySelector('#pub-gallery-label').textContent = ch.siteExport ? 'Album title' : 'Gallery title';
             galleryWrap.style.display = (ch.galleryExport || ch.siteExport) ? '' : 'none';
 
             // Export summary
@@ -878,7 +1009,36 @@ class LibraryTab {
             const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
             dlg.querySelector('#pub-info').textContent =
                 `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}${handlerNote}`;
+
+            // Output mode — use channel default
+            const defaultMode = ch.outputMode === 'download' ? 'download' : 'save';
+            dlg.querySelector('#pub-output-mode').value = defaultMode;
+            setXmpState(defaultMode !== 'download');
+            dlg.querySelector('#pub-output-path').value = '';
+            updateOutputDisplay(ch, defaultMode);
         };
+
+        dlg.querySelector('#pub-output-mode').addEventListener('change', function() {
+            setXmpState(this.value !== 'download');
+            const slug = dlg.querySelector('#pub-channel').value;
+            const ch = channels.find(c => c.slug === slug);
+            if (ch) updateOutputDisplay(ch, this.value);
+        });
+
+        dlg.querySelector('#pub-output-pick').addEventListener('click', async () => {
+            const current = dlg.querySelector('#pub-output-path').value;
+            const chosen = await new FolderPicker().open(current || '');
+            if (chosen !== null) {
+                dlg.querySelector('#pub-output-path').value = chosen;
+                dlg.querySelector('#pub-destination').textContent = '';
+            }
+        });
+
+        dlg.querySelector('#pub-record-xmp').addEventListener('click', function() {
+            const on = this.dataset.state !== 'on';
+            setXmpState(on);
+        });
+
         dlg.querySelector('#pub-channel').addEventListener('change', updateChannel);
         updateChannel();
 
@@ -892,18 +1052,49 @@ class LibraryTab {
             const channel = dlg.querySelector('#pub-channel').value;
             const dateVal = dlg.querySelector('#pub-date').value;
             const publishedAt = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+            const outputMode = dlg.querySelector('#pub-output-mode').value;
+            const recordXMP = dlg.querySelector('#pub-record-xmp').dataset.state === 'on';
+            const outputPath = dlg.querySelector('#pub-output-path').value.trim() || undefined;
 
             confirmBtn.disabled = true;
-            confirmBtn.textContent = 'Publishing…';
+            confirmBtn.textContent = outputMode === 'download' ? 'Working…' : 'Publishing…';
             errEl.style.display = 'none';
 
             try {
-                // Resolve filesystem paths → photo IDs
-                const photoIDs = await Promise.all(
-                    selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p))
-                );
-                const validIDs = photoIDs.filter(Boolean);
-                if (validIDs.length === 0) throw new Error('No matching library photos found for selection.');
+                // Resolve photo ID groups — search-pane sources already have IDs; LibraryPane uses API lookup
+                let validGroups;
+                if (photoGroups) {
+                    validGroups = photoGroups.filter(g => g.photoIDs.length > 0);
+                    if (validGroups.length === 0) throw new Error('No matching library photos found.');
+                } else {
+                    const photoIDs = await Promise.all(
+                        selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p))
+                    );
+                    validGroups = [{ libID: lib.id, photoIDs: photoIDs.filter(Boolean) }];
+                    if (validGroups[0].photoIDs.length === 0) throw new Error('No matching library photos found for selection.');
+                }
+
+                if (outputMode === 'download') {
+                    if (validGroups.length > 1) {
+                        errEl.textContent = 'ZIP download is not supported when photos span multiple libraries.';
+                        errEl.style.display = '';
+                        confirmBtn.disabled = false;
+                        confirmBtn.textContent = 'Publish';
+                        return;
+                    }
+                    const g = validGroups[0];
+                    const blob = await LibraryAPI.publishDownload(g.libID, { photoIDs: g.photoIDs, channel, recordXMP });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = channel + '-export.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    dlg.remove();
+                    return;
+                }
 
                 const accountWrap = dlg.querySelector('#pub-account-wrap');
                 const account = accountWrap.style.display !== 'none'
@@ -915,13 +1106,31 @@ class LibraryTab {
                     ? (dlg.querySelector('#pub-gallery-title').value.trim() || undefined)
                     : undefined;
 
+                const ch = channels.find(c => c.slug === channel);
+                if (ch?.siteExport && !galleryTitle) {
+                    errEl.textContent = 'Album title is required for multi-album site export.';
+                    errEl.style.display = '';
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Publish';
+                    return;
+                }
+
+                if (validGroups.length > 1 && galleryTitle) {
+                    errEl.textContent = 'Gallery export is not supported when photos span multiple libraries. Please select photos from one library.';
+                    errEl.style.display = '';
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Publish';
+                    return;
+                }
+
                 if (galleryTitle) {
-                    // Gallery publish: stream SSE progress.
+                    // Single group guaranteed (multi-lib + galleryTitle blocked above)
+                    const g = validGroups[0];
                     const progressEl = dlg.querySelector('#pub-progress');
                     progressEl.style.display = '';
                     const resp = await LibraryAPI.publishStream(
-                        lib.id,
-                        { photoIDs: validIDs, channel, account, publishedAt, galleryTitle },
+                        g.libID,
+                        { photoIDs: g.photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath },
                         (evt) => {
                             if (evt.step === 'photo')
                                 progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
@@ -939,13 +1148,19 @@ class LibraryTab {
                         App.showToast(`Gallery ready: ${resp.galleryPath}`);
                     }
                 } else {
-                    const resp = await LibraryAPI.publish(lib.id, { photoIDs: validIDs, channel, account, publishedAt });
-                    const errors = (resp.results || []).filter(r => r.error);
+                    let totalPublished = 0;
+                    let allErrors = [];
+                    for (const g of validGroups) {
+                        const resp = await LibraryAPI.publish(g.libID, { photoIDs: g.photoIDs, channel, account, publishedAt, recordXMP, outputPath });
+                        const errors = (resp.results || []).filter(r => r.error);
+                        allErrors = [...allErrors, ...errors];
+                        totalPublished += g.photoIDs.length - errors.length;
+                    }
                     dlg.remove();
-                    if (errors.length > 0) {
-                        alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
+                    if (allErrors.length > 0) {
+                        alert(`Published with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else {
-                        App.showToast(`Published ${validIDs.length} photo${validIDs.length !== 1 ? 's' : ''} to ${channel}.`);
+                        App.showToast(`Published ${totalPublished} photo${totalPublished !== 1 ? 's' : ''} to ${channel}.`);
                     }
                 }
             } catch (err) {

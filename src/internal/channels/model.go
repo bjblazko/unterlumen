@@ -19,7 +19,9 @@ type Channel struct {
 	Format        string            `json:"format"`                  // "jpeg", "png", "webp"
 	Quality       int               `json:"quality"`                 // 1–100
 	Scale         media.ScaleOptions `json:"scale"`
-	ExifMode      string            `json:"exifMode"`      // "strip", "keep", "keep_no_gps"
+	ExifMode      string            `json:"exifMode"`                // "strip", "keep", "keep_no_gps"
+	OutputMode    string            `json:"outputMode,omitempty"`    // "save" (default) or "download"
+	OutputPath    string            `json:"outputPath,omitempty"`    // custom save path; empty = ~/.unterlumen/channels/<slug>/
 	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on publish
 	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on publish
 	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html

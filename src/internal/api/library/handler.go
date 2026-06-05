@@ -11,6 +11,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -28,8 +29,8 @@ import (
 )
 
 // Handle registers all library API routes on mux.
-// root is the browse boundary directory; used to resolve relative paths for thumb-by-path lookups.
-func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels.Store) {
+// root is the browse boundary directory; serverRole is true when running in server/container mode.
+func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, chStore *channels.Store) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
 	mux.HandleFunc("GET /api/library/detect", detectLibrary(mgr, root))
@@ -56,7 +57,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, chStore *channels
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr))
-	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore))
+	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore, root, serverRole))
+	mux.HandleFunc("POST /api/library/{id}/publish-download", publishDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore))
 }
 
@@ -966,7 +968,7 @@ type publishResult struct {
 	Error         string `json:"error,omitempty"`
 }
 
-func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
@@ -980,6 +982,8 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			Account      string   `json:"account"`
 			PublishedAt  string   `json:"publishedAt"`
 			GalleryTitle string   `json:"galleryTitle"`
+			RecordXMP    *bool    `json:"recordXMP,omitempty"`  // nil → true (default)
+			OutputPath   string   `json:"outputPath,omitempty"` // per-publish override
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -1026,6 +1030,22 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		galleryMode := ch.GalleryExport && body.GalleryTitle != ""
 		siteMode := ch.SiteExport && body.GalleryTitle != ""
 		channelDir := chStore.OutputDir(body.Channel)
+		if body.OutputPath != "" {
+			if serverRole && filepath.IsAbs(body.OutputPath) {
+				http.Error(w, "absolute paths not allowed in server mode", http.StatusBadRequest)
+				return
+			}
+			if !filepath.IsAbs(body.OutputPath) {
+				safe, ok := pathguard.SafePath(root, body.OutputPath)
+				if !ok {
+					http.Error(w, "invalid output path", http.StatusBadRequest)
+					return
+				}
+				channelDir = safe
+			} else {
+				channelDir = body.OutputPath
+			}
+		}
 		outDir := channelDir
 		if galleryMode {
 			outDir = filepath.Join(outDir, postID)
@@ -1037,11 +1057,13 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 
+		recordXMP := body.RecordXMP == nil || *body.RecordXMP
+
 		if !galleryMode && !siteMode {
 			// Fast synchronous path for regular (non-gallery) publishes.
 			var results []publishResult
 			for _, photoID := range body.PhotoIDs {
-				res := publishOne(store, ch, pub, ts, outDir, "", photoID)
+				res := publishOne(store, ch, pub, ts, outDir, "", photoID, recordXMP)
 				results = append(results, res)
 			}
 			writeJSON(w, map[string]any{"postID": postID, "results": results})
@@ -1074,7 +1096,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		total := len(body.PhotoIDs)
 		var results []publishResult
 		for i, photoID := range body.PhotoIDs {
-			res := publishOne(store, ch, pub, ts, outDir, thumbDir, photoID)
+			res := publishOne(store, ch, pub, ts, outDir, thumbDir, photoID, recordXMP)
 			results = append(results, res)
 			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
@@ -1156,6 +1178,117 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 	}
 }
 
+// publishDownload exports selected library photos with channel settings and delivers
+// the result as a ZIP download. By default it does not update XMP sidecars or the
+// library database; pass RecordXMP=true to opt in.
+func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if chStore == nil {
+			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
+			return
+		}
+		id := r.PathValue("id")
+
+		var body struct {
+			PhotoIDs  []string `json:"photoIDs"`
+			Channel   string   `json:"channel"`
+			RecordXMP *bool    `json:"recordXMP,omitempty"` // nil → false (default for download)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if len(body.PhotoIDs) == 0 || body.Channel == "" {
+			http.Error(w, "photoIDs and channel required", http.StatusBadRequest)
+			return
+		}
+
+		ch, err := chStore.Get(body.Channel)
+		if err != nil {
+			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		tmpFile, err := os.CreateTemp("", "unterlumen-channel-zip-*.zip")
+		if err != nil {
+			http.Error(w, "create temp file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tmpPath := tmpFile.Name()
+		defer os.Remove(tmpPath)
+
+		recordXMP := body.RecordXMP != nil && *body.RecordXMP
+		publishedAt := time.Now().UTC()
+		ts := publishedAt.Format("20060102T150405Z")
+		opts := ch.ExportOptions()
+		ext := "." + ch.Format
+		if ch.Format == "jpeg" {
+			ext = ".jpg"
+		}
+
+		var pub media.Publication
+		if recordXMP {
+			pub = media.Publication{
+				Channel:     body.Channel,
+				PostID:      newPostID(),
+				PublishedAt: publishedAt,
+			}
+		}
+
+		zw := zip.NewWriter(tmpFile)
+		for _, photoID := range body.PhotoIDs {
+			pathHint, pathErr := store.GetPhotoPathHint(photoID)
+			if pathErr != nil || pathHint == "" {
+				continue
+			}
+			if recordXMP {
+				media.AppendPublication(pathHint, pub) //nolint:errcheck
+				store.UpsertMeta(photoID, "published:"+pub.Channel, publishedAt.Format(time.RFC3339)) //nolint:errcheck
+				if pub.PostID != "" {
+					store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+				}
+			}
+			data, expErr := media.ExportImage(pathHint, opts)
+			if expErr != nil {
+				continue
+			}
+			base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
+			outName := ch.Slug + "_" + ts + "_" + base + ext
+			if fw, fwErr := zw.Create(outName); fwErr == nil {
+				fw.Write(data) //nolint:errcheck
+			}
+		}
+		zw.Close()
+		tmpFile.Close()
+
+		f, err := os.Open(tmpPath)
+		if err != nil {
+			http.Error(w, "open temp file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		if info, statErr := os.Stat(tmpPath); statErr == nil {
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+		}
+		fname := ch.Slug + "-export.zip"
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fname))
+		io.Copy(w, f) //nolint:errcheck
+	}
+}
+
 func createGalleryZip(results []publishResult, outDir, zipName string) error {
 	f, err := os.Create(filepath.Join(outDir, zipName))
 	if err != nil {
@@ -1194,23 +1327,24 @@ var galleryThumbOpts = media.ExportOptions{
 	},
 }
 
-func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string) publishResult {
+func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string, recordXMP bool) publishResult {
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
 		return publishResult{PhotoID: photoID, Error: "photo not found"}
 	}
 
-	if err := media.AppendPublication(pathHint, pub); err != nil {
-		return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
-	}
-
-	metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
-	store.UpsertMeta(photoID, "published:"+pub.Channel, metaVal)           //nolint:errcheck
-	if pub.Account != "" {
-		store.UpsertMeta(photoID, "published:"+pub.Channel+":account", pub.Account) //nolint:errcheck
-	}
-	if pub.PostID != "" {
-		store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+	if recordXMP {
+		if err := media.AppendPublication(pathHint, pub); err != nil {
+			return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
+		}
+		metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
+		store.UpsertMeta(photoID, "published:"+pub.Channel, metaVal) //nolint:errcheck
+		if pub.Account != "" {
+			store.UpsertMeta(photoID, "published:"+pub.Channel+":account", pub.Account) //nolint:errcheck
+		}
+		if pub.PostID != "" {
+			store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+		}
 	}
 
 	exported, err := media.ExportImage(pathHint, ch.ExportOptions())

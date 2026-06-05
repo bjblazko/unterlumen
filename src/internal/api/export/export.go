@@ -87,8 +87,8 @@ func Handle(mux *http.ServeMux, root string, serverRole bool) {
 	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole))
 	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole))
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
+	mux.HandleFunc("/api/export/save", handleExportSave(root, serverRole))
 	if !serverRole {
-		mux.HandleFunc("/api/export/save", handleExportSave(root))
 		mux.HandleFunc("/api/export/folder-picker", handleFolderPicker())
 	}
 }
@@ -206,7 +206,7 @@ func handleExportZip(root string, serverRole bool) http.HandlerFunc {
 	}
 }
 
-func handleExportSave(root string) http.HandlerFunc {
+func handleExportSave(root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -223,14 +223,35 @@ func handleExportSave(root string) http.HandlerFunc {
 			http.Error(w, "destination is required", http.StatusBadRequest)
 			return
 		}
-		info, err := os.Stat(req.Destination)
-		if err != nil || !info.IsDir() {
-			http.Error(w, "destination directory does not exist", http.StatusBadRequest)
-			return
+
+		var destAbs string
+		if filepath.IsAbs(req.Destination) {
+			if serverRole {
+				http.Error(w, "absolute destination paths not allowed in server mode", http.StatusBadRequest)
+				return
+			}
+			info, err := os.Stat(req.Destination)
+			if err != nil || !info.IsDir() {
+				http.Error(w, "destination directory does not exist", http.StatusBadRequest)
+				return
+			}
+			destAbs = req.Destination
+		} else {
+			var ok bool
+			destAbs, ok = pathguard.SafePath(root, req.Destination)
+			if !ok {
+				http.Error(w, "invalid destination path", http.StatusBadRequest)
+				return
+			}
+			info, err := os.Stat(destAbs)
+			if err != nil || !info.IsDir() {
+				http.Error(w, "destination directory does not exist", http.StatusBadRequest)
+				return
+			}
 		}
 
 		opts := exportOpts(req)
-		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, req.Destination, req.Format, opts, false)
+		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, destAbs, req.Format, opts, serverRole)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(exportSaveResponse{Results: results})

@@ -2671,6 +2671,81 @@ body.slideshow-active #app { height: 100vh; }
     color: var(--fg-2);
 }
 
+/* --- Folder Picker --- */
+
+.fp-modal {
+    width: 480px;
+    max-width: 90vw;
+}
+
+.fp-breadcrumb {
+    padding: var(--space-1) calc(var(--unit) * 2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-2);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fp-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 180px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.fp-dir {
+    width: 100%;
+    text-align: left;
+    padding: var(--space-1) var(--space-3);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--fg);
+    cursor: pointer;
+}
+
+.fp-dir:hover {
+    box-shadow: inset 0 0 0 9999px var(--hover-overlay);
+}
+
+.fp-up {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fg-2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    margin-bottom: var(--space-1);
+}
+
+.fp-msg {
+    padding: var(--space-4) var(--space-3);
+    font-size: 12px;
+    color: var(--fg-2);
+}
+
+.fp-msg-error {
+    color: oklch(50% 0.18 25);
+}
+
+.fp-selected {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
 /* —— Scroll sentinel for chunked rendering —— */
 
 .scroll-sentinel {
@@ -4313,6 +4388,47 @@ body.slideshow-active #app { height: 100vh; }
 }
 
 /* --- Publish modal extras --- */
+
+.pub-output-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pub-folder-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pub-destination {
+    font-size: 11px;
+    color: var(--fg-2);
+    min-height: 14px;
+    word-break: break-all;
+}
+
+.pub-xmp-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pub-xmp-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pub-xmp-label {
+    font-size: 12px;
+}
+
+.pub-xmp-note {
+    font-size: 11px;
+    color: var(--fg-2);
+    line-height: 1.4;
+}
 
 .publish-group-note {
     font-size: 11px;
