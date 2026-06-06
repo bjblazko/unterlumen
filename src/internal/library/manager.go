@@ -511,10 +511,10 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 	return out, nil
 }
 
-// SearchLibraries queries one or more libraries with the given filters and
+// SearchLibraries queries one or more libraries with the given filter opts and
 // returns a merged, date-taken-sorted result. Pass nil ids to search all libraries.
-// At most 200 photos are fetched per library; the total reflects the true match count.
-func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, numericFilters map[string]NumericFilter, dateMin, dateMax string, offset, limit int) (CrossLibraryResult, error) {
+// At most (Offset + Limit) photos are fetched per library; the total reflects the true match count.
+func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibraryResult, error) {
 	libs, err := m.ListLibraries()
 	if err != nil {
 		return CrossLibraryResult{}, err
@@ -557,8 +557,11 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 		if err != nil {
 			continue
 		}
-		perLibLimit := offset + limit
-		page, err := store.ListPhotos(textFilters, numericFilters, dateMin, dateMax, 0, perLibLimit)
+		perLibLimit := opts.Offset + opts.Limit
+		perLibOpts := opts
+		perLibOpts.Offset = 0
+		perLibOpts.Limit = perLibLimit
+		page, err := store.ListPhotos(perLibOpts)
 		store.Close()
 		if err != nil {
 			results[i].result.err = err
@@ -585,14 +588,14 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 	sortLibraryPhotos(all)
 
 	// Apply offset/limit.
-	if offset >= len(all) {
+	if opts.Offset >= len(all) {
 		return CrossLibraryResult{Results: []LibraryPhoto{}, Total: total}, nil
 	}
-	end := offset + limit
+	end := opts.Offset + opts.Limit
 	if end > len(all) {
 		end = len(all)
 	}
-	return CrossLibraryResult{Results: all[offset:end], Total: total}, nil
+	return CrossLibraryResult{Results: all[opts.Offset:end], Total: total}, nil
 }
 
 func takenOrZero(p LibraryPhoto) time.Time {
@@ -686,6 +689,144 @@ func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error
 	}
 	m.exifRangesCache.Store(cacheKey, agg)
 	return agg, nil
+}
+
+// AggregateMetaKeys returns merged distinct photo_meta keys across the given libraries.
+func (m *Manager) AggregateMetaKeys(ids []string) ([]string, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		keys, err := store.GetMetaKeys()
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, k := range keys {
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, k)
+			}
+		}
+	}
+	sortStrings(out)
+	return out, nil
+}
+
+// AggregateMetaValues returns merged distinct values for the given photo_meta key across the given libraries.
+func (m *Manager) AggregateMetaValues(ids []string, key string) ([]string, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		vals, err := store.GetMetaValues(key)
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, v := range vals {
+			if !seen[v] {
+				seen[v] = true
+				out = append(out, v)
+			}
+		}
+	}
+	sortStrings(out)
+	return out, nil
+}
+
+// AggregateAlbumTitles returns merged distinct gallery/album titles across the given libraries.
+func (m *Manager) AggregateAlbumTitles(ids []string) ([]string, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		titles, err := store.GetAlbumTitles()
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, t := range titles {
+			if !seen[t] {
+				seen[t] = true
+				out = append(out, t)
+			}
+		}
+	}
+	sortStrings(out)
+	return out, nil
+}
+
+// AggregateExifFields returns the merged distinct EXIF field names across the given libraries.
+func (m *Manager) AggregateExifFields(ids []string) ([]string, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		fields, err := store.ExifFields()
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, f := range fields {
+			if !seen[f] {
+				seen[f] = true
+				out = append(out, f)
+			}
+		}
+	}
+	sortStrings(out)
+	return out, nil
+}
+
+// filterLibraries returns the subset of all libraries matching the given ids (or all if ids is nil).
+func (m *Manager) filterLibraries(ids []string) ([]*Library, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return libs, nil
+	}
+	set := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		set[id] = true
+	}
+	filtered := libs[:0]
+	for _, l := range libs {
+		if set[l.ID] {
+			filtered = append(filtered, l)
+		}
+	}
+	return filtered, nil
 }
 
 // Statistics returns aggregated statistics across the requested libraries (or all if ids is nil).

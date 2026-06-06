@@ -538,45 +538,12 @@ class InfoPanel {
         return `${sign}${v.toFixed(2).replace(/\.?0+$/, '')} EV`;
     }
 
-    decodeMeteringMode(v) {
-        const modes = { '0': 'Unknown', '1': 'Average', '2': 'Center-weighted', '3': 'Spot',
-            '4': 'Multi-spot', '5': 'Multi-segment', '6': 'Partial' };
-        return modes[v] || v;
-    }
-
-    decodeExposureProgram(v) {
-        const progs = { '0': 'Unknown', '1': 'Manual', '2': 'Program AE', '3': 'Aperture Priority',
-            '4': 'Shutter Priority', '5': 'Creative', '6': 'Action', '7': 'Portrait', '8': 'Landscape' };
-        return progs[v] || v;
-    }
-
-    decodeFlash(v) {
-        const val = parseInt(v);
-        if (isNaN(val)) return v;
-        return (val & 1) ? 'Fired' : 'No flash';
-    }
-
-    decodeWhiteBalance(v) {
-        return v === '0' ? 'Auto' : v === '1' ? 'Manual' : v;
-    }
-
-    decodeOrientation(v) {
-        const map = {
-            '1': 'Normal',
-            '2': 'Flipped horizontally',
-            '3': 'Rotated 180°',
-            '4': 'Flipped vertically',
-            '5': 'Transposed (flip H + 270° CW)',
-            '6': 'Rotated 90° CW',
-            '7': 'Transverse (flip H + 90° CW)',
-            '8': 'Rotated 270° CW',
-        };
-        return map[v] || v;
-    }
-
-    decodeColorSpace(v) {
-        return v === '1' ? 'sRGB' : v === '65535' ? 'Uncalibrated' : v;
-    }
+    decodeMeteringMode(v)    { return exifLabel('MeteringMode', v)    ?? v; }
+    decodeExposureProgram(v) { return exifLabel('ExposureProgram', v) ?? v; }
+    decodeFlash(v)           { return exifLabel('Flash', v)           ?? v; }
+    decodeWhiteBalance(v)    { return exifLabel('WhiteBalance', v)    ?? v; }
+    decodeOrientation(v)     { return exifLabel('Orientation', v)     ?? v; }
+    decodeColorSpace(v)      { return exifLabel('ColorSpace', v)      ?? v; }
 
     _attachMetaEvents() {
         const ctx = this._metaContext;

@@ -444,18 +444,29 @@ type NumericFilter struct {
 	Max float64
 }
 
+// ListPhotosOpts holds all filter and pagination options for ListPhotos.
+type ListPhotosOpts struct {
+	Filters        map[string]string       // EXIF text exact-match filters (field → value)
+	NumericFilters map[string]NumericFilter // EXIF numeric range filters
+	DateMin        string                  // YYYY-MM-DD lower bound on date_taken
+	DateMax        string                  // YYYY-MM-DD upper bound on date_taken
+	MetaFilters    map[string]string       // photo_meta key=value exact matches
+	MetaExists     []string                // photo_meta keys that must exist (any value)
+	AlbumTitle     string                  // match photos with any published:*:title = value
+	ExtFilter      string                  // file extension (photos.ext)
+	Offset         int
+	Limit          int
+}
+
 // ListPhotos returns a filtered, paginated list of photos.
-// filters is field→value for EXIF text filtering;
-// numericFilters is field→range for numeric EXIF filtering (e.g. ExposureTime);
-// dateMin/dateMax are optional YYYY-MM-DD strings that restrict by date_taken.
-func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]NumericFilter, dateMin, dateMax string, offset, limit int) (ListPhotosResult, error) {
+func (s *Store) ListPhotos(opts ListPhotosOpts) (ListPhotosResult, error) {
 	var joinClauses []string
 	var joinArgs []any
 	var whereArgs []any
 	where := []string{"p.status='ok'"}
 	i := 0
 
-	for field, val := range filters {
+	for field, val := range opts.Filters {
 		a := fmt.Sprintf("ef%d", i)
 		i++
 		joinClauses = append(joinClauses,
@@ -463,7 +474,7 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 		joinArgs = append(joinArgs, field, val)
 	}
 
-	for field, r := range numericFilters {
+	for field, r := range opts.NumericFilters {
 		if field == "FocalLength35" {
 			where = append(where, `(
 				EXISTS (
@@ -494,13 +505,29 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 		}
 	}
 
-	if dateMin != "" {
+	if opts.DateMin != "" {
 		where = append(where, `(p.date_taken IS NOT NULL AND SUBSTR(p.date_taken, 1, 10) >= ?)`)
-		whereArgs = append(whereArgs, dateMin)
+		whereArgs = append(whereArgs, opts.DateMin)
 	}
-	if dateMax != "" {
+	if opts.DateMax != "" {
 		where = append(where, `(p.date_taken IS NOT NULL AND SUBSTR(p.date_taken, 1, 10) <= ?)`)
-		whereArgs = append(whereArgs, dateMax)
+		whereArgs = append(whereArgs, opts.DateMax)
+	}
+	if opts.ExtFilter != "" {
+		where = append(where, `p.ext = ?`)
+		whereArgs = append(whereArgs, opts.ExtFilter)
+	}
+	for key, val := range opts.MetaFilters {
+		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key=? AND pm.value=?)`)
+		whereArgs = append(whereArgs, key, val)
+	}
+	for _, key := range opts.MetaExists {
+		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key=?)`)
+		whereArgs = append(whereArgs, key)
+	}
+	if opts.AlbumTitle != "" {
+		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key LIKE 'published:%:title' AND pm.value=?)`)
+		whereArgs = append(whereArgs, opts.AlbumTitle)
 	}
 
 	joinSQL := strings.Join(joinClauses, " ")
@@ -520,7 +547,7 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 		return ListPhotosResult{}, err
 	}
 
-	pageArgs := append(allArgs, limit, offset)
+	pageArgs := append(allArgs, opts.Limit, opts.Offset)
 	rows, err := s.db.Query(
 		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status, p.date_taken,
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
@@ -685,7 +712,24 @@ func (s *Store) ExifFields() ([]string, error) {
 
 // GetExifFieldValues returns the sorted distinct string values for the given EXIF field,
 // with surrounding quotes stripped. Empty or missing values are excluded.
+// The special field "ext" queries the photos.ext column instead of exif_index.
 func (s *Store) GetExifFieldValues(field string) ([]string, error) {
+	if field == "ext" {
+		rows, err := s.db.Query(`SELECT DISTINCT ext FROM photos WHERE status='ok' AND ext != '' ORDER BY ext`)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var vals []string
+		for rows.Next() {
+			var v string
+			if err := rows.Scan(&v); err != nil {
+				return nil, err
+			}
+			vals = append(vals, v)
+		}
+		return vals, rows.Err()
+	}
 	rows, err := s.db.Query(
 		`SELECT DISTINCT TRIM(TRIM(value, '"')) FROM exif_index
 		 WHERE field=? AND TRIM(TRIM(value, '"')) != ''
@@ -707,6 +751,69 @@ func (s *Store) GetExifFieldValues(field string) ([]string, error) {
 		}
 	}
 	return vals, rows.Err()
+}
+
+// GetMetaKeys returns all distinct photo_meta keys that are visible for filtering.
+// Internal bookkeeping keys (published:*:account, published:*:postid) are excluded.
+func (s *Store) GetMetaKeys() ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT key FROM photo_meta
+		WHERE key NOT LIKE 'published:%:account'
+		  AND key NOT LIKE 'published:%:postid'
+		ORDER BY key`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, rows.Err()
+}
+
+// GetMetaValues returns distinct values for the given photo_meta key.
+func (s *Store) GetMetaValues(key string) ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT DISTINCT value FROM photo_meta WHERE key=? AND value != '' ORDER BY value`, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vals []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		vals = append(vals, v)
+	}
+	return vals, rows.Err()
+}
+
+// GetAlbumTitles returns distinct gallery/album titles from all published:*:title meta entries.
+func (s *Store) GetAlbumTitles() ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT value FROM photo_meta
+		WHERE key LIKE 'published:%:title' AND value != ''
+		ORDER BY value`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var titles []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		titles = append(titles, v)
+	}
+	return titles, rows.Err()
 }
 
 // FolderBrowseResult holds the immediate subfolders and direct photos at a given folder level.

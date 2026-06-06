@@ -278,16 +278,22 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 	}
 
 	type latestEntry struct {
-		ts      string
-		account string
-		postID  string
+		ts           string
+		account      string
+		postID       string
+		galleryTitle string
 	}
 	latest := make(map[string]latestEntry)
 
 	for _, p := range pubs {
 		ts := p.PublishedAt.UTC().Format(time.RFC3339)
 		if e, ok := latest[p.Channel]; !ok || ts > e.ts {
-			latest[p.Channel] = latestEntry{ts: ts, account: p.Account, postID: p.PostID}
+			latest[p.Channel] = latestEntry{
+				ts:           ts,
+				account:      p.Account,
+				postID:       p.PostID,
+				galleryTitle: p.GalleryTitle,
+			}
 		}
 	}
 
@@ -298,6 +304,9 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 		}
 		if e.postID != "" {
 			idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
+		}
+		if e.galleryTitle != "" {
+			idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
 		}
 	}
 }

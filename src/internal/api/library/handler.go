@@ -38,6 +38,10 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("GET /api/library/search", searchLibraries(mgr))
 	mux.HandleFunc("GET /api/library/exif-ranges", globalExifRanges(mgr))
 	mux.HandleFunc("GET /api/library/exif-values", globalExifValues(mgr))
+	mux.HandleFunc("GET /api/library/meta-keys", globalMetaKeys(mgr))
+	mux.HandleFunc("GET /api/library/meta-values", globalMetaValues(mgr))
+	mux.HandleFunc("GET /api/library/album-titles", globalAlbumTitles(mgr))
+	mux.HandleFunc("GET /api/library/exif-fields", globalExifFields(mgr))
 	mux.HandleFunc("GET /api/library/statistics", libraryStatistics(mgr))
 	mux.HandleFunc("GET /api/library/timeline", libraryTimeline(mgr))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
@@ -391,29 +395,20 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		filters := make(map[string]string)
-		for k, vals := range r.URL.Query() {
-			if k == "offset" || k == "limit" || k == "ids" || len(vals) == 0 {
-				continue
-			}
-			if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
-				continue
-			}
-			if vals[0] != "" {
-				filters[k] = vals[0]
-			}
+		q := r.URL.Query()
+		opts := lib.ListPhotosOpts{
+			Filters:        parseTextFilters(q),
+			NumericFilters: parseNumericFilters(q),
+			DateMin:        q.Get("date_taken_min"),
+			DateMax:        q.Get("date_taken_max"),
 		}
-		numericFilters := parseNumericFilters(r.URL.Query())
-		dateMin := r.URL.Query().Get("date_taken_min")
-		dateMax := r.URL.Query().Get("date_taken_max")
-
-		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		if limit <= 0 || limit > 500 {
-			limit = 100
+		opts.Offset, _ = strconv.Atoi(q.Get("offset"))
+		opts.Limit, _ = strconv.Atoi(q.Get("limit"))
+		if opts.Limit <= 0 || opts.Limit > 500 {
+			opts.Limit = 100
 		}
 
-		result, err := store.ListPhotos(filters, numericFilters, dateMin, dateMax, offset, limit)
+		result, err := store.ListPhotos(opts)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -424,17 +419,26 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 
 func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ids := parseIDList(r.URL.Query().Get("ids"))
-		textFilters := parseTextFilters(r.URL.Query())
-		numericFilters := parseNumericFilters(r.URL.Query())
-		dateMin := r.URL.Query().Get("date_taken_min")
-		dateMax := r.URL.Query().Get("date_taken_max")
-		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		if limit <= 0 || limit > 500 {
-			limit = 100
+		q := r.URL.Query()
+		ids := parseIDList(q.Get("ids"))
+		opts := lib.ListPhotosOpts{
+			Filters:        parseTextFilters(q),
+			NumericFilters: parseNumericFilters(q),
+			DateMin:        q.Get("date_taken_min"),
+			DateMax:        q.Get("date_taken_max"),
+			MetaFilters:    parseMetaFilters(q),
+			AlbumTitle:     q.Get("album_title"),
+			ExtFilter:      q.Get("ext"),
 		}
-		result, err := mgr.SearchLibraries(ids, textFilters, numericFilters, dateMin, dateMax, offset, limit)
+		if ch := q.Get("channel"); ch != "" {
+			opts.MetaExists = []string{"published:" + ch}
+		}
+		opts.Offset, _ = strconv.Atoi(q.Get("offset"))
+		opts.Limit, _ = strconv.Atoi(q.Get("limit"))
+		if opts.Limit <= 0 || opts.Limit > 500 {
+			opts.Limit = 100
+		}
+		result, err := mgr.SearchLibraries(ids, opts)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -460,6 +464,71 @@ func globalExifValues(mgr *lib.Manager) http.HandlerFunc {
 			vals = []string{}
 		}
 		writeJSON(w, vals)
+	}
+}
+
+func globalMetaKeys(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		keys, err := mgr.AggregateMetaKeys(ids)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if keys == nil {
+			keys = []string{}
+		}
+		writeJSON(w, keys)
+	}
+}
+
+func globalMetaValues(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := r.URL.Query().Get("key")
+		if key == "" {
+			http.Error(w, "key required", http.StatusBadRequest)
+			return
+		}
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		vals, err := mgr.AggregateMetaValues(ids, key)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if vals == nil {
+			vals = []string{}
+		}
+		writeJSON(w, vals)
+	}
+}
+
+func globalAlbumTitles(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		titles, err := mgr.AggregateAlbumTitles(ids)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if titles == nil {
+			titles = []string{}
+		}
+		writeJSON(w, titles)
+	}
+}
+
+func globalExifFields(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids := parseIDList(r.URL.Query().Get("ids"))
+		fields, err := mgr.AggregateExifFields(ids)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if fields == nil {
+			fields = []string{}
+		}
+		writeJSON(w, fields)
 	}
 }
 
@@ -519,7 +588,8 @@ func parseIDList(s string) []string {
 }
 
 // parseTextFilters extracts non-reserved query params as EXIF text filters.
-// Reserved params: q, offset, limit, ids, and any _min/_max numeric params.
+// Reserved params: q, offset, limit, ids, date_taken_min/max, _min/_max numeric params,
+// and the meta/channel/album/ext params handled separately.
 func parseTextFilters(vals map[string][]string) map[string]string {
 	out := make(map[string]string)
 	for k, vs := range vals {
@@ -529,9 +599,28 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
 			continue
 		}
+		if k == "channel" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
+			continue
+		}
+		if strings.HasPrefix(k, "meta_") {
+			continue
+		}
 		if vs[0] != "" {
 			out[k] = vs[0]
 		}
+	}
+	return out
+}
+
+// parseMetaFilters extracts meta_<key>=<value> params as photo_meta key→value filters.
+func parseMetaFilters(vals map[string][]string) map[string]string {
+	out := make(map[string]string)
+	for k, vs := range vals {
+		key, found := strings.CutPrefix(k, "meta_")
+		if !found || len(vs) == 0 || vs[0] == "" {
+			continue
+		}
+		out[key] = vs[0]
 	}
 	return out
 }
@@ -1027,10 +1116,11 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 
 		postID := newPostID()
 		pub := media.Publication{
-			Channel:     body.Channel,
-			Account:     body.Account,
-			PostID:      postID,
-			PublishedAt: publishedAt,
+			Channel:      body.Channel,
+			Account:      body.Account,
+			PostID:       postID,
+			GalleryTitle: body.GalleryTitle,
+			PublishedAt:  publishedAt,
 		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
@@ -1368,6 +1458,9 @@ func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc
 				if pub.PostID != "" {
 					store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
 				}
+				if pub.GalleryTitle != "" {
+					store.UpsertMeta(photoID, "published:"+pub.Channel+":title", pub.GalleryTitle) //nolint:errcheck
+				}
 			}
 			data, expErr := media.ExportImage(pathHint, opts)
 			if expErr != nil {
@@ -1454,6 +1547,9 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 		}
 		if pub.PostID != "" {
 			store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+		}
+		if pub.GalleryTitle != "" {
+			store.UpsertMeta(photoID, "published:"+pub.Channel+":title", pub.GalleryTitle) //nolint:errcheck
 		}
 	}
 

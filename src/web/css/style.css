@@ -3333,7 +3333,7 @@ body.slideshow-active #app { height: 100vh; }
 }
 
 .lib-search-body > .lib-search-panel {
-    width: 210px;
+    width: 260px;
     flex-shrink: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -3572,8 +3572,11 @@ body.slideshow-active #app { height: 100vh; }
     color: var(--fg-2);
     padding: calc(var(--unit) * 1.5) calc(var(--unit) * 3);
     border-bottom: 1px solid var(--border);
-    background: var(--bg);
+    background: var(--bg-2);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .lib-search-status strong {
@@ -3684,14 +3687,168 @@ body.slideshow-active #app { height: 100vh; }
 }
 
 .lib-search-body .lib-search-status {
-    border-top: 1px solid var(--border);
-    border-bottom: none;
+    border-bottom: 1px solid var(--border);
     padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2);
 }
 
 .lib-search-body .lib-search-reset {
     align-self: flex-start;
     padding: calc(var(--unit) * 0.5) 0;
+}
+
+/* --- Chip Input --- */
+
+.lib-chip-filter-section {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.lib-filter-group-header {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-sec);
+    margin-bottom: calc(var(--unit) * 1);
+}
+
+.lib-chip-filter-wrap {
+    position: relative;
+}
+
+.chip-input {
+    position: relative;
+}
+
+.chip-input-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+    min-height: 28px;
+    padding: 3px calc(var(--unit));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    cursor: text;
+}
+
+.chip-input-wrap:focus-within {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.chip {
+    --chip-hue: 30;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px calc(var(--unit)) 1px calc(var(--unit));
+    background: oklch(30% 0.14 var(--chip-hue));
+    border: 1px solid oklch(50% 0.18 var(--chip-hue));
+    color: oklch(88% 0.05 var(--chip-hue));
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+[data-theme=light] .chip {
+    background: oklch(88% 0.09 var(--chip-hue));
+    border: 1px solid oklch(60% 0.14 var(--chip-hue));
+    color: oklch(22% 0.08 var(--chip-hue));
+}
+
+.chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chip-remove {
+    all: unset;
+    cursor: pointer;
+    color: var(--text-sec);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 1px;
+    flex-shrink: 0;
+}
+
+.chip-remove:hover {
+    color: var(--text);
+}
+
+.chip-ns-label {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-sec);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.chip-input-field {
+    all: unset;
+    flex: 1;
+    min-width: 80px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: text;
+}
+
+.chip-input-field::placeholder {
+    color: var(--text-sec);
+}
+
+.chip-autocomplete {
+    position: fixed;  /* escapes overflow clipping; left/top/width/max-height set by JS */
+    z-index: 9000;
+    background: var(--bg-2);
+    border: 1.5px solid color-mix(in oklch, var(--accent) 55%, var(--border));
+    border-radius: var(--radius-sm);
+    box-shadow:
+        0 8px 32px oklch(0% 0 0 / 0.40),
+        0 0 16px color-mix(in oklch, var(--accent) 20%, transparent);
+    overflow-y: auto;
+}
+
+.chip-ac-item {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--unit));
+    padding: calc(var(--unit) * 0.75) calc(var(--unit) * 1.5);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.chip-ac-item:hover,
+.chip-ac-item.active {
+    background: color-mix(in oklch, var(--accent) 12%, var(--bg));
+}
+
+.chip-ac-ns {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--text);
+    flex-shrink: 0;
+}
+
+.chip-ac-hint {
+    color: var(--text-sec);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chip-ac-no-values {
+    color: var(--text-sec);
+    font-style: italic;
+    cursor: default;
+}
+
+.chip-ac-no-values:hover {
+    background: none;
 }
 
 /* --- Library Info Panel Meta section --- */

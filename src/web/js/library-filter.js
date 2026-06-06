@@ -1,5 +1,36 @@
 // LibrarySearchPanel — cross-library EXIF numeric range search with slider UI
 
+// Fixed chip namespaces that map to EXIF fields or special filter params.
+const CHIP_NS_FIXED = [
+    { ns: 'camera',  label: 'Camera',        hint: 'Camera model',    type: 'exif', param: 'Model' },
+    { ns: 'lens',    label: 'Lens',           hint: 'Lens model',      type: 'exif', param: 'LensModel' },
+    { ns: 'film',    label: 'Film sim',       hint: 'Film simulation', type: 'exif', param: 'FilmSimulation' },
+    { ns: 'format',  label: 'Format',         hint: 'File format',     type: 'exif', param: 'ext' },
+    { ns: 'flash',   label: 'Flash',          hint: 'Flash mode',      type: 'exif', param: 'Flash' },
+    { ns: 'wb',      label: 'White balance',  hint: 'White balance',   type: 'exif', param: 'WhiteBalance' },
+    { ns: 'channel', label: 'Channel',        hint: 'Published to channel', type: 'channel', param: 'channel' },
+    { ns: 'album',   label: 'Album',          hint: 'Gallery / album title', type: 'album', param: 'album_title' },
+];
+
+// EXIF fields handled by numeric sliders — exclude from chip namespace list to avoid duplication.
+const SLIDER_FIELDS = new Set([
+    'ExposureTime', 'FNumber', 'FocalLength', 'FocalLength35',
+    'FocalLengthIn35mmFilm', 'ISOSpeedRatings',
+]);
+
+// Translates a chip {ns, nsInfo, value} to a search param {key, value}.
+// nsInfo is the full namespace descriptor stored by ChipInput when a chip is created.
+function chipToParam(chip) {
+    const ns = chip.nsInfo || CHIP_NS_FIXED.find(n => n.ns === chip.ns);
+    if (ns) {
+        if (ns.type === 'exif') return { key: ns.param, value: chip.value };
+        if (ns.type === 'channel') return { key: 'channel', value: chip.value };
+        if (ns.type === 'album') return { key: 'album_title', value: chip.value };
+        if (ns.type === 'meta') return { key: ns.param, value: chip.value };
+    }
+    return { key: 'meta_' + chip.ns, value: chip.value };
+}
+
 const EXIF_TEXT_FILTER_FIELDS = [
     { field: 'Model',     label: 'Camera'   },
     { field: 'LensModel', label: 'Lens'     },
@@ -77,6 +108,7 @@ class LibrarySearchPanel {
         this._dateMax = '';
         this._dateMinInput = null;
         this._dateMaxInput = null;
+        this._chipInput = null;
 
         toggleBtn.addEventListener('click', () => this._toggle());
     }
@@ -102,6 +134,9 @@ class LibrarySearchPanel {
         if (!this._built) {
             this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';
             await this._build();
+        } else {
+            // Clear chip input caches so re-opening the panel picks up newly published albums etc.
+            this._chipInput?.clearCache();
         }
     }
 
@@ -110,27 +145,38 @@ class LibrarySearchPanel {
         this._container.innerHTML = '';
         this._container.className = 'lib-search-panel visible';
 
-        // Load libraries, ranges, and text field values in parallel.
-        const [libraries, ranges, ...textValues] = await Promise.all([
+        const ids = this._initialLibID || undefined;
+        // Load libraries, ranges, text field values, channels, meta keys, album titles, and all EXIF fields in parallel.
+        const [libraries, ranges, channels, metaKeys, albumTitles, exifFields, ...textValues] = await Promise.all([
             LibraryAPI.list().catch(() => []),
             this._fetchRanges(this._initialLibID),
+            ChannelAPI.list().catch(() => []),
+            LibraryAPI.metaKeys(ids).catch(() => []),
+            LibraryAPI.albumTitles(ids).catch(() => []),
+            LibraryAPI.exifFields(ids).catch(() => []),
             ...EXIF_TEXT_FILTER_FIELDS.map(f =>
-                LibraryAPI.exifValues(f.field, this._initialLibID || undefined).catch(() => [])
+                LibraryAPI.exifValues(f.field, ids).catch(() => [])
             ),
         ]);
         this._libraries = libraries;
         this._ranges = ranges;
+        this._channels = channels;
+        this._metaKeys = metaKeys;
+        this._albumTitles = albumTitles;
+        this._exifFields = exifFields;
         this._textValues = {};
         this._textActive = {};
         EXIF_TEXT_FILTER_FIELDS.forEach((f, i) => {
             this._textValues[f.field] = textValues[i];
         });
 
+        this._buildStatus();
         this._buildControls();
         this._buildDateFilter();
         this._buildSliders();
         this._buildTextFilters();
-        this._buildResults();
+        this._buildChipFilters();
+        this._buildResultsPane();
         this._runQuery();
     }
 
@@ -410,13 +456,79 @@ class LibrarySearchPanel {
         this._container.appendChild(wrap);
     }
 
-    _buildResults() {
+    _buildChipFilters() {
+        const section = document.createElement('div');
+        section.className = 'lib-filter-groups lib-chip-filter-section';
+
+        const label = document.createElement('div');
+        label.className = 'lib-filter-group-header';
+        label.textContent = 'More filters';
+        section.appendChild(label);
+
+        const chipContainer = document.createElement('div');
+        chipContainer.className = 'lib-chip-filter-wrap';
+        section.appendChild(chipContainer);
+        this._container.appendChild(section);
+
+        const ids = this._initialLibID || undefined;
+        const channels = this._channels || [];
+        const metaKeys = this._metaKeys || [];
+        const albumTitles = this._albumTitles || [];
+        const exifFields = this._exifFields || [];
+
+        // Params already covered by fixed namespaces — don't add them again as dynamic EXIF entries.
+        const fixedParams = new Set(CHIP_NS_FIXED.filter(n => n.type === 'exif').map(n => n.param));
+
+        const buildNamespaces = () => {
+            const nss = [...CHIP_NS_FIXED];
+            // Add all EXIF fields from the index (excluding slider fields and already-fixed ones).
+            for (const field of exifFields) {
+                if (field === 'DateTaken' || field === 'DateTimeOriginal') continue;
+                if (SLIDER_FIELDS.has(field)) continue;
+                if (fixedParams.has(field)) continue;
+                if (!nss.find(n => n.ns === field)) {
+                    nss.push({ ns: field, label: field, hint: 'EXIF field', type: 'exif', param: field });
+                }
+            }
+            // Add dynamic user-defined meta keys (exclude published:* system keys).
+            for (const key of metaKeys) {
+                if (key.startsWith('published:')) continue;
+                if (!nss.find(n => n.ns === key)) {
+                    nss.push({ ns: key, label: key, hint: 'Custom tag', type: 'meta', param: 'meta_' + key });
+                }
+            }
+            return nss;
+        };
+
+        this._chipInput = new ChipInput(chipContainer, {
+            onFetchNamespaces: async () => buildNamespaces(),
+            onFetchValues: async (ns) => {
+                // Look up the full namespace descriptor built by buildNamespaces().
+                const nsDesc = buildNamespaces().find(n => n.ns === ns);
+                if (nsDesc) {
+                    if (nsDesc.ns === 'channel') return channels.map(c => c.slug);
+                    if (nsDesc.ns === 'album') return albumTitles;
+                    if (nsDesc.type === 'exif') {
+                        const raw = await LibraryAPI.exifValues(nsDesc.param, ids).catch(() => []);
+                        return labeledExifValues(nsDesc.param, raw);
+                    }
+                    if (nsDesc.type === 'meta') return LibraryAPI.metaValues(ns, ids).catch(() => []);
+                }
+                return LibraryAPI.metaValues(ns, ids).catch(() => []);
+            },
+            onChange: () => this._scheduleQuery(),
+        });
+    }
+
+    _buildStatus() {
         const status = document.createElement('div');
         status.className = 'lib-search-status';
         status.style.display = 'none';
         this._statusEl = status;
         this._container.appendChild(status);
+    }
 
+    _buildResultsPane() {
         // When onResults is set, the caller owns the results pane (detail-page path).
         if (this._options.onResults) return;
 
@@ -446,6 +558,7 @@ class LibrarySearchPanel {
         this._dateMax = '';
         if (this._dateMinInput) this._dateMinInput.value = '';
         if (this._dateMaxInput) this._dateMaxInput.value = '';
+        this._chipInput?.reset();
         this._rebuildSliders();
         this._rebuildTextFilters();
         this._runQuery();
@@ -474,6 +587,10 @@ class LibrarySearchPanel {
         }
         if (this._dateMin) params.date_taken_min = this._dateMin;
         if (this._dateMax) params.date_taken_max = this._dateMax;
+        for (const chip of (this._chipInput?.getChips() || [])) {
+            const p = chipToParam(chip);
+            if (p) params[p.key] = p.value;
+        }
         return params;
     }
 

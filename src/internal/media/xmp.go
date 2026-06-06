@@ -15,10 +15,11 @@ const ulNamespace = "https://unterlumen.app/xmp/1.0/"
 
 // Publication records one publish event for a photo.
 type Publication struct {
-	Channel     string
-	Account     string    // account ID within the channel; empty when channel has no sub-accounts
-	PostID      string    // shared ID for photos published together in one action
-	PublishedAt time.Time
+	Channel      string
+	Account      string    // account ID within the channel; empty when channel has no sub-accounts
+	PostID       string    // shared ID for photos published together in one action
+	GalleryTitle string    // title of the gallery/album this publish belongs to; empty for bare exports
+	PublishedAt  time.Time
 }
 
 // SidecarPath returns the XMP sidecar path for the given photo file.
@@ -112,6 +113,8 @@ func parseSidecarPublications(data []byte) ([]Publication, error) {
 					current.Account = val
 				case "PostID":
 					current.PostID = val
+				case "GalleryTitle":
+					current.GalleryTitle = val
 				case "PublishedAt":
 					current.PublishedAt, _ = time.Parse(time.RFC3339, val)
 				}
@@ -143,6 +146,9 @@ func renderULBlock(pubs []Publication) string {
 		}
 		if p.PostID != "" {
 			items.WriteString("\n          <ul:PostID>" + xmlEscapeStr(p.PostID) + "</ul:PostID>")
+		}
+		if p.GalleryTitle != "" {
+			items.WriteString("\n          <ul:GalleryTitle>" + xmlEscapeStr(p.GalleryTitle) + "</ul:GalleryTitle>")
 		}
 		items.WriteString("\n          <ul:PublishedAt>" + p.PublishedAt.UTC().Format(time.RFC3339) + "</ul:PublishedAt>")
 		items.WriteString("\n        </rdf:li>")

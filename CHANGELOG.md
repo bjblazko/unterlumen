@@ -31,6 +31,12 @@ All notable changes to this project are documented in this file.
 
 - **Library scan shortcuts in Tools menu** — When browsing inside a library (`App.mode === 'library'`), the Tools menu gains a "Library scan" section with "Scan new", "Re-index", and "Cleanup" buttons. These call the same SSE-backed library API endpoints as the library overview card buttons. Progress streams as a live toast ("Scanning… 15/100 · filename"); on completion a toast shows "Done — N photos". Existing "Make library" entry hides when in library mode.
 
+- **Chip autocomplete filter in library search** — The library filter panel now includes a "More filters" chip input below the existing sliders and dropdowns. Click **Add filter…** to pick a filter namespace and then a value. Multiple chips combine as AND conditions. Chips can be removed with ×, Backspace on an empty input removes the last chip, and Reset filters clears all chips. New backend endpoints: `GET /api/library/meta-keys`, `GET /api/library/meta-values`, `GET /api/library/album-titles`, `GET /api/library/exif-fields`.
+
+- **All indexed EXIF fields available as chip namespaces** — The chip filter now exposes every distinct field present in a library's `exif_index`, not just a fixed set. Fields like `Orientation`, `Make`, `Software`, `ColorSpace`, `MeteringMode`, `SceneCaptureType`, and any Fujifilm-specific tags appear automatically. Fields already covered by numeric sliders (shutter, aperture, focal length, ISO) are excluded to avoid overlap.
+
+- **Human-readable EXIF value labels in chip filter and info panel** — A new shared `exif-labels.js` module provides decode tables for Orientation, Flash, White Balance, Metering Mode, Exposure Program, Exposure Mode, Color Space, Scene Capture Type, and more. The chip autocomplete shows "Normal" instead of "1" for Orientation, "Fired" / "No flash" for Flash, etc. The info panel uses the same tables (eliminating duplicated decode logic). The raw stored value is still used for the backend query; only the display label changes.
+
 ### Changed
 
 - **Generated website footer** — The "Built with Unterlumen" footer now links to the product page at huepattl.de and includes an orange heart icon. A GitHub icon linking to the repository is added alongside it. Applies to multi-album site (root index and album pages) and single-gallery exports.
@@ -38,6 +44,10 @@ All notable changes to this project are documented in this file.
 - **Generated site album date** — The date shown under each album card on the site index now shows a range (e.g. "June – August 2025") when photos have been added across different months, instead of only the original publish date.
 
 ### Fixed
+
+- **Album title written to `photo_meta` immediately at publish time** — Previously `published:<channel>:title` was only stored when the library was re-indexed (via `indexSidecar` reading the XMP). Now both the regular and gallery publish paths write the title directly to `photo_meta` at publish time, so `album:` chip filters and the album-titles autocomplete reflect new albums without requiring a manual re-index. Existing publications made before this fix can be backfilled by running Re-index from the Tools menu.
+
+- **Chip autocomplete dropdown visibility** — The dropdown now has an accent-coloured border (matching the selection ring on photos), a layered drop shadow with a warm orange ambient glow visible on dark backgrounds, and a minimum width of 280 px so it extends beyond the narrow sidebar rather than being clipped to its width.
 
 - **Publish dialog — album title required for site export** — Publishing to a multi-album site channel now validates that an album title is provided. If the field is left blank, an error message is shown and publishing is blocked rather than silently falling back to a titleless export.
 

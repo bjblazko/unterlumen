@@ -68,6 +68,31 @@ const LibraryAPI = {
         if (!r.ok) return [];
         return r.json();
     },
+    async metaKeys(ids) {
+        const params = ids ? `?ids=${ids}` : '';
+        const r = await fetch(`/api/library/meta-keys${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
+    async metaValues(key, ids) {
+        const params = new URLSearchParams({ key });
+        if (ids) params.set('ids', ids);
+        const r = await fetch(`/api/library/meta-values?${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
+    async albumTitles(ids) {
+        const params = ids ? `?ids=${ids}` : '';
+        const r = await fetch(`/api/library/album-titles${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
+    async exifFields(ids) {
+        const params = ids ? `?ids=${ids}` : '';
+        const r = await fetch(`/api/library/exif-fields${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
     async search({ ids, limit = 100, offset = 0, ...rest } = {}) {
         const params = new URLSearchParams({ limit, offset });
         if (ids) params.set('ids', ids);
