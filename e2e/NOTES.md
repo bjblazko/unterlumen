@@ -22,7 +22,7 @@ The panel becomes `.visible` immediately on click but controls only appear after
 
 After `selectOption(libID)` the change handler rebuilds sliders + status async. Wait for the status or content to reflect the new library before asserting. Use `waitForFunction` on `.lib-search-status` text change — capture `prevStatus` first and wait for it to differ.
 
-Two `.lib-filter-groups` elements exist: one wraps sliders, one wraps text filters. Use `.first()` when asserting on the sliders wrapper (e.g. the "No numeric EXIF data" message).
+Three `.lib-filter-groups` elements exist: first wraps the date filter, second wraps sliders, third wraps text filters. Use `{ hasText: '…' }` to target a specific group — `.first()` no longer reliably points to the sliders wrapper.
 
 ## Statistics API latency
 

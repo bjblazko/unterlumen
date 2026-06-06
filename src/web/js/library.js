@@ -1,5 +1,21 @@
 // LibraryTab — Libraries mode: list, create, and browse photo libraries
 
+/* --- Gallery date helpers --- */
+
+// Returns a human-readable date range for a galleryListItem.
+// "January 2026" · "January – March 2026" · "December 2025 – January 2026"
+function _galleryDateRange(g) {
+    const pub = new Date(g.publishedAt);
+    const fmt = (d, opts) => d.toLocaleDateString('en', opts);
+    const MY = { month: 'long', year: 'numeric' };
+    const MO = { month: 'long' };
+    if (!g.updatedAt || g.updatedAt.startsWith('0001-')) return fmt(pub, MY);
+    const upd = new Date(g.updatedAt);
+    if (upd.getFullYear() === pub.getFullYear() && upd.getMonth() === pub.getMonth()) return fmt(pub, MY);
+    if (upd.getFullYear() === pub.getFullYear()) return fmt(pub, MO) + ' – ' + fmt(upd, MY);
+    return fmt(pub, MY) + ' – ' + fmt(upd, MY);
+}
+
 /* --- Library API helpers --- */
 
 const LibraryAPI = {
@@ -92,11 +108,11 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath }, onProgress) {
+    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }, onProgress) {
         const r = await fetch(`/api/library/${libID}/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath }),
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }),
         });
         if (!r.ok) throw new Error(await r.text());
 
@@ -878,7 +894,7 @@ class LibraryTab {
         }
 
         const now = new Date();
-        const localISO = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        const todayUTC = now.toISOString().slice(0, 10);
 
         const initialTitle = hasDirs ? 'Counting photos…' : `Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
 
@@ -899,12 +915,25 @@ class LibraryTab {
                         <label class="form-label">Account</label>
                         <select class="form-select" id="pub-account"></select>
                     </div>
-                    <label class="form-label">Date &amp; time</label>
-                    <input class="form-input" id="pub-date" type="datetime-local" value="${localISO}">
+                    <label class="form-label">Date</label>
+                    <div class="pub-date-row">
+                        <input class="form-input" id="pub-date" type="date" value="${todayUTC}">
+                        <button type="button" class="btn btn-sm pub-time-toggle" id="pub-time-toggle">+ Time</button>
+                    </div>
+                    <div id="pub-time-wrap" style="display:none">
+                        <input class="form-input" id="pub-time" type="time" value="12:00">
+                    </div>
+                    <span class="pub-date-note">Sets album order in the published site and is stored in XMP sidecars.</span>
                     <div class="publish-info" id="pub-info"></div>
                     <div id="pub-gallery-wrap" style="display:none">
-                        <label class="form-label" id="pub-gallery-label">Gallery title</label>
-                        <input class="form-input" id="pub-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                        <div id="pub-target-wrap" style="display:none">
+                            <label class="form-label">Add to</label>
+                            <select class="form-select" id="pub-target"></select>
+                        </div>
+                        <div id="pub-title-wrap">
+                            <label class="form-label" id="pub-gallery-label">Gallery title</label>
+                            <input class="form-input" id="pub-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                        </div>
                     </div>
                     <div class="pub-output-section">
                         <label class="form-label">Output</label>
@@ -981,6 +1010,31 @@ class LibraryTab {
             }
         };
 
+        const resetDateToToday = () => {
+            dlg.querySelector('#pub-date').value = new Date().toISOString().slice(0, 10);
+            dlg.querySelector('#pub-time').value = '12:00';
+        };
+
+        const applyTargetSelection = (galleries) => {
+            const targetSel = dlg.querySelector('#pub-target');
+            const titleWrap = dlg.querySelector('#pub-title-wrap');
+            const dateNote = dlg.querySelector('.pub-date-note');
+            const selectedPostID = targetSel.value;
+            if (selectedPostID === '') {
+                titleWrap.style.display = '';
+                resetDateToToday();
+                dateNote.textContent = 'Sets album order in the published site and is stored in XMP sidecars.';
+            } else {
+                titleWrap.style.display = 'none';
+                // Pre-fill with today — this becomes the UpdatedAt date, not the sort date.
+                resetDateToToday();
+                // Collapse time; user can expand with + Time if needed.
+                dlg.querySelector('#pub-time-wrap').style.display = 'none';
+                dlg.querySelector('#pub-time-toggle').textContent = '+ Time';
+                dateNote.textContent = 'Sets the updated date shown on the album. Stored in XMP sidecars on the new photos.';
+            }
+        };
+
         const updateChannel = async () => {
             const slug = dlg.querySelector('#pub-channel').value;
             const ch = channels.find(c => c.slug === slug);
@@ -999,10 +1053,34 @@ class LibraryTab {
                 accountWrap.style.display = 'none';
             }
 
-            // Gallery / album title field
+            // Gallery / album title field and target selector
             const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-            dlg.querySelector('#pub-gallery-label').textContent = ch.siteExport ? 'Album title' : 'Gallery title';
-            galleryWrap.style.display = (ch.galleryExport || ch.siteExport) ? '' : 'none';
+            const targetWrap = dlg.querySelector('#pub-target-wrap');
+            const targetSel = dlg.querySelector('#pub-target');
+            const titleLabel = dlg.querySelector('#pub-gallery-label');
+            titleLabel.textContent = ch.siteExport ? 'Album title' : 'Gallery title';
+
+            if (ch.galleryExport || ch.siteExport) {
+                galleryWrap.style.display = '';
+                // Fetch existing galleries and populate target selector.
+                targetWrap.style.display = 'none';
+                targetSel.innerHTML = '';
+                try {
+                    const galleries = await ChannelAPI.galleries(slug);
+                    if (galleries.length > 0) {
+                        targetSel.innerHTML = `<option value="">New ${ch.siteExport ? 'album' : 'gallery'}</option>` +
+                            galleries.map(g =>
+                                `<option value="${escapeHtml(g.postID)}">${escapeHtml(g.title)} (${g.photoCount}) · ${_galleryDateRange(g)}</option>`
+                            ).join('');
+                        targetWrap.style.display = '';
+                        targetSel.removeEventListener('change', targetSel._changeHandler);
+                        targetSel._changeHandler = () => applyTargetSelection(galleries);
+                        targetSel.addEventListener('change', targetSel._changeHandler);
+                    }
+                } catch { /* show title input as fallback */ }
+            } else {
+                galleryWrap.style.display = 'none';
+            }
 
             // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
@@ -1034,6 +1112,14 @@ class LibraryTab {
             }
         });
 
+        dlg.querySelector('#pub-time-toggle').addEventListener('click', function() {
+            const timeWrap = dlg.querySelector('#pub-time-wrap');
+            const visible = timeWrap.style.display !== 'none';
+            timeWrap.style.display = visible ? 'none' : '';
+            this.textContent = visible ? '+ Time' : '− Time';
+            if (visible) dlg.querySelector('#pub-time').value = '12:00';
+        });
+
         dlg.querySelector('#pub-record-xmp').addEventListener('click', function() {
             const on = this.dataset.state !== 'on';
             setXmpState(on);
@@ -1051,7 +1137,13 @@ class LibraryTab {
             const errEl = dlg.querySelector('#pub-error');
             const channel = dlg.querySelector('#pub-channel').value;
             const dateVal = dlg.querySelector('#pub-date').value;
-            const publishedAt = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+            const timeVisible = dlg.querySelector('#pub-time-wrap').style.display !== 'none';
+            const timeVal = timeVisible ? (dlg.querySelector('#pub-time').value || '12:00') : '12:00';
+            const publishedAt = dateVal
+                ? new Date(dateVal + 'T' + timeVal + ':00Z').toISOString()
+                : new Date().toISOString();
+            const targetSel = dlg.querySelector('#pub-target');
+            const targetPostID = targetSel?.value || undefined;
             const outputMode = dlg.querySelector('#pub-output-mode').value;
             const recordXMP = dlg.querySelector('#pub-record-xmp').dataset.state === 'on';
             const outputPath = dlg.querySelector('#pub-output-path').value.trim() || undefined;
@@ -1102,20 +1194,25 @@ class LibraryTab {
                     : undefined;
 
                 const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-                const galleryTitle = galleryWrap.style.display !== 'none'
+                const titleWrap = dlg.querySelector('#pub-title-wrap');
+                // galleryTitle is empty when adding to an existing gallery (title comes from statefile).
+                const galleryTitle = (galleryWrap.style.display !== 'none' && titleWrap?.style.display !== 'none')
                     ? (dlg.querySelector('#pub-gallery-title').value.trim() || undefined)
                     : undefined;
 
                 const ch = channels.find(c => c.slug === channel);
-                if (ch?.siteExport && !galleryTitle) {
-                    errEl.textContent = 'Album title is required for multi-album site export.';
+                const isGalleryMode = ch?.galleryExport || ch?.siteExport;
+                if (isGalleryMode && !targetPostID && !galleryTitle) {
+                    errEl.textContent = ch.siteExport
+                        ? 'Album title is required for multi-album site export.'
+                        : 'Gallery title is required.';
                     errEl.style.display = '';
                     confirmBtn.disabled = false;
                     confirmBtn.textContent = 'Publish';
                     return;
                 }
 
-                if (validGroups.length > 1 && galleryTitle) {
+                if (validGroups.length > 1 && (galleryTitle || targetPostID)) {
                     errEl.textContent = 'Gallery export is not supported when photos span multiple libraries. Please select photos from one library.';
                     errEl.style.display = '';
                     confirmBtn.disabled = false;
@@ -1123,14 +1220,14 @@ class LibraryTab {
                     return;
                 }
 
-                if (galleryTitle) {
-                    // Single group guaranteed (multi-lib + galleryTitle blocked above)
+                if (galleryTitle || targetPostID) {
+                    // Single group guaranteed (multi-lib + gallery mode blocked above)
                     const g = validGroups[0];
                     const progressEl = dlg.querySelector('#pub-progress');
                     progressEl.style.display = '';
                     const resp = await LibraryAPI.publishStream(
                         g.libID,
-                        { photoIDs: g.photoIDs, channel, account, publishedAt, galleryTitle, recordXMP, outputPath },
+                        { photoIDs: g.photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath },
                         (evt) => {
                             if (evt.step === 'photo')
                                 progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
@@ -1143,9 +1240,9 @@ class LibraryTab {
                     if (errors.length > 0) {
                         alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
                     } else if (resp.sitePath) {
-                        App.showToast(`Album added · site at ${resp.sitePath}`);
+                        App.showToast(targetPostID ? `Photos added to album · site at ${resp.sitePath}` : `Album added · site at ${resp.sitePath}`);
                     } else {
-                        App.showToast(`Gallery ready: ${resp.galleryPath}`);
+                        App.showToast(targetPostID ? `Photos added to gallery: ${resp.galleryPath}` : `Gallery ready: ${resp.galleryPath}`);
                     }
                 } else {
                     let totalPublished = 0;

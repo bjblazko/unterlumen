@@ -512,9 +512,9 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 }
 
 // SearchLibraries queries one or more libraries with the given filters and
-// returns a merged, IndexedAt-sorted result. Pass nil ids to search all libraries.
+// returns a merged, date-taken-sorted result. Pass nil ids to search all libraries.
 // At most 200 photos are fetched per library; the total reflects the true match count.
-func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (CrossLibraryResult, error) {
+func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, numericFilters map[string]NumericFilter, dateMin, dateMax string, offset, limit int) (CrossLibraryResult, error) {
 	libs, err := m.ListLibraries()
 	if err != nil {
 		return CrossLibraryResult{}, err
@@ -558,7 +558,7 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 			continue
 		}
 		perLibLimit := offset + limit
-		page, err := store.ListPhotos(textFilters, numericFilters, 0, perLibLimit)
+		page, err := store.ListPhotos(textFilters, numericFilters, dateMin, dateMax, 0, perLibLimit)
 		store.Close()
 		if err != nil {
 			results[i].result.err = err
@@ -595,12 +595,36 @@ func (m *Manager) SearchLibraries(ids []string, textFilters map[string]string, n
 	return CrossLibraryResult{Results: all[offset:end], Total: total}, nil
 }
 
-func sortLibraryPhotos(photos []LibraryPhoto) {
-	for i := 1; i < len(photos); i++ {
-		for j := i; j > 0 && photos[j].IndexedAt.After(photos[j-1].IndexedAt); j-- {
-			photos[j], photos[j-1] = photos[j-1], photos[j]
-		}
+func takenOrZero(p LibraryPhoto) time.Time {
+	if len(p.DateTaken) < 10 {
+		return time.Time{}
 	}
+	s := p.DateTaken
+	if len(s) > 19 {
+		s = s[:19]
+	}
+	t, err := time.Parse("2006-01-02T15:04:05", s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func sortLibraryPhotos(photos []LibraryPhoto) {
+	sort.SliceStable(photos, func(i, j int) bool {
+		ti := takenOrZero(photos[i])
+		tj := takenOrZero(photos[j])
+		if ti.IsZero() && tj.IsZero() {
+			return false
+		}
+		if ti.IsZero() {
+			return false // nulls last
+		}
+		if tj.IsZero() {
+			return true // nulls last
+		}
+		return ti.After(tj) // newest first
+	})
 }
 
 // AggregateExifRanges returns the combined min/max numeric EXIF ranges across

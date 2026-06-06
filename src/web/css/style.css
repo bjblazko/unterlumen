@@ -3453,6 +3453,39 @@ body.slideshow-active #app { height: 100vh; }
     accent-color: var(--accent);
 }
 
+/* --- Library date filter --- */
+.lib-date-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.lib-date-row-label {
+    font-size: 11px;
+    color: var(--fg-2);
+    width: 28px;
+    flex-shrink: 0;
+}
+
+.lib-date-input {
+    flex: 1;
+    height: 28px;
+    padding: 0 calc(var(--unit) * 1.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    color-scheme: dark;
+    min-width: 0;
+}
+
+.lib-date-input:focus {
+    border-color: var(--accent);
+}
+
 /* --- Combined range slider --- */
 .lib-range-slider {
     position: relative;
@@ -4434,6 +4467,30 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
     color: var(--fg-2);
     padding: 2px 0;
+}
+
+.pub-date-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.pub-date-row .form-input {
+    flex: 1;
+}
+
+.pub-time-toggle {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 4px 8px;
+    color: var(--fg-2);
+    border-color: var(--border);
+}
+
+.pub-date-note {
+    font-size: 11px;
+    color: var(--fg-2);
+    line-height: 1.4;
 }
 
 /* --- Statistics modal --- */

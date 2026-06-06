@@ -446,8 +446,9 @@ type NumericFilter struct {
 
 // ListPhotos returns a filtered, paginated list of photos.
 // filters is field→value for EXIF text filtering;
-// numericFilters is field→range for numeric EXIF filtering (e.g. ExposureTime).
-func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]NumericFilter, offset, limit int) (ListPhotosResult, error) {
+// numericFilters is field→range for numeric EXIF filtering (e.g. ExposureTime);
+// dateMin/dateMax are optional YYYY-MM-DD strings that restrict by date_taken.
+func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]NumericFilter, dateMin, dateMax string, offset, limit int) (ListPhotosResult, error) {
 	var joinClauses []string
 	var joinArgs []any
 	var whereArgs []any
@@ -493,6 +494,15 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 		}
 	}
 
+	if dateMin != "" {
+		where = append(where, `(p.date_taken IS NOT NULL AND SUBSTR(p.date_taken, 1, 10) >= ?)`)
+		whereArgs = append(whereArgs, dateMin)
+	}
+	if dateMax != "" {
+		where = append(where, `(p.date_taken IS NOT NULL AND SUBSTR(p.date_taken, 1, 10) <= ?)`)
+		whereArgs = append(whereArgs, dateMax)
+	}
+
 	joinSQL := strings.Join(joinClauses, " ")
 	whereSQL := strings.Join(where, " AND ")
 	allArgs := append(joinArgs, whereArgs...)
@@ -512,11 +522,11 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 
 	pageArgs := append(allArgs, limit, offset)
 	rows, err := s.db.Query(
-		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status,
+		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status, p.date_taken,
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1)
 		 `+fromSQL+` WHERE `+whereSQL+
-			` ORDER BY p.indexed_at DESC LIMIT ? OFFSET ?`,
+			` ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC LIMIT ? OFFSET ?`,
 		pageArgs...,
 	)
 	if err != nil {
@@ -528,11 +538,15 @@ func (s *Store) ListPhotos(filters map[string]string, numericFilters map[string]
 	for rows.Next() {
 		var p Photo
 		var indexedAt string
+		var dateTaken sql.NullString
 		var gpsLat, filmSim *string
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status, &gpsLat, &filmSim); err != nil {
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status, &dateTaken, &gpsLat, &filmSim); err != nil {
 			return ListPhotosResult{}, err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
+		if dateTaken.Valid {
+			p.DateTaken = dateTaken.String
+		}
 		if gpsLat != nil || filmSim != nil {
 			p.Exif = make(map[string]string)
 			if gpsLat != nil {

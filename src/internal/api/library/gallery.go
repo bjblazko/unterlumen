@@ -4,7 +4,40 @@ import (
 	"bytes"
 	"encoding/json"
 	"html/template"
+	"os"
+	"time"
 )
+
+// GalleryState is the gallery.json statefile for single-gallery publishes.
+type GalleryState struct {
+	PostID      string      `json:"postID"`
+	Title       string      `json:"title"`
+	PublishedAt time.Time   `json:"publishedAt"`
+	UpdatedAt   time.Time   `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
+	PhotoCount  int         `json:"photoCount"`
+	HasZip      bool        `json:"hasZip"`
+	Photos      []SitePhoto `json:"photos"`
+}
+
+func loadGalleryState(statePath string) (*GalleryState, error) {
+	data, err := os.ReadFile(statePath)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var gs GalleryState
+	return &gs, json.Unmarshal(data, &gs)
+}
+
+func saveGalleryState(statePath string, gs *GalleryState) error {
+	data, err := json.MarshalIndent(gs, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, data, 0o600)
+}
 
 // GalleryItem describes one photo in the exported HTML gallery.
 type GalleryItem struct {

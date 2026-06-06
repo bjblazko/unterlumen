@@ -44,6 +44,11 @@ const ChannelAPI = {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/reveal`, { method: 'POST' });
         if (!r.ok) throw new Error(await r.text());
     },
+    async galleries(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/galleries`);
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
 };
 
 /* --- ChannelSettingsModal --- */

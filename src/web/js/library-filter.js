@@ -73,6 +73,10 @@ class LibrarySearchPanel {
         this._debounceTimer = null;
         this._libraries = [];
         this._searchPane = null;
+        this._dateMin = '';
+        this._dateMax = '';
+        this._dateMinInput = null;
+        this._dateMaxInput = null;
 
         toggleBtn.addEventListener('click', () => this._toggle());
     }
@@ -123,6 +127,7 @@ class LibrarySearchPanel {
         });
 
         this._buildControls();
+        this._buildDateFilter();
         this._buildSliders();
         this._buildTextFilters();
         this._buildResults();
@@ -357,6 +362,54 @@ class LibrarySearchPanel {
         return group;
     }
 
+    _buildDateFilter() {
+        const wrap = document.createElement('div');
+        wrap.className = 'lib-filter-groups';
+
+        const group = document.createElement('div');
+        group.className = 'lib-filter-group lib-filter-group--date';
+
+        const label = document.createElement('div');
+        label.className = 'lib-filter-label';
+        label.textContent = 'Date taken';
+        group.appendChild(label);
+
+        const makeRow = (labelText, initVal, onChange) => {
+            const row = document.createElement('div');
+            row.className = 'lib-date-row';
+            const lbl = document.createElement('span');
+            lbl.className = 'lib-date-row-label';
+            lbl.textContent = labelText;
+            const input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'lib-date-input';
+            input.value = initVal;
+            // Blur after change so keyboard navigation is immediately restored.
+            input.addEventListener('change', () => { onChange(input.value); input.blur(); });
+            // Escape blurs without changing value, restoring keyboard navigation.
+            input.addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
+            row.appendChild(lbl);
+            row.appendChild(input);
+            return { row, input };
+        };
+
+        const { row: fromRow, input: fromInput } = makeRow('From', this._dateMin, v => {
+            this._dateMin = v;
+            this._scheduleQuery();
+        });
+        const { row: toRow, input: toInput } = makeRow('To', this._dateMax, v => {
+            this._dateMax = v;
+            this._scheduleQuery();
+        });
+        this._dateMinInput = fromInput;
+        this._dateMaxInput = toInput;
+
+        group.appendChild(fromRow);
+        group.appendChild(toRow);
+        wrap.appendChild(group);
+        this._container.appendChild(wrap);
+    }
+
     _buildResults() {
         const status = document.createElement('div');
         status.className = 'lib-search-status';
@@ -389,6 +442,10 @@ class LibrarySearchPanel {
         clearTimeout(this._debounceTimer);
         this._textActive = {};
         this._use35mm = false;
+        this._dateMin = '';
+        this._dateMax = '';
+        if (this._dateMinInput) this._dateMinInput.value = '';
+        if (this._dateMaxInput) this._dateMaxInput.value = '';
         this._rebuildSliders();
         this._rebuildTextFilters();
         this._runQuery();
@@ -415,6 +472,8 @@ class LibrarySearchPanel {
         for (const [field, val] of Object.entries(this._textActive || {})) {
             if (val) params[field] = val;
         }
+        if (this._dateMin) params.date_taken_min = this._dateMin;
+        if (this._dateMax) params.date_taken_max = this._dateMax;
         return params;
     }
 

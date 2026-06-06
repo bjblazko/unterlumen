@@ -47,7 +47,7 @@ test.describe('Filter panel — no EXIF data', () => {
     });
 
     test('shows "No numeric EXIF data" for unindexed library', async ({ page }) => {
-        await expect(page.locator('.lib-filter-groups').first()).toContainText(
+        await expect(page.locator('.lib-filter-groups', { hasText: 'No numeric EXIF data' })).toContainText(
             'No numeric EXIF data — re-index the library to populate.',
         );
     });
@@ -231,6 +231,53 @@ test.describe('Library search with indexed fixtures', () => {
             await page.keyboard.press('i');
             await expect(page.locator('.info-panel.expanded')).toBeVisible({ timeout: 5_000 });
         });
+
+        test('date taken filter section renders in the filter panel', async ({ page }) => {
+            await expect(page.locator('.lib-filter-group--date')).toBeVisible({ timeout: 5_000 });
+            await expect(page.locator('.lib-date-input').first()).toBeVisible();
+        });
+
+        test('setting a far-future From date filters results to zero', async ({ page }) => {
+            const status = page.locator('.lib-search-status strong');
+            await page.locator('.lib-date-input').first().fill('2099-01-01');
+            await page.locator('.lib-date-input').first().dispatchEvent('change');
+            await page.waitForFunction(
+                () => {
+                    const el = document.querySelector('.lib-search-status strong');
+                    return el && el.textContent.trim() === '0';
+                },
+                { timeout: 10_000 },
+            );
+            expect(await status.textContent()).toBe('0');
+        });
+
+        test('Reset clears date inputs and restores photo count', async ({ page }) => {
+            const status = page.locator('.lib-search-status strong');
+            const total = parseInt(await status.textContent(), 10);
+
+            await page.locator('.lib-date-input').first().fill('2099-01-01');
+            await page.locator('.lib-date-input').first().dispatchEvent('change');
+            await page.waitForFunction(
+                () => {
+                    const el = document.querySelector('.lib-search-status strong');
+                    return el && el.textContent.trim() === '0';
+                },
+                { timeout: 10_000 },
+            );
+
+            const resetDone = page.waitForResponse(
+                res => res.url().includes('/api/library/search')
+                    && !new URL(res.url()).searchParams.has('date_taken_min')
+                    && res.status() === 200,
+                { timeout: 15_000 },
+            );
+            await page.locator('.lib-search-reset').click();
+            await resetDone;
+            expect(await status.textContent()).toBe(String(total));
+
+            const fromVal = await page.locator('.lib-date-input').first().inputValue();
+            expect(fromVal).toBe('');
+        });
     });
 
     // ── Filter panel in library detail view ─────────────────────────────────
@@ -360,6 +407,29 @@ test.describe('Library search with indexed fixtures', () => {
             const body = await res.json();
             expect(body.total).toBeGreaterThan(0);
             expect(body.total).toBeLessThan(allTotal);
+        });
+
+        test('date_taken_min with far-future date returns 0 photos', async ({ request }) => {
+            const res = await request.get(`/api/library/search?ids=${libID}&date_taken_min=2099-01-01`);
+            expect(res.status()).toBe(200);
+            expect((await res.json()).total).toBe(0);
+        });
+
+        test('date_taken_max with far-past date returns 0 photos', async ({ request }) => {
+            const res = await request.get(`/api/library/search?ids=${libID}&date_taken_max=1970-01-01`);
+            expect(res.status()).toBe(200);
+            expect((await res.json()).total).toBe(0);
+        });
+
+        test('search results with date_taken are sorted newest first', async ({ request }) => {
+            const res = await request.get(`/api/library/search?ids=${libID}&limit=20`);
+            expect(res.status()).toBe(200);
+            const { results } = await res.json();
+            const dated = results.filter(p => p.dateTaken);
+            expect(dated.length).toBeGreaterThan(0);
+            for (let i = 1; i < dated.length; i++) {
+                expect(dated[i].dateTaken <= dated[i - 1].dateTaken).toBe(true);
+            }
         });
     });
 });

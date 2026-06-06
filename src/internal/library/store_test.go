@@ -84,7 +84,7 @@ func TestListPhotosFocalLength35Filter(t *testing.T) {
 	numericFilters := map[string]NumericFilter{
 		"FocalLength35": {Min: 30, Max: 40},
 	}
-	result, err := s.ListPhotos(nil, numericFilters, 0, 100)
+	result, err := s.ListPhotos(nil, numericFilters, "", "", 0, 100)
 	if err != nil {
 		t.Fatalf("ListPhotos: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestPurgeMissingPhotos(t *testing.T) {
 	}
 
 	// "keep" must still be present with status ok.
-	result, err := s.ListPhotos(nil, nil, 0, 10)
+	result, err := s.ListPhotos(nil, nil, "", "", 0, 10)
 	if err != nil {
 		t.Fatalf("ListPhotos: %v", err)
 	}

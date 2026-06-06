@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -60,6 +61,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore, root, serverRole))
 	mux.HandleFunc("POST /api/library/{id}/publish-download", publishDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore))
+	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -402,6 +404,8 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 			}
 		}
 		numericFilters := parseNumericFilters(r.URL.Query())
+		dateMin := r.URL.Query().Get("date_taken_min")
+		dateMax := r.URL.Query().Get("date_taken_max")
 
 		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -409,7 +413,7 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 			limit = 100
 		}
 
-		result, err := store.ListPhotos(filters, numericFilters, offset, limit)
+		result, err := store.ListPhotos(filters, numericFilters, dateMin, dateMax, offset, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -423,12 +427,14 @@ func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 		ids := parseIDList(r.URL.Query().Get("ids"))
 		textFilters := parseTextFilters(r.URL.Query())
 		numericFilters := parseNumericFilters(r.URL.Query())
+		dateMin := r.URL.Query().Get("date_taken_min")
+		dateMax := r.URL.Query().Get("date_taken_max")
 		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		if limit <= 0 || limit > 500 {
 			limit = 100
 		}
-		result, err := mgr.SearchLibraries(ids, textFilters, numericFilters, offset, limit)
+		result, err := mgr.SearchLibraries(ids, textFilters, numericFilters, dateMin, dateMax, offset, limit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -982,8 +988,9 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			Account      string   `json:"account"`
 			PublishedAt  string   `json:"publishedAt"`
 			GalleryTitle string   `json:"galleryTitle"`
-			RecordXMP    *bool    `json:"recordXMP,omitempty"`  // nil → true (default)
-			OutputPath   string   `json:"outputPath,omitempty"` // per-publish override
+			TargetPostID string   `json:"targetPostID,omitempty"` // non-empty = add to existing gallery/album
+			RecordXMP    *bool    `json:"recordXMP,omitempty"`    // nil → true (default)
+			OutputPath   string   `json:"outputPath,omitempty"`   // per-publish override
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -1027,8 +1034,9 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
-		galleryMode := ch.GalleryExport && body.GalleryTitle != ""
-		siteMode := ch.SiteExport && body.GalleryTitle != ""
+		addToExisting := body.TargetPostID != ""
+		galleryMode := ch.GalleryExport && (body.GalleryTitle != "" || addToExisting)
+		siteMode := ch.SiteExport && (body.GalleryTitle != "" || addToExisting)
 		channelDir := chStore.OutputDir(body.Channel)
 		if body.OutputPath != "" {
 			if serverRole && filepath.IsAbs(body.OutputPath) {
@@ -1046,11 +1054,55 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				channelDir = body.OutputPath
 			}
 		}
+		// albumPostID identifies the gallery/album folder; equals postID for new publishes.
+		albumPostID := postID
+		var existingPhotos []SitePhoto
+		var existingTitle string
+		var existingPublishedAt time.Time
+
 		outDir := channelDir
-		if galleryMode {
-			outDir = filepath.Join(outDir, postID)
-		} else if siteMode {
-			outDir = filepath.Join(channelDir, "site", "albums", postID)
+		if addToExisting {
+			albumPostID = body.TargetPostID
+			if galleryMode {
+				outDir = filepath.Join(channelDir, albumPostID)
+				gs, gsErr := loadGalleryState(filepath.Join(outDir, "gallery.json"))
+				if gsErr != nil || gs == nil {
+					http.Error(w, "gallery not found: "+albumPostID, http.StatusBadRequest)
+					return
+				}
+				existingPhotos = gs.Photos
+				existingTitle = gs.Title
+				existingPublishedAt = gs.PublishedAt
+			} else if siteMode {
+				outDir = filepath.Join(channelDir, "site", "albums", albumPostID)
+				siteAlbums, stateErr := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+				if stateErr != nil {
+					http.Error(w, "read site state: "+stateErr.Error(), http.StatusInternalServerError)
+					return
+				}
+				for i := range siteAlbums {
+					if siteAlbums[i].PostID == albumPostID {
+						existingPhotos = siteAlbums[i].Photos
+						existingTitle = siteAlbums[i].Title
+						existingPublishedAt = siteAlbums[i].PublishedAt
+						break
+					}
+				}
+				if existingTitle == "" {
+					http.Error(w, "album not found: "+albumPostID, http.StatusBadRequest)
+					return
+				}
+			}
+			if _, statErr := os.Stat(outDir); os.IsNotExist(statErr) {
+				http.Error(w, "gallery folder not found: "+albumPostID, http.StatusBadRequest)
+				return
+			}
+		} else {
+			if galleryMode {
+				outDir = filepath.Join(outDir, albumPostID)
+			} else if siteMode {
+				outDir = filepath.Join(channelDir, "site", "albums", albumPostID)
+			}
 		}
 		if err := os.MkdirAll(outDir, 0o700); err != nil {
 			http.Error(w, "create output dir: "+err.Error(), http.StatusInternalServerError)
@@ -1101,19 +1153,11 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
 
-		// ZIP of full-res photos.
-		emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "Creating ZIP…"})
-		zipName := "photos.zip"
-		if zipErr := createGalleryZip(results, outDir, zipName); zipErr != nil {
-			emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "ZIP failed: " + zipErr.Error()})
-			zipName = ""
-		} else {
-			emit(map[string]any{"step": "zip", "done": 1, "total": 1, "file": "ZIP ready"})
-		}
-
-		// Generate HTML gallery.
-		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
+		// Build merged items list: existing photos first, then newly exported.
 		var items []GalleryItem
+		for _, ep := range existingPhotos {
+			items = append(items, GalleryItem{Filename: ep.Filename, ThumbFilename: ep.ThumbFilename})
+		}
 		for _, res := range results {
 			if res.Error == "" && res.Filename != "" {
 				items = append(items, GalleryItem{
@@ -1124,11 +1168,37 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				})
 			}
 		}
+
+		// For add-to-existing, include previous photos in the ZIP.
+		var zipResults []publishResult
+		for _, ep := range existingPhotos {
+			zipResults = append(zipResults, publishResult{Filename: ep.Filename})
+		}
+		zipResults = append(zipResults, results...)
+
+		// ZIP of full-res photos.
+		emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "Creating ZIP…"})
+		zipName := "photos.zip"
+		if zipErr := createGalleryZip(zipResults, outDir, zipName); zipErr != nil {
+			emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "ZIP failed: " + zipErr.Error()})
+			zipName = ""
+		} else {
+			emit(map[string]any{"step": "zip", "done": 1, "total": 1, "file": "ZIP ready"})
+		}
+
+		// Gallery title: use existing title when adding to an existing gallery.
+		galleryTitle := body.GalleryTitle
+		if existingTitle != "" {
+			galleryTitle = existingTitle
+		}
+
+		// Generate HTML gallery.
+		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
 		var html []byte
 		if siteMode {
-			html = GenerateSiteGallery(body.GalleryTitle, ch.SiteTheme, items, GalleryOptions{ZipFilename: zipName})
+			html = GenerateSiteGallery(galleryTitle, ch.SiteTheme, items, GalleryOptions{ZipFilename: zipName})
 		} else {
-			html = GenerateGallery(body.GalleryTitle, items, GalleryOptions{ZipFilename: zipName})
+			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName})
 		}
 		indexPath := filepath.Join(outDir, "index.html")
 		if err := os.WriteFile(indexPath, html, 0o644); err != nil {
@@ -1136,11 +1206,38 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			return
 		}
 
+		// Write gallery.json statefile for single-gallery mode.
+		if galleryMode && !siteMode {
+			gsPublishedAt := publishedAt
+			var gsUpdatedAt time.Time
+			if !existingPublishedAt.IsZero() {
+				gsPublishedAt = existingPublishedAt
+				gsUpdatedAt = publishedAt
+			}
+			sitePhotos := make([]SitePhoto, len(items))
+			for i, item := range items {
+				sitePhotos[i] = SitePhoto{Filename: item.Filename, ThumbFilename: item.ThumbFilename}
+			}
+			gs := &GalleryState{
+				PostID:      albumPostID,
+				Title:       galleryTitle,
+				PublishedAt: gsPublishedAt,
+				UpdatedAt:   gsUpdatedAt,
+				PhotoCount:  len(items),
+				HasZip:      zipName != "",
+				Photos:      sitePhotos,
+			}
+			saveGalleryState(filepath.Join(outDir, "gallery.json"), gs) //nolint:errcheck
+		}
+
 		if siteMode && len(items) > 0 {
 			emit(map[string]any{"step": "site", "done": 0, "total": 1, "file": "Updating site index…"})
 			siteDir := filepath.Join(channelDir, "site")
-			if cover, rdErr := os.ReadFile(filepath.Join(outDir, items[0].ThumbFilename)); rdErr == nil {
-				os.WriteFile(filepath.Join(outDir, "cover.jpg"), cover, 0o644) //nolint:errcheck
+			// Only update cover on initial publish (new album).
+			if !addToExisting {
+				if cover, rdErr := os.ReadFile(filepath.Join(outDir, items[0].ThumbFilename)); rdErr == nil {
+					os.WriteFile(filepath.Join(outDir, "cover.jpg"), cover, 0o644) //nolint:errcheck
+				}
 			}
 			if assetsErr := writeSiteAssets(filepath.Join(siteDir, "assets")); assetsErr != nil {
 				emit(map[string]any{"error": "write site assets: " + assetsErr.Error()})
@@ -1152,15 +1249,28 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			for i, item := range items {
 				sitePhotos[i] = SitePhoto{Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
-			siteAlbums = append(siteAlbums, SiteAlbum{
-				PostID:      postID,
-				Title:       body.GalleryTitle,
-				PublishedAt: publishedAt,
-				PhotoCount:  len(items),
-				CoverFile:   "cover.jpg",
-				HasZip:      zipName != "",
-				Photos:      sitePhotos,
-			})
+			if addToExisting {
+				// Update existing album entry; preserve PublishedAt for sort order.
+				for i := range siteAlbums {
+					if siteAlbums[i].PostID == albumPostID {
+						siteAlbums[i].Photos = sitePhotos
+						siteAlbums[i].PhotoCount = len(items)
+						siteAlbums[i].HasZip = zipName != ""
+						siteAlbums[i].UpdatedAt = publishedAt
+						break
+					}
+				}
+			} else {
+				siteAlbums = append(siteAlbums, SiteAlbum{
+					PostID:      albumPostID,
+					Title:       galleryTitle,
+					PublishedAt: publishedAt,
+					PhotoCount:  len(items),
+					CoverFile:   "cover.jpg",
+					HasZip:      zipName != "",
+					Photos:      sitePhotos,
+				})
+			}
 			if saveErr := saveSiteState(statePath, siteAlbums); saveErr != nil {
 				emit(map[string]any{"error": "save site state: " + saveErr.Error()})
 				return
@@ -1412,6 +1522,85 @@ func newPostID() string {
 	b := make([]byte, 12)
 	rand.Read(b) //nolint:errcheck
 	return fmt.Sprintf("%x", b)
+}
+
+// galleryListItem is the JSON shape returned by GET /api/channels/{slug}/galleries.
+type galleryListItem struct {
+	PostID      string    `json:"postID"`
+	Title       string    `json:"title"`
+	PublishedAt time.Time `json:"publishedAt"`
+	UpdatedAt   time.Time `json:"updatedAt,omitempty"`
+	PhotoCount  int       `json:"photoCount"`
+}
+
+// listGalleries returns existing published galleries/albums for a channel.
+func listGalleries(chStore *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if chStore == nil {
+			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
+			return
+		}
+		slug := r.PathValue("slug")
+		ch, err := chStore.Get(slug)
+		if err != nil {
+			http.Error(w, "channel not found: "+err.Error(), http.StatusNotFound)
+			return
+		}
+		channelDir := chStore.OutputDir(slug)
+		var items []galleryListItem
+
+		switch {
+		case ch.SiteExport:
+			albums, err := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+			if err != nil {
+				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, a := range albums {
+				items = append(items, galleryListItem{
+					PostID:      a.PostID,
+					Title:       a.Title,
+					PublishedAt: a.PublishedAt,
+					UpdatedAt:   a.UpdatedAt,
+					PhotoCount:  a.PhotoCount,
+				})
+			}
+			// Sort newest first (site index sorts the same way).
+			sort.Slice(items, func(i, j int) bool {
+				return items[i].PublishedAt.After(items[j].PublishedAt)
+			})
+		case ch.GalleryExport:
+			entries, rdErr := os.ReadDir(channelDir)
+			if rdErr != nil && !os.IsNotExist(rdErr) {
+				http.Error(w, "read channel dir: "+rdErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				gs, gsErr := loadGalleryState(filepath.Join(channelDir, e.Name(), "gallery.json"))
+				if gsErr != nil || gs == nil {
+					continue
+				}
+				items = append(items, galleryListItem{
+					PostID:      gs.PostID,
+					Title:       gs.Title,
+					PublishedAt: gs.PublishedAt,
+					UpdatedAt:   gs.UpdatedAt,
+					PhotoCount:  gs.PhotoCount,
+				})
+			}
+			sort.Slice(items, func(i, j int) bool {
+				return items[i].PublishedAt.After(items[j].PublishedAt)
+			})
+		}
+
+		if items == nil {
+			items = []galleryListItem{}
+		}
+		writeJSON(w, items)
+	}
 }
 
 // rebuildSite regenerates site assets and root index from the existing site.json statefile.

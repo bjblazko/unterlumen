@@ -20,10 +20,24 @@ type SiteAlbum struct {
 	PostID      string      `json:"postID"`
 	Title       string      `json:"title"`
 	PublishedAt time.Time   `json:"publishedAt"`
+	UpdatedAt   time.Time   `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
 	PhotoCount  int         `json:"photoCount"`
 	CoverFile   string      `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
 	HasZip      bool        `json:"hasZip"`
 	Photos      []SitePhoto `json:"photos"` // stored so album pages can be rebuilt without re-export
+}
+
+// dateRangeStr formats a publish date (and optional updated date) as a human-readable range.
+// Same month/year → "January 2026". Different month, same year → "January – March 2026".
+// Different year → "December 2025 – January 2026".
+func dateRangeStr(published, updated time.Time) string {
+	if updated.IsZero() || (updated.Year() == published.Year() && updated.Month() == published.Month()) {
+		return published.Format("January 2006")
+	}
+	if updated.Year() == published.Year() {
+		return published.Format("January") + " – " + updated.Format("January 2006")
+	}
+	return published.Format("January 2006") + " – " + updated.Format("January 2006")
 }
 
 func loadSiteState(statePath string) ([]SiteAlbum, error) {
@@ -346,7 +360,7 @@ func GenerateSiteIndex(siteTitle, defaultTheme string, albums []SiteAlbum) []byt
 		items[i] = siteAlbumData{
 			PostID:     a.PostID,
 			Title:      a.Title,
-			DateStr:    a.PublishedAt.Format("January 2006"),
+			DateStr:    dateRangeStr(a.PublishedAt, a.UpdatedAt),
 			PhotoCount: a.PhotoCount,
 			CoverFile:  a.CoverFile,
 		}

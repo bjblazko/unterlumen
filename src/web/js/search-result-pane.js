@@ -4,6 +4,8 @@
 class SearchResultPane extends BrowsePane {
     constructor(container, options = {}) {
         super(container, options);
+        this.sort = 'taken';
+        this.order = 'desc';
         this._photoMap = new Map(); // pathHint → { libID, photoID }
         this._serverTotal = 0;
         this._serverOffset = 0;
@@ -52,6 +54,7 @@ class SearchResultPane extends BrowsePane {
             type: 'image',
             label: multiLib ? `${p.filename} (${p.libraryName || p.libraryID})` : p.filename,
             date: p.indexedAt,
+            exifDate: p.dateTaken || null,
             size: p.fileSize,
         };
     }
@@ -193,6 +196,13 @@ class SearchResultPane extends BrowsePane {
             } else if (sort === 'name') {
                 av = (a.label || a.name).toLowerCase();
                 bv = (b.label || b.name).toLowerCase();
+            } else if (sort === 'taken') {
+                const aDate = a.exifDate ? new Date(a.exifDate) : null;
+                const bDate = b.exifDate ? new Date(b.exifDate) : null;
+                if (!aDate && !bDate) return 0;
+                if (!aDate) return 1;  // nulls always last
+                if (!bDate) return -1;
+                av = a.exifDate; bv = b.exifDate;
             } else {
                 av = a.date || ''; bv = b.date || '';
             }

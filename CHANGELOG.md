@@ -7,18 +7,19 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- **Add photos to existing gallery / album** — The publish dialog shows an **"Add to"** dropdown when publishing to a gallery or site channel that already has galleries. Selecting one appends the new photos to the same folder, regenerates the HTML and ZIP, and records an `updatedAt` timestamp — without changing the original `publishedAt` that controls album sort order. The dropdown label shows a date range (e.g. "Summer 2025 (12) · June – August 2025") once photos are added across months. Selecting "New gallery" creates a fresh folder as before.
+
+- **Date field in publish dialog** — The date/time input is now a plain date picker. A **`+ Time`** button reveals the time field for cases where precise ordering within a day matters. Defaults to today (noon UTC). When "New gallery" is selected the date resets to today; when an existing gallery is selected the date also defaults to today (it becomes the `updatedAt` date on the album, not the sort date). The helper text updates to clarify which role the date plays.
+
+- **`gallery.json` statefile for single-gallery channels** — Each published gallery folder now contains a `gallery.json` tracking the photo list, title, `publishedAt`, `updatedAt`, and count. Enables listing and adding to galleries without scanning HTML files.
+
+- **`GET /api/channels/{slug}/galleries`** — Lists existing galleries/albums for a channel (galleryExport: reads `gallery.json` files; siteExport: reads `site.json`). Returns `[{postID, title, publishedAt, updatedAt, photoCount}]` sorted newest first.
+
+- **Library filter — sort by date taken** — Filter results in library mode are now sorted by photo taken date (newest first) by default. The existing sort dropdown gains a "Photo Taken" option as the new default; the ↑/↓ toggle reverses the order. Photos without EXIF date sort to the bottom.
+
+- **Library filter — date range filter** — A "Date taken" filter section with From/To date inputs is now available in the library filter panel. Restricts results to photos whose EXIF capture date falls within the chosen range. Works across all libraries.
+
 - **Publish from filter results** — The Publish button in the single-library detail view is now active when photos are selected from EXIF filter results, not only from the folder tree. In the cross-library list view a new Publish button appears in the header; it enables whenever filter results have a selection. Photos are published using their already-resolved IDs (no extra API lookups). If a cross-library selection spans multiple libraries, plain publish runs one call per library group; gallery/site export and ZIP download require all selected photos to be from one library (an error is shown otherwise).
-
-### Changed
-
-- **Generated website footer** — The "Built with Unterlumen" footer now links to the product page at huepattl.de and includes an orange heart icon. A GitHub icon linking to the repository is added alongside it. Applies to multi-album site (root index and album pages) and single-gallery exports.
-- **Generated website icons** — Replaced thin Unicode arrow characters with clean SVG icons: chevron arrows for lightbox navigation and back-to-albums, a download icon for the ZIP link. Applies to both site and single-gallery templates.
-
-### Fixed
-
-- **Publish dialog — album title required for site export** — Publishing to a multi-album site channel now validates that an album title is provided. If the field is left blank, an error message is shown and publishing is blocked rather than silently falling back to a titleless export.
-
-### Added
 
 - **In-app folder picker** — A new in-browser directory browser replaces the OS-native folder picker (`osascript`/`zenity`) in the export dialog. Works in desktop and server/container mode alike. New `GET /api/browse/dirs` endpoint returns subdirectories at a given path.
 
@@ -29,6 +30,16 @@ All notable changes to this project are documented in this file.
 - **Selective cache clearing from Tools menu** — The Tools menu now has a "Cache" section with a "Clear cache" button. In browse mode it evicts all cached thumbnails for the selected file(s); if a folder is focused it recursively clears cache for every file inside. In library mode the same button is available for selected photos. New backend endpoint `POST /api/cache/evict` accepts a list of absolute paths and calls `EvictFile` per file (or walks directories recursively). Feedback: Tools button disables while running, toast shows "Clearing cache…" then "Cache cleared for N file(s)".
 
 - **Library scan shortcuts in Tools menu** — When browsing inside a library (`App.mode === 'library'`), the Tools menu gains a "Library scan" section with "Scan new", "Re-index", and "Cleanup" buttons. These call the same SSE-backed library API endpoints as the library overview card buttons. Progress streams as a live toast ("Scanning… 15/100 · filename"); on completion a toast shows "Done — N photos". Existing "Make library" entry hides when in library mode.
+
+### Changed
+
+- **Generated website footer** — The "Built with Unterlumen" footer now links to the product page at huepattl.de and includes an orange heart icon. A GitHub icon linking to the repository is added alongside it. Applies to multi-album site (root index and album pages) and single-gallery exports.
+- **Generated website icons** — Replaced thin Unicode arrow characters with clean SVG icons: chevron arrows for lightbox navigation and back-to-albums, a download icon for the ZIP link. Applies to both site and single-gallery templates.
+- **Generated site album date** — The date shown under each album card on the site index now shows a range (e.g. "June – August 2025") when photos have been added across different months, instead of only the original publish date.
+
+### Fixed
+
+- **Publish dialog — album title required for site export** — Publishing to a multi-album site channel now validates that an album title is provided. If the field is left blank, an error message is shown and publishing is blocked rather than silently falling back to a titleless export.
 
 ## [0.9.3] - 2026-06-05
 
