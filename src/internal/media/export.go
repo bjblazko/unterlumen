@@ -291,6 +291,15 @@ func buildFFmpegScaleFilter(srcPath string, scale ScaleOptions) string {
 		return ""
 	}
 
+	// ffmpeg auto-rotates before applying filters; swap dims for 90° rotated images.
+	ori := ExtractOrientation(srcPath)
+	if ori == 0 && IsHEIF(srcPath) {
+		ori = ExtractHEIFOrientation(srcPath)
+	}
+	if ori >= 5 {
+		origW, origH = origH, origW
+	}
+
 	targetW, targetH := computeTargetDims(origW, origH, scale)
 	if targetW == origW && targetH == origH {
 		return ""
@@ -326,9 +335,9 @@ func injectExif(srcPath string, data []byte, format, mode string) ([]byte, error
 
 	var args []string
 	if mode == "keep_no_gps" {
-		args = []string{"-TagsFromFile", srcPath, "-GPS:All=", "-overwrite_original", tmpPath}
+		args = []string{"-TagsFromFile", srcPath, "-GPS:All=", "-Orientation=1", "-overwrite_original", tmpPath}
 	} else {
-		args = []string{"-TagsFromFile", srcPath, "-overwrite_original", tmpPath}
+		args = []string{"-TagsFromFile", srcPath, "-Orientation=1", "-overwrite_original", tmpPath}
 	}
 
 	cmd := exec.Command("exiftool", args...)

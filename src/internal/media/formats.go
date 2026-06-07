@@ -332,12 +332,20 @@ func extractPreviewFallbackJPEG(path string) ([]byte, error) {
 // and always performs a full decode, ensuring img.Bounds() reflects the true
 // original dimensions so that percentage / max-dimension scaling is correct.
 func convertHEIFExport(path string) ([]byte, error) {
-	// sips (macOS) performs a native full decode and applies orientation automatically.
+	// sips (macOS) does a native full decode but preserves EXIF orientation as a tag
+	// without baking it into pixels (this is especially common for Fujifilm cameras
+	// that store rotation in the embedded JPEG EXIF rather than the HEIF irot box).
+	// Read the orientation from the sips output and apply it explicitly.
 	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
+		ori := extractJPEGOrientation(data)
+		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 	// heif-convert (Linux) performs a native full decode via libheif.
+	// Apply any residual EXIF orientation the same way for safety.
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
+		ori := extractJPEGOrientation(data)
+		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
