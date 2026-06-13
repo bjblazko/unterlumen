@@ -26,6 +26,7 @@ type Channel struct {
 	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on publish
 	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html
 	SiteTheme     string            `json:"siteTheme,omitempty"`     // "light" (default) or "dark"
+	SiteURL       string            `json:"siteURL,omitempty"`       // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap
 }
 
 // ExportOptions returns the media.ExportOptions for this channel.

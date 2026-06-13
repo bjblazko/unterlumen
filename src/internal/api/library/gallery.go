@@ -3,6 +3,7 @@ package apilibrary
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"os"
 	"time"
@@ -46,6 +47,30 @@ type GalleryItem struct {
 	Width, Height int    // full-res dimensions
 }
 
+// thumbDimensions returns approximate thumbnail dimensions for a GalleryItem.
+// Thumbnails are capped at 700px width; height scales proportionally.
+func (item GalleryItem) thumbDimensions() (w, h int) {
+	if item.Width <= 0 || item.Height <= 0 {
+		return 0, 0
+	}
+	if item.Width <= 700 {
+		return item.Width, item.Height
+	}
+	return 700, item.Height * 700 / item.Width
+}
+
+// galleryFigureData holds per-photo data for static figure tag generation.
+// Used by both galleryTmpl (gallery.go) and siteGalleryTmpl (site.go).
+type galleryFigureData struct {
+	Index       int
+	Thumb       string
+	Full        string
+	Loading     string // "eager" or "lazy"
+	Alt         string
+	ThumbWidth  int // 0 = omit width/height attrs
+	ThumbHeight int
+}
+
 type galleryPhoto struct {
 	Full  string `json:"full"`
 	Thumb string `json:"thumb"`
@@ -53,7 +78,13 @@ type galleryPhoto struct {
 
 // GalleryOptions carries optional extras for the generated gallery page.
 type GalleryOptions struct {
-	ZipFilename string // if non-empty, a download link for the ZIP is shown
+	ZipFilename string
+	// SEO meta — used in both single-gallery and site-gallery pages.
+	SiteTitle   string    // if non-empty: <title>Album | SiteTitle</title>
+	DateStr     string    // human-readable date range, e.g. "January 2026"
+	SiteURL     string    // base URL e.g. "https://example.com"; enables canonical, OG tags, sitemap
+	AlbumSlug   string    // album folder name; used with SiteURL to build absolute album URL
+	PublishedAt time.Time // used for datePublished in JSON-LD
 }
 
 var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
@@ -62,6 +93,8 @@ var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.Title}}</title>
+<meta name="description" content="{{.Description}}">
+<script type="application/ld+json">{{.LDJSON}}</script>
 <script>(function(){var t=localStorage.getItem('ul-theme')||'dark';if(t==='light')document.documentElement.classList.add('theme-light');}());</script>
 <style>
 /* --- Theme variables (dark default) --- */
@@ -231,7 +264,11 @@ footer a:hover { color: var(--text-dim); }
   </div>
 </header>
 
-<main class="gallery" id="gallery"></main>
+<main class="gallery" id="gallery">
+{{range .Figures}}<figure data-index="{{.Index}}">
+  <img src="{{.Thumb}}" loading="{{.Loading}}" alt="{{.Alt}}"{{if .ThumbWidth}} width="{{.ThumbWidth}}" height="{{.ThumbHeight}}"{{end}}>
+</figure>
+{{end}}</main>
 
 <div id="lb">
   <button id="lb-close" title="Close (Esc)">&times;</button>
@@ -266,23 +303,10 @@ let cur = 0;
   syncBtn();
 }());
 
-function buildGallery() {
-  const g = document.getElementById('gallery');
-  photos.forEach((p, i) => {
-    const fig = document.createElement('figure');
-    const img = document.createElement('img');
-    img.src = p.thumb; img.loading = 'lazy'; img.alt = p.full;
-    fig.appendChild(img);
-    fig.addEventListener('click', () => open(i));
-    g.appendChild(fig);
-  });
-}
-
 function open(idx) {
   cur = idx;
   const lb = document.getElementById('lb');
-  const img = document.getElementById('lb-img');
-  img.src = photos[idx].full; img.alt = photos[idx].full;
+  document.getElementById('lb-img').src = photos[idx].full;
   lb.classList.add('open');
   document.body.style.overflow = 'hidden';
   updateCounter();
@@ -313,7 +337,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape')     { e.preventDefault(); close(); }
 });
 
-buildGallery();
+document.querySelectorAll('#gallery figure').forEach(fig => {
+  fig.addEventListener('click', () => open(parseInt(fig.dataset.index, 10)));
+});
 </script>
 </body>
 </html>
@@ -321,21 +347,76 @@ buildGallery();
 
 // GenerateGallery returns a self-contained index.html for the given title, photos, and options.
 func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []byte {
-	photos := make([]galleryPhoto, 0, len(items))
-	for _, item := range items {
+	total := len(items)
+	photos := make([]galleryPhoto, 0, total)
+	figures := make([]galleryFigureData, 0, total)
+	for i, item := range items {
 		photos = append(photos, galleryPhoto{Full: item.Filename, Thumb: item.ThumbFilename})
+		loading := "lazy"
+		if i < 2 {
+			loading = "eager"
+		}
+		alt := fmt.Sprintf("%s – Photo %d of %d", title, i+1, total)
+		tw, th := item.thumbDimensions()
+		figures = append(figures, galleryFigureData{
+			Index:       i,
+			Thumb:       item.ThumbFilename,
+			Full:        item.Filename,
+			Loading:     loading,
+			Alt:         alt,
+			ThumbWidth:  tw,
+			ThumbHeight: th,
+		})
 	}
 	photosJSON, _ := json.Marshal(photos)
+
+	description := fmt.Sprintf("A collection of %d photo", total)
+	if total != 1 {
+		description += "s"
+	}
+	if opts.DateStr != "" {
+		description += ", " + opts.DateStr
+	}
+	description += "."
+
+	ldMap := map[string]any{
+		"@context":      "https://schema.org",
+		"@type":         "ImageGallery",
+		"name":          title,
+		"description":   description,
+		"numberOfItems": total,
+	}
+	if !opts.PublishedAt.IsZero() {
+		ldMap["datePublished"] = opts.PublishedAt.UTC().Format("2006-01-02")
+	}
+	ldJSON, _ := json.Marshal(ldMap)
 
 	var buf bytes.Buffer
 	galleryTmpl.Execute(&buf, struct { //nolint:errcheck
 		Title       string
+		Description string
+		LDJSON      template.JS
 		PhotosJSON  template.JS
 		ZipFilename string
+		Figures     []galleryFigureData
 	}{
 		Title:       title,
+		Description: description,
+		LDJSON:      template.JS(ldJSON),
 		PhotosJSON:  template.JS(photosJSON),
 		ZipFilename: opts.ZipFilename,
+		Figures:     figures,
 	})
 	return buf.Bytes()
 }
+
+// buildGalleryItems reconstructs GalleryItem entries from a SiteAlbum's stored photos.
+// Dimensions are unavailable for albums predating dimension storage; Width/Height will be 0.
+func buildGalleryItems(photos []SitePhoto) []GalleryItem {
+	items := make([]GalleryItem, len(photos))
+	for i, p := range photos {
+		items[i] = GalleryItem{Filename: p.Filename, ThumbFilename: p.ThumbFilename}
+	}
+	return items
+}
+

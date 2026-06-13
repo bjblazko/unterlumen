@@ -1144,8 +1144,10 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				channelDir = body.OutputPath
 			}
 		}
-		// albumPostID identifies the gallery/album folder; equals postID for new publishes.
+		// albumPostID is the album's key in site.json (immutable).
+		// albumSlug is the human-readable folder name for site-mode albums.
 		albumPostID := postID
+		albumSlug := ""
 		var existingPhotos []SitePhoto
 		var existingTitle string
 		var existingPublishedAt time.Time
@@ -1164,7 +1166,6 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				existingTitle = gs.Title
 				existingPublishedAt = gs.PublishedAt
 			} else if siteMode {
-				outDir = filepath.Join(channelDir, "site", "albums", albumPostID)
 				siteAlbums, stateErr := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
 				if stateErr != nil {
 					http.Error(w, "read site state: "+stateErr.Error(), http.StatusInternalServerError)
@@ -1175,6 +1176,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 						existingPhotos = siteAlbums[i].Photos
 						existingTitle = siteAlbums[i].Title
 						existingPublishedAt = siteAlbums[i].PublishedAt
+						albumSlug = albumFolderName(siteAlbums[i])
 						break
 					}
 				}
@@ -1182,6 +1184,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 					http.Error(w, "album not found: "+albumPostID, http.StatusBadRequest)
 					return
 				}
+				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
 			}
 			if _, statErr := os.Stat(outDir); os.IsNotExist(statErr) {
 				http.Error(w, "gallery folder not found: "+albumPostID, http.StatusBadRequest)
@@ -1191,7 +1194,10 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			if galleryMode {
 				outDir = filepath.Join(outDir, albumPostID)
 			} else if siteMode {
-				outDir = filepath.Join(channelDir, "site", "albums", albumPostID)
+				// Compute a human-readable slug for the new album folder.
+				existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+				albumSlug = computeSlug(body.GalleryTitle, publishedAt, existingAlbums)
+				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
 			}
 		}
 		if err := os.MkdirAll(outDir, 0o700); err != nil {
@@ -1282,13 +1288,29 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			galleryTitle = existingTitle
 		}
 
+		// Compute the date range string for SEO metadata.
+		albumPublishedAt := publishedAt
+		var albumUpdatedAt time.Time
+		if !existingPublishedAt.IsZero() {
+			albumPublishedAt = existingPublishedAt
+			albumUpdatedAt = publishedAt
+		}
+		dateStr := dateRangeStr(albumPublishedAt, albumUpdatedAt)
+
 		// Generate HTML gallery.
 		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
 		var html []byte
 		if siteMode {
-			html = GenerateSiteGallery(galleryTitle, ch.SiteTheme, items, GalleryOptions{ZipFilename: zipName})
+			html = GenerateSiteGallery(galleryTitle, ch.SiteTheme, items, GalleryOptions{
+				ZipFilename: zipName,
+				SiteTitle:   ch.SiteTitle,
+				DateStr:     dateStr,
+				SiteURL:     ch.SiteURL,
+				AlbumSlug:   albumSlug,
+				PublishedAt: albumPublishedAt,
+			})
 		} else {
-			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName})
+			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName, DateStr: dateStr})
 		}
 		indexPath := filepath.Join(outDir, "index.html")
 		if err := os.WriteFile(indexPath, html, 0o644); err != nil {
@@ -1353,6 +1375,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			} else {
 				siteAlbums = append(siteAlbums, SiteAlbum{
 					PostID:      albumPostID,
+					Slug:        albumSlug,
 					Title:       galleryTitle,
 					PublishedAt: publishedAt,
 					PhotoCount:  len(items),
@@ -1365,10 +1388,14 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				emit(map[string]any{"error": "save site state: " + saveErr.Error()})
 				return
 			}
-			siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, siteAlbums)
+			siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, siteAlbums)
 			if writeErr := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); writeErr != nil {
 				emit(map[string]any{"error": "write site index: " + writeErr.Error()})
 				return
+			}
+			generateRobotsTxt(siteDir, ch.SiteURL) //nolint:errcheck
+			if ch.SiteURL != "" {
+				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
 			emit(map[string]any{"step": "site", "done": 1, "total": 1, "file": "Site index updated"})
 			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "sitePath": siteDir, "results": results})
@@ -1730,13 +1757,26 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 
+		// Assign slugs to any albums that don't have one yet (migration for pre-slug albums).
+		// Only renames the statefile entry; does not move the disk folder (backward compat).
+		stateDirty := false
+		for i := range albums {
+			if albums[i].Slug == "" {
+				others := make([]SiteAlbum, 0, len(albums)-1)
+				others = append(others, albums[:i]...)
+				others = append(others, albums[i+1:]...)
+				albums[i].Slug = computeSlug(albums[i].Title, albums[i].PublishedAt, others)
+				stateDirty = true
+			}
+		}
+		if stateDirty {
+			saveSiteState(filepath.Join(siteDir, "site.json"), albums) //nolint:errcheck
+		}
+
 		// Regenerate every album page so data-default-theme reflects the current channel setting.
 		for _, album := range albums {
-			albumDir := filepath.Join(siteDir, "albums", album.PostID)
-			items := make([]GalleryItem, len(album.Photos))
-			for i, p := range album.Photos {
-				items[i] = GalleryItem{Filename: p.Filename, ThumbFilename: p.ThumbFilename}
-			}
+			albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
+			items := buildGalleryItems(album.Photos)
 			if len(items) == 0 {
 				// Albums published before photo list was stored: reconstruct from disk.
 				items = scanAlbumPhotos(albumDir)
@@ -1751,14 +1791,26 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 			} else if _, err := os.Stat(filepath.Join(albumDir, "photos.zip")); err == nil {
 				zipName = "photos.zip"
 			}
-			albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{ZipFilename: zipName})
+			dateStr := dateRangeStr(album.PublishedAt, album.UpdatedAt)
+			albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
+				ZipFilename: zipName,
+				SiteTitle:   ch.SiteTitle,
+				DateStr:     dateStr,
+				SiteURL:     ch.SiteURL,
+				AlbumSlug:   albumFolderName(album),
+				PublishedAt: album.PublishedAt,
+			})
 			os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
 		}
 
-		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, albums)
+		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums)
 		if err := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); err != nil {
 			http.Error(w, "write site index: "+err.Error(), http.StatusInternalServerError)
 			return
+		}
+		generateRobotsTxt(siteDir, ch.SiteURL) //nolint:errcheck
+		if ch.SiteURL != "" {
+			generateSitemap(siteDir, albums, ch.SiteURL) //nolint:errcheck
 		}
 
 		writeJSON(w, map[string]any{"sitePath": siteDir, "albumCount": len(albums)})

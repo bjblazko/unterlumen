@@ -239,7 +239,7 @@ class ChannelSettingsModal {
             slug: '', name: '', format: 'jpeg', quality: 85, exifMode: 'keep_no_gps',
             scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
             handler: '', handlerConfig: {}, accounts: [],
-            galleryExport: false, siteExport: false, siteTitle: '', siteTheme: 'light',
+            galleryExport: false, siteExport: false, siteTitle: '', siteTheme: 'light', siteURL: '',
             outputMode: '', outputPath: '',
         };
 
@@ -299,6 +299,8 @@ class ChannelSettingsModal {
                             <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
                             <option value="dark"  ${ch.siteTheme === 'dark'              ? 'selected' : ''}>Dark</option>
                         </select>
+                        <label class="form-label">Site URL <span class="form-hint">(optional — enables canonical links, OG tags, sitemap.xml)</span></label>
+                        <input class="form-input" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
                     </div>
 
                     <label class="form-label">Output (default)</label>
@@ -412,6 +414,7 @@ class ChannelSettingsModal {
                 siteExport:    exportModeVal === 'site'    ? true : undefined,
                 siteTitle:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
                 siteTheme:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
+                siteURL:       exportModeVal === 'site'    ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
                 handler:       form.querySelector('#chf-handler').value.trim() || undefined,
                 handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
                 accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),

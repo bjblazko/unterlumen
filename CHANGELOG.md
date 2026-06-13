@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-06-06*
+*Last modified: 2026-06-07*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -37,6 +37,18 @@ All notable changes to this project are documented in this file.
 
 - **Human-readable EXIF value labels in chip filter and info panel** — A new shared `exif-labels.js` module provides decode tables for Orientation, Flash, White Balance, Metering Mode, Exposure Program, Exposure Mode, Color Space, Scene Capture Type, and more. The chip autocomplete shows "Normal" instead of "1" for Orientation, "Fired" / "No flash" for Flash, etc. The info panel uses the same tables (eliminating duplicated decode logic). The raw stored value is still used for the backend query; only the display label changes.
 
+- **SEO-ready static site output** — Published multi-album sites now include:
+  - **Slug-based album folders** (`albums/paula-at-home/` instead of `albums/<postID>/`). Slugs are auto-derived from the album title and stored in `site.json`; albums published before this change fall back to their postID folder for backward compatibility.
+  - **Static `<figure>` tags** — Image elements are now generated server-side in Go instead of injected by JavaScript at runtime. Search crawlers see all photos immediately without executing JS. The first two images per gallery use `loading="eager"` (better Largest Contentful Paint); the rest stay lazy.
+  - **`<meta name="description">`** — Auto-generated from photo count and date range.
+  - **JSON-LD structured data** — An `ImageGallery` (album pages) or `CollectionPage` (root index) schema block is embedded in every page `<head>`.
+  - **Better image alt text** — Changed from filename to `"Album Title – Photo N of Total"`.
+  - **Unique `<title>` tags on album pages** — Now formatted as "Album Title | Site Title".
+  - **`robots.txt`** — Generated in the site root on every publish and rebuild. If a Site URL is configured, a `Sitemap:` line is included.
+  - **`sitemap.xml`** — Generated when a Site URL is set in channel settings; lists the index page and every album URL as absolute URIs.
+  - **`<link rel="canonical">` + OG tags** — Emitted when a Site URL is configured: canonical link, `og:title`, `og:description`, `og:image`.
+  - **Site URL field in channel settings** — Optional `https://example.com` base URL in the channel settings panel. When set, enables canonical links, OG tags, and absolute sitemap URLs.
+
 ### Changed
 
 - **Generated website footer** — The "Built with Unterlumen" footer now links to the product page at huepattl.de and includes an orange heart icon. A GitHub icon linking to the repository is added alongside it. Applies to multi-album site (root index and album pages) and single-gallery exports.
@@ -44,6 +56,8 @@ All notable changes to this project are documented in this file.
 - **Generated site album date** — The date shown under each album card on the site index now shows a range (e.g. "June – August 2025") when photos have been added across different months, instead of only the original publish date.
 
 ### Fixed
+
+- **Full-size gallery images shown rotated 180° in lightbox** — When exporting with ExifMode "keep" or "keep_no_gps", the pipeline correctly baked the EXIF orientation into pixels but failed to reset the Orientation tag to 1 in the output. The `exiftool -Orientation=1` invocation was silently ignored by exiftool 13.x when a PrintConv string value like `"Horizontal (normal)"` is expected instead of the integer `1`. The fix adds the `-n` flag (raw numeric values) to the exiftool args so `-Orientation=1` is written as the integer 1 ("Horizontal/normal"), matching the already-rotated pixel data.
 
 - **Portrait HEIC/HEIF images exported as landscape** — `sips` (the macOS HEIF decoder used during export) preserves the EXIF Orientation tag in its JPEG output without baking the rotation into pixels. The export pipeline was not reading that tag from the sips output, so it decoded raw landscape pixels and exported them as-is — leaving portrait photos rotated 90°. The pipeline now reads the orientation from the sips JPEG and applies the pixel-space rotation before encoding. The same treatment is applied to the `heif-convert` (Linux) path for consistency. Additionally, when EXIF is re-injected with "keep" or "keep_no_gps" ExifMode, the `Orientation` tag is now reset to 1 after copying so it matches the already-rotated pixels and prevents double-rotation in viewers. WebP exports with a rotated source additionally had a dimension-swap bug in the ffmpeg scale filter; that is also fixed.
 

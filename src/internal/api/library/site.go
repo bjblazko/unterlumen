@@ -3,9 +3,12 @@ package apilibrary
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -18,6 +21,7 @@ type SitePhoto struct {
 // SiteAlbum records metadata for one published album in the site statefile.
 type SiteAlbum struct {
 	PostID      string      `json:"postID"`
+	Slug        string      `json:"slug,omitempty"` // human-readable folder name; falls back to PostID when empty
 	Title       string      `json:"title"`
 	PublishedAt time.Time   `json:"publishedAt"`
 	UpdatedAt   time.Time   `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
@@ -25,6 +29,59 @@ type SiteAlbum struct {
 	CoverFile   string      `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
 	HasZip      bool        `json:"hasZip"`
 	Photos      []SitePhoto `json:"photos"` // stored so album pages can be rebuilt without re-export
+}
+
+// albumFolderName returns the filesystem folder name for an album.
+// New albums get a slug; albums without one fall back to PostID for backward compatibility.
+func albumFolderName(album SiteAlbum) string {
+	if album.Slug != "" {
+		return album.Slug
+	}
+	return album.PostID
+}
+
+// slugify converts a title into a URL-safe lowercase slug.
+func slugify(title string) string {
+	r := strings.NewReplacer(
+		"ä", "ae", "Ä", "ae", "ö", "oe", "Ö", "oe", "ü", "ue", "Ü", "ue",
+		"ß", "ss", "é", "e", "è", "e", "ê", "e", "à", "a", "â", "a",
+		"ñ", "n", "ç", "c",
+	)
+	s := strings.ToLower(r.Replace(title))
+	var b strings.Builder
+	prev := '-'
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') {
+			b.WriteRune(c)
+			prev = c
+		} else if prev != '-' {
+			b.WriteByte('-')
+			prev = '-'
+		}
+	}
+	result := strings.Trim(b.String(), "-")
+	if result == "" {
+		return "album"
+	}
+	return result
+}
+
+// computeSlug derives a unique slug for a new album.
+// If the base slug collides with an existing one, it appends the publish month (and day if needed).
+func computeSlug(title string, publishedAt time.Time, existing []SiteAlbum) string {
+	used := make(map[string]bool, len(existing))
+	for _, a := range existing {
+		used[albumFolderName(a)] = true
+	}
+	base := slugify(title)
+	if !used[base] {
+		return base
+	}
+	monthly := base + "-" + publishedAt.Format("2006-01")
+	if !used[monthly] {
+		return monthly
+	}
+	return base + "-" + publishedAt.Format("2006-01-02")
 }
 
 // dateRangeStr formats a publish date (and optional updated date) as a human-readable range.
@@ -70,6 +127,32 @@ func writeSiteAssets(assetsDir string) error {
 		return err
 	}
 	return os.WriteFile(assetsDir+"/toggle.js", []byte(siteToggleJS), 0o644)
+}
+
+// generateRobotsTxt writes a robots.txt to the site root.
+// If siteURL is non-empty, a Sitemap line is included.
+func generateRobotsTxt(siteDir, siteURL string) error {
+	var b strings.Builder
+	b.WriteString("User-agent: *\nAllow: /\n")
+	if siteURL != "" {
+		fmt.Fprintf(&b, "Sitemap: %s/sitemap.xml\n", strings.TrimRight(siteURL, "/"))
+	}
+	return os.WriteFile(filepath.Join(siteDir, "robots.txt"), []byte(b.String()), 0o644)
+}
+
+// generateSitemap writes a sitemap.xml to the site root.
+// Only called when siteURL is non-empty; sitemap requires absolute URLs.
+func generateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
+	base := strings.TrimRight(siteURL, "/")
+	var b strings.Builder
+	b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+	b.WriteString("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n")
+	fmt.Fprintf(&b, "  <url><loc>%s/</loc></url>\n", base)
+	for _, a := range albums {
+		fmt.Fprintf(&b, "  <url><loc>%s/albums/%s/</loc></url>\n", base, albumFolderName(a))
+	}
+	b.WriteString("</urlset>\n")
+	return os.WriteFile(filepath.Join(siteDir, "sitemap.xml"), []byte(b.String()), 0o644)
 }
 
 // siteCSS is the shared stylesheet for all site pages (root index + album pages).
@@ -300,11 +383,12 @@ const siteToggleJS = `(function () {
 /* --- Site root index --- */
 
 type siteAlbumData struct {
-	PostID     string
+	FolderName string // slug if set, else postID — used in URLs
 	Title      string
 	DateStr    string
 	PhotoCount int
 	CoverFile  string
+	Loading    string // "eager" for above-the-fold covers, "lazy" for the rest
 }
 
 var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
@@ -313,6 +397,14 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.Title}}</title>
+<meta name="description" content="{{.Description}}">
+{{- if .SiteURL}}
+<link rel="canonical" href="{{.SiteURL}}/">
+<meta property="og:title" content="{{.Title}}">
+<meta property="og:description" content="{{.Description}}">
+<meta property="og:type" content="website">
+{{- end}}
+<script type="application/ld+json">{{.LDJSON}}</script>
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/toggle.js"></script>
 </head>
@@ -325,8 +417,8 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 </header>
 
 <main class="albums">
-{{range .Albums}}  <a class="album-card" href="albums/{{.PostID}}/index.html">
-    <img class="album-cover" src="albums/{{.PostID}}/{{.CoverFile}}" alt="{{.Title}}" loading="lazy">
+{{range .Albums}}  <a class="album-card" href="albums/{{.FolderName}}/index.html">
+    <img class="album-cover" src="albums/{{.FolderName}}/{{.CoverFile}}" alt="{{.Title}}" loading="{{.Loading}}">
     <div class="album-title">{{.Title}}</div>
     <div class="album-meta">{{.DateStr}} &middot; {{.PhotoCount}} photo{{if ne .PhotoCount 1}}s{{end}}</div>
   </a>
@@ -342,14 +434,13 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 
 // GenerateSiteIndex produces a static root index.html referencing shared assets.
 // Albums are ordered newest first by PublishedAt.
-func GenerateSiteIndex(siteTitle, defaultTheme string, albums []SiteAlbum) []byte {
+func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlbum) []byte {
 	if siteTitle == "" {
 		siteTitle = "Photo Albums"
 	}
 	if defaultTheme == "" {
 		defaultTheme = "light"
 	}
-	// Sort newest first by publish date.
 	sorted := make([]SiteAlbum, len(albums))
 	copy(sorted, albums)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -357,20 +448,58 @@ func GenerateSiteIndex(siteTitle, defaultTheme string, albums []SiteAlbum) []byt
 	})
 	items := make([]siteAlbumData, len(sorted))
 	for i, a := range sorted {
+		loading := "lazy"
+		if i < 2 {
+			loading = "eager"
+		}
 		items[i] = siteAlbumData{
-			PostID:     a.PostID,
+			FolderName: albumFolderName(a),
 			Title:      a.Title,
 			DateStr:    dateRangeStr(a.PublishedAt, a.UpdatedAt),
 			PhotoCount: a.PhotoCount,
 			CoverFile:  a.CoverFile,
+			Loading:    loading,
 		}
 	}
+
+	description := fmt.Sprintf("Photography collection — %d album", len(albums))
+	if len(albums) != 1 {
+		description += "s"
+	}
+	description += "."
+
+	ldMap := map[string]any{
+		"@context": "https://schema.org",
+		"@type":    "CollectionPage",
+		"name":     siteTitle,
+		"description": description,
+	}
+	if siteURL != "" {
+		ldMap["url"] = strings.TrimRight(siteURL, "/") + "/"
+	}
+	ldJSON, _ := json.Marshal(ldMap)
+
+	cleanSiteURL := ""
+	if siteURL != "" {
+		cleanSiteURL = strings.TrimRight(siteURL, "/")
+	}
+
 	var buf bytes.Buffer
 	siteTmpl.Execute(&buf, struct { //nolint:errcheck
 		Title        string
 		DefaultTheme string
+		Description  string
+		SiteURL      string
+		LDJSON       template.JS
 		Albums       []siteAlbumData
-	}{Title: siteTitle, DefaultTheme: defaultTheme, Albums: items})
+	}{
+		Title:        siteTitle,
+		DefaultTheme: defaultTheme,
+		Description:  description,
+		SiteURL:      cleanSiteURL,
+		LDJSON:       template.JS(ldJSON),
+		Albums:       items,
+	})
 	return buf.Bytes()
 }
 
@@ -381,7 +510,17 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{.Title}}</title>
+<title>{{.PageTitle}}</title>
+<meta name="description" content="{{.Description}}">
+{{- if .SiteURL}}
+<link rel="canonical" href="{{.AlbumURL}}">
+<meta property="og:title" content="{{.Title}}">
+<meta property="og:description" content="{{.Description}}">
+{{- if .CoverURL}}
+<meta property="og:image" content="{{.CoverURL}}">{{end}}
+<meta property="og:type" content="website">
+{{- end}}
+<script type="application/ld+json">{{.LDJSON}}</script>
 <link rel="stylesheet" href="../../assets/style.css">
 <script src="../../assets/toggle.js"></script>
 </head>
@@ -394,7 +533,11 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
   </div>
 </header>
 
-<main class="gallery" id="gallery"></main>
+<main class="gallery" id="gallery">
+{{range .Figures}}<figure data-index="{{.Index}}">
+  <img src="{{.Thumb}}" loading="{{.Loading}}" alt="{{.Alt}}">
+</figure>
+{{end}}</main>
 
 <div id="lb">
   <button id="lb-close" title="Close (Esc)">&times;</button>
@@ -413,23 +556,10 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 const photos = {{.PhotosJSON}};
 let cur = 0;
 
-function buildGallery() {
-  const g = document.getElementById('gallery');
-  photos.forEach((p, i) => {
-    const fig = document.createElement('figure');
-    const img = document.createElement('img');
-    img.src = p.thumb; img.loading = 'lazy'; img.alt = p.full;
-    fig.appendChild(img);
-    fig.addEventListener('click', () => open(i));
-    g.appendChild(fig);
-  });
-}
-
 function open(idx) {
   cur = idx;
   const lb = document.getElementById('lb');
-  const img = document.getElementById('lb-img');
-  img.src = photos[idx].full; img.alt = photos[idx].full;
+  document.getElementById('lb-img').src = photos[idx].full;
   lb.classList.add('open');
   document.body.style.overflow = 'hidden';
   updateCounter();
@@ -460,7 +590,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape')     { e.preventDefault(); close(); }
 });
 
-buildGallery();
+document.querySelectorAll('#gallery figure').forEach(fig => {
+  fig.addEventListener('click', () => open(parseInt(fig.dataset.index, 10)));
+});
 </script>
 </body>
 </html>
@@ -477,22 +609,87 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 	if defaultTheme == "" {
 		defaultTheme = "light"
 	}
-	photos := make([]siteGalleryPhoto, 0, len(items))
-	for _, item := range items {
+	total := len(items)
+	photos := make([]siteGalleryPhoto, 0, total)
+	figures := make([]galleryFigureData, 0, total)
+	for i, item := range items {
 		photos = append(photos, siteGalleryPhoto{Full: item.Filename, Thumb: item.ThumbFilename})
+		loading := "lazy"
+		if i < 2 {
+			loading = "eager"
+		}
+		alt := fmt.Sprintf("%s – Photo %d of %d", title, i+1, total)
+		figures = append(figures, galleryFigureData{
+			Index:   i,
+			Thumb:   item.ThumbFilename,
+			Full:    item.Filename,
+			Loading: loading,
+			Alt:     alt,
+		})
 	}
 	photosJSON, _ := json.Marshal(photos)
+
+	dateStr := opts.DateStr
+	description := fmt.Sprintf("A collection of %d photo", total)
+	if total != 1 {
+		description += "s"
+	}
+	if dateStr != "" {
+		description += ", " + dateStr
+	}
+	description += "."
+
+	pageTitle := title
+	if opts.SiteTitle != "" {
+		pageTitle = title + " | " + opts.SiteTitle
+	}
+
+	ldMap := map[string]any{
+		"@context":      "https://schema.org",
+		"@type":         "ImageGallery",
+		"name":          title,
+		"description":   description,
+		"numberOfItems": total,
+	}
+	if !opts.PublishedAt.IsZero() {
+		ldMap["datePublished"] = opts.PublishedAt.UTC().Format("2006-01-02")
+	}
+	albumURL := ""
+	coverURL := ""
+	if opts.SiteURL != "" && opts.AlbumSlug != "" {
+		base := strings.TrimRight(opts.SiteURL, "/")
+		albumURL = base + "/albums/" + opts.AlbumSlug + "/"
+		coverURL = albumURL + "cover.jpg"
+		ldMap["url"] = albumURL
+		ldMap["image"] = coverURL
+	}
+	ldJSON, _ := json.Marshal(ldMap)
+
 	var buf bytes.Buffer
 	siteGalleryTmpl.Execute(&buf, struct { //nolint:errcheck
 		Title        string
+		PageTitle    string
 		DefaultTheme string
+		Description  string
 		PhotosJSON   template.JS
+		LDJSON       template.JS
 		ZipFilename  string
+		Figures      []galleryFigureData
+		SiteURL      string
+		AlbumURL     string
+		CoverURL     string
 	}{
 		Title:        title,
+		PageTitle:    pageTitle,
 		DefaultTheme: defaultTheme,
+		Description:  description,
 		PhotosJSON:   template.JS(photosJSON),
+		LDJSON:       template.JS(ldJSON),
 		ZipFilename:  opts.ZipFilename,
+		Figures:      figures,
+		SiteURL:      opts.SiteURL,
+		AlbumURL:     albumURL,
+		CoverURL:     coverURL,
 	})
 	return buf.Bytes()
 }

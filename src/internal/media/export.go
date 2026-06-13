@@ -333,11 +333,13 @@ func injectExif(srcPath string, data []byte, format, mode string) ([]byte, error
 	}
 	tmp.Close()
 
+	// -n interprets tag values as raw numerics; required so -Orientation=1 is written
+	// as the integer 1 ("Horizontal/normal") rather than silently ignored.
 	var args []string
 	if mode == "keep_no_gps" {
-		args = []string{"-TagsFromFile", srcPath, "-GPS:All=", "-Orientation=1", "-overwrite_original", tmpPath}
+		args = []string{"-n", "-TagsFromFile", srcPath, "-GPS:All=", "-Orientation=1", "-overwrite_original", tmpPath}
 	} else {
-		args = []string{"-TagsFromFile", srcPath, "-Orientation=1", "-overwrite_original", tmpPath}
+		args = []string{"-n", "-TagsFromFile", srcPath, "-Orientation=1", "-overwrite_original", tmpPath}
 	}
 
 	cmd := exec.Command("exiftool", args...)
