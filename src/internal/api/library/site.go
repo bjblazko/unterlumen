@@ -10,6 +10,12 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/renderer/html"
+
+	"huepattl.de/unterlumen/internal/channels"
 )
 
 // SitePhoto stores the filenames needed to regenerate an album page without re-exporting.
@@ -117,6 +123,62 @@ func saveSiteState(statePath string, albums []SiteAlbum) error {
 	return os.WriteFile(statePath, data, 0o600)
 }
 
+// SiteNavContext carries optional page-link and contact data passed to all site template generators.
+type SiteNavContext struct {
+	HasAbout     bool
+	HasImprint   bool
+	ContactEmail string
+	ContactURL   string
+	LogoExists   bool
+	LogoPath     string // "assets/logo.jpg" for root-level pages; "../../assets/logo.jpg" for album pages
+	SiteName     string
+}
+
+// markdownToHTML converts markdown text to safe HTML using goldmark.
+// HTML passthrough is enabled so advanced users can embed raw HTML.
+var md = goldmark.New(
+	goldmark.WithExtensions(extension.GFM),
+	goldmark.WithRendererOptions(html.WithUnsafe()),
+)
+
+func markdownToHTML(src string) template.HTML {
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(src), &buf); err != nil {
+		return template.HTML(template.HTMLEscapeString(src))
+	}
+	return template.HTML(buf.String())
+}
+
+// avatarExistsAt reports whether site/assets/avatar.jpg exists in siteDir.
+func avatarExistsAt(siteDir string) bool {
+	_, err := os.Stat(filepath.Join(siteDir, "assets", "avatar.jpg"))
+	return err == nil
+}
+
+// logoExistsAt reports whether site/assets/logo.jpg exists in siteDir.
+func logoExistsAt(siteDir string) bool {
+	_, err := os.Stat(filepath.Join(siteDir, "assets", "logo.jpg"))
+	return err == nil
+}
+
+// buildSiteNavContext constructs a SiteNavContext from channel config and current site state.
+// rootLevel=true uses "assets/logo.jpg" (root index, about, legal); false uses "../../assets/logo.jpg" (album pages).
+func buildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) SiteNavContext {
+	logoPath := "assets/logo.jpg"
+	if !rootLevel {
+		logoPath = "../../assets/logo.jpg"
+	}
+	return SiteNavContext{
+		HasAbout:     ch.SiteAbout != "",
+		HasImprint:   ch.SiteImprint != "",
+		ContactEmail: ch.SiteContactEmail,
+		ContactURL:   ch.SiteContactURL,
+		LogoExists:   logoExistsAt(siteDir),
+		LogoPath:     logoPath,
+		SiteName:     ch.SiteTitle,
+	}
+}
+
 // writeSiteAssets writes style.css and toggle.js into assetsDir, overwriting if present.
 // toggle.js is fully static — it reads the default theme from data-default-theme on <html>.
 func writeSiteAssets(assetsDir string) error {
@@ -192,9 +254,10 @@ body {
 }
 header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 2.5rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border);
@@ -217,6 +280,51 @@ footer {
 }
 footer a { color: var(--text-muted); text-decoration: none; }
 footer a:hover { color: var(--text-dim); }
+.footer-contact { display: flex; gap: 0.75rem; margin-left: auto; }
+.footer-contact a { color: var(--text-muted); text-decoration: none; font-size: 0.75rem; }
+.footer-contact a:hover { color: var(--text-dim); }
+
+/* --- Site brand (persistent header identity) --- */
+.site-masthead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.site-logo {
+  height: 28px;
+  width: auto;
+  max-width: 100px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.site-name {
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--heading);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+.site-name:hover { color: var(--accent); }
+.page-title {
+  width: 100%;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+}
+
+/* --- Site navigation (header page links) --- */
+.site-nav { display: flex; gap: 1rem; font-size: 0.82rem; align-items: baseline; }
+.site-nav a { color: var(--text-dim); text-decoration: none; }
+.site-nav a:hover { color: var(--accent); }
 
 /* --- Theme toggle button --- */
 .theme-btn {
@@ -296,6 +404,19 @@ footer a:hover { color: var(--text-dim); }
 }
 .album-meta { font-size: 0.78rem; color: var(--text-dim); }
 .album-card:hover .album-title { color: var(--accent); }
+
+/* --- Prose content (about, imprint pages) --- */
+.prose { max-width: 680px; line-height: 1.7; }
+.prose h2 { font-size: 1.1rem; font-weight: 500; margin: 2rem 0 0.5rem; color: var(--heading); }
+.prose h3 { font-size: 0.95rem; font-weight: 500; margin: 1.5rem 0 0.4rem; color: var(--heading); }
+.prose p  { margin-bottom: 1rem; }
+.prose a  { color: var(--accent); }
+.prose ul, .prose ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+.prose li { margin-bottom: 0.25rem; }
+.prose strong { font-weight: 500; }
+.prose hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+.about-layout { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
+.about-photo { width: 160px; height: 160px; object-fit: cover; border-radius: 50%; flex-shrink: 0; background: var(--card-bg); }
 
 /* --- Masonry gallery (album pages) --- */
 .gallery { column-count: 2; column-gap: 12px; }
@@ -410,8 +531,19 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>{{.Title}}</h1>
+  <div class="site-brand">
+    {{- if .Nav.LogoExists}}
+    <img class="site-logo" src="{{.Nav.LogoPath}}" alt="" loading="eager">
+    {{- end}}
+    <h1>{{.Title}}</h1>
+  </div>
   <div class="header-actions">
+    {{- if or .Nav.HasAbout .Nav.HasImprint}}
+    <nav class="site-nav">
+      {{- if .Nav.HasAbout}}<a href="about.html">About</a>{{end}}
+      {{- if .Nav.HasImprint}}<a href="legal.html">Legal</a>{{end}}
+    </nav>
+    {{- end}}
     <button id="theme-toggle" class="theme-btn">Dark</button>
   </div>
 </header>
@@ -427,6 +559,12 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 <footer>
   <span>Built with <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent)" aria-hidden="true" style="vertical-align:-1px"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <a href="https://huepattl.de/products/unterlumen.html" target="_blank" rel="noopener">Unterlumen</a></span>
   <a href="https://github.com/bjblazko/unterlumen" target="_blank" rel="noopener" title="View on GitHub"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  {{- if or .Nav.ContactEmail .Nav.ContactURL}}
+  <div class="footer-contact">
+    {{- if .Nav.ContactEmail}}<a href="mailto:{{.Nav.ContactEmail}}">{{.Nav.ContactEmail}}</a>{{end}}
+    {{- if .Nav.ContactURL}}<a href="{{.Nav.ContactURL}}" target="_blank" rel="noopener">{{.Nav.ContactURL}}</a>{{end}}
+  </div>
+  {{- end}}
 </footer>
 </body>
 </html>
@@ -434,7 +572,7 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 
 // GenerateSiteIndex produces a static root index.html referencing shared assets.
 // Albums are ordered newest first by PublishedAt.
-func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlbum) []byte {
+func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlbum, nav SiteNavContext) []byte {
 	if siteTitle == "" {
 		siteTitle = "Photo Albums"
 	}
@@ -492,6 +630,7 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 		SiteURL      string
 		LDJSON       template.JS
 		Albums       []siteAlbumData
+		Nav          SiteNavContext
 	}{
 		Title:        siteTitle,
 		DefaultTheme: defaultTheme,
@@ -499,6 +638,7 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 		SiteURL:      cleanSiteURL,
 		LDJSON:       template.JS(ldJSON),
 		Albums:       items,
+		Nav:          nav,
 	})
 	return buf.Bytes()
 }
@@ -526,10 +666,20 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 </head>
 <body>
 <header>
-  <h1><a class="site-back" href="../../index.html" title="Back to albums"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><polyline points="15 18 9 12 15 6"/></svg></a>{{.Title}}</h1>
-  <div class="header-actions">
-    {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
-    <button id="theme-toggle" class="theme-btn">Dark</button>
+  <div class="site-masthead">
+    <div class="site-brand">
+      {{- if .Nav.LogoExists}}
+      <img class="site-logo" src="{{.Nav.LogoPath}}" alt="" loading="eager">
+      {{- end}}
+      <a class="site-name" href="../../index.html">{{.Nav.SiteName}}</a>
+    </div>
+    <div class="header-actions">
+      {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
+      <button id="theme-toggle" class="theme-btn">Dark</button>
+    </div>
+  </div>
+  <div class="page-title">
+    <a class="site-back" href="../../index.html" title="Back to albums"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><polyline points="15 18 9 12 15 6"/></svg></a>{{.Title}}
   </div>
 </header>
 
@@ -550,6 +700,14 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 <footer>
   <span>Built with <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent)" aria-hidden="true" style="vertical-align:-1px"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <a href="https://huepattl.de/products/unterlumen.html" target="_blank" rel="noopener">Unterlumen</a></span>
   <a href="https://github.com/bjblazko/unterlumen" target="_blank" rel="noopener" title="View on GitHub"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  {{- if or .Nav.HasAbout .Nav.HasImprint .Nav.ContactEmail .Nav.ContactURL}}
+  <div class="footer-contact">
+    {{- if .Nav.HasAbout}}<a href="../../about.html">About</a>{{end}}
+    {{- if .Nav.HasImprint}}<a href="../../legal.html">Legal</a>{{end}}
+    {{- if .Nav.ContactEmail}}<a href="mailto:{{.Nav.ContactEmail}}">{{.Nav.ContactEmail}}</a>{{end}}
+    {{- if .Nav.ContactURL}}<a href="{{.Nav.ContactURL}}" target="_blank" rel="noopener">{{.Nav.ContactURL}}</a>{{end}}
+  </div>
+  {{- end}}
 </footer>
 
 <script>
@@ -678,6 +836,7 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 		SiteURL      string
 		AlbumURL     string
 		CoverURL     string
+		Nav          SiteNavContext
 	}{
 		Title:        title,
 		PageTitle:    pageTitle,
@@ -690,6 +849,164 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 		SiteURL:      opts.SiteURL,
 		AlbumURL:     albumURL,
 		CoverURL:     coverURL,
+		Nav:          opts.Nav,
 	})
 	return buf.Bytes()
+}
+
+/* --- About page --- */
+
+var siteAboutTmpl = template.Must(template.New("siteabout").Parse(`<!DOCTYPE html>
+<html lang="en" data-default-theme="{{.DefaultTheme}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About | {{.SiteTitle}}</title>
+<meta name="description" content="About {{.SiteTitle}}">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/toggle.js"></script>
+</head>
+<body>
+<header>
+  <div class="site-masthead">
+    <div class="site-brand">
+      {{- if .Nav.LogoExists}}
+      <img class="site-logo" src="{{.Nav.LogoPath}}" alt="" loading="eager">
+      {{- end}}
+      <a class="site-name" href="index.html">{{.Nav.SiteName}}</a>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="theme-btn">Dark</button>
+    </div>
+  </div>
+  <div class="page-title">
+    <a class="site-back" href="index.html" title="Back to albums"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><polyline points="15 18 9 12 15 6"/></svg></a>About
+  </div>
+</header>
+
+<main>
+  <div class="about-layout">
+    {{- if .AvatarExists}}
+    <img class="about-photo" src="assets/avatar.jpg" alt="Portrait">
+    {{- end}}
+    <article class="prose">{{.Content}}</article>
+  </div>
+</main>
+
+<footer>
+  <span>Built with <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent)" aria-hidden="true" style="vertical-align:-1px"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <a href="https://huepattl.de/products/unterlumen.html" target="_blank" rel="noopener">Unterlumen</a></span>
+  {{- if .Nav.HasImprint}}<a href="legal.html" style="color:var(--text-muted);text-decoration:none;font-size:.75rem">Legal</a>{{end}}
+  {{- if or .Nav.ContactEmail .Nav.ContactURL}}
+  <div class="footer-contact">
+    {{- if .Nav.ContactEmail}}<a href="mailto:{{.Nav.ContactEmail}}">{{.Nav.ContactEmail}}</a>{{end}}
+    {{- if .Nav.ContactURL}}<a href="{{.Nav.ContactURL}}" target="_blank" rel="noopener">{{.Nav.ContactURL}}</a>{{end}}
+  </div>
+  {{- end}}
+</footer>
+</body>
+</html>
+`))
+
+// generateAboutPage produces about.html at the site root.
+// Does nothing if SiteAbout is empty.
+func generateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, nav SiteNavContext) error {
+	if ch.SiteAbout == "" {
+		return nil
+	}
+	defaultTheme := ch.SiteTheme
+	if defaultTheme == "" {
+		defaultTheme = "light"
+	}
+	var buf bytes.Buffer
+	if err := siteAboutTmpl.Execute(&buf, struct {
+		SiteTitle    string
+		DefaultTheme string
+		Content      template.HTML
+		AvatarExists bool
+		Nav          SiteNavContext
+	}{
+		SiteTitle:    ch.SiteTitle,
+		DefaultTheme: defaultTheme,
+		Content:      markdownToHTML(ch.SiteAbout),
+		AvatarExists: avatarExists,
+		Nav:          nav,
+	}); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(siteDir, "about.html"), buf.Bytes(), 0o644)
+}
+
+/* --- Imprint / legal page --- */
+
+var siteImprintTmpl = template.Must(template.New("siteimprint").Parse(`<!DOCTYPE html>
+<html lang="en" data-default-theme="{{.DefaultTheme}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal | {{.SiteTitle}}</title>
+<meta name="description" content="Legal notice for {{.SiteTitle}}">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/toggle.js"></script>
+</head>
+<body>
+<header>
+  <div class="site-masthead">
+    <div class="site-brand">
+      {{- if .Nav.LogoExists}}
+      <img class="site-logo" src="{{.Nav.LogoPath}}" alt="" loading="eager">
+      {{- end}}
+      <a class="site-name" href="index.html">{{.Nav.SiteName}}</a>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="theme-btn">Dark</button>
+    </div>
+  </div>
+  <div class="page-title">
+    <a class="site-back" href="index.html" title="Back to albums"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><polyline points="15 18 9 12 15 6"/></svg></a>Legal Notice
+  </div>
+</header>
+
+<main>
+  <article class="prose">{{.Content}}</article>
+</main>
+
+<footer>
+  <span>Built with <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent)" aria-hidden="true" style="vertical-align:-1px"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <a href="https://huepattl.de/products/unterlumen.html" target="_blank" rel="noopener">Unterlumen</a></span>
+  {{- if .Nav.HasAbout}}<a href="about.html" style="color:var(--text-muted);text-decoration:none;font-size:.75rem">About</a>{{end}}
+  {{- if or .Nav.ContactEmail .Nav.ContactURL}}
+  <div class="footer-contact">
+    {{- if .Nav.ContactEmail}}<a href="mailto:{{.Nav.ContactEmail}}">{{.Nav.ContactEmail}}</a>{{end}}
+    {{- if .Nav.ContactURL}}<a href="{{.Nav.ContactURL}}" target="_blank" rel="noopener">{{.Nav.ContactURL}}</a>{{end}}
+  </div>
+  {{- end}}
+</footer>
+</body>
+</html>
+`))
+
+// generateImprintPage produces legal.html at the site root.
+// Does nothing if SiteImprint is empty.
+func generateImprintPage(siteDir string, ch *channels.Channel, nav SiteNavContext) error {
+	if ch.SiteImprint == "" {
+		return nil
+	}
+	defaultTheme := ch.SiteTheme
+	if defaultTheme == "" {
+		defaultTheme = "light"
+	}
+	var buf bytes.Buffer
+	if err := siteImprintTmpl.Execute(&buf, struct {
+		SiteTitle    string
+		DefaultTheme string
+		Content      template.HTML
+		Nav          SiteNavContext
+	}{
+		SiteTitle:    ch.SiteTitle,
+		DefaultTheme: defaultTheme,
+		Content:      markdownToHTML(ch.SiteImprint),
+		Nav:          nav,
+	}); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(siteDir, "legal.html"), buf.Bytes(), 0o644)
 }

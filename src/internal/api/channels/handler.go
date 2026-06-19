@@ -3,9 +3,11 @@ package apichannels
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -23,6 +25,12 @@ func Handle(mux *http.ServeMux, store *channels.Store) {
 	mux.HandleFunc("DELETE /api/channels/{slug}", deleteChannel(store))
 	mux.HandleFunc("GET /api/channels/{slug}/path", channelPath(store))
 	mux.HandleFunc("POST /api/channels/{slug}/reveal", revealChannel(store))
+	mux.HandleFunc("GET /api/channels/{slug}/avatar", avatarStatus(store))
+	mux.HandleFunc("POST /api/channels/{slug}/avatar", uploadAvatar(store))
+	mux.HandleFunc("DELETE /api/channels/{slug}/avatar", deleteAvatar(store))
+	mux.HandleFunc("GET /api/channels/{slug}/logo", logoStatus(store))
+	mux.HandleFunc("POST /api/channels/{slug}/logo", uploadLogo(store))
+	mux.HandleFunc("DELETE /api/channels/{slug}/logo", deleteLogo(store))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -120,6 +128,120 @@ func revealChannel(store *channels.Store) http.HandlerFunc {
 			cmd = exec.Command("xdg-open", dir)
 		}
 		cmd.Start() //nolint:errcheck
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func avatarPath(store *channels.Store, slug string) string {
+	return filepath.Join(store.OutputDir(slug), "site", "assets", "avatar.jpg")
+}
+
+func logoPath(store *channels.Store, slug string) string {
+	return filepath.Join(store.OutputDir(slug), "site", "assets", "logo.jpg")
+}
+
+func avatarStatus(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		_, err := os.Stat(avatarPath(store, slug))
+		writeJSON(w, map[string]any{"exists": err == nil})
+	}
+}
+
+func uploadAvatar(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		const maxSize = 5 << 20 // 5 MB
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+		if err := r.ParseMultipartForm(maxSize); err != nil {
+			http.Error(w, "file too large or invalid form", http.StatusBadRequest)
+			return
+		}
+		f, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "missing file field", http.StatusBadRequest)
+			return
+		}
+		defer f.Close()
+		data, err := io.ReadAll(f)
+		if err != nil {
+			http.Error(w, "read error", http.StatusInternalServerError)
+			return
+		}
+		dest := avatarPath(store, slug)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+			http.Error(w, "mkdir error", http.StatusInternalServerError)
+			return
+		}
+		if err := os.WriteFile(dest, data, 0o644); err != nil {
+			http.Error(w, "write error", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}
+}
+
+func deleteAvatar(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		path := avatarPath(store, slug)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func logoStatus(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		_, err := os.Stat(logoPath(store, slug))
+		writeJSON(w, map[string]any{"exists": err == nil})
+	}
+}
+
+func uploadLogo(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		const maxSize = 2 << 20 // 2 MB
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+		if err := r.ParseMultipartForm(maxSize); err != nil {
+			http.Error(w, "file too large or invalid form", http.StatusBadRequest)
+			return
+		}
+		f, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "missing file field", http.StatusBadRequest)
+			return
+		}
+		defer f.Close()
+		data, err := io.ReadAll(f)
+		if err != nil {
+			http.Error(w, "read error", http.StatusInternalServerError)
+			return
+		}
+		dest := logoPath(store, slug)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+			http.Error(w, "mkdir error", http.StatusInternalServerError)
+			return
+		}
+		if err := os.WriteFile(dest, data, 0o644); err != nil {
+			http.Error(w, "write error", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}
+}
+
+func deleteLogo(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		path := logoPath(store, slug)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

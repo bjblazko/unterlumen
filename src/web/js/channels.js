@@ -49,6 +49,38 @@ const ChannelAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async avatarStatus(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/avatar`);
+        if (!r.ok) return { exists: false };
+        return r.json();
+    },
+    async uploadAvatar(slug, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/avatar`, { method: 'POST', body: fd });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async deleteAvatar(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/avatar`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+    },
+    async logoStatus(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/logo`);
+        if (!r.ok) return { exists: false };
+        return r.json();
+    },
+    async uploadLogo(slug, file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/logo`, { method: 'POST', body: fd });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async deleteLogo(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/logo`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+    },
 };
 
 /* --- ChannelSettingsModal --- */
@@ -240,6 +272,7 @@ class ChannelSettingsModal {
             scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 1920 },
             handler: '', handlerConfig: {}, accounts: [],
             galleryExport: false, siteExport: false, siteTitle: '', siteTheme: 'light', siteURL: '',
+            siteAbout: '', siteImprint: '', siteContactEmail: '', siteContactURL: '',
             outputMode: '', outputPath: '',
         };
 
@@ -251,83 +284,134 @@ class ChannelSettingsModal {
                     <span class="modal-title">${isNew ? 'New Channel' : 'Edit Channel'}</span>
                     <button class="modal-close" id="chf-close">&times;</button>
                 </div>
+                <div class="ch-tabs">
+                    <button class="ch-tab active" data-tab="export">Export</button>
+                    <button class="ch-tab" data-tab="website">Website</button>
+                    <button class="ch-tab" data-tab="output">Output</button>
+                    <button class="ch-tab" data-tab="advanced">Advanced</button>
+                </div>
                 <div class="modal-body">
-                    ${isNew ? `
-                    <label class="form-label">Slug <span class="form-hint">(immutable after save)</span></label>
-                    <input class="form-input" id="chf-slug" value="${escapeHtml(ch.slug)}" placeholder="my-channel" autocomplete="off">
-                    ` : `
-                    <div class="form-slug-display">Slug: <strong>${escapeHtml(ch.slug)}</strong></div>
-                    `}
-                    <label class="form-label">Name</label>
-                    <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="My Channel">
 
-                    <label class="form-label">Format</label>
-                    <select class="form-select" id="chf-format">
-                        <option value="jpeg" ${ch.format==='jpeg'?'selected':''}>JPEG</option>
-                        <option value="png"  ${ch.format==='png'?'selected':''}>PNG</option>
-                        <option value="webp" ${ch.format==='webp'?'selected':''}>WebP</option>
-                    </select>
-                    <label class="form-label">Quality (1–100)</label>
-                    <input class="form-input" id="chf-quality" type="number" min="1" max="100" value="${ch.quality}">
-                    <label class="form-label">Scale</label>
-                    <div class="form-row">
-                        <select class="form-select" id="chf-scale-mode">
-                            <option value="none"    ${ch.scale?.mode==='none'?'selected':''}>None (original size)</option>
-                            <option value="max_dim" ${ch.scale?.mode==='max_dim'?'selected':''}>Max dimension</option>
-                            <option value="percent" ${ch.scale?.mode==='percent'?'selected':''}>Percent</option>
-                        </select>
-                        <div id="chf-scale-opts" class="form-scale-opts">${_scaleOptsHTML(ch.scale)}</div>
-                    </div>
-                    <label class="form-label">EXIF</label>
-                    <select class="form-select" id="chf-exif">
-                        <option value="strip"       ${ch.exifMode==='strip'?'selected':''}>Strip all</option>
-                        <option value="keep_no_gps" ${ch.exifMode==='keep_no_gps'?'selected':''}>Keep (no GPS)</option>
-                        <option value="keep"        ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
-                    </select>
+                    <!-- Export tab -->
+                    <div class="ch-panel active" data-tab="export">
+                        ${isNew ? `
+                        <label class="form-label">Slug <span class="form-hint">(immutable after save)</span></label>
+                        <input class="form-input" id="chf-slug" value="${escapeHtml(ch.slug)}" placeholder="my-channel" autocomplete="off">
+                        ` : `
+                        <div class="form-slug-display">Slug: <strong>${escapeHtml(ch.slug)}</strong></div>
+                        `}
+                        <label class="form-label">Name</label>
+                        <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="My Channel">
 
-                    <label class="form-label">Export mode</label>
-                    <select class="form-select" id="chf-export-mode">
-                        <option value="standard" ${!ch.galleryExport && !ch.siteExport ? 'selected' : ''}>Standard — files only</option>
-                        <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per publish</option>
-                        <option value="site"     ${ch.siteExport                       ? 'selected' : ''}>Multi-album site — static website</option>
-                    </select>
-                    <div id="chf-site-opts" style="display:${ch.siteExport ? '' : 'none'}">
-                        <label class="form-label">Site title <span class="form-hint">(shown on the root index page)</span></label>
-                        <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
-                        <label class="form-label">Default theme <span class="form-hint">(visitors can switch; this is the initial choice)</span></label>
-                        <select class="form-select" id="chf-site-theme">
-                            <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
-                            <option value="dark"  ${ch.siteTheme === 'dark'              ? 'selected' : ''}>Dark</option>
+                        <label class="form-label">Format</label>
+                        <select class="form-select" id="chf-format">
+                            <option value="jpeg" ${ch.format==='jpeg'?'selected':''}>JPEG</option>
+                            <option value="png"  ${ch.format==='png'?'selected':''}>PNG</option>
+                            <option value="webp" ${ch.format==='webp'?'selected':''}>WebP</option>
                         </select>
-                        <label class="form-label">Site URL <span class="form-hint">(optional — enables canonical links, OG tags, sitemap.xml)</span></label>
-                        <input class="form-input" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
+                        <label class="form-label">Quality (1–100)</label>
+                        <input class="form-input" id="chf-quality" type="number" min="1" max="100" value="${ch.quality}">
+                        <label class="form-label">Scale</label>
+                        <div class="form-row">
+                            <select class="form-select" id="chf-scale-mode">
+                                <option value="none"    ${ch.scale?.mode==='none'?'selected':''}>None (original size)</option>
+                                <option value="max_dim" ${ch.scale?.mode==='max_dim'?'selected':''}>Max dimension</option>
+                                <option value="percent" ${ch.scale?.mode==='percent'?'selected':''}>Percent</option>
+                            </select>
+                            <div id="chf-scale-opts" class="form-scale-opts">${_scaleOptsHTML(ch.scale)}</div>
+                        </div>
+                        <label class="form-label">EXIF</label>
+                        <select class="form-select" id="chf-exif">
+                            <option value="strip"       ${ch.exifMode==='strip'?'selected':''}>Strip all</option>
+                            <option value="keep_no_gps" ${ch.exifMode==='keep_no_gps'?'selected':''}>Keep (no GPS)</option>
+                            <option value="keep"        ${ch.exifMode==='keep'?'selected':''}>Keep all</option>
+                        </select>
+
+                        <label class="form-label">Export mode</label>
+                        <select class="form-select" id="chf-export-mode">
+                            <option value="standard" ${!ch.galleryExport && !ch.siteExport ? 'selected' : ''}>Standard — files only</option>
+                            <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per publish</option>
+                            <option value="site"     ${ch.siteExport                       ? 'selected' : ''}>Multi-album site — static website</option>
+                        </select>
                     </div>
 
-                    <label class="form-label">Output (default)</label>
-                    <select class="form-select" id="chf-output-mode">
-                        <option value="save"     ${(ch.outputMode||'save')==='save'?'selected':''}>Save to folder</option>
-                        <option value="download" ${ch.outputMode==='download'?'selected':''}>Download as ZIP</option>
-                    </select>
-                    <div id="chf-output-path-wrap" style="display:${ch.outputMode==='download'?'none':''}">
-                        <label class="form-label">Output folder <span class="form-hint">(leave empty for default)</span></label>
-                        <div class="export-destination-wrap">
-                            <input class="form-input export-destination-input" id="chf-output-path"
-                                   value="${escapeHtml(ch.outputPath || '')}"
-                                   placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<slug>')}/">
-                            <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
+                    <!-- Website tab -->
+                    <div class="ch-panel" data-tab="website">
+                        <div id="chf-site-opts-wrap" style="display:${ch.siteExport ? '' : 'none'}">
+                            <label class="form-label">Site logo <span class="form-hint">(shown next to the site name on every page)</span></label>
+                            <div class="ch-avatar-wrap" id="chf-logo-wrap">
+                                <span class="ch-avatar-status" id="chf-logo-status">Loading…</span>
+                                <input type="file" id="chf-logo-file" accept="image/*" style="display:none">
+                                <button class="btn btn-sm" id="chf-logo-upload">Upload logo</button>
+                                <button class="btn btn-sm" id="chf-logo-remove" style="display:none">Remove</button>
+                            </div>
+
+                            <label class="form-label">Site title <span class="form-hint">(shown in the header on every page)</span></label>
+                            <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
+                            <label class="form-label">Default theme <span class="form-hint">(visitors can switch; this is the initial choice)</span></label>
+                            <select class="form-select" id="chf-site-theme">
+                                <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
+                                <option value="dark"  ${ch.siteTheme === 'dark'              ? 'selected' : ''}>Dark</option>
+                            </select>
+                            <label class="form-label">Site URL <span class="form-hint">(optional — enables canonical links, OG tags, sitemap.xml)</span></label>
+                            <input class="form-input" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
+
+                            <label class="form-label">About page <span class="form-hint">(markdown — generates about.html)</span></label>
+                            <textarea class="form-input" id="chf-site-about" rows="6" placeholder="Write a short introduction about yourself and your photography…" style="resize:vertical;font-family:inherit">${escapeHtml(ch.siteAbout || '')}</textarea>
+
+                            <label class="form-label">Author photo <span class="form-hint">(shown on the About page)</span></label>
+                            <div class="ch-avatar-wrap" id="chf-avatar-wrap">
+                                <span class="ch-avatar-status" id="chf-avatar-status">Loading…</span>
+                                <input type="file" id="chf-avatar-file" accept="image/*" style="display:none">
+                                <button class="btn btn-sm" id="chf-avatar-upload">Upload photo</button>
+                                <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">Remove</button>
+                            </div>
+
+                            <label class="form-label">Legal / Imprint <span class="form-hint">(markdown — generates legal.html)</span></label>
+                            <textarea class="form-input" id="chf-site-imprint" rows="6" placeholder="Responsible for this website:&#10;Your Name&#10;Your Address…" style="resize:vertical;font-family:inherit">${escapeHtml(ch.siteImprint || '')}</textarea>
+
+                            <label class="form-label">Contact email <span class="form-hint">(shown in footer of every page)</span></label>
+                            <input class="form-input" id="chf-site-contact-email" type="email" value="${escapeHtml(ch.siteContactEmail || '')}" placeholder="you@example.com">
+                            <label class="form-label">Website / social URL <span class="form-hint">(shown in footer of every page)</span></label>
+                            <input class="form-input" id="chf-site-contact-url" type="url" value="${escapeHtml(ch.siteContactURL || '')}" placeholder="https://yoursite.com">
+                        </div>
+                        <div id="chf-site-disabled-hint" style="display:${ch.siteExport ? 'none' : ''}">
+                            <p class="form-hint" style="padding:var(--space-4) 0">Website settings apply when <strong>Export mode</strong> (Export tab) is set to <em>Multi-album site</em>.</p>
                         </div>
                     </div>
 
-                    <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
-                    <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
+                    <!-- Output tab -->
+                    <div class="ch-panel" data-tab="output">
+                        <label class="form-label">Output (default)</label>
+                        <select class="form-select" id="chf-output-mode">
+                            <option value="save"     ${(ch.outputMode||'save')==='save'?'selected':''}>Save to folder</option>
+                            <option value="download" ${ch.outputMode==='download'?'selected':''}>Download as ZIP</option>
+                        </select>
+                        <div id="chf-output-path-wrap" style="display:${ch.outputMode==='download'?'none':''}">
+                            <label class="form-label">Output folder <span class="form-hint">(leave empty for default)</span></label>
+                            <div class="export-destination-wrap">
+                                <input class="form-input export-destination-input" id="chf-output-path"
+                                       value="${escapeHtml(ch.outputPath || '')}"
+                                       placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<slug>')}/">
+                                <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
+                            </div>
+                        </div>
+                    </div>
 
-                    <label class="form-label">Handler config <span class="form-hint">(key → value)</span></label>
-                    <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handlerConfig || {})}</div>
-                    <button class="btn btn-sm" id="chf-hconfig-add" style="align-self:flex-start">+ Add config entry</button>
+                    <!-- Advanced tab -->
+                    <div class="ch-panel" data-tab="advanced">
+                        <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
+                        <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
 
-                    <label class="form-label">Accounts <span class="form-hint">(named sub-accounts, e.g. two Mastodon logins)</span></label>
-                    <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
-                    <button class="btn btn-sm" id="chf-account-add" style="align-self:flex-start">+ Add account</button>
+                        <label class="form-label">Handler config <span class="form-hint">(key → value)</span></label>
+                        <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handlerConfig || {})}</div>
+                        <button class="btn btn-sm" id="chf-hconfig-add" style="align-self:flex-start">+ Add config entry</button>
+
+                        <label class="form-label">Accounts <span class="form-hint">(named sub-accounts, e.g. two Mastodon logins)</span></label>
+                        <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
+                        <button class="btn btn-sm" id="chf-account-add" style="align-self:flex-start">+ Add account</button>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <div class="channel-form-error" id="chf-error" style="display:none"></div>
@@ -337,6 +421,14 @@ class ChannelSettingsModal {
             </div>`;
         document.body.appendChild(form);
 
+        // Tab switching
+        form.querySelector('.ch-tabs').addEventListener('click', e => {
+            const btn = e.target.closest('.ch-tab');
+            if (!btn) return;
+            form.querySelectorAll('.ch-tab').forEach(t => t.classList.toggle('active', t === btn));
+            form.querySelectorAll('.ch-panel').forEach(p => p.classList.toggle('active', p.dataset.tab === btn.dataset.tab));
+        });
+
         // Scale mode toggle
         const scaleMode = form.querySelector('#chf-scale-mode');
         const scaleOpts = form.querySelector('#chf-scale-opts');
@@ -344,11 +436,14 @@ class ChannelSettingsModal {
             scaleOpts.innerHTML = _scaleOptsHTML({ mode: scaleMode.value });
         });
 
-        // Export mode toggle
+        // Export mode → show/hide website hints
         const exportModeEl = form.querySelector('#chf-export-mode');
-        const siteOptsEl   = form.querySelector('#chf-site-opts');
+        const siteOptsWrap = form.querySelector('#chf-site-opts-wrap');
+        const siteDisabled = form.querySelector('#chf-site-disabled-hint');
         exportModeEl.addEventListener('change', () => {
-            siteOptsEl.style.display = exportModeEl.value === 'site' ? '' : 'none';
+            const isSite = exportModeEl.value === 'site';
+            siteOptsWrap.style.display = isSite ? '' : 'none';
+            siteDisabled.style.display = isSite ? 'none' : '';
         });
 
         // Output mode toggle
@@ -375,6 +470,17 @@ class ChannelSettingsModal {
         form.querySelector('#chf-account-add').addEventListener('click', () => {
             form.querySelector('#chf-accounts').insertAdjacentHTML('beforeend', _accountRowHTML({ id: '', label: '', config: {} }));
         });
+
+        // Logo and avatar upload for existing channels
+        if (!isNew) {
+            this._initLogoUI(form, ch.slug);
+            this._initAvatarUI(form, ch.slug);
+        } else {
+            form.querySelector('#chf-logo-status').textContent = 'Save the channel first, then upload a logo.';
+            form.querySelector('#chf-logo-upload').disabled = true;
+            form.querySelector('#chf-avatar-status').textContent = 'Save the channel first, then upload a photo.';
+            form.querySelector('#chf-avatar-upload').disabled = true;
+        }
 
         // Close / cancel
         form.querySelector('#chf-close').addEventListener('click', () => form.remove());
@@ -403,23 +509,28 @@ class ChannelSettingsModal {
                 return;
             }
             const exportModeVal = form.querySelector('#chf-export-mode').value;
+            const isSite = exportModeVal === 'site';
             const payload = {
                 slug,
                 name,
-                format:        form.querySelector('#chf-format').value,
-                quality:       parseInt(form.querySelector('#chf-quality').value, 10),
-                exifMode:      form.querySelector('#chf-exif').value,
-                scale:         _readScaleOpts(form),
-                galleryExport: exportModeVal === 'gallery' ? true : undefined,
-                siteExport:    exportModeVal === 'site'    ? true : undefined,
-                siteTitle:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
-                siteTheme:     exportModeVal === 'site'    ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
-                siteURL:       exportModeVal === 'site'    ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
-                handler:       form.querySelector('#chf-handler').value.trim() || undefined,
-                handlerConfig: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
-                accounts:      _readAccountsEditor(form.querySelector('#chf-accounts')),
-                outputMode:    form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
-                outputPath:    form.querySelector('#chf-output-path')?.value.trim() || undefined,
+                format:           form.querySelector('#chf-format').value,
+                quality:          parseInt(form.querySelector('#chf-quality').value, 10),
+                exifMode:         form.querySelector('#chf-exif').value,
+                scale:            _readScaleOpts(form),
+                galleryExport:    exportModeVal === 'gallery' ? true : undefined,
+                siteExport:       isSite ? true : undefined,
+                siteTitle:        isSite ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
+                siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
+                siteURL:          isSite ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
+                siteAbout:        isSite ? (form.querySelector('#chf-site-about').value.trim() || undefined) : undefined,
+                siteImprint:      isSite ? (form.querySelector('#chf-site-imprint').value.trim() || undefined) : undefined,
+                siteContactEmail: isSite ? (form.querySelector('#chf-site-contact-email').value.trim() || undefined) : undefined,
+                siteContactURL:   isSite ? (form.querySelector('#chf-site-contact-url').value.trim() || undefined) : undefined,
+                handler:          form.querySelector('#chf-handler').value.trim() || undefined,
+                handlerConfig:    _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
+                accounts:         _readAccountsEditor(form.querySelector('#chf-accounts')),
+                outputMode:       form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
+                outputPath:       form.querySelector('#chf-output-path')?.value.trim() || undefined,
             };
             try {
                 if (isNew) {
@@ -432,6 +543,102 @@ class ChannelSettingsModal {
             } catch (err) {
                 errEl.textContent = err.message;
                 errEl.style.display = '';
+            }
+        });
+    }
+
+    async _initLogoUI(form, slug) {
+        const statusEl  = form.querySelector('#chf-logo-status');
+        const uploadBtn = form.querySelector('#chf-logo-upload');
+        const removeBtn = form.querySelector('#chf-logo-remove');
+        const fileInput = form.querySelector('#chf-logo-file');
+
+        const refresh = async () => {
+            try {
+                const { exists } = await ChannelAPI.logoStatus(slug);
+                statusEl.textContent = exists ? 'Logo uploaded.' : 'No logo set.';
+                removeBtn.style.display = exists ? '' : 'none';
+            } catch {
+                statusEl.textContent = 'Could not check logo.';
+            }
+        };
+
+        await refresh();
+
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            statusEl.textContent = 'Uploading…';
+            uploadBtn.disabled = true;
+            try {
+                await ChannelAPI.uploadLogo(slug, file);
+                await refresh();
+            } catch (err) {
+                statusEl.textContent = 'Upload failed: ' + err.message;
+            } finally {
+                uploadBtn.disabled = false;
+                fileInput.value = '';
+            }
+        });
+
+        removeBtn.addEventListener('click', async () => {
+            removeBtn.disabled = true;
+            try {
+                await ChannelAPI.deleteLogo(slug);
+                await refresh();
+            } catch (err) {
+                statusEl.textContent = 'Remove failed: ' + err.message;
+            } finally {
+                removeBtn.disabled = false;
+            }
+        });
+    }
+
+    async _initAvatarUI(form, slug) {
+        const statusEl  = form.querySelector('#chf-avatar-status');
+        const uploadBtn = form.querySelector('#chf-avatar-upload');
+        const removeBtn = form.querySelector('#chf-avatar-remove');
+        const fileInput = form.querySelector('#chf-avatar-file');
+
+        const refresh = async () => {
+            try {
+                const { exists } = await ChannelAPI.avatarStatus(slug);
+                statusEl.textContent = exists ? 'Portrait uploaded.' : 'No portrait set.';
+                removeBtn.style.display = exists ? '' : 'none';
+            } catch {
+                statusEl.textContent = 'Could not check avatar.';
+            }
+        };
+
+        await refresh();
+
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            statusEl.textContent = 'Uploading…';
+            uploadBtn.disabled = true;
+            try {
+                await ChannelAPI.uploadAvatar(slug, file);
+                await refresh();
+            } catch (err) {
+                statusEl.textContent = 'Upload failed: ' + err.message;
+            } finally {
+                uploadBtn.disabled = false;
+                fileInput.value = '';
+            }
+        });
+
+        removeBtn.addEventListener('click', async () => {
+            removeBtn.disabled = true;
+            try {
+                await ChannelAPI.deleteAvatar(slug);
+                await refresh();
+            } catch (err) {
+                statusEl.textContent = 'Remove failed: ' + err.message;
+            } finally {
+                removeBtn.disabled = false;
             }
         });
     }

@@ -1,11 +1,23 @@
 # Changelog
 
-*Last modified: 2026-06-07*
+*Last modified: 2026-06-19*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+
+- **Site logo + persistent masthead** — Multi-album site pages now show a persistent two-row header on every generated page. Row 1 (always visible): optional logo image + site name (links back to the root index on sub-pages). Row 2 (sub-pages only): back arrow + current page title (album name, "About", or "Legal Notice"). The root index keeps a single-row header with the site name as `<h1>`. An optional **site logo** can be uploaded per channel via the Website tab in channel settings (stored as `site/assets/logo.jpg`); upload and remove work the same way as the author portrait. "Rebuild site" regenerates all pages with the current logo and site name.
+
+- **Website About, Imprint & Contact pages** — Multi-album site channels can now publish personal identity pages alongside photo albums:
+  - **About page** (`about.html`) — write Markdown text in the new Website tab of channel settings. Supports an optional **author portrait** (uploaded as `assets/avatar.jpg`) displayed as a circular portrait next to the text.
+  - **Legal / Imprint page** (`legal.html`) — enter Markdown text for the legal notice. Required for commercial or semi-commercial sites in many countries.
+  - **Contact links in footer** — optional email address and website/social URL appear in the footer of every site page (root index, album pages, About, Imprint).
+  - **Navigation** — when About or Imprint pages are configured, nav links appear in the root index header; album page footers link back to both pages.
+  - Markdown is rendered to HTML at publish / rebuild time (goldmark, GFM); no client-side parser needed.
+  - "Rebuild site" regenerates About and Imprint pages from the current channel config.
+
+- **Channel settings dialog tabs** — The channel editor is reorganized into four tabs (**Export**, **Website**, **Output**, **Advanced**) to keep the growing number of options manageable. The Website tab shows a hint when the export mode is not set to "Multi-album site".
 
 - **Add photos to existing gallery / album** — The publish dialog shows an **"Add to"** dropdown when publishing to a gallery or site channel that already has galleries. Selecting one appends the new photos to the same folder, regenerates the HTML and ZIP, and records an `updatedAt` timestamp — without changing the original `publishedAt` that controls album sort order. The dropdown label shows a date range (e.g. "Summer 2025 (12) · June – August 2025") once photos are added across months. Selecting "New gallery" creates a fresh folder as before.
 

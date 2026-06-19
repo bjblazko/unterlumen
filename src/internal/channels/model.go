@@ -26,7 +26,11 @@ type Channel struct {
 	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on publish
 	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html
 	SiteTheme     string            `json:"siteTheme,omitempty"`     // "light" (default) or "dark"
-	SiteURL       string            `json:"siteURL,omitempty"`       // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap
+	SiteURL          string            `json:"siteURL,omitempty"`          // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap
+	SiteAbout        string            `json:"siteAbout,omitempty"`        // markdown text for about page; generates about.html when non-empty
+	SiteImprint      string            `json:"siteImprint,omitempty"`      // markdown text for legal/imprint page; generates legal.html when non-empty
+	SiteContactEmail string            `json:"siteContactEmail,omitempty"` // shown in footer of every site page
+	SiteContactURL   string            `json:"siteContactURL,omitempty"`   // shown in footer of every site page
 }
 
 // ExportOptions returns the media.ExportOptions for this channel.

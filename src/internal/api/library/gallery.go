@@ -85,6 +85,7 @@ type GalleryOptions struct {
 	SiteURL     string    // base URL e.g. "https://example.com"; enables canonical, OG tags, sitemap
 	AlbumSlug   string    // album folder name; used with SiteURL to build absolute album URL
 	PublishedAt time.Time // used for datePublished in JSON-LD
+	Nav         SiteNavContext
 }
 
 var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>

@@ -1308,6 +1308,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				SiteURL:     ch.SiteURL,
 				AlbumSlug:   albumSlug,
 				PublishedAt: albumPublishedAt,
+				Nav:         buildSiteNavContext(ch, filepath.Join(channelDir, "site"), false),
 			})
 		} else {
 			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName, DateStr: dateStr})
@@ -1388,12 +1389,15 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 				emit(map[string]any{"error": "save site state: " + saveErr.Error()})
 				return
 			}
-			siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, siteAlbums)
+			rootNav := buildSiteNavContext(ch, siteDir, true)
+			siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, siteAlbums, rootNav)
 			if writeErr := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); writeErr != nil {
 				emit(map[string]any{"error": "write site index: " + writeErr.Error()})
 				return
 			}
-			generateRobotsTxt(siteDir, ch.SiteURL) //nolint:errcheck
+			generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)   //nolint:errcheck
+			generateImprintPage(siteDir, ch, rootNav)                           //nolint:errcheck
+			generateRobotsTxt(siteDir, ch.SiteURL)                     //nolint:errcheck
 			if ch.SiteURL != "" {
 				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
@@ -1773,6 +1777,9 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 			saveSiteState(filepath.Join(siteDir, "site.json"), albums) //nolint:errcheck
 		}
 
+		rootNav := buildSiteNavContext(ch, siteDir, true)
+		albumNav := buildSiteNavContext(ch, siteDir, false)
+
 		// Regenerate every album page so data-default-theme reflects the current channel setting.
 		for _, album := range albums {
 			albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
@@ -1799,16 +1806,19 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 				SiteURL:     ch.SiteURL,
 				AlbumSlug:   albumFolderName(album),
 				PublishedAt: album.PublishedAt,
+				Nav:         albumNav,
 			})
 			os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
 		}
 
-		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums)
+		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums, rootNav)
 		if err := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); err != nil {
 			http.Error(w, "write site index: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		generateRobotsTxt(siteDir, ch.SiteURL) //nolint:errcheck
+		generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav) //nolint:errcheck
+		generateImprintPage(siteDir, ch, rootNav)                         //nolint:errcheck
+		generateRobotsTxt(siteDir, ch.SiteURL)                   //nolint:errcheck
 		if ch.SiteURL != "" {
 			generateSitemap(siteDir, albums, ch.SiteURL) //nolint:errcheck
 		}
