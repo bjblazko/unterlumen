@@ -75,6 +75,7 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
   - **`.modal-overlay`** (used by `deps-modal`, `slideshow-modal`, `location-modal`, `export-modal`, `progress-dialog`, `batch-rename-modal`): register your own `document.addEventListener('keydown', ...)` that calls `this.close()` on Escape — the global guard returns early and defers to your listener.
   - **`.modal-backdrop` / `.library-dialog-backdrop`** (used by channel settings, publish dialog, new-library dialog): the global guard handles Escape centrally by clicking the first `.modal-close` or `[id$="-cancel"]` button it finds — make sure your dialog has one. Do **not** also add a separate keydown listener.
   - If you introduce a third root class, add it to the `querySelector` selector in `_handle()` in `app-keyboard.js`.
+- **Input focus guard** — `GlobalKeyboard._isInputFocused(e)` in `app-keyboard.js` is the single place that blocks all non-Escape shortcuts when any `INPUT`, `TEXTAREA`, `SELECT`, or `contenteditable` is active. It uses three complementary mechanisms: a `_inputActive` flag maintained by `focusin`/`focusout` listeners, plus `e.composedPath()` to detect events that bubble from inside shadow DOMs (e.g. `input[type="date"]`'s year segment in Safari bubbles keydown to the document while month/day don't). **Do not add per-shortcut `e.target.tagName` checks** — they don't survive shadow DOM retargeting and will silently fail. New form fields anywhere in the app are automatically covered; no extra work is needed.
 
 ## Gotchas
 

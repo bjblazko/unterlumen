@@ -1237,37 +1237,42 @@ class LibraryTab {
                     return;
                 }
 
-                if (validGroups.length > 1 && (galleryTitle || targetPostID)) {
-                    errEl.textContent = 'Gallery export is not supported when photos span multiple libraries. Please select photos from one library.';
-                    errEl.style.display = '';
-                    confirmBtn.disabled = false;
-                    confirmBtn.textContent = 'Publish';
-                    return;
-                }
-
                 if (galleryTitle || targetPostID) {
-                    // Single group guaranteed (multi-lib + gallery mode blocked above)
-                    const g = validGroups[0];
                     const progressEl = dlg.querySelector('#pub-progress');
                     progressEl.style.display = '';
-                    const resp = await LibraryAPI.publishStream(
-                        g.libID,
-                        { photoIDs: g.photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath },
-                        (evt) => {
-                            if (evt.step === 'photo')
-                                progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
-                            else if (evt.step === 'zip' || evt.step === 'html' || evt.step === 'site')
-                                progressEl.textContent = evt.file;
-                        }
-                    );
-                    const errors = (resp.results || []).filter(r => r.error);
+                    const groupCount = validGroups.length;
+                    let currentTargetPostID = targetPostID;
+                    let lastResp;
+                    const allErrors = [];
+                    for (let gi = 0; gi < groupCount; gi++) {
+                        const g = validGroups[gi];
+                        const prefix = groupCount > 1 ? `Library ${gi + 1} of ${groupCount}: ` : '';
+                        const resp = await LibraryAPI.publishStream(
+                            g.libID,
+                            {
+                                photoIDs: g.photoIDs, channel, account, publishedAt,
+                                galleryTitle: gi === 0 ? galleryTitle : undefined,
+                                targetPostID: currentTargetPostID,
+                                recordXMP, outputPath
+                            },
+                            (evt) => {
+                                if (evt.step === 'photo')
+                                    progressEl.textContent = `${prefix}Exporting photo ${evt.done} of ${evt.total}…`;
+                                else if (evt.step === 'zip' || evt.step === 'html' || evt.step === 'site')
+                                    progressEl.textContent = prefix + evt.file;
+                            }
+                        );
+                        if (gi === 0 && !targetPostID) currentTargetPostID = resp.postID;
+                        allErrors.push(...(resp.results || []).filter(r => r.error));
+                        lastResp = resp;
+                    }
                     dlg.remove();
-                    if (errors.length > 0) {
-                        alert(`Published with ${errors.length} error(s):\n${errors.map(e => e.error).join('\n')}`);
-                    } else if (resp.sitePath) {
-                        App.showToast(targetPostID ? `Photos added to album · site at ${resp.sitePath}` : `Album added · site at ${resp.sitePath}`);
+                    if (allErrors.length > 0) {
+                        alert(`Published with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
+                    } else if (lastResp.sitePath) {
+                        App.showToast(targetPostID ? `Photos added to album · site at ${lastResp.sitePath}` : `Album added · site at ${lastResp.sitePath}`);
                     } else {
-                        App.showToast(targetPostID ? `Photos added to gallery: ${resp.galleryPath}` : `Gallery ready: ${resp.galleryPath}`);
+                        App.showToast(targetPostID ? `Photos added to gallery: ${lastResp.galleryPath}` : `Gallery ready: ${lastResp.galleryPath}`);
                     }
                 } else {
                     let totalPublished = 0;

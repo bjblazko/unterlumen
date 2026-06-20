@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-06-19*
+*Last modified: 2026-06-20*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -31,7 +31,7 @@ All notable changes to this project are documented in this file.
 
 - **Library filter — date range filter** — A "Date taken" filter section with From/To date inputs is now available in the library filter panel. Restricts results to photos whose EXIF capture date falls within the chosen range. Works across all libraries.
 
-- **Publish from filter results** — The Publish button in the single-library detail view is now active when photos are selected from EXIF filter results, not only from the folder tree. In the cross-library list view a new Publish button appears in the header; it enables whenever filter results have a selection. Photos are published using their already-resolved IDs (no extra API lookups). If a cross-library selection spans multiple libraries, plain publish runs one call per library group; gallery/site export and ZIP download require all selected photos to be from one library (an error is shown otherwise).
+- **Publish from filter results** — The Publish button in the single-library detail view is now active when photos are selected from EXIF filter results, not only from the folder tree. In the cross-library list view a new Publish button appears in the header; it enables whenever filter results have a selection. Photos are published using their already-resolved IDs (no extra API lookups). If a cross-library selection spans multiple libraries, publish (plain and gallery/site export) runs one call per library group. ZIP download requires all selected photos to be from one library.
 
 - **In-app folder picker** — A new in-browser directory browser replaces the OS-native folder picker (`osascript`/`zenity`) in the export dialog. Works in desktop and server/container mode alike. New `GET /api/browse/dirs` endpoint returns subdirectories at a given path.
 
@@ -78,6 +78,10 @@ All notable changes to this project are documented in this file.
 - **Chip autocomplete dropdown visibility** — The dropdown now has an accent-coloured border (matching the selection ring on photos), a layered drop shadow with a warm orange ambient glow visible on dark backgrounds, and a minimum width of 280 px so it extends beyond the narrow sidebar rather than being clipped to its width.
 
 - **Publish dialog — album title required for site export** — Publishing to a multi-album site channel now validates that an album title is provided. If the field is left blank, an error message is shown and publishing is blocked rather than silently falling back to a titleless export.
+
+- **Cross-library gallery/site export** — Publishing photos selected from a cross-library search to a gallery or site album no longer fails with "Gallery export is not supported when photos span multiple libraries." Each library group is now published sequentially into the same album; subsequent groups are added to the album created by the first call. Progress shows "Library N of M:" when multiple libraries are involved.
+
+- **Keyboard shortcuts firing inside date inputs (Safari)** — Arrow keys, number keys, H, Backspace, and Delete were incorrectly intercepted while a date input was focused in Safari. Safari's `input[type="date"]` sends `keydown` events with a retargeted `e.target` (the outer `<input>` element) rather than the internal year/month/day segment that actually has focus, so the previous `e.target.tagName === 'INPUT'` guard only worked for some segments. The input focus guard is now centralised in `GlobalKeyboard._isInputFocused(e)`, which combines a `focusin`/`focusout` flag, `e.composedPath()` traversal, and a `document.activeElement` fallback to reliably detect any focused form element across shadow DOM boundaries. All redundant per-shortcut `tagName` checks have been removed. The `input.blur()` workaround in the date filter that forced keyboard focus away after every date change is also removed.
 
 ## [0.9.3] - 2026-06-05
 

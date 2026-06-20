@@ -4,10 +4,40 @@ class GlobalKeyboard {
     constructor(app) {
         this._app = app;
         this.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        this._inputActive = false;
     }
 
     attach() {
         document.addEventListener('keydown', (e) => this._handle(e));
+        document.addEventListener('focusin', (e) => {
+            const t = e.target?.tagName;
+            this._inputActive = t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || !!e.target?.isContentEditable;
+        });
+        // Defer so _inputActive stays true for the entire synchronous event-loop
+        // turn that contains the keydown. Safari fires blur on input[type="date"]
+        // synchronously during key processing — before the keydown finishes bubbling
+        // to our document listener — so a non-deferred clear would make _inputActive
+        // false by the time _isInputFocused() runs.
+        document.addEventListener('focusout', () => {
+            setTimeout(() => {
+                const active = document.activeElement;
+                const t = active?.tagName;
+                this._inputActive = t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || !!active?.isContentEditable;
+            }, 0);
+        });
+    }
+
+    // Returns true when a form element (input, textarea, select, contenteditable) is
+    // active. Uses three complementary checks to survive shadow DOM retargeting and
+    // Safari's non-standard blur-during-keydown behaviour for date inputs.
+    _isInputFocused(e) {
+        if (this._inputActive) return true;
+        const formTags = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+        for (const el of e.composedPath()) {
+            if (formTags.has(el.tagName) || el.isContentEditable) return true;
+        }
+        const active = document.activeElement;
+        return !!(active && (formTags.has(active.tagName) || active.isContentEditable));
     }
 
     _handle(e) {
@@ -27,7 +57,7 @@ class GlobalKeyboard {
             return;
         }
 
-        if (e.key !== 'Escape' && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+        if (e.key !== 'Escape' && this._isInputFocused(e)) return;
 
         // Tab: switch panes in commander mode
         if (e.key === 'Tab' && app.mode === 'commander' && app.commander) {
@@ -119,7 +149,6 @@ class GlobalKeyboard {
 
         // Backspace: mark for deletion in browse mode
         if (e.key === 'Backspace' && app.mode === 'browse' && app.browsePane) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
             if (document.querySelector('.viewer')) return;
             const targets = app.browsePane.getActionableFiles();
@@ -132,7 +161,6 @@ class GlobalKeyboard {
 
         // Backspace: mark for deletion in commander mode
         if (e.key === 'Backspace' && app.mode === 'commander' && app.commander) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
             const targets = app.commander.getActivePane().getActionableFiles();
             if (targets.length === 0) return;
@@ -164,7 +192,6 @@ class GlobalKeyboard {
 
         // Delete: mark for deletion in browse mode
         if (e.key === 'Delete' && app.mode === 'browse' && app.browsePane) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (document.querySelector('.viewer')) return;
             const targets = app.browsePane.getActionableFiles();
             if (targets.length === 0) return;
@@ -177,7 +204,6 @@ class GlobalKeyboard {
 
         // Delete: mark for deletion in commander mode
         if (e.key === 'Delete' && app.mode === 'commander' && app.commander) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             const targets = app.commander.getActivePane().getActionableFiles();
             if (targets.length === 0) return;
             e.preventDefault();
@@ -229,7 +255,6 @@ class GlobalKeyboard {
 
         // Arrow keys / Enter / Space: browse pane navigation
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (!document.querySelector('.viewer')) {
                 const pane = app.getActiveBrowsePane();
                 if (pane) {
@@ -252,7 +277,6 @@ class GlobalKeyboard {
 
         // 1/2/3/4: switch modes
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === '1') { e.preventDefault(); app.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); app.setMode('wastebin'); }
             else if (e.key === '3') { e.preventDefault(); app.setMode('commander'); }
@@ -261,7 +285,6 @@ class GlobalKeyboard {
 
         // H: toggle UI visibility
         if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (document.querySelector('.viewer')) return;
             e.preventDefault();
             app.toggleUIVisibility();

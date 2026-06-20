@@ -430,8 +430,7 @@ class LibrarySearchPanel {
             input.type = 'date';
             input.className = 'lib-date-input';
             input.value = initVal;
-            // Blur after change so keyboard navigation is immediately restored.
-            input.addEventListener('change', () => { onChange(input.value); input.blur(); });
+            input.addEventListener('change', () => onChange(input.value));
             // Escape blurs without changing value, restoring keyboard navigation.
             input.addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
             row.appendChild(lbl);
