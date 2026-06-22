@@ -247,8 +247,12 @@ func encodeToFormat(img image.Image, opts ExportOptions) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// exportWebP converts an image to WebP using ffmpeg with lanczos scaling.
+// exportWebP converts an image to WebP, using ffmpeg when libwebp is available
+// and falling back to cwebp (brew install webp) otherwise.
 func exportWebP(srcPath string, opts ExportOptions) ([]byte, error) {
+	if !CheckFFmpeg().WebPSupport && CheckCwebp() {
+		return exportWebPCwebp(srcPath, opts)
+	}
 	inputPath := srcPath
 
 	var ffArgs []string
@@ -267,10 +271,75 @@ func exportWebP(srcPath string, opts ExportOptions) ([]byte, error) {
 
 	encoded, err := ffmpegRun(inputPath, ffArgs...)
 	if err != nil {
+		if strings.Contains(err.Error(), "Encoder not found") || strings.Contains(err.Error(), "encoder not found") {
+			return nil, fmt.Errorf("WebP encoder not found — ffmpeg must be built with libwebp support (macOS: brew install ffmpeg)")
+		}
 		return nil, fmt.Errorf("WebP encode via ffmpeg: %w", err)
 	}
 
 	// EXIF injection (non-fatal).
+	if opts.ExifMode == "keep" || opts.ExifMode == "keep_no_gps" {
+		if patched, err := injectExif(srcPath, encoded, "webp", opts.ExifMode); err == nil {
+			encoded = patched
+		}
+	}
+
+	return encoded, nil
+}
+
+// exportWebPCwebp converts an image to WebP using cwebp (brew install webp).
+// ffmpeg decodes the source to a full-resolution temp PNG; cwebp encodes and
+// scales in one step. Scaling is done by cwebp (-resize) rather than ffmpeg's
+// -vf filter because HEIC multi-tile files use a complex filtergraph internally,
+// which conflicts with a simple -vf filter and causes ffmpeg to error.
+func exportWebPCwebp(srcPath string, opts ExportOptions) ([]byte, error) {
+	tmpPNG, err := os.CreateTemp("", "unterlumen-cwebp-*.png")
+	if err != nil {
+		return nil, err
+	}
+	tmpPNGPath := tmpPNG.Name()
+	tmpPNG.Close()
+	defer os.Remove(tmpPNGPath)
+
+	// Decode to full-resolution PNG — no scale filter.
+	// -pix_fmt rgb24: cwebp cannot handle 16-bit PNG (HEIC decodes to rgb48be)
+	// -update 1: write a single file, not an image sequence
+	ffArgs := []string{"-i", srcPath, "-pix_fmt", "rgb24", "-vframes", "1", "-update", "1", "-y", tmpPNGPath}
+	var decodeStderr bytes.Buffer
+	decodeCmd := exec.Command("ffmpeg", ffArgs...)
+	decodeCmd.Stderr = &decodeStderr
+	if err := decodeCmd.Run(); err != nil {
+		return nil, fmt.Errorf("WebP via cwebp: decode: %v: %s", err, decodeStderr.String())
+	}
+
+	// Build cwebp args; handle scaling via -resize instead of ffmpeg -vf.
+	cwebpArgs := []string{"-q", fmt.Sprintf("%d", opts.Quality)}
+	if opts.Scale.Mode != ScaleModeNone && opts.Scale.Mode != "" {
+		origW, origH := getImageDims(srcPath)
+		if origW > 0 && origH > 0 {
+			// Mirror the orientation-aware dimension swap from buildFFmpegScaleFilter.
+			ori := ExtractOrientation(srcPath)
+			if ori == 0 && IsHEIF(srcPath) {
+				ori = ExtractHEIFOrientation(srcPath)
+			}
+			if ori >= 5 {
+				origW, origH = origH, origW
+			}
+			w, h := computeTargetDims(origW, origH, opts.Scale)
+			cwebpArgs = append(cwebpArgs, "-resize", fmt.Sprintf("%d", w), fmt.Sprintf("%d", h))
+		}
+	}
+	cwebpArgs = append(cwebpArgs, tmpPNGPath, "-o", "-")
+
+	var out, encStderr bytes.Buffer
+	encCmd := exec.Command("cwebp", cwebpArgs...)
+	encCmd.Stdout = &out
+	encCmd.Stderr = &encStderr
+	if err := encCmd.Run(); err != nil {
+		return nil, fmt.Errorf("cwebp encode: %v: %s", err, encStderr.String())
+	}
+
+	encoded := out.Bytes()
 	if opts.ExifMode == "keep" || opts.ExifMode == "keep_no_gps" {
 		if patched, err := injectExif(srcPath, encoded, "webp", opts.ExifMode); err == nil {
 			encoded = patched

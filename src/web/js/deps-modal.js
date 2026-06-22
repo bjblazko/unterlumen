@@ -53,12 +53,18 @@ class DepsModal {
         const ffmpeg = status && status.ffmpeg || {};
         const exiftool = status && status.exiftool || {};
         const sips = status && status.sips || {};
+        const webpAvailable = status && status.webpAvailable;
 
         const install = {
             ffmpeg: {
                 darwin: 'brew install ffmpeg',
                 linux: 'sudo apt install ffmpeg   # Debian/Ubuntu\nsudo dnf install ffmpeg   # Fedora/RHEL',
                 windows: 'Download from https://ffmpeg.org/download.html and add to PATH',
+            },
+            cwebp: {
+                darwin: 'brew install webp',
+                linux: 'sudo apt install webp   # Debian/Ubuntu\nsudo dnf install libwebp-tools   # Fedora/RHEL',
+                windows: 'Download from https://developers.google.com/speed/webp/download and add to PATH',
             },
             exiftool: {
                 darwin: 'brew install exiftool',
@@ -71,7 +77,7 @@ class DepsModal {
 
         const deps = [];
 
-        // ffmpeg
+        // ffmpeg — HEIF/HEIC display only; WebP encoder status is separate
         if (!ffmpeg.available) {
             deps.push({
                 name: 'ffmpeg',
@@ -93,6 +99,17 @@ class DepsModal {
                 name: 'ffmpeg',
                 desc: 'Required for HEIF/HEIC image display and WebP export',
                 ok: true,
+            });
+        }
+
+        // cwebp — only shown when ffmpeg lacks the libwebp encoder
+        if (ffmpeg.available && !ffmpeg.webpSupport) {
+            deps.push({
+                name: 'cwebp',
+                desc: 'WebP encoder — required for WebP export (ffmpeg on this system lacks libwebp)',
+                ok: webpAvailable,
+                note: webpAvailable ? null : 'Not installed — WebP export is unavailable.',
+                install: webpAvailable ? null : get(install.cwebp),
             });
         }
 

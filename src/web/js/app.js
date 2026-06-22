@@ -524,6 +524,7 @@ const App = {
             this.exportModal.open(files, {
                 serverRole: this.config?.serverRole ?? false,
                 exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
+                webpSupport: this.toolsStatus?.webpAvailable ?? false,
                 sourcePath: sourcePath || null,
             });
         } else if (tool === 'clear-cache') {

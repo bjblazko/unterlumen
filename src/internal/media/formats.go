@@ -36,10 +36,11 @@ func IsHEIF(name string) bool {
 	return ext == ".heif" || ext == ".heic" || ext == ".hif"
 }
 
-// FFmpegStatus describes the availability of ffmpeg and its HEIF support.
+// FFmpegStatus describes the availability of ffmpeg and its codec support.
 type FFmpegStatus struct {
 	Available    bool
 	HEIFSupport  bool
+	WebPSupport  bool
 	ErrorMessage string
 }
 
@@ -79,6 +80,14 @@ func CheckFFmpeg() FFmpegStatus {
 			ffmpegStatus.HEIFSupport = false
 			ffmpegStatus.ErrorMessage = "ffmpeg is installed but lacks HEVC/HEIF decoder support. HEIF/HEIC files cannot be displayed. Reinstall ffmpeg with HEIF support (e.g. 'brew install ffmpeg' on macOS or install libheif/libde265)."
 		}
+
+		var encOut bytes.Buffer
+		encCmd := exec.Command("ffmpeg", "-encoders")
+		encCmd.Stdout = &encOut
+		encCmd.Stderr = &bytes.Buffer{}
+		if err := encCmd.Run(); err == nil {
+			ffmpegStatus.WebPSupport = strings.Contains(encOut.String(), "webp")
+		}
 	})
 
 	return ffmpegStatus
@@ -97,6 +106,22 @@ func CheckSips() bool {
 		sipsAvailable = err == nil && path != ""
 	})
 	return sipsAvailable
+}
+
+var (
+	cwebpAvailable     bool
+	cwebpAvailableOnce sync.Once
+)
+
+// CheckCwebp returns true if cwebp (from libwebp / brew install webp) is available.
+// Used as a WebP encoder fallback when ffmpeg lacks libwebp support.
+// The result is cached for the lifetime of the process.
+func CheckCwebp() bool {
+	cwebpAvailableOnce.Do(func() {
+		path, err := exec.LookPath("cwebp")
+		cwebpAvailable = err == nil && path != ""
+	})
+	return cwebpAvailable
 }
 
 // --- Persistent disk cache ---

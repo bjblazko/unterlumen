@@ -218,7 +218,8 @@ cd src && go build -o ../unterlumen .
 
 ### Optional dependencies
 
-- **ffmpeg** — required for HEIF/HEIC/HIF support (embedded preview extraction and HEVC decode fallback)
+- **ffmpeg** — required for HEIF/HEIC/HIF support (embedded preview extraction and HEVC decode fallback) and WebP export (when built with `libwebp`)
+- **cwebp** (from `libwebp` / `brew install webp`) — required for WebP export when ffmpeg is built without `libwebp` (e.g. the default Homebrew ffmpeg on macOS). If ffmpeg already has WebP support, cwebp is not needed.
 - **heif-convert** (from `libheif-examples` / `libheif`) — recommended alongside ffmpeg; handles HEIF files that ffmpeg cannot parse, such as standard Fujifilm HEIC files that carry no embedded JPEG preview stream. Without it those files show a placeholder instead of a thumbnail.
 - **exiftool** — required for Set/Remove Geolocation, Batch Rename, and Export EXIF copy/GPS-strip
 

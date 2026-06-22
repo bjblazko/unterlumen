@@ -9,11 +9,12 @@ class ExportModal {
         this._estimateAbort = null; // AbortController for exact estimation
     }
 
-    open(files, { serverRole = false, exiftoolAvailable = false, sourcePath = null } = {}) {
+    open(files, { serverRole = false, exiftoolAvailable = false, webpSupport = true, sourcePath = null } = {}) {
         if (this.overlay) this.close();
         this._files = files;
         this._serverRole = serverRole;
         this._exiftoolAvailable = exiftoolAvailable;
+        this._webpSupport = webpSupport;
         this._sourcePath = sourcePath;
 
         this._buildDOM();
@@ -43,9 +44,11 @@ class ExportModal {
         const files = this._files;
         const serverRole = this._serverRole;
         const exiftoolAvailable = this._exiftoolAvailable;
+        const webpSupport = this._webpSupport;
 
         const gpsNote = exiftoolAvailable ? '' : ' <span class="export-note">(requires exiftool)</span>';
         const gpsDisabled = exiftoolAvailable ? '' : ' disabled';
+        const webpDisabled = webpSupport ? '' : ' disabled title="WebP encoder not available — install cwebp (brew install webp) or ffmpeg with libwebp"';
 
         const folderPlaceholder = serverRole ? 'relative path, e.g. exports/batch' : '/path/to/folder or relative/subfolder';
         const outputSection = `
@@ -79,7 +82,7 @@ class ExportModal {
                             <div class="export-format-tabs">
                                 <button class="btn btn-sm active" data-format="jpeg">JPEG</button>
                                 <button class="btn btn-sm" data-format="png">PNG</button>
-                                <button class="btn btn-sm" data-format="webp">WebP</button>
+                                <button class="btn btn-sm" data-format="webp"${webpDisabled}>WebP</button>
                             </div>
                         </div>
                         <div class="export-row export-quality-row">
@@ -170,6 +173,7 @@ class ExportModal {
         // Format tabs
         this.overlay.querySelectorAll('[data-format]').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (btn.disabled) return;
                 this.overlay.querySelectorAll('[data-format]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const isPNG = btn.dataset.format === 'png';
