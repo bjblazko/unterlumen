@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-06-20*
+*Last modified: 2026-06-23*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -81,9 +81,13 @@ All notable changes to this project are documented in this file.
 
 - **Cross-library gallery/site export** — Publishing photos selected from a cross-library search to a gallery or site album no longer fails with "Gallery export is not supported when photos span multiple libraries." Each library group is now published sequentially into the same album; subsequent groups are added to the album created by the first call. Progress shows "Library N of M:" when multiple libraries are involved.
 
-- **WebP export on macOS failing with "Encoder not found"** — ffmpeg WebP encoder support (libwebp) is now detected at startup alongside the existing HEIF decoder check. The export modal disables the WebP button with a tooltip when the encoder is missing, the deps dialog reports the issue clearly, and the export error message now names the missing encoder and the fix (macOS: `brew install ffmpeg`).
-
 - **Keyboard shortcuts firing inside date inputs (Safari)** — Arrow keys, number keys, H, Backspace, and Delete were incorrectly intercepted while a date input was focused in Safari. Safari's `input[type="date"]` sends `keydown` events with a retargeted `e.target` (the outer `<input>` element) rather than the internal year/month/day segment that actually has focus, so the previous `e.target.tagName === 'INPUT'` guard only worked for some segments. The input focus guard is now centralised in `GlobalKeyboard._isInputFocused(e)`, which combines a `focusin`/`focusout` flag, `e.composedPath()` traversal, and a `document.activeElement` fallback to reliably detect any focused form element across shadow DOM boundaries. All redundant per-shortcut `tagName` checks have been removed. The `input.blur()` workaround in the date filter that forced keyboard focus away after every date change is also removed.
+
+## [0.9.4] - 2026-06-23
+
+### Fixed
+
+- **WebP export on macOS failing with "Encoder not found"** — The default Homebrew ffmpeg (8.x) is built without `libwebp`, causing WebP export to fail silently with a cryptic error. The fix detects ffmpeg's WebP encoder support at startup; when absent, it falls back to `cwebp` (from `brew install webp`). The cwebp path uses ffmpeg for decoding (handling HEIC/HIF multi-tile files with `-pix_fmt rgb24` to avoid 16-bit PNG incompatibility and `-vf` scale filter conflicts), then `cwebp -resize` for scaling and encoding. The export modal disables the WebP button when neither encoder is available; the deps dialog shows `cwebp` as a separate entry with per-OS install instructions when ffmpeg lacks `libwebp`.
 
 ## [0.9.3] - 2026-06-05
 
