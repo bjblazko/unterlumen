@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-06-24
+
 ### Added
 
 - **Site logo + persistent masthead** — Multi-album site pages now show a persistent two-row header on every generated page. Row 1 (always visible): optional logo image + site name (links back to the root index on sub-pages). Row 2 (sub-pages only): back arrow + current page title (album name, "About", or "Legal Notice"). The root index keeps a single-row header with the site name as `<h1>`. An optional **site logo** can be uploaded per channel via the Website tab in channel settings (stored as `site/assets/logo.jpg`); upload and remove work the same way as the author portrait. "Rebuild site" regenerates all pages with the current logo and site name.

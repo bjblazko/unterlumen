@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "setup": "bash fixtures/setup.sh",
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
+    "test": "bash fixtures/setup.sh && playwright test",
+    "test:headed": "bash fixtures/setup.sh && playwright test --headed",
     "test:ui": "playwright test --ui"
   },
   "devDependencies": {
