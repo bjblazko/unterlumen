@@ -86,10 +86,16 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	progress <- Progress{Done: total, Total: total, Finished: true}
 }
 
-// RunScanNew walks the source directory and indexes new or changed photos without
+// RunScanNew walks the full source directory and indexes new or changed photos without
 // removing photos for files that no longer exist on disk. Safe to call after an
 // interrupted full index, or when new files were added by an external tool.
 func (idx *Indexer) RunScanNew(ctx context.Context, progress chan<- Progress) {
+	idx.RunScanNewInFolder(ctx, progress, "")
+}
+
+// RunScanNewInFolder is like RunScanNew but scoped to a subfolder relative to the
+// library source path. An empty subfolder scans the full library.
+func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Progress, subfolder string) {
 	defer close(progress)
 	defer func() {
 		if n, err := idx.store.CountPhotos(); err == nil {
@@ -97,7 +103,18 @@ func (idx *Indexer) RunScanNew(ctx context.Context, progress chan<- Progress) {
 		}
 	}()
 
-	files, err := collectFiles(idx.sourcePath)
+	scanRoot := idx.sourcePath
+	if subfolder != "" {
+		candidate := filepath.Join(idx.sourcePath, filepath.Clean(subfolder))
+		// Reject paths that escape the source directory.
+		if candidate != idx.sourcePath && !strings.HasPrefix(candidate, idx.sourcePath+string(filepath.Separator)) {
+			progress <- Progress{Error: "invalid subfolder path", Finished: true}
+			return
+		}
+		scanRoot = candidate
+	}
+
+	files, err := collectFiles(scanRoot)
 	if err != nil {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
@@ -143,6 +160,15 @@ func (idx *Indexer) indexFile(absPath string) error {
 			return err
 		}
 		idx.indexSidecar(absPath, cachedID)
+		// For HEIF files, attempt to generate a thumbnail if one was not produced during
+		// initial indexing (e.g. because heif-convert failed on the first scan).
+		if media.IsHEIF(absPath) {
+			if currentThumb, _ := idx.store.GetPhotoThumbPath(cachedID); currentThumb == "" {
+				if thumbRel, err := idx.ensureThumbnail(absPath, cachedID); err == nil {
+					idx.store.SetPhotoThumbPath(cachedID, thumbRel) //nolint:errcheck
+				}
+			}
+		}
 		return nil
 	}
 
@@ -152,7 +178,7 @@ func (idx *Indexer) indexFile(absPath string) error {
 		return err
 	}
 
-	// Rename case: photo already indexed under a different path.
+	// Photo already indexed (rename case, or path-cache was cleared for forced re-index).
 	exists, err := idx.store.PhotoExists(photoID)
 	if err != nil {
 		return err
@@ -165,6 +191,14 @@ func (idx *Indexer) indexFile(absPath string) error {
 			return err
 		}
 		idx.indexSidecar(absPath, photoID)
+		// Regenerate missing thumbnail (e.g. after a forced re-index of a folder).
+		if media.IsHEIF(absPath) {
+			if currentThumb, _ := idx.store.GetPhotoThumbPath(photoID); currentThumb == "" {
+				if thumbRel, err := idx.ensureThumbnail(absPath, photoID); err == nil {
+					idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+				}
+			}
+		}
 		return nil
 	}
 
@@ -197,6 +231,81 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
 		return err
 	}
+	numericValues := media.NormalizeExifNumbers(exifFields)
+	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
+		return err
+	}
+	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+		return err
+	}
+	idx.indexSidecar(absPath, photoID)
+	return nil
+}
+
+// forceReindexFile re-extracts EXIF, deletes any existing thumbnail from disk,
+// regenerates the thumbnail, and updates the DB — regardless of mtime/size.
+// It preserves photo_meta (publications, ratings, tags).
+func (idx *Indexer) forceReindexFile(absPath string) error {
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return err
+	}
+	mtimeNs := info.ModTime().UnixNano()
+	fileSize := info.Size()
+
+	photoID, err := hashFile(absPath)
+	if err != nil {
+		return err
+	}
+
+	exifJSON := "{}"
+	exifFields := make(map[string]string)
+	dateTaken := ""
+	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
+		for k, v := range exifData.Tags {
+			exifFields[k] = v
+		}
+		if exifData.DateTaken != nil {
+			dateTaken = *exifData.DateTaken
+			exifFields["DateTaken"] = dateTaken
+		}
+		if b, err := json.Marshal(exifData); err == nil {
+			exifJSON = string(b)
+		}
+	}
+
+	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
+	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
+	if n, ok := extNorm[ext]; ok {
+		ext = n
+	}
+
+	// Delete existing thumbnail from disk so ensureThumbnail rebuilds it from scratch.
+	absThumb := filepath.Join(idx.libDir, "thumbs", photoID[:2], photoID+".jpg")
+	os.Remove(absThumb) //nolint:errcheck
+
+	thumbRel, _ := idx.ensureThumbnail(absPath, photoID)
+
+	exists, err := idx.store.PhotoExists(photoID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
+			return err
+		}
+	} else {
+		if err := idx.store.UpdatePhotoExif(photoID, exifJSON, dateTaken); err != nil {
+			return err
+		}
+		if err := idx.store.SetPhotoThumbPath(photoID, thumbRel); err != nil {
+			return err
+		}
+		if err := idx.store.MarkPhotoPresent(photoID, absPath, filepath.Base(absPath)); err != nil {
+			return err
+		}
+	}
+
 	numericValues := media.NormalizeExifNumbers(exifFields)
 	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
 		return err
@@ -309,6 +418,226 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 			idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
 		}
 	}
+}
+
+// RunInFolder force-reindexes every file in subfolder (relative to sourcePath),
+// regardless of mtime/size. It re-extracts EXIF, deletes any existing thumbnails
+// from disk, and regenerates them from scratch — but preserves photo_meta
+// (publications, ratings, tags). An empty subfolder reindexes the full source tree.
+func (idx *Indexer) RunInFolder(ctx context.Context, progress chan<- Progress, subfolder string) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	scanRoot := idx.sourcePath
+	if subfolder != "" {
+		candidate := filepath.Join(idx.sourcePath, filepath.Clean(subfolder))
+		if candidate != idx.sourcePath && !strings.HasPrefix(candidate, idx.sourcePath+string(filepath.Separator)) {
+			progress <- Progress{Error: "invalid subfolder path", Finished: true}
+			return
+		}
+		scanRoot = candidate
+	}
+
+	files, err := collectFiles(scanRoot)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		if err := idx.forceReindexFile(absPath); err != nil {
+			continue
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// resolveSubfolder validates and resolves subfolder (relative to sourcePath) to an
+// absolute scan root. Returns an error message if the path escapes sourcePath.
+func (idx *Indexer) resolveSubfolder(subfolder string) (string, string) {
+	if subfolder == "" {
+		return idx.sourcePath, ""
+	}
+	candidate := filepath.Join(idx.sourcePath, filepath.Clean(subfolder))
+	if candidate != idx.sourcePath && !strings.HasPrefix(candidate, idx.sourcePath+string(filepath.Separator)) {
+		return "", "invalid subfolder path"
+	}
+	return candidate, ""
+}
+
+// RunRegenerateMissingPreviewsInFolder generates thumbnails for photos inside
+// subfolder that have no thumbnail in the DB or whose thumbnail file is missing
+// on disk. It uses the path cache to avoid re-hashing source files.
+// An empty subfolder covers the full source tree.
+func (idx *Indexer) RunRegenerateMissingPreviewsInFolder(ctx context.Context, progress chan<- Progress, subfolder string) {
+	defer close(progress)
+
+	scanRoot, pathErr := idx.resolveSubfolder(subfolder)
+	if pathErr != "" {
+		progress <- Progress{Error: pathErr, Finished: true}
+		return
+	}
+
+	files, err := collectFiles(scanRoot)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		photoID, _, _, found, err := idx.store.GetPathCache(absPath)
+		if err != nil || !found {
+			continue
+		}
+
+		currentThumb, _ := idx.store.GetPhotoThumbPath(photoID)
+		if currentThumb != "" {
+			absThumb := filepath.Join(idx.libDir, currentThumb)
+			if _, err := os.Stat(absThumb); err == nil {
+				continue
+			}
+		}
+
+		if thumbRel, err := idx.ensureThumbnail(absPath, photoID); err == nil {
+			idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+		}
+	}
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// RunRebuildAllPreviewsInFolder deletes and regenerates every thumbnail inside
+// subfolder without re-extracting EXIF. It uses the path cache to avoid re-hashing.
+// An empty subfolder covers the full source tree.
+func (idx *Indexer) RunRebuildAllPreviewsInFolder(ctx context.Context, progress chan<- Progress, subfolder string) {
+	defer close(progress)
+
+	scanRoot, pathErr := idx.resolveSubfolder(subfolder)
+	if pathErr != "" {
+		progress <- Progress{Error: pathErr, Finished: true}
+		return
+	}
+
+	files, err := collectFiles(scanRoot)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(files)
+	for i, absPath := range files {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+
+		photoID, _, _, found, err := idx.store.GetPathCache(absPath)
+		if err != nil || !found {
+			continue
+		}
+
+		absThumb := filepath.Join(idx.libDir, "thumbs", photoID[:2], photoID+".jpg")
+		os.Remove(absThumb) //nolint:errcheck
+
+		thumbRel, _ := idx.ensureThumbnail(absPath, photoID)
+		idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+	}
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// RunCleanupInFolder removes indexed photos inside subfolder whose source files
+// no longer exist on disk. An empty subfolder cleans up the full library.
+func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Progress, subfolder string) {
+	defer close(progress)
+	defer func() {
+		if n, err := idx.store.CountPhotos(); err == nil {
+			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+	}()
+
+	scanRoot := idx.sourcePath
+	if subfolder != "" {
+		candidate := filepath.Join(idx.sourcePath, filepath.Clean(subfolder))
+		if candidate != idx.sourcePath && !strings.HasPrefix(candidate, idx.sourcePath+string(filepath.Separator)) {
+			progress <- Progress{Error: "invalid subfolder path", Finished: true}
+			return
+		}
+		scanRoot = candidate
+	}
+
+	presentPaths, err := collectFileSet(scanRoot)
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	var refs []PhotoRef
+	if subfolder == "" {
+		refs, err = idx.store.ListAllPhotoRefs()
+	} else {
+		refs, err = idx.store.ListPhotoRefsInFolder(scanRoot)
+	}
+	if err != nil {
+		progress <- Progress{Error: err.Error(), Finished: true}
+		return
+	}
+
+	total := len(refs)
+	missing := 0
+	for i, ref := range refs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(ref.PathHint)}
+
+		if !presentPaths[ref.PathHint] {
+			if err := idx.store.MarkPhotoMissing(ref.ID); err == nil {
+				missing++
+			}
+		}
+	}
+
+	if missing > 0 {
+		idx.store.PurgeMissingPhotos() //nolint:errcheck
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	idx.store.SetProp("last_indexed", now) //nolint:errcheck
+
+	progress <- Progress{Done: total, Total: total, Finished: true}
 }
 
 // RunCleanup removes indexed photos whose source files no longer exist on disk.

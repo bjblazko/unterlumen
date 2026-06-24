@@ -53,6 +53,7 @@ class DepsModal {
         const ffmpeg = status && status.ffmpeg || {};
         const exiftool = status && status.exiftool || {};
         const sips = status && status.sips || {};
+        const heifConvert = status && status.heifConvert || {};
         const webpAvailable = status && status.webpAvailable;
 
         const install = {
@@ -60,6 +61,9 @@ class DepsModal {
                 darwin: 'brew install ffmpeg',
                 linux: 'sudo apt install ffmpeg   # Debian/Ubuntu\nsudo dnf install ffmpeg   # Fedora/RHEL',
                 windows: 'Download from https://ffmpeg.org/download.html and add to PATH',
+            },
+            heifConvert: {
+                linux: 'sudo apt install libheif-examples   # Debian/Ubuntu\nsudo dnf install libheif   # Fedora/RHEL',
             },
             cwebp: {
                 darwin: 'brew install webp',
@@ -77,7 +81,7 @@ class DepsModal {
 
         const deps = [];
 
-        // ffmpeg — HEIF/HEIC display only; WebP encoder status is separate
+        // ffmpeg — WebP export and embedded JPEG stream extraction from HEIF
         if (!ffmpeg.available) {
             deps.push({
                 name: 'ffmpeg',
@@ -85,6 +89,15 @@ class DepsModal {
                 ok: false,
                 note: 'Not installed — HEIF/HEIC images cannot be displayed and WebP export is unavailable.',
                 install: get(install.ffmpeg),
+            });
+        } else if (platform !== 'darwin' && !ffmpeg.heifSupport) {
+            // On Linux, ffmpeg may lack the HEIF container decoder even if hevc codec is present.
+            // heif-convert (below) is the primary decoder; ffmpeg is still needed for WebP export.
+            deps.push({
+                name: 'ffmpeg',
+                desc: 'Required for WebP export and embedded HEIF preview extraction',
+                ok: true,
+                note: 'Installed. On this platform, HEIF/HEIC display uses heif-convert (see below).',
             });
         } else if (!ffmpeg.heifSupport) {
             deps.push({
@@ -99,6 +112,17 @@ class DepsModal {
                 name: 'ffmpeg',
                 desc: 'Required for HEIF/HEIC image display and WebP export',
                 ok: true,
+            });
+        }
+
+        // heif-convert (Linux only) — primary HEIF/HEIC decoder when ffmpeg lacks libheif
+        if (platform !== 'darwin') {
+            deps.push({
+                name: 'heif-convert',
+                desc: 'Required for HEIF/HEIC image display on Linux (from libheif-examples)',
+                ok: heifConvert.available,
+                note: heifConvert.available ? null : 'Not installed — HEIF/HEIC images cannot be displayed.',
+                install: heifConvert.available ? null : get(install.heifConvert),
             });
         }
 

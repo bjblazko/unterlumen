@@ -320,6 +320,35 @@ type PhotoRef struct {
 	PathHint string
 }
 
+// DeletePathCacheForFolder removes all path_cache entries whose abs_path is inside
+// folderPath (i.e. starts with "<folderPath>/"). Forcing re-hashing on the next
+// indexFile call so EXIF and thumbnails are re-evaluated even for unchanged files.
+func (s *Store) DeletePathCacheForFolder(folderPath string) error {
+	prefix := folderPath + string(filepath.Separator) + "%"
+	_, err := s.db.Exec(`DELETE FROM path_cache WHERE abs_path LIKE ?`, prefix)
+	return err
+}
+
+// ListPhotoRefsInFolder returns the ID and path_hint for every ok photo whose
+// path_hint lives inside folderPath (i.e. starts with "<folderPath>/").
+func (s *Store) ListPhotoRefsInFolder(folderPath string) ([]PhotoRef, error) {
+	prefix := folderPath + string(filepath.Separator) + "%"
+	rows, err := s.db.Query(`SELECT id, path_hint FROM photos WHERE path_hint LIKE ? AND status='ok'`, prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var refs []PhotoRef
+	for rows.Next() {
+		var r PhotoRef
+		if err := rows.Scan(&r.ID, &r.PathHint); err != nil {
+			return nil, err
+		}
+		refs = append(refs, r)
+	}
+	return refs, rows.Err()
+}
+
 // ListAllPhotoRefs returns the ID and path_hint for every ok photo.
 func (s *Store) ListAllPhotoRefs() ([]PhotoRef, error) {
 	rows, err := s.db.Query(`SELECT id, path_hint FROM photos WHERE status='ok'`)
@@ -419,6 +448,19 @@ func (s *Store) GetPhotoThumbPath(id string) (string, error) {
 		return "", err
 	}
 	return thumbPath.String, nil
+}
+
+// SetPhotoThumbPath sets the thumb_path for a photo.
+func (s *Store) SetPhotoThumbPath(id, thumbPath string) error {
+	_, err := s.db.Exec(`UPDATE photos SET thumb_path=? WHERE id=?`, thumbPath, id)
+	return err
+}
+
+// UpdatePhotoExif replaces the stored EXIF JSON and date_taken for a photo.
+// Used by forced re-index to pick up EXIF changes made by external tools.
+func (s *Store) UpdatePhotoExif(id, exifJSON, dateTaken string) error {
+	_, err := s.db.Exec(`UPDATE photos SET exif_json=?, date_taken=? WHERE id=?`, exifJSON, dateTaken, id)
+	return err
 }
 
 // GetPhotoPathHint returns the last known absolute path for a photo.

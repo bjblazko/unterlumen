@@ -3143,7 +3143,7 @@ body.slideshow-active #app { height: 100vh; }
     background: var(--bg-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
 }
 
@@ -3161,6 +3161,13 @@ body.slideshow-active #app { height: 100vh; }
     border-top: 1px solid var(--border);
     height: 48px;
     flex-shrink: 0;
+    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+}
+
+.library-card-top:last-child {
+    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
 }
 
 .library-card-filmstrip img {

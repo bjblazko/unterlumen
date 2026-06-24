@@ -476,12 +476,14 @@ class BrowsePane {
                             <label class="dropdown-label">Library</label>
                             <div class="dropdown-wrap lib-scan-tools-wrap">
                                 <div class="dropdown-toggle">
-                                    <button class="btn btn-sm tool-item" data-tool="lib-scan-new">Scan new and changed</button>
+                                    <button class="btn btn-sm tool-item" data-tool="lib-scan-new">Scan for new photos</button>
                                     <button class="btn btn-sm lib-scan-tools-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
                                 </div>
                                 <div class="dropdown-menu lib-scan-tools-menu" style="display:none">
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-reindex">Re-index (full)</button>
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-cleanup">Cleanup deleted</button>
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-reindex">Rebuild metadata &amp; previews</button>
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-regen-missing">Generate missing previews</button>
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-rebuild-all">Rebuild all previews</button>
+                                    <button class="btn dropdown-item tool-item" data-tool="lib-cleanup">Remove deleted photos</button>
                                 </div>
                             </div>
                         </div>
@@ -675,6 +677,7 @@ class BrowsePane {
                         closeToolsMenu();
                         if (this.onToolInvoke) this.onToolInvoke({
                             tool, files: [],
+                            path: this.path,
                             onDone: () => { if (toolsBtn) toolsBtn.disabled = false; },
                         });
                         return;

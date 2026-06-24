@@ -206,7 +206,7 @@ To update Unterlumen, download the new binary and run `-desktop-install` again �
 
 ### Docker / Podman
 
-Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container Registry and include ffmpeg, heif-convert, and exiftool — no separate install needed. Jump to the [Docker / Podman](#docker--podman) section below.
+Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container Registry and include ffmpeg, heif-convert, cwebp, and exiftool — no separate install needed. Jump to the [Docker / Podman](#docker--podman) section below.
 
 ### Build from source
 
@@ -289,7 +289,7 @@ Then open `http://localhost:8080` in your browser (or whichever port you configu
 
 ## Docker / Podman
 
-Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg, heif-convert, and exiftool.
+Pre-built images for `linux/amd64` and `linux/arm64` are published to the GitHub Container Registry and include ffmpeg, heif-convert, cwebp, and exiftool — no separate install needed.
 
 ```
 docker run -p 8080:8080 -v /path/to/photos:/photos ghcr.io/bjblazko/unterlumen:latest

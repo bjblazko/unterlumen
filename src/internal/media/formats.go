@@ -124,6 +124,22 @@ func CheckCwebp() bool {
 	return cwebpAvailable
 }
 
+var (
+	heifConvertAvailable     bool
+	heifConvertAvailableOnce sync.Once
+)
+
+// CheckHeifConvert returns true if heif-convert (from libheif-examples) is available.
+// Used as the primary HEIF/HEIC decoder on Linux when ffmpeg lacks libheif support.
+// The result is cached for the lifetime of the process.
+func CheckHeifConvert() bool {
+	heifConvertAvailableOnce.Do(func() {
+		path, err := exec.LookPath("heif-convert")
+		heifConvertAvailable = err == nil && path != ""
+	})
+	return heifConvertAvailable
+}
+
 // --- Persistent disk cache ---
 
 var (
@@ -427,10 +443,10 @@ func heifConvert(path string) ([]byte, error) {
 	var stderr bytes.Buffer
 	cmd := exec.Command("heif-convert", path, outPath)
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("heif-convert failed: %v: %s", err, stderr.String())
-	}
+	runErr := cmd.Run()
 
+	// Check for output regardless of exit code — heif-convert may exit non-zero on
+	// warnings (e.g. unrecognised metadata) while still producing a valid JPEG.
 	entries, err := os.ReadDir(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("heif-convert: read output dir: %w", err)
@@ -443,6 +459,9 @@ func heifConvert(path string) ([]byte, error) {
 		if err == nil && len(data) > 0 {
 			return data, nil
 		}
+	}
+	if runErr != nil {
+		return nil, fmt.Errorf("heif-convert failed: %v: %s", runErr, stderr.String())
 	}
 	return nil, fmt.Errorf("heif-convert produced no output")
 }

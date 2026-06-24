@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-06-23*
+*Last modified: 2026-06-24*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -67,7 +67,24 @@ All notable changes to this project are documented in this file.
 - **Generated website icons** — Replaced thin Unicode arrow characters with clean SVG icons: chevron arrows for lightbox navigation and back-to-albums, a download icon for the ZIP link. Applies to both site and single-gallery templates.
 - **Generated site album date** — The date shown under each album card on the site index now shows a range (e.g. "June – August 2025") when photos have been added across different months, instead of only the original publish date.
 
+- **Library scan operations — clearer labels, folder scope, and two new options** — The scan actions in both the Tools dropdown (grid/library view) and the library overview card have been reworked. All five operations in the Tools dropdown are scoped to the current browsed folder; the library overview card applies them to the entire library:
+  - **Scan for new photos** — adds files added or changed since the last scan (mtime/size fast-path; unchanged files are skipped). Former label: "Scan new and changed".
+  - **Rebuild metadata & previews** — forces a full re-index of every file in scope: re-extracts EXIF from the source file (picking up changes made by external tools such as exiftool), deletes any existing thumbnail from disk, and regenerates it from scratch. Publications, ratings, and tags are preserved. Former label: "Re-index (full)".
+  - **Generate missing previews** *(new)* — uses the path cache to skip re-hashing; only generates thumbnails absent from the database or missing on disk. The cheapest recovery option for fixing gaps without touching anything that already has a thumbnail.
+  - **Rebuild all previews** *(new)* — uses the path cache to skip re-hashing; deletes and regenerates every thumbnail without re-extracting EXIF. Faster than "Rebuild metadata & previews" when EXIF is known to be correct and only the thumbnails need fixing.
+  - **Remove deleted photos** — removes library entries whose source files no longer exist on disk. Former label: "Cleanup deleted".
+
 ### Fixed
+
+- **HEIC thumbnails missing in Podman/Linux containers** — `heif-convert` (the primary HEIC decoder on Linux) may exit with a non-zero code when it encounters unrecognised metadata in Fujifilm HEIC files, even though it still writes a valid JPEG output. The conversion pipeline now checks the output directory regardless of the exit code and only falls back to an error when no output file was produced. The `heif-convert` tool is also now shown as a separate row in the Dependencies dialog on Linux so users can immediately see if it is installed.
+
+- **"Rebuild metadata & previews" was not a true re-index** — The previous re-index implementation cleared the path cache and re-called `indexFile`, which fast-pathed already-indexed files and only generated a thumbnail if `thumb_path` was empty in the database — it did not re-extract EXIF or replace existing (potentially broken) thumbnails. The operation now calls `forceReindexFile` for every file: EXIF is re-read from the source, any existing thumbnail is deleted from disk and regenerated from scratch regardless of what was previously recorded.
+
+- **Missing HEIC thumbnails not regenerated on "Scan for new photos"** — When HEIC thumbnail generation failed during initial indexing, subsequent scans hit the mtime/size fast-path and never re-attempted `ensureThumbnail`. The fast-path now checks whether a thumbnail is present in the database for HEIF files and calls `ensureThumbnail` if it is missing.
+
+- **Library card scan menu clipped by card border** — The library overview card had `overflow: hidden` (to clip the filmstrip to the card's border-radius), which also clipped the absolutely-positioned scan dropdown. The card now uses `overflow: visible`; the filmstrip carries its own bottom corner radius directly, preserving the rounded appearance.
+
+- **cwebp added to Docker/Podman image** — `cwebp` (from the `webp` package) is now included in the container image as a fallback WebP encoder for cases where the bundled ffmpeg lacks `libwebp`. On Debian bookworm's standard ffmpeg this path is not needed, but the package ensures WebP export works in custom or stripped builds.
 
 - **Full-size gallery images shown rotated 180° in lightbox** — When exporting with ExifMode "keep" or "keep_no_gps", the pipeline correctly baked the EXIF orientation into pixels but failed to reset the Orientation tag to 1 in the output. The `exiftool -Orientation=1` invocation was silently ignored by exiftool 13.x when a PrintConv string value like `"Horizontal (normal)"` is expected instead of the integer `1`. The fix adds the `-n` flag (raw numeric values) to the exiftool args so `-Orientation=1` is written as the integer 1 ("Horizontal/normal"), matching the already-rotated pixel data.
 

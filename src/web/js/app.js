@@ -539,13 +539,18 @@ const App = {
                 .then(r => App.showToast(`Cache cleared for ${r.evicted} file${r.evicted !== 1 ? 's' : ''}`))
                 .catch(e => App.showToast(`Cache clear failed: ${e.message}`))
                 .finally(() => { if (onDone) onDone(); });
-        } else if (tool === 'lib-scan-new' || tool === 'lib-reindex' || tool === 'lib-cleanup') {
+        } else if (['lib-scan-new', 'lib-reindex', 'lib-cleanup', 'lib-regen-missing', 'lib-rebuild-all'].includes(tool)) {
             const lib = this._libraryTab?.currentLibrary;
             if (!lib) { if (onDone) onDone(); return; }
-            const opMap = { 'lib-scan-new': 'scanNew', 'lib-reindex': 'reindex', 'lib-cleanup': 'cleanup' };
-            const labelMap = { 'lib-scan-new': 'Scanning', 'lib-reindex': 'Indexing', 'lib-cleanup': 'Checking' };
+            const labelMap = {
+                'lib-scan-new': 'Scanning',
+                'lib-reindex': 'Indexing',
+                'lib-cleanup': 'Checking',
+                'lib-regen-missing': 'Generating',
+                'lib-rebuild-all': 'Rebuilding',
+            };
             App.showToast(`${labelMap[tool]}…`);
-            LibraryAPI[opMap[tool]](lib.id, (p) => {
+            const onProgress = (p) => {
                 if (p.finished) {
                     App.showToast(`Done — ${p.done} photo${p.done !== 1 ? 's' : ''}`);
                     if (onDone) onDone();
@@ -553,7 +558,16 @@ const App = {
                     const cur = p.current ? ' · ' + p.current.split('/').pop() : '';
                     App.showToast(`${p.done}${p.total ? ' / ' + p.total : ''}${cur}`);
                 }
-            }).catch(e => {
+            };
+            const subfolder = path || '';
+            const apiMap = {
+                'lib-scan-new':      () => LibraryAPI.scanNew(lib.id, onProgress, subfolder),
+                'lib-reindex':       () => LibraryAPI.reindex(lib.id, onProgress, subfolder),
+                'lib-cleanup':       () => LibraryAPI.cleanup(lib.id, onProgress, subfolder),
+                'lib-regen-missing': () => LibraryAPI.regenMissingPreviews(lib.id, onProgress, subfolder),
+                'lib-rebuild-all':   () => LibraryAPI.rebuildAllPreviews(lib.id, onProgress, subfolder),
+            };
+            apiMap[tool]().catch(e => {
                 App.showToast(`Error: ${e.message}`);
                 if (onDone) onDone();
             });

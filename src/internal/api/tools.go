@@ -21,12 +21,14 @@ func handleToolsCheck() http.HandlerFunc {
 			Exiftool      toolStatus `json:"exiftool"`
 			FFmpeg        toolStatus `json:"ffmpeg"`
 			Sips          toolStatus `json:"sips"`
+			HeifConvert   toolStatus `json:"heifConvert"`
 			WebPAvailable bool       `json:"webpAvailable"`
 		}{
 			Platform:      runtime.GOOS,
 			Exiftool:      toolStatus{Available: media.CheckExiftool()},
 			FFmpeg:        toolStatus{Available: ffmpeg.Available, HEIFSupport: ffmpeg.HEIFSupport, WebPSupport: ffmpeg.WebPSupport},
 			Sips:          toolStatus{Available: media.CheckSips()},
+			HeifConvert:   toolStatus{Available: media.CheckHeifConvert()},
 			WebPAvailable: ffmpeg.WebPSupport || media.CheckCwebp(),
 		}
 		w.Header().Set("Content-Type", "application/json")

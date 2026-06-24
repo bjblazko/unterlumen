@@ -49,6 +49,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/scan-new", scanNewLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/cleanup", cleanupLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/regen-previews-missing", regenMissingPreviewsLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/regen-previews-all", rebuildAllPreviewsLibrary(mgr))
 	mux.HandleFunc("GET /api/library/{id}/browse", browseFolder(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/browse-recursive", browseFolderRecursive(mgr))
 	mux.HandleFunc("GET /api/library/{id}/folder-stats", libraryFolderStats(mgr))
@@ -193,21 +195,48 @@ func deleteLibrary(mgr *lib.Manager) http.HandlerFunc {
 // --- Indexing (SSE) ---
 
 func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
-	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
-		idx.Run(context.Background(), ch)
-	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
 }
 
 func scanNewLibrary(mgr *lib.Manager) http.HandlerFunc {
-	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
-		idx.RunScanNew(context.Background(), ch)
-	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunScanNewInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
 }
 
 func cleanupLibrary(mgr *lib.Manager) http.HandlerFunc {
-	return libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
-		idx.RunCleanup(context.Background(), ch)
-	})
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunCleanupInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
+}
+
+func regenMissingPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunRegenerateMissingPreviewsInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
+}
+
+func rebuildAllPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunRebuildAllPreviewsInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
 }
 
 // libraryScan returns a handler that starts a scan or joins an in-progress one.

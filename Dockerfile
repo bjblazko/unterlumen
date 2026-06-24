@@ -18,15 +18,19 @@ RUN CGO_ENABLED=0 GOOS=linux \
 FROM debian:bookworm-slim
 
 # Install external tools bundled in the image:
-#   ffmpeg            — HEIF/HEIC display (embedded preview extraction) and WebP export
-#   libheif-examples  — heif-convert; handles HEIF files that ffmpeg cannot parse
-#                       (e.g. standard Fujifilm HEIC files without an embedded JPEG stream)
+#   ffmpeg            — HEIF/HEIC embedded preview extraction, WebP export (built with libwebp)
+#   libheif-examples  — heif-convert; primary HEIC decoder on Linux; handles Fujifilm HEIC
+#                       files that have no embedded JPEG stream ffmpeg can probe. Brings in
+#                       libheif1 which depends on libde265-0 for HEVC decode.
+#   webp              — cwebp; fallback WebP encoder used when ffmpeg lacks libwebp (rare on
+#                       Debian, but present in minimal/custom ffmpeg builds or arm64 variants)
 #   exiftool          — GPS metadata editing and EXIF stripping on export
 #   ca-certificates   — TLS roots (for future HTTPS or CDN map tiles)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
         libheif-examples \
+        webp \
         libimage-exiftool-perl \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*

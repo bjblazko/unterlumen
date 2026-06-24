@@ -188,15 +188,12 @@ const LibraryAPI = {
         });
         if (!r.ok) throw new Error(await r.text());
     },
-    reindex(id, onProgress) {
+    reindex(id, onProgress, subfolder) {
         return new Promise((resolve, reject) => {
-            const es = new EventSource(`/api/library/${id}/reindex`);
-            // EventSource only supports GET; use fetch for POST with SSE
-            es.close();
-
-            // Use fetch + ReadableStream for POST SSE
-            const ctrl = new AbortController();
-            fetch(`/api/library/${id}/reindex`, { method: 'POST', signal: ctrl.signal })
+            const url = subfolder
+                ? `/api/library/${id}/reindex?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/reindex`;
+            fetch(url, { method: 'POST' })
                 .then(async r => {
                     if (!r.ok) { reject(new Error(await r.text())); return; }
                     const reader = r.body.getReader();
@@ -224,9 +221,12 @@ const LibraryAPI = {
                 .catch(err => { if (err.name !== 'AbortError') reject(err); });
         });
     },
-    cleanup(id, onProgress) {
+    cleanup(id, onProgress, subfolder) {
         return new Promise((resolve, reject) => {
-            fetch(`/api/library/${id}/cleanup`, { method: 'POST' })
+            const url = subfolder
+                ? `/api/library/${id}/cleanup?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/cleanup`;
+            fetch(url, { method: 'POST' })
                 .then(async r => {
                     if (!r.ok) { reject(new Error(await r.text())); return; }
                     const reader = r.body.getReader();
@@ -254,9 +254,78 @@ const LibraryAPI = {
                 .catch(err => { if (err.name !== 'AbortError') reject(err); });
         });
     },
-    scanNew(id, onProgress) {
+    regenMissingPreviews(id, onProgress, subfolder) {
         return new Promise((resolve, reject) => {
-            fetch(`/api/library/${id}/scan-new`, { method: 'POST' })
+            const url = subfolder
+                ? `/api/library/${id}/regen-previews-missing?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/regen-previews-missing`;
+            fetch(url, { method: 'POST' })
+                .then(async r => {
+                    if (!r.ok) { reject(new Error(await r.text())); return; }
+                    const reader = r.body.getReader();
+                    const dec = new TextDecoder();
+                    let buf = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            const t = line.trim();
+                            if (t.startsWith('data:')) {
+                                try {
+                                    const p = JSON.parse(t.slice(5).trim());
+                                    onProgress(p);
+                                    if (p.finished) { resolve(); return; }
+                                } catch {}
+                            }
+                        }
+                    }
+                    resolve();
+                })
+                .catch(err => { if (err.name !== 'AbortError') reject(err); });
+        });
+    },
+    rebuildAllPreviews(id, onProgress, subfolder) {
+        return new Promise((resolve, reject) => {
+            const url = subfolder
+                ? `/api/library/${id}/regen-previews-all?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/regen-previews-all`;
+            fetch(url, { method: 'POST' })
+                .then(async r => {
+                    if (!r.ok) { reject(new Error(await r.text())); return; }
+                    const reader = r.body.getReader();
+                    const dec = new TextDecoder();
+                    let buf = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buf += dec.decode(value, { stream: true });
+                        const lines = buf.split('\n');
+                        buf = lines.pop();
+                        for (const line of lines) {
+                            const t = line.trim();
+                            if (t.startsWith('data:')) {
+                                try {
+                                    const p = JSON.parse(t.slice(5).trim());
+                                    onProgress(p);
+                                    if (p.finished) { resolve(); return; }
+                                } catch {}
+                            }
+                        }
+                    }
+                    resolve();
+                })
+                .catch(err => { if (err.name !== 'AbortError') reject(err); });
+        });
+    },
+    scanNew(id, onProgress, subfolder) {
+        return new Promise((resolve, reject) => {
+            const url = subfolder
+                ? `/api/library/${id}/scan-new?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/scan-new`;
+            fetch(url, { method: 'POST' })
                 .then(async r => {
                     if (!r.ok) { reject(new Error(await r.text())); return; }
                     const reader = r.body.getReader();
@@ -510,12 +579,14 @@ class LibraryTab {
                 <button class="btn btn-sm btn-accent lib-open">Open</button>
                 <div class="dropdown-wrap lib-scan-wrap">
                     <div class="dropdown-toggle">
-                        <button class="btn btn-sm lib-scan-new">Scan new and changed</button>
+                        <button class="btn btn-sm lib-scan-new">Scan for new photos</button>
                         <button class="btn btn-sm lib-scan-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
                     </div>
                     <div class="dropdown-menu lib-scan-menu dropdown-menu-right" style="display:none">
-                        <button class="btn dropdown-item lib-reindex">Re-index (full)</button>
-                        <button class="btn dropdown-item lib-cleanup">Cleanup deleted</button>
+                        <button class="btn dropdown-item lib-reindex">Rebuild metadata &amp; previews</button>
+                        <button class="btn dropdown-item lib-regen-missing">Generate missing previews</button>
+                        <button class="btn dropdown-item lib-rebuild-all">Rebuild all previews</button>
+                        <button class="btn dropdown-item lib-cleanup">Remove deleted photos</button>
                     </div>
                 </div>
                 <button class="btn btn-sm lib-delete">Delete</button>
@@ -538,6 +609,14 @@ class LibraryTab {
         scanWrap.querySelector('.lib-reindex').addEventListener('click', () => {
             closeScanMenu();
             this._runScanCard(lib, card, (id, cb) => LibraryAPI.reindex(id, cb), 'Indexing');
+        });
+        scanWrap.querySelector('.lib-regen-missing').addEventListener('click', () => {
+            closeScanMenu();
+            this._runScanCard(lib, card, (id, cb) => LibraryAPI.regenMissingPreviews(id, cb), 'Generating');
+        });
+        scanWrap.querySelector('.lib-rebuild-all').addEventListener('click', () => {
+            closeScanMenu();
+            this._runScanCard(lib, card, (id, cb) => LibraryAPI.rebuildAllPreviews(id, cb), 'Rebuilding');
         });
         scanWrap.querySelector('.lib-cleanup').addEventListener('click', () => {
             closeScanMenu();
