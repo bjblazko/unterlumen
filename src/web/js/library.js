@@ -458,16 +458,17 @@ class LibraryTab {
         el.innerHTML = `
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
-                <div class="library-sort-toggle">
-                    <button class="btn btn-sm lib-sort-auto" data-state="on">Recent additions</button>
-                    <button class="btn btn-sm lib-sort-manual" data-state="off">Manual</button>
-                </div>
                 <div class="library-list-header-actions">
+                    <button class="toggle lib-sort-toggle" role="switch" aria-checked="true" data-state="on" title="Sort order">
+                        <span class="toggle-label">Sort by</span>
+                        <span class="toggle-label toggle-label-on">recent additions</span>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label toggle-label-off">custom</span>
+                    </button>
+                    <div class="header-actions-sep"></div>
                     <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">
                         <span class="toggle-label">Filter</span>
-                        <span class="toggle-label toggle-label-on">ON</span>
                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                        <span class="toggle-label toggle-label-off">OFF</span>
                     </button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
@@ -492,22 +493,16 @@ class LibraryTab {
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
-        const autoBtn = el.querySelector('.lib-sort-auto');
-        const manualBtn = el.querySelector('.lib-sort-manual');
+        const sortToggle = el.querySelector('.lib-sort-toggle');
         const currentMode = localStorage.getItem('library.sortMode') || 'auto';
-        autoBtn.dataset.state = currentMode === 'auto' ? 'on' : 'off';
-        manualBtn.dataset.state = currentMode === 'manual' ? 'on' : 'off';
-        autoBtn.addEventListener('click', () => {
-            localStorage.setItem('library.sortMode', 'auto');
-            autoBtn.dataset.state = 'on';
-            manualBtn.dataset.state = 'off';
-            this._loadList(el.querySelector('#lib-list-body'));
-        });
-        manualBtn.addEventListener('click', () => {
-            this._initManualOrder(this._cachedLibs || []);
-            localStorage.setItem('library.sortMode', 'manual');
-            autoBtn.dataset.state = 'off';
-            manualBtn.dataset.state = 'on';
+        sortToggle.dataset.state = currentMode === 'auto' ? 'on' : 'off';
+        sortToggle.setAttribute('aria-checked', currentMode === 'auto' ? 'true' : 'false');
+        sortToggle.addEventListener('click', () => {
+            const newMode = sortToggle.dataset.state === 'on' ? 'manual' : 'auto';
+            if (newMode === 'manual') this._initManualOrder(this._cachedLibs || []);
+            localStorage.setItem('library.sortMode', newMode);
+            sortToggle.dataset.state = newMode === 'auto' ? 'on' : 'off';
+            sortToggle.setAttribute('aria-checked', newMode === 'auto' ? 'true' : 'false');
             this._loadList(el.querySelector('#lib-list-body'));
         });
 
@@ -592,10 +587,11 @@ class LibraryTab {
                 if (mode === 'manual') this._addManualSortButtons(lib, card, body);
             }
             // Update sort toggle active state
-            const autoBtn = body.closest('.library-list-view')?.querySelector('.lib-sort-auto');
-            const manualBtn = body.closest('.library-list-view')?.querySelector('.lib-sort-manual');
-            if (autoBtn) autoBtn.dataset.state = mode === 'auto' ? 'on' : 'off';
-            if (manualBtn) manualBtn.dataset.state = mode === 'manual' ? 'on' : 'off';
+            const sortToggle = body.closest('.library-list-view')?.querySelector('.lib-sort-toggle');
+            if (sortToggle) {
+                sortToggle.dataset.state = mode === 'auto' ? 'on' : 'off';
+                sortToggle.setAttribute('aria-checked', mode === 'auto' ? 'true' : 'false');
+            }
         } catch (err) {
             body.innerHTML = `<div class="library-error">Failed to load libraries: ${err.message}</div>`;
         }
@@ -941,9 +937,7 @@ class LibraryTab {
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">
                         <span class="toggle-label">Filter</span>
-                        <span class="toggle-label toggle-label-on">ON</span>
                         <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                        <span class="toggle-label toggle-label-off">OFF</span>
                     </button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>

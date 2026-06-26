@@ -3101,17 +3101,6 @@ body.slideshow-active #app { height: 100vh; }
     gap: calc(var(--unit) * 1);
 }
 
-.library-sort-toggle {
-    display: flex;
-    gap: var(--space-1);
-    align-items: center;
-}
-
-.library-sort-toggle .btn[data-state="on"] {
-    background: var(--color-accent, #d35400);
-    color: #fff;
-    border-color: var(--color-accent, #d35400);
-}
 
 .header-actions-sep {
     width: 1px;
