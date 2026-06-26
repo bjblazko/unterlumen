@@ -1,9 +1,16 @@
 # Changelog
 
-*Last modified: 2026-06-24*
+*Last modified: 2026-06-26*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- Library overview sort: auto by most-recent additions, or manually reordered with ↑/↓ buttons; sort mode persists in localStorage
+- New additions badge (orange dot) on library cards; clears when library overview is visited
+- Edit library name and description after creation via new Edit button and PATCH API endpoint
+- Scan progress now shows parent folder: "foo.jpg in \"bar\" · 42/102"
+- ADR-0021: documents the idempotent SQL migration strategy for schema evolution
 
 ## [0.9.5] - 2026-06-24
 

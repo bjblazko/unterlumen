@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-05-24*
+*Last modified: 2026-06-26*
 
 ## 1. Introduction and Goals
 
@@ -282,6 +282,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0018](adr/0018-design-system-tokens.md) — Adopt Hüpattl! Design System token vocabulary
 - [ADR-0019](adr/0019-toggle-three-label-rule.md) — Toggle sliders must carry three visible labels
 - [ADR-0020](adr/0020-heic-crop-pipeline.md) — HEIC in-place crop via JPEG intermediary
+- [ADR-0021](adr/0021-database-schema-migrations.md) — Database schema migration strategy
 
 ## 10. Quality Requirements
 
