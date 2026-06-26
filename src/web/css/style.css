@@ -3101,6 +3101,18 @@ body.slideshow-active #app { height: 100vh; }
     gap: calc(var(--unit) * 1);
 }
 
+.library-sort-toggle {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.library-sort-toggle .btn[data-state="on"] {
+    background: var(--color-accent, #d35400);
+    color: #fff;
+    border-color: var(--color-accent, #d35400);
+}
+
 .header-actions-sep {
     width: 1px;
     height: 16px;
@@ -3192,6 +3204,17 @@ body.slideshow-active #app { height: 100vh; }
     color: var(--fg);
 }
 
+.library-card-new-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent, #d35400);
+    margin-left: var(--space-1);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
 .library-card-meta {
     font-size: 11px;
     color: var(--fg-2);
@@ -3225,6 +3248,17 @@ body.slideshow-active #app { height: 100vh; }
     gap: calc(var(--unit) * 1);
     flex-shrink: 0;
     align-items: flex-start;
+}
+
+.lib-move-up,
+.lib-move-down {
+    padding: 0 var(--space-1);
+    min-width: 1.8rem;
+    opacity: 0.7;
+}
+.lib-move-up:hover,
+.lib-move-down:hover {
+    opacity: 1;
 }
 
 /* Library detail */
