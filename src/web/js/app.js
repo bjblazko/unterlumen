@@ -555,8 +555,10 @@ const App = {
                     App.showToast(`Done — ${p.done} photo${p.done !== 1 ? 's' : ''}`);
                     if (onDone) onDone();
                 } else {
-                    const cur = p.current ? ' · ' + p.current.split('/').pop() : '';
-                    App.showToast(`${p.done}${p.total ? ' / ' + p.total : ''}${cur}`);
+                    const cur = p.current
+                        ? (p.current.split('/').pop() || p.current) + (p.parent ? ` in "${p.parent}"` : '') + ' · '
+                        : '';
+                    App.showToast(`${cur}${p.done}${p.total ? '/' + p.total : ''}`);
                 }
             };
             const subfolder = path || '';

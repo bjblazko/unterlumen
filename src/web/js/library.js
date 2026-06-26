@@ -42,6 +42,15 @@ const LibraryAPI = {
         const r = await fetch(`/api/library/${id}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
     },
+    async update(id, name, description) {
+        const r = await fetch(`/api/library/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description })
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async photos(id, { q = '', offset = 0, limit = 100, ...filters } = {}) {
         const params = new URLSearchParams({ offset, limit });
         if (q) params.set('q', q);
@@ -449,6 +458,10 @@ class LibraryTab {
         el.innerHTML = `
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
+                <div class="library-sort-toggle">
+                    <button class="btn btn-sm lib-sort-auto" data-state="on">Recent additions</button>
+                    <button class="btn btn-sm lib-sort-manual" data-state="off">Manual</button>
+                </div>
                 <div class="library-list-header-actions">
                     <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">
                         <span class="toggle-label">Filter</span>
@@ -478,6 +491,25 @@ class LibraryTab {
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
+
+        const autoBtn = el.querySelector('.lib-sort-auto');
+        const manualBtn = el.querySelector('.lib-sort-manual');
+        const currentMode = localStorage.getItem('library.sortMode') || 'auto';
+        autoBtn.dataset.state = currentMode === 'auto' ? 'on' : 'off';
+        manualBtn.dataset.state = currentMode === 'manual' ? 'on' : 'off';
+        autoBtn.addEventListener('click', () => {
+            localStorage.setItem('library.sortMode', 'auto');
+            autoBtn.dataset.state = 'on';
+            manualBtn.dataset.state = 'off';
+            this._loadList(el.querySelector('#lib-list-body'));
+        });
+        manualBtn.addEventListener('click', () => {
+            localStorage.setItem('library.sortMode', 'manual');
+            this._initManualOrder(this._cachedLibs || []);
+            autoBtn.dataset.state = 'off';
+            manualBtn.dataset.state = 'on';
+            this._loadList(el.querySelector('#lib-list-body'));
+        });
 
         this._listPublishBtn = el.querySelector('#lib-list-publish-btn');
         this._listPublishBtn.addEventListener('click', () => this._openPublishModal());
@@ -542,24 +574,36 @@ class LibraryTab {
         try {
             const libs = await LibraryAPI.list();
             this._cachedLibs = libs;
+            localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
             body.innerHTML = '';
             if (libs.length === 0) {
                 body.innerHTML = '<div class="library-empty">No libraries yet. Create one to get started.</div>';
                 return;
             }
-            for (const lib of libs) {
+            const sorted = this._sortLibs(libs);
+            const mode = localStorage.getItem('library.sortMode') || 'auto';
+            for (const lib of sorted) {
                 const card = this._libCard(lib);
                 body.appendChild(card);
                 if (lib.scanning) {
                     this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning');
                 }
+                if (mode === 'manual') this._addManualSortButtons(lib, card, body);
             }
+            // Update sort toggle active state
+            const autoBtn = body.closest('.library-list-view')?.querySelector('.lib-sort-auto');
+            const manualBtn = body.closest('.library-list-view')?.querySelector('.lib-sort-manual');
+            if (autoBtn) autoBtn.dataset.state = mode === 'auto' ? 'on' : 'off';
+            if (manualBtn) manualBtn.dataset.state = mode === 'manual' ? 'on' : 'off';
         } catch (err) {
             body.innerHTML = `<div class="library-error">Failed to load libraries: ${err.message}</div>`;
         }
     }
 
     _libCard(lib) {
+        const lastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
+        const hasNew = lib.lastNewPhotos && new Date(lib.lastNewPhotos).getTime() > lastSeen;
+
         const card = document.createElement('div');
         card.className = 'library-card';
         const lastIdx = lib.lastIndexed
@@ -570,13 +614,14 @@ class LibraryTab {
         top.className = 'library-card-top';
         top.innerHTML = `
             <div class="library-card-info">
-                <div class="library-card-name">${escapeHtml(lib.name)}</div>
+                <div class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</div>
                 <div class="library-card-meta">${escapeHtml(lib.sourcePath)}</div>
                 <div class="library-card-stats">${lib.photoCount} photos · Last indexed: ${lastIdx}</div>
                 ${lib.description ? `<div class="library-card-desc">${escapeHtml(lib.description)}</div>` : ''}
             </div>
             <div class="library-card-actions">
                 <button class="btn btn-sm btn-accent lib-open">Open</button>
+                <button class="btn btn-sm lib-edit" aria-label="Edit library">Edit</button>
                 <div class="dropdown-wrap lib-scan-wrap">
                     <div class="dropdown-toggle">
                         <button class="btn btn-sm lib-scan-new">Scan for new photos</button>
@@ -601,6 +646,7 @@ class LibraryTab {
         }
 
         top.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
+        top.querySelector('.lib-edit').addEventListener('click', () => this._showEditDialog(lib, card));
         card.querySelector('.lib-delete').addEventListener('click', () => this._deleteLibrary(lib, card));
         const scanWrap = card.querySelector('.lib-scan-wrap');
         const scanMenu = scanWrap.querySelector('.lib-scan-menu');
@@ -650,7 +696,10 @@ class LibraryTab {
                 if (p.finished) {
                     progressEl.textContent = `Done — ${p.total} photos.`;
                 } else {
-                    progressEl.textContent = `${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
+                    const loc = p.current
+                        ? p.current + (p.parent ? ` in "${p.parent}"` : '') + ' · '
+                        : '';
+                    progressEl.textContent = `${loc}${p.done}/${p.total}`;
                 }
             });
             const updated = await LibraryAPI.get(lib.id);
@@ -673,6 +722,119 @@ class LibraryTab {
         } catch (err) {
             alert('Delete failed: ' + err.message);
         }
+    }
+
+    _sortLibs(libs) {
+        const mode = localStorage.getItem('library.sortMode') || 'auto';
+        if (mode === 'manual') {
+            let order;
+            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
+            const idx = Object.fromEntries(order.map((id, i) => [id, i]));
+            return [...libs].sort((a, b) => {
+                const ai = idx[a.id] ?? Infinity;
+                const bi = idx[b.id] ?? Infinity;
+                return ai - bi;
+            });
+        }
+        // auto: sort by lastNewPhotos descending, nulls last
+        return [...libs].sort((a, b) => {
+            if (!a.lastNewPhotos && !b.lastNewPhotos) return 0;
+            if (!a.lastNewPhotos) return 1;
+            if (!b.lastNewPhotos) return -1;
+            return new Date(b.lastNewPhotos) - new Date(a.lastNewPhotos);
+        });
+    }
+
+    _initManualOrder(libs) {
+        const existing = localStorage.getItem('library.manualOrder');
+        if (existing) return; // already set
+        const sorted = this._sortLibs(libs); // capture current auto order
+        localStorage.setItem('library.manualOrder', JSON.stringify(sorted.map(l => l.id)));
+    }
+
+    _addManualSortButtons(lib, card, body) {
+        const up = document.createElement('button');
+        up.className = 'btn btn-sm lib-move-up';
+        up.textContent = '↑';
+        up.title = 'Move up';
+        const down = document.createElement('button');
+        down.className = 'btn btn-sm lib-move-down';
+        down.textContent = '↓';
+        down.title = 'Move down';
+        card.querySelector('.library-card-actions').appendChild(up);
+        card.querySelector('.library-card-actions').appendChild(down);
+
+        up.addEventListener('click', () => {
+            let order;
+            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
+            const i = order.indexOf(lib.id);
+            if (i > 0) {
+                [order[i - 1], order[i]] = [order[i], order[i - 1]];
+                localStorage.setItem('library.manualOrder', JSON.stringify(order));
+                this._loadList(body);
+            }
+        });
+        down.addEventListener('click', () => {
+            let order;
+            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
+            const i = order.indexOf(lib.id);
+            if (i !== -1 && i < order.length - 1) {
+                [order[i], order[i + 1]] = [order[i + 1], order[i]];
+                localStorage.setItem('library.manualOrder', JSON.stringify(order));
+                this._loadList(body);
+            }
+        });
+    }
+
+    _showEditDialog(lib, card) {
+        const dlg = document.createElement('div');
+        dlg.className = 'library-dialog-backdrop';
+        dlg.innerHTML = `
+            <div class="library-dialog">
+                <h3 class="library-dialog-title">Edit Library</h3>
+                <label class="library-dialog-label">Name</label>
+                <input class="library-dialog-input" id="lib-edit-name" type="text" autocomplete="off">
+                <label class="library-dialog-label">Description (optional)</label>
+                <input class="library-dialog-input" id="lib-edit-desc" type="text">
+                <div class="library-dialog-actions">
+                    <button class="btn" id="lib-edit-cancel">Cancel</button>
+                    <button class="btn btn-accent" id="lib-edit-save">Save</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dlg);
+
+        const nameEl = dlg.querySelector('#lib-edit-name');
+        const descEl = dlg.querySelector('#lib-edit-desc');
+        nameEl.value = lib.name;
+        descEl.value = lib.description || '';
+        nameEl.focus();
+
+        const close = () => dlg.remove();
+        dlg.querySelector('#lib-edit-cancel').addEventListener('click', close);
+        dlg.querySelector('#lib-edit-save').addEventListener('click', async () => {
+            const name = nameEl.value.trim();
+            if (!name) { nameEl.focus(); return; }
+            try {
+                const updated = await LibraryAPI.update(lib.id, name, descEl.value.trim());
+                lib.name = updated.name;
+                lib.description = updated.description;
+                card.querySelector('.library-card-name').firstChild.textContent = updated.name;
+                if (updated.description) {
+                    let descEl2 = card.querySelector('.library-card-desc');
+                    if (!descEl2) {
+                        descEl2 = document.createElement('div');
+                        descEl2.className = 'library-card-desc';
+                        card.querySelector('.library-card-stats').after(descEl2);
+                    }
+                    descEl2.textContent = updated.description;
+                } else {
+                    card.querySelector('.library-card-desc')?.remove();
+                }
+                close();
+            } catch (err) {
+                alert('Save failed: ' + err.message);
+            }
+        });
     }
 
     _showCreateDialog(prefillPath) {
