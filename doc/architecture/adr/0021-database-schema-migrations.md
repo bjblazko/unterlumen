@@ -16,7 +16,7 @@ All schema migrations are implemented as **idempotent SQL statements** appended 
 2. Use `db.Exec(...)` — errors are intentionally ignored (idempotency means re-running is safe)
 3. Use idempotent SQL patterns:
    - `CREATE INDEX IF NOT EXISTS ...`
-   - `ALTER TABLE ... ADD COLUMN ...` (SQLite silently ignores duplicate column errors)
+   - `ALTER TABLE ... ADD COLUMN ...` (errors are ignored by the caller via `//nolint:errcheck`; re-running is safe because the column will already exist)
    - `UPDATE ... WHERE <column> IS NULL` for backfills (only affects un-migrated rows)
    - `CREATE TABLE IF NOT EXISTS ...` for new tables
 4. Never use `DROP`, `RENAME`, or destructive DDL — these cannot be made safely idempotent

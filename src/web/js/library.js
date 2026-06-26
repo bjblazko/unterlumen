@@ -746,6 +746,7 @@ class LibraryTab {
     }
 
     _initManualOrder(libs) {
+        if (!libs || !libs.length) return;
         const existing = localStorage.getItem('library.manualOrder');
         if (existing) return; // already set
         const sorted = this._sortLibs(libs); // capture current auto order
