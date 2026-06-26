@@ -269,6 +269,11 @@ func libraryFromStore(id string, store *Store) (*Library, error) {
 		}
 		lib.PhotoCount = count
 	}
+	if v, ok, _ := store.GetProp("sort_position"); ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			lib.SortPosition = &n
+		}
+	}
 	return lib, nil
 }
 
@@ -346,6 +351,22 @@ func (m *Manager) UpdateLibrary(id, name, description string) (*Library, error) 
 		return nil, err
 	}
 	return libraryFromStore(id, store)
+}
+
+// SetLibrarySortOrder writes a sort_position prop to each listed library in order.
+func (m *Manager) SetLibrarySortOrder(ids []string) error {
+	for i, id := range ids {
+		store, err := m.OpenStore(id)
+		if err != nil {
+			return err
+		}
+		err = store.SetProp("sort_position", strconv.Itoa(i))
+		store.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ThumbDir returns the directory for storing thumbnails for a library.

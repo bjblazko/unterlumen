@@ -5,12 +5,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-06-26
+
 ### Added
-- Library overview sort: auto by most-recent additions, or manually reordered with ↑/↓ buttons; sort mode persists in localStorage
-- New additions badge (orange dot) on library cards; clears when library overview is visited
-- Edit library name and description after creation via new Edit button and PATCH API endpoint
-- Scan progress now shows parent folder: "foo.jpg in \"bar\" · 42/102"
-- ADR-0021: documents the idempotent SQL migration strategy for schema evolution
+- **Library sort order** — The library overview can be sorted automatically by most-recent additions (newest first) or reordered manually with ↑/↓ buttons. Sort mode and manual order both persist server-side (`settings.json` and a `sort_position` prop per library), so the setting survives browser resets and works across devices.
+- **New additions badge** — A small orange dot appears next to a library card when new photos were added since the user last visited the overview. The badge clears on the next overview visit.
+- **Edit library name and description** — A new Edit button on each library card opens a dialog to rename the library or update its description. Source path remains read-only. Changes are saved via `PATCH /api/library/{id}`.
+- **Scan progress shows parent folder** — Progress toasts and card progress now read `"foo.jpg in "bar" · 42/102"`, making it clear which subfolder is being processed.
+- **ADR-0021** — Documents the idempotent SQL migration strategy used for schema evolution in library databases.
+
+### Changed
+- **Filter button** — The Filter toggle in both the library overview and library detail view is now a plain button that appears pressed (inset shadow, darker background) while the filter panel is open, rather than a toggle switch with a sliding thumb.
+- **Sort toggle pill** — The library sort controls are consolidated into a single toggle pill ("Sort by | recent additions | ⬜ | custom") instead of two separate buttons.
+
+### Fixed
+- E2E CI workflow updated to Node.js 24 (eliminates Node 20 deprecation warning) and the Playwright HTML reporter is now also enabled in CI so the report artifact is always populated.
 
 ## [0.9.5] - 2026-06-24
 

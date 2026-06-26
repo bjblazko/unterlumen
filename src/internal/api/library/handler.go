@@ -34,6 +34,9 @@ import (
 func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, chStore *channels.Store) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
+	mux.HandleFunc("PUT /api/library-order", setLibraryOrder(mgr))
+	mux.HandleFunc("GET /api/settings", getSettings(mgr))
+	mux.HandleFunc("PATCH /api/settings", patchSettings(mgr))
 	mux.HandleFunc("GET /api/library/detect", detectLibrary(mgr, root))
 	mux.HandleFunc("GET /api/library/search", searchLibraries(mgr))
 	mux.HandleFunc("GET /api/library/exif-ranges", globalExifRanges(mgr))
@@ -214,6 +217,59 @@ func updateLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, toLibraryJSON(updated, root, mgr.IsScanning(id)))
+	}
+}
+
+func setLibraryOrder(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Order []string `json:"order"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if err := mgr.SetLibrarySortOrder(body.Order); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func getSettings(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, err := mgr.GetSettings()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, s)
+	}
+}
+
+func patchSettings(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		current, err := mgr.GetSettings()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var patch struct {
+			LibrarySortMode *string `json:"librarySortMode"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if patch.LibrarySortMode != nil {
+			current.LibrarySortMode = *patch.LibrarySortMode
+		}
+		if err := mgr.SaveSettings(current); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, current)
 	}
 }
 

@@ -51,6 +51,28 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async setOrder(ids) {
+        const r = await fetch('/api/library-order', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order: ids })
+        });
+        if (!r.ok) throw new Error(await r.text());
+    },
+    async getSettings() {
+        const r = await fetch('/api/settings');
+        if (!r.ok) return {};
+        return r.json();
+    },
+    async patchSettings(patch) {
+        const r = await fetch('/api/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch)
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async photos(id, { q = '', offset = 0, limit = 100, ...filters } = {}) {
         const params = new URLSearchParams({ offset, limit });
         if (q) params.set('q', q);
@@ -466,10 +488,7 @@ class LibraryTab {
                         <span class="toggle-label toggle-label-off">custom</span>
                     </button>
                     <div class="header-actions-sep"></div>
-                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">
-                        <span class="toggle-label">Filter</span>
-                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </button>
+                    <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">Filter</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
@@ -494,16 +513,33 @@ class LibraryTab {
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
         const sortToggle = el.querySelector('.lib-sort-toggle');
-        const currentMode = localStorage.getItem('library.sortMode') || 'auto';
-        sortToggle.dataset.state = currentMode === 'auto' ? 'on' : 'off';
-        sortToggle.setAttribute('aria-checked', currentMode === 'auto' ? 'true' : 'false');
-        sortToggle.addEventListener('click', () => {
+        const body = el.querySelector('#lib-list-body');
+
+        // Render immediately from localStorage, then reconcile with server
+        const cachedMode = localStorage.getItem('library.sortMode') || 'auto';
+        this._sortMode = cachedMode;
+        sortToggle.dataset.state = cachedMode === 'auto' ? 'on' : 'off';
+        sortToggle.setAttribute('aria-checked', cachedMode === 'auto' ? 'true' : 'false');
+        LibraryAPI.getSettings().then(s => {
+            const serverMode = s.librarySortMode || 'auto';
+            if (serverMode !== this._sortMode) {
+                this._sortMode = serverMode;
+                localStorage.setItem('library.sortMode', serverMode);
+                sortToggle.dataset.state = serverMode === 'auto' ? 'on' : 'off';
+                sortToggle.setAttribute('aria-checked', serverMode === 'auto' ? 'true' : 'false');
+                this._loadList(body);
+            }
+        }).catch(() => {});
+
+        sortToggle.addEventListener('click', async () => {
             const newMode = sortToggle.dataset.state === 'on' ? 'manual' : 'auto';
-            if (newMode === 'manual') this._initManualOrder(this._cachedLibs || []);
+            if (newMode === 'manual') await this._initManualOrder(this._cachedLibs || []);
+            this._sortMode = newMode;
             localStorage.setItem('library.sortMode', newMode);
+            LibraryAPI.patchSettings({ librarySortMode: newMode }); // fire-and-forget
             sortToggle.dataset.state = newMode === 'auto' ? 'on' : 'off';
             sortToggle.setAttribute('aria-checked', newMode === 'auto' ? 'true' : 'false');
-            this._loadList(el.querySelector('#lib-list-body'));
+            this._loadList(body);
         });
 
         this._listPublishBtn = el.querySelector('#lib-list-publish-btn');
@@ -577,7 +613,7 @@ class LibraryTab {
                 return;
             }
             const sorted = this._sortLibs(libs);
-            const mode = localStorage.getItem('library.sortMode') || 'auto';
+            const mode = this._sortMode || localStorage.getItem('library.sortMode') || 'auto';
             for (const lib of sorted) {
                 const card = this._libCard(lib, prevLastSeen);
                 body.appendChild(card);
@@ -721,14 +757,11 @@ class LibraryTab {
     }
 
     _sortLibs(libs) {
-        const mode = localStorage.getItem('library.sortMode') || 'auto';
+        const mode = this._sortMode || localStorage.getItem('library.sortMode') || 'auto';
         if (mode === 'manual') {
-            let order;
-            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
-            const idx = Object.fromEntries(order.map((id, i) => [id, i]));
             return [...libs].sort((a, b) => {
-                const ai = idx[a.id] ?? Infinity;
-                const bi = idx[b.id] ?? Infinity;
+                const ai = a.sortPosition ?? Infinity;
+                const bi = b.sortPosition ?? Infinity;
                 return ai - bi;
             });
         }
@@ -741,12 +774,17 @@ class LibraryTab {
         });
     }
 
-    _initManualOrder(libs) {
+    async _initManualOrder(libs) {
         if (!libs || !libs.length) return;
-        const existing = localStorage.getItem('library.manualOrder');
-        if (existing) return; // already set
-        const sorted = this._sortLibs(libs); // capture current auto order
-        localStorage.setItem('library.manualOrder', JSON.stringify(sorted.map(l => l.id)));
+        if (libs.some(l => l.sortPosition != null)) return; // already seeded server-side
+        // Seed from current auto order
+        const sorted = [...libs].sort((a, b) => {
+            if (!a.lastNewPhotos && !b.lastNewPhotos) return 0;
+            if (!a.lastNewPhotos) return 1;
+            if (!b.lastNewPhotos) return -1;
+            return new Date(b.lastNewPhotos) - new Date(a.lastNewPhotos);
+        });
+        await LibraryAPI.setOrder(sorted.map(l => l.id));
     }
 
     _addManualSortButtons(lib, card, body) {
@@ -761,23 +799,21 @@ class LibraryTab {
         card.querySelector('.library-card-actions').appendChild(up);
         card.querySelector('.library-card-actions').appendChild(down);
 
-        up.addEventListener('click', () => {
-            let order;
-            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
+        up.addEventListener('click', async () => {
+            const order = this._sortLibs(this._cachedLibs || []).map(l => l.id);
             const i = order.indexOf(lib.id);
             if (i > 0) {
                 [order[i - 1], order[i]] = [order[i], order[i - 1]];
-                localStorage.setItem('library.manualOrder', JSON.stringify(order));
+                await LibraryAPI.setOrder(order);
                 this._loadList(body);
             }
         });
-        down.addEventListener('click', () => {
-            let order;
-            try { order = JSON.parse(localStorage.getItem('library.manualOrder') || '[]'); } catch { order = []; }
+        down.addEventListener('click', async () => {
+            const order = this._sortLibs(this._cachedLibs || []).map(l => l.id);
             const i = order.indexOf(lib.id);
             if (i !== -1 && i < order.length - 1) {
                 [order[i], order[i + 1]] = [order[i + 1], order[i]];
-                localStorage.setItem('library.manualOrder', JSON.stringify(order));
+                await LibraryAPI.setOrder(order);
                 this._loadList(body);
             }
         });
@@ -935,10 +971,7 @@ class LibraryTab {
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
-                    <button class="toggle" role="switch" aria-checked="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">
-                        <span class="toggle-label">Filter</span>
-                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    </button>
+                    <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>

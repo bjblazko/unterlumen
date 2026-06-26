@@ -12,6 +12,7 @@ type Library struct {
 	PhotoCount  int        `json:"photoCount"`
 	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
 	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
+	SortPosition  *int       `json:"sortPosition,omitempty"`
 }
 
 // Photo represents an indexed photo in a library.

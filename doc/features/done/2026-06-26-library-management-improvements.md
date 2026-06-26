@@ -8,7 +8,7 @@ Five improvements to the library overview that make it more informative and easi
 ## Details
 
 ### 1 & 2. Library sort order
-The library overview can now be sorted automatically by most-recent additions (newest first) or reordered manually using ↑/↓ arrow buttons. Sort mode is persisted in `localStorage`. Manual order is also stored in `localStorage` and survives page reloads.
+The library overview can now be sorted automatically by most-recent additions (newest first) or reordered manually using ↑/↓ arrow buttons. Sort mode is persisted server-side in `settings.json` (via `GET/PATCH /api/settings`). Manual order is stored as a `sort_position` prop in each library's SQLite database (written in bulk via `PUT /api/library-order`), so the order survives browser resets and works across devices.
 
 The "recent additions" sort key (`lastNewPhotos`) is a new backend field that updates only when a scan actually finds new photos — a maintenance reindex does not change it.
 
@@ -24,7 +24,7 @@ A small orange dot appears next to a library name when new photos were added sin
 ## Acceptance Criteria
 - [x] Library list can be sorted by most-recent additions (auto mode)
 - [x] Library list can be sorted manually with ↑/↓ buttons (manual mode)
-- [x] Sort mode and manual order persist across page reloads
+- [x] Sort mode persists server-side in `settings.json`; manual order persists as `sort_position` in each library's DB
 - [x] Scan progress shows `"filename in 'folder' · done/total"` format
 - [x] Edit button on library card opens dialog with pre-filled name and description
 - [x] PATCH /api/library/{id} endpoint updates name and description

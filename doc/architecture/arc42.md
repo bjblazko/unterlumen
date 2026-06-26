@@ -92,6 +92,10 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `/api/browse/dates` | HTTP GET | JSON (deferred EXIF dates for a directory) |
 | `/api/browse/folder-stats` | HTTP GET | JSON (recursive size/count/depth stats for a folder) |
 | `/api/library/{id}/folder-stats` | HTTP GET | JSON (same, resolved against library source path) |
+| `PATCH /api/library/{id}` | HTTP PATCH | JSON — update library name and description |
+| `PUT /api/library-order` | HTTP PUT | JSON `{order:[ids]}` — set `sort_position` on all libraries in bulk |
+| `GET /api/settings` | HTTP GET | JSON — global app settings (e.g. `librarySortMode`) |
+| `PATCH /api/settings` | HTTP PATCH | JSON — update one or more global settings fields |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
 
 ## 4. Solution Strategy
@@ -104,7 +108,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | No state management | Filesystem is the only store; no database ([ADR-0002](adr/0002-no-persistence.md)) |
 | HEIF support | Shell out to ffmpeg ([ADR-0004](adr/0004-heif-via-ffmpeg.md)) |
 | Large-folder performance | In-memory scan cache, deferred EXIF extraction, chunked rendering ([ADR-0011](adr/0011-scan-cache-deferred-exif.md)) |
-| Client-side settings | User preferences persisted in `localStorage` ([ADR-0012](adr/0012-client-side-settings.md)) |
+| Client-side settings | UI-only preferences (theme, thumbnail quality) persisted in `localStorage` ([ADR-0012](adr/0012-client-side-settings.md)); library-level settings (sort mode, sort order) persisted server-side in `settings.json` and per-library `library_props` |
 
 ## 5. Building Block View
 
