@@ -45,6 +45,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("GET /api/library/statistics", libraryStatistics(mgr))
 	mux.HandleFunc("GET /api/library/timeline", libraryTimeline(mgr))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
+	mux.HandleFunc("PATCH /api/library/{id}", updateLibrary(mgr, root))
 	mux.HandleFunc("DELETE /api/library/{id}", deleteLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/reindex", reindexLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/scan-new", scanNewLibrary(mgr))
@@ -189,6 +190,30 @@ func deleteLibrary(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func updateLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		var body struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if body.Name == "" {
+			http.Error(w, "name is required", http.StatusBadRequest)
+			return
+		}
+		updated, err := mgr.UpdateLibrary(id, body.Name, body.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, toLibraryJSON(updated, root, mgr.IsScanning(id)))
 	}
 }
 

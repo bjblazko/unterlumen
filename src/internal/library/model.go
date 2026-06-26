@@ -10,7 +10,8 @@ type Library struct {
 	SourcePath  string     `json:"sourcePath"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	PhotoCount  int        `json:"photoCount"`
-	LastIndexed *time.Time `json:"lastIndexed,omitempty"`
+	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
+	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
 }
 
 // Photo represents an indexed photo in a library.

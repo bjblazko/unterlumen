@@ -252,6 +252,12 @@ func libraryFromStore(id string, store *Store) (*Library, error) {
 			lib.LastIndexed = &t
 		}
 	}
+	if v, ok, _ := store.GetProp("last_new_photos"); ok {
+		t, err := time.Parse(time.RFC3339, v)
+		if err == nil {
+			lib.LastNewPhotos = &t
+		}
+	}
 	if v, ok, _ := store.GetProp("photo_count"); ok {
 		if n, err := strconv.Atoi(v); err == nil {
 			lib.PhotoCount = n
@@ -324,6 +330,22 @@ func (m *Manager) DeleteLibrary(id string) error {
 		db.(*sql.DB).Close()
 	}
 	return os.RemoveAll(m.LibDir(id))
+}
+
+// UpdateLibrary updates the name and description of an existing library.
+func (m *Manager) UpdateLibrary(id, name, description string) (*Library, error) {
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	if err := store.SetProp("name", name); err != nil {
+		return nil, err
+	}
+	if err := store.SetProp("description", description); err != nil {
+		return nil, err
+	}
+	return libraryFromStore(id, store)
 }
 
 // ThumbDir returns the directory for storing thumbnails for a library.
