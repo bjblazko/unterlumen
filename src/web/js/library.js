@@ -504,8 +504,8 @@ class LibraryTab {
             this._loadList(el.querySelector('#lib-list-body'));
         });
         manualBtn.addEventListener('click', () => {
-            localStorage.setItem('library.sortMode', 'manual');
             this._initManualOrder(this._cachedLibs || []);
+            localStorage.setItem('library.sortMode', 'manual');
             autoBtn.dataset.state = 'off';
             manualBtn.dataset.state = 'on';
             this._loadList(el.querySelector('#lib-list-body'));
@@ -574,6 +574,7 @@ class LibraryTab {
         try {
             const libs = await LibraryAPI.list();
             this._cachedLibs = libs;
+            const prevLastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
             localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
             body.innerHTML = '';
             if (libs.length === 0) {
@@ -583,7 +584,7 @@ class LibraryTab {
             const sorted = this._sortLibs(libs);
             const mode = localStorage.getItem('library.sortMode') || 'auto';
             for (const lib of sorted) {
-                const card = this._libCard(lib);
+                const card = this._libCard(lib, prevLastSeen);
                 body.appendChild(card);
                 if (lib.scanning) {
                     this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning');
@@ -600,8 +601,7 @@ class LibraryTab {
         }
     }
 
-    _libCard(lib) {
-        const lastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
+    _libCard(lib, lastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10)) {
         const hasNew = lib.lastNewPhotos && new Date(lib.lastNewPhotos).getTime() > lastSeen;
 
         const card = document.createElement('div');
