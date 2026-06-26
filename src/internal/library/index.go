@@ -25,6 +25,7 @@ type Progress struct {
 	Done     int    `json:"done"`
 	Total    int    `json:"total"`
 	Current  string `json:"current,omitempty"`
+	Parent   string `json:"parent,omitempty"` // parent folder name of current file
 	Finished bool   `json:"finished,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
@@ -34,6 +35,7 @@ type Indexer struct {
 	store      *Store
 	libDir     string
 	sourcePath string
+	newPhotos  int
 }
 
 // NewIndexer creates an Indexer for the given store and source path.
@@ -48,6 +50,10 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	defer func() {
 		if n, err := idx.store.CountPhotos(); err == nil {
 			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
+		}
+		if idx.newPhotos > 0 {
+			now := time.Now().UTC().Format(time.RFC3339)
+			idx.store.SetProp("last_new_photos", now) //nolint:errcheck
 		}
 	}()
 
@@ -70,7 +76,7 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 		default:
 		}
 
-		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath), Parent: filepath.Base(filepath.Dir(absPath))}
 
 		if err := idx.indexFile(absPath); err != nil {
 			// Log but continue — single-file errors should not abort the index.
@@ -101,6 +107,10 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 		if n, err := idx.store.CountPhotos(); err == nil {
 			idx.store.SetProp("photo_count", strconv.Itoa(n)) //nolint:errcheck
 		}
+		if idx.newPhotos > 0 {
+			now := time.Now().UTC().Format(time.RFC3339)
+			idx.store.SetProp("last_new_photos", now) //nolint:errcheck
+		}
 	}()
 
 	scanRoot := idx.sourcePath
@@ -128,7 +138,7 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 		default:
 		}
 
-		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath), Parent: filepath.Base(filepath.Dir(absPath))}
 
 		if err := idx.indexFile(absPath); err != nil {
 			continue
@@ -231,6 +241,7 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
 		return err
 	}
+	idx.newPhotos++
 	numericValues := media.NormalizeExifNumbers(exifFields)
 	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
 		return err
@@ -456,7 +467,7 @@ func (idx *Indexer) RunInFolder(ctx context.Context, progress chan<- Progress, s
 		default:
 		}
 
-		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath), Parent: filepath.Base(filepath.Dir(absPath))}
 
 		if err := idx.forceReindexFile(absPath); err != nil {
 			continue
@@ -509,7 +520,7 @@ func (idx *Indexer) RunRegenerateMissingPreviewsInFolder(ctx context.Context, pr
 		default:
 		}
 
-		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath), Parent: filepath.Base(filepath.Dir(absPath))}
 
 		photoID, _, _, found, err := idx.store.GetPathCache(absPath)
 		if err != nil || !found {
@@ -558,7 +569,7 @@ func (idx *Indexer) RunRebuildAllPreviewsInFolder(ctx context.Context, progress 
 		default:
 		}
 
-		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath)}
+		progress <- Progress{Done: i, Total: total, Current: filepath.Base(absPath), Parent: filepath.Base(filepath.Dir(absPath))}
 
 		photoID, _, _, found, err := idx.store.GetPathCache(absPath)
 		if err != nil || !found {
