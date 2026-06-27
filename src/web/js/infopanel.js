@@ -354,16 +354,53 @@ class InfoPanel {
         }
         if (otherRows.length) sections.push(this.section('Other', otherRows));
 
-        if (this._metaContext) sections.push(this._renderMetaSection());
+        if (this._metaContext) {
+            const pubSect = this._renderPublicationsSection();
+            if (pubSect) sections.push(pubSect);
+            sections.push(this._renderMetaSection());
+        }
 
         return sections.join('');
+    }
+
+    _humanizeChannelSlug(slug) {
+        return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    _renderPublicationsSection() {
+        const ctx = this._metaContext;
+        if (!ctx || !ctx.entries) return '';
+
+        const primaryPubs = ctx.entries.filter(e =>
+            e.key.startsWith('published:') && !e.key.slice('published:'.length).includes(':')
+        );
+        if (primaryPubs.length === 0) return '';
+
+        const cards = primaryPubs.map(e => {
+            const slug = e.key.slice('published:'.length);
+            const channelName = this._humanizeChannelSlug(slug);
+            const date = this.formatDate(e.value);
+            const titleEntry = ctx.entries.find(te => te.key === `published:${slug}:title`);
+            const galleryTitle = titleEntry ? escapeHtml(titleEntry.value) : '';
+
+            return `<div class="info-pub-card">` +
+                `<div class="info-pub-card-header">` +
+                    `<span class="info-pub-channel">${escapeHtml(channelName)}</span>` +
+                    `<button class="info-pub-del btn-icon" title="Remove publication" data-key="${escapeHtml(e.key)}">×</button>` +
+                `</div>` +
+                `<div class="info-pub-date">${escapeHtml(date)}</div>` +
+                (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '') +
+            `</div>`;
+        });
+
+        return this.section('Publications', cards);
     }
 
     _renderMetaSection() {
         const ctx = this._metaContext;
         const rows = [];
 
-        for (const e of (ctx.entries || [])) {
+        for (const e of (ctx.entries || []).filter(e => !e.key.startsWith('published:'))) {
             rows.push(
                 `<div class="info-meta-row" data-meta-key="${escapeHtml(e.key)}">` +
                     `<span class="info-label">${escapeHtml(e.key)}</span>` +
@@ -576,6 +613,19 @@ class InfoPanel {
                     } else {
                         ctx.entries = ctx.entries.filter(e => e.key !== key);
                     }
+                    this.render();
+                } catch (err) {
+                    alert('Delete failed: ' + err.message);
+                }
+            });
+        });
+
+        this.container.querySelectorAll('.info-pub-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const key = btn.dataset.key;
+                try {
+                    await ctx.onDelete(key);
+                    ctx.entries = await ctx.refresh();
                     this.render();
                 } catch (err) {
                     alert('Delete failed: ' + err.message);
