@@ -7,8 +7,19 @@ import (
 )
 
 var seqPattern = regexp.MustCompile(`\{seq(?::(\d+))?\}`)
+var nonSlugChars = regexp.MustCompile(`[^a-z0-9]+`)
 
-func resolvePattern(pattern string, tags map[string]string, dateTaken string, originalName string, seq int) string {
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	s = nonSlugChars.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
+		return "unknown"
+	}
+	return s
+}
+
+func resolvePattern(pattern string, tags map[string]string, dateTaken string, originalName string, title string, seq int) string {
 	year, month, day, hour, min, sec := parseDateComponents(dateTaken)
 
 	result := pattern
@@ -29,6 +40,7 @@ func resolvePattern(pattern string, tags map[string]string, dateTaken string, or
 	result = strings.ReplaceAll(result, "{focal}", formatFocal(tags))
 	result = strings.ReplaceAll(result, "{shutter}", formatShutter(tags))
 	result = strings.ReplaceAll(result, "{original}", originalName)
+	result = strings.ReplaceAll(result, "{title}", slugify(title))
 
 	result = seqPattern.ReplaceAllStringFunc(result, func(match string) string {
 		sub := seqPattern.FindStringSubmatch(match)

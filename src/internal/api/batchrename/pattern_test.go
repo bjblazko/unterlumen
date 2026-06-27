@@ -9,12 +9,12 @@ func TestResolvePattern_DateTokens(t *testing.T) {
 	dateTaken := "2024-03-15T14:07:42"
 	tags := map[string]string{}
 
-	result := resolvePattern("{YYYY}-{MM}-{DD}", tags, dateTaken, "original", 1)
+	result := resolvePattern("{YYYY}-{MM}-{DD}", tags, dateTaken, "original", "", 1)
 	if result != "2024-03-15" {
 		t.Errorf("got %q, want %q", result, "2024-03-15")
 	}
 
-	result = resolvePattern("{hh}{mm}{ss}", tags, dateTaken, "original", 1)
+	result = resolvePattern("{hh}{mm}{ss}", tags, dateTaken, "original", "", 1)
 	if result != "140742" {
 		t.Errorf("got %q, want %q", result, "140742")
 	}
@@ -22,7 +22,7 @@ func TestResolvePattern_DateTokens(t *testing.T) {
 
 func TestResolvePattern_EmptyDate(t *testing.T) {
 	tags := map[string]string{}
-	result := resolvePattern("{YYYY}", tags, "", "original", 1)
+	result := resolvePattern("{YYYY}", tags, "", "original", "", 1)
 	if result != "unknown" {
 		t.Errorf("empty date should produce 'unknown', got %q", result)
 	}
@@ -30,7 +30,7 @@ func TestResolvePattern_EmptyDate(t *testing.T) {
 
 func TestResolvePattern_OriginalToken(t *testing.T) {
 	tags := map[string]string{}
-	result := resolvePattern("{original}", tags, "", "IMG_1234", 1)
+	result := resolvePattern("{original}", tags, "", "IMG_1234", "", 1)
 	if result != "IMG_1234" {
 		t.Errorf("got %q, want 'IMG_1234'", result)
 	}
@@ -38,7 +38,7 @@ func TestResolvePattern_OriginalToken(t *testing.T) {
 
 func TestResolvePattern_SequenceDefault(t *testing.T) {
 	tags := map[string]string{}
-	result := resolvePattern("{seq}", tags, "", "x", 7)
+	result := resolvePattern("{seq}", tags, "", "x", "", 7)
 	if result != "007" {
 		t.Errorf("got %q, want '007'", result)
 	}
@@ -46,7 +46,7 @@ func TestResolvePattern_SequenceDefault(t *testing.T) {
 
 func TestResolvePattern_SequenceCustomWidth(t *testing.T) {
 	tags := map[string]string{}
-	result := resolvePattern("{seq:5}", tags, "", "x", 3)
+	result := resolvePattern("{seq:5}", tags, "", "x", "", 3)
 	if result != "00003" {
 		t.Errorf("got %q, want '00003'", result)
 	}
@@ -57,7 +57,7 @@ func TestResolvePattern_ExifTags(t *testing.T) {
 		"Make":  "\"Fujifilm\"",
 		"Model": "\"X-T5\"",
 	}
-	result := resolvePattern("{make}-{model}", tags, "", "x", 1)
+	result := resolvePattern("{make}-{model}", tags, "", "x", "", 1)
 	if result != "Fujifilm-X-T5" {
 		t.Errorf("got %q, want 'Fujifilm-X-T5'", result)
 	}
@@ -65,7 +65,7 @@ func TestResolvePattern_ExifTags(t *testing.T) {
 
 func TestResolvePattern_MissingExifTag(t *testing.T) {
 	tags := map[string]string{}
-	result := resolvePattern("{make}", tags, "", "x", 1)
+	result := resolvePattern("{make}", tags, "", "x", "", 1)
 	if result != "unknown" {
 		t.Errorf("missing tag should produce 'unknown', got %q", result)
 	}
@@ -117,5 +117,31 @@ func TestFormatShutter_Slow(t *testing.T) {
 	got := formatShutter(tags)
 	if got != "2s" {
 		t.Errorf("got %q, want '2s'", got)
+	}
+}
+
+func TestSlugify(t *testing.T) {
+	cases := []struct{ input, want string }{
+		{"morning fog", "morning-fog"},
+		{"Morning Fog", "morning-fog"},
+		{"", "unknown"},
+		{"morning-fog", "morning-fog"},
+		{"Café & Crêpe!", "caf-cr-pe"},
+		{"  spaces  ", "spaces"},
+	}
+	for _, c := range cases {
+		if got := slugify(c.input); got != c.want {
+			t.Errorf("slugify(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+func TestResolvePatternTitle(t *testing.T) {
+	tags := map[string]string{}
+	if got := resolvePattern("{title}", tags, "", "file", "morning fog", 1); got != "morning-fog" {
+		t.Errorf("got %q", got)
+	}
+	if got := resolvePattern("{title}", tags, "", "file", "", 1); got != "unknown" {
+		t.Errorf("got %q", got)
 	}
 }

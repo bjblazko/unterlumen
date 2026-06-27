@@ -38,7 +38,12 @@ func resolveOneMapping(root, file, pattern string, seq int) batchRenameMapping {
 		tags = make(map[string]string)
 	}
 
-	resolved := resolvePattern(pattern, tags, dateTaken, originalName, seq)
+	var photoTitle string
+	if t, tErr := media.ReadTitle(abs); tErr == nil {
+		photoTitle = t
+	}
+
+	resolved := resolvePattern(pattern, tags, dateTaken, originalName, photoTitle, seq)
 	newName := sanitizeFilename(resolved) + ext
 	return batchRenameMapping{File: file, NewName: newName}
 }
