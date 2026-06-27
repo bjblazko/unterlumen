@@ -198,6 +198,163 @@ func mergeULBlock(existing []byte, pubs []Publication) []byte {
 	return []byte(s[:descStart] + newBlock + s[descEnd:])
 }
 
+// ReadTitle reads the dc:title value from the XMP sidecar alongside photoPath.
+// Returns ("", nil) if the sidecar does not exist or has no title.
+func ReadTitle(photoPath string) (string, error) {
+	data, err := os.ReadFile(SidecarPath(photoPath))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return parseDCTitle(data)
+}
+
+// WriteTitle writes (or clears) the dc:title value in the XMP sidecar alongside photoPath.
+func WriteTitle(photoPath, title string) error {
+	sidecarPath := SidecarPath(photoPath)
+	data, err := os.ReadFile(sidecarPath)
+	if os.IsNotExist(err) {
+		if title == "" {
+			return nil
+		}
+		return os.WriteFile(sidecarPath, []byte(renderFreshXMPWithDC(title)), 0o644)
+	}
+	if err != nil {
+		return err
+	}
+	var result []byte
+	if title == "" {
+		result = clearDCBlock(data)
+	} else {
+		result = mergeDCBlock(data, title)
+	}
+	return os.WriteFile(sidecarPath, result, 0o644)
+}
+
+// parseDCTitle extracts the dc:title value from XMP bytes.
+func parseDCTitle(data []byte) (string, error) {
+	const dcNS = "http://purl.org/dc/elements/1.1/"
+	const rdfNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	var inDCTitle, inAltLi bool
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			switch {
+			case t.Name.Space == dcNS && t.Name.Local == "title":
+				inDCTitle = true
+			case inDCTitle && t.Name.Space == rdfNS && t.Name.Local == "li":
+				inAltLi = true
+			}
+		case xml.EndElement:
+			switch {
+			case t.Name.Space == dcNS && t.Name.Local == "title":
+				inDCTitle = false
+			case inDCTitle && t.Name.Space == rdfNS && t.Name.Local == "li":
+				inAltLi = false
+			}
+		case xml.CharData:
+			if inAltLi {
+				return strings.TrimSpace(string(t)), nil
+			}
+		}
+	}
+	return "", nil
+}
+
+// renderDCBlock produces the rdf:Description block for the dc namespace.
+func renderDCBlock(title string) string {
+	return `    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <dc:title>
+        <rdf:Alt>
+          <rdf:li xml:lang="x-default">` + xmlEscapeStr(title) + `</rdf:li>
+        </rdf:Alt>
+      </dc:title>
+    </rdf:Description>`
+}
+
+// renderFreshXMPWithDC creates a complete XMP sidecar with just the dc namespace.
+func renderFreshXMPWithDC(title string) string {
+	return `<?xml version="1.0" encoding="UTF-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+` + renderDCBlock(title) + `
+  </rdf:RDF>
+</x:xmpmeta>`
+}
+
+// mergeDCBlock replaces the dc rdf:Description block in existing XMP.
+// If no dc block exists, inserts one before </rdf:RDF>.
+func mergeDCBlock(existing []byte, title string) []byte {
+	s := string(existing)
+	newBlock := renderDCBlock(title)
+
+	const marker = `xmlns:dc="http://purl.org/dc/elements/1.1/"`
+	idx := strings.Index(s, marker)
+	if idx == -1 {
+		endTag := "</rdf:RDF>"
+		endIdx := strings.LastIndex(s, endTag)
+		if endIdx == -1 {
+			return []byte(renderFreshXMPWithDC(title))
+		}
+		return []byte(s[:endIdx] + "  " + newBlock + "\n  " + s[endIdx:])
+	}
+
+	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
+	if descStart == -1 {
+		return []byte(renderFreshXMPWithDC(title))
+	}
+
+	closeTag := "</rdf:Description>"
+	descEnd := strings.Index(s[descStart:], closeTag)
+	if descEnd == -1 {
+		selfClose := strings.Index(s[descStart:], "/>")
+		if selfClose == -1 {
+			return []byte(renderFreshXMPWithDC(title))
+		}
+		descEnd = descStart + selfClose + 2
+	} else {
+		descEnd = descStart + descEnd + len(closeTag)
+	}
+
+	return []byte(s[:descStart] + newBlock + s[descEnd:])
+}
+
+// clearDCBlock removes the dc rdf:Description block from existing XMP.
+func clearDCBlock(existing []byte) []byte {
+	s := string(existing)
+
+	const marker = `xmlns:dc="http://purl.org/dc/elements/1.1/"`
+	idx := strings.Index(s, marker)
+	if idx == -1 {
+		return existing
+	}
+
+	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
+	if descStart == -1 {
+		return existing
+	}
+
+	closeTag := "</rdf:Description>"
+	descEnd := strings.Index(s[descStart:], closeTag)
+	if descEnd == -1 {
+		return existing
+	}
+	descEnd = descStart + descEnd + len(closeTag)
+
+	return []byte(strings.TrimRight(s[:descStart], " \t") + s[descEnd:])
+}
+
 func xmlEscapeStr(s string) string {
 	var b strings.Builder
 	xml.EscapeText(&b, []byte(s)) //nolint:errcheck
