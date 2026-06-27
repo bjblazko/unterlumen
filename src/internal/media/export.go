@@ -420,6 +420,30 @@ func injectExif(srcPath string, data []byte, format, mode string) ([]byte, error
 	return os.ReadFile(tmpPath)
 }
 
+// ScaleImageToJPEG decodes image data (JPEG, PNG, or any format supported by the
+// standard library), applies EXIF orientation when present, scales the image to fit
+// within maxPx×maxPx while preserving aspect ratio, and re-encodes as JPEG.
+// Suitable for processing user-uploaded photos before storing them on disk.
+func ScaleImageToJPEG(data []byte, maxPx, quality int) ([]byte, error) {
+	if quality <= 0 || quality > 100 {
+		quality = 85
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("decode image: %w", err)
+	}
+	if ori := extractJPEGOrientation(data); ori > 1 {
+		img = applyOrientation(img, ori)
+	}
+	scale := ScaleOptions{Mode: ScaleModePixels, Width: maxPx, Height: maxPx, MaintainAR: true}
+	img = scaleImage(img, scale)
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
+		return nil, fmt.Errorf("JPEG encode: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
 // GetSourceDims returns the pixel dimensions of an image file without fully decoding it.
 func GetSourceDims(srcPath string) (int, int) {
 	return getImageDims(srcPath)

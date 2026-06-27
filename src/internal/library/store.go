@@ -251,6 +251,36 @@ func (s *Store) MarkAllMissing() error {
 
 // PurgeMissingPhotos deletes all photos still at status='missing' after a re-index,
 // along with their exif_index, photo_meta, and path_cache rows. Orphaned thumbnail
+// DeletePhotoByID removes a single photo from the database and returns its
+// pathHint and thumbPath so the caller can delete the files from disk.
+func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err error) {
+	var tp *string
+	if err = s.db.QueryRow(`SELECT path_hint, thumb_path FROM photos WHERE id = ?`, id).Scan(&pathHint, &tp); err != nil {
+		return
+	}
+	if tp != nil {
+		thumbPath = *tp
+	}
+	tx, txErr := s.db.Begin()
+	if txErr != nil {
+		err = txErr
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+	for _, q := range []string{
+		`DELETE FROM path_cache WHERE photo_id = ?`,
+		`DELETE FROM exif_index WHERE photo_id = ?`,
+		`DELETE FROM photo_meta WHERE photo_id = ?`,
+		`DELETE FROM photos     WHERE id       = ?`,
+	} {
+		if _, err = tx.Exec(q, id); err != nil {
+			return
+		}
+	}
+	err = tx.Commit()
+	return
+}
+
 // files are removed from disk. Returns the number of photos purged.
 func (s *Store) PurgeMissingPhotos() (int, error) {
 	rows, err := s.db.Query(`SELECT id, thumb_path FROM photos WHERE status='missing'`)

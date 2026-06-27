@@ -345,7 +345,9 @@ const App = {
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
         };
         this.viewer.onDelete = (path) => {
-            this.wastebin.mark([path], pane.entries || [], pane.path || '');
+            const libMeta = pane.getLibraryMeta?.(path);
+            const photoMeta = libMeta ? { [path]: libMeta } : null;
+            this.wastebin.mark([path], pane.entries || [], pane.path || '', photoMeta);
         };
         this.viewer.open(imagePath, images);
     },

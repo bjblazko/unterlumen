@@ -64,6 +64,10 @@ class SearchResultPane extends BrowsePane {
         return this._photoMap.get(pathHint);
     }
 
+    getLibraryMeta(path) {
+        return this._photoMap.get(path) || null;
+    }
+
     // Returns { dir, names } if all selected photos share the same parent folder, else null.
     getOpenInCommanderTarget() {
         if (this.selection.selected.size === 0) return null;

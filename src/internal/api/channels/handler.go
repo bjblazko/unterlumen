@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/media"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$|^[a-z0-9]$`)
@@ -151,7 +152,7 @@ func avatarStatus(store *channels.Store) http.HandlerFunc {
 func uploadAvatar(store *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := r.PathValue("slug")
-		const maxSize = 5 << 20 // 5 MB
+		const maxSize = 30 << 20 // 30 MB — large source photos are downscaled server-side
 		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
 		if err := r.ParseMultipartForm(maxSize); err != nil {
 			http.Error(w, "file too large or invalid form", http.StatusBadRequest)
@@ -163,9 +164,14 @@ func uploadAvatar(store *channels.Store) http.HandlerFunc {
 			return
 		}
 		defer f.Close()
-		data, err := io.ReadAll(f)
+		raw, err := io.ReadAll(f)
 		if err != nil {
 			http.Error(w, "read error", http.StatusInternalServerError)
+			return
+		}
+		data, err := media.ScaleImageToJPEG(raw, 800, 85)
+		if err != nil {
+			http.Error(w, "image processing failed: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		dest := avatarPath(store, slug)
@@ -204,7 +210,7 @@ func logoStatus(store *channels.Store) http.HandlerFunc {
 func uploadLogo(store *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := r.PathValue("slug")
-		const maxSize = 2 << 20 // 2 MB
+		const maxSize = 30 << 20 // 30 MB — large source images are downscaled server-side
 		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
 		if err := r.ParseMultipartForm(maxSize); err != nil {
 			http.Error(w, "file too large or invalid form", http.StatusBadRequest)
@@ -216,9 +222,14 @@ func uploadLogo(store *channels.Store) http.HandlerFunc {
 			return
 		}
 		defer f.Close()
-		data, err := io.ReadAll(f)
+		raw, err := io.ReadAll(f)
 		if err != nil {
 			http.Error(w, "read error", http.StatusInternalServerError)
+			return
+		}
+		data, err := media.ScaleImageToJPEG(raw, 800, 85)
+		if err != nil {
+			http.Error(w, "image processing failed: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		dest := logoPath(store, slug)

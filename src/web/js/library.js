@@ -138,6 +138,11 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async deletePhoto(libID, photoID) {
+        const r = await fetch(`/api/library/${libID}/photo/${photoID}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     thumbURL(libID, photoID) {
         return `/api/library/${libID}/thumb/${photoID}`;
     },

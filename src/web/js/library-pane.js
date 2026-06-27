@@ -89,6 +89,11 @@ class LibraryPane extends BrowsePane {
     _pollExifDates() {}
     _pollOverlayMeta() { if (this.showOverlays) this._updateOverlays(); }
 
+    getLibraryMeta(path) {
+        const info = this._photoMap.get(path);
+        return info ? { libID: this._libID, photoID: info.photoID } : null;
+    }
+
     thumbURL(entry, size) {
         const info = this._photoMap.get(this.fullPath(entry.name));
         return info

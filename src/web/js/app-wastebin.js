@@ -11,7 +11,7 @@ class Wastebin {
 
     isMarked(path) { return this._items.has(path); }
 
-    mark(selectedPaths, entries, currentDir) {
+    mark(selectedPaths, entries, currentDir, photoMeta = null) {
         for (const path of selectedPaths) {
             if (this._items.has(path)) continue;
             const entry = entries.find(e => {
@@ -19,12 +19,15 @@ class Wastebin {
                 return fp === path;
             });
             if (entry) {
+                const meta = photoMeta ? photoMeta[path] : null;
                 this._items.set(path, {
                     name: entry.name,
+                    label: entry.label || entry.name,
                     type: entry.type,
                     date: entry.date,
                     size: entry.size,
                     dir: currentDir,
+                    ...(meta || {}),
                 });
             }
         }
@@ -43,16 +46,24 @@ class Wastebin {
     async permanentlyDelete(paths, onRefresh, afterDelete) {
         const filePaths = Array.from(paths);
 
+        const deleteOne = async (file) => {
+            const item = this._items.get(file);
+            if (item?.libID && item?.photoID) {
+                return LibraryAPI.deletePhoto(item.libID, item.photoID);
+            }
+            const result = await API.delete([file]);
+            return result.results[0];
+        };
+
         if (filePaths.length > 5) {
             const dialog = new ProgressDialog();
             dialog.open(filePaths, {
                 verb: 'Deleting',
                 action: async (file) => {
                     try {
-                        const result = await API.delete([file]);
-                        const r = result.results[0];
+                        const r = await deleteOne(file);
                         if (r && (r.success || (r.error && r.error.includes('no such file')))) {
-                            this._items.delete(r.file);
+                            this._items.delete(file);
                         }
                         return r || { success: true };
                     } catch (err) {
@@ -68,24 +79,24 @@ class Wastebin {
             return;
         }
 
-        try {
-            const result = await API.delete(filePaths);
-            for (const r of result.results) {
-                if (r.success || r.error.includes('no such file')) {
-                    this._items.delete(r.file);
+        const failures = [];
+        for (const file of filePaths) {
+            try {
+                const r = await deleteOne(file);
+                if (r && (r.success || (r.error && r.error.includes('no such file')))) {
+                    this._items.delete(file);
+                } else if (r) {
+                    failures.push(`${file}: ${r.error}`);
                 }
+            } catch (err) {
+                failures.push(`${file}: ${err.message}`);
             }
-            this._updateBadge();
-            if (onRefresh) onRefresh();
-            if (afterDelete) afterDelete();
-
-            const failures = result.results.filter(r => !r.success && !r.error.includes('no such file'));
-            if (failures.length > 0) {
-                const msgs = failures.map(f => `${f.file}: ${f.error}`).join('\n');
-                alert(`Delete: ${failures.length} error(s):\n${msgs}`);
-            }
-        } catch (err) {
-            alert('Delete failed: ' + err.message);
+        }
+        this._updateBadge();
+        if (onRefresh) onRefresh();
+        if (afterDelete) afterDelete();
+        if (failures.length > 0) {
+            alert(`Delete: ${failures.length} error(s):\n${failures.join('\n')}`);
         }
     }
 
@@ -116,9 +127,13 @@ class Wastebin {
 
         const gridItems = items.map(([path, entry], idx) => {
             const selectedClass = this.selected.has(path) ? ' selected' : '';
+            const thumbSrc = (entry.libID && entry.photoID)
+                ? LibraryAPI.thumbURL(entry.libID, entry.photoID)
+                : API.thumbnailURL(path, 200);
+            const label = entry.label || entry.name;
             return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
-                <img src="${API.thumbnailURL(path, 200)}" alt="${entry.name}" loading="lazy" onload="this.classList.add('img-loaded')">
-                <div class="item-name">${entry.name}</div>
+                <img src="${thumbSrc}" alt="${label}" loading="lazy" onload="this.classList.add('img-loaded')">
+                <div class="item-name">${label}</div>
             </div>`;
         });
 

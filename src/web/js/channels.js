@@ -473,8 +473,8 @@ class ChannelSettingsModal {
 
         // Logo and avatar upload for existing channels
         if (!isNew) {
-            this._initLogoUI(form, ch.slug);
-            this._initAvatarUI(form, ch.slug);
+            this._initLogoUI(form, ch);
+            this._initAvatarUI(form, ch);
         } else {
             form.querySelector('#chf-logo-status').textContent = 'Save the channel first, then upload a logo.';
             form.querySelector('#chf-logo-upload').disabled = true;
@@ -547,7 +547,8 @@ class ChannelSettingsModal {
         });
     }
 
-    async _initLogoUI(form, slug) {
+    async _initLogoUI(form, ch) {
+        const slug = ch.slug;
         const statusEl  = form.querySelector('#chf-logo-status');
         const uploadBtn = form.querySelector('#chf-logo-upload');
         const removeBtn = form.querySelector('#chf-logo-remove');
@@ -563,6 +564,14 @@ class ChannelSettingsModal {
             }
         };
 
+        const rebuildIfSite = async () => {
+            if (!ch.siteExport) return;
+            statusEl.textContent = 'Rebuilding site…';
+            try { await ChannelAPI.rebuildSite(slug); } catch {
+                statusEl.textContent = 'Logo saved, but site rebuild failed — use Rebuild Site button.';
+            }
+        };
+
         await refresh();
 
         uploadBtn.addEventListener('click', () => fileInput.click());
@@ -573,6 +582,7 @@ class ChannelSettingsModal {
             uploadBtn.disabled = true;
             try {
                 await ChannelAPI.uploadLogo(slug, file);
+                await rebuildIfSite();
                 await refresh();
             } catch (err) {
                 statusEl.textContent = 'Upload failed: ' + err.message;
@@ -586,6 +596,7 @@ class ChannelSettingsModal {
             removeBtn.disabled = true;
             try {
                 await ChannelAPI.deleteLogo(slug);
+                await rebuildIfSite();
                 await refresh();
             } catch (err) {
                 statusEl.textContent = 'Remove failed: ' + err.message;
@@ -595,7 +606,8 @@ class ChannelSettingsModal {
         });
     }
 
-    async _initAvatarUI(form, slug) {
+    async _initAvatarUI(form, ch) {
+        const slug = ch.slug;
         const statusEl  = form.querySelector('#chf-avatar-status');
         const uploadBtn = form.querySelector('#chf-avatar-upload');
         const removeBtn = form.querySelector('#chf-avatar-remove');
@@ -611,6 +623,14 @@ class ChannelSettingsModal {
             }
         };
 
+        const rebuildIfSite = async () => {
+            if (!ch.siteExport) return;
+            statusEl.textContent = 'Rebuilding site…';
+            try { await ChannelAPI.rebuildSite(slug); } catch {
+                statusEl.textContent = 'Photo saved, but site rebuild failed — use Rebuild Site button.';
+            }
+        };
+
         await refresh();
 
         uploadBtn.addEventListener('click', () => fileInput.click());
@@ -621,6 +641,7 @@ class ChannelSettingsModal {
             uploadBtn.disabled = true;
             try {
                 await ChannelAPI.uploadAvatar(slug, file);
+                await rebuildIfSite();
                 await refresh();
             } catch (err) {
                 statusEl.textContent = 'Upload failed: ' + err.message;
@@ -634,6 +655,7 @@ class ChannelSettingsModal {
             removeBtn.disabled = true;
             try {
                 await ChannelAPI.deleteAvatar(slug);
+                await rebuildIfSite();
                 await refresh();
             } catch (err) {
                 statusEl.textContent = 'Remove failed: ' + err.message;

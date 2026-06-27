@@ -65,6 +65,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
+	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}", deleteLibraryPhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore))
@@ -898,6 +899,36 @@ func serveThumb(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+func deleteLibraryPhoto(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		photoID := r.PathValue("photoID")
+
+		store, err := mgr.OpenStore(id)
+		if err != nil {
+			http.Error(w, "library not found", http.StatusNotFound)
+			return
+		}
+		defer store.Close()
+
+		pathHint, thumbPath, err := store.DeletePhotoByID(photoID)
+		if err != nil {
+			http.Error(w, "photo not found: "+err.Error(), http.StatusNotFound)
+			return
+		}
+
+		if err := os.Remove(pathHint); err != nil && !os.IsNotExist(err) {
+			writeJSON(w, map[string]any{"file": pathHint, "success": false, "error": err.Error()})
+			return
+		}
+		os.Remove(media.SidecarPath(pathHint)) //nolint:errcheck
+		if thumbPath != "" {
+			os.Remove(filepath.Join(mgr.LibDir(id), thumbPath)) //nolint:errcheck
+		}
+		writeJSON(w, map[string]any{"file": pathHint, "success": true})
+	}
+}
+
 func servePhoto(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
@@ -1164,9 +1195,25 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 						http.Error(w, "unpublish: "+unpubErr.Error(), http.StatusInternalServerError)
 						return
 					}
-					// Delete all published:{slug}* meta keys.
+					// Read postID before deleting so we can also remove the qualified keys.
+					var qPostID string
+					if entries, metaErr := store.GetMeta(photoID); metaErr == nil {
+						for _, e := range entries {
+							if e.Key == pubPrefix+slug+":postid" {
+								qPostID = e.Value
+								break
+							}
+						}
+					}
+					// Delete unqualified keys.
 					for _, suffix := range []string{"", ":account", ":title", ":postid"} {
 						store.DeleteMeta(photoID, pubPrefix+slug+suffix) //nolint:errcheck
+					}
+					// Delete qualified keys (written by new publishes).
+					if qPostID != "" {
+						for _, suffix := range []string{"", ":account", ":title"} {
+							store.DeleteMeta(photoID, pubPrefix+slug+":"+qPostID+suffix) //nolint:errcheck
+						}
 					}
 					w.WriteHeader(http.StatusNoContent)
 					return
@@ -1735,12 +1782,17 @@ func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc
 			}
 			if recordXMP {
 				media.AppendPublication(pathHint, pub) //nolint:errcheck
-				store.UpsertMeta(photoID, "published:"+pub.Channel, publishedAt.Format(time.RFC3339)) //nolint:errcheck
+				chKey := "published:" + pub.Channel
+				qualKey := chKey + ":" + pub.PostID
+				tsVal := publishedAt.Format(time.RFC3339)
+				store.UpsertMeta(photoID, chKey, tsVal)   //nolint:errcheck
+				store.UpsertMeta(photoID, qualKey, tsVal) //nolint:errcheck
 				if pub.PostID != "" {
-					store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+					store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
 				}
 				if pub.GalleryTitle != "" {
-					store.UpsertMeta(photoID, "published:"+pub.Channel+":title", pub.GalleryTitle) //nolint:errcheck
+					store.UpsertMeta(photoID, chKey+":title", pub.GalleryTitle)   //nolint:errcheck
+					store.UpsertMeta(photoID, qualKey+":title", pub.GalleryTitle) //nolint:errcheck
 				}
 			}
 			data, expErr := media.ExportImage(pathHint, opts)
@@ -1822,15 +1874,20 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 			return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
 		}
 		metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
-		store.UpsertMeta(photoID, "published:"+pub.Channel, metaVal) //nolint:errcheck
+		chKey := "published:" + pub.Channel
+		qualKey := chKey + ":" + pub.PostID
+		store.UpsertMeta(photoID, chKey, metaVal)   //nolint:errcheck
+		store.UpsertMeta(photoID, qualKey, metaVal) //nolint:errcheck
 		if pub.Account != "" {
-			store.UpsertMeta(photoID, "published:"+pub.Channel+":account", pub.Account) //nolint:errcheck
+			store.UpsertMeta(photoID, chKey+":account", pub.Account)   //nolint:errcheck
+			store.UpsertMeta(photoID, qualKey+":account", pub.Account) //nolint:errcheck
 		}
 		if pub.PostID != "" {
-			store.UpsertMeta(photoID, "published:"+pub.Channel+":postid", pub.PostID) //nolint:errcheck
+			store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
 		}
 		if pub.GalleryTitle != "" {
-			store.UpsertMeta(photoID, "published:"+pub.Channel+":title", pub.GalleryTitle) //nolint:errcheck
+			store.UpsertMeta(photoID, chKey+":title", pub.GalleryTitle)   //nolint:errcheck
+			store.UpsertMeta(photoID, qualKey+":title", pub.GalleryTitle) //nolint:errcheck
 		}
 	}
 
@@ -2029,25 +2086,34 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		// so we avoid scanning every library for every photo in the album.
 		baseToPhotoID := buildBasePhotoIndex(mgr)
 
-		// Prune photos that are missing from disk or whose publish meta was removed.
+		// Prune photos whose publish metadata was removed from the library.
+		// Photos with a stored PhotoID can be re-exported from library source files if
+		// their exported file is missing, so we only remove them on a metadata failure.
+		// Legacy entries without a PhotoID cannot be re-exported; they are also pruned
+		// when their exported file is absent from disk.
 		modifiedIdx := make(map[int]bool) // album index → was modified
 		for i := range albums {
 			albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
+			_, albumDirErr := os.Stat(albumDir)
+			albumDirPresent := albumDirErr == nil
 			var kept []SitePhoto
 			for _, sp := range albums[i].Photos {
-				// Check file exists on disk.
-				if _, statErr := os.Stat(filepath.Join(albumDir, sp.Filename)); os.IsNotExist(statErr) {
-					modifiedIdx[i] = true
-					continue
-				}
-				// Check published meta in library DB.
 				pid := sp.PhotoID
 				if pid == "" {
 					pid = baseToPhotoID[sitePhotoBase(sp.Filename, channelSlug)]
 				}
-				if pid != "" && mgr != nil && !sitePhotoHasMeta(mgr, pid, channelSlug) {
+				// Remove photos that lost their publish metadata in the library.
+				if pid != "" && mgr != nil && !sitePhotoHasMeta(mgr, pid, channelSlug, albums[i].PostID) {
 					modifiedIdx[i] = true
 					continue
+				}
+				// Legacy entries (no stored PhotoID) are also pruned when their exported
+				// file is absent — they cannot be re-exported from the library.
+				if sp.PhotoID == "" && albumDirPresent {
+					if _, statErr := os.Stat(filepath.Join(albumDir, sp.Filename)); os.IsNotExist(statErr) {
+						modifiedIdx[i] = true
+						continue
+					}
 				}
 				kept = append(kept, sp)
 			}
@@ -2079,6 +2145,40 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		for i := range remaining {
 			album := &remaining[i]
 			albumDir := filepath.Join(siteDir, "albums", albumFolderName(*album))
+			thumbDir := filepath.Join(albumDir, "thumbs")
+			os.MkdirAll(thumbDir, 0o700) //nolint:errcheck
+
+			// Re-export any photos whose exported file is missing from disk.
+			// This restores the full album after the output folder has been wiped,
+			// using the original source files in the library.
+			if mgr != nil {
+				for j := range album.Photos {
+					sp := &album.Photos[j]
+					if sp.PhotoID == "" {
+						continue // legacy entry — no source link, cannot re-export
+					}
+					photoPath := filepath.Join(albumDir, sp.Filename)
+					if _, statErr := os.Stat(photoPath); statErr == nil {
+						continue // file already on disk
+					}
+					srcPath, srcErr := findPhotoSourcePath(mgr, sp.PhotoID)
+					if srcErr != nil || srcPath == "" {
+						continue
+					}
+					if exported, exportErr := media.ExportImage(srcPath, ch.ExportOptions()); exportErr == nil {
+						os.WriteFile(photoPath, exported, 0o644) //nolint:errcheck
+					}
+					if sp.ThumbFilename != "" {
+						thumbPath := filepath.Join(albumDir, sp.ThumbFilename)
+						if _, statErr := os.Stat(thumbPath); os.IsNotExist(statErr) {
+							if thumb, thumbErr := media.ExportImage(srcPath, galleryThumbOpts); thumbErr == nil {
+								os.WriteFile(thumbPath, thumb, 0o644) //nolint:errcheck
+							}
+						}
+					}
+				}
+			}
+
 			items := buildGalleryItems(album.Photos)
 			if len(items) == 0 {
 				items = scanAlbumPhotos(albumDir)
@@ -2175,14 +2275,37 @@ func buildBasePhotoIndex(mgr *lib.Manager) map[string]string {
 	return m
 }
 
-// sitePhotoHasMeta reports whether any library store carries the published:{slug}
-// meta key for the given photoID.
-func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug string) bool {
+// findPhotoSourcePath searches all library stores for photoID and returns its disk path.
+func findPhotoSourcePath(mgr *lib.Manager, photoID string) (string, error) {
+	libs, err := mgr.ListLibraries()
+	if err != nil {
+		return "", err
+	}
+	for _, l := range libs {
+		store, err := mgr.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		path, storeErr := store.GetPhotoPathHint(photoID)
+		store.Close()
+		if storeErr == nil && path != "" {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("photo %s not found in any library", photoID)
+}
+
+// sitePhotoHasMeta reports whether any library store confirms this photo is still
+// published to the given channel+album. It checks the qualified key
+// published:{channelSlug}:{albumPostID} first (written by current publishes),
+// then falls back to the unqualified published:{channelSlug} for legacy entries.
+func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug, albumPostID string) bool {
 	libs, err := mgr.ListLibraries()
 	if err != nil {
 		return true // keep on error
 	}
-	key := "published:" + channelSlug
+	qualKey := "published:" + channelSlug + ":" + albumPostID
+	legacyKey := "published:" + channelSlug
 	for _, l := range libs {
 		store, err := mgr.OpenStore(l.ID)
 		if err != nil {
@@ -2194,7 +2317,10 @@ func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug string) bool {
 			continue
 		}
 		for _, e := range entries {
-			if e.Key == key {
+			if albumPostID != "" && e.Key == qualKey {
+				return true
+			}
+			if e.Key == legacyKey {
 				return true
 			}
 		}
