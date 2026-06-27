@@ -3999,8 +3999,7 @@ body.slideshow-active #app { height: 100vh; }
 /* --- Info Panel Title --- */
 
 .info-title-row {
-    padding-bottom: 6px;
-    margin-bottom: 4px;
+    padding: calc(var(--unit) * 1.5) calc(var(--unit) * 2) calc(var(--unit));
     border-bottom: 1px solid var(--hairline);
 }
 

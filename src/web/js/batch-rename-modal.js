@@ -69,7 +69,7 @@ class BatchRenameModal {
         ).join('');
 
         this.overlay.innerHTML = `
-            <div class="modal" style="max-width:560px">
+            <div class="modal" style="max-width:720px">
                 <div class="modal-header">
                     <span class="modal-title">Batch Rename</span>
                     <button class="info-collapse-btn modal-close-btn">&times;</button>

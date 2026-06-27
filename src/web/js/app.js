@@ -519,7 +519,9 @@ const App = {
                 }
             }).catch(err => alert('Rename failed: ' + err.message));
         } else if (tool === 'batch-rename') {
-            this.batchRenameModal.open(files, () => {
+            const srcPrefix = sourcePath ? sourcePath.replace(/^\//, '') : '';
+            const resolvedFiles = srcPrefix ? files.map(f => `${srcPrefix}/${f}`) : files;
+            this.batchRenameModal.open(resolvedFiles, () => {
                 if (pane) pane.load(pane.path);
                 if (this.mode === 'commander' && this.commander) {
                     const other = this.commander.getOtherPane();

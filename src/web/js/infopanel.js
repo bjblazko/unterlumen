@@ -258,6 +258,11 @@ class InfoPanel {
     renderData(d) {
         const sections = [];
 
+        if (this._metaContext) {
+            const titleEntry = (this._metaContext.entries || []).find(e => e.key === 'title');
+            sections.push(this._renderTitleField(titleEntry));
+        }
+
         // File section
         const fileRows = [];
         fileRows.push(this.row('Name', d.name));
@@ -412,12 +417,9 @@ class InfoPanel {
         const ctx = this._metaContext;
         const rows = [];
 
-        const titleEntry = (ctx.entries || []).find(e => e.key === 'title');
         const genericEntries = (ctx.entries || []).filter(e =>
             e.key !== 'title' && !e.key.startsWith('published:')
         );
-
-        rows.push(this._renderTitleField(titleEntry));
 
         for (const e of genericEntries) {
             rows.push(
