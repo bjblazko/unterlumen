@@ -2241,7 +2241,7 @@ body.slideshow-active #app { height: 100vh; }
 }
 
 .batch-rename-preview-list {
-    max-height: 240px;
+    max-height: 320px;
     overflow: auto;
 }
 

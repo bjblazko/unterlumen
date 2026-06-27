@@ -519,8 +519,13 @@ const App = {
                 }
             }).catch(err => alert('Rename failed: ' + err.message));
         } else if (tool === 'batch-rename') {
+            // Files from SearchResultPane are absolute pathHints; files from
+            // LibraryPane are relative to the library source dir. The batch rename
+            // API validates against server boundary (/), so normalise to boundary-relative.
             const srcPrefix = sourcePath ? sourcePath.replace(/^\//, '') : '';
-            const resolvedFiles = srcPrefix ? files.map(f => `${srcPrefix}/${f}`) : files;
+            const resolvedFiles = files.map(f =>
+                f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
+            );
             this.batchRenameModal.open(resolvedFiles, () => {
                 if (pane) pane.load(pane.path);
                 if (this.mode === 'commander' && this.commander) {
