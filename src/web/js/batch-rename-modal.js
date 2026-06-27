@@ -21,10 +21,11 @@ const BATCH_RENAME_TOKENS = [
     // File tokens
     { token: '{original}', label: 'Original filename (no extension)', example: 'DSCF1234', category: 'file' },
     { token: '{seq}', label: 'Auto-increment counter (3 digits, or {seq:N} for N digits)', example: '001', category: 'file' },
+    { token: '{title}', label: 'Image title (slugified)', example: 'morning-fog', category: 'file' },
 ];
 
 // Token pattern for matching in input text — matches {word} and {seq:N}
-const TOKEN_REGEX = /\{(?:YYYY|MM|DD|hh|mm|ss|make|model|lens|filmsim|iso|aperture|focal|shutter|original|seq(?::\d+)?)\}/g;
+const TOKEN_REGEX = /\{(?:YYYY|MM|DD|hh|mm|ss|make|model|lens|filmsim|iso|aperture|focal|shutter|original|title|seq(?::\d+)?)\}/g;
 
 class BatchRenameModal {
     constructor() {

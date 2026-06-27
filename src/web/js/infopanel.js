@@ -396,11 +396,30 @@ class InfoPanel {
         return this.section('Publications', cards);
     }
 
+    _renderTitleField(entry) {
+        const val = entry ? escapeHtml(entry.value) : '';
+        return `<div class="info-meta-row info-title-row">` +
+            `<span class="info-label">Title</span>` +
+            `<span class="info-meta-val info-value info-title-val" contenteditable="true" ` +
+                `data-key="title"${!val ? ` data-placeholder="Add title..."` : ''}>` +
+                val +
+            `</span>` +
+            (entry ? `<button class="info-meta-del" title="Remove" data-key="title">\u00d7</button>` : '') +
+        `</div>`;
+    }
+
     _renderMetaSection() {
         const ctx = this._metaContext;
         const rows = [];
 
-        for (const e of (ctx.entries || []).filter(e => !e.key.startsWith('published:'))) {
+        const titleEntry = (ctx.entries || []).find(e => e.key === 'title');
+        const genericEntries = (ctx.entries || []).filter(e =>
+            e.key !== 'title' && !e.key.startsWith('published:')
+        );
+
+        rows.push(this._renderTitleField(titleEntry));
+
+        for (const e of genericEntries) {
             rows.push(
                 `<div class="info-meta-row" data-meta-key="${escapeHtml(e.key)}">` +
                     `<span class="info-label">${escapeHtml(e.key)}</span>` +

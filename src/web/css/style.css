@@ -3996,6 +3996,23 @@ body.slideshow-active #app { height: 100vh; }
     border-color: var(--accent);
 }
 
+.info-title-row {
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.info-title-val {
+    font-weight: 500;
+}
+
+.info-title-val:empty:before {
+    content: attr(data-placeholder);
+    color: var(--fg-3);
+    font-weight: 400;
+    pointer-events: none;
+}
+
 /* --- Info Panel Publications --- */
 
 .info-pub-card {
