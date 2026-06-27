@@ -1163,6 +1163,11 @@ func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if body.Key == "title" {
+			if pathHint, phErr := store.GetPhotoPathHint(photoID); phErr == nil && pathHint != "" {
+				media.WriteTitle(pathHint, body.Value) //nolint:errcheck
+			}
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -1221,6 +1226,11 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			}
 		}
 
+		if key == "title" {
+			if pathHint, phErr := store.GetPhotoPathHint(photoID); phErr == nil && pathHint != "" {
+				media.WriteTitle(pathHint, "") //nolint:errcheck
+			}
+		}
 		if err := store.DeleteMeta(photoID, key); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -438,6 +438,10 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 			idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
 		}
 	}
+
+	if title, titleErr := media.ReadTitle(absPath); titleErr == nil && title != "" {
+		idx.store.UpsertMeta(photoID, "title", title) //nolint:errcheck
+	}
 }
 
 // RunInFolder force-reindexes every file in subfolder (relative to sourcePath),
