@@ -1,11 +1,13 @@
 # Changelog
 
-*Last modified: 2026-06-27*
+*Last modified: 2026-06-28*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
 ### Added
+- **Image title field** — Per-photo title (short label/slug, like Lightroom's Title field) editable in the info panel in library mode. Stored as `dc:title` in an XMP sidecar (standard Dublin Core field, compatible with Lightroom, Capture One, etc.) and mirrored to the library database. The title appears at the very top of the info panel above the File section. Available as `{title}` token in batch rename — automatically slugified (lowercase, spaces and symbols replaced with hyphens).
+- **Publications section in info panel** — Publication records (`published:*` metadata) are now shown as a dedicated "Publications" section with compact cards instead of raw key-value rows in the Meta section. Each card shows the channel name and publication date; deleting a card removes all related publication metadata.
 - **Generated site — mobile UX improvements** — The published photo-album website is now better optimised for phones and tablets:
   - **Back button** is now a pill-shaped button with a 44 px touch target instead of a bare link.
   - **Overflow menu** — on screens ≤ 600 px the "Download all photos" button and theme toggle collapse into a `⋯` menu that opens as a dropdown. Desktop layout is unchanged.
@@ -16,6 +18,7 @@ All notable changes to this project are documented in this file.
 - **Album ZIP rebuilt on rebuild** — Rebuilding a site channel now always regenerates `photos.zip` for every album (not only when new photos are added).
 
 ### Fixed
+- **Batch rename in library mode** — Batch rename now works correctly when invoked from a library folder view, the filter/search pane, or cross-library search results. Previously all library-mode batch renames yielded "invalid path" because file paths were not translated to server-boundary-relative paths before validation.
 - **Rebuild re-exports from library** — Rebuilding a site channel now re-exports any photo whose exported file is missing from disk, using the original source file from the library. Wiping the site output folder (or just `albums/`) and then rebuilding fully restores the site — photos, thumbnails, ZIPs, and HTML are all regenerated. Fixed a related bug where deleting the `albums` folder before rebuilding silently emptied `site.json` (the prune step was treating a missing album directory as all photos being absent from disk).
 - **Fully-qualified publish metadata** — Photos published to a site or gallery channel now receive a `published:{channel}:{postID}` metadata tag in addition to `published:{channel}`, recording which specific album each photo belongs to. Rebuild and unpublish both use and clean up the qualified key. This fixes a precision gap where the rebuild prune check could not distinguish between photos in different albums of the same channel.
 - **Avatar/logo upload accepts large source photos** — The portrait and logo upload in channel settings now accepts files up to 30 MB (previously 5 MB / 2 MB) and automatically downscales the image to 800 px on its longest side, re-encodes as JPEG, and applies EXIF orientation before saving. Any standard JPEG or PNG can be dropped in directly without pre-processing.
