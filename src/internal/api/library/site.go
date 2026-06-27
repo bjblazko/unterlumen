@@ -243,6 +243,7 @@ html.theme-dark {
 }
 
 /* --- Base --- */
+html { overflow-x: hidden; }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: Helvetica, "Helvetica Neue", Arial, sans-serif;
@@ -278,11 +279,12 @@ footer {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 footer a { color: var(--text-muted); text-decoration: none; }
 footer a:hover { color: var(--text-dim); }
-.footer-contact { display: flex; gap: 0.75rem; margin-left: auto; }
-.footer-contact a { color: var(--text-muted); text-decoration: none; font-size: 0.75rem; }
+.footer-contact { display: flex; gap: 0.75rem; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
+.footer-contact a { color: var(--text-muted); text-decoration: none; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .footer-contact a:hover { color: var(--text-dim); }
 
 /* --- Site brand (persistent header identity) --- */
@@ -297,6 +299,7 @@ footer a:hover { color: var(--text-dim); }
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  min-width: 0;
 }
 .site-logo {
   height: 28px;
@@ -311,6 +314,9 @@ footer a:hover { color: var(--text-dim); }
   color: var(--heading);
   text-decoration: none;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .site-name:hover { color: var(--accent); }
 .page-title {
@@ -344,13 +350,21 @@ footer a:hover { color: var(--text-dim); }
 
 /* --- Back link (album pages) --- */
 .site-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   color: var(--text-dim);
   text-decoration: none;
-  font-weight: 400;
-  font-size: 1.1rem;
-  margin-right: 0.5rem;
+  font-size: 0.85rem;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  margin-right: 0.75rem;
 }
-.site-back:hover { color: var(--accent); }
+.site-back:hover { color: var(--accent); border-color: var(--accent); }
 
 /* --- Download button (album pages) --- */
 .dl-btn {
@@ -370,10 +384,54 @@ footer a:hover { color: var(--text-dim); }
 
 /* --- Header actions group --- */
 .header-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.header-actions-inner {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  flex-shrink: 0;
+}
+.menu-btn { display: none; }
+
+@media (max-width: 600px) {
+  .menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-dim);
+    font-size: 1.3rem;
+    line-height: 1;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    min-height: 36px;
+    font-family: inherit;
+  }
+  .menu-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .header-actions-inner {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem;
+    gap: 0.4rem;
+    z-index: 200;
+    min-width: 180px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .header-actions-inner.open { display: flex; }
+  .header-actions-inner .dl-btn,
+  .header-actions-inner .theme-btn { width: 100%; justify-content: flex-start; }
 }
 
 /* --- Album grid (root index) --- */
@@ -437,24 +495,22 @@ footer a:hover { color: var(--text-dim); }
 #lb {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.93);
+  background: #000;
   z-index: 9999;
   align-items: center;
   justify-content: center;
 }
 #lb.open { display: flex; }
 #lb-img {
-  max-width: 92vw; max-height: 92vh;
+  width: 100%; height: 100%;
   object-fit: contain;
-  border-radius: 2px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
   user-select: none;
 }
 #lb-close {
   position: fixed; top: 1.2rem; right: 1.5rem;
   background: none; border: none;
   color: #fff; font-size: 2rem; line-height: 1;
-  cursor: pointer; opacity: 0.7; padding: 0.3rem 0.5rem;
+  cursor: pointer; opacity: 0.7; padding: 0.6rem 0.8rem;
 }
 #lb-close:hover { opacity: 1; }
 .lb-nav {
@@ -471,6 +527,10 @@ footer a:hover { color: var(--text-dim); }
 #lb-counter {
   position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
   font-size: 0.8rem; color: rgba(255,255,255,0.45); letter-spacing: 0.06em;
+  pointer-events: none;
+}
+@media (pointer: coarse) {
+  .lb-nav { display: none; }
 }
 `
 
@@ -650,7 +710,7 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 <html lang="en" data-default-theme="{{.DefaultTheme}}">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>{{.PageTitle}}</title>
 <meta name="description" content="{{.Description}}">
 {{- if .SiteURL}}
@@ -675,8 +735,11 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
       <a class="site-name" href="../../index.html">{{.Nav.SiteName}}</a>
     </div>
     <div class="header-actions">
-      {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
-      <button id="theme-toggle" class="theme-btn">Dark</button>
+      <button class="menu-btn" id="menu-btn" aria-label="Menu" aria-expanded="false">&#x22EF;</button>
+      <div class="header-actions-inner">
+        {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
+        <button id="theme-toggle" class="theme-btn">Dark</button>
+      </div>
     </div>
   </div>
   <div class="page-title">
@@ -752,6 +815,36 @@ document.addEventListener('keydown', e => {
 document.querySelectorAll('#gallery figure').forEach(fig => {
   fig.addEventListener('click', () => open(parseInt(fig.dataset.index, 10)));
 });
+
+let swipeStartX = 0, swipeStartY = 0;
+document.getElementById('lb').addEventListener('touchstart', e => {
+  swipeStartX = e.changedTouches[0].clientX;
+  swipeStartY = e.changedTouches[0].clientY;
+}, { passive: true });
+document.getElementById('lb').addEventListener('touchend', e => {
+  const dx = swipeStartX - e.changedTouches[0].clientX;
+  const dy = swipeStartY - e.changedTouches[0].clientY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+    if (dx > 0) next(); else prev();
+  }
+}, { passive: true });
+
+const menuBtn = document.getElementById('menu-btn');
+if (menuBtn) {
+  menuBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const inner = menuBtn.nextElementSibling;
+    const isOpen = inner.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', isOpen);
+  });
+  document.addEventListener('click', function() {
+    const inner = menuBtn.nextElementSibling;
+    if (inner) {
+      inner.classList.remove('open');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
 </script>
 </body>
 </html>
