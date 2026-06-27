@@ -198,8 +198,6 @@ func mergeULBlock(existing []byte, pubs []Publication) []byte {
 	return []byte(s[:descStart] + newBlock + s[descEnd:])
 }
 
-// ReadTitle reads the dc:title value from the XMP sidecar alongside photoPath.
-// Returns ("", nil) if the sidecar does not exist or has no title.
 func ReadTitle(photoPath string) (string, error) {
 	data, err := os.ReadFile(SidecarPath(photoPath))
 	if os.IsNotExist(err) {
@@ -211,7 +209,6 @@ func ReadTitle(photoPath string) (string, error) {
 	return parseDCTitle(data)
 }
 
-// WriteTitle writes (or clears) the dc:title value in the XMP sidecar alongside photoPath.
 func WriteTitle(photoPath, title string) error {
 	sidecarPath := SidecarPath(photoPath)
 	data, err := os.ReadFile(sidecarPath)
@@ -233,7 +230,6 @@ func WriteTitle(photoPath, title string) error {
 	return os.WriteFile(sidecarPath, result, 0o644)
 }
 
-// parseDCTitle extracts the dc:title value from XMP bytes.
 func parseDCTitle(data []byte) (string, error) {
 	const dcNS = "http://purl.org/dc/elements/1.1/"
 	const rdfNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -272,7 +268,6 @@ func parseDCTitle(data []byte) (string, error) {
 	return "", nil
 }
 
-// renderDCBlock produces the rdf:Description block for the dc namespace.
 func renderDCBlock(title string) string {
 	return `    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
       <dc:title>
@@ -283,7 +278,6 @@ func renderDCBlock(title string) string {
     </rdf:Description>`
 }
 
-// renderFreshXMPWithDC creates a complete XMP sidecar with just the dc namespace.
 func renderFreshXMPWithDC(title string) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -293,8 +287,6 @@ func renderFreshXMPWithDC(title string) string {
 </x:xmpmeta>`
 }
 
-// mergeDCBlock replaces the dc rdf:Description block in existing XMP.
-// If no dc block exists, inserts one before </rdf:RDF>.
 func mergeDCBlock(existing []byte, title string) []byte {
 	s := string(existing)
 	newBlock := renderDCBlock(title)
@@ -330,7 +322,6 @@ func mergeDCBlock(existing []byte, title string) []byte {
 	return []byte(s[:descStart] + newBlock + s[descEnd:])
 }
 
-// clearDCBlock removes the dc rdf:Description block from existing XMP.
 func clearDCBlock(existing []byte) []byte {
 	s := string(existing)
 
