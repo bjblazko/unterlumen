@@ -386,7 +386,7 @@ class InfoPanel {
             return `<div class="info-pub-card">` +
                 `<div class="info-pub-card-header">` +
                     `<span class="info-pub-channel">${escapeHtml(channelName)}</span>` +
-                    `<button class="info-pub-del btn-icon" title="Remove publication" data-key="${escapeHtml(e.key)}">×</button>` +
+                    `<button class="info-meta-del" title="Remove publication" data-key="${escapeHtml(e.key)}">×</button>` +
                 `</div>` +
                 `<div class="info-pub-date">${escapeHtml(date)}</div>` +
                 (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '') +
@@ -632,19 +632,6 @@ class InfoPanel {
                     } else {
                         ctx.entries = ctx.entries.filter(e => e.key !== key);
                     }
-                    this.render();
-                } catch (err) {
-                    alert('Delete failed: ' + err.message);
-                }
-            });
-        });
-
-        this.container.querySelectorAll('.info-pub-del').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const key = btn.dataset.key;
-                try {
-                    await ctx.onDelete(key);
-                    ctx.entries = await ctx.refresh();
                     this.render();
                 } catch (err) {
                     alert('Delete failed: ' + err.message);

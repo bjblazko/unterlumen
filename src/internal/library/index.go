@@ -398,48 +398,51 @@ func hashFile(path string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// indexSidecar reads XMP sidecar publications for absPath and upserts them into photo_meta.
+// indexSidecar reads XMP sidecar publications and title for absPath and upserts them into photo_meta.
 // Non-fatal: errors are silently ignored (sidecar may not exist).
 func (idx *Indexer) indexSidecar(absPath, photoID string) {
-	pubs, err := media.ReadSidecar(absPath)
-	if err != nil || len(pubs) == 0 {
+	pubs, _ := media.ReadSidecar(absPath)
+	title, _ := media.ReadTitle(absPath)
+	if len(pubs) == 0 && title == "" {
 		return
 	}
 
-	type latestEntry struct {
-		ts           string
-		account      string
-		postID       string
-		galleryTitle string
-	}
-	latest := make(map[string]latestEntry)
+	if len(pubs) > 0 {
+		type latestEntry struct {
+			ts           string
+			account      string
+			postID       string
+			galleryTitle string
+		}
+		latest := make(map[string]latestEntry)
 
-	for _, p := range pubs {
-		ts := p.PublishedAt.UTC().Format(time.RFC3339)
-		if e, ok := latest[p.Channel]; !ok || ts > e.ts {
-			latest[p.Channel] = latestEntry{
-				ts:           ts,
-				account:      p.Account,
-				postID:       p.PostID,
-				galleryTitle: p.GalleryTitle,
+		for _, p := range pubs {
+			ts := p.PublishedAt.UTC().Format(time.RFC3339)
+			if e, ok := latest[p.Channel]; !ok || ts > e.ts {
+				latest[p.Channel] = latestEntry{
+					ts:           ts,
+					account:      p.Account,
+					postID:       p.PostID,
+					galleryTitle: p.GalleryTitle,
+				}
+			}
+		}
+
+		for ch, e := range latest {
+			idx.store.UpsertMeta(photoID, "published:"+ch, e.ts) //nolint:errcheck
+			if e.account != "" {
+				idx.store.UpsertMeta(photoID, "published:"+ch+":account", e.account) //nolint:errcheck
+			}
+			if e.postID != "" {
+				idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
+			}
+			if e.galleryTitle != "" {
+				idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
 			}
 		}
 	}
 
-	for ch, e := range latest {
-		idx.store.UpsertMeta(photoID, "published:"+ch, e.ts) //nolint:errcheck
-		if e.account != "" {
-			idx.store.UpsertMeta(photoID, "published:"+ch+":account", e.account) //nolint:errcheck
-		}
-		if e.postID != "" {
-			idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
-		}
-		if e.galleryTitle != "" {
-			idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
-		}
-	}
-
-	if title, titleErr := media.ReadTitle(absPath); titleErr == nil && title != "" {
+	if title != "" {
 		idx.store.UpsertMeta(photoID, "title", title) //nolint:errcheck
 	}
 }

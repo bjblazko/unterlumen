@@ -3996,6 +3996,8 @@ body.slideshow-active #app { height: 100vh; }
     border-color: var(--accent);
 }
 
+/* --- Info Panel Title --- */
+
 .info-title-row {
     padding-bottom: 6px;
     margin-bottom: 4px;
@@ -4032,20 +4034,6 @@ body.slideshow-active #app { height: 100vh; }
 .info-pub-channel {
     font-weight: 500;
     color: var(--fg);
-}
-
-.info-pub-del {
-    background: none;
-    border: none;
-    color: var(--fg-3);
-    cursor: pointer;
-    padding: 0;
-    font-size: 14px;
-    line-height: 1;
-}
-
-.info-pub-del:hover {
-    color: var(--accent);
 }
 
 .info-pub-date {
