@@ -43,6 +43,15 @@ func NewIndexer(store *Store, libDir, sourcePath string) *Indexer {
 	return &Indexer{store: store, libDir: libDir, sourcePath: sourcePath}
 }
 
+// IndexFile indexes a single file. Safe to call concurrently with other indexers
+// on the same library, but not with a concurrent full scan on the same Indexer.
+func (idx *Indexer) IndexFile(absPath string) error {
+	return idx.indexFile(absPath)
+}
+
+// NewPhotos returns the number of new photos indexed since this Indexer was created.
+func (idx *Indexer) NewPhotos() int { return idx.newPhotos }
+
 // Run walks the source directory, indexes all supported photos, and sends
 // Progress events on the provided channel. The channel is closed when done.
 func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {

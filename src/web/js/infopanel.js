@@ -568,7 +568,14 @@ class InfoPanel {
                 const key = btn.dataset.key;
                 try {
                     await ctx.onDelete(key);
-                    ctx.entries = ctx.entries.filter(e => e.key !== key);
+                    // For published:{slug} keys the backend removes multiple related keys;
+                    // refresh the full list instead of filtering out just one entry.
+                    const isMainPublishKey = key.startsWith('published:') && !key.slice('published:'.length).includes(':');
+                    if (isMainPublishKey && ctx.refresh) {
+                        ctx.entries = await ctx.refresh();
+                    } else {
+                        ctx.entries = ctx.entries.filter(e => e.key !== key);
+                    }
                     this.render();
                 } catch (err) {
                     alert('Delete failed: ' + err.message);

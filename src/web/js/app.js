@@ -462,6 +462,11 @@ const App = {
         }
     },
 
+    reloadLibraryPane() {
+        const pane = this._libraryTab?._pane;
+        if (pane) pane.load(pane.path);
+    },
+
     getActiveBrowsePane() {
         if (this.mode === 'browse') return this.browsePane;
         if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();

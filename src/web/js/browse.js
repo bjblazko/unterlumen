@@ -675,11 +675,21 @@ class BrowsePane {
                         if (toolsBtn) toolsBtn.disabled = true;
                         closeScanToolsMenu();
                         closeToolsMenu();
-                        if (this.onToolInvoke) this.onToolInvoke({
-                            tool, files: [],
-                            path: this.path,
-                            onDone: () => { if (toolsBtn) toolsBtn.disabled = false; },
-                        });
+                        const scanPaths = this.selectedDirs.size > 0
+                            ? Array.from(this.selectedDirs)
+                            : [this.path];
+                        const doNext = (i) => {
+                            if (i >= scanPaths.length) {
+                                if (toolsBtn) toolsBtn.disabled = false;
+                                return;
+                            }
+                            if (this.onToolInvoke) this.onToolInvoke({
+                                tool, files: [],
+                                path: scanPaths[i],
+                                onDone: () => doNext(i + 1),
+                            });
+                        };
+                        doNext(0);
                         return;
                     }
                     const files = this.getActionableFiles();

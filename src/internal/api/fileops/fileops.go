@@ -28,7 +28,8 @@ type fileOpResult struct {
 }
 
 type fileOpResponse struct {
-	Results []fileOpResult `json:"results"`
+	Results        []fileOpResult `json:"results"`
+	LibraryUpdated bool           `json:"libraryUpdated,omitempty"`
 }
 
 // Handle registers all file-operation routes on mux.
@@ -106,7 +107,7 @@ func handleCopy(root string, cache *media.ScanCache, libMgr *library.Manager) ht
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, copyFile, cache, libMgr)
+		handleFileOp(w, r, root, copyFile, cache, libMgr, false)
 	}
 }
 
@@ -116,11 +117,11 @@ func handleMove(root string, cache *media.ScanCache, libMgr *library.Manager) ht
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		handleFileOp(w, r, root, moveFile, cache, libMgr)
+		handleFileOp(w, r, root, moveFile, cache, libMgr, true)
 	}
 }
 
-func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache, libMgr *library.Manager) {
+func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache, libMgr *library.Manager, cleanupSrc bool) {
 	var req fileOpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -143,6 +144,8 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 	}
 
 	dirsToInvalidate := make(map[string]struct{})
+	srcDirs := make(map[string]struct{})
+	var dstPaths []string
 	var results []fileOpResult
 	for _, file := range req.Files {
 		srcPath, ok := pathguard.SafePath(root, file)
@@ -154,8 +157,11 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		if err := op(srcPath, dstPath); err != nil {
 			results = append(results, fileOpResult{File: file, Error: err.Error()})
 		} else {
-			dirsToInvalidate[filepath.Dir(srcPath)] = struct{}{}
+			srcDir := filepath.Dir(srcPath)
+			dirsToInvalidate[srcDir] = struct{}{}
 			dirsToInvalidate[destDir] = struct{}{}
+			srcDirs[srcDir] = struct{}{}
+			dstPaths = append(dstPaths, dstPath)
 			results = append(results, fileOpResult{File: file, Success: true})
 		}
 	}
@@ -163,24 +169,32 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		cache.Invalidate(dir)
 	}
 
-	// When files land in a library folder, kick off an incremental scan so the
-	// new arrivals are indexed (and thumbnailed) without manual intervention.
-	if libMgr != nil {
-		anySuccess := false
-		for _, res := range results {
-			if res.Success {
-				anySuccess = true
-				break
-			}
+	// Index new arrivals synchronously so the response already reflects the
+	// updated library state. For moves across libraries, also queue a cleanup
+	// of the source library folder in the background.
+	libraryUpdated := false
+	if libMgr != nil && len(dstPaths) > 0 {
+		var destLib *library.Library
+		if lib, ok := libMgr.FindLibraryForPath(destDir); ok {
+			destLib = lib
+			libraryUpdated = libMgr.IndexFilesSync(lib.ID, dstPaths)
 		}
-		if anySuccess {
-			if lib, ok := libMgr.FindLibraryForPath(destDir); ok {
-				libMgr.TriggerScanNewBackground(lib.ID)
+		if cleanupSrc {
+			for srcDir := range srcDirs {
+				if srcLib, ok := libMgr.FindLibraryForPath(srcDir); ok {
+					if destLib == nil || srcLib.ID != destLib.ID {
+						relSrc, _ := filepath.Rel(srcLib.SourcePath, srcDir)
+						if relSrc == "." {
+							relSrc = ""
+						}
+						libMgr.TriggerCleanupInFolderBackground(srcLib.ID, relSrc)
+					}
+				}
 			}
 		}
 	}
 
-	writeJSON(w, fileOpResponse{Results: results})
+	writeJSON(w, fileOpResponse{Results: results, LibraryUpdated: libraryUpdated})
 }
 
 func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {

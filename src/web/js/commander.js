@@ -337,6 +337,7 @@ class Commander {
                 const result = await API.copy(actionable, dest);
                 this.showResults('Copy', result.results);
                 otherPane.load(otherPane.path);
+                if (result.libraryUpdated) App.reloadLibraryPane();
             } catch (err) {
                 alert('Copy failed: ' + err.message);
             }
@@ -364,6 +365,7 @@ class Commander {
         }
 
         // Use progress dialog for file copies
+        let copyLandedInLibrary = false;
         const dialog = new ProgressDialog();
         dialog.open(allFiles, {
             verb: 'Copying',
@@ -381,6 +383,7 @@ class Commander {
                             : (dest ? dest + '/' + srcBaseName : srcBaseName);
                     }
                     const result = await API.copy([file], fileDest);
+                    if (result.libraryUpdated) copyLandedInLibrary = true;
                     return result.results[0] || { success: true };
                 } catch (err) {
                     return { success: false, error: err.message };
@@ -388,6 +391,7 @@ class Commander {
             },
             onComplete: () => {
                 otherPane.load(otherPane.path);
+                if (copyLandedInLibrary) App.reloadLibraryPane();
             },
         });
     }
@@ -412,6 +416,7 @@ class Commander {
                 this.showResults('Move', result.results);
                 this.leftPane.load(this.leftPane.path);
                 this.rightPane.load(this.rightPane.path);
+                if (result.libraryUpdated) App.reloadLibraryPane();
                 return;
             } catch (err) {
                 // If direct move fails for dirs, fall through would be complex;
@@ -422,12 +427,14 @@ class Commander {
         }
 
         // Multiple files without directories — use progress dialog
+        let moveLandedInLibrary = false;
         const dialog = new ProgressDialog();
         dialog.open(actionable, {
             verb: 'Moving',
             action: async (file) => {
                 try {
                     const result = await API.move([file], dest);
+                    if (result.libraryUpdated) moveLandedInLibrary = true;
                     return result.results[0] || { success: true };
                 } catch (err) {
                     return { success: false, error: err.message };
@@ -436,6 +443,7 @@ class Commander {
             onComplete: () => {
                 this.leftPane.load(this.leftPane.path);
                 this.rightPane.load(this.rightPane.path);
+                if (moveLandedInLibrary) App.reloadLibraryPane();
             },
         });
     }

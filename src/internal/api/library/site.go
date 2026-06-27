@@ -20,6 +20,7 @@ import (
 
 // SitePhoto stores the filenames needed to regenerate an album page without re-exporting.
 type SitePhoto struct {
+	PhotoID       string `json:"photoID,omitempty"`
 	Filename      string `json:"filename"`
 	ThumbFilename string `json:"thumbFilename"`
 }

@@ -67,10 +67,10 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
-	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr))
+	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore))
 	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore, root, serverRole))
 	mux.HandleFunc("POST /api/library/{id}/publish-download", publishDownload(mgr, chStore))
-	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 }
 
@@ -1136,7 +1136,7 @@ func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
-func deleteMeta(mgr *lib.Manager) http.HandlerFunc {
+func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		photoID := r.PathValue("photoID")
@@ -1153,12 +1153,145 @@ func deleteMeta(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
+		// For published:{slug} keys on site-export channels, remove the photo from
+		// the published site (site.json + physical files) and delete all related keys.
+		const pubPrefix = "published:"
+		if strings.HasPrefix(key, pubPrefix) && chStore != nil {
+			slug := strings.TrimPrefix(key, pubPrefix)
+			if !strings.Contains(slug, ":") {
+				if ch, chErr := chStore.Get(slug); chErr == nil && ch.SiteExport {
+					if unpubErr := unpublishPhotoFromSite(store, ch, chStore, photoID, slug); unpubErr != nil {
+						http.Error(w, "unpublish: "+unpubErr.Error(), http.StatusInternalServerError)
+						return
+					}
+					// Delete all published:{slug}* meta keys.
+					for _, suffix := range []string{"", ":account", ":title", ":postid"} {
+						store.DeleteMeta(photoID, pubPrefix+slug+suffix) //nolint:errcheck
+					}
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+			}
+		}
+
 		if err := store.DeleteMeta(photoID, key); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// unpublishPhotoFromSite removes a photo from every album in a site-export channel:
+// updates site.json, deletes the exported file and thumbnail, regenerates album HTML
+// and the site index. Meta key deletion is handled by the caller.
+func unpublishPhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
+	channelDir := chStore.OutputDir(slug)
+	siteDir := filepath.Join(channelDir, "site")
+	statePath := filepath.Join(siteDir, "site.json")
+
+	albums, err := loadSiteState(statePath)
+	if err != nil {
+		return fmt.Errorf("load site state: %w", err)
+	}
+
+	// Reconstruct the expected filename prefix as a fallback for pre-photoID entries.
+	pathHint, _ := store.GetPhotoPathHint(photoID)
+	var legacyPrefix string
+	if pathHint != "" {
+		if metaEntries, metaErr := store.GetMeta(photoID); metaErr == nil {
+			pubKey := "published:" + slug
+			for _, e := range metaEntries {
+				if e.Key == pubKey {
+					if t, tErr := time.Parse(time.RFC3339, e.Value); tErr == nil {
+						ts := t.UTC().Format("20060102T150405Z")
+						base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
+						legacyPrefix = slug + "_" + ts + "_" + base
+					}
+					break
+				}
+			}
+		}
+	}
+
+	modified := false
+	for i := range albums {
+		var kept []SitePhoto
+		albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
+		for _, sp := range albums[i].Photos {
+			match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
+				(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
+			if match {
+				// Delete exported file and thumbnail.
+				os.Remove(filepath.Join(albumDir, sp.Filename))                      //nolint:errcheck
+				if sp.ThumbFilename != "" {
+					os.Remove(filepath.Join(albumDir, sp.ThumbFilename))             //nolint:errcheck
+				}
+				modified = true
+			} else {
+				kept = append(kept, sp)
+			}
+		}
+		if len(kept) != len(albums[i].Photos) {
+			albums[i].Photos = kept
+			albums[i].PhotoCount = len(kept)
+		}
+	}
+
+	if !modified {
+		return nil
+	}
+
+	// Remove albums that are now empty and regenerate HTML for those that remain.
+	rootNav := buildSiteNavContext(ch, siteDir, true)
+	albumNav := buildSiteNavContext(ch, siteDir, false)
+	var remaining []SiteAlbum
+	for _, album := range albums {
+		if album.PhotoCount == 0 {
+			os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
+			continue
+		}
+		remaining = append(remaining, album)
+		albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
+		items := buildGalleryItems(album.Photos)
+		zipName := ""
+		zipPath := filepath.Join(albumDir, "photos.zip")
+		if album.HasZip || func() bool { _, e := os.Stat(zipPath); return e == nil }() {
+			// Rebuild ZIP without the removed photo.
+			zipResults := make([]publishResult, len(album.Photos))
+			for i, sp := range album.Photos {
+				zipResults[i] = publishResult{Filename: sp.Filename}
+			}
+			if zipErr := createGalleryZip(zipResults, albumDir, "photos.zip"); zipErr == nil {
+				zipName = "photos.zip"
+			}
+		}
+		dateStr := dateRangeStr(album.PublishedAt, album.UpdatedAt)
+		albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
+			ZipFilename: zipName,
+			SiteTitle:   ch.SiteTitle,
+			DateStr:     dateStr,
+			SiteURL:     ch.SiteURL,
+			AlbumSlug:   albumFolderName(album),
+			PublishedAt: album.PublishedAt,
+			Nav:         albumNav,
+		})
+		os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
+	}
+
+	if err := saveSiteState(statePath, remaining); err != nil {
+		return fmt.Errorf("save site state: %w", err)
+	}
+
+	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
+	os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644) //nolint:errcheck
+	generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)   //nolint:errcheck
+	generateImprintPage(siteDir, ch, rootNav)                           //nolint:errcheck
+	generateRobotsTxt(siteDir, ch.SiteURL)                              //nolint:errcheck
+	if ch.SiteURL != "" {
+		generateSitemap(siteDir, remaining, ch.SiteURL) //nolint:errcheck
+	}
+	return nil
 }
 
 // --- Publish ---
@@ -1315,6 +1448,12 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			return
 		}
 
+		// When adding to an existing album, ensure the album title is recorded in meta
+		// for each newly published photo so they appear in album-based library searches.
+		if existingTitle != "" && pub.GalleryTitle == "" {
+			pub.GalleryTitle = existingTitle
+		}
+
 		recordXMP := body.RecordXMP == nil || *body.RecordXMP
 
 		if !galleryMode && !siteMode {
@@ -1362,11 +1501,12 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		// Build merged items list: existing photos first, then newly exported.
 		var items []GalleryItem
 		for _, ep := range existingPhotos {
-			items = append(items, GalleryItem{Filename: ep.Filename, ThumbFilename: ep.ThumbFilename})
+			items = append(items, GalleryItem{PhotoID: ep.PhotoID, Filename: ep.Filename, ThumbFilename: ep.ThumbFilename})
 		}
 		for _, res := range results {
 			if res.Error == "" && res.Filename != "" {
 				items = append(items, GalleryItem{
+					PhotoID:       res.PhotoID,
 					Filename:      res.Filename,
 					ThumbFilename: res.ThumbFilename,
 					Width:         res.Width,
@@ -1439,7 +1579,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			}
 			sitePhotos := make([]SitePhoto, len(items))
 			for i, item := range items {
-				sitePhotos[i] = SitePhoto{Filename: item.Filename, ThumbFilename: item.ThumbFilename}
+				sitePhotos[i] = SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
 			gs := &GalleryState{
 				PostID:      albumPostID,
@@ -1470,7 +1610,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			siteAlbums, _ := loadSiteState(statePath)
 			sitePhotos := make([]SitePhoto, len(items))
 			for i, item := range items {
-				sitePhotos[i] = SitePhoto{Filename: item.Filename, ThumbFilename: item.ThumbFilename}
+				sitePhotos[i] = SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
 			if addToExisting {
 				// Update existing album entry; preserve PublishedAt for sort order.
@@ -1840,8 +1980,11 @@ func listGalleries(chStore *channels.Store) http.HandlerFunc {
 	}
 }
 
-// rebuildSite regenerates site assets and root index from the existing site.json statefile.
-func rebuildSite(chStore *channels.Store) http.HandlerFunc {
+// rebuildSite regenerates site assets and HTML from site.json, cross-checking each
+// photo against: (1) file existence on disk, (2) published meta in the library DB
+// (when a photoID is stored) or a base-name reverse lookup (for pre-photoID entries).
+// Photos that fail either check are pruned from site.json before regenerating.
+func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
@@ -1860,7 +2003,8 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 		}
 
 		siteDir := filepath.Join(chStore.OutputDir(channelSlug), "site")
-		albums, err := loadSiteState(filepath.Join(siteDir, "site.json"))
+		statePath := filepath.Join(siteDir, "site.json")
+		albums, err := loadSiteState(statePath)
 		if err != nil {
 			http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -1872,41 +2016,87 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 		}
 
 		// Assign slugs to any albums that don't have one yet (migration for pre-slug albums).
-		// Only renames the statefile entry; does not move the disk folder (backward compat).
-		stateDirty := false
 		for i := range albums {
 			if albums[i].Slug == "" {
 				others := make([]SiteAlbum, 0, len(albums)-1)
 				others = append(others, albums[:i]...)
 				others = append(others, albums[i+1:]...)
 				albums[i].Slug = computeSlug(albums[i].Title, albums[i].PublishedAt, others)
-				stateDirty = true
 			}
 		}
+
+		// Build a reverse index (base name → photoID) from all library stores once,
+		// so we avoid scanning every library for every photo in the album.
+		baseToPhotoID := buildBasePhotoIndex(mgr)
+
+		// Prune photos that are missing from disk or whose publish meta was removed.
+		modifiedIdx := make(map[int]bool) // album index → was modified
+		for i := range albums {
+			albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
+			var kept []SitePhoto
+			for _, sp := range albums[i].Photos {
+				// Check file exists on disk.
+				if _, statErr := os.Stat(filepath.Join(albumDir, sp.Filename)); os.IsNotExist(statErr) {
+					modifiedIdx[i] = true
+					continue
+				}
+				// Check published meta in library DB.
+				pid := sp.PhotoID
+				if pid == "" {
+					pid = baseToPhotoID[sitePhotoBase(sp.Filename, channelSlug)]
+				}
+				if pid != "" && mgr != nil && !sitePhotoHasMeta(mgr, pid, channelSlug) {
+					modifiedIdx[i] = true
+					continue
+				}
+				kept = append(kept, sp)
+			}
+			if modifiedIdx[i] {
+				albums[i].Photos = kept
+				albums[i].PhotoCount = len(kept)
+			}
+		}
+
+		stateDirty := len(modifiedIdx) > 0
+
+		// Remove albums that became empty after pruning.
+		var remaining []SiteAlbum
+		for i, album := range albums {
+			if album.PhotoCount == 0 && modifiedIdx[i] {
+				os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
+				continue
+			}
+			remaining = append(remaining, album)
+		}
 		if stateDirty {
-			saveSiteState(filepath.Join(siteDir, "site.json"), albums) //nolint:errcheck
+			saveSiteState(statePath, remaining) //nolint:errcheck
 		}
 
 		rootNav := buildSiteNavContext(ch, siteDir, true)
 		albumNav := buildSiteNavContext(ch, siteDir, false)
 
-		// Regenerate every album page so data-default-theme reflects the current channel setting.
-		for _, album := range albums {
-			albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
+		// Regenerate every album page and rebuild its ZIP if one exists.
+		for i := range remaining {
+			album := &remaining[i]
+			albumDir := filepath.Join(siteDir, "albums", albumFolderName(*album))
 			items := buildGalleryItems(album.Photos)
 			if len(items) == 0 {
-				// Albums published before photo list was stored: reconstruct from disk.
 				items = scanAlbumPhotos(albumDir)
 			}
 			if len(items) == 0 {
 				continue
 			}
-			// Detect ZIP even for albums that predate the HasZip field.
 			zipName := ""
-			if album.HasZip {
-				zipName = "photos.zip"
-			} else if _, err := os.Stat(filepath.Join(albumDir, "photos.zip")); err == nil {
-				zipName = "photos.zip"
+			zipPath := filepath.Join(albumDir, "photos.zip")
+			if album.HasZip || func() bool { _, e := os.Stat(zipPath); return e == nil }() {
+				zipResults := make([]publishResult, len(album.Photos))
+				for j, sp := range album.Photos {
+					zipResults[j] = publishResult{Filename: sp.Filename}
+				}
+				if zipErr := createGalleryZip(zipResults, albumDir, "photos.zip"); zipErr == nil {
+					zipName = "photos.zip"
+					album.HasZip = true
+				}
 			}
 			dateStr := dateRangeStr(album.PublishedAt, album.UpdatedAt)
 			albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
@@ -1914,25 +2104,100 @@ func rebuildSite(chStore *channels.Store) http.HandlerFunc {
 				SiteTitle:   ch.SiteTitle,
 				DateStr:     dateStr,
 				SiteURL:     ch.SiteURL,
-				AlbumSlug:   albumFolderName(album),
+				AlbumSlug:   albumFolderName(*album),
 				PublishedAt: album.PublishedAt,
 				Nav:         albumNav,
 			})
 			os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
 		}
 
-		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums, rootNav)
+		siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
 		if err := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); err != nil {
 			http.Error(w, "write site index: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav) //nolint:errcheck
 		generateImprintPage(siteDir, ch, rootNav)                         //nolint:errcheck
-		generateRobotsTxt(siteDir, ch.SiteURL)                   //nolint:errcheck
+		generateRobotsTxt(siteDir, ch.SiteURL)                            //nolint:errcheck
 		if ch.SiteURL != "" {
-			generateSitemap(siteDir, albums, ch.SiteURL) //nolint:errcheck
+			generateSitemap(siteDir, remaining, ch.SiteURL) //nolint:errcheck
 		}
 
-		writeJSON(w, map[string]any{"sitePath": siteDir, "albumCount": len(albums)})
+		writeJSON(w, map[string]any{"sitePath": siteDir, "albumCount": len(remaining)})
 	}
+}
+
+// sitePhotoBase extracts the original source-file base name from a SitePhoto filename.
+// SitePhoto filenames follow the pattern "{slug}_{ts}_{base}{ext}".
+func sitePhotoBase(filename, slug string) string {
+	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+	prefix := slug + "_"
+	if !strings.HasPrefix(name, prefix) {
+		return ""
+	}
+	rest := name[len(prefix):]
+	idx := strings.IndexByte(rest, '_')
+	if idx < 0 {
+		return ""
+	}
+	return strings.ToLower(rest[idx+1:])
+}
+
+// buildBasePhotoIndex scans all library stores and returns a map from
+// lower-cased path_hint base name → photo ID. Used to resolve legacy SitePhoto
+// entries that don't have a stored photoID.
+func buildBasePhotoIndex(mgr *lib.Manager) map[string]string {
+	m := make(map[string]string)
+	if mgr == nil {
+		return m
+	}
+	libs, err := mgr.ListLibraries()
+	if err != nil {
+		return m
+	}
+	for _, l := range libs {
+		store, err := mgr.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		refs, err := store.ListAllPhotoRefs()
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, ref := range refs {
+			base := strings.ToLower(strings.TrimSuffix(filepath.Base(ref.PathHint), filepath.Ext(ref.PathHint)))
+			if base != "" {
+				m[base] = ref.ID
+			}
+		}
+	}
+	return m
+}
+
+// sitePhotoHasMeta reports whether any library store carries the published:{slug}
+// meta key for the given photoID.
+func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug string) bool {
+	libs, err := mgr.ListLibraries()
+	if err != nil {
+		return true // keep on error
+	}
+	key := "published:" + channelSlug
+	for _, l := range libs {
+		store, err := mgr.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		entries, err := store.GetMeta(photoID)
+		store.Close()
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.Key == key {
+				return true
+			}
+		}
+	}
+	return false
 }

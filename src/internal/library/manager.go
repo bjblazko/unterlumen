@@ -448,6 +448,93 @@ func (m *Manager) TriggerScanNewBackground(id string) {
 	}()
 }
 
+// IndexFilesSync synchronously indexes the given absolute file paths in the named
+// library. Returns true if at least one new photo was indexed. Errors per file are
+// silently skipped so partial results are still returned.
+func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return false
+	}
+	libInfo, err := libraryFromStore(id, store)
+	if err != nil || libInfo.SourcePath == "" {
+		return false
+	}
+	idx := NewIndexer(store, m.LibDir(id), libInfo.SourcePath)
+	for _, p := range absPaths {
+		_ = idx.IndexFile(p)
+	}
+	return idx.NewPhotos() > 0
+}
+
+// TriggerScanNewInFolderBackground is like TriggerScanNewBackground but scoped to
+// a single subfolder (relative to the library source path). A no-op if a scan is
+// already running for this library.
+func (m *Manager) TriggerScanNewInFolderBackground(id, subfolder string) {
+	b, started := m.StartScan(id)
+	if !started {
+		return
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	libInfo, err := libraryFromStore(id, store)
+	if err != nil || libInfo.SourcePath == "" {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	rawCh := make(chan Progress, 8)
+	go func() {
+		defer b.Close()
+		for p := range rawCh {
+			b.Send(p)
+		}
+	}()
+	go func() {
+		defer m.EndScan(id)
+		idx := NewIndexer(store, m.LibDir(id), libInfo.SourcePath)
+		idx.RunScanNewInFolder(context.Background(), rawCh, subfolder)
+	}()
+}
+
+// TriggerCleanupInFolderBackground marks photos in subfolder as missing when their
+// source files no longer exist. Used after moves to clean up the source library.
+// A no-op if a scan is already running for this library.
+func (m *Manager) TriggerCleanupInFolderBackground(id, subfolder string) {
+	b, started := m.StartScan(id)
+	if !started {
+		return
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	libInfo, err := libraryFromStore(id, store)
+	if err != nil || libInfo.SourcePath == "" {
+		m.EndScan(id)
+		b.Close()
+		return
+	}
+	rawCh := make(chan Progress, 8)
+	go func() {
+		defer b.Close()
+		for p := range rawCh {
+			b.Send(p)
+		}
+	}()
+	go func() {
+		defer m.EndScan(id)
+		idx := NewIndexer(store, m.LibDir(id), libInfo.SourcePath)
+		idx.RunCleanupInFolder(context.Background(), rawCh, subfolder)
+	}()
+}
+
 // TryLockIndex acquires the indexing lock for a library.
 // Returns true if the lock was acquired (not already indexing).
 func (m *Manager) TryLockIndex(id string) bool {

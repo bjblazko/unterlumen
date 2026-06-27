@@ -42,6 +42,7 @@ func saveGalleryState(statePath string, gs *GalleryState) error {
 
 // GalleryItem describes one photo in the exported HTML gallery.
 type GalleryItem struct {
+	PhotoID       string // library photo ID (SHA-256); empty for pre-photoID entries
 	Filename      string // full-res filename (relative to index.html)
 	ThumbFilename string // thumbnail filename (relative to index.html)
 	Width, Height int    // full-res dimensions
@@ -416,7 +417,7 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 func buildGalleryItems(photos []SitePhoto) []GalleryItem {
 	items := make([]GalleryItem, len(photos))
 	for i, p := range photos {
-		items[i] = GalleryItem{Filename: p.Filename, ThumbFilename: p.ThumbFilename}
+		items[i] = GalleryItem{PhotoID: p.PhotoID, Filename: p.Filename, ThumbFilename: p.ThumbFilename}
 	}
 	return items
 }

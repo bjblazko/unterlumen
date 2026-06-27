@@ -1,9 +1,20 @@
 # Changelog
 
-*Last modified: 2026-06-26*
+*Last modified: 2026-06-27*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- **Unpublish photo from site channel** — Deleting the `published:{channel}` meta key from a photo in a site-export channel now performs a full unpublish: removes the photo from `site.json`, deletes the exported file and thumbnail, rebuilds the album ZIP, and regenerates album HTML and the site index. Related sub-keys (`account`, `title`, `postid`) are also removed. Photo IDs are now stored in `site.json` entries so future unpublishes are reliable even if the source file is renamed.
+- **Rebuild site reconciles with library** — "Rebuild site" now cross-checks every photo in `site.json` against the library DB and the file system. Photos whose exported file is missing from disk, or whose `published:{channel}` meta was removed, are pruned before regenerating HTML. The album ZIP is also always rebuilt during a rebuild so stale entries can't linger.
+- **Album ZIP rebuilt on rebuild** — Rebuilding a site channel now always regenerates `photos.zip` for every album (not only when new photos are added).
+
+### Fixed
+- **Library scan scope** — "Scan for new photos" in the library browser now scopes the scan to the selected folder(s). If one or more folders are highlighted (but not navigated into), each is scanned in sequence; if nothing is selected, the current view folder is scanned. Previously the entire library was always scanned.
+- **Organize view → library auto-update** — Copying or moving files into a library folder via the Commander (Organize view) now immediately indexes the new arrivals and refreshes the library film strip. Moving files out of a library folder triggers a background cleanup of the source library.
+- **Album search covers all photos** — Photos added to an existing gallery/album via "Add to" now receive the `published:{channel}:title` meta entry, so they appear correctly when filtering the library by album title. Previously only photos from the original publish batch had this entry.
+- **CSP compatibility** — The theme-initialisation script (dark/light mode detection) is now served as `/js/theme-init.js` instead of an inline `<script>` block, so the app works when deployed behind a reverse proxy that enforces a strict `script-src` Content Security Policy.
 
 ## [0.9.6] - 2026-06-26
 
