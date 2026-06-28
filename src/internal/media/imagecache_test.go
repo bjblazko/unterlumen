@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -22,6 +23,21 @@ func TestImageCacheSetThenGetReturnsSameBytes(t *testing.T) {
 	result := cache.Get("key1")
 	if !bytes.Equal(result, data) {
 		t.Fatalf("expected %v, got %v", data, result)
+	}
+}
+
+func TestImageCacheSetDuplicateKeyReplaces(t *testing.T) {
+	cache := NewImageCache(10)
+	cache.Set("k", []byte("v1"))
+	cache.Set("k", []byte("v2"))
+
+	result := cache.Get("k")
+	if !bytes.Equal(result, []byte("v2")) {
+		t.Fatalf("expected v2, got %v", result)
+	}
+
+	if len(cache.entries) != 1 {
+		t.Fatalf("expected exactly 1 entry, got %d", len(cache.entries))
 	}
 }
 
@@ -70,14 +86,13 @@ func TestImageCacheGetPromotesToMRU(t *testing.T) {
 func TestImageCacheThreadSafety(t *testing.T) {
 	cache := NewImageCache(20)
 	var wg sync.WaitGroup
-	errors := make(chan error, 100)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				cache.Set("key", []byte("data"))
+				cache.Set(fmt.Sprintf("key%d", j), []byte("data"))
 			}
 		}(i)
 	}
@@ -87,17 +102,10 @@ func TestImageCacheThreadSafety(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
-				cache.Get("key")
+				cache.Get(fmt.Sprintf("key%d", j))
 			}
 		}(i)
 	}
 
 	wg.Wait()
-	close(errors)
-
-	for err := range errors {
-		if err != nil {
-			t.Fatalf("concurrent access error: %v", err)
-		}
-	}
 }
