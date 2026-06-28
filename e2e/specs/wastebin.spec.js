@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForThumbnailsLoaded } from '../helpers/wait.js';
+import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { GPS_IMAGE, NO_GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 
 test.describe('Wastebin (non-destructive)', () => {
@@ -117,4 +117,56 @@ test.describe('Wastebin (non-destructive)', () => {
   });
 
   // Safety: the Delete button is intentionally never clicked in these tests.
+});
+
+test.describe('Wastebin – library mode', () => {
+  let libID;
+
+  test.beforeAll(async ({ request }) => {
+    const existing = await (await request.get('/api/library/')).json();
+    await Promise.all(
+      existing
+        .filter(l => l.name === 'E2E Wastebin Library')
+        .map(l => request.delete(`/api/library/${l.id}`)),
+    );
+    const res = await request.post('/api/library/', {
+      data: { name: 'E2E Wastebin Library', description: '', sourcePath: 'folder-b' },
+    });
+    expect(res.status()).toBe(201);
+    libID = (await res.json()).id;
+    const scan = await request.post(`/api/library/${libID}/scan-new`, { timeout: 60_000 });
+    expect(scan.status()).toBe(200);
+    await scan.text();
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (libID) await request.delete(`/api/library/${libID}`);
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForAppReady(page);
+    await page.locator('#mode-library').click();
+    await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+    const card = page.locator('.library-card', { hasText: 'E2E Wastebin Library' });
+    await card.locator('.lib-open').click();
+    await page.waitForSelector('.library-detail', { timeout: 8_000 });
+    await waitForThumbnailsLoaded(page, 1);
+  });
+
+  test('Backspace marks photo for deletion in library thumbnail grid', async ({ page }) => {
+    const item = page.locator('[data-type="image"]').first();
+    await item.click();
+    await page.keyboard.press('Backspace');
+    await expect(page.locator('#wastebin-count')).toHaveText('1', { timeout: 3_000 });
+    await expect(item).toHaveClass(/marked-for-deletion/);
+  });
+
+  test('Delete marks photo for deletion in library thumbnail grid', async ({ page }) => {
+    const item = page.locator('[data-type="image"]').first();
+    await item.click();
+    await page.keyboard.press('Delete');
+    await expect(page.locator('#wastebin-count')).toHaveText('1', { timeout: 3_000 });
+    await expect(item).toHaveClass(/marked-for-deletion/);
+  });
 });

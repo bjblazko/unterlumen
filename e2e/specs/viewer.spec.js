@@ -84,4 +84,12 @@ test.describe('Image Viewer', () => {
     await expect(page.locator('#wastebin-count')).toHaveText('1', { timeout: 3_000 });
     await page.locator('.viewer-back').click();
   });
+
+  test('trash icon appears on thumbnail after closing viewer', async ({ page }) => {
+    await openViewer(page, GPS_IMAGE);
+    await page.locator('.viewer-delete').click();
+    await page.locator('.viewer-back').click();
+    await expect(page.locator('.viewer')).not.toBeVisible({ timeout: 5_000 });
+    await expect(page.locator(`[data-name="${GPS_IMAGE}"]`)).toHaveClass(/marked-for-deletion/, { timeout: 3_000 });
+  });
 });

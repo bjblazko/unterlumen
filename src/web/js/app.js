@@ -343,6 +343,7 @@ const App = {
             viewerEl.remove();
             savedDisplay.forEach((display, el) => { el.style.display = display; });
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
+            if (pane.updateMarkedForDeletion) pane.updateMarkedForDeletion();
         };
         this.viewer.onDelete = (path) => {
             const libMeta = pane.getLibraryMeta?.(path);

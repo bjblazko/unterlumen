@@ -167,6 +167,26 @@ class GlobalKeyboard {
             app.commander.doDelete();
         }
 
+        // Backspace: mark for deletion in library mode
+        if (e.key === 'Backspace' && app.mode === 'library' && app._libraryTab) {
+            e.preventDefault();
+            if (document.querySelector('.viewer')) return;
+            const pane = app._libraryTab.getActivePaneForKeyboard();
+            if (!pane) return;
+            const targets = pane.getActionableFiles();
+            if (targets.length === 0) return;
+            const photoMeta = {};
+            let hasLibMeta = false;
+            for (const path of targets) {
+                const m = pane.getLibraryMeta?.(path);
+                if (m) { photoMeta[path] = m; hasLibMeta = true; }
+            }
+            app.wastebin.mark(targets, pane.entries, pane.path, hasLibMeta ? photoMeta : null);
+            pane.selection.clear();
+            pane.updateSelectionClasses();
+            pane.updateMarkedForDeletion();
+        }
+
         // I: toggle info panel in browse mode
         if ((e.key === 'i' || e.key === 'I') && app.mode === 'browse' && app.infoPanel) {
             if (document.querySelector('.viewer')) return;
@@ -208,6 +228,26 @@ class GlobalKeyboard {
             if (targets.length === 0) return;
             e.preventDefault();
             app.commander.doDelete();
+        }
+
+        // Delete: mark for deletion in library mode
+        if (e.key === 'Delete' && app.mode === 'library' && app._libraryTab) {
+            e.preventDefault();
+            if (document.querySelector('.viewer')) return;
+            const pane = app._libraryTab.getActivePaneForKeyboard();
+            if (!pane) return;
+            const targets = pane.getActionableFiles();
+            if (targets.length === 0) return;
+            const photoMeta = {};
+            let hasLibMeta = false;
+            for (const path of targets) {
+                const m = pane.getLibraryMeta?.(path);
+                if (m) { photoMeta[path] = m; hasLibMeta = true; }
+            }
+            app.wastebin.mark(targets, pane.entries, pane.path, hasLibMeta ? photoMeta : null);
+            pane.selection.clear();
+            pane.updateSelectionClasses();
+            pane.updateMarkedForDeletion();
         }
 
         // F5/F6: copy/move in commander mode
