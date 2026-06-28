@@ -35,7 +35,7 @@ type browseMetaResponse struct {
 }
 
 // Handle registers all /api/browse/* routes on mux.
-func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *library.Manager) {
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, imgCache *media.ImageCache, libMgr *library.Manager) {
 	mux.HandleFunc("/api/browse", handleBrowse(root, cache))
 	mux.HandleFunc("/api/browse/dates", handleBrowseDates(root, cache))
 	mux.HandleFunc("/api/browse/meta", handleBrowseMeta(root, cache))
@@ -43,7 +43,7 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *lib
 	mux.HandleFunc("/api/browse/dirs", handleBrowseDirs(root))
 	mux.HandleFunc("/api/browse/folder-stats", handleFolderStats(root))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root, libMgr))
-	mux.HandleFunc("/api/image", handleImage(root))
+	mux.HandleFunc("/api/image", handleImage(root, imgCache))
 	mux.HandleFunc("/api/info", handleInfo(root))
 }
 
