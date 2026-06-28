@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-28
+
 ### Added
 - **Image title field** — Per-photo title (short label/slug, like Lightroom's Title field) editable in the info panel in library mode. Stored as `dc:title` in an XMP sidecar (standard Dublin Core field, compatible with Lightroom, Capture One, etc.) and mirrored to the library database. The title appears at the very top of the info panel above the File section. Available as `{title}` token in batch rename — automatically slugified (lowercase, spaces and symbols replaced with hyphens).
 - **Publications section in info panel** — Publication records (`published:*` metadata) are now shown as a dedicated "Publications" section with compact cards instead of raw key-value rows in the Meta section. Each card shows the channel name and publication date; deleting a card removes all related publication metadata.
@@ -30,6 +32,7 @@ All notable changes to this project are documented in this file.
 - **Organize view → library auto-update** — Copying or moving files into a library folder via the Commander (Organize view) now immediately indexes the new arrivals and refreshes the library film strip. Moving files out of a library folder triggers a background cleanup of the source library.
 - **Album search covers all photos** — Photos added to an existing gallery/album via "Add to" now receive the `published:{channel}:title` meta entry, so they appear correctly when filtering the library by album title. Previously only photos from the original publish batch had this entry.
 - **CSP compatibility** — The theme-initialisation script (dark/light mode detection) is now served as `/js/theme-init.js` instead of an inline `<script>` block, so the app works when deployed behind a reverse proxy that enforces a strict `script-src` Content Security Policy.
+- **EXIF date in list view** — The Date column in list view now shows the date taken from EXIF instead of the filesystem modification date, falling back to the filesystem date when no EXIF is available. Applies to both browse mode (populated via background scan) and library mode (read from the library database).
 
 ## [0.9.6] - 2026-06-26
 

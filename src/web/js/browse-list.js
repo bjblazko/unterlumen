@@ -50,7 +50,7 @@ class ListRenderer {
         return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}">
             <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy" decoding="async" fetchpriority="low"${onerror}></td>
             <td class="list-name">${label}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
-            <td class="list-date">${formatDate(entry.date)}</td>
+            <td class="list-date">${formatDate(entry.exifDate ?? entry.date)}</td>
             <td class="list-size">${size}</td>
         </tr>`;
     }

@@ -843,6 +843,7 @@ class BrowsePane {
                 if (entry.type === 'image' && data.dates[entry.name]) entry.exifDate = data.dates[entry.name];
             }
             if (this.sort === 'taken') this._resortAndRender();
+            else if (this.view === 'list') this.render();
         }
     }
 
