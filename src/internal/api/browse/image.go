@@ -35,26 +35,30 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 		}
 
 		if media.IsHEIF(absPath) {
+			var info os.FileInfo
 			var key string
-			var modTime time.Time
-			info, statErr := os.Stat(absPath)
-			if statErr == nil {
-				modTime = info.ModTime()
-				key = absPath + ":" + strconv.FormatInt(modTime.UnixNano(), 10)
+			if fi, err := os.Stat(absPath); err == nil {
+				info = fi
+				key = absPath + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10)
+			}
+
+			// serveHEIF is only called when key != "" (i.e. info is non-nil).
+			serveHEIF := func(data []byte) {
+				h := sha256.Sum256([]byte(absPath))
+				etag := fmt.Sprintf(`"%x-%d"`, h[:4], info.ModTime().Unix())
+				w.Header().Set("Cache-Control", "private, max-age=3600")
+				w.Header().Set("ETag", etag)
+				if r.Header.Get("If-None-Match") == etag {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+				w.Header().Set("Content-Type", "image/jpeg")
+				http.ServeContent(w, r, "image.jpg", info.ModTime(), bytes.NewReader(data))
 			}
 
 			if key != "" {
 				if cached := imgCache.Get(key); cached != nil {
-					h := sha256.Sum256([]byte(absPath))
-					etag := fmt.Sprintf(`"%x-%d"`, h[:4], modTime.Unix())
-					w.Header().Set("Content-Type", "image/jpeg")
-					w.Header().Set("Cache-Control", "private, max-age=3600")
-					w.Header().Set("ETag", etag)
-					if r.Header.Get("If-None-Match") == etag {
-						w.WriteHeader(http.StatusNotModified)
-						return
-					}
-					http.ServeContent(w, r, "image.jpg", modTime, bytes.NewReader(cached))
+					serveHEIF(cached)
 					return
 				}
 			}
@@ -67,19 +71,11 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 
 			if key != "" {
 				imgCache.Set(key, jpegData)
-				h := sha256.Sum256([]byte(absPath))
-				etag := fmt.Sprintf(`"%x-%d"`, h[:4], modTime.Unix())
-				w.Header().Set("Content-Type", "image/jpeg")
-				w.Header().Set("Cache-Control", "private, max-age=3600")
-				w.Header().Set("ETag", etag)
-				if r.Header.Get("If-None-Match") == etag {
-					w.WriteHeader(http.StatusNotModified)
-					return
-				}
-				http.ServeContent(w, r, "image.jpg", modTime, bytes.NewReader(jpegData))
+				serveHEIF(jpegData)
 				return
 			}
 
+			// stat failed — fall back to old uncacheable response
 			w.Header().Set("Content-Type", "image/jpeg")
 			w.Header().Set("Cache-Control", "no-cache")
 			http.ServeContent(w, r, "image.jpg", time.Time{}, bytes.NewReader(jpegData))

@@ -27,11 +27,11 @@ the browser to cache converted images for the duration of a browsing session.
 
 ## Acceptance Criteria
 
-- [ ] Navigating forward through JPEG images shows near-zero latency after the first
+- [x] Navigating forward through JPEG images shows near-zero latency after the first
       prefetch has completed
-- [ ] Navigating forward through HEIF images benefits from both prefetch and server-side
+- [x] Navigating forward through HEIF images benefits from both prefetch and server-side
       caching
-- [ ] HEIF images are served with `Cache-Control: private, max-age=3600` and a valid ETag
-- [ ] `If-None-Match` requests for HEIF images return 304 when ETag matches
-- [ ] The LRU cache holds at most 20 entries; older entries are evicted when full
-- [ ] Works in both browse mode and library mode
+- [x] HEIF images are served with `Cache-Control: private, max-age=3600` and a valid ETag
+- [x] `If-None-Match` requests for HEIF images return 304 when ETag matches
+- [x] The LRU cache holds at most 20 entries; older entries are evicted when full
+- [x] Works in both browse mode and library mode
