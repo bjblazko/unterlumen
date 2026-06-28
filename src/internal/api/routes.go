@@ -29,6 +29,7 @@ import (
 func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
+	imageCache := media.NewImageCache(20)
 
 	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
@@ -36,7 +37,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
 	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))
 
-	browse.Handle(mux, boundary, cache, libMgr)
+	browse.Handle(mux, boundary, cache, imageCache, libMgr)
 	apiexport.Handle(mux, boundary, serverRole)
 	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache, libMgr)
@@ -47,7 +48,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		apichannels.Handle(mux, chStore)
 	}
 	if libMgr != nil {
-		apilibrary.Handle(mux, libMgr, boundary, serverRole, chStore)
+		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore)
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))
