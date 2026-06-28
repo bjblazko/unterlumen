@@ -108,6 +108,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - **Status bar** — Live image count and selection count in every pane
 - **EXIF/HEIF orientation** — Portrait and rotated images display correctly
 - **HEIF support** — Automatic conversion via ffmpeg (requires ffmpeg installed)
+- **Read-ahead prefetch** — The viewer prefetches the next two images on each navigation for near-instant forward navigation, even over a NAS
 - **Fujifilm film simulation** — Film simulation name (e.g. Classic Chrome, Velvia, Acros) shown in the info panel and as a grid overlay badge for Fujifilm images
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
 

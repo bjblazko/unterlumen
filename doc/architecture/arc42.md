@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-06-26*
+*Last modified: 2026-06-28*
 
 ## 1. Introduction and Goals
 
@@ -108,6 +108,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | No state management | Filesystem is the only store; no database ([ADR-0002](adr/0002-no-persistence.md)) |
 | HEIF support | Shell out to ffmpeg ([ADR-0004](adr/0004-heif-via-ffmpeg.md)) |
 | Large-folder performance | In-memory scan cache, deferred EXIF extraction, chunked rendering ([ADR-0011](adr/0011-scan-cache-deferred-exif.md)) |
+| NAS navigation latency | Viewer prefetches the next two images; HEIF responses are cached in an in-memory LRU cache and served with `max-age=3600` ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
 | Client-side settings | UI-only preferences (theme, thumbnail quality) persisted in `localStorage` ([ADR-0012](adr/0012-client-side-settings.md)); library-level settings (sort mode, sort order) persisted server-side in `settings.json` and per-library `library_props` |
 
 ## 5. Building Block View
@@ -258,8 +259,9 @@ This prevents directory traversal attacks regardless of encoding tricks or symli
 
 ### 8.3 Caching
 
-- **Browser caching** — Thumbnail and image responses include `Cache-Control: no-cache` to prevent stale images after server updates while still allowing conditional requests.
+- **Browser caching** — Thumbnail responses use `Cache-Control: no-cache` with ETag/Last-Modified for revalidation. Full-size JPEG/PNG images are served via `http.ServeFile` which sets ETag and Last-Modified automatically. Full-size HEIF conversions use `Cache-Control: private, max-age=3600` with an ETag derived from the file path and modification time, enabling browser-side caching for the duration of a session. In-place edits (crop) append a `?t=<timestamp>` cache-buster to force a fresh fetch.
 - **In-memory scan cache** — Directory listings are cached in a `sync.Map` keyed by directory path. Entries are invalidated when the directory modification time changes or when a copy/move/delete operation touches the directory. Consistent with [ADR-0002](adr/0002-no-persistence.md) — the cache is purely in-memory and lost on restart. See [ADR-0011](adr/0011-scan-cache-deferred-exif.md).
+- **In-memory image cache** — Full-size HEIF conversions are cached in a thread-safe LRU cache (`ImageCache`, 20 entries) shared by the browse and library handlers. Cache keys are `absPath:mtime_ns` so entries are automatically stale when the source file changes. Avoids re-reading from disk and re-serving large JPEG payloads on repeated access. See [ADR-0022](adr/0022-read-ahead-prefetch.md).
 - **HEIF disk cache** — Converted JPEG data from HEIF/HEIC/HIF files is cached in `$TMPDIR/unterlumen-cache/`. Cache keys include file path, modification time, and purpose (full/preview). Survives restarts but not OS temp cleanup. See [ADR-0004](adr/0004-heif-via-ffmpeg.md).
 
 ## 9. Architecture Decisions
@@ -287,6 +289,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0019](adr/0019-toggle-three-label-rule.md) — Toggle sliders must carry three visible labels
 - [ADR-0020](adr/0020-heic-crop-pipeline.md) — HEIC in-place crop via JPEG intermediary
 - [ADR-0021](adr/0021-database-schema-migrations.md) — Database schema migration strategy
+- [ADR-0022](adr/0022-read-ahead-prefetch.md) — Read-ahead prefetch and in-memory image cache
 
 ## 10. Quality Requirements
 
@@ -303,7 +306,8 @@ Quality
 │   ├── EXIF thumbnails (no generation)
 │   ├── Scan cache (instant repeat visits)
 │   ├── Chunked rendering (batched DOM updates)
-│   └── Browser-side caching
+│   ├── Browser-side caching
+│   └── Read-ahead prefetch + in-memory image cache
 ├── Security
 │   ├── Path traversal prevention
 │   ├── Localhost binding by default
