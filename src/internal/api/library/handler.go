@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -31,7 +32,7 @@ import (
 
 // Handle registers all library API routes on mux.
 // root is the browse boundary directory; serverRole is true when running in server/container mode.
-func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, chStore *channels.Store) {
+func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, root string, serverRole bool, chStore *channels.Store) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
 	mux.HandleFunc("PUT /api/library-order", setLibraryOrder(mgr))
@@ -63,7 +64,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, root string, serverRole bool, 
 	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb-by-path", thumbByPath(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr))
-	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr, imgCache))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}", deleteLibraryPhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
@@ -929,7 +930,7 @@ func deleteLibraryPhoto(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
-func servePhoto(mgr *lib.Manager) http.HandlerFunc {
+func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		photoID := r.PathValue("photoID")
@@ -948,6 +949,33 @@ func servePhoto(mgr *lib.Manager) http.HandlerFunc {
 		}
 
 		if media.IsHEIF(pathHint) {
+			var key string
+			var info os.FileInfo
+			info, err = os.Stat(pathHint)
+			if err == nil {
+				key = pathHint + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10)
+			}
+
+			serveHEIF := func(data []byte) {
+				h := sha256.Sum256([]byte(pathHint))
+				etag := fmt.Sprintf(`"%x-%d"`, h[:4], info.ModTime().Unix())
+				w.Header().Set("Cache-Control", "private, max-age=3600")
+				w.Header().Set("ETag", etag)
+				if r.Header.Get("If-None-Match") == etag {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+				w.Header().Set("Content-Type", "image/jpeg")
+				http.ServeContent(w, r, "image.jpg", info.ModTime(), bytes.NewReader(data))
+			}
+
+			if key != "" {
+				if cached := imgCache.Get(key); cached != nil {
+					serveHEIF(cached)
+					return
+				}
+			}
+
 			jpegData, convErr := media.ConvertHEIFToJPEG(r.Context(), pathHint)
 			if convErr != nil {
 				if _, statErr := os.Stat(pathHint); os.IsNotExist(statErr) {
@@ -957,6 +985,13 @@ func servePhoto(mgr *lib.Manager) http.HandlerFunc {
 				}
 				return
 			}
+
+			if key != "" {
+				imgCache.Set(key, jpegData)
+				serveHEIF(jpegData)
+				return
+			}
+
 			w.Header().Set("Content-Type", "image/jpeg")
 			w.Header().Set("Cache-Control", "no-cache")
 			http.ServeContent(w, r, "image.jpg", time.Time{}, bytes.NewReader(jpegData))
