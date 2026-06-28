@@ -33,6 +33,7 @@ class Viewer {
 
         document.addEventListener('keydown', this.keyHandler);
         this.render();
+        this._prefetch(2);
     }
 
     close() {
@@ -120,6 +121,7 @@ class Viewer {
         if (this.infoPanel && this.infoPanel.expanded) {
             this._infoLoadFn(this.currentPath, this.infoPanel);
         }
+        this._prefetch(2);
     }
 
     toggleInfo() {
@@ -322,6 +324,17 @@ class Viewer {
     _currentImageURL() {
         const url = this._imageURLFn(this.currentPath);
         return this._cacheBust ? `${url}&t=${this._cacheBust}` : url;
+    }
+
+    _prefetch(ahead = 2) {
+        this._prefetchCache = [];
+        for (let i = 1; i <= ahead; i++) {
+            const idx = this.currentIndex + i;
+            if (idx >= this.images.length) break;
+            const img = new Image();
+            img.src = this._imageURLFn(this.images[idx]);
+            this._prefetchCache.push(img);
+        }
     }
 
     _enterCropMode() {
