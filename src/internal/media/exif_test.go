@@ -69,6 +69,37 @@ func TestAspectRatioLabel(t *testing.T) {
 	}
 }
 
+const exampleHIF = "../../examples/folder-a/a1/2026-04-24_X-T50-XF23mmF2-R-WR-DSCF6850.hif"
+
+// TestHeifExifOrientationNormal verifies heifExifOrientation returns 1 for a
+// landscape (normal) Fujifilm HIF so the fallback never fires falsely.
+func TestHeifExifOrientationNormal(t *testing.T) {
+	ori := heifExifOrientation(exampleHIF)
+	if ori != 1 {
+		t.Errorf("heifExifOrientation(%q) = %d, want 1 (normal)", exampleHIF, ori)
+	}
+}
+
+// TestHeifOrientationNormal verifies heifOrientation returns 1 for a landscape
+// HIF and doesn't regress to a spurious non-1 value.
+func TestHeifOrientationNormal(t *testing.T) {
+	ori := heifOrientation(exampleHIF)
+	if ori != 1 {
+		t.Errorf("heifOrientation(%q) = %d, want 1 (normal)", exampleHIF, ori)
+	}
+}
+
+// TestHeifOrientationPrefersIROT verifies that when irot is set, heifOrientation
+// returns it rather than falling through to the EXIF block.
+func TestHeifOrientationPrefersIROT(t *testing.T) {
+	// The example file has irot=1, EXIF orientation=1 — heifOrientation must agree.
+	got := heifOrientation(exampleHIF)
+	want := ExtractHEIFOrientation(exampleHIF)
+	if got != want {
+		t.Errorf("heifOrientation = %d, ExtractHEIFOrientation = %d; should agree for this file", got, want)
+	}
+}
+
 func TestIsTIFFHeader(t *testing.T) {
 	littleEndian := []byte{0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00}
 	bigEndian := []byte{0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08}

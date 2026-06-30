@@ -1,6 +1,6 @@
 # ADR-0020: HEIC In-Place Crop via JPEG Intermediary
 
-*Last modified: 2026-05-24*
+*Last modified: 2026-06-30*
 
 ## Status
 
@@ -41,3 +41,23 @@ Replace the `sips --cropToHeightWidth/--cropOffset` path with a three-step decod
 - **sips dependency preserved**: HEIC crop still requires macOS. Returns an error on non-macOS platforms; other formats (JPEG, PNG, WebP) are unaffected.
 - **New helper**: `extractJPEGOrientation(data []byte) int` added to the `media` package reads EXIF orientation from raw JPEG bytes without a temp-file round-trip, keeping the decode path in memory.
 - **Key diagnostic for future debugging**: if a sips-based image operation produces a result that is rotated or has misaligned coordinates, check whether the HEIC stores rotation in the irot box (checked by `ExtractHEIFOrientation`) or in the EXIF item of the HEIC container (checked by reading EXIF after sipsConvert). These two sources are independent and sips does not always unify them.
+
+## Amendment — 2026-06-30: unified `heifOrientation` for the full pipeline
+
+Portrait HEIF/HIF images from Fujifilm cameras were displayed in landscape orientation when running on Docker/Linux (where `sips` is unavailable). The fallback decoders (`heif-convert`, `ffmpegRun`) were only considering the `irot` box via `ExtractHEIFOrientation`, which returns 1 for Fujifilm files. Without a JPEG EXIF tag in the output (stripped by `ffmpegRun`, or omitted by some `heif-convert` builds), no rotation was applied.
+
+**Fix**: added two helpers to `media/exif.go`:
+
+- `heifExifOrientation(path)` — reads the EXIF orientation tag from the HEIF container's embedded EXIF block (distinct from the `irot` box).
+- `heifOrientation(path)` — the canonical orientation lookup for HEIF files. Prefers `irot`; falls back to `heifExifOrientation` when `irot` is unset. **All HEIF conversion and thumbnail paths must use this function instead of calling `ExtractHEIFOrientation` directly.**
+
+The correct pattern for each decoder type:
+
+| Decoder | Orientation source |
+|---|---|
+| `sipsConvert` | `extractJPEGOrientation(outputJPEG)` — sips preserves EXIF |
+| embedded JPEG stream | `extractJPEGOrientation(data)`, fallback to `heifOrientation(path)` |
+| `heifConvert` | `extractJPEGOrientation(data)`; if 1 AND `irot`=1 → `heifExifOrientation(path)` |
+| `ffmpegRun` | `heifOrientation(path)` directly (no EXIF in output) |
+
+Cache keys were also bumped (`preview-v4`→`v5`, `full-v3`→`v4`, `thumbnailCacheVersion` `v2`→`v3`) to prevent stale landscape-oriented cached files from being served after the fix.

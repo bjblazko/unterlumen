@@ -87,6 +87,8 @@ Non-obvious bugs that have already occurred and are easy to repeat:
 
 - **HEIC/sips orientation**: `sips -s format jpeg` preserves EXIF orientation as a tag (does not bake it into pixels) for cameras like Fujifilm that store rotation in the embedded JPEG's EXIF rather than the HEIC irot box. Go's `jpeg.Decode` ignores EXIF orientation. Any pipeline using `sipsConvert` output must call `extractJPEGOrientation(data)` + `applyOrientation(img, ori)` before pixel-space operations. Do not use `sips --cropOffset` — its coordinate space is ambiguous across camera manufacturers. See ADR-0020.
 
+- **HEIF orientation — two sources, one canonical function**: HEIF rotation can live in (a) the ISOBMFF `irot` box (Apple/standard devices, read by `ExtractHEIFOrientation`) or (b) the HEIF's embedded EXIF block (Fujifilm and similar, no `irot` set). **Always use `heifOrientation(path)` when you need the display orientation of a HEIF file** — it checks `irot` first and falls back to the embedded EXIF via `heifExifOrientation`. Never call `ExtractHEIFOrientation` directly in a conversion or thumbnail pipeline; it silently returns 1 for Fujifilm-style files. Additionally, each decoder has its own orientation behavior: `sipsConvert` preserves EXIF but does not bake pixels; `heif-convert` bakes `irot` but may or may not copy EXIF; `ffmpegRun` bakes nothing. The correct pattern for every path: read `extractJPEGOrientation(outputJPEG)` first (covers sips and embedded JPEG streams), and fall back to `heifOrientation(path)` when the JPEG result is 1.
+
 ## Reminders
 
 - **Keep README.md up to date** when making important changes (new features, changed CLI flags, new dependencies, changed requirements).

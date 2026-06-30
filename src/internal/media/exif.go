@@ -222,6 +222,35 @@ func ExtractHEIFOrientation(path string) int {
 	return 1
 }
 
+// heifExifOrientation reads the EXIF orientation tag from a HEIF file's
+// embedded EXIF metadata block. Returns 1 if not found.
+func heifExifOrientation(path string) int {
+	x, err := decodeEmbeddedExif(path)
+	if err != nil {
+		return 1
+	}
+	tag, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 1
+	}
+	v, err := tag.Int(0)
+	if err != nil || v < 1 || v > 8 {
+		return 1
+	}
+	return v
+}
+
+// heifOrientation returns the display orientation for a HEIF file.
+// It prefers the container irot box; if irot is not set it falls back
+// to the embedded EXIF orientation (used by Fujifilm and similar cameras
+// that store rotation in EXIF rather than the irot box).
+func heifOrientation(path string) int {
+	if ori := ExtractHEIFOrientation(path); ori != 1 {
+		return ori
+	}
+	return heifExifOrientation(path)
+}
+
 // decodeEmbeddedExif scans a file for an embedded EXIF block.
 // HEIF/HEIC/HIF files store EXIF data inside their ISOBMFF container.
 // The string "Exif" also appears in iinf/infe boxes as an item type name,

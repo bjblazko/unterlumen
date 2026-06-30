@@ -1,6 +1,38 @@
 package media
 
-import "testing"
+import (
+	"image/jpeg"
+	"bytes"
+	"os/exec"
+	"sync"
+	"testing"
+)
+
+// TestExtractHEIFPreviewLandscapeNotRotated verifies that extractHEIFPreview
+// does not accidentally rotate a landscape (orientation=1) HIF file.
+// This is a regression guard for the orientation fallback logic.
+func TestExtractHEIFPreviewLandscapeNotRotated(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not available")
+	}
+
+	cacheDir = ""
+	cacheDirOnce = sync.Once{}
+	t.Setenv("TMPDIR", t.TempDir())
+
+	data, err := extractHEIFPreview(exampleHIF, 300)
+	if err != nil {
+		t.Fatalf("extractHEIFPreview: %v", err)
+	}
+
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("decode preview jpeg: %v", err)
+	}
+	if cfg.Width <= cfg.Height {
+		t.Errorf("landscape HIF produced portrait preview (%dx%d); orientation may be wrongly applied", cfg.Width, cfg.Height)
+	}
+}
 
 func TestChooseHEIFJPEGPreviewStreamPrefersSmallestAdequatePreview(t *testing.T) {
 	streams := []heifJPEGPreviewStream{

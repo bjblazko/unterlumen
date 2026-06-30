@@ -14,7 +14,7 @@ import (
 	"golang.org/x/image/draw"
 )
 
-const thumbnailCacheVersion = "v2"
+const thumbnailCacheVersion = "v3"
 
 // GenerateThumbnail creates a thumbnail by decoding and resizing the image.
 // Orientation is applied after decoding and before resizing.

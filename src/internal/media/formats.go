@@ -203,11 +203,14 @@ func EvictFile(srcPath string) {
 	orientations := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
 	streamIndices := []int{0, 1, 2, 3, 4}
 
-	purposes := []string{"thumb-exif-v2", "full-v3"}
+	purposes := []string{"thumb-exif-v2", "full-v3", "full-v4"}
 	for _, sz := range sizes {
 		purposes = append(purposes,
 			fmt.Sprintf("thumb-heif-preview-%s-%d", thumbnailCacheVersion, sz),
 			fmt.Sprintf("thumb-heif-source-%s-%d", thumbnailCacheVersion, sz),
+			// also evict the previous cache version
+			fmt.Sprintf("thumb-heif-preview-v2-%d", sz),
+			fmt.Sprintf("thumb-heif-source-v2-%d", sz),
 		)
 		for _, ori := range orientations {
 			purposes = append(purposes,
@@ -216,7 +219,8 @@ func EvictFile(srcPath string) {
 		}
 		for _, si := range streamIndices {
 			purposes = append(purposes,
-				fmt.Sprintf("preview-v4-%d-q80-%d", si, sz),
+				fmt.Sprintf("preview-v5-%d-q80", si),
+				fmt.Sprintf("preview-v4-%d-q80", si),
 			)
 		}
 	}
@@ -235,7 +239,7 @@ func EvictFile(srcPath string) {
 // and finally to HEVC decoding for simple HEIF files without previews.
 // Results are cached to disk.
 func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
-	key := cacheKey(path, "full-v3")
+	key := cacheKey(path, "full-v4")
 	if cached := readCache(key); cached != nil {
 		return cached, nil
 	}
@@ -250,8 +254,11 @@ func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
 			return thumbnailWorkResult{err: err}
 		}
 
-		orientation := ExtractHEIFOrientation(path)
-		data, _ = applyOrientationJPEG(data, orientation, 92)
+		ori := extractJPEGOrientation(data)
+		if ori == 1 {
+			ori = heifOrientation(path)
+		}
+		data, _ = applyOrientationJPEG(data, ori, 92)
 
 		writeCache(key, data)
 		return thumbnailWorkResult{data: data}
@@ -297,15 +304,18 @@ func extractHEIFPreview(path string, maxDim int) ([]byte, error) {
 	streams, err := probeHEIFJPEGStreams(path)
 	if err == nil {
 		if stream, ok := chooseHEIFJPEGPreviewStream(streams, maxDim); ok {
-			key := cacheKey(path, fmt.Sprintf("preview-v4-%d-q80", stream.Index))
+			key := cacheKey(path, fmt.Sprintf("preview-v5-%d-q80", stream.Index))
 			if cached := readCache(key); cached != nil {
 				return cached, nil
 			}
 
 			data, err := extractEmbeddedHEIFJPEGStream(path, stream.Index)
 			if err == nil && len(data) > 0 {
-				orientation := ExtractHEIFOrientation(path)
-				data, _ = applyOrientationJPEG(data, orientation, 80)
+				ori := extractJPEGOrientation(data)
+				if ori == 1 {
+					ori = heifOrientation(path)
+				}
+				data, _ = applyOrientationJPEG(data, ori, 80)
 				writeCache(key, data)
 				return data, nil
 			}
@@ -342,14 +352,22 @@ func extractEmbeddedHEIFJPEGStream(path string, streamIndex int) ([]byte, error)
 
 func extractPreviewFallbackJPEG(path string) ([]byte, error) {
 	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
-		orientation := ExtractHEIFOrientation(path)
-		data, _ = applyOrientationJPEG(data, orientation, 80)
+		ori := extractJPEGOrientation(data)
+		if ori == 1 {
+			ori = heifOrientation(path)
+		}
+		data, _ = applyOrientationJPEG(data, ori, 80)
 		return data, nil
 	}
 
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
-		orientation := ExtractHEIFOrientation(path)
-		data, _ = applyOrientationJPEG(data, orientation, 80)
+		// heif-convert applies the irot box rotation; only consult the embedded
+		// EXIF when both the JPEG output and irot report no rotation (Fujifilm style).
+		ori := extractJPEGOrientation(data)
+		if ori == 1 && ExtractHEIFOrientation(path) == 1 {
+			ori = heifExifOrientation(path)
+		}
+		data, _ = applyOrientationJPEG(data, ori, 80)
 		return data, nil
 	}
 
@@ -363,8 +381,7 @@ func extractPreviewFallbackJPEG(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	orientation := ExtractHEIFOrientation(path)
-	data, _ = applyOrientationJPEG(data, orientation, 80)
+	data, _ = applyOrientationJPEG(data, heifOrientation(path), 80)
 	return data, nil
 }
 
@@ -385,12 +402,17 @@ func convertHEIFExport(path string) ([]byte, error) {
 	// heif-convert (Linux) performs a native full decode via libheif.
 	// Apply any residual EXIF orientation the same way for safety.
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
+		// heif-convert applies the irot box rotation; only consult the embedded
+		// EXIF when both the JPEG output and irot report no rotation (Fujifilm style).
 		ori := extractJPEGOrientation(data)
+		if ori == 1 && ExtractHEIFOrientation(path) == 1 {
+			ori = heifExifOrientation(path)
+		}
 		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
-	// so we apply the container rotation explicitly afterwards.
+	// so we apply the full orientation (irot + embedded EXIF fallback) explicitly.
 	data, err := ffmpegRun(path,
 		"-f", "image2pipe",
 		"-vcodec", "mjpeg",
@@ -401,8 +423,7 @@ func convertHEIFExport(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	orientation := ExtractHEIFOrientation(path)
-	data, _ = applyOrientationJPEG(data, orientation, 92)
+	data, _ = applyOrientationJPEG(data, heifOrientation(path), 92)
 	return data, nil
 }
 

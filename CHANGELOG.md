@@ -1,9 +1,12 @@
 # Changelog
 
-*Last modified: 2026-06-28*
+*Last modified: 2026-06-30*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+- **Portrait HEIF/HIF orientation on Docker/Linux** — Cameras such as Fujifilm X-T50 store portrait rotation in the EXIF orientation tag rather than the HEIF container's `irot` box. When converting HEIF without `sips` (Docker/Linux), the `irot`-only lookup returned "no rotation" and images were displayed in landscape. The fix reads orientation from the JPEG output's EXIF first, then falls back to the container `irot` box, and finally to the embedded EXIF orientation tag. Orientation is now always baked into pixels before thumbnails are resized, ensuring consistent display regardless of browser EXIF support. (Affects thumbnails, full-image view, and library thumbnail generation.)
 
 ## [0.10.0] - 2026-06-28
 
