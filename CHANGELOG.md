@@ -1,9 +1,14 @@
 # Changelog
 
-*Last modified: 2026-06-30*
+*Last modified: 2026-07-05*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.10.1] - 2026-07-05
+
+### Added
+- **Shared channel config directory** — New `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR` flag decouples where `channels.json` is stored from `-lib-dir`. Lets multiple installations sharing the same photo folders (e.g. Docker on a NAS plus a native install on a Mac) share channel definitions while keeping the SQLite database, thumbnails, and search index independent and local to each machine. Defaults to `-lib-dir` when unset, so existing single-installation setups are unaffected. See ADR-0023.
 
 ### Fixed
 - **Portrait HEIF/HIF orientation on Docker/Linux** — Cameras such as Fujifilm X-T50 store portrait rotation in the EXIF orientation tag rather than the HEIF container's `irot` box. When converting HEIF without `sips` (Docker/Linux), the `irot`-only lookup returned "no rotation" and images were displayed in landscape. The fix reads orientation from the JPEG output's EXIF first, then falls back to the container `irot` box, and finally to the embedded EXIF orientation tag. Orientation is now always baked into pixels before thumbnails are resized, ensuring consistent display regardless of browser EXIF support. (Affects thumbnails, full-image view, and library thumbnail generation.)

@@ -29,25 +29,29 @@ var builtinChannels = []*Channel{
 	},
 }
 
-// Store manages the global channels.json file.
+// Store manages the channels.json file.
 type Store struct {
-	path string
-	mu   sync.Mutex
+	path       string
+	outputBase string
+	mu         sync.Mutex
 }
 
-// NewStore creates a Store rooted at libRoot (e.g. ~/.unterlumen).
-func NewStore(libRoot string) *Store {
-	return &Store{path: filepath.Join(libRoot, "channels.json")}
+// NewStore creates a Store whose channels.json lives in configDir and whose default
+// export output lives under outputBaseDir/channels/<slug>/. The two may be the same
+// directory (e.g. ~/.unterlumen) or different — e.g. when configDir is a directory
+// shared between multiple installations while outputBaseDir stays machine-local.
+func NewStore(configDir, outputBaseDir string) *Store {
+	return &Store{path: filepath.Join(configDir, "channels.json"), outputBase: outputBaseDir}
 }
 
 // OutputDir returns the effective output directory for the given channel slug.
 // If the channel has a custom OutputPath, that is returned. Otherwise the default
-// ~/.unterlumen/channels/<slug>/ path is used.
+// <outputBaseDir>/channels/<slug>/ path is used.
 func (s *Store) OutputDir(slug string) string {
 	if ch, err := s.Get(slug); err == nil && ch.OutputPath != "" {
 		return ch.OutputPath
 	}
-	return filepath.Join(filepath.Dir(s.path), "channels", slug)
+	return filepath.Join(s.outputBase, "channels", slug)
 }
 
 // List returns all channels. Returns built-in defaults if channels.json does not exist yet.

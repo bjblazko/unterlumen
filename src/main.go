@@ -51,11 +51,13 @@ func main() {
 	}
 
 	cacheDirDefault := os.Getenv("UNTERLUMEN_CACHE_DIR")
+	channelsDirDefault := os.Getenv("UNTERLUMEN_CHANNELS_DIR")
 
 	port := flag.Int("port", portDefault, "HTTP server port (env: UNTERLUMEN_PORT)")
 	bind := flag.String("bind", bindDefault, "Address to bind to (env: UNTERLUMEN_BIND)")
 	libDir := flag.String("lib-dir", libDirDefault, "Library data directory (env: UNTERLUMEN_LIB_DIR)")
 	cacheDir := flag.String("cache-dir", cacheDirDefault, "Thumbnail and conversion cache directory (env: UNTERLUMEN_CACHE_DIR)")
+	channelsDir := flag.String("channels-dir", channelsDirDefault, "Directory for channels.json; override to share channel config across installations (defaults to lib-dir; env: UNTERLUMEN_CHANNELS_DIR)")
 	desktopMode := flag.Bool("desktop", false, "Open in a Chrome app window (no URL bar); server shuts down when the window is closed")
 	desktopInstall := flag.Bool("desktop-install", false, "Install as a native app launcher (macOS .app, Linux .desktop, Windows Start Menu)")
 	flag.Parse()
@@ -163,7 +165,11 @@ func main() {
 		} else {
 			libMgr = mgr
 		}
-		chStore = channels.NewStore(*libDir)
+		cfgDir := *channelsDir
+		if cfgDir == "" {
+			cfgDir = *libDir
+		}
+		chStore = channels.NewStore(cfgDir, *libDir)
 	}
 
 	mux := api.NewRouter(absBoundary, relStart, homeRelPath, sub, serverRole, libMgr, chStore, Version)

@@ -84,6 +84,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - [Usage](#usage)
   - [Advanced usage (command line)](#advanced-usage-command-line)
 - [Docker / Podman](#docker--podman-1)
+  - [Sharing channel config across installations](#sharing-channel-config-across-installations)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Documentation](#documentation)
 - [Development & Testing](#development--testing)
@@ -95,7 +96,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search, key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
-- **Publish to Channels** — From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and record where and when they were published. Writes an XMP sidecar (`.xmp`) using a custom `xmlns:ul` namespace — non-destructive and portable. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, back-dating, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Gallery and site channels support **adding photos to existing albums**: an "Add to" dropdown lists already-published galleries; selecting one merges the new photos into the same folder and updates the date range shown on the site index. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json`
+- **Publish to Channels** — From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and record where and when they were published. Writes an XMP sidecar (`.xmp`) using a custom `xmlns:ul` namespace — non-destructive and portable. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, back-dating, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Gallery and site channels support **adding photos to existing albums**: an "Add to" dropdown lists already-published galleries; selecting one merges the new photos into the same folder and updates the date range shown on the site index. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json` (overridable with `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR`, e.g. to share channel config between multiple installations — see [Sharing channel config across installations](#sharing-channel-config-across-installations))
 - **Image viewer** — Full-screen image view with keyboard navigation
 - **Crop tool** — Interactive crop in the fullscreen viewer. Draw a rectangle, pick an aspect ratio (free, standard, or cinema formats), and save in-place. All metadata including Fujifilm film simulation is preserved via exiftool
 - **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. In library mode: editable title field (stored as `dc:title` in XMP sidecar, interoperable with Lightroom/Capture One) and a Publications section showing compact cards for each channel a photo was published to. Clicking a folder shows a folder dashboard: total size, file count, nesting depth, a squarified treemap of subfolder sizes (click to navigate), and a file-type breakdown. In library mode the folder dashboard also shows EXIF-based photo statistics (shooting date range, format breakdown, camera × lens usage, hourly activity chart). Available in browse, library, and fullscreen viewer
@@ -249,6 +250,7 @@ You can also run Unterlumen directly from the terminal without installing it. Th
 | `-port` | `8080` | HTTP server port (env: `UNTERLUMEN_PORT`) |
 | `-bind` | `localhost` | Bind address (`0.0.0.0` for remote access) (env: `UNTERLUMEN_BIND`) |
 | `-lib-dir` | `~/.unterlumen` | Root directory for library data (env: `UNTERLUMEN_LIB_DIR`) |
+| `-channels-dir` | (same as `-lib-dir`) | Directory for `channels.json`; override to share channel config across installations (env: `UNTERLUMEN_CHANNELS_DIR`) |
 | `-desktop` | off | Open in a Chrome/Chromium app window (no URL bar). Server exits when the window is closed. Falls back to the default browser if Chrome is not found. |
 | `-desktop-install` | — | Interactive installer: sets up a native app launcher with icon (macOS `.app`, Linux `.desktop`, Windows Start Menu shortcut). |
 
@@ -260,6 +262,7 @@ You can also run Unterlumen directly from the terminal without installing it. Th
 | `UNTERLUMEN_BIND` | Bind address. Overridden by `-bind` flag. |
 | `UNTERLUMEN_ROOT_PATH` | Restrict navigation to this directory. The server starts here and users cannot navigate above it. Takes effect only when no `directory` argument is provided. |
 | `UNTERLUMEN_LIB_DIR` | Root directory for library data (SQLite databases, thumbnails, channel exports). Default: `~/.unterlumen`. Overridden by `-lib-dir` flag. |
+| `UNTERLUMEN_CHANNELS_DIR` | Directory for `channels.json`. Default: same as `-lib-dir`. Overridden by `-channels-dir` flag. See [Sharing channel config across installations](#sharing-channel-config-across-installations). |
 
 **Path resolution priority:**
 
@@ -324,6 +327,28 @@ services:
       - /mnt/photos:/photos:ro
     restart: unless-stopped
 ```
+
+### Sharing channel config across installations
+
+If you run Unterlumen on more than one machine against the *same* photo folders (e.g. a Docker instance on a NAS that also serves the photos, plus a native install on a Mac that mounts them over the network), each installation normally has its own independent `channels.json` under its own `-lib-dir` — so a channel published from one install won't be recognized by name on the other, even though the underlying "published" record in the photo's `.xmp` sidecar is already shared and portable.
+
+Point `-channels-dir` (or `UNTERLUMEN_CHANNELS_DIR`) on **both** installations at the same directory on a filesystem they can both reach (e.g. a folder alongside the photo library on the NAS) to share channel definitions between them, while `-lib-dir` (SQLite database, thumbnails, search index) stays independent and local to each machine as usual:
+
+```
+# NAS (Docker), photos already mounted at /photos:
+docker run -p 8080:8080 \
+  -v /path/to/photos:/photos \
+  -e UNTERLUMEN_CHANNELS_DIR=/photos/.unterlumen-shared \
+  ghcr.io/bjblazko/unterlumen:latest
+
+# Mac (native), same folder reachable over the network mount:
+./unterlumen -channels-dir "/Volumes/<share>/.unterlumen-shared" ~/Pictures
+```
+
+Notes:
+- The mount used for `UNTERLUMEN_CHANNELS_DIR` must be writable (the read-only `:ro` mount shown above works for browsing but not for a channels directory located on it).
+- `channels.json` can include credentials (e.g. publish tokens) for some channel handlers — only point installations at a shared directory you trust equally.
+- The default Docker Compose example above doesn't set `UNTERLUMEN_LIB_DIR` or mount a volume for it, so the container's SQLite library database and thumbnails live in the container's filesystem and are lost when the container is recreated. If you rely on library data on the NAS, mount a volume for `UNTERLUMEN_LIB_DIR` too.
 
 ## Keyboard Shortcuts
 

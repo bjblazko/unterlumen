@@ -238,6 +238,8 @@ Browser                     Server                    Filesystem
 
 The binary and `web/` directory must be co-located (the server serves static files from `./web/` relative to the working directory). The start directory is determined by CLI argument, `UNTERLUMEN_ROOT_PATH` environment variable, or user home directory (in that priority order). See [ADR-0010](adr/0010-root-path-resolution.md).
 
+**Multiple installations against the same library.** A common variant runs two independent installations against the same photo folders — e.g. Docker on a NAS that also serves the files, plus a native install on a Mac mounting them over the network. `-lib-dir` (SQLite database, thumbnails, search index) is intentionally per-machine so each installation stays fast and usable offline. `-channels-dir` can optionally point both installations at the same directory to share channel definitions (but not library data or export output) between them. See [ADR-0023](adr/0023-shared-channel-config-directory.md).
+
 ## 8. Crosscutting Concepts
 
 ### 8.1 Path Security
@@ -290,6 +292,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0020](adr/0020-heic-crop-pipeline.md) — HEIC in-place crop via JPEG intermediary
 - [ADR-0021](adr/0021-database-schema-migrations.md) — Database schema migration strategy
 - [ADR-0022](adr/0022-read-ahead-prefetch.md) — Read-ahead prefetch and in-memory image cache
+- [ADR-0023](adr/0023-shared-channel-config-directory.md) — Shared channel config directory for multi-installation setups
 
 ## 10. Quality Requirements
 
