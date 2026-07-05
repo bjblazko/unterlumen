@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-07-05
+
+### Fixed
+- **Portrait Fujifilm HEIC/HIF still sideways on Docker/Linux after the previous fix** — `heif-convert` decodes the primary image plane already in final display orientation for Fujifilm-style files with no `irot` box, but copies the source file's original (now-stale) EXIF orientation tag into its output JPEG unchanged. The previous fix (0.10.1) still read that tag and reapplied it, rotating an already-correct image a second time. `heifConvert()` is now self-contained: it strips a stale non-1 tag from its own output before returning, and every caller (full image view, previews, library thumbnails, export) trusts its output directly instead of reapplying orientation. See ADR-0020.
+  - Full images and newly generated thumbnails self-heal automatically (cache keys bumped, no rescan needed).
+  - **Already-indexed library thumbnails do not self-heal** — a normal "Scan for new photos" only fills in missing previews. Run **Rebuild all previews** (library card → scan options dropdown) to regenerate existing thumbnails for any library containing portrait Fujifilm HEIC/HIF photos indexed via the NAS/Docker installation.
+
 ## [0.10.1] - 2026-07-05
 
 ### Added

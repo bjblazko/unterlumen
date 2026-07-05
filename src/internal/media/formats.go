@@ -203,12 +203,14 @@ func EvictFile(srcPath string) {
 	orientations := []int{0, 1, 2, 3, 4, 5, 6, 7, 8}
 	streamIndices := []int{0, 1, 2, 3, 4}
 
-	purposes := []string{"thumb-exif-v2", "full-v3", "full-v4"}
+	purposes := []string{"thumb-exif-v2", "full-v3", "full-v4", "full-v5"}
 	for _, sz := range sizes {
 		purposes = append(purposes,
 			fmt.Sprintf("thumb-heif-preview-%s-%d", thumbnailCacheVersion, sz),
 			fmt.Sprintf("thumb-heif-source-%s-%d", thumbnailCacheVersion, sz),
-			// also evict the previous cache version
+			// also evict previous cache versions
+			fmt.Sprintf("thumb-heif-preview-v3-%d", sz),
+			fmt.Sprintf("thumb-heif-source-v3-%d", sz),
 			fmt.Sprintf("thumb-heif-preview-v2-%d", sz),
 			fmt.Sprintf("thumb-heif-source-v2-%d", sz),
 		)
@@ -239,7 +241,7 @@ func EvictFile(srcPath string) {
 // and finally to HEVC decoding for simple HEIF files without previews.
 // Results are cached to disk.
 func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
-	key := cacheKey(path, "full-v4")
+	key := cacheKey(path, "full-v5")
 	if cached := readCache(key); cached != nil {
 		return cached, nil
 	}
@@ -253,12 +255,6 @@ func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
 		if err != nil {
 			return thumbnailWorkResult{err: err}
 		}
-
-		ori := extractJPEGOrientation(data)
-		if ori == 1 {
-			ori = heifOrientation(path)
-		}
-		data, _ = applyOrientationJPEG(data, ori, 92)
 
 		writeCache(key, data)
 		return thumbnailWorkResult{data: data}
@@ -274,30 +270,54 @@ func ExtractHEIFPreview(path string) ([]byte, error) {
 }
 
 // extractBestJPEG probes a HEIF file and extracts the best available JPEG.
-// Priority: largest embedded JPEG preview (stream copy) > HEVC decode fallback.
+// Priority: largest embedded JPEG preview (stream copy) > sips > heif-convert
+// > HEVC decode fallback. Each branch is responsible for returning bytes that
+// are already correctly oriented and free of any stale orientation tag —
+// decoders differ in whether they bake rotation into pixels themselves
+// (heif-convert does; sips and a raw preview stream copy do not), so this
+// cannot be handled uniformly after the fact. See stripStaleHeifConvertOrientation.
 func extractBestJPEG(path string) ([]byte, error) {
 	if data, err := extractEmbeddedHEIFJPEG(path, 0); err == nil && len(data) > 0 {
+		ori := extractJPEGOrientation(data)
+		if ori == 1 {
+			ori = heifOrientation(path)
+		}
+		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 
-	// Try sips (macOS) — handles multi-tile HEIF reliably via native decoder
+	// Try sips (macOS) — handles multi-tile HEIF reliably via native decoder.
+	// sips preserves the EXIF orientation tag but does not bake it into
+	// pixels, so it still needs the standard detect-and-bake treatment.
 	if data, err := sipsConvert(path); err == nil && len(data) > 0 {
+		ori := extractJPEGOrientation(data)
+		if ori == 1 {
+			ori = heifOrientation(path)
+		}
+		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 
-	// Try heif-convert (Linux, from libheif-examples package)
+	// Try heif-convert (Linux, from libheif-examples package). Already
+	// self-contained — see stripStaleHeifConvertOrientation.
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
 		return data, nil
 	}
 
-	// Fallback: decode HEVC to JPEG (for simple HEIF/HEIC without embedded previews)
-	return ffmpegRun(path,
+	// Fallback: decode HEVC to JPEG (for simple HEIF/HEIC without embedded
+	// previews). ffmpeg bakes nothing, so orientation must be applied explicitly.
+	data, err := ffmpegRun(path,
 		"-f", "image2pipe",
 		"-vcodec", "mjpeg",
 		"-q:v", "2",
 		"-frames:v", "1",
 		"pipe:1",
 	)
+	if err != nil {
+		return nil, err
+	}
+	data, _ = applyOrientationJPEG(data, heifOrientation(path), 92)
+	return data, nil
 }
 
 func extractHEIFPreview(path string, maxDim int) ([]byte, error) {
@@ -360,14 +380,9 @@ func extractPreviewFallbackJPEG(path string) ([]byte, error) {
 		return data, nil
 	}
 
+	// heifConvert already bakes the correct rotation into its own output and
+	// strips any stale copied-through orientation tag — no further processing.
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
-		// heif-convert applies the irot box rotation; only consult the embedded
-		// EXIF when both the JPEG output and irot report no rotation (Fujifilm style).
-		ori := extractJPEGOrientation(data)
-		if ori == 1 && ExtractHEIFOrientation(path) == 1 {
-			ori = heifExifOrientation(path)
-		}
-		data, _ = applyOrientationJPEG(data, ori, 80)
 		return data, nil
 	}
 
@@ -399,16 +414,10 @@ func convertHEIFExport(path string) ([]byte, error) {
 		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
-	// heif-convert (Linux) performs a native full decode via libheif.
-	// Apply any residual EXIF orientation the same way for safety.
+	// heif-convert (Linux) performs a native full decode via libheif and
+	// already bakes the correct rotation into its own output — see
+	// stripStaleHeifConvertOrientation for why no further processing happens here.
 	if data, err := heifConvert(path); err == nil && len(data) > 0 {
-		// heif-convert applies the irot box rotation; only consult the embedded
-		// EXIF when both the JPEG output and irot report no rotation (Fujifilm style).
-		ori := extractJPEGOrientation(data)
-		if ori == 1 && ExtractHEIFOrientation(path) == 1 {
-			ori = heifExifOrientation(path)
-		}
-		data, _ = applyOrientationJPEG(data, ori, 92)
 		return data, nil
 	}
 	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
@@ -478,13 +487,35 @@ func heifConvert(path string) ([]byte, error) {
 		}
 		data, err := os.ReadFile(filepath.Join(tmpDir, e.Name()))
 		if err == nil && len(data) > 0 {
-			return data, nil
+			return stripStaleHeifConvertOrientation(data), nil
 		}
 	}
 	if runErr != nil {
 		return nil, fmt.Errorf("heif-convert failed: %v: %s", runErr, stderr.String())
 	}
 	return nil, fmt.Errorf("heif-convert produced no output")
+}
+
+// stripStaleHeifConvertOrientation removes a stale EXIF orientation tag from
+// heif-convert's output. heif-convert bakes the correct display rotation into
+// its own output's pixel data — even for HEIF files with no irot box, such as
+// Fujifilm HEIC/HIF, whose primary image plane it decodes already display-
+// ready — but it copies the source file's original orientation tag into the
+// output JPEG unchanged. Re-applying that tag (our own code or a browser
+// rendering the served bytes) would rotate an already-correct image a second
+// time, so any non-1 tag is discarded by re-encoding without rotation. Falls
+// back to the original bytes if re-encoding fails, and is a no-op (byte-for-
+// byte passthrough) when no tag is present, avoiding needless quality loss
+// for the common case.
+func stripStaleHeifConvertOrientation(data []byte) []byte {
+	if extractJPEGOrientation(data) <= 1 {
+		return data
+	}
+	stripped, err := stripOrientationTag(data, 90)
+	if err != nil {
+		return data
+	}
+	return stripped
 }
 
 func ffmpegRun(inputPath string, args ...string) ([]byte, error) {

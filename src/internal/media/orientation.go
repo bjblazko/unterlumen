@@ -28,6 +28,22 @@ func applyOrientationJPEG(data []byte, orientation int, quality int) ([]byte, er
 	return buf.Bytes(), nil
 }
 
+// stripOrientationTag decodes and re-encodes JPEG data with no rotation
+// applied, discarding any EXIF metadata (including an orientation tag) in
+// the process — Go's jpeg.Encode never writes EXIF, so the result is
+// guaranteed orientation-tag-free.
+func stripOrientationTag(data []byte, quality int) ([]byte, error) {
+	img, err := jpeg.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // applyOrientation transforms an image according to the EXIF orientation tag.
 func applyOrientation(img image.Image, orientation int) image.Image {
 	if orientation <= 1 || orientation > 8 {

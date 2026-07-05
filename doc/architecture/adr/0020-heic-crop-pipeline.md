@@ -1,6 +1,6 @@
 # ADR-0020: HEIC In-Place Crop via JPEG Intermediary
 
-*Last modified: 2026-06-30*
+*Last modified: 2026-07-05*
 
 ## Status
 
@@ -51,7 +51,7 @@ Portrait HEIF/HIF images from Fujifilm cameras were displayed in landscape orien
 - `heifExifOrientation(path)` — reads the EXIF orientation tag from the HEIF container's embedded EXIF block (distinct from the `irot` box).
 - `heifOrientation(path)` — the canonical orientation lookup for HEIF files. Prefers `irot`; falls back to `heifExifOrientation` when `irot` is unset. **All HEIF conversion and thumbnail paths must use this function instead of calling `ExtractHEIFOrientation` directly.**
 
-The correct pattern for each decoder type:
+The correct pattern for each decoder type at the time (superseded by the 2026-07-05 amendment below for `heifConvert`):
 
 | Decoder | Orientation source |
 |---|---|
@@ -61,3 +61,20 @@ The correct pattern for each decoder type:
 | `ffmpegRun` | `heifOrientation(path)` directly (no EXIF in output) |
 
 Cache keys were also bumped (`preview-v4`→`v5`, `full-v3`→`v4`, `thumbnailCacheVersion` `v2`→`v3`) to prevent stale landscape-oriented cached files from being served after the fix.
+
+## Amendment — 2026-07-05: `heif-convert` bakes rotation but its output's EXIF lies about it
+
+The 2026-06-30 amendment's table entry for `heifConvert` was wrong: it assumed that when the JPEG output orientation is 1, rotation was never baked. In practice, `heif-convert` (libheif) decodes the primary image plane already in final display orientation for Fujifilm-style files with no `irot` box, but copies the *source* HEIF's original EXIF orientation tag into its output JPEG unchanged and non-1. Every call site that read that tag and reapplied it (directly, or by falling back to `heifOrientation(path)` when the tag looked absent) rotated an already-correct image a second time — visible as a sideways portrait photo when viewed via the NAS/Docker installation. Confirmed by decoding a real Fujifilm X-T50 `.heic` file's `heif-convert` output with EXIF orientation ignored: the raw pixel data was already upright.
+
+**Fix**: `heifConvert()` is now self-contained. It calls a new helper, `stripStaleHeifConvertOrientation`, which discards a non-1 orientation tag by re-encoding without any rotation (a no-op passthrough when the tag is already 1, avoiding needless quality loss for the common landscape case). No caller may read `extractJPEGOrientation`/`heifOrientation` on `heifConvert()`'s output and reapply it — the three call sites that previously did (`extractBestJPEG`, `extractPreviewFallbackJPEG`, `convertHEIFExport`) were simplified to trust its output directly. `ConvertHEIFToJPEG`'s wrapper-level "if the combined result's orientation is 1, consult `heifOrientation(path)` and reapply" logic was removed entirely and pushed down into the specific branches of `extractBestJPEG` that actually need it (embedded JPEG stream copy, `sipsConvert`, and the `ffmpegRun` fallback) — a single rule applied after the fact to a merged result cannot be correct across decoders with different baking behavior.
+
+Updated pattern:
+
+| Decoder | Orientation handling |
+|---|---|
+| `sipsConvert` | Caller applies `extractJPEGOrientation(outputJPEG)`, fallback `heifOrientation(path)`, then bakes — sips preserves EXIF but does not bake pixels |
+| embedded JPEG stream copy | Same as `sipsConvert` — raw stream copy, nothing baked |
+| `heifConvert` | Self-contained — always returns final, tag-clean bytes; callers do nothing further |
+| `ffmpegRun` | Caller applies `heifOrientation(path)` directly — no EXIF in output, nothing baked |
+
+Cache keys were bumped again (`full-v4`→`v5`, `thumbnailCacheVersion` `v3`→`v4`) so previously wrong-orientation cached full images and *newly generated* thumbnails self-heal without a rescan. **Already-indexed library thumbnails are not covered by this** — `ensureThumbnail` skips regeneration when a thumbnail file already exists on disk, so any portrait Fujifilm photo already thumbnailed via `heif-convert` needs the library's "Rebuild all previews" action (not a normal "Scan for new photos", which only fills in *missing* previews) to pick up the fix.
