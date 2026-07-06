@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-07-05*
+*Last modified: 2026-07-06*
 
 ## Project
 
@@ -83,7 +83,7 @@ Non-obvious bugs that have already occurred and are easy to repeat:
 
 - **Library keyboard shortcuts — two search paths**: `LibraryTab` (`src/web/js/library.js`) has two separate code paths: `_searchPane` (single-library filter view) and `_listSearchPanel._searchPane` (cross-library list-view search). Any code routing keyboard events, info-panel updates, or selection state must handle both. Always go through `getActivePaneForKeyboard()`; never assume `_searchPane` or `_infoPanel` is non-null in list-view mode. Info panel must fall back to `_listInfoPanel` when `_infoPanel` is null.
 
-- **Library pane interface**: `LibraryPane` (`src/web/js/library-pane.js`) satisfies the same pane interface as browse panes. `entry.name = photo.id` (SHA-256), `entry.label = photo.filename`. Info panel uses `loadInfoData(photoInfo)`, not `loadInfo(path)` — pathguard rejects absolute paths. `PhotoInfo` struct needs camelCase JSON tags (`json:"filename"` etc.).
+- **Library pane interface**: `LibraryPane` (`src/web/js/library-pane.js`) satisfies the same pane interface as browse panes. `entry.name = photo.id` (SHA-256), `entry.label = photo.filename`. Info panel uses `loadInfoData(photoInfo)`, not `loadInfo(path)` — pathguard rejects absolute paths. `PhotoInfo` struct needs camelCase JSON tags (`json:"filename"` etc.). **`entry.date` must be an ISO string, not a `Date` object** — browse mode's real entries come from the Go API as JSON strings, and shared renderers (`browse-list.js`'s `formatDate`) call `.replace()` on it directly with no type check. `LibraryPane` builds synthetic entries client-side and once passed `new Date(...)` here, which crashed list view for any folder containing a subdirectory (or a photo with no EXIF date-taken) — looked like the View menu was completely unresponsive, since the render throws mid-way and never updates the DOM. e2e coverage for the View menu (list/grid/justified, Show names, Show details) must include library mode, not just browse mode — they are different code paths for data loading even though `LibraryPane extends BrowsePane`.
 
 - **HEIC/sips orientation**: `sips -s format jpeg` preserves EXIF orientation as a tag (does not bake it into pixels) for cameras like Fujifilm that store rotation in the embedded JPEG's EXIF rather than the HEIC irot box. Go's `jpeg.Decode` ignores EXIF orientation. Any pipeline using `sipsConvert` output must call `extractJPEGOrientation(data)` + `applyOrientation(img, ori)` before pixel-space operations. Do not use `sips --cropOffset` — its coordinate space is ambiguous across camera manufacturers. See ADR-0020.
 

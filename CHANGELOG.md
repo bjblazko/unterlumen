@@ -1,9 +1,14 @@
 # Changelog
 
-*Last modified: 2026-07-05*
+*Last modified: 2026-07-06*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.10.3] - 2026-07-06
+
+### Fixed
+- **View menu (List layout, Show names, Show details) unresponsive in library mode** — `LibraryPane` built synthetic directory/photo entries with `date` set to a JS `Date` object instead of an ISO string (`new Date(0)` for folders, `new Date(photo.indexedAt)` for photos, even though `photo.indexedAt` was already an ISO string from the API). `formatDate()` calls `.replace()` assuming a string, so switching to list view inside any library folder containing subdirectories — or any photo with no EXIF date-taken — threw `iso.replace is not a function` and silently aborted the render. Looked like the View menu buttons "did nothing." Plain browse mode was unaffected since its entries come from the Go API as real ISO strings. Added e2e regression coverage for the View menu inside library mode (previously untested — existing coverage was browse-mode only).
 
 ## [0.10.2] - 2026-07-05
 

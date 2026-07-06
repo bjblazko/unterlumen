@@ -43,7 +43,7 @@ class LibraryPane extends BrowsePane {
 
         this._loading = false;
         const folderEntries = (data.subfolders || []).map(name => ({
-            name, type: 'dir', date: new Date(0),
+            name, type: 'dir', date: new Date(0).toISOString(),
         }));
         const photoEntries = (data.photos || []).map(photo => {
             const relPath = this.path ? `${this.path}/${photo.filename}` : photo.filename;
@@ -58,7 +58,7 @@ class LibraryPane extends BrowsePane {
             return {
                 name: photo.filename,
                 type: 'image',
-                date: new Date(photo.indexedAt),
+                date: photo.indexedAt, // already an ISO string from the API
                 exifDate: photo.dateTaken || null,
                 size: photo.fileSize,
             };

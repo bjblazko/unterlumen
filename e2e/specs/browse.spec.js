@@ -81,6 +81,67 @@ test.describe('Browse', () => {
     await expect(page.locator('.justified')).toBeVisible({ timeout: 5_000 });
   });
 
+  test('list view actually shows rows for real images, no console errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+
+    await navigateToFolder(page, 'folder-b');
+    await waitForThumbnailsLoaded(page, 1);
+
+    await page.locator('.view-menu-btn').click();
+    await page.locator('button[data-view="list"]').click();
+
+    const table = page.locator('table.list-view');
+    await expect(table).toBeVisible({ timeout: 5_000 });
+    await expect(table.locator('tr[data-type="image"]').first()).toBeVisible({ timeout: 5_000 });
+    // Sanity: the row for a known fixture actually renders its name and a date.
+    const gpsRow = table.locator(`tr[data-name="${GPS_IMAGE}"]`);
+    await expect(gpsRow).toBeVisible();
+    await expect(gpsRow.locator('.list-date')).not.toHaveText('');
+
+    expect(errors, `console/page errors while switching to list view: ${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('Show names toggle shows and hides filename labels in grid view', async ({ page }) => {
+    await navigateToFolder(page, 'folder-b');
+    await waitForThumbnailsLoaded(page, 1);
+
+    const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
+    await expect(item.locator('.item-name')).toHaveCount(0);
+
+    await page.locator('.view-menu-btn').click();
+    const namesToggle = page.locator('.toggle-names-wrap .toggle');
+    await namesToggle.click();
+
+    await expect(item.locator('.item-name')).toBeVisible({ timeout: 5_000 });
+    await expect(item.locator('.item-name')).toHaveText(GPS_IMAGE);
+
+    // Toggle back off.
+    await page.locator('.view-menu-btn').click();
+    await namesToggle.click();
+    await expect(item.locator('.item-name')).toHaveCount(0);
+  });
+
+  test('Show details toggle shows and hides overlay badges in grid view', async ({ page }) => {
+    await navigateToFolder(page, 'folder-b');
+    await waitForThumbnailsLoaded(page, 1);
+
+    const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
+    await expect(item.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
+
+    await page.locator('.view-menu-btn').click();
+    const overlaysToggle = page.locator('.toggle-overlays-wrap .toggle');
+    await overlaysToggle.click();
+
+    await expect(item.locator('.overlay-badges')).toHaveCount(0);
+
+    // Toggle back on.
+    await page.locator('.view-menu-btn').click();
+    await overlaysToggle.click();
+    await expect(item.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
+  });
+
   test('click selects an image item', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
