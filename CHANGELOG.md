@@ -1,9 +1,14 @@
 # Changelog
 
-*Last modified: 2026-07-06*
+*Last modified: 2026-07-12*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.10.4] - 2026-07-12
+
+### Fixed
+- **Deleting a library photo could silently leave the file on disk** — `deleteLibraryPhoto` removed the photo's database record *before* attempting to remove the file, and treated a "file not found" error from that removal as success. If a photo's stored `path_hint` was stale (didn't point at the file's actual current location), the library record vanished and the API reported success, but the real file was never touched — it stayed on disk untracked, and reappeared on the next reindex. The file is now removed first; the database record is only dropped once that succeeds, and any failure (including "not found") is now reported as an error instead of a false success.
 
 ## [0.10.3] - 2026-07-06
 

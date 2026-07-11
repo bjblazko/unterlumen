@@ -912,17 +912,27 @@ func deleteLibraryPhoto(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		pathHint, thumbPath, err := store.DeletePhotoByID(photoID)
-		if err != nil {
-			http.Error(w, "photo not found: "+err.Error(), http.StatusNotFound)
+		pathHint, err := store.GetPhotoPathHint(photoID)
+		if err != nil || pathHint == "" {
+			http.Error(w, "photo not found", http.StatusNotFound)
 			return
 		}
 
-		if err := os.Remove(pathHint); err != nil && !os.IsNotExist(err) {
+		// Remove the real file before touching the database: if path_hint is stale
+		// (points somewhere the file no longer is) this must surface as a failure,
+		// not silently drop the library record while the actual photo survives
+		// untouched and untracked on disk.
+		if err := os.Remove(pathHint); err != nil {
 			writeJSON(w, map[string]any{"file": pathHint, "success": false, "error": err.Error()})
 			return
 		}
 		os.Remove(media.SidecarPath(pathHint)) //nolint:errcheck
+
+		_, thumbPath, err := store.DeletePhotoByID(photoID)
+		if err != nil {
+			http.Error(w, "photo not found: "+err.Error(), http.StatusNotFound)
+			return
+		}
 		if thumbPath != "" {
 			os.Remove(filepath.Join(mgr.LibDir(id), thumbPath)) //nolint:errcheck
 		}
