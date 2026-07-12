@@ -42,7 +42,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache, libMgr)
 	location.Handle(mux, boundary, cache)
-	batchrename.Handle(mux, boundary, cache)
+	batchrename.Handle(mux, boundary, cache, libMgr)
 
 	if chStore != nil {
 		apichannels.Handle(mux, chStore)

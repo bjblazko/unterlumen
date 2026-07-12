@@ -451,6 +451,12 @@ func (m *Manager) TriggerScanNewBackground(id string) {
 // IndexFilesSync synchronously indexes the given absolute file paths in the named
 // library. Returns true if at least one new photo was indexed. Errors per file are
 // silently skipped so partial results are still returned.
+// IndexFilesSync indexes absPaths into the library and reports whether the
+// caller should refresh any view of this library. This covers both brand-new
+// photos and existing ones whose path_hint just changed (e.g. a rename or a
+// move within the same library) — NewPhotos alone would miss the latter and
+// leave callers thinking nothing happened when a file's path was in fact
+// updated in the database.
 func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
 	store, err := m.OpenStore(id)
 	if err != nil {
@@ -464,7 +470,7 @@ func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
 	for _, p := range absPaths {
 		_ = idx.IndexFile(p)
 	}
-	return idx.NewPhotos() > 0
+	return len(absPaths) > 0
 }
 
 // TriggerScanNewInFolderBackground is like TriggerScanNewBackground but scoped to

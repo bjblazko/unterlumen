@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Renaming files (Batch Rename) never updated the library index** — the batch-rename endpoint performed real, correct on-disk renames but never notified the library manager, unlike Copy/Move which already sync the library on success. A photo renamed inside a library folder kept showing up under its old, now-nonexistent filename until the next manual reindex, which looked exactly like "the file moved in the app but not on disk" even though the file itself was fine — the library's database record was just never told about the new name. Batch Rename now re-indexes each successfully renamed file so its existing library record (matched by content hash) is updated in place with the new path, instead of quietly going stale.
+- **Library pane didn't refresh after a copy/move that only updated an already-indexed photo's path** — `IndexFilesSync` reported "nothing changed" (and skipped the UI refresh) unless a brand-new photo was added, even when an existing photo's database record was in fact updated to a new path (e.g. a rename, or a move within the same library). The library view could then look stale until a manual reload despite the database being correct.
+
 ## [0.10.4] - 2026-07-12
 
 ### Fixed

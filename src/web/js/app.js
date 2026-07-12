@@ -527,12 +527,13 @@ const App = {
             const resolvedFiles = files.map(f =>
                 f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
             );
-            this.batchRenameModal.open(resolvedFiles, () => {
+            this.batchRenameModal.open(resolvedFiles, (libraryUpdated) => {
                 if (pane) pane.load(pane.path);
                 if (this.mode === 'commander' && this.commander) {
                     const other = this.commander.getOtherPane();
                     if (other) other.load(other.path);
                 }
+                if (libraryUpdated) this.reloadLibraryPane();
             });
         } else if (tool === 'export') {
             if (!this.exportModal) this.exportModal = new ExportModal();

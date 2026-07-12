@@ -400,7 +400,7 @@ class BatchRenameModal {
                     '</div>';
             }
 
-            if (successes > 0 && this._onSuccess) this._onSuccess();
+            if (successes > 0 && this._onSuccess) this._onSuccess(result.libraryUpdated);
 
             footer.innerHTML = '<button class="btn btn-accent" id="batch-rename-done">OK</button>';
             footer.querySelector('#batch-rename-done').addEventListener('click', () => this.close());

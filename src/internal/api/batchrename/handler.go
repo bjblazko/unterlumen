@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -34,13 +35,15 @@ type batchRenameResult struct {
 }
 
 type batchRenameExecuteResponse struct {
-	Results []batchRenameResult `json:"results"`
+	Results        []batchRenameResult `json:"results"`
+	LibraryUpdated bool                `json:"libraryUpdated,omitempty"`
 }
 
 // Handle registers the batch-rename routes on mux.
-func Handle(mux *http.ServeMux, root string, cache *media.ScanCache) {
+// libMgr may be nil if library support could not be initialised.
+func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *library.Manager) {
 	mux.HandleFunc("/api/batch-rename/preview", handleBatchRenamePreview(root, cache))
-	mux.HandleFunc("/api/batch-rename/execute", handleBatchRenameExecute(root, cache))
+	mux.HandleFunc("/api/batch-rename/execute", handleBatchRenameExecute(root, cache, libMgr))
 }
 
 func handleBatchRenamePreview(root string, cache *media.ScanCache) http.HandlerFunc {
@@ -63,7 +66,7 @@ func handleBatchRenamePreview(root string, cache *media.ScanCache) http.HandlerF
 	}
 }
 
-func handleBatchRenameExecute(root string, cache *media.ScanCache) http.HandlerFunc {
+func handleBatchRenameExecute(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -93,16 +96,37 @@ func handleBatchRenameExecute(root string, cache *media.ScanCache) http.HandlerF
 		pairs := buildRenamePairs(root, mappings)
 		results := executeTwoPassRename(pairs)
 
+		var renamedAbsPaths []string
 		for _, p := range pairs {
 			for _, res := range results {
 				if res.Success && res.File == p.relFile {
 					cache.Invalidate(p.dir)
+					renamedAbsPaths = append(renamedAbsPaths, filepath.Join(p.dir, p.newName))
+				}
+			}
+		}
+
+		// A rename never moves a file to a different directory, so every renamed
+		// file still belongs to whichever library (if any) already owned it — sync
+		// each one so the library's database reflects the new filename instead of
+		// keeping a stale path_hint until the next manual reindex.
+		libraryUpdated := false
+		if libMgr != nil {
+			byLibrary := make(map[string][]string)
+			for _, abs := range renamedAbsPaths {
+				if lib, ok := libMgr.FindLibraryForPath(filepath.Dir(abs)); ok {
+					byLibrary[lib.ID] = append(byLibrary[lib.ID], abs)
+				}
+			}
+			for libID, paths := range byLibrary {
+				if libMgr.IndexFilesSync(libID, paths) {
+					libraryUpdated = true
 				}
 			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(batchRenameExecuteResponse{Results: results})
+		json.NewEncoder(w).Encode(batchRenameExecuteResponse{Results: results, LibraryUpdated: libraryUpdated})
 	}
 }
 
