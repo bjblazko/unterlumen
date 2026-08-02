@@ -1,4 +1,4 @@
-// Package apichannels provides HTTP handlers for managing publish channels.
+// Package apichannels provides HTTP handlers for managing build channels.
 package apichannels
 
 import (

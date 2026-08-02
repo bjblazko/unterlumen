@@ -429,15 +429,15 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 		}
 
 		for ch, e := range latest {
-			idx.store.UpsertMeta(photoID, "published:"+ch, e.ts) //nolint:errcheck
+			idx.store.UpsertMeta(photoID, "built:"+ch, e.ts) //nolint:errcheck
 			if e.account != "" {
-				idx.store.UpsertMeta(photoID, "published:"+ch+":account", e.account) //nolint:errcheck
+				idx.store.UpsertMeta(photoID, "built:"+ch+":account", e.account) //nolint:errcheck
 			}
 			if e.postID != "" {
-				idx.store.UpsertMeta(photoID, "published:"+ch+":postid", e.postID) //nolint:errcheck
+				idx.store.UpsertMeta(photoID, "built:"+ch+":postid", e.postID) //nolint:errcheck
 			}
 			if e.galleryTitle != "" {
-				idx.store.UpsertMeta(photoID, "published:"+ch+":title", e.galleryTitle) //nolint:errcheck
+				idx.store.UpsertMeta(photoID, "built:"+ch+":title", e.galleryTitle) //nolint:errcheck
 			}
 		}
 	}

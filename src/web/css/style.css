@@ -4432,7 +4432,7 @@ body.slideshow-active #app { height: 100vh; }
     flex-shrink: 0;
 }
 
-/* --- Form helpers (shared by channel and publish modals) --- */
+/* --- Form helpers (shared by channel and build modals) --- */
 
 .form-label {
     font-size: 11px;
@@ -4628,26 +4628,26 @@ body.slideshow-active #app { height: 100vh; }
 
 .channel-error { color: var(--accent); }
 
-/* --- Publish modal --- */
+/* --- Build modal --- */
 
-.publish-modal .modal-body {
+.build-modal .modal-body {
     gap: calc(var(--unit) * 1);
 }
 
-.publish-info {
+.build-info {
     font-size: 11px;
     color: var(--fg-2);
     min-height: 16px;
     padding: 2px 0;
 }
 
-.publish-progress {
+.build-progress {
     font-size: 11px;
     color: var(--fg-2);
     flex: 1;
 }
 
-.publish-error {
+.build-error {
     font-size: 11px;
     color: var(--accent);
     flex: 1;
@@ -4709,66 +4709,66 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
 }
 
-/* --- Publish modal extras --- */
+/* --- Build modal extras --- */
 
-.pub-output-section {
+.build-output-section {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.pub-folder-wrap {
+.build-folder-wrap {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
 
-.pub-destination {
+.build-destination {
     font-size: 11px;
     color: var(--fg-2);
     min-height: 14px;
     word-break: break-all;
 }
 
-.pub-xmp-row {
+.build-xmp-row {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.pub-xmp-header {
+.build-xmp-header {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.pub-xmp-label {
+.build-xmp-label {
     font-size: 12px;
 }
 
-.pub-xmp-note {
+.build-xmp-note {
     font-size: 11px;
     color: var(--fg-2);
     line-height: 1.4;
 }
 
-.publish-group-note {
+.build-group-note {
     font-size: 11px;
     color: var(--fg-2);
     padding: 2px 0;
 }
 
-.pub-date-row {
+.build-date-row {
     display: flex;
     gap: 6px;
     align-items: center;
 }
 
-.pub-date-row .form-input {
+.build-date-row .form-input {
     flex: 1;
 }
 
-.pub-time-toggle {
+.build-time-toggle {
     flex-shrink: 0;
     font-size: 11px;
     padding: 4px 8px;
@@ -4776,7 +4776,7 @@ body.slideshow-active #app { height: 100vh; }
     border-color: var(--border);
 }
 
-.pub-date-note {
+.build-date-note {
     font-size: 11px;
     color: var(--fg-2);
     line-height: 1.4;

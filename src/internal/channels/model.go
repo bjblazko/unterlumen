@@ -9,7 +9,7 @@ type Account struct {
 	Config map[string]string `json:"config,omitempty"` // handler-specific: tokens, URLs, paths…
 }
 
-// Channel defines a publish target with its export settings and optional handler config.
+// Channel defines a build target with its export settings and optional handler config.
 type Channel struct {
 	Slug          string            `json:"slug"`
 	Name          string            `json:"name"`
@@ -22,8 +22,8 @@ type Channel struct {
 	ExifMode      string            `json:"exifMode"`                // "strip", "keep", "keep_no_gps"
 	OutputMode    string            `json:"outputMode,omitempty"`    // "save" (default) or "download"
 	OutputPath    string            `json:"outputPath,omitempty"`    // custom save path; empty = ~/.unterlumen/channels/<slug>/
-	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on publish
-	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on publish
+	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on build
+	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on build
 	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html
 	SiteTheme     string            `json:"siteTheme,omitempty"`     // "light" (default) or "dark"
 	SiteURL          string            `json:"siteURL,omitempty"`          // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap

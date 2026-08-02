@@ -8,7 +8,7 @@ const CHIP_NS_FIXED = [
     { ns: 'format',  label: 'Format',         hint: 'File format',     type: 'exif', param: 'ext' },
     { ns: 'flash',   label: 'Flash',          hint: 'Flash mode',      type: 'exif', param: 'Flash' },
     { ns: 'wb',      label: 'White balance',  hint: 'White balance',   type: 'exif', param: 'WhiteBalance' },
-    { ns: 'channel', label: 'Channel',        hint: 'Published to channel', type: 'channel', param: 'channel' },
+    { ns: 'channel', label: 'Channel',        hint: 'Built to channel', type: 'channel', param: 'channel' },
     { ns: 'album',   label: 'Album',          hint: 'Gallery / album title', type: 'album', param: 'album_title' },
 ];
 
@@ -135,7 +135,7 @@ class LibrarySearchPanel {
             this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';
             await this._build();
         } else {
-            // Clear chip input caches so re-opening the panel picks up newly published albums etc.
+            // Clear chip input caches so re-opening the panel picks up newly built albums etc.
             this._chipInput?.clearCache();
         }
     }
@@ -489,9 +489,9 @@ class LibrarySearchPanel {
                     nss.push({ ns: field, label: field, hint: 'EXIF field', type: 'exif', param: field });
                 }
             }
-            // Add dynamic user-defined meta keys (exclude published:* system keys).
+            // Add dynamic user-defined meta keys (exclude built:* system keys).
             for (const key of metaKeys) {
-                if (key.startsWith('published:')) continue;
+                if (key.startsWith('built:')) continue;
                 if (!nss.find(n => n.ns === key)) {
                     nss.push({ ns: key, label: key, hint: 'Custom tag', type: 'meta', param: 'meta_' + key });
                 }

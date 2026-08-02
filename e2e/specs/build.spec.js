@@ -15,8 +15,8 @@ function parseSseComplete(text) {
         .find(e => e.complete) ?? null;
 }
 
-// Publish one photo to a gallery/album channel and return the complete SSE event.
-async function publishGallery(request, libID, photoID, channelSlug, galleryTitle, opts = {}) {
+// Build one photo to a gallery/album channel and return the complete SSE event.
+async function buildGallery(request, libID, photoID, channelSlug, galleryTitle, opts = {}) {
     const body = {
         photoIDs: [photoID],
         channel: channelSlug,
@@ -26,7 +26,7 @@ async function publishGallery(request, libID, photoID, channelSlug, galleryTitle
     if (galleryTitle) body.galleryTitle = galleryTitle;
     if (opts.targetPostID) body.targetPostID = opts.targetPostID;
 
-    const res = await request.post(`/api/library/${libID}/publish`, {
+    const res = await request.post(`/api/library/${libID}/build`, {
         data: body,
         timeout: 90_000,
     });
@@ -36,12 +36,12 @@ async function publishGallery(request, libID, photoID, channelSlug, galleryTitle
     return evt;
 }
 
-test.describe('Publish — gallery listing and add-to-existing', () => {
+test.describe('Build — gallery listing and add-to-existing', () => {
     let libID;
     let photoID1;
     let photoID2;
-    let galleryPostID; // postID from the first gallery publish (= album folder name)
-    let sitePostID;    // postID from the first site publish (= album folder name)
+    let galleryPostID; // postID from the first gallery build (= album folder name)
+    let sitePostID;    // postID from the first site build (= album folder name)
 
     test.beforeAll(async ({ request }) => {
         test.setTimeout(240_000);
@@ -49,7 +49,7 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
         // Clean up stale test libraries and channels from prior runs.
         const libs = await (await request.get('/api/library/')).json();
         await Promise.all(
-            libs.filter(l => l.name === 'E2E Publish Library')
+            libs.filter(l => l.name === 'E2E Build Library')
                 .map(l => request.delete(`/api/library/${l.id}`)),
         );
         await request.delete(`/api/channels/${GALLERY_SLUG}`).catch(() => {});
@@ -57,7 +57,7 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
 
         // Create a library scoped to folder-b (50 photos, fast to index).
         const libRes = await request.post('/api/library/', {
-            data: { name: 'E2E Publish Library', description: '', sourcePath: 'folder-b' },
+            data: { name: 'E2E Build Library', description: '', sourcePath: 'folder-b' },
         });
         expect(libRes.status()).toBe(201);
         libID = (await libRes.json()).id;
@@ -122,11 +122,11 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
             expect(Array.isArray(await res.json())).toBe(true);
         });
 
-        test('first gallery publish creates gallery and appears in listing', async ({ request }) => {
+        test('first gallery build creates gallery and appears in listing', async ({ request }) => {
             test.setTimeout(120_000);
             const baseline = await (await request.get(`/api/channels/${GALLERY_SLUG}/galleries`)).json();
 
-            const evt = await publishGallery(request, libID, photoID1, GALLERY_SLUG, 'Summer E2E');
+            const evt = await buildGallery(request, libID, photoID1, GALLERY_SLUG, 'Summer E2E');
             galleryPostID = evt.postID;
 
             const after = await (await request.get(`/api/channels/${GALLERY_SLUG}/galleries`)).json();
@@ -145,7 +145,7 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
             const before = await (await request.get(`/api/channels/${GALLERY_SLUG}/galleries`)).json();
             const countBefore = before.length;
 
-            await publishGallery(request, libID, photoID2, GALLERY_SLUG, '', {
+            await buildGallery(request, libID, photoID2, GALLERY_SLUG, '', {
                 targetPostID: galleryPostID,
             });
 
@@ -158,7 +158,7 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
         });
 
         test('add-to-existing with unknown targetPostID returns 400', async ({ request }) => {
-            const res = await request.post(`/api/library/${libID}/publish`, {
+            const res = await request.post(`/api/library/${libID}/build`, {
                 data: {
                     photoIDs: [photoID1],
                     channel: GALLERY_SLUG,
@@ -175,12 +175,12 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
     // ── Site channel ──────────────────────────────────────────────────────────
 
     test.describe('Site channel API', () => {
-        test('first site publish creates album and appears in listing', async ({ request }) => {
+        test('first site build creates album and appears in listing', async ({ request }) => {
             test.setTimeout(120_000);
 
             const baseline = await (await request.get(`/api/channels/${SITE_SLUG}/galleries`)).json();
 
-            const evt = await publishGallery(request, libID, photoID1, SITE_SLUG, 'Winter E2E', {
+            const evt = await buildGallery(request, libID, photoID1, SITE_SLUG, 'Winter E2E', {
                 publishedAt: '2026-02-01T12:00:00Z',
             });
             sitePostID = evt.postID;
@@ -203,7 +203,7 @@ test.describe('Publish — gallery listing and add-to-existing', () => {
             expect(original).toBeTruthy();
             const originalDate = original.publishedAt;
 
-            await publishGallery(request, libID, photoID2, SITE_SLUG, '', {
+            await buildGallery(request, libID, photoID2, SITE_SLUG, '', {
                 targetPostID: sitePostID,
                 publishedAt: '2026-03-01T12:00:00Z', // different date — must NOT update album
             });

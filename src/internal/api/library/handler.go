@@ -70,8 +70,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore))
-	mux.HandleFunc("POST /api/library/{id}/publish", publishPhotos(mgr, chStore, root, serverRole))
-	mux.HandleFunc("POST /api/library/{id}/publish-download", publishDownload(mgr, chStore))
+	mux.HandleFunc("POST /api/library/{id}/build", buildPhotos(mgr, chStore, root, serverRole))
+	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 }
@@ -543,7 +543,7 @@ func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 			ExtFilter:      q.Get("ext"),
 		}
 		if ch := q.Get("channel"); ch != "" {
-			opts.MetaExists = []string{"published:" + ch}
+			opts.MetaExists = []string{"built:" + ch}
 		}
 		opts.Offset, _ = strconv.Atoi(q.Get("offset"))
 		opts.Limit, _ = strconv.Atoi(q.Get("limit"))
@@ -587,11 +587,43 @@ func globalMetaKeys(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		keys = normalizeBuiltMetaKeyNames(keys)
 		if keys == nil {
 			keys = []string{}
 		}
 		writeJSON(w, keys)
 	}
+}
+
+// normalizeBuiltMetaKeyNames applies the same "published:" -> "built:" normalization
+// as normalizeBuiltMetaKeys, but for a plain list of key names (as returned by
+// AggregateMetaKeys) rather than full MetaEntry values. The result is re-sorted since
+// renaming a key can change its sort position.
+func normalizeBuiltMetaKeyNames(keys []string) []string {
+	existing := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		if strings.HasPrefix(k, "built:") {
+			existing[k] = true
+		}
+	}
+	seen := make(map[string]bool, len(keys))
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		nk := k
+		if strings.HasPrefix(k, "published:") {
+			builtKey := "built:" + strings.TrimPrefix(k, "published:")
+			if existing[builtKey] {
+				continue // superseded by a current built: entry
+			}
+			nk = builtKey
+		}
+		if !seen[nk] {
+			seen[nk] = true
+			out = append(out, nk)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func globalMetaValues(mgr *lib.Manager) http.HandlerFunc {
@@ -1179,8 +1211,34 @@ func getMeta(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, entries)
+		writeJSON(w, normalizeBuiltMetaKeys(entries))
 	}
+}
+
+// normalizeBuiltMetaKeys rewrites legacy "published:"-prefixed meta keys to the
+// current "built:" prefix for API responses, so the frontend only ever has to deal
+// with the current name. If a photo already has a "built:" entry with the same
+// suffix (e.g. after a rebuild), the legacy entry is dropped instead of renamed, to
+// avoid presenting duplicate/conflicting entries for the same channel.
+func normalizeBuiltMetaKeys(entries []lib.MetaEntry) []lib.MetaEntry {
+	existing := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if strings.HasPrefix(e.Key, "built:") {
+			existing[e.Key] = true
+		}
+	}
+	out := make([]lib.MetaEntry, 0, len(entries))
+	for _, e := range entries {
+		if strings.HasPrefix(e.Key, "published:") {
+			builtKey := "built:" + strings.TrimPrefix(e.Key, "published:")
+			if existing[builtKey] {
+				continue // superseded by a current built: entry
+			}
+			e.Key = builtKey
+		}
+		out = append(out, e)
+	}
+	return out
 }
 
 func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
@@ -1234,35 +1292,46 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		// For published:{slug} keys on site-export channels, remove the photo from
-		// the published site (site.json + physical files) and delete all related keys.
-		const pubPrefix = "published:"
-		if strings.HasPrefix(key, pubPrefix) && chStore != nil {
-			slug := strings.TrimPrefix(key, pubPrefix)
+		// For built:{slug} keys on site-export channels, remove the photo from
+		// the site (site.json + physical files) and delete all related keys. The
+		// frontend only ever sends the normalized built: prefix (see getMeta), but a
+		// photo may still carry legacy published:{slug} entries from before this
+		// channel-membership key was renamed, so both prefixes are cleaned up here.
+		const buildPrefix = "built:"
+		const legacyPubPrefix = "published:"
+		if strings.HasPrefix(key, buildPrefix) && chStore != nil {
+			slug := strings.TrimPrefix(key, buildPrefix)
 			if !strings.Contains(slug, ":") {
 				if ch, chErr := chStore.Get(slug); chErr == nil && ch.SiteExport {
-					if unpubErr := unpublishPhotoFromSite(store, ch, chStore, photoID, slug); unpubErr != nil {
-						http.Error(w, "unpublish: "+unpubErr.Error(), http.StatusInternalServerError)
+					if rmErr := removePhotoFromSite(store, ch, chStore, photoID, slug); rmErr != nil {
+						http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
 						return
 					}
-					// Read postID before deleting so we can also remove the qualified keys.
-					var qPostID string
+					// Read postID(s) before deleting so we can also remove the qualified
+					// keys, checking both the current and legacy key prefixes.
+					var qPostIDs []string
 					if entries, metaErr := store.GetMeta(photoID); metaErr == nil {
 						for _, e := range entries {
-							if e.Key == pubPrefix+slug+":postid" {
-								qPostID = e.Value
-								break
+							if e.Key == buildPrefix+slug+":postid" || e.Key == legacyPubPrefix+slug+":postid" {
+								qPostIDs = append(qPostIDs, e.Value)
 							}
 						}
 					}
-					// Delete unqualified keys.
-					for _, suffix := range []string{"", ":account", ":title", ":postid"} {
-						store.DeleteMeta(photoID, pubPrefix+slug+suffix) //nolint:errcheck
+					// Delete unqualified keys under both prefixes.
+					for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+						for _, suffix := range []string{"", ":account", ":title", ":postid"} {
+							store.DeleteMeta(photoID, prefix+slug+suffix) //nolint:errcheck
+						}
 					}
-					// Delete qualified keys (written by new publishes).
-					if qPostID != "" {
-						for _, suffix := range []string{"", ":account", ":title"} {
-							store.DeleteMeta(photoID, pubPrefix+slug+":"+qPostID+suffix) //nolint:errcheck
+					// Delete qualified keys (written by builds) under both prefixes.
+					for _, qPostID := range qPostIDs {
+						if qPostID == "" {
+							continue
+						}
+						for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+							for _, suffix := range []string{"", ":account", ":title"} {
+								store.DeleteMeta(photoID, prefix+slug+":"+qPostID+suffix) //nolint:errcheck
+							}
 						}
 					}
 					w.WriteHeader(http.StatusNoContent)
@@ -1284,10 +1353,10 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 	}
 }
 
-// unpublishPhotoFromSite removes a photo from every album in a site-export channel:
+// removePhotoFromSite removes a photo from every album in a site-export channel:
 // updates site.json, deletes the exported file and thumbnail, regenerates album HTML
 // and the site index. Meta key deletion is handled by the caller.
-func unpublishPhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
+func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
 	channelDir := chStore.OutputDir(slug)
 	siteDir := filepath.Join(channelDir, "site")
 	statePath := filepath.Join(siteDir, "site.json")
@@ -1302,9 +1371,10 @@ func unpublishPhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *cha
 	var legacyPrefix string
 	if pathHint != "" {
 		if metaEntries, metaErr := store.GetMeta(photoID); metaErr == nil {
-			pubKey := "published:" + slug
+			buildKey := "built:" + slug
+			legacyKey := "published:" + slug
 			for _, e := range metaEntries {
-				if e.Key == pubKey {
+				if e.Key == buildKey || e.Key == legacyKey {
 					if t, tErr := time.Parse(time.RFC3339, e.Value); tErr == nil {
 						ts := t.UTC().Format("20060102T150405Z")
 						base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
@@ -1360,9 +1430,9 @@ func unpublishPhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *cha
 		zipPath := filepath.Join(albumDir, "photos.zip")
 		if album.HasZip || func() bool { _, e := os.Stat(zipPath); return e == nil }() {
 			// Rebuild ZIP without the removed photo.
-			zipResults := make([]publishResult, len(album.Photos))
+			zipResults := make([]buildResult, len(album.Photos))
 			for i, sp := range album.Photos {
-				zipResults[i] = publishResult{Filename: sp.Filename}
+				zipResults[i] = buildResult{Filename: sp.Filename}
 			}
 			if zipErr := createGalleryZip(zipResults, albumDir, "photos.zip"); zipErr == nil {
 				zipName = "photos.zip"
@@ -1396,9 +1466,9 @@ func unpublishPhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *cha
 	return nil
 }
 
-// --- Publish ---
+// --- Build ---
 
-type publishResult struct {
+type buildResult struct {
 	PhotoID       string `json:"photoID"`
 	OutputPath    string `json:"outputPath,omitempty"`
 	Filename      string `json:"filename,omitempty"`
@@ -1408,7 +1478,7 @@ type publishResult struct {
 	Error         string `json:"error,omitempty"`
 }
 
-func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverRole bool) http.HandlerFunc {
+func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverRole bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
@@ -1424,7 +1494,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 			GalleryTitle string   `json:"galleryTitle"`
 			TargetPostID string   `json:"targetPostID,omitempty"` // non-empty = add to existing gallery/album
 			RecordXMP    *bool    `json:"recordXMP,omitempty"`    // nil → true (default)
-			OutputPath   string   `json:"outputPath,omitempty"`   // per-publish override
+			OutputPath   string   `json:"outputPath,omitempty"`   // per-build override
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -1551,7 +1621,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		}
 
 		// When adding to an existing album, ensure the album title is recorded in meta
-		// for each newly published photo so they appear in album-based library searches.
+		// for each newly built photo so they appear in album-based library searches.
 		if existingTitle != "" && pub.GalleryTitle == "" {
 			pub.GalleryTitle = existingTitle
 		}
@@ -1559,10 +1629,10 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		recordXMP := body.RecordXMP == nil || *body.RecordXMP
 
 		if !galleryMode && !siteMode {
-			// Fast synchronous path for regular (non-gallery) publishes.
-			var results []publishResult
+			// Fast synchronous path for regular (non-gallery) builds.
+			var results []buildResult
 			for _, photoID := range body.PhotoIDs {
-				res := publishOne(store, ch, pub, ts, outDir, "", photoID, recordXMP)
+				res := buildOne(store, ch, pub, ts, outDir, "", photoID, recordXMP)
 				results = append(results, res)
 			}
 			writeJSON(w, map[string]any{"postID": postID, "results": results})
@@ -1593,9 +1663,9 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		}
 
 		total := len(body.PhotoIDs)
-		var results []publishResult
+		var results []buildResult
 		for i, photoID := range body.PhotoIDs {
-			res := publishOne(store, ch, pub, ts, outDir, thumbDir, photoID, recordXMP)
+			res := buildOne(store, ch, pub, ts, outDir, thumbDir, photoID, recordXMP)
 			results = append(results, res)
 			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
@@ -1618,9 +1688,9 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		}
 
 		// For add-to-existing, include previous photos in the ZIP.
-		var zipResults []publishResult
+		var zipResults []buildResult
 		for _, ep := range existingPhotos {
-			zipResults = append(zipResults, publishResult{Filename: ep.Filename})
+			zipResults = append(zipResults, buildResult{Filename: ep.Filename})
 		}
 		zipResults = append(zipResults, results...)
 
@@ -1698,7 +1768,7 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 		if siteMode && len(items) > 0 {
 			emit(map[string]any{"step": "site", "done": 0, "total": 1, "file": "Updating site index…"})
 			siteDir := filepath.Join(channelDir, "site")
-			// Only update cover on initial publish (new album).
+			// Only update cover on initial build (new album).
 			if !addToExisting {
 				if cover, rdErr := os.ReadFile(filepath.Join(outDir, items[0].ThumbFilename)); rdErr == nil {
 					os.WriteFile(filepath.Join(outDir, "cover.jpg"), cover, 0o644) //nolint:errcheck
@@ -1761,10 +1831,10 @@ func publishPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serve
 	}
 }
 
-// publishDownload exports selected library photos with channel settings and delivers
+// buildDownload exports selected library photos with channel settings and delivers
 // the result as a ZIP download. By default it does not update XMP sidecars or the
 // library database; pass RecordXMP=true to opt in.
-func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+func buildDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -1837,7 +1907,7 @@ func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc
 			}
 			if recordXMP {
 				media.AppendPublication(pathHint, pub) //nolint:errcheck
-				chKey := "published:" + pub.Channel
+				chKey := "built:" + pub.Channel
 				qualKey := chKey + ":" + pub.PostID
 				tsVal := publishedAt.Format(time.RFC3339)
 				store.UpsertMeta(photoID, chKey, tsVal)   //nolint:errcheck
@@ -1880,7 +1950,7 @@ func publishDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc
 	}
 }
 
-func createGalleryZip(results []publishResult, outDir, zipName string) error {
+func createGalleryZip(results []buildResult, outDir, zipName string) error {
 	f, err := os.Create(filepath.Join(outDir, zipName))
 	if err != nil {
 		return err
@@ -1918,18 +1988,18 @@ var galleryThumbOpts = media.ExportOptions{
 	},
 }
 
-func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string, recordXMP bool) publishResult {
+func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string, recordXMP bool) buildResult {
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
-		return publishResult{PhotoID: photoID, Error: "photo not found"}
+		return buildResult{PhotoID: photoID, Error: "photo not found"}
 	}
 
 	if recordXMP {
 		if err := media.AppendPublication(pathHint, pub); err != nil {
-			return publishResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
+			return buildResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
 		}
 		metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
-		chKey := "published:" + pub.Channel
+		chKey := "built:" + pub.Channel
 		qualKey := chKey + ":" + pub.PostID
 		store.UpsertMeta(photoID, chKey, metaVal)   //nolint:errcheck
 		store.UpsertMeta(photoID, qualKey, metaVal) //nolint:errcheck
@@ -1948,7 +2018,7 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 
 	exported, err := media.ExportImage(pathHint, ch.ExportOptions())
 	if err != nil {
-		return publishResult{PhotoID: photoID, Error: "export: " + err.Error()}
+		return buildResult{PhotoID: photoID, Error: "export: " + err.Error()}
 	}
 
 	ext := "." + ch.Format
@@ -1960,10 +2030,10 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 	outPath := filepath.Join(outDir, outName)
 
 	if err := os.WriteFile(outPath, exported, 0o644); err != nil {
-		return publishResult{PhotoID: photoID, Error: "write export: " + err.Error()}
+		return buildResult{PhotoID: photoID, Error: "write export: " + err.Error()}
 	}
 
-	res := publishResult{PhotoID: photoID, OutputPath: outPath, Filename: outName}
+	res := buildResult{PhotoID: photoID, OutputPath: outPath, Filename: outName}
 	if cfg, _, err := image.DecodeConfig(bytes.NewReader(exported)); err == nil {
 		res.Width = cfg.Width
 		res.Height = cfg.Height
@@ -1982,7 +2052,7 @@ func publishOne(store *lib.Store, ch *channels.Channel, pub media.Publication, t
 }
 
 // scanAlbumPhotos reconstructs a GalleryItem list from the files on disk.
-// Used when rebuilding albums that were published before photo metadata was stored in site.json.
+// Used when rebuilding albums that were built before photo metadata was stored in site.json.
 func scanAlbumPhotos(albumDir string) []GalleryItem {
 	entries, err := os.ReadDir(albumDir)
 	if err != nil {
@@ -2022,7 +2092,7 @@ type galleryListItem struct {
 	PhotoCount  int       `json:"photoCount"`
 }
 
-// listGalleries returns existing published galleries/albums for a channel.
+// listGalleries returns existing built galleries/albums for a channel.
 func listGalleries(chStore *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
@@ -2093,7 +2163,7 @@ func listGalleries(chStore *channels.Store) http.HandlerFunc {
 }
 
 // rebuildSite regenerates site assets and HTML from site.json, cross-checking each
-// photo against: (1) file existence on disk, (2) published meta in the library DB
+// photo against: (1) file existence on disk, (2) build meta in the library DB
 // (when a photoID is stored) or a base-name reverse lookup (for pre-photoID entries).
 // Photos that fail either check are pruned from site.json before regenerating.
 func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
@@ -2141,7 +2211,7 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		// so we avoid scanning every library for every photo in the album.
 		baseToPhotoID := buildBasePhotoIndex(mgr)
 
-		// Prune photos whose publish metadata was removed from the library.
+		// Prune photos whose build metadata was removed from the library.
 		// Photos with a stored PhotoID can be re-exported from library source files if
 		// their exported file is missing, so we only remove them on a metadata failure.
 		// Legacy entries without a PhotoID cannot be re-exported; they are also pruned
@@ -2157,7 +2227,7 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				if pid == "" {
 					pid = baseToPhotoID[sitePhotoBase(sp.Filename, channelSlug)]
 				}
-				// Remove photos that lost their publish metadata in the library.
+				// Remove photos that lost their build metadata in the library.
 				if pid != "" && mgr != nil && !sitePhotoHasMeta(mgr, pid, channelSlug, albums[i].PostID) {
 					modifiedIdx[i] = true
 					continue
@@ -2244,9 +2314,9 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			zipName := ""
 			zipPath := filepath.Join(albumDir, "photos.zip")
 			if album.HasZip || func() bool { _, e := os.Stat(zipPath); return e == nil }() {
-				zipResults := make([]publishResult, len(album.Photos))
+				zipResults := make([]buildResult, len(album.Photos))
 				for j, sp := range album.Photos {
-					zipResults[j] = publishResult{Filename: sp.Filename}
+					zipResults[j] = buildResult{Filename: sp.Filename}
 				}
 				if zipErr := createGalleryZip(zipResults, albumDir, "photos.zip"); zipErr == nil {
 					zipName = "photos.zip"
@@ -2351,16 +2421,20 @@ func findPhotoSourcePath(mgr *lib.Manager, photoID string) (string, error) {
 }
 
 // sitePhotoHasMeta reports whether any library store confirms this photo is still
-// published to the given channel+album. It checks the qualified key
-// published:{channelSlug}:{albumPostID} first (written by current publishes),
-// then falls back to the unqualified published:{channelSlug} for legacy entries.
+// built to the given channel+album. It checks the qualified key
+// built:{channelSlug}:{albumPostID} first (written by current builds), then falls
+// back to the unqualified built:{channelSlug} for legacy entries. It also checks the
+// pre-rename published:{channelSlug}[:{albumPostID}] keys, for photos that haven't
+// been rebuilt since the built: key prefix replaced published:.
 func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug, albumPostID string) bool {
 	libs, err := mgr.ListLibraries()
 	if err != nil {
 		return true // keep on error
 	}
-	qualKey := "published:" + channelSlug + ":" + albumPostID
-	legacyKey := "published:" + channelSlug
+	qualKey := "built:" + channelSlug + ":" + albumPostID
+	legacyKey := "built:" + channelSlug
+	legacyQualKey := "published:" + channelSlug + ":" + albumPostID
+	legacyUnqualKey := "published:" + channelSlug
 	for _, l := range libs {
 		store, err := mgr.OpenStore(l.ID)
 		if err != nil {
@@ -2372,10 +2446,10 @@ func sitePhotoHasMeta(mgr *lib.Manager, photoID, channelSlug, albumPostID string
 			continue
 		}
 		for _, e := range entries {
-			if albumPostID != "" && e.Key == qualKey {
+			if albumPostID != "" && (e.Key == qualKey || e.Key == legacyQualKey) {
 				return true
 			}
-			if e.Key == legacyKey {
+			if e.Key == legacyKey || e.Key == legacyUnqualKey {
 				return true
 			}
 		}

@@ -330,7 +330,7 @@ class ChannelSettingsModal {
                         <label class="form-label">Export mode</label>
                         <select class="form-select" id="chf-export-mode">
                             <option value="standard" ${!ch.galleryExport && !ch.siteExport ? 'selected' : ''}>Standard — files only</option>
-                            <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per publish</option>
+                            <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per build</option>
                             <option value="site"     ${ch.siteExport                       ? 'selected' : ''}>Multi-album site — static website</option>
                         </select>
                     </div>

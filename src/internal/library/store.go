@@ -524,7 +524,7 @@ type ListPhotosOpts struct {
 	DateMax        string                  // YYYY-MM-DD upper bound on date_taken
 	MetaFilters    map[string]string       // photo_meta key=value exact matches
 	MetaExists     []string                // photo_meta keys that must exist (any value)
-	AlbumTitle     string                  // match photos with any published:*:title = value
+	AlbumTitle     string                  // match photos with any built:*:title = value
 	ExtFilter      string                  // file extension (photos.ext)
 	Offset         int
 	Limit          int
@@ -594,11 +594,18 @@ func (s *Store) ListPhotos(opts ListPhotosOpts) (ListPhotosResult, error) {
 		whereArgs = append(whereArgs, key, val)
 	}
 	for _, key := range opts.MetaExists {
-		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key=?)`)
-		whereArgs = append(whereArgs, key)
+		// built: keys may not exist yet for photos indexed before the built: prefix
+		// replaced published:; fall back to the legacy key so those still match.
+		if legacyKey, ok := strings.CutPrefix(key, "built:"); ok {
+			where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND (pm.key=? OR pm.key=?))`)
+			whereArgs = append(whereArgs, key, "published:"+legacyKey)
+		} else {
+			where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key=?)`)
+			whereArgs = append(whereArgs, key)
+		}
 	}
 	if opts.AlbumTitle != "" {
-		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND pm.key LIKE 'published:%:title' AND pm.value=?)`)
+		where = append(where, `EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND (pm.key LIKE 'built:%:title' OR pm.key LIKE 'published:%:title') AND pm.value=?)`)
 		whereArgs = append(whereArgs, opts.AlbumTitle)
 	}
 
@@ -826,11 +833,14 @@ func (s *Store) GetExifFieldValues(field string) ([]string, error) {
 }
 
 // GetMetaKeys returns all distinct photo_meta keys that are visible for filtering.
-// Internal bookkeeping keys (published:*:account, published:*:postid) are excluded.
+// Internal bookkeeping keys (built:*:account, built:*:postid, and their legacy
+// published:*:account, published:*:postid equivalents) are excluded.
 func (s *Store) GetMetaKeys() ([]string, error) {
 	rows, err := s.db.Query(`
 		SELECT DISTINCT key FROM photo_meta
-		WHERE key NOT LIKE 'published:%:account'
+		WHERE key NOT LIKE 'built:%:account'
+		  AND key NOT LIKE 'built:%:postid'
+		  AND key NOT LIKE 'published:%:account'
 		  AND key NOT LIKE 'published:%:postid'
 		ORDER BY key`)
 	if err != nil {
@@ -867,11 +877,12 @@ func (s *Store) GetMetaValues(key string) ([]string, error) {
 	return vals, rows.Err()
 }
 
-// GetAlbumTitles returns distinct gallery/album titles from all published:*:title meta entries.
+// GetAlbumTitles returns distinct gallery/album titles from all built:*:title (and
+// legacy published:*:title) meta entries.
 func (s *Store) GetAlbumTitles() ([]string, error) {
 	rows, err := s.db.Query(`
 		SELECT DISTINCT value FROM photo_meta
-		WHERE key LIKE 'published:%:title' AND value != ''
+		WHERE (key LIKE 'built:%:title' OR key LIKE 'published:%:title') AND value != ''
 		ORDER BY value`)
 	if err != nil {
 		return nil, err

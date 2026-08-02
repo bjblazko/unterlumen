@@ -377,15 +377,15 @@ class InfoPanel {
         if (!ctx || !ctx.entries) return '';
 
         const primaryPubs = ctx.entries.filter(e =>
-            e.key.startsWith('published:') && !e.key.slice('published:'.length).includes(':')
+            e.key.startsWith('built:') && !e.key.slice('built:'.length).includes(':')
         );
         if (primaryPubs.length === 0) return '';
 
         const cards = primaryPubs.map(e => {
-            const slug = e.key.slice('published:'.length);
+            const slug = e.key.slice('built:'.length);
             const channelName = this._humanizeChannelSlug(slug);
             const date = this.formatDate(e.value);
-            const titleEntry = ctx.entries.find(te => te.key === `published:${slug}:title`);
+            const titleEntry = ctx.entries.find(te => te.key === `built:${slug}:title`);
             const galleryTitle = titleEntry ? escapeHtml(titleEntry.value) : '';
 
             return `<div class="info-pub-card">` +
@@ -418,7 +418,7 @@ class InfoPanel {
         const rows = [];
 
         const genericEntries = (ctx.entries || []).filter(e =>
-            e.key !== 'title' && !e.key.startsWith('published:')
+            e.key !== 'title' && !e.key.startsWith('built:')
         );
 
         for (const e of genericEntries) {
@@ -626,10 +626,10 @@ class InfoPanel {
                 const key = btn.dataset.key;
                 try {
                     await ctx.onDelete(key);
-                    // For published:{slug} keys the backend removes multiple related keys;
+                    // For built:{slug} keys the backend removes multiple related keys;
                     // refresh the full list instead of filtering out just one entry.
-                    const isMainPublishKey = key.startsWith('published:') && !key.slice('published:'.length).includes(':');
-                    if (isMainPublishKey && ctx.refresh) {
+                    const isMainBuildKey = key.startsWith('built:') && !key.slice('built:'.length).includes(':');
+                    if (isMainBuildKey && ctx.refresh) {
                         ctx.entries = await ctx.refresh();
                     } else {
                         ctx.entries = ctx.entries.filter(e => e.key !== key);

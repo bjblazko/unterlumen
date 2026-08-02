@@ -160,8 +160,8 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publish(libID, { photoIDs, channel, account, publishedAt, recordXMP, outputPath }) {
-        const r = await fetch(`/api/library/${libID}/publish`, {
+    async build(libID, { photoIDs, channel, account, publishedAt, recordXMP, outputPath }) {
+        const r = await fetch(`/api/library/${libID}/build`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ photoIDs, channel, account, publishedAt, recordXMP, outputPath }),
@@ -169,8 +169,8 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async publishStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }, onProgress) {
-        const r = await fetch(`/api/library/${libID}/publish`, {
+    async buildStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }, onProgress) {
+        const r = await fetch(`/api/library/${libID}/build`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }),
@@ -201,8 +201,8 @@ const LibraryAPI = {
         if (!finalEvt) throw new Error('Gallery stream ended without completion event');
         return finalEvt;
     },
-    async publishDownload(libID, { photoIDs, channel, recordXMP }) {
-        const r = await fetch(`/api/library/${libID}/publish-download`, {
+    async buildDownload(libID, { photoIDs, channel, recordXMP }) {
+        const r = await fetch(`/api/library/${libID}/build-download`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ photoIDs, channel, recordXMP }),
@@ -403,8 +403,8 @@ class LibraryTab {
         this._listInfoPanel = null;
         this._listSearchPanel = null;
         this._cachedLibs = null;
-        this._detailPublishBtn = null;
-        this._listPublishBtn = null;
+        this._detailBuildBtn = null;
+        this._listBuildBtn = null;
         this._detailEl = null;
     }
 
@@ -497,7 +497,7 @@ class LibraryTab {
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
-                    <button class="btn lib-publish-btn" id="lib-list-publish-btn" disabled>Publish…</button>
+                    <button class="btn lib-build-btn" id="lib-list-build-btn" disabled>Build…</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
@@ -547,8 +547,8 @@ class LibraryTab {
             this._loadList(body);
         });
 
-        this._listPublishBtn = el.querySelector('#lib-list-publish-btn');
-        this._listPublishBtn.addEventListener('click', () => this._openPublishModal());
+        this._listBuildBtn = el.querySelector('#lib-list-build-btn');
+        this._listBuildBtn.addEventListener('click', () => this._openBuildModal());
 
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
@@ -567,8 +567,8 @@ class LibraryTab {
                 onFocusChange: (path) => this._onListSearchFocus(path),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: null }),
                 onSelectionChange: () => {
-                    if (this._listPublishBtn) {
-                        this._listPublishBtn.disabled =
+                    if (this._listBuildBtn) {
+                        this._listBuildBtn.disabled =
                             (this._listSearchPanel?._searchPane?.selection.selected.size ?? 0) === 0;
                     }
                 },
@@ -978,7 +978,7 @@ class LibraryTab {
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm lib-publish-btn" id="lib-publish-btn" disabled>Publish…</button>
+                    <button class="btn btn-sm lib-build-btn" id="lib-build-btn" disabled>Build…</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
@@ -992,7 +992,7 @@ class LibraryTab {
             </div>`;
         this.container.appendChild(el);
         this._detailEl = el;
-        this._detailPublishBtn = el.querySelector('#lib-publish-btn');
+        this._detailBuildBtn = el.querySelector('#lib-build-btn');
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -1005,8 +1005,8 @@ class LibraryTab {
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
 
-        const publishBtn = el.querySelector('#lib-publish-btn');
-        publishBtn.addEventListener('click', () => this._openPublishModal());
+        const buildBtn = el.querySelector('#lib-build-btn');
+        buildBtn.addEventListener('click', () => this._openBuildModal());
 
         const commanderBtn = el.querySelector('#lib-commander-btn');
         commanderBtn.addEventListener('click', () => {
@@ -1063,7 +1063,7 @@ class LibraryTab {
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: () => {
-                this._updateDetailPublishBtn();
+                this._updateDetailBuildBtn();
                 this._updateCommanderBtn();
             },
         });
@@ -1081,7 +1081,7 @@ class LibraryTab {
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
-                onSelectionChange: () => { this._updateDetailPublishBtn(); this._updateCommanderBtn(); },
+                onSelectionChange: () => { this._updateDetailBuildBtn(); this._updateCommanderBtn(); },
                 onClose: () => this._filterPanel.close(),
             });
         }
@@ -1089,7 +1089,7 @@ class LibraryTab {
         this._searchPane.loadResults(photos, multiLib, paginationOpts);
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
-        this._updateDetailPublishBtn();
+        this._updateDetailBuildBtn();
         this._updateCommanderBtn();
     }
 
@@ -1101,7 +1101,7 @@ class LibraryTab {
         paneEl.style.display = '';
         // Keep _searchPane alive so it can be reused if the filter is reopened.
 
-        this._updateDetailPublishBtn();
+        this._updateDetailBuildBtn();
         this._updateCommanderBtn();
     }
 
@@ -1131,20 +1131,20 @@ class LibraryTab {
         }
     }
 
-    _updateDetailPublishBtn() {
-        if (!this._detailPublishBtn) return;
+    _updateDetailBuildBtn() {
+        if (!this._detailBuildBtn) return;
         const searchPaneEl = this._detailEl?.querySelector('#lib-search-pane');
         const searchActive = searchPaneEl && searchPaneEl.style.display !== 'none';
         if (searchActive) {
-            this._detailPublishBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
+            this._detailBuildBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
         } else {
-            this._detailPublishBtn.disabled =
+            this._detailBuildBtn.disabled =
                 (this._pane?.getSelectedFiles().length ?? 0) === 0 &&
                 !(this._pane?.selectedDirs?.size);
         }
     }
 
-    async _openPublishModal() {
+    async _openBuildModal() {
         // Detect source — SearchResultPane takes priority over LibraryPane
         const searchPane = (() => {
             if (this._searchPane && this._detailEl?.querySelector('#lib-search-pane')?.style.display !== 'none'
@@ -1195,74 +1195,74 @@ class LibraryTab {
         const now = new Date();
         const todayUTC = now.toISOString().slice(0, 10);
 
-        const initialTitle = hasDirs ? 'Counting photos…' : `Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
+        const initialTitle = hasDirs ? 'Counting photos…' : `Build ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
 
         const dlg = document.createElement('div');
         dlg.className = 'modal-backdrop';
         dlg.innerHTML = `
-            <div class="modal publish-modal">
+            <div class="modal build-modal">
                 <div class="modal-header">
                     <span class="modal-title">${initialTitle}</span>
-                    <button class="modal-close" id="pub-close">&times;</button>
+                    <button class="modal-close" id="build-close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <label class="form-label">Channel</label>
-                    <select class="form-select" id="pub-channel">
+                    <select class="form-select" id="build-channel">
                         ${channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
                     </select>
-                    <div id="pub-account-wrap" style="display:none">
+                    <div id="build-account-wrap" style="display:none">
                         <label class="form-label">Account</label>
-                        <select class="form-select" id="pub-account"></select>
+                        <select class="form-select" id="build-account"></select>
                     </div>
                     <label class="form-label">Date</label>
-                    <div class="pub-date-row">
-                        <input class="form-input" id="pub-date" type="date" value="${todayUTC}">
-                        <button type="button" class="btn btn-sm pub-time-toggle" id="pub-time-toggle">+ Time</button>
+                    <div class="build-date-row">
+                        <input class="form-input" id="build-date" type="date" value="${todayUTC}">
+                        <button type="button" class="btn btn-sm build-time-toggle" id="build-time-toggle">+ Time</button>
                     </div>
-                    <div id="pub-time-wrap" style="display:none">
-                        <input class="form-input" id="pub-time" type="time" value="12:00">
+                    <div id="build-time-wrap" style="display:none">
+                        <input class="form-input" id="build-time" type="time" value="12:00">
                     </div>
-                    <span class="pub-date-note">Sets album order in the published site and is stored in XMP sidecars.</span>
-                    <div class="publish-info" id="pub-info"></div>
-                    <div id="pub-gallery-wrap" style="display:none">
-                        <div id="pub-target-wrap" style="display:none">
+                    <span class="build-date-note">Sets album order in the built site and is stored in XMP sidecars.</span>
+                    <div class="build-info" id="build-info"></div>
+                    <div id="build-gallery-wrap" style="display:none">
+                        <div id="build-target-wrap" style="display:none">
                             <label class="form-label">Add to</label>
-                            <select class="form-select" id="pub-target"></select>
+                            <select class="form-select" id="build-target"></select>
                         </div>
-                        <div id="pub-title-wrap">
-                            <label class="form-label" id="pub-gallery-label">Gallery title</label>
-                            <input class="form-input" id="pub-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                        <div id="build-title-wrap">
+                            <label class="form-label" id="build-gallery-label">Gallery title</label>
+                            <input class="form-input" id="build-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
                         </div>
                     </div>
-                    <div class="pub-output-section">
+                    <div class="build-output-section">
                         <label class="form-label">Output</label>
-                        <select class="form-select" id="pub-output-mode">
+                        <select class="form-select" id="build-output-mode">
                             <option value="save">Save to folder</option>
                             <option value="download">Download as ZIP</option>
                         </select>
-                        <div id="pub-folder-wrap">
+                        <div id="build-folder-wrap">
                             <div class="export-destination-wrap">
-                                <input class="form-input export-destination-input" id="pub-output-path" autocomplete="off">
-                                <button type="button" class="btn btn-sm" id="pub-output-pick" title="Browse folders">…</button>
+                                <input class="form-input export-destination-input" id="build-output-path" autocomplete="off">
+                                <button type="button" class="btn btn-sm" id="build-output-pick" title="Browse folders">…</button>
                             </div>
-                            <div class="pub-destination" id="pub-destination"></div>
+                            <div class="build-destination" id="build-destination"></div>
                         </div>
                     </div>
-                    <div class="pub-xmp-row">
-                        <div class="pub-xmp-header">
-                            <button class="toggle" role="switch" id="pub-record-xmp" data-state="on" aria-checked="true">
+                    <div class="build-xmp-row">
+                        <div class="build-xmp-header">
+                            <button class="toggle" role="switch" id="build-record-xmp" data-state="on" aria-checked="true">
                                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
                             </button>
-                            <span class="pub-xmp-label">Record publication in XMP sidecar</span>
+                            <span class="build-xmp-label">Record publication in XMP sidecar</span>
                         </div>
-                        <span class="pub-xmp-note">Writes channel name, post ID, and timestamp into the photo's .xmp sidecar. Used by the library to track what has been published.</span>
+                        <span class="build-xmp-note">Writes channel name, post ID, and timestamp into the photo's .xmp sidecar. Used by the library to track what has been built.</span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <div class="publish-error" id="pub-error" style="display:none"></div>
-                    <div class="publish-progress" id="pub-progress" style="display:none"></div>
-                    <button class="btn" id="pub-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="pub-confirm"${hasDirs ? ' disabled' : ''}>Publish</button>
+                    <div class="build-error" id="build-error" style="display:none"></div>
+                    <div class="build-progress" id="build-progress" style="display:none"></div>
+                    <button class="btn" id="build-cancel">Cancel</button>
+                    <button class="btn btn-accent" id="build-confirm"${hasDirs ? ' disabled' : ''}>Build</button>
                 </div>
             </div>`;
         document.body.appendChild(dlg);
@@ -1274,22 +1274,22 @@ class LibraryTab {
                     selectedPaths = arrays.flat();
                     if (dlg.isConnected) {
                         dlg.querySelector('.modal-title').textContent =
-                            `Publish ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
-                        dlg.querySelector('#pub-confirm').disabled = selectedPaths.length === 0;
+                            `Build ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
+                        dlg.querySelector('#build-confirm').disabled = selectedPaths.length === 0;
                     }
                 });
         }
 
         const setXmpState = (on) => {
-            const btn = dlg.querySelector('#pub-record-xmp');
+            const btn = dlg.querySelector('#build-record-xmp');
             btn.dataset.state = on ? 'on' : 'off';
             btn.setAttribute('aria-checked', String(on));
         };
 
         const updateOutputDisplay = async (ch, mode) => {
-            const folderWrap = dlg.querySelector('#pub-folder-wrap');
-            const destEl = dlg.querySelector('#pub-destination');
-            const pathInput = dlg.querySelector('#pub-output-path');
+            const folderWrap = dlg.querySelector('#build-folder-wrap');
+            const destEl = dlg.querySelector('#build-destination');
+            const pathInput = dlg.querySelector('#build-output-path');
             if (mode === 'download') {
                 folderWrap.style.display = 'none';
             } else {
@@ -1310,38 +1310,38 @@ class LibraryTab {
         };
 
         const resetDateToToday = () => {
-            dlg.querySelector('#pub-date').value = new Date().toISOString().slice(0, 10);
-            dlg.querySelector('#pub-time').value = '12:00';
+            dlg.querySelector('#build-date').value = new Date().toISOString().slice(0, 10);
+            dlg.querySelector('#build-time').value = '12:00';
         };
 
         const applyTargetSelection = (galleries) => {
-            const targetSel = dlg.querySelector('#pub-target');
-            const titleWrap = dlg.querySelector('#pub-title-wrap');
-            const dateNote = dlg.querySelector('.pub-date-note');
+            const targetSel = dlg.querySelector('#build-target');
+            const titleWrap = dlg.querySelector('#build-title-wrap');
+            const dateNote = dlg.querySelector('.build-date-note');
             const selectedPostID = targetSel.value;
             if (selectedPostID === '') {
                 titleWrap.style.display = '';
                 resetDateToToday();
-                dateNote.textContent = 'Sets album order in the published site and is stored in XMP sidecars.';
+                dateNote.textContent = 'Sets album order in the built site and is stored in XMP sidecars.';
             } else {
                 titleWrap.style.display = 'none';
                 // Pre-fill with today — this becomes the UpdatedAt date, not the sort date.
                 resetDateToToday();
                 // Collapse time; user can expand with + Time if needed.
-                dlg.querySelector('#pub-time-wrap').style.display = 'none';
-                dlg.querySelector('#pub-time-toggle').textContent = '+ Time';
+                dlg.querySelector('#build-time-wrap').style.display = 'none';
+                dlg.querySelector('#build-time-toggle').textContent = '+ Time';
                 dateNote.textContent = 'Sets the updated date shown on the album. Stored in XMP sidecars on the new photos.';
             }
         };
 
         const updateChannel = async () => {
-            const slug = dlg.querySelector('#pub-channel').value;
+            const slug = dlg.querySelector('#build-channel').value;
             const ch = channels.find(c => c.slug === slug);
             if (!ch) return;
 
             // Account dropdown
-            const accountWrap = dlg.querySelector('#pub-account-wrap');
-            const accountSel  = dlg.querySelector('#pub-account');
+            const accountWrap = dlg.querySelector('#build-account-wrap');
+            const accountSel  = dlg.querySelector('#build-account');
             const accounts = ch.accounts || [];
             if (accounts.length > 0) {
                 accountSel.innerHTML = accounts.map(a =>
@@ -1353,10 +1353,10 @@ class LibraryTab {
             }
 
             // Gallery / album title field and target selector
-            const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-            const targetWrap = dlg.querySelector('#pub-target-wrap');
-            const targetSel = dlg.querySelector('#pub-target');
-            const titleLabel = dlg.querySelector('#pub-gallery-label');
+            const galleryWrap = dlg.querySelector('#build-gallery-wrap');
+            const targetWrap = dlg.querySelector('#build-target-wrap');
+            const targetSel = dlg.querySelector('#build-target');
+            const titleLabel = dlg.querySelector('#build-gallery-label');
             titleLabel.textContent = ch.siteExport ? 'Album title' : 'Gallery title';
 
             if (ch.galleryExport || ch.siteExport) {
@@ -1384,71 +1384,71 @@ class LibraryTab {
             // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
             const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
-            dlg.querySelector('#pub-info').textContent =
+            dlg.querySelector('#build-info').textContent =
                 `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}${handlerNote}`;
 
             // Output mode — use channel default
             const defaultMode = ch.outputMode === 'download' ? 'download' : 'save';
-            dlg.querySelector('#pub-output-mode').value = defaultMode;
+            dlg.querySelector('#build-output-mode').value = defaultMode;
             setXmpState(defaultMode !== 'download');
-            dlg.querySelector('#pub-output-path').value = '';
+            dlg.querySelector('#build-output-path').value = '';
             updateOutputDisplay(ch, defaultMode);
         };
 
-        dlg.querySelector('#pub-output-mode').addEventListener('change', function() {
+        dlg.querySelector('#build-output-mode').addEventListener('change', function() {
             setXmpState(this.value !== 'download');
-            const slug = dlg.querySelector('#pub-channel').value;
+            const slug = dlg.querySelector('#build-channel').value;
             const ch = channels.find(c => c.slug === slug);
             if (ch) updateOutputDisplay(ch, this.value);
         });
 
-        dlg.querySelector('#pub-output-pick').addEventListener('click', async () => {
-            const current = dlg.querySelector('#pub-output-path').value;
+        dlg.querySelector('#build-output-pick').addEventListener('click', async () => {
+            const current = dlg.querySelector('#build-output-path').value;
             const chosen = await new FolderPicker().open(current || '');
             if (chosen !== null) {
-                dlg.querySelector('#pub-output-path').value = chosen;
-                dlg.querySelector('#pub-destination').textContent = '';
+                dlg.querySelector('#build-output-path').value = chosen;
+                dlg.querySelector('#build-destination').textContent = '';
             }
         });
 
-        dlg.querySelector('#pub-time-toggle').addEventListener('click', function() {
-            const timeWrap = dlg.querySelector('#pub-time-wrap');
+        dlg.querySelector('#build-time-toggle').addEventListener('click', function() {
+            const timeWrap = dlg.querySelector('#build-time-wrap');
             const visible = timeWrap.style.display !== 'none';
             timeWrap.style.display = visible ? 'none' : '';
             this.textContent = visible ? '+ Time' : '− Time';
-            if (visible) dlg.querySelector('#pub-time').value = '12:00';
+            if (visible) dlg.querySelector('#build-time').value = '12:00';
         });
 
-        dlg.querySelector('#pub-record-xmp').addEventListener('click', function() {
+        dlg.querySelector('#build-record-xmp').addEventListener('click', function() {
             const on = this.dataset.state !== 'on';
             setXmpState(on);
         });
 
-        dlg.querySelector('#pub-channel').addEventListener('change', updateChannel);
+        dlg.querySelector('#build-channel').addEventListener('change', updateChannel);
         updateChannel();
 
-        dlg.querySelector('#pub-close').addEventListener('click', () => dlg.remove());
-        dlg.querySelector('#pub-cancel').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#build-close').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#build-cancel').addEventListener('click', () => dlg.remove());
         dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
 
-        dlg.querySelector('#pub-confirm').addEventListener('click', async () => {
-            const confirmBtn = dlg.querySelector('#pub-confirm');
-            const errEl = dlg.querySelector('#pub-error');
-            const channel = dlg.querySelector('#pub-channel').value;
-            const dateVal = dlg.querySelector('#pub-date').value;
-            const timeVisible = dlg.querySelector('#pub-time-wrap').style.display !== 'none';
-            const timeVal = timeVisible ? (dlg.querySelector('#pub-time').value || '12:00') : '12:00';
+        dlg.querySelector('#build-confirm').addEventListener('click', async () => {
+            const confirmBtn = dlg.querySelector('#build-confirm');
+            const errEl = dlg.querySelector('#build-error');
+            const channel = dlg.querySelector('#build-channel').value;
+            const dateVal = dlg.querySelector('#build-date').value;
+            const timeVisible = dlg.querySelector('#build-time-wrap').style.display !== 'none';
+            const timeVal = timeVisible ? (dlg.querySelector('#build-time').value || '12:00') : '12:00';
             const publishedAt = dateVal
                 ? new Date(dateVal + 'T' + timeVal + ':00Z').toISOString()
                 : new Date().toISOString();
-            const targetSel = dlg.querySelector('#pub-target');
+            const targetSel = dlg.querySelector('#build-target');
             const targetPostID = targetSel?.value || undefined;
-            const outputMode = dlg.querySelector('#pub-output-mode').value;
-            const recordXMP = dlg.querySelector('#pub-record-xmp').dataset.state === 'on';
-            const outputPath = dlg.querySelector('#pub-output-path').value.trim() || undefined;
+            const outputMode = dlg.querySelector('#build-output-mode').value;
+            const recordXMP = dlg.querySelector('#build-record-xmp').dataset.state === 'on';
+            const outputPath = dlg.querySelector('#build-output-path').value.trim() || undefined;
 
             confirmBtn.disabled = true;
-            confirmBtn.textContent = outputMode === 'download' ? 'Working…' : 'Publishing…';
+            confirmBtn.textContent = outputMode === 'download' ? 'Working…' : 'Building…';
             errEl.style.display = 'none';
 
             try {
@@ -1470,11 +1470,11 @@ class LibraryTab {
                         errEl.textContent = 'ZIP download is not supported when photos span multiple libraries.';
                         errEl.style.display = '';
                         confirmBtn.disabled = false;
-                        confirmBtn.textContent = 'Publish';
+                        confirmBtn.textContent = 'Build';
                         return;
                     }
                     const g = validGroups[0];
-                    const blob = await LibraryAPI.publishDownload(g.libID, { photoIDs: g.photoIDs, channel, recordXMP });
+                    const blob = await LibraryAPI.buildDownload(g.libID, { photoIDs: g.photoIDs, channel, recordXMP });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -1487,16 +1487,16 @@ class LibraryTab {
                     return;
                 }
 
-                const accountWrap = dlg.querySelector('#pub-account-wrap');
+                const accountWrap = dlg.querySelector('#build-account-wrap');
                 const account = accountWrap.style.display !== 'none'
-                    ? (dlg.querySelector('#pub-account').value || undefined)
+                    ? (dlg.querySelector('#build-account').value || undefined)
                     : undefined;
 
-                const galleryWrap = dlg.querySelector('#pub-gallery-wrap');
-                const titleWrap = dlg.querySelector('#pub-title-wrap');
+                const galleryWrap = dlg.querySelector('#build-gallery-wrap');
+                const titleWrap = dlg.querySelector('#build-title-wrap');
                 // galleryTitle is empty when adding to an existing gallery (title comes from statefile).
                 const galleryTitle = (galleryWrap.style.display !== 'none' && titleWrap?.style.display !== 'none')
-                    ? (dlg.querySelector('#pub-gallery-title').value.trim() || undefined)
+                    ? (dlg.querySelector('#build-gallery-title').value.trim() || undefined)
                     : undefined;
 
                 const ch = channels.find(c => c.slug === channel);
@@ -1507,12 +1507,12 @@ class LibraryTab {
                         : 'Gallery title is required.';
                     errEl.style.display = '';
                     confirmBtn.disabled = false;
-                    confirmBtn.textContent = 'Publish';
+                    confirmBtn.textContent = 'Build';
                     return;
                 }
 
                 if (galleryTitle || targetPostID) {
-                    const progressEl = dlg.querySelector('#pub-progress');
+                    const progressEl = dlg.querySelector('#build-progress');
                     progressEl.style.display = '';
                     const groupCount = validGroups.length;
                     let currentTargetPostID = targetPostID;
@@ -1521,7 +1521,7 @@ class LibraryTab {
                     for (let gi = 0; gi < groupCount; gi++) {
                         const g = validGroups[gi];
                         const prefix = groupCount > 1 ? `Library ${gi + 1} of ${groupCount}: ` : '';
-                        const resp = await LibraryAPI.publishStream(
+                        const resp = await LibraryAPI.buildStream(
                             g.libID,
                             {
                                 photoIDs: g.photoIDs, channel, account, publishedAt,
@@ -1542,33 +1542,33 @@ class LibraryTab {
                     }
                     dlg.remove();
                     if (allErrors.length > 0) {
-                        alert(`Published with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
+                        alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else if (lastResp.sitePath) {
                         App.showToast(targetPostID ? `Photos added to album · site at ${lastResp.sitePath}` : `Album added · site at ${lastResp.sitePath}`);
                     } else {
                         App.showToast(targetPostID ? `Photos added to gallery: ${lastResp.galleryPath}` : `Gallery ready: ${lastResp.galleryPath}`);
                     }
                 } else {
-                    let totalPublished = 0;
+                    let totalBuilt = 0;
                     let allErrors = [];
                     for (const g of validGroups) {
-                        const resp = await LibraryAPI.publish(g.libID, { photoIDs: g.photoIDs, channel, account, publishedAt, recordXMP, outputPath });
+                        const resp = await LibraryAPI.build(g.libID, { photoIDs: g.photoIDs, channel, account, publishedAt, recordXMP, outputPath });
                         const errors = (resp.results || []).filter(r => r.error);
                         allErrors = [...allErrors, ...errors];
-                        totalPublished += g.photoIDs.length - errors.length;
+                        totalBuilt += g.photoIDs.length - errors.length;
                     }
                     dlg.remove();
                     if (allErrors.length > 0) {
-                        alert(`Published with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
+                        alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else {
-                        App.showToast(`Published ${totalPublished} photo${totalPublished !== 1 ? 's' : ''} to ${channel}.`);
+                        App.showToast(`Built ${totalBuilt} photo${totalBuilt !== 1 ? 's' : ''} to ${channel}.`);
                     }
                 }
             } catch (err) {
                 errEl.textContent = err.message;
                 errEl.style.display = '';
                 confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Publish';
+                confirmBtn.textContent = 'Build';
             }
         });
     }
