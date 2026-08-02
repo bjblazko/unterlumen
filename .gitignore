@@ -47,3 +47,6 @@ src/data/
 
 # macOS metadata
 .DS_Store
+
+# SDD worktrees
+.worktrees/
