@@ -410,6 +410,12 @@ class LibraryTab {
         // with the fields deploy.TargetFromConfig requires — null otherwise.
         // Drives Deploy button visibility in both the list and detail headers.
         this._lastBuiltChannel = null;
+        // True when that build used a non-default per-build outputPath. deployChannel
+        // (backend, handler.go) always pushes store.OutputDir(slug) — the channel's
+        // *default* output dir — never a custom per-build path, so Deploy would push
+        // stale/unrelated content in that case. Drives a caveat next to the button
+        // rather than hiding it outright (the default dir may still be worth deploying).
+        this._lastBuiltCustomOutputPath = false;
     }
 
     // A channel is deploy-eligible once it has the rsync handler and the three
@@ -420,17 +426,32 @@ class LibraryTab {
         return !!(cfg.host && cfg.user && cfg.remotePath);
     }
 
-    _registerBuiltChannel(ch) {
+    _registerBuiltChannel(ch, outputPath) {
         this._lastBuiltChannel = this._deployEligible(ch) ? ch.slug : null;
+        this._lastBuiltCustomOutputPath = !!outputPath;
         this._refreshDeployButtons();
     }
 
     _refreshDeployButtons() {
         const slug = this._lastBuiltChannel;
+        const showCaveat = !!slug && this._lastBuiltCustomOutputPath;
+        const caveatText = "Deploy pushes this channel's default output folder — not the custom path used for this build.";
+
         const listBtn = document.getElementById('lib-list-deploy-btn');
         if (listBtn) listBtn.style.display = slug ? '' : 'none';
+        const listCaveat = document.getElementById('lib-list-deploy-caveat');
+        if (listCaveat) {
+            listCaveat.textContent = caveatText;
+            listCaveat.style.display = showCaveat ? '' : 'none';
+        }
+
         const detailBtn = this._detailEl?.querySelector('#lib-deploy-btn');
         if (detailBtn) detailBtn.style.display = slug ? '' : 'none';
+        const detailCaveat = this._detailEl?.querySelector('#lib-deploy-caveat');
+        if (detailCaveat) {
+            detailCaveat.textContent = caveatText;
+            detailCaveat.style.display = showCaveat ? '' : 'none';
+        }
     }
 
     // Returns a click handler that deploys the last-built channel via btn/outputEl.
@@ -563,6 +584,7 @@ class LibraryTab {
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
+            <div class="lib-deploy-caveat" id="lib-list-deploy-caveat" style="display:none"></div>
             <div class="lib-deploy-output" id="lib-list-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
@@ -1048,6 +1070,7 @@ class LibraryTab {
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
+            <div class="lib-deploy-caveat" id="lib-deploy-caveat" style="display:none"></div>
             <div class="lib-deploy-output" id="lib-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
@@ -1631,10 +1654,10 @@ class LibraryTab {
                     if (allErrors.length > 0) {
                         alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else if (lastResp.sitePath) {
-                        this._registerBuiltChannel(ch);
+                        this._registerBuiltChannel(ch, outputPath);
                         App.showToast(targetPostID ? `Photos added to album · site at ${lastResp.sitePath}` : `Album added · site at ${lastResp.sitePath}`);
                     } else {
-                        this._registerBuiltChannel(ch);
+                        this._registerBuiltChannel(ch, outputPath);
                         App.showToast(targetPostID ? `Photos added to gallery: ${lastResp.galleryPath}` : `Gallery ready: ${lastResp.galleryPath}`);
                     }
                 } else {
@@ -1650,7 +1673,7 @@ class LibraryTab {
                     if (allErrors.length > 0) {
                         alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else {
-                        this._registerBuiltChannel(ch);
+                        this._registerBuiltChannel(ch, outputPath);
                         App.showToast(`Built ${totalBuilt} photo${totalBuilt !== 1 ? 's' : ''} to ${channel}.`);
                     }
                 }

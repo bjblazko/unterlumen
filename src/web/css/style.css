@@ -3131,6 +3131,14 @@ body.slideshow-active #app { height: 100vh; }
 .lib-deploy-output.lib-deploy-ok { border-left: 3px solid var(--success); }
 .lib-deploy-output.lib-deploy-fail { border-left: 3px solid var(--accent); }
 
+.lib-deploy-caveat {
+    margin: 0 calc(var(--unit) * 2) calc(var(--unit) * 1);
+    padding: 4px calc(var(--unit) * 1);
+    font-size: 11px;
+    color: var(--fg-2);
+    border-left: 3px solid var(--border);
+}
+
 .btn-toggle::after {
     content: '·';
     margin-left: 4px;
