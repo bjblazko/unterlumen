@@ -3114,6 +3114,23 @@ body.slideshow-active #app { height: 100vh; }
     flex-shrink: 0;
 }
 
+/* --- Deploy output panel (list/detail headers) --- */
+
+.lib-deploy-output {
+    margin: 0 calc(var(--unit) * 2) calc(var(--unit) * 1);
+    padding: calc(var(--unit) * 1);
+    background: var(--bg-2);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.lib-deploy-output.lib-deploy-ok { border-left: 3px solid var(--success); }
+.lib-deploy-output.lib-deploy-fail { border-left: 3px solid var(--accent); }
+
 .btn-toggle::after {
     content: '·';
     margin-left: 4px;
@@ -4657,6 +4674,44 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
     color: var(--accent);
     flex: 1;
+}
+
+/* --- rsync handler config --- */
+
+.ch-rsync-test-row {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 1);
+    margin-top: 4px;
+}
+
+.ch-rsync-test-result {
+    font-size: 11px;
+    color: var(--fg-2);
+}
+
+.ch-rsync-test-ok { color: var(--success); }
+.ch-rsync-test-fail { color: var(--accent); }
+
+.ch-rsync-help {
+    margin-top: calc(var(--unit) * 1);
+    padding: calc(var(--unit) * 1);
+    background: var(--bg-2);
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.ch-rsync-help ol {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+
+.ch-rsync-help code {
+    font-family: monospace;
+    background: var(--bg);
+    padding: 1px 4px;
+    border-radius: 3px;
 }
 
 /* --- KV editor (handler config + account config) --- */

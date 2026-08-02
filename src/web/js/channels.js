@@ -81,6 +81,19 @@ const ChannelAPI = {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/logo`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
     },
+    // deployTest and deploy return their JSON body ({ok, error} / {ok, output, error})
+    // even when the remote operation itself failed — only a 4xx (bad request, e.g.
+    // "channel not found" or "handler is not rsync") throws.
+    async deployTest(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/deploy/test`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async deploy(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/deploy`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
 };
 
 /* --- ChannelSettingsModal --- */
@@ -400,12 +413,52 @@ class ChannelSettingsModal {
 
                     <!-- Advanced tab -->
                     <div class="ch-panel" data-tab="advanced">
-                        <label class="form-label">Handler <span class="form-hint">(optional, for future upload automation)</span></label>
-                        <input class="form-input" id="chf-handler" value="${escapeHtml(ch.handler || '')}" placeholder="e.g. mastodon, scp">
+                        <label class="form-label">Handler <span class="form-hint">(optional — automates pushing built output somewhere)</span></label>
+                        <select class="form-select" id="chf-handler">
+                            <option value="" ${!ch.handler ? 'selected' : ''}>None</option>
+                            <option value="rsync" ${ch.handler === 'rsync' ? 'selected' : ''}>rsync (deploy over SSH)</option>
+                            ${(ch.handler && ch.handler !== 'rsync') ? `<option value="${escapeHtml(ch.handler)}" selected>${escapeHtml(ch.handler)} (existing)</option>` : ''}
+                        </select>
 
-                        <label class="form-label">Handler config <span class="form-hint">(key → value)</span></label>
-                        <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handlerConfig || {})}</div>
-                        <button class="btn btn-sm" id="chf-hconfig-add" style="align-self:flex-start">+ Add config entry</button>
+                        <div id="chf-rsync-wrap" style="display:${ch.handler === 'rsync' ? '' : 'none'}">
+                            <label class="form-label">Host</label>
+                            <input class="form-input" id="chf-rsync-host" value="${escapeHtml(ch.handlerConfig?.host || '')}" placeholder="example.com">
+                            <div class="form-row">
+                                <div style="flex:1">
+                                    <label class="form-label">Port <span class="form-hint">(optional)</span></label>
+                                    <input class="form-input" id="chf-rsync-port" type="number" min="1" max="65535" value="${escapeHtml(ch.handlerConfig?.port || '')}" placeholder="22">
+                                </div>
+                                <div style="flex:1">
+                                    <label class="form-label">User</label>
+                                    <input class="form-input" id="chf-rsync-user" value="${escapeHtml(ch.handlerConfig?.user || '')}" placeholder="deploy">
+                                </div>
+                            </div>
+                            <label class="form-label">Remote path</label>
+                            <input class="form-input" id="chf-rsync-remote-path" value="${escapeHtml(ch.handlerConfig?.remotePath || '')}" placeholder="/var/www/photos">
+                            <label class="form-label">Identity file <span class="form-hint">(optional — path to an SSH private key)</span></label>
+                            <input class="form-input" id="chf-rsync-identity" value="${escapeHtml(ch.handlerConfig?.identityFile || '')}" placeholder="~/.ssh/id_ed25519">
+
+                            <div class="ch-rsync-test-row">
+                                <button type="button" class="btn btn-sm" id="chf-rsync-test"${isNew ? ' disabled' : ''}>Test connection</button>
+                                <span class="ch-rsync-test-result" id="chf-rsync-test-result">${isNew ? 'Save the channel first to test the connection.' : ''}</span>
+                            </div>
+
+                            <div class="form-hint ch-rsync-help">
+                                SSH key required — deploy uses your system <code>ssh</code>/<code>rsync</code>, authenticated by key. No passwords are stored.
+                                <ol>
+                                    <li>No key yet? <code>ssh-keygen -t ed25519</code>.</li>
+                                    <li>Copy it to the server: <code>ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host</code>.</li>
+                                    <li>Connect once by hand first — <code>ssh user@host</code> — so the host key is trusted; Deploy will fail with a clear error rather than hang if this is skipped.</li>
+                                    <li>Leave <strong>Identity file</strong> blank to use your default key/agent.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <div id="chf-generic-hconfig-wrap" style="display:${ch.handler === 'rsync' ? 'none' : ''}">
+                            <label class="form-label">Handler config <span class="form-hint">(key → value)</span></label>
+                            <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handler === 'rsync' ? {} : (ch.handlerConfig || {}))}</div>
+                            <button class="btn btn-sm" id="chf-hconfig-add" style="align-self:flex-start">+ Add config entry</button>
+                        </div>
 
                         <label class="form-label">Accounts <span class="form-hint">(named sub-accounts, e.g. two Mastodon logins)</span></label>
                         <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
@@ -460,6 +513,16 @@ class ChannelSettingsModal {
             if (chosen !== null) form.querySelector('#chf-output-path').value = chosen;
         });
 
+        // Handler select → toggle rsync fields vs. generic handler-config editor
+        const handlerEl = form.querySelector('#chf-handler');
+        const rsyncWrap = form.querySelector('#chf-rsync-wrap');
+        const genericHConfigWrap = form.querySelector('#chf-generic-hconfig-wrap');
+        handlerEl.addEventListener('change', () => {
+            const isRsync = handlerEl.value === 'rsync';
+            rsyncWrap.style.display = isRsync ? '' : 'none';
+            genericHConfigWrap.style.display = isRsync ? 'none' : '';
+        });
+
         // Handler config add row
         form.querySelector('#chf-hconfig-add').addEventListener('click', () => {
             const ed = form.querySelector('#chf-hconfig');
@@ -470,6 +533,41 @@ class ChannelSettingsModal {
         form.querySelector('#chf-account-add').addEventListener('click', () => {
             form.querySelector('#chf-accounts').insertAdjacentHTML('beforeend', _accountRowHTML({ id: '', label: '', config: {} }));
         });
+
+        // Test connection (rsync handler only). The test hits the channel's *saved*
+        // HandlerConfig server-side, so we save the current form state first — this
+        // keeps "Test connection" always reflecting what's on screen, at the cost of
+        // a save-as-side-effect. The alternative (disable until saved) would leave a
+        // stale test target after any unsaved edit, which felt more surprising here.
+        if (!isNew) {
+            const testBtn = form.querySelector('#chf-rsync-test');
+            const testResultEl = form.querySelector('#chf-rsync-test-result');
+            testBtn.addEventListener('click', async () => {
+                const { payload, error } = _readChannelForm(form, isNew, ch.slug);
+                if (error) {
+                    testResultEl.textContent = error;
+                    testResultEl.className = 'ch-rsync-test-result ch-rsync-test-fail';
+                    return;
+                }
+                const orig = testBtn.textContent;
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing…';
+                testResultEl.textContent = '';
+                testResultEl.className = 'ch-rsync-test-result';
+                try {
+                    await ChannelAPI.update(ch.slug, payload);
+                    const res = await ChannelAPI.deployTest(ch.slug);
+                    testResultEl.textContent = res.ok ? 'Connection OK.' : res.error;
+                    testResultEl.className = 'ch-rsync-test-result ' + (res.ok ? 'ch-rsync-test-ok' : 'ch-rsync-test-fail');
+                } catch (err) {
+                    testResultEl.textContent = err.message;
+                    testResultEl.className = 'ch-rsync-test-result ch-rsync-test-fail';
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.textContent = orig;
+                }
+            });
+        }
 
         // Logo and avatar upload for existing channels
         if (!isNew) {
@@ -501,42 +599,17 @@ class ChannelSettingsModal {
 
         form.querySelector('#chf-save').addEventListener('click', async () => {
             const errEl = form.querySelector('#chf-error');
-            const slug = isNew ? form.querySelector('#chf-slug').value.trim() : ch.slug;
-            const name = form.querySelector('#chf-name').value.trim();
-            if (!name || (isNew && !slug)) {
-                errEl.textContent = 'Name and slug are required.';
+            const { payload, error } = _readChannelForm(form, isNew, ch.slug);
+            if (error) {
+                errEl.textContent = error;
                 errEl.style.display = '';
                 return;
             }
-            const exportModeVal = form.querySelector('#chf-export-mode').value;
-            const isSite = exportModeVal === 'site';
-            const payload = {
-                slug,
-                name,
-                format:           form.querySelector('#chf-format').value,
-                quality:          parseInt(form.querySelector('#chf-quality').value, 10),
-                exifMode:         form.querySelector('#chf-exif').value,
-                scale:            _readScaleOpts(form),
-                galleryExport:    exportModeVal === 'gallery' ? true : undefined,
-                siteExport:       isSite ? true : undefined,
-                siteTitle:        isSite ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
-                siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
-                siteURL:          isSite ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
-                siteAbout:        isSite ? (form.querySelector('#chf-site-about').value.trim() || undefined) : undefined,
-                siteImprint:      isSite ? (form.querySelector('#chf-site-imprint').value.trim() || undefined) : undefined,
-                siteContactEmail: isSite ? (form.querySelector('#chf-site-contact-email').value.trim() || undefined) : undefined,
-                siteContactURL:   isSite ? (form.querySelector('#chf-site-contact-url').value.trim() || undefined) : undefined,
-                handler:          form.querySelector('#chf-handler').value.trim() || undefined,
-                handlerConfig:    _readKVEditor(form.querySelector('#chf-hconfig')) || undefined,
-                accounts:         _readAccountsEditor(form.querySelector('#chf-accounts')),
-                outputMode:       form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
-                outputPath:       form.querySelector('#chf-output-path')?.value.trim() || undefined,
-            };
             try {
                 if (isNew) {
                     await ChannelAPI.create(payload);
                 } else {
-                    await ChannelAPI.update(slug, payload);
+                    await ChannelAPI.update(payload.slug, payload);
                 }
                 form.remove();
                 this._load();
@@ -664,6 +737,65 @@ class ChannelSettingsModal {
             }
         });
     }
+}
+
+/* --- Channel form reader (shared by Save and Test connection) --- */
+
+// Reads the channel form into a save-ready payload, or returns { error } if
+// required fields are missing. Shared by the Save button and the rsync "Test
+// connection" button (which auto-saves the current form state before testing).
+function _readChannelForm(form, isNew, existingSlug) {
+    const slug = isNew ? form.querySelector('#chf-slug').value.trim() : existingSlug;
+    const name = form.querySelector('#chf-name').value.trim();
+    if (!name || (isNew && !slug)) {
+        return { error: 'Name and slug are required.' };
+    }
+    const exportModeVal = form.querySelector('#chf-export-mode').value;
+    const isSite = exportModeVal === 'site';
+
+    const handlerVal = form.querySelector('#chf-handler').value;
+    let handlerConfig;
+    if (handlerVal === 'rsync') {
+        // Keys must match deploy.TargetFromConfig (src/internal/deploy/rsync.go):
+        // host, user, port, remotePath, identityFile.
+        const host = form.querySelector('#chf-rsync-host').value.trim();
+        const port = form.querySelector('#chf-rsync-port').value.trim();
+        const user = form.querySelector('#chf-rsync-user').value.trim();
+        const remotePath = form.querySelector('#chf-rsync-remote-path').value.trim();
+        const identityFile = form.querySelector('#chf-rsync-identity').value.trim();
+        if (!host || !user || !remotePath) {
+            return { error: 'Host, User, and Remote path are required for the rsync handler.' };
+        }
+        handlerConfig = { host, user, remotePath };
+        if (port) handlerConfig.port = port;
+        if (identityFile) handlerConfig.identityFile = identityFile;
+    } else {
+        handlerConfig = _readKVEditor(form.querySelector('#chf-hconfig')) || undefined;
+    }
+
+    const payload = {
+        slug,
+        name,
+        format:           form.querySelector('#chf-format').value,
+        quality:          parseInt(form.querySelector('#chf-quality').value, 10),
+        exifMode:         form.querySelector('#chf-exif').value,
+        scale:            _readScaleOpts(form),
+        galleryExport:    exportModeVal === 'gallery' ? true : undefined,
+        siteExport:       isSite ? true : undefined,
+        siteTitle:        isSite ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
+        siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
+        siteURL:          isSite ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
+        siteAbout:        isSite ? (form.querySelector('#chf-site-about').value.trim() || undefined) : undefined,
+        siteImprint:      isSite ? (form.querySelector('#chf-site-imprint').value.trim() || undefined) : undefined,
+        siteContactEmail: isSite ? (form.querySelector('#chf-site-contact-email').value.trim() || undefined) : undefined,
+        siteContactURL:   isSite ? (form.querySelector('#chf-site-contact-url').value.trim() || undefined) : undefined,
+        handler:          handlerVal || undefined,
+        handlerConfig,
+        accounts:         _readAccountsEditor(form.querySelector('#chf-accounts')),
+        outputMode:       form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
+        outputPath:       form.querySelector('#chf-output-path')?.value.trim() || undefined,
+    };
+    return { payload };
 }
 
 /* --- KV editor helpers --- */

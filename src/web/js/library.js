@@ -406,6 +406,66 @@ class LibraryTab {
         this._detailBuildBtn = null;
         this._listBuildBtn = null;
         this._detailEl = null;
+        // Slug of the channel most recently built to, if it's rsync-configured
+        // with the fields deploy.TargetFromConfig requires — null otherwise.
+        // Drives Deploy button visibility in both the list and detail headers.
+        this._lastBuiltChannel = null;
+    }
+
+    // A channel is deploy-eligible once it has the rsync handler and the three
+    // fields deploy.TargetFromConfig (src/internal/deploy/rsync.go) requires.
+    _deployEligible(ch) {
+        if (!ch || ch.handler !== 'rsync') return false;
+        const cfg = ch.handlerConfig || {};
+        return !!(cfg.host && cfg.user && cfg.remotePath);
+    }
+
+    _registerBuiltChannel(ch) {
+        this._lastBuiltChannel = this._deployEligible(ch) ? ch.slug : null;
+        this._refreshDeployButtons();
+    }
+
+    _refreshDeployButtons() {
+        const slug = this._lastBuiltChannel;
+        const listBtn = document.getElementById('lib-list-deploy-btn');
+        if (listBtn) listBtn.style.display = slug ? '' : 'none';
+        const detailBtn = this._detailEl?.querySelector('#lib-deploy-btn');
+        if (detailBtn) detailBtn.style.display = slug ? '' : 'none';
+    }
+
+    // Returns a click handler that deploys the last-built channel via btn/outputEl.
+    _makeDeployHandler(btn, outputEl) {
+        return async () => {
+            const slug = this._lastBuiltChannel;
+            if (!slug) return;
+            const orig = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Deploying…';
+            if (outputEl) {
+                outputEl.style.display = 'none';
+                outputEl.textContent = '';
+                outputEl.className = 'lib-deploy-output';
+            }
+            try {
+                const res = await ChannelAPI.deploy(slug);
+                if (outputEl) {
+                    outputEl.textContent = res.ok ? (res.output || 'Deploy finished (no output).') : res.error;
+                    outputEl.className = 'lib-deploy-output ' + (res.ok ? 'lib-deploy-ok' : 'lib-deploy-fail');
+                    outputEl.style.display = '';
+                }
+                App.showToast(res.ok ? `Deployed ${slug}.` : `Deploy failed: ${res.error}`);
+            } catch (err) {
+                if (outputEl) {
+                    outputEl.textContent = err.message;
+                    outputEl.className = 'lib-deploy-output lib-deploy-fail';
+                    outputEl.style.display = '';
+                }
+                App.showToast(`Deploy failed: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = orig;
+            }
+        };
     }
 
     getActivePaneForKeyboard() {
@@ -498,10 +558,12 @@ class LibraryTab {
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn lib-build-btn" id="lib-list-build-btn" disabled>Build…</button>
+                    <button class="btn lib-deploy-btn" id="lib-list-deploy-btn" style="display:none">Deploy</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
+            <div class="lib-deploy-output" id="lib-list-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="lib-search-content" id="lib-search-content">
@@ -516,6 +578,9 @@ class LibraryTab {
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
+        el.querySelector('#lib-list-deploy-btn').addEventListener('click',
+            this._makeDeployHandler(el.querySelector('#lib-list-deploy-btn'), el.querySelector('#lib-list-deploy-output')));
+        this._refreshDeployButtons();
 
         const sortToggle = el.querySelector('.lib-sort-toggle');
         const body = el.querySelector('#lib-list-body');
@@ -979,9 +1044,11 @@ class LibraryTab {
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm lib-build-btn" id="lib-build-btn" disabled>Build…</button>
+                    <button class="btn btn-sm lib-deploy-btn" id="lib-deploy-btn" style="display:none">Deploy</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
+            <div class="lib-deploy-output" id="lib-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="library-detail-body">
@@ -993,6 +1060,9 @@ class LibraryTab {
         this.container.appendChild(el);
         this._detailEl = el;
         this._detailBuildBtn = el.querySelector('#lib-build-btn');
+        el.querySelector('#lib-deploy-btn').addEventListener('click',
+            this._makeDeployHandler(el.querySelector('#lib-deploy-btn'), el.querySelector('#lib-deploy-output')));
+        this._refreshDeployButtons();
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -1561,8 +1631,10 @@ class LibraryTab {
                     if (allErrors.length > 0) {
                         alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else if (lastResp.sitePath) {
+                        this._registerBuiltChannel(ch);
                         App.showToast(targetPostID ? `Photos added to album · site at ${lastResp.sitePath}` : `Album added · site at ${lastResp.sitePath}`);
                     } else {
+                        this._registerBuiltChannel(ch);
                         App.showToast(targetPostID ? `Photos added to gallery: ${lastResp.galleryPath}` : `Gallery ready: ${lastResp.galleryPath}`);
                     }
                 } else {
@@ -1578,6 +1650,7 @@ class LibraryTab {
                     if (allErrors.length > 0) {
                         alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
                     } else {
+                        this._registerBuiltChannel(ch);
                         App.showToast(`Built ${totalBuilt} photo${totalBuilt !== 1 ? 's' : ''} to ${channel}.`);
                     }
                 }
