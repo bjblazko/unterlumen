@@ -86,6 +86,7 @@ type GalleryOptions struct {
 	SiteURL     string    // base URL e.g. "https://example.com"; enables canonical, OG tags, sitemap
 	AlbumSlug   string    // album folder name; used with SiteURL to build absolute album URL
 	PublishedAt time.Time // used for datePublished in JSON-LD
+	Unlisted    bool      // when true, the site-gallery page gets a noindex/nofollow robots meta tag
 	Nav         SiteNavContext
 }
 
@@ -421,4 +422,3 @@ func buildGalleryItems(photos []SitePhoto) []GalleryItem {
 	}
 	return items
 }
-

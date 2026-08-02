@@ -2,6 +2,8 @@ package apilibrary
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -35,7 +37,8 @@ type SiteAlbum struct {
 	PhotoCount  int         `json:"photoCount"`
 	CoverFile   string      `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
 	HasZip      bool        `json:"hasZip"`
-	Photos      []SitePhoto `json:"photos"` // stored so album pages can be rebuilt without re-export
+	Photos      []SitePhoto `json:"photos"`             // stored so album pages can be rebuilt without re-export
+	Unlisted    bool        `json:"unlisted,omitempty"` // excluded from site index/sitemap; noindexed; set at creation and immutable thereafter
 }
 
 // albumFolderName returns the filesystem folder name for an album.
@@ -73,14 +76,34 @@ func slugify(title string) string {
 	return result
 }
 
+// randomSlugToken returns an 8-character hex token generated with crypto/rand,
+// used to make unlisted-album slugs unguessable.
+func randomSlugToken() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand.Read on a supported platform practically never fails; if it
+		// somehow does, fall back to a fixed-but-still-unique-enough marker rather
+		// than panicking the build.
+		return "00000000"
+	}
+	return hex.EncodeToString(b)
+}
+
 // computeSlug derives a unique slug for a new album.
 // If the base slug collides with an existing one, it appends the publish month (and day if needed).
-func computeSlug(title string, publishedAt time.Time, existing []SiteAlbum) string {
+//
+// When unlisted is true, the returned slug is always the human slug plus a random
+// crypto/rand-generated 8-character token, regardless of collisions — this keeps the
+// listed/public collision-fallback path (date suffixes) completely untouched.
+func computeSlug(title string, publishedAt time.Time, existing []SiteAlbum, unlisted bool) string {
+	base := slugify(title)
+	if unlisted {
+		return base + "-" + randomSlugToken()
+	}
 	used := make(map[string]bool, len(existing))
 	for _, a := range existing {
 		used[albumFolderName(a)] = true
 	}
-	base := slugify(title)
 	if !used[base] {
 		return base
 	}
@@ -212,6 +235,9 @@ func generateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
 	b.WriteString("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n")
 	fmt.Fprintf(&b, "  <url><loc>%s/</loc></url>\n", base)
 	for _, a := range albums {
+		if a.Unlisted {
+			continue
+		}
 		fmt.Fprintf(&b, "  <url><loc>%s/albums/%s/</loc></url>\n", base, albumFolderName(a))
 	}
 	b.WriteString("</urlset>\n")
@@ -640,8 +666,13 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 	if defaultTheme == "" {
 		defaultTheme = "light"
 	}
-	sorted := make([]SiteAlbum, len(albums))
-	copy(sorted, albums)
+	sorted := make([]SiteAlbum, 0, len(albums))
+	for _, a := range albums {
+		if a.Unlisted {
+			continue
+		}
+		sorted = append(sorted, a)
+	}
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].PublishedAt.After(sorted[j].PublishedAt)
 	})
@@ -661,16 +692,16 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 		}
 	}
 
-	description := fmt.Sprintf("Photography collection — %d album", len(albums))
-	if len(albums) != 1 {
+	description := fmt.Sprintf("Photography collection — %d album", len(sorted))
+	if len(sorted) != 1 {
 		description += "s"
 	}
 	description += "."
 
 	ldMap := map[string]any{
-		"@context": "https://schema.org",
-		"@type":    "CollectionPage",
-		"name":     siteTitle,
+		"@context":    "https://schema.org",
+		"@type":       "CollectionPage",
+		"name":        siteTitle,
 		"description": description,
 	}
 	if siteURL != "" {
@@ -713,6 +744,9 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>{{.PageTitle}}</title>
 <meta name="description" content="{{.Description}}">
+{{- if .Unlisted}}
+<meta name="robots" content="noindex, nofollow">
+{{- end}}
 {{- if .SiteURL}}
 <link rel="canonical" href="{{.AlbumURL}}">
 <meta property="og:title" content="{{.Title}}">
@@ -930,6 +964,7 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 		SiteURL      string
 		AlbumURL     string
 		CoverURL     string
+		Unlisted     bool
 		Nav          SiteNavContext
 	}{
 		Title:        title,
@@ -943,6 +978,7 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 		SiteURL:      opts.SiteURL,
 		AlbumURL:     albumURL,
 		CoverURL:     coverURL,
+		Unlisted:     opts.Unlisted,
 		Nav:          opts.Nav,
 	})
 	return buf.Bytes()

@@ -1047,11 +1047,11 @@ func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 // photoInfoResp mirrors the browse /api/info response shape so the frontend
 // InfoPanel can consume it without modification.
 type photoInfoResp struct {
-	Name     string       `json:"name"`
-	Path     string       `json:"path"`
-	Size     int64        `json:"size"`
-	Format   string       `json:"format"`
-	Modified string       `json:"modified"`
+	Name     string        `json:"name"`
+	Path     string        `json:"path"`
+	Size     int64         `json:"size"`
+	Format   string        `json:"format"`
+	Modified string        `json:"modified"`
 	Exif     *photoExifOut `json:"exif,omitempty"`
 }
 
@@ -1395,9 +1395,9 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 				(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
 			if match {
 				// Delete exported file and thumbnail.
-				os.Remove(filepath.Join(albumDir, sp.Filename))                      //nolint:errcheck
+				os.Remove(filepath.Join(albumDir, sp.Filename)) //nolint:errcheck
 				if sp.ThumbFilename != "" {
-					os.Remove(filepath.Join(albumDir, sp.ThumbFilename))             //nolint:errcheck
+					os.Remove(filepath.Join(albumDir, sp.ThumbFilename)) //nolint:errcheck
 				}
 				modified = true
 			} else {
@@ -1446,6 +1446,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 			SiteURL:     ch.SiteURL,
 			AlbumSlug:   albumFolderName(album),
 			PublishedAt: album.PublishedAt,
+			Unlisted:    album.Unlisted,
 			Nav:         albumNav,
 		})
 		os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
@@ -1457,7 +1458,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 
 	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
 	os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644) //nolint:errcheck
-	generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)   //nolint:errcheck
+	generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)    //nolint:errcheck
 	generateImprintPage(siteDir, ch, rootNav)                           //nolint:errcheck
 	generateRobotsTxt(siteDir, ch.SiteURL)                              //nolint:errcheck
 	if ch.SiteURL != "" {
@@ -1495,6 +1496,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			TargetPostID string   `json:"targetPostID,omitempty"` // non-empty = add to existing gallery/album
 			RecordXMP    *bool    `json:"recordXMP,omitempty"`    // nil → true (default)
 			OutputPath   string   `json:"outputPath,omitempty"`   // per-build override
+			Unlisted     bool     `json:"unlisted"`               // site-export only; fixed at album creation, ignored on add-to-existing
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -1566,6 +1568,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 		var existingPhotos []SitePhoto
 		var existingTitle string
 		var existingPublishedAt time.Time
+		var existingUnlisted bool
 
 		outDir := channelDir
 		if addToExisting {
@@ -1591,6 +1594,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 						existingPhotos = siteAlbums[i].Photos
 						existingTitle = siteAlbums[i].Title
 						existingPublishedAt = siteAlbums[i].PublishedAt
+						existingUnlisted = siteAlbums[i].Unlisted
 						albumSlug = albumFolderName(siteAlbums[i])
 						break
 					}
@@ -1611,7 +1615,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			} else if siteMode {
 				// Compute a human-readable slug for the new album folder.
 				existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
-				albumSlug = computeSlug(body.GalleryTitle, publishedAt, existingAlbums)
+				albumSlug = computeSlug(body.GalleryTitle, publishedAt, existingAlbums, body.Unlisted)
 				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
 			}
 		}
@@ -1719,6 +1723,13 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 		}
 		dateStr := dateRangeStr(albumPublishedAt, albumUpdatedAt)
 
+		// Unlisted is fixed at album creation and does not change on add-to-existing,
+		// mirroring how Slug is immutable once set.
+		albumUnlisted := body.Unlisted
+		if addToExisting {
+			albumUnlisted = existingUnlisted
+		}
+
 		// Generate HTML gallery.
 		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
 		var html []byte
@@ -1730,6 +1741,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 				SiteURL:     ch.SiteURL,
 				AlbumSlug:   albumSlug,
 				PublishedAt: albumPublishedAt,
+				Unlisted:    albumUnlisted,
 				Nav:         buildSiteNavContext(ch, filepath.Join(channelDir, "site"), false),
 			})
 		} else {
@@ -1805,6 +1817,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 					CoverFile:   "cover.jpg",
 					HasZip:      zipName != "",
 					Photos:      sitePhotos,
+					Unlisted:    albumUnlisted,
 				})
 			}
 			if saveErr := saveSiteState(statePath, siteAlbums); saveErr != nil {
@@ -1817,9 +1830,9 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 				emit(map[string]any{"error": "write site index: " + writeErr.Error()})
 				return
 			}
-			generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)   //nolint:errcheck
-			generateImprintPage(siteDir, ch, rootNav)                           //nolint:errcheck
-			generateRobotsTxt(siteDir, ch.SiteURL)                     //nolint:errcheck
+			generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav) //nolint:errcheck
+			generateImprintPage(siteDir, ch, rootNav)                        //nolint:errcheck
+			generateRobotsTxt(siteDir, ch.SiteURL)                           //nolint:errcheck
 			if ch.SiteURL != "" {
 				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
@@ -2203,7 +2216,7 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				others := make([]SiteAlbum, 0, len(albums)-1)
 				others = append(others, albums[:i]...)
 				others = append(others, albums[i+1:]...)
-				albums[i].Slug = computeSlug(albums[i].Title, albums[i].PublishedAt, others)
+				albums[i].Slug = computeSlug(albums[i].Title, albums[i].PublishedAt, others, albums[i].Unlisted)
 			}
 		}
 
@@ -2331,6 +2344,7 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				SiteURL:     ch.SiteURL,
 				AlbumSlug:   albumFolderName(*album),
 				PublishedAt: album.PublishedAt,
+				Unlisted:    album.Unlisted,
 				Nav:         albumNav,
 			})
 			os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
@@ -2342,8 +2356,8 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav) //nolint:errcheck
-		generateImprintPage(siteDir, ch, rootNav)                         //nolint:errcheck
-		generateRobotsTxt(siteDir, ch.SiteURL)                            //nolint:errcheck
+		generateImprintPage(siteDir, ch, rootNav)                        //nolint:errcheck
+		generateRobotsTxt(siteDir, ch.SiteURL)                           //nolint:errcheck
 		if ch.SiteURL != "" {
 			generateSitemap(siteDir, remaining, ch.SiteURL) //nolint:errcheck
 		}

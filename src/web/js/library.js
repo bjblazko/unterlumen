@@ -169,11 +169,11 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async buildStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }, onProgress) {
+    async buildStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, unlisted, recordXMP, outputPath }, onProgress) {
         const r = await fetch(`/api/library/${libID}/build`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, recordXMP, outputPath }),
+            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, unlisted, recordXMP, outputPath }),
         });
         if (!r.ok) throw new Error(await r.text());
 
@@ -1232,6 +1232,12 @@ class LibraryTab {
                         <div id="build-title-wrap">
                             <label class="form-label" id="build-gallery-label">Gallery title</label>
                             <input class="form-input" id="build-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                            <div id="build-unlisted-wrap" style="display:none">
+                                <label class="export-radio-row">
+                                    <input type="checkbox" id="build-unlisted">
+                                    Unlisted (not listed on the site index or sitemap — reachable only via direct link)
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <div class="build-output-section">
@@ -1381,6 +1387,11 @@ class LibraryTab {
                 galleryWrap.style.display = 'none';
             }
 
+            // Unlisted checkbox — only meaningful for site-export channels.
+            const unlistedWrap = dlg.querySelector('#build-unlisted-wrap');
+            unlistedWrap.style.display = ch.siteExport ? '' : 'none';
+            dlg.querySelector('#build-unlisted').checked = false;
+
             // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
             const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
@@ -1500,6 +1511,11 @@ class LibraryTab {
                     : undefined;
 
                 const ch = channels.find(c => c.slug === channel);
+                // unlisted is only meaningful for a brand-new site-export album; it's fixed
+                // at creation and ignored (not sent) when adding to an existing album.
+                const unlisted = (ch?.siteExport && titleWrap?.style.display !== 'none')
+                    ? dlg.querySelector('#build-unlisted').checked
+                    : undefined;
                 const isGalleryMode = ch?.galleryExport || ch?.siteExport;
                 if (isGalleryMode && !targetPostID && !galleryTitle) {
                     errEl.textContent = ch.siteExport
@@ -1527,6 +1543,7 @@ class LibraryTab {
                                 photoIDs: g.photoIDs, channel, account, publishedAt,
                                 galleryTitle: gi === 0 ? galleryTitle : undefined,
                                 targetPostID: currentTargetPostID,
+                                unlisted: gi === 0 ? unlisted : undefined,
                                 recordXMP, outputPath
                             },
                             (evt) => {
