@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/deploy"
 	"huepattl.de/unterlumen/internal/media"
@@ -297,6 +298,11 @@ func testDeployConnection(store *channels.Store) http.HandlerFunc {
 	}
 }
 
+// deployChannel pushes a channel's generated static site to its configured
+// rsync target. Cross-repo note: the webservers infra repo's deploy script
+// already assumes the local rsync source path ends in ".../site/" — keep
+// this deploying apilibrary.SiteDir(...), not the channel's raw output dir,
+// to stay aligned with that assumption.
 func deployChannel(store *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := r.PathValue("slug")
@@ -304,7 +310,18 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		ch, err := store.Get(slug)
+		if err != nil {
+			http.Error(w, "channel not found: "+err.Error(), http.StatusNotFound)
+			return
+		}
 		localDir := store.OutputDir(slug)
+		if ch.SiteExport {
+			// The channel's output dir may also contain unrelated non-site
+			// gallery folders from single-gallery builds; only the site/
+			// subdirectory is the servable, deployable site.
+			localDir = apilibrary.SiteDir(localDir)
+		}
 		output, err := deploy.Deploy(target, localDir)
 		if err != nil {
 			writeJSON(w, map[string]any{"ok": false, "output": output, "error": err.Error()})

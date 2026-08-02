@@ -20,6 +20,21 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 )
 
+// SiteSubdir is the name of the subdirectory inside a channel's output
+// directory where the generated, servable static site (index.html, albums/,
+// robots.txt, assets/, site.json, etc.) is written. A channel's output
+// directory may also hold unrelated non-site gallery folders (from
+// single-gallery builds on the same channel), so anything that needs to
+// deploy/serve exactly the site — and nothing else — must target this
+// subdirectory rather than the channel's output directory itself.
+const SiteSubdir = "site"
+
+// SiteDir returns the full path to a channel's site subdirectory, given the
+// channel's output directory (channels.Store.OutputDir(slug)).
+func SiteDir(channelDir string) string {
+	return filepath.Join(channelDir, SiteSubdir)
+}
+
 // SitePhoto stores the filenames needed to regenerate an album page without re-exporting.
 type SitePhoto struct {
 	PhotoID       string `json:"photoID,omitempty"`

@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -9,7 +11,7 @@ import (
 func TestSSHArgsNoOptionalFields(t *testing.T) {
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www"}
 	got := sshArgs(target, "true")
-	want := []string{"-o", "BatchMode=yes", "alice@example.com", "true"}
+	want := []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "alice@example.com", "true"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sshArgs() = %v, want %v", got, want)
 	}
@@ -19,7 +21,7 @@ func TestSSHArgsNoOptionalFields(t *testing.T) {
 func TestSSHArgsPortOnly(t *testing.T) {
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www", Port: 2222}
 	got := sshArgs(target, "true")
-	want := []string{"-o", "BatchMode=yes", "-p", "2222", "alice@example.com", "true"}
+	want := []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-p", "2222", "alice@example.com", "true"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sshArgs() = %v, want %v", got, want)
 	}
@@ -29,7 +31,7 @@ func TestSSHArgsPortOnly(t *testing.T) {
 func TestSSHArgsIdentityFileOnly(t *testing.T) {
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www", IdentityFile: "/home/alice/.ssh/id_ed25519"}
 	got := sshArgs(target, "true")
-	want := []string{"-o", "BatchMode=yes", "-i", "/home/alice/.ssh/id_ed25519", "alice@example.com", "true"}
+	want := []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-i", "/home/alice/.ssh/id_ed25519", "alice@example.com", "true"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("sshArgs() = %v, want %v", got, want)
 	}
@@ -44,6 +46,7 @@ func TestSSHArgsBoth(t *testing.T) {
 	got := sshArgs(target, "true")
 	want := []string{
 		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=10",
 		"-i", "/home/alice/.ssh/id_ed25519",
 		"-p", "2222",
 		"alice@example.com", "true",
@@ -68,7 +71,9 @@ func TestRsyncArgsNoOptionalFields(t *testing.T) {
 	got := rsyncArgs(target, "/local/output")
 	want := []string{
 		"-az", "--delete",
-		"-e", "ssh -o BatchMode=yes",
+		"--exclude=site.json",
+		"--exclude=gallery.json",
+		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10",
 		"/local/output/",
 		"alice@example.com:/var/www/site/",
 	}
@@ -85,12 +90,36 @@ func TestRsyncArgsPortAndIdentity(t *testing.T) {
 	got := rsyncArgs(target, "/local/output")
 	want := []string{
 		"-az", "--delete",
-		"-e", "ssh -o BatchMode=yes -i /home/alice/.ssh/id_ed25519 -p 2222",
+		"--exclude=site.json",
+		"--exclude=gallery.json",
+		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10 -i /home/alice/.ssh/id_ed25519 -p 2222",
 		"/local/output/",
 		"alice@example.com:/var/www/site/",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("rsyncArgs() = %v, want %v", got, want)
+	}
+}
+
+// TestRsyncArgsExcludesStatefiles guards finding #1: deploy must never push
+// site.json/gallery.json to the remote, since site.json records every
+// Unlisted album's supposedly-unguessable slug — publishing it defeats the
+// whole point of the token.
+func TestRsyncArgsExcludesStatefiles(t *testing.T) {
+	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}
+	got := rsyncArgs(target, "/local/output")
+
+	for _, want := range []string{"--exclude=site.json", "--exclude=gallery.json"} {
+		found := false
+		for _, a := range got {
+			if a == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("rsyncArgs() = %v, missing required flag %q", got, want)
+		}
 	}
 }
 
@@ -178,6 +207,55 @@ func TestTargetFromConfigMissingRequiredFields(t *testing.T) {
 				t.Fatalf("TargetFromConfig(%v) expected error, got nil", c.cfg)
 			}
 		})
+	}
+}
+
+func TestCheckLocalDirDeployableMissing(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "does-not-exist")
+	err := checkLocalDirDeployable(dir)
+	if err == nil {
+		t.Fatal("checkLocalDirDeployable() expected error for missing dir, got nil")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("checkLocalDirDeployable() error = %q, want mention of nonexistence", err.Error())
+	}
+}
+
+func TestCheckLocalDirDeployableEmpty(t *testing.T) {
+	dir := t.TempDir()
+	err := checkLocalDirDeployable(dir)
+	if err == nil {
+		t.Fatal("checkLocalDirDeployable() expected error for empty dir, got nil")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("checkLocalDirDeployable() error = %q, want mention of emptiness", err.Error())
+	}
+}
+
+func TestCheckLocalDirDeployableNonEmpty(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("hi"), 0o644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if err := checkLocalDirDeployable(dir); err != nil {
+		t.Errorf("checkLocalDirDeployable() = %v, want nil for non-empty dir", err)
+	}
+}
+
+// TestDeployRefusesEmptyLocalDir is an integration-style test for finding
+// #3: Deploy must refuse to run (and must never reach the exec.CommandContext
+// call) when localDir is missing/empty, since a real invocation would run
+// rsync --delete against an effectively-empty source and wipe the remote.
+func TestDeployRefusesEmptyLocalDir(t *testing.T) {
+	dir := t.TempDir() // exists but empty
+	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}
+
+	_, err := Deploy(target, dir)
+	if err == nil {
+		t.Fatal("Deploy() expected error for empty local dir, got nil")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("Deploy() error = %q, want mention of emptiness", err.Error())
 	}
 }
 

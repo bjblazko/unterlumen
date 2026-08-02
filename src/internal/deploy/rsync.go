@@ -7,11 +7,34 @@
 package deploy
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// testConnectionTimeout bounds the whole `ssh ... true` connectivity check.
+// A success should be near-instant (a single round-trip plus auth), so this
+// is kept short — long enough to tolerate a slow network, short enough that
+// an HTTP request handler calling TestConnection doesn't hang for minutes
+// waiting on a black-holed TCP connection.
+const testConnectionTimeout = 15 * time.Second
+
+// deployTimeout bounds a full rsync deploy. A real photo-site sync can take
+// a while (many files/large albums), so this is generous compared to
+// testConnectionTimeout, but it still guarantees the HTTP handler calling
+// Deploy eventually gets an answer instead of blocking forever on a
+// hung/black-holed connection.
+const deployTimeout = 5 * time.Minute
+
+// sshConnectTimeout bounds the SSH-level TCP connection attempt itself (as
+// opposed to the outer process timeout above). Without this, a
+// slow/black-holed TCP handshake can take minutes to fail at the OS level,
+// regardless of any context timeout wrapping the process.
+const sshConnectTimeoutSeconds = 10
 
 // Target describes a remote rsync-over-SSH destination, built from a
 // Channel's HandlerConfig map (keys: "host", "user", "port", "remotePath",
@@ -71,7 +94,7 @@ func TargetFromConfig(cfg map[string]string) (Target, error) {
 // or any other host-key-bypassing option — an untrusted host key must cause
 // a failure, not a silent auto-trust.
 func sshArgs(t Target, remoteCommand string) []string {
-	args := []string{"-o", "BatchMode=yes"}
+	args := []string{"-o", "BatchMode=yes", "-o", fmt.Sprintf("ConnectTimeout=%d", sshConnectTimeoutSeconds)}
 	if t.IdentityFile != "" {
 		args = append(args, "-i", t.IdentityFile)
 	}
@@ -86,7 +109,7 @@ func sshArgs(t Target, remoteCommand string) []string {
 // using the same BatchMode/identity/port rules as sshArgs (minus the
 // destination and remote command, which rsync appends itself).
 func sshTransport(t Target) string {
-	parts := []string{"ssh", "-o", "BatchMode=yes"}
+	parts := []string{"ssh", "-o", "BatchMode=yes", "-o", fmt.Sprintf("ConnectTimeout=%d", sshConnectTimeoutSeconds)}
 	if t.IdentityFile != "" {
 		parts = append(parts, "-i", t.IdentityFile)
 	}
@@ -100,11 +123,20 @@ func sshTransport(t Target) string {
 // contents of localDir to t. Trailing slashes on the local source and
 // remote destination matter for rsync semantics — they make rsync copy the
 // *contents* of localDir/remotePath rather than the directory itself.
+//
+// site.json and gallery.json are always excluded from what gets pushed:
+// they're local statefiles used to rebuild/regenerate the site (and, for
+// site.json, they record every album's Slug/Unlisted fields — pushing them
+// would publish the supposedly-unguessable folder name of every "Unlisted"
+// album, defeating the point of the token). They are never needed on the
+// remote, which only serves the already-generated static HTML.
 func rsyncArgs(t Target, localDir string) []string {
 	local := strings.TrimRight(localDir, "/") + "/"
 	remote := strings.TrimRight(t.RemotePath, "/") + "/"
 	return []string{
 		"-az", "--delete",
+		"--exclude=site.json",
+		"--exclude=gallery.json",
 		"-e", sshTransport(t),
 		local,
 		fmt.Sprintf("%s@%s:%s", t.User, t.Host, remote),
@@ -127,13 +159,19 @@ func isHostKeyVerificationFailure(output string) bool {
 // error includes the raw command output so the user can see what actually
 // went wrong.
 func TestConnection(t Target) error {
-	cmd := exec.Command("ssh", sshArgs(t, "true")...)
+	ctx, cancel := context.WithTimeout(context.Background(), testConnectionTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs(t, "true")...)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
 	}
 
 	output := string(out)
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("ssh connection test timed out after %s\n%s", testConnectionTimeout, output)
+	}
 	if isHostKeyVerificationFailure(output) {
 		return fmt.Errorf(
 			"host key verification failed: the host key for %s is not yet trusted. "+
@@ -144,15 +182,45 @@ func TestConnection(t Target) error {
 	return fmt.Errorf("ssh connection test failed: %w\n%s", err, output)
 }
 
+// checkLocalDirDeployable verifies that dir exists and contains at least one
+// entry before it's used as the source of a destructive `rsync --delete`.
+// Without this guard, a missing, empty, or stale local directory (e.g. the
+// site was never built, or a build failed partway through) would cause
+// rsync to happily mirror that emptiness onto the remote, deleting whatever
+// was already deployed there.
+func checkLocalDirDeployable(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("deploy source directory %q does not exist", dir)
+		}
+		return fmt.Errorf("deploy source directory %q: %w", dir, err)
+	}
+	if len(entries) == 0 {
+		return fmt.Errorf("deploy source directory %q is empty; refusing to run a destructive rsync --delete against it", dir)
+	}
+	return nil
+}
+
 // Deploy runs rsync (over the same ssh transport used by TestConnection) to
 // push the contents of localDir to t. It returns the combined stdout+stderr
 // output even on success, since it's useful to show what rsync actually
 // did, alongside any error.
 func Deploy(t Target, localDir string) (string, error) {
-	cmd := exec.Command("rsync", rsyncArgs(t, localDir)...)
+	if err := checkLocalDirDeployable(localDir); err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), deployTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "rsync", rsyncArgs(t, localDir)...)
 	out, err := cmd.CombinedOutput()
 	output := string(out)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return output, fmt.Errorf("deploy timed out after %s", deployTimeout)
+		}
 		return output, fmt.Errorf("rsync deploy failed: %w\n%s", err, output)
 	}
 	return output, nil

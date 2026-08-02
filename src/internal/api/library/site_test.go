@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+func TestSiteDirJoinsChannelDirAndSiteSubdir(t *testing.T) {
+	got := SiteDir("/data/channels/mychannel")
+	want := filepath.Join("/data/channels/mychannel", "site")
+	if got != want {
+		t.Errorf("SiteDir() = %q, want %q", got, want)
+	}
+	if SiteSubdir != "site" {
+		t.Errorf("SiteSubdir = %q, want %q", SiteSubdir, "site")
+	}
+}
+
 func TestComputeSlugListedNoCollision(t *testing.T) {
 	got := computeSlug("Summer 2026", time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), nil, false)
 	if got != "summer-2026" {
