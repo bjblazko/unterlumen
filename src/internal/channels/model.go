@@ -13,7 +13,7 @@ type Account struct {
 type Channel struct {
 	Slug          string            `json:"slug"`
 	Name          string            `json:"name"`
-	Handler       string            `json:"handler,omitempty"`       // "" = default (export only); future: "mastodon", "scp", …
+	Handler       string            `json:"handler,omitempty"`       // "" = default (export only); "rsync" = push build output over SSH; future: "mastodon", …
 	HandlerConfig map[string]string `json:"handlerConfig,omitempty"` // free-form config for the handler
 	Accounts      []Account         `json:"accounts,omitempty"`      // named sub-accounts; empty = single anonymous destination
 	Format        string            `json:"format"`                  // "jpeg", "png", "webp"

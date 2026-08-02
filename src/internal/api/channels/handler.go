@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/deploy"
 	"huepattl.de/unterlumen/internal/media"
 )
 
@@ -32,6 +33,8 @@ func Handle(mux *http.ServeMux, store *channels.Store) {
 	mux.HandleFunc("GET /api/channels/{slug}/logo", logoStatus(store))
 	mux.HandleFunc("POST /api/channels/{slug}/logo", uploadLogo(store))
 	mux.HandleFunc("DELETE /api/channels/{slug}/logo", deleteLogo(store))
+	mux.HandleFunc("POST /api/channels/{slug}/deploy/test", testDeployConnection(store))
+	mux.HandleFunc("POST /api/channels/{slug}/deploy", deployChannel(store))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -254,5 +257,59 @@ func deleteLogo(store *channels.Store) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// deployTargetForChannel loads the channel by slug and builds a deploy.Target
+// from its HandlerConfig. It writes a 4xx JSON error and returns ok=false if
+// the channel doesn't exist, its Handler isn't "rsync", or its HandlerConfig
+// is missing required fields.
+func deployTargetForChannel(store *channels.Store, w http.ResponseWriter, slug string) (deploy.Target, bool) {
+	ch, err := store.Get(slug)
+	if err != nil {
+		http.Error(w, "channel not found: "+err.Error(), http.StatusNotFound)
+		return deploy.Target{}, false
+	}
+	if ch.Handler != "rsync" {
+		http.Error(w, `channel handler is not "rsync"`, http.StatusBadRequest)
+		return deploy.Target{}, false
+	}
+	target, err := deploy.TargetFromConfig(ch.HandlerConfig)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return deploy.Target{}, false
+	}
+	return target, true
+}
+
+func testDeployConnection(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		target, ok := deployTargetForChannel(store, w, slug)
+		if !ok {
+			return
+		}
+		if err := deploy.TestConnection(target); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}
+}
+
+func deployChannel(store *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := r.PathValue("slug")
+		target, ok := deployTargetForChannel(store, w, slug)
+		if !ok {
+			return
+		}
+		localDir := store.OutputDir(slug)
+		output, err := deploy.Deploy(target, localDir)
+		if err != nil {
+			writeJSON(w, map[string]any{"ok": false, "output": output, "error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "output": output})
 	}
 }
