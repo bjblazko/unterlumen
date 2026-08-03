@@ -169,6 +169,7 @@ class ChannelSettingsModal {
                 </div>
                 <div class="channel-row-actions">
                     ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
+                    ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
                         <button class="btn btn-sm ch-path-toggle">Path ▾</button>
                         <div class="ch-path-menu" hidden>
@@ -204,6 +205,10 @@ class ChannelSettingsModal {
             const rebuildBtn = row.querySelector('.ch-rebuild');
             rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
         }
+        if (ch.handler === 'rsync') {
+            const deployBtn = row.querySelector('.ch-deploy');
+            deployBtn.addEventListener('click', () => this._deployChannel(ch, deployBtn));
+        }
         return row;
     }
 
@@ -229,6 +234,27 @@ class ChannelSettingsModal {
             btn.textContent = 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             alert('Rebuild failed: ' + err.message);
+        }
+    }
+
+    async _deployChannel(ch, btn) {
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Deploying…';
+        try {
+            const res = await ChannelAPI.deploy(ch.slug);
+            if (res.ok) {
+                btn.textContent = 'Deployed';
+                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+            } else {
+                btn.textContent = 'Failed';
+                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+                alert('Deploy failed: ' + (res.error || 'unknown error'));
+            }
+        } catch (err) {
+            btn.textContent = 'Failed';
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+            alert('Deploy failed: ' + err.message);
         }
     }
 
