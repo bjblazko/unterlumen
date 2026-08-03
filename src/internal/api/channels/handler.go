@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/channels"
@@ -322,9 +323,27 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 			// subdirectory is the servable, deployable site.
 			localDir = apilibrary.SiteDir(localDir)
 		}
-		output, err := deploy.Deploy(target, localDir)
-		if err != nil {
-			writeJSON(w, map[string]any{"ok": false, "output": output, "error": err.Error()})
+		output, deployErr := deploy.Deploy(target, localDir)
+		ch.LastDeployedAt = time.Now().UTC()
+		ch.LastDeployOK = deployErr == nil
+		if deployErr != nil {
+			ch.LastDeployError = deployErr.Error()
+		} else {
+			ch.LastDeployError = ""
+		}
+		if saveErr := store.Save(ch); saveErr != nil {
+			// Deploy itself already ran (or failed) — don't mask that result
+			// behind a statefile write error; just log-equivalent it into the
+			// response so the UI can still show what happened.
+			if deployErr != nil {
+				writeJSON(w, map[string]any{"ok": false, "output": output, "error": deployErr.Error() + " (also failed to save deploy status: " + saveErr.Error() + ")"})
+				return
+			}
+			writeJSON(w, map[string]any{"ok": true, "output": output, "error": "deploy succeeded but failed to save deploy status: " + saveErr.Error()})
+			return
+		}
+		if deployErr != nil {
+			writeJSON(w, map[string]any{"ok": false, "output": output, "error": deployErr.Error()})
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true, "output": output})

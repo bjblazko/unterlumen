@@ -1,6 +1,10 @@
 package channels
 
-import "huepattl.de/unterlumen/internal/media"
+import (
+	"time"
+
+	"huepattl.de/unterlumen/internal/media"
+)
 
 // Account is one named account or destination within a channel (e.g. two Mastodon logins).
 type Account struct {
@@ -31,6 +35,13 @@ type Channel struct {
 	SiteImprint      string            `json:"siteImprint,omitempty"`      // markdown text for legal/imprint page; generates legal.html when non-empty
 	SiteContactEmail string            `json:"siteContactEmail,omitempty"` // shown in footer of every site page
 	SiteContactURL   string            `json:"siteContactURL,omitempty"`   // shown in footer of every site page
+
+	// Deploy status, updated after every deploy attempt (success or
+	// failure) so the UI can show "last deployed …" without requiring a
+	// fresh deploy click just to see it.
+	LastDeployedAt  time.Time `json:"lastDeployedAt,omitempty"`
+	LastDeployOK    bool      `json:"lastDeployOK,omitempty"`
+	LastDeployError string    `json:"lastDeployError,omitempty"` // empty when LastDeployOK is true
 }
 
 // ExportOptions returns the media.ExportOptions for this channel.

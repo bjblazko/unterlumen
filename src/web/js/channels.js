@@ -115,6 +115,18 @@ function _albumPath(ch, folderName) {
     return ch.siteExport ? `/albums/${folderName}/` : `/${folderName}/`;
 }
 
+function _relativeTimeLabel(iso) {
+    const then = new Date(iso);
+    const mins = Math.floor((Date.now() - then.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} minute${mins !== 1 ? 's' : ''} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    return then.toLocaleDateString();
+}
+
 /* --- ChannelSettingsModal --- */
 
 class ChannelSettingsModal {
@@ -232,6 +244,7 @@ class ChannelSettingsModal {
         if (ch.handler === 'rsync') {
             const deployBtn = row.querySelector('.ch-deploy');
             deployBtn.addEventListener('click', () => this._deployChannel(ch, deployBtn));
+            this._renderPersistedDeployStatus(ch, row);
         }
         return row;
     }
@@ -279,7 +292,7 @@ class ChannelSettingsModal {
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             if (res.ok) {
                 showResult(true, '✓ Deployed just now. Looking up what\'s live…');
-                showResult(true, await this._deployResultLinkHTML(ch));
+                showResult(true, await this._deployResultLinkHTML(ch, 'just now'));
                 resultEl?.querySelector('.ch-deploy-see-albums')?.addEventListener('click', () => this._showAlbums(ch));
             } else {
                 showResult(false, `✗ Deploy failed: ${escapeHtml(res.error || 'unknown error')}`);
@@ -297,7 +310,7 @@ class ChannelSettingsModal {
     // URL" only makes sense once we know how many albums actually exist.
     // Zero -> nothing built yet; one -> link straight to it; many -> point
     // at the Albums list instead of guessing which one matters.
-    async _deployResultLinkHTML(ch) {
+    async _deployResultLinkHTML(ch, whenLabel) {
         const base = _deployBaseURL(ch);
         const guessNote = base?.guessed
             ? ' <span class="form-hint">(domain guessed from deploy Host — confirm this matches your public domain)</span>'
@@ -309,16 +322,36 @@ class ChannelSettingsModal {
             // Fall through to a generic message below if the lookup itself fails.
         }
         if (albums.length === 0) {
-            return '✓ Deployed just now, but no built albums were found — nothing to link to yet.';
+            return `✓ Deployed ${whenLabel}, but no built albums were found — nothing to link to yet.`;
         }
         if (albums.length === 1) {
             const url = base ? base.url + _albumPath(ch, albums[0].folderName) : _albumPath(ch, albums[0].folderName);
             const link = base
                 ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>${guessNote}`
                 : `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL, or configure an rsync Host, for a full link)</span>`;
-            return `✓ Deployed just now. ${link}`;
+            return `✓ Deployed ${whenLabel}. ${link}`;
         }
-        return `✓ Deployed just now — ${albums.length} albums live. <button type="button" class="link-btn ch-deploy-see-albums">See Albums for direct links</button>`;
+        return `✓ Deployed ${whenLabel} — ${albums.length} albums live. <button type="button" class="link-btn ch-deploy-see-albums">See Albums for direct links</button>`;
+    }
+
+    // Restores the deploy-result line from what's persisted on the channel
+    // (Channel.LastDeployedAt/LastDeployOK/LastDeployError), so "when and to
+    // what URL it was deployed" is visible on open, not only right after
+    // clicking Deploy.
+    async _renderPersistedDeployStatus(ch, row) {
+        if (!ch.lastDeployedAt) return;
+        const resultEl = row.querySelector('.channel-row-deploy-result');
+        if (!resultEl) return;
+        resultEl.hidden = false;
+        const when = _relativeTimeLabel(ch.lastDeployedAt);
+        if (!ch.lastDeployOK) {
+            resultEl.classList.add('channel-row-deploy-result--error');
+            resultEl.textContent = `✗ Last deploy (${when}) failed: ${ch.lastDeployError || 'unknown error'}`;
+            return;
+        }
+        resultEl.textContent = `✓ Last deployed ${when}. Looking up what's live…`;
+        resultEl.innerHTML = await this._deployResultLinkHTML(ch, when);
+        resultEl.querySelector('.ch-deploy-see-albums')?.addEventListener('click', () => this._showAlbums(ch));
     }
 
     async _showAlbums(ch) {
