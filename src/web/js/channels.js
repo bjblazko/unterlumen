@@ -169,6 +169,7 @@ class ChannelSettingsModal {
                 </div>
                 <div class="channel-row-actions">
                     ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
+                    ${ch.siteExport ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
                     ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
                         <button class="btn btn-sm ch-path-toggle">Path ▾</button>
@@ -182,7 +183,8 @@ class ChannelSettingsModal {
                     <button class="btn btn-sm ch-delete">Delete</button>
                 </div>
             </div>
-            <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}${escapeHtml(outputDesc)}</span>`;
+            <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}${escapeHtml(outputDesc)}</span>
+            ${ch.handler === 'rsync' ? '<div class="channel-row-deploy-result" hidden></div>' : ''}`;
 
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
@@ -204,6 +206,7 @@ class ChannelSettingsModal {
         if (ch.siteExport) {
             const rebuildBtn = row.querySelector('.ch-rebuild');
             rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
+            row.querySelector('.ch-albums').addEventListener('click', () => this._showAlbums(ch));
         }
         if (ch.handler === 'rsync') {
             const deployBtn = row.querySelector('.ch-deploy');
@@ -238,23 +241,95 @@ class ChannelSettingsModal {
     }
 
     async _deployChannel(ch, btn) {
+        const row = btn.closest('.channel-row');
+        const resultEl = row?.querySelector('.channel-row-deploy-result');
+        const showResult = (ok, html) => {
+            if (!resultEl) return;
+            resultEl.hidden = false;
+            resultEl.classList.toggle('channel-row-deploy-result--error', !ok);
+            resultEl.innerHTML = html;
+        };
         const orig = btn.textContent;
         btn.disabled = true;
         btn.textContent = 'Deploying…';
         try {
             const res = await ChannelAPI.deploy(ch.slug);
+            btn.textContent = res.ok ? 'Deployed' : 'Failed';
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             if (res.ok) {
-                btn.textContent = 'Deployed';
-                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+                const link = ch.siteURL
+                    ? `<a href="${escapeHtml(ch.siteURL)}" target="_blank" rel="noopener">${escapeHtml(ch.siteURL)}</a>`
+                    : '<em>no Site URL set — add one in Edit to get a link here</em>';
+                showResult(true, `✓ Deployed just now. ${link}`);
             } else {
-                btn.textContent = 'Failed';
-                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-                alert('Deploy failed: ' + (res.error || 'unknown error'));
+                showResult(false, `✗ Deploy failed: ${escapeHtml(res.error || 'unknown error')}`);
             }
         } catch (err) {
             btn.textContent = 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            alert('Deploy failed: ' + err.message);
+            showResult(false, `✗ Deploy failed: ${escapeHtml(err.message)}`);
+        }
+    }
+
+    async _showAlbums(ch) {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.innerHTML = `
+            <div class="modal channel-albums-modal">
+                <div class="modal-header">
+                    <span class="modal-title">Albums — ${escapeHtml(ch.name)}</span>
+                    <button class="modal-close" id="al-close">&times;</button>
+                </div>
+                <div class="modal-body" id="al-body">
+                    <div class="channel-loading">Loading…</div>
+                </div>
+            </div>`;
+        document.body.appendChild(backdrop);
+        backdrop.querySelector('#al-close').addEventListener('click', () => backdrop.remove());
+        backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.remove(); });
+
+        const body = backdrop.querySelector('#al-body');
+        try {
+            const albums = await ChannelAPI.galleries(ch.slug);
+            if (albums.length === 0) {
+                body.innerHTML = '<div class="channel-empty">No albums built yet.</div>';
+                return;
+            }
+            body.innerHTML = albums.map(a => {
+                const path = `/albums/${a.folderName}/`;
+                const url = ch.siteURL ? ch.siteURL.replace(/\/$/, '') + path : path;
+                const dateStr = new Date(a.publishedAt).toLocaleDateString();
+                const badge = a.unlisted ? '<span class="album-badge album-badge--unlisted">Unlisted</span>' : '';
+                const linkHtml = ch.siteURL
+                    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`
+                    : `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL in Edit for a full link)</span>`;
+                return `
+                    <div class="album-row">
+                        <div class="album-row-top">
+                            <span class="album-row-title">${escapeHtml(a.title || '(untitled)')}</span>
+                            ${badge}
+                            <span class="album-row-meta">${dateStr} · ${a.photoCount} photo${a.photoCount !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="album-row-url">
+                            ${linkHtml}
+                            <button class="btn btn-sm album-copy" data-url="${escapeHtml(url)}">Copy</button>
+                        </div>
+                    </div>`;
+            }).join('');
+            body.querySelectorAll('.album-copy').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(btn.dataset.url);
+                        const orig = btn.textContent;
+                        btn.textContent = 'Copied!';
+                        setTimeout(() => { btn.textContent = orig; }, 1500);
+                    } catch (err) {
+                        alert('Copy failed: ' + err.message);
+                    }
+                });
+            });
+        } catch (err) {
+            body.innerHTML = `<div class="channel-error">Failed to load albums: ${escapeHtml(err.message)}</div>`;
         }
     }
 

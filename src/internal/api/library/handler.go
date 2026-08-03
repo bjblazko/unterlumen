@@ -2103,6 +2103,14 @@ type galleryListItem struct {
 	PublishedAt time.Time `json:"publishedAt"`
 	UpdatedAt   time.Time `json:"updatedAt,omitempty"`
 	PhotoCount  int       `json:"photoCount"`
+	// FolderName is the actual on-disk (and on-URL) folder name for this
+	// album — the slugified title, or for unlisted albums the slug plus its
+	// random token. Empty for GalleryExport (non-site) channels, which have
+	// no per-album folder distinct from PostID.
+	FolderName string `json:"folderName,omitempty"`
+	// Unlisted mirrors SiteAlbum.Unlisted — true if this album is excluded
+	// from the site's own index/sitemap and only reachable via direct link.
+	Unlisted bool `json:"unlisted,omitempty"`
 }
 
 // listGalleries returns existing built galleries/albums for a channel.
@@ -2135,6 +2143,8 @@ func listGalleries(chStore *channels.Store) http.HandlerFunc {
 					PublishedAt: a.PublishedAt,
 					UpdatedAt:   a.UpdatedAt,
 					PhotoCount:  a.PhotoCount,
+					FolderName:  albumFolderName(a),
+					Unlisted:    a.Unlisted,
 				})
 			}
 			// Sort newest first (site index sorts the same way).

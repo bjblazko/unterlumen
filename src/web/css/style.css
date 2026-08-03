@@ -4608,6 +4608,73 @@ body.slideshow-active #app { height: 100vh; }
     flex-shrink: 0;
 }
 
+.channel-row-deploy-result {
+    font-size: 11px;
+    color: var(--success);
+    margin-top: 2px;
+}
+
+.channel-row-deploy-result--error {
+    color: var(--accent);
+}
+
+.channel-row-deploy-result a {
+    color: inherit;
+}
+
+/* --- Albums modal --- */
+
+.channel-albums-modal .modal-body {
+    gap: calc(var(--unit) * 1.5);
+}
+
+.album-row {
+    padding-bottom: calc(var(--unit) * 1);
+    border-bottom: 1px solid var(--border);
+}
+
+.album-row:last-child {
+    border-bottom: none;
+}
+
+.album-row-top {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+    flex-wrap: wrap;
+}
+
+.album-row-title {
+    font-weight: 600;
+}
+
+.album-row-meta {
+    font-size: 11px;
+    color: var(--fg-2);
+    margin-left: auto;
+}
+
+.album-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--bg-2);
+    color: var(--fg-2);
+}
+
+.album-badge--unlisted {
+    color: var(--accent);
+}
+
+.album-row-url {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--unit) * 0.75);
+    font-size: 11px;
+    margin-top: 4px;
+    word-break: break-all;
+}
+
 /* --- Path dropdown --- */
 
 .ch-path-wrap {
