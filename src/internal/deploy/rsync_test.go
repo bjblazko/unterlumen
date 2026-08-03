@@ -259,6 +259,47 @@ func TestDeployRefusesEmptyLocalDir(t *testing.T) {
 	}
 }
 
+func TestShellQuoteSingle(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain path", "/var/www/photos", `'/var/www/photos'`},
+		{"path with space", "/var/www/my photos", `'/var/www/my photos'`},
+		{"embedded single quote", "/var/www/o'brien", `'/var/www/o'\''brien'`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := shellQuoteSingle(c.in); got != c.want {
+				t.Errorf("shellQuoteSingle(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+func TestFixRemotePermissionsCommandShape(t *testing.T) {
+	// fixRemotePermissions itself shells out; verify indirectly that the
+	// remote command it would build is well-formed and safely quotes a
+	// RemotePath containing a space, by reconstructing it the same way and
+	// checking it round-trips through sshArgs without corrupting the path.
+	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/my photos/"}
+	remotePath := shellQuoteSingle(strings.TrimRight(target.RemotePath, "/"))
+	remoteCmd := "find " + remotePath + " -type d -exec chmod 755 {} + && find " + remotePath + " -type f -exec chmod 644 {} +"
+	args := sshArgs(target, remoteCmd)
+	last := args[len(args)-1]
+	if !strings.Contains(last, `'/var/www/my photos'`) {
+		t.Errorf("remote command %q does not safely quote the space-containing RemotePath", last)
+	}
+	if strings.HasSuffix(target.RemotePath, "/") == false {
+		t.Fatalf("test setup bug: expected trailing slash in fixture")
+	}
+	if strings.Contains(last, "my photos/'") {
+		t.Errorf("remote command %q still has a trailing slash inside the quoted path", last)
+	}
+	assertNoAcceptNew(t, args)
+}
+
 func TestIsHostKeyVerificationFailure(t *testing.T) {
 	cases := []struct {
 		name   string

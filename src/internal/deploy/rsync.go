@@ -223,5 +223,41 @@ func Deploy(t Target, localDir string) (string, error) {
 		}
 		return output, fmt.Errorf("rsync deploy failed: %w\n%s", err, output)
 	}
+
+	fixOut, fixErr := fixRemotePermissions(t)
+	output += fixOut
+	if fixErr != nil {
+		return output, fmt.Errorf("deploy succeeded but making the uploaded files world-readable failed — your web server may not be able to serve them: %w", fixErr)
+	}
 	return output, nil
+}
+
+// fixRemotePermissions makes the just-deployed directory tree readable by a
+// web server that isn't the SSH user rsync ran as (e.g. Caddy running as its
+// own service account). rsync -a preserves the local machine's file modes by
+// default, and a typical local output directory is not world-readable (e.g.
+// macOS commonly creates directories as 700) — without this step, a deploy
+// can report success while the content stays completely unreadable on the
+// remote. Ownership is deliberately left as whatever the SSH user already
+// owns (usually itself) — only the permission bits are widened, which is the
+// minimum needed for a different-user process to read the files.
+func fixRemotePermissions(t Target) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), testConnectionTimeout)
+	defer cancel()
+	remotePath := shellQuoteSingle(strings.TrimRight(t.RemotePath, "/"))
+	remoteCmd := fmt.Sprintf(
+		"find %s -type d -exec chmod 755 {} + && find %s -type f -exec chmod 644 {} +",
+		remotePath, remotePath,
+	)
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs(t, remoteCmd)...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// shellQuoteSingle wraps s in single quotes for safe inclusion in a POSIX
+// shell command string, escaping any single quotes it already contains.
+// Needed because RemotePath is user-supplied configuration that ends up
+// inside a remote shell command string built by fixRemotePermissions.
+func shellQuoteSingle(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
