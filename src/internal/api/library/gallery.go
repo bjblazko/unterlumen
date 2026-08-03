@@ -134,10 +134,16 @@ body {
 
 header {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.6rem;
   margin-bottom: 2rem;
+}
+
+.header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 h1 {
@@ -145,6 +151,11 @@ h1 {
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--heading);
+}
+
+.photo-count {
+  font-size: 0.85rem;
+  color: var(--text-dim);
 }
 
 .header-actions {
@@ -261,7 +272,10 @@ footer a:hover { color: var(--text-dim); }
 </head>
 <body>
 <header>
-  <h1>{{.Title}}</h1>
+  <div class="header-title">
+    <h1>{{.Title}}</h1>
+    <span class="photo-count">{{.PhotoCount}} photo{{if ne .PhotoCount 1}}s{{end}}</span>
+  </div>
   <div class="header-actions">
     {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
     <button id="theme-toggle" class="theme-btn">Light</button>
@@ -431,6 +445,7 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 		PhotosJSON  template.JS
 		ZipFilename string
 		Figures     []galleryFigureData
+		PhotoCount  int
 	}{
 		Title:       title,
 		Description: description,
@@ -438,6 +453,7 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 		PhotosJSON:  template.JS(photosJSON),
 		ZipFilename: opts.ZipFilename,
 		Figures:     figures,
+		PhotoCount:  total,
 	})
 	return buf.Bytes()
 }

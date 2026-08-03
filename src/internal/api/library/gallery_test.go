@@ -61,6 +61,37 @@ func TestGenerateGalleryNoDimensions(t *testing.T) {
 	}
 }
 
+func TestGenerateGalleryPhotoCount(t *testing.T) {
+	items := []GalleryItem{
+		{Filename: "a.jpg"}, {Filename: "b.jpg"}, {Filename: "c.jpg"},
+	}
+	html := string(GenerateGallery("Test", items, GalleryOptions{}))
+	if !strings.Contains(html, `<span class="photo-count">3 photos</span>`) {
+		t.Error("missing plural photo count")
+	}
+
+	oneHTML := string(GenerateGallery("Test", items[:1], GalleryOptions{}))
+	if !strings.Contains(oneHTML, `<span class="photo-count">1 photo</span>`) {
+		t.Error("missing singular photo count")
+	}
+}
+
+// TestGenerateGalleryHeaderTitleOnOwnLine verifies the title/photo-count
+// block and the action buttons (theme toggle, download) are in separate
+// header rows, so they can't share a line and wrap into each other on
+// narrow viewports.
+func TestGenerateGalleryHeaderTitleOnOwnLine(t *testing.T) {
+	html := string(GenerateGallery("Test", nil, GalleryOptions{}))
+	if !strings.Contains(html, `<div class="header-title">`) {
+		t.Error("missing dedicated header-title row")
+	}
+	titleIdx := strings.Index(html, `<div class="header-title">`)
+	actionsIdx := strings.Index(html, `<div class="header-actions">`)
+	if titleIdx == -1 || actionsIdx == -1 || titleIdx >= actionsIdx {
+		t.Error("header-title must appear before header-actions as separate sibling rows")
+	}
+}
+
 // TestGenerateGalleryNoInlineScript verifies the page references its
 // theme/lightbox script externally rather than inlining it — a strict CSP
 // (script-src 'self', no 'unsafe-inline') silently blocks inline <script>
