@@ -205,6 +205,23 @@ func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
 	if !bytes.Contains(html, []byte(`width="120"`)) || !bytes.Contains(html, []byte(`height="80"`)) {
 		t.Error("regenerated index.html missing width/height recovered from the on-disk photo")
 	}
+	// The lightbox/theme script must be referenced externally, not inlined —
+	// a strict CSP (script-src 'self', no 'unsafe-inline') silently blocks
+	// inline <script> content, which is exactly what broke the deployed site.
+	if bytes.Contains(html, []byte("function openLightbox")) {
+		t.Error("index.html still inlines lightbox JS instead of referencing gallery.js")
+	}
+	if !bytes.Contains(html, []byte(`<script src="gallery.js"></script>`)) {
+		t.Error("index.html missing external gallery.js script reference")
+	}
+	if !bytes.Contains(html, []byte(`<script src="theme-init.js"></script>`)) {
+		t.Error("index.html missing external theme-init.js script reference")
+	}
+	for _, asset := range []string{"theme-init.js", "gallery.js"} {
+		if _, err := os.Stat(filepath.Join(outDir, asset)); err != nil {
+			t.Errorf("rebuild did not write %s: %v", asset, err)
+		}
+	}
 
 	// The one photo file must be untouched — no duplication, no re-export.
 	entries, err := os.ReadDir(outDir)

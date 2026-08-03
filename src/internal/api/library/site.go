@@ -218,8 +218,17 @@ func buildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) S
 	}
 }
 
-// writeSiteAssets writes style.css and toggle.js into assetsDir, overwriting if present.
-// toggle.js is fully static — it reads the default theme from data-default-theme on <html>.
+// writeSiteAssets writes style.css, toggle.js, and lightbox.js into assetsDir,
+// overwriting if present. toggle.js is fully static — it reads the default
+// theme from data-default-theme on <html>. lightbox.js is also fully
+// static — it reads its per-page photo list from the "ul-photos"
+// application/json element on the page, rather than from a template
+// variable, specifically so this file's content never needs to vary and it
+// can be referenced (not inlined) from every album page. That split exists
+// because a strict Content-Security-Policy (script-src 'self', no
+// 'unsafe-inline') — as this project's own deployment docs recommend for a
+// site hosting this generator's output — silently blocks any inline
+// <script> from running at all, with no visible error to the visitor.
 func writeSiteAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0o700); err != nil {
 		return err
@@ -227,7 +236,10 @@ func writeSiteAssets(assetsDir string) error {
 	if err := os.WriteFile(assetsDir+"/style.css", []byte(siteCSS), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(assetsDir+"/toggle.js", []byte(siteToggleJS), 0o644)
+	if err := os.WriteFile(assetsDir+"/toggle.js", []byte(siteToggleJS), 0o644); err != nil {
+		return err
+	}
+	return os.WriteFile(assetsDir+"/lightbox.js", []byte(siteLightboxJS), 0o644)
 }
 
 // generateRobotsTxt writes a robots.txt to the site root.
@@ -603,6 +615,83 @@ const siteToggleJS = `(function () {
 })();
 `
 
+// siteLightboxJS is a fully static lightbox/swipe/menu script shared by every
+// album page. It reads its per-page photo list from a sibling
+// application/json <script id="ul-photos"> element instead of a template
+// variable — see writeSiteAssets for why this file has to be external and
+// content-identical across pages.
+const siteLightboxJS = `const photos = JSON.parse(document.getElementById('ul-photos').textContent);
+let cur = 0;
+
+function openLightbox(idx) {
+  cur = idx;
+  const lb = document.getElementById('lb');
+  document.getElementById('lb-img').src = photos[idx].full;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  updateCounter();
+}
+
+function closeLightbox() {
+  document.getElementById('lb').classList.remove('open');
+  document.getElementById('lb-img').src = '';
+  document.body.style.overflow = '';
+}
+
+function prev() { openLightbox((cur - 1 + photos.length) % photos.length); }
+function next() { openLightbox((cur + 1) % photos.length); }
+
+function updateCounter() {
+  document.getElementById('lb-counter').textContent = (cur + 1) + ' / ' + photos.length;
+}
+
+document.getElementById('lb-close').addEventListener('click', closeLightbox);
+document.getElementById('lb-prev').addEventListener('click', prev);
+document.getElementById('lb-next').addEventListener('click', next);
+document.getElementById('lb').addEventListener('click', e => { if (e.target === e.currentTarget) closeLightbox(); });
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lb').classList.contains('open')) return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+  if (e.key === 'Escape')     { e.preventDefault(); closeLightbox(); }
+});
+
+document.querySelectorAll('#gallery figure').forEach(fig => {
+  fig.addEventListener('click', () => openLightbox(parseInt(fig.dataset.index, 10)));
+});
+
+let swipeStartX = 0, swipeStartY = 0;
+document.getElementById('lb').addEventListener('touchstart', e => {
+  swipeStartX = e.changedTouches[0].clientX;
+  swipeStartY = e.changedTouches[0].clientY;
+}, { passive: true });
+document.getElementById('lb').addEventListener('touchend', e => {
+  const dx = swipeStartX - e.changedTouches[0].clientX;
+  const dy = swipeStartY - e.changedTouches[0].clientY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+    if (dx > 0) next(); else prev();
+  }
+}, { passive: true });
+
+const menuBtn = document.getElementById('menu-btn');
+if (menuBtn) {
+  menuBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const inner = menuBtn.nextElementSibling;
+    const isOpen = inner.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', isOpen);
+  });
+  document.addEventListener('click', function() {
+    const inner = menuBtn.nextElementSibling;
+    if (inner) {
+      inner.classList.remove('open');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+`
+
 /* --- Site root index --- */
 
 type siteAlbumData struct {
@@ -823,78 +912,8 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
   {{- end}}
 </footer>
 
-<script>
-const photos = {{.PhotosJSON}};
-let cur = 0;
-
-function openLightbox(idx) {
-  cur = idx;
-  const lb = document.getElementById('lb');
-  document.getElementById('lb-img').src = photos[idx].full;
-  lb.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  updateCounter();
-}
-
-function closeLightbox() {
-  document.getElementById('lb').classList.remove('open');
-  document.getElementById('lb-img').src = '';
-  document.body.style.overflow = '';
-}
-
-function prev() { openLightbox((cur - 1 + photos.length) % photos.length); }
-function next() { openLightbox((cur + 1) % photos.length); }
-
-function updateCounter() {
-  document.getElementById('lb-counter').textContent = (cur + 1) + ' / ' + photos.length;
-}
-
-document.getElementById('lb-close').addEventListener('click', closeLightbox);
-document.getElementById('lb-prev').addEventListener('click', prev);
-document.getElementById('lb-next').addEventListener('click', next);
-document.getElementById('lb').addEventListener('click', e => { if (e.target === e.currentTarget) closeLightbox(); });
-
-document.addEventListener('keydown', e => {
-  if (!document.getElementById('lb').classList.contains('open')) return;
-  if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
-  if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-  if (e.key === 'Escape')     { e.preventDefault(); closeLightbox(); }
-});
-
-document.querySelectorAll('#gallery figure').forEach(fig => {
-  fig.addEventListener('click', () => openLightbox(parseInt(fig.dataset.index, 10)));
-});
-
-let swipeStartX = 0, swipeStartY = 0;
-document.getElementById('lb').addEventListener('touchstart', e => {
-  swipeStartX = e.changedTouches[0].clientX;
-  swipeStartY = e.changedTouches[0].clientY;
-}, { passive: true });
-document.getElementById('lb').addEventListener('touchend', e => {
-  const dx = swipeStartX - e.changedTouches[0].clientX;
-  const dy = swipeStartY - e.changedTouches[0].clientY;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
-    if (dx > 0) next(); else prev();
-  }
-}, { passive: true });
-
-const menuBtn = document.getElementById('menu-btn');
-if (menuBtn) {
-  menuBtn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    const inner = menuBtn.nextElementSibling;
-    const isOpen = inner.classList.toggle('open');
-    menuBtn.setAttribute('aria-expanded', isOpen);
-  });
-  document.addEventListener('click', function() {
-    const inner = menuBtn.nextElementSibling;
-    if (inner) {
-      inner.classList.remove('open');
-      menuBtn.setAttribute('aria-expanded', 'false');
-    }
-  });
-}
-</script>
+<script type="application/json" id="ul-photos">{{.PhotosJSON}}</script>
+<script src="../../assets/lightbox.js"></script>
 </body>
 </html>
 `))

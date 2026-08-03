@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -98,7 +99,7 @@ var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <title>{{.Title}}</title>
 <meta name="description" content="{{.Description}}">
 <script type="application/ld+json">{{.LDJSON}}</script>
-<script>(function(){var t=localStorage.getItem('ul-theme')||'dark';if(t==='light')document.documentElement.classList.add('theme-light');}());</script>
+<script src="theme-init.js"></script>
 <style>
 /* --- Theme variables (dark default) --- */
 :root {
@@ -286,8 +287,28 @@ footer a:hover { color: var(--text-dim); }
   <a href="https://github.com/bjblazko/unterlumen" target="_blank" rel="noopener" title="View on GitHub"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
 </footer>
 
-<script>
-const photos = {{.PhotosJSON}};
+<script type="application/json" id="ul-photos">{{.PhotosJSON}}</script>
+<script src="gallery.js"></script>
+</body>
+</html>
+`))
+
+// galleryThemeInitJS applies the last-chosen (or default dark) theme before
+// first paint, avoiding a flash of the wrong theme. It's a separate file
+// from galleryLightboxJS because it must load and run in <head>, before the
+// rest of the page (and the DOM elements galleryLightboxJS depends on) exist.
+const galleryThemeInitJS = `(function(){var t=localStorage.getItem('ul-theme')||'dark';if(t==='light')document.documentElement.classList.add('theme-light');}());
+`
+
+// galleryLightboxJS is a fully static theme-toggle + lightbox script. It
+// reads its photo list from a sibling application/json <script id="ul-photos">
+// element instead of a template variable, and is written once per gallery
+// folder by writeGalleryAssets rather than inlined into index.html — a
+// strict Content-Security-Policy (script-src 'self', no 'unsafe-inline'), as
+// this project's own deployment docs recommend for a site hosting this
+// generator's output, silently blocks any inline <script> from running at
+// all, with no visible error to the visitor.
+const galleryLightboxJS = `const photos = JSON.parse(document.getElementById('ul-photos').textContent);
 let cur = 0;
 
 (function () {
@@ -343,10 +364,18 @@ document.addEventListener('keydown', e => {
 document.querySelectorAll('#gallery figure').forEach(fig => {
   fig.addEventListener('click', () => openLightbox(parseInt(fig.dataset.index, 10)));
 });
-</script>
-</body>
-</html>
-`))
+`
+
+// writeGalleryAssets writes theme-init.js and gallery.js into dir (a single
+// gallery's own output folder — GalleryExport mode has no shared site-wide
+// assets directory, so these are duplicated per gallery, matching how e.g.
+// photos.zip already lives inside each gallery folder individually).
+func writeGalleryAssets(dir string) error {
+	if err := os.WriteFile(filepath.Join(dir, "theme-init.js"), []byte(galleryThemeInitJS), 0o644); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "gallery.js"), []byte(galleryLightboxJS), 0o644)
+}
 
 // GenerateGallery returns a self-contained index.html for the given title, photos, and options.
 func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []byte {

@@ -1753,6 +1753,12 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			emit(map[string]any{"error": "write gallery: " + err.Error()})
 			return
 		}
+		if galleryMode {
+			if err := writeGalleryAssets(outDir); err != nil {
+				emit(map[string]any{"error": "write gallery assets: " + err.Error()})
+				return
+			}
+		}
 
 		// Write gallery.json statefile for single-gallery mode.
 		if galleryMode && !siteMode {
@@ -2446,6 +2452,10 @@ func rebuildGalleries(chStore *channels.Store) http.HandlerFunc {
 			})
 			if writeErr := os.WriteFile(filepath.Join(outDir, "index.html"), html, 0o644); writeErr != nil {
 				errs = append(errs, e.Name()+": "+writeErr.Error())
+				continue
+			}
+			if assetsErr := writeGalleryAssets(outDir); assetsErr != nil {
+				errs = append(errs, e.Name()+": write gallery assets: "+assetsErr.Error())
 				continue
 			}
 			rebuilt++

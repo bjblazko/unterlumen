@@ -152,3 +152,38 @@ func TestGenerateSiteGalleryNoindexForUnlisted(t *testing.T) {
 		t.Error("listed album page unexpectedly contains a noindex meta tag")
 	}
 }
+
+// TestGenerateSiteGalleryNoInlineLightboxScript verifies album pages
+// reference the lightbox/theme script externally rather than inlining it —
+// a strict CSP (script-src 'self', no 'unsafe-inline') silently blocks
+// inline <script> content, which is exactly what broke the deployed site.
+func TestGenerateSiteGalleryNoInlineLightboxScript(t *testing.T) {
+	items := []GalleryItem{{Filename: "photo1.jpg", ThumbFilename: "thumbs/photo1.jpg"}}
+	html := string(GenerateSiteGallery("Album", "light", items, GalleryOptions{}))
+	if strings.Contains(html, "function openLightbox") {
+		t.Error("album page still inlines lightbox JS instead of referencing assets/lightbox.js")
+	}
+	if !strings.Contains(html, `<script src="../../assets/lightbox.js"></script>`) {
+		t.Error("album page missing external lightbox.js script reference")
+	}
+	if !strings.Contains(html, `<script type="application/json" id="ul-photos">`) {
+		t.Error("album page missing the ul-photos application/json data element lightbox.js reads from")
+	}
+}
+
+func TestWriteSiteAssetsWritesLightboxJS(t *testing.T) {
+	dir := t.TempDir()
+	if err := writeSiteAssets(dir); err != nil {
+		t.Fatalf("writeSiteAssets: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "lightbox.js"))
+	if err != nil {
+		t.Fatalf("read lightbox.js: %v", err)
+	}
+	if !strings.Contains(string(data), "function openLightbox") {
+		t.Error("lightbox.js missing expected lightbox logic")
+	}
+	if strings.Contains(string(data), "{{") {
+		t.Error("lightbox.js must be fully static — no leftover template placeholders")
+	}
+}
