@@ -76,19 +76,22 @@ func TestGenerateGalleryPhotoCount(t *testing.T) {
 	}
 }
 
-// TestGenerateGalleryHeaderTitleOnOwnLine verifies the title/photo-count
-// block and the action buttons (theme toggle, download) are in separate
-// header rows, so they can't share a line and wrap into each other on
-// narrow viewports.
+// TestGenerateGalleryHeaderTitleOnOwnLine verifies the <h1> title shares its
+// row with nothing else (not even the photo count) — the photo count and
+// action buttons (theme toggle, download) both live in a separate row below —
+// so a long title can't wrap into the buttons on narrow viewports.
 func TestGenerateGalleryHeaderTitleOnOwnLine(t *testing.T) {
 	html := string(GenerateGallery("Test", nil, GalleryOptions{}))
-	if !strings.Contains(html, `<div class="header-title">`) {
-		t.Error("missing dedicated header-title row")
-	}
-	titleIdx := strings.Index(html, `<div class="header-title">`)
+	h1Idx := strings.Index(html, "<h1>")
+	metaIdx := strings.Index(html, `<div class="header-meta">`)
 	actionsIdx := strings.Index(html, `<div class="header-actions">`)
-	if titleIdx == -1 || actionsIdx == -1 || titleIdx >= actionsIdx {
-		t.Error("header-title must appear before header-actions as separate sibling rows")
+	if h1Idx == -1 || metaIdx == -1 || actionsIdx == -1 || h1Idx >= metaIdx || metaIdx >= actionsIdx {
+		t.Error("h1 must appear before header-meta, which must appear before the nested header-actions")
+	}
+	// Nothing else must share the title's own <h1> element.
+	closeH1 := strings.Index(html, "</h1>")
+	if closeH1 == -1 || strings.Contains(html[h1Idx:closeH1], "photo-count") {
+		t.Error("photo count must not share the <h1> element with the title")
 	}
 }
 

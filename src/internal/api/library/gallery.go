@@ -139,18 +139,19 @@ header {
   margin-bottom: 2rem;
 }
 
-.header-title {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
 h1 {
   font-size: 1.6rem;
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--heading);
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .photo-count {
@@ -272,13 +273,13 @@ footer a:hover { color: var(--text-dim); }
 </head>
 <body>
 <header>
-  <div class="header-title">
-    <h1>{{.Title}}</h1>
+  <h1>{{.Title}}</h1>
+  <div class="header-meta">
     <span class="photo-count">{{.PhotoCount}} photo{{if ne .PhotoCount 1}}s{{end}}</span>
-  </div>
-  <div class="header-actions">
-    {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
-    <button id="theme-toggle" class="theme-btn">Light</button>
+    <div class="header-actions">
+      {{if .ZipFilename}}<a class="dl-btn" href="{{.ZipFilename}}" download><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download all photos</a>{{end}}
+      <button id="theme-toggle" class="theme-btn">Light</button>
+    </div>
   </div>
 </header>
 
