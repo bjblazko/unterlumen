@@ -73,6 +73,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("POST /api/library/{id}/build", buildPhotos(mgr, chStore, root, serverRole))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-galleries", rebuildGalleries(chStore))
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 }
 
@@ -2375,6 +2376,106 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		writeJSON(w, map[string]any{"sitePath": siteDir, "albumCount": len(remaining)})
 	}
+}
+
+// rebuildGalleries regenerates index.html for every existing single-gallery
+// build on a GalleryExport channel, from each build's gallery.json state and
+// its already-exported photo files on disk. It re-runs the current
+// GenerateGallery template (picking up template fixes/changes) without
+// re-exporting or duplicating any photos — the counterpart to rebuildSite
+// for channels that use single-gallery export instead of a multi-album site.
+func rebuildGalleries(chStore *channels.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if chStore == nil {
+			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
+			return
+		}
+		slug := r.PathValue("slug")
+		ch, err := chStore.Get(slug)
+		if err != nil {
+			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if !ch.GalleryExport {
+			http.Error(w, "channel is not configured for single-gallery export", http.StatusBadRequest)
+			return
+		}
+
+		channelDir := chStore.OutputDir(slug)
+		entries, err := os.ReadDir(channelDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				writeJSON(w, map[string]any{"rebuilt": 0})
+				return
+			}
+			http.Error(w, "read channel dir: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var rebuilt int
+		var errs []string
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			outDir := filepath.Join(channelDir, e.Name())
+			gs, gsErr := loadGalleryState(filepath.Join(outDir, "gallery.json"))
+			if gsErr != nil || gs == nil {
+				continue // not a gallery folder (or unreadable state) — skip, not an error
+			}
+
+			items := make([]GalleryItem, 0, len(gs.Photos))
+			for _, sp := range gs.Photos {
+				w2, h2 := readImageDimensions(filepath.Join(outDir, sp.Filename))
+				items = append(items, GalleryItem{
+					PhotoID:       sp.PhotoID,
+					Filename:      sp.Filename,
+					ThumbFilename: sp.ThumbFilename,
+					Width:         w2,
+					Height:        h2,
+				})
+			}
+
+			zipName := ""
+			if gs.HasZip {
+				zipName = "photos.zip"
+			}
+			html := GenerateGallery(gs.Title, items, GalleryOptions{
+				ZipFilename: zipName,
+				DateStr:     dateRangeStr(gs.PublishedAt, gs.UpdatedAt),
+			})
+			if writeErr := os.WriteFile(filepath.Join(outDir, "index.html"), html, 0o644); writeErr != nil {
+				errs = append(errs, e.Name()+": "+writeErr.Error())
+				continue
+			}
+			rebuilt++
+		}
+
+		if len(errs) > 0 {
+			writeJSON(w, map[string]any{"rebuilt": rebuilt, "errors": errs})
+			return
+		}
+		writeJSON(w, map[string]any{"rebuilt": rebuilt})
+	}
+}
+
+// readImageDimensions decodes just enough of the image at path to report its
+// pixel dimensions, without loading the full image into memory. Used by
+// rebuildGalleries to recover width/height for GalleryItem, since
+// GalleryState/SitePhoto don't persist them (they're only known at export
+// time) — returns 0, 0 (which GalleryItem/thumbDimensions treats as "omit
+// width/height attributes") if the file is missing or undecodable.
+func readImageDimensions(path string) (int, int) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0, 0
+	}
+	return cfg.Width, cfg.Height
 }
 
 // sitePhotoBase extracts the original source-file base name from a SitePhoto filename.

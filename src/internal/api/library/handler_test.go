@@ -1,13 +1,18 @@
 package apilibrary
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 )
 
@@ -117,5 +122,124 @@ func TestDeleteLibraryPhotoSuccess(t *testing.T) {
 	}
 	if hint, err := store.GetPhotoPathHint("photo1"); err != nil || hint != "" {
 		t.Errorf("photo record still present after successful delete (hint=%q, err=%v)", hint, err)
+	}
+}
+
+// writeTestJPEG writes a minimal valid JPEG of the given dimensions to path,
+// so readImageDimensions has something real to decode.
+func writeTestJPEG(t *testing.T, path string, w, h int) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{R: 255, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, nil); err != nil {
+		t.Fatalf("encode test jpeg: %v", err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("write test jpeg: %v", err)
+	}
+}
+
+// TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating verifies that
+// rebuildGalleries regenerates index.html for an existing single-gallery
+// build from its stored gallery.json + the already-exported photo files,
+// without touching (or duplicating) any photo files.
+func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
+	chDir := t.TempDir()
+	chStore := channels.NewStore(t.TempDir(), chDir)
+	ch := &channels.Channel{Slug: "test-gallery", Name: "Test Gallery", Format: "jpeg", GalleryExport: true}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+
+	outDir := filepath.Join(chStore.OutputDir("test-gallery"), "post123")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir outDir: %v", err)
+	}
+	writeTestJPEG(t, filepath.Join(outDir, "photo1.jpg"), 120, 80)
+
+	gs := &GalleryState{
+		PostID:      "post123",
+		Title:       "Old Title Before Rebuild",
+		PublishedAt: time.Now(),
+		PhotoCount:  1,
+		Photos:      []SitePhoto{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
+	}
+	if err := saveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+	// A stale index.html from an old template version, to confirm it gets overwritten.
+	if err := os.WriteFile(filepath.Join(outDir, "index.html"), []byte("<html>stale</html>"), 0o644); err != nil {
+		t.Fatalf("write stale index.html: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/test-gallery/rebuild-galleries", nil)
+	req.SetPathValue("slug", "test-gallery")
+	rec := httptest.NewRecorder()
+
+	rebuildGalleries(chStore)(rec, req)
+
+	var resp map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if n, _ := resp["rebuilt"].(float64); n != 1 {
+		t.Errorf("rebuilt = %v, want 1 (response: %+v)", resp["rebuilt"], resp)
+	}
+
+	html, err := os.ReadFile(filepath.Join(outDir, "index.html"))
+	if err != nil {
+		t.Fatalf("read regenerated index.html: %v", err)
+	}
+	if bytes.Contains(html, []byte("stale")) {
+		t.Error("index.html was not regenerated — still contains the stale placeholder")
+	}
+	if !bytes.Contains(html, []byte(gs.Title)) {
+		t.Errorf("regenerated index.html missing the gallery's title %q", gs.Title)
+	}
+	// Width/height recovered by decoding the actual photo file on disk.
+	if !bytes.Contains(html, []byte(`width="120"`)) || !bytes.Contains(html, []byte(`height="80"`)) {
+		t.Error("regenerated index.html missing width/height recovered from the on-disk photo")
+	}
+
+	// The one photo file must be untouched — no duplication, no re-export.
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("read outDir: %v", err)
+	}
+	var jpgCount int
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) == ".jpg" {
+			jpgCount++
+		}
+	}
+	if jpgCount != 1 {
+		t.Errorf("photo count in outDir = %d, want 1 (rebuild must not duplicate or re-export photos)", jpgCount)
+	}
+}
+
+// TestRebuildGalleriesRejectsNonGalleryChannel verifies rebuildGalleries
+// refuses to run against a channel that isn't configured for single-gallery
+// export, rather than silently doing nothing or misinterpreting its output dir.
+func TestRebuildGalleriesRejectsNonGalleryChannel(t *testing.T) {
+	chDir := t.TempDir()
+	chStore := channels.NewStore(t.TempDir(), chDir)
+	ch := &channels.Channel{Slug: "not-gallery", Name: "Not Gallery", Format: "jpeg"}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/not-gallery/rebuild-galleries", nil)
+	req.SetPathValue("slug", "not-gallery")
+	rec := httptest.NewRecorder()
+
+	rebuildGalleries(chStore)(rec, req)
+
+	if rec.Code != 400 {
+		t.Errorf("status = %d, want 400 for a non-gallery-export channel", rec.Code)
 	}
 }

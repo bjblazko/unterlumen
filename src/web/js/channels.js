@@ -35,6 +35,11 @@ const ChannelAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async rebuildGalleries(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/rebuild-galleries`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async path(slug) {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/path`);
         if (!r.ok) throw new Error(await r.text());
@@ -200,6 +205,7 @@ class ChannelSettingsModal {
                 </div>
                 <div class="channel-row-actions">
                     ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
+                    ${ch.galleryExport ? '<button class="btn btn-sm ch-rebuild-galleries">Rebuild</button>' : ''}
                     ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
                     ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
@@ -238,6 +244,10 @@ class ChannelSettingsModal {
             const rebuildBtn = row.querySelector('.ch-rebuild');
             rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
         }
+        if (ch.galleryExport) {
+            const rebuildGalleriesBtn = row.querySelector('.ch-rebuild-galleries');
+            rebuildGalleriesBtn.addEventListener('click', () => this._rebuildGalleries(ch, rebuildGalleriesBtn));
+        }
         if (ch.siteExport || ch.galleryExport) {
             row.querySelector('.ch-albums').addEventListener('click', () => this._showAlbums(ch));
         }
@@ -267,6 +277,28 @@ class ChannelSettingsModal {
             const res = await ChannelAPI.rebuildSite(ch.slug);
             btn.textContent = `Done (${res.albumCount})`;
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+        } catch (err) {
+            btn.textContent = 'Failed';
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+            alert('Rebuild failed: ' + err.message);
+        }
+    }
+
+    // Regenerates index.html for every existing single-gallery build on this
+    // channel from its stored state and already-exported photos — picks up
+    // template fixes/changes without re-exporting or duplicating photos,
+    // unlike Build (which always creates a new gallery/URL).
+    async _rebuildGalleries(ch, btn) {
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Rebuilding…';
+        try {
+            const res = await ChannelAPI.rebuildGalleries(ch.slug);
+            btn.textContent = `Done (${res.rebuilt})`;
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+            if (res.errors?.length) {
+                alert(`Rebuilt ${res.rebuilt}, but ${res.errors.length} failed:\n` + res.errors.join('\n'));
+            }
         } catch (err) {
             btn.textContent = 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
