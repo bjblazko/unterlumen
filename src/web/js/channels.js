@@ -278,17 +278,9 @@ class ChannelSettingsModal {
             btn.textContent = res.ok ? 'Deployed' : 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             if (res.ok) {
-                const base = _deployBaseURL(ch);
-                let link;
-                if (base) {
-                    const note = base.guessed
-                        ? ' <span class="form-hint">(guessed from deploy Host — confirm this matches your public domain)</span>'
-                        : '';
-                    link = `<a href="${escapeHtml(base.url)}" target="_blank" rel="noopener">${escapeHtml(base.url)}</a>${note}`;
-                } else {
-                    link = '<em>no URL known — set a Site URL (site channels) or a Host (rsync handler) to get a link here</em>';
-                }
-                showResult(true, `✓ Deployed just now. ${link}`);
+                showResult(true, '✓ Deployed just now. Looking up what\'s live…');
+                showResult(true, await this._deployResultLinkHTML(ch));
+                resultEl?.querySelector('.ch-deploy-see-albums')?.addEventListener('click', () => this._showAlbums(ch));
             } else {
                 showResult(false, `✗ Deploy failed: ${escapeHtml(res.error || 'unknown error')}`);
             }
@@ -297,6 +289,36 @@ class ChannelSettingsModal {
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             showResult(false, `✗ Deploy failed: ${escapeHtml(err.message)}`);
         }
+    }
+
+    // Builds the HTML shown after a successful deploy. Deploy mirrors the
+    // channel's *entire* local output directory to the remote (rsync
+    // --delete), which can contain any number of albums — so "the deployed
+    // URL" only makes sense once we know how many albums actually exist.
+    // Zero -> nothing built yet; one -> link straight to it; many -> point
+    // at the Albums list instead of guessing which one matters.
+    async _deployResultLinkHTML(ch) {
+        const base = _deployBaseURL(ch);
+        const guessNote = base?.guessed
+            ? ' <span class="form-hint">(domain guessed from deploy Host — confirm this matches your public domain)</span>'
+            : '';
+        let albums = [];
+        try {
+            albums = await ChannelAPI.galleries(ch.slug);
+        } catch {
+            // Fall through to a generic message below if the lookup itself fails.
+        }
+        if (albums.length === 0) {
+            return '✓ Deployed just now, but no built albums were found — nothing to link to yet.';
+        }
+        if (albums.length === 1) {
+            const url = base ? base.url + _albumPath(ch, albums[0].folderName) : _albumPath(ch, albums[0].folderName);
+            const link = base
+                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>${guessNote}`
+                : `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL, or configure an rsync Host, for a full link)</span>`;
+            return `✓ Deployed just now. ${link}`;
+        }
+        return `✓ Deployed just now — ${albums.length} albums live. <button type="button" class="link-btn ch-deploy-see-albums">See Albums for direct links</button>`;
     }
 
     async _showAlbums(ch) {
