@@ -70,9 +70,10 @@ func TestRsyncArgsNoOptionalFields(t *testing.T) {
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}
 	got := rsyncArgs(target, "/local/output")
 	want := []string{
-		"-az", "--delete",
+		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=.DS_Store",
 		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10",
 		"/local/output/",
 		"alice@example.com:/var/www/site/",
@@ -89,9 +90,10 @@ func TestRsyncArgsPortAndIdentity(t *testing.T) {
 	}
 	got := rsyncArgs(target, "/local/output")
 	want := []string{
-		"-az", "--delete",
+		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=.DS_Store",
 		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10 -i /home/alice/.ssh/id_ed25519 -p 2222",
 		"/local/output/",
 		"alice@example.com:/var/www/site/",
@@ -119,6 +121,22 @@ func TestRsyncArgsExcludesStatefiles(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("rsyncArgs() = %v, missing required flag %q", got, want)
+		}
+	}
+}
+
+// TestRsyncArgsNoDelete guards against deploying with rsync --delete:
+// multiple channels can share the same RemotePath (e.g. several
+// single-gallery channels publishing to one domain, each in its own postID
+// subfolder) — --delete would mirror the destination to exactly one
+// channel's local output and silently wipe out every sibling channel's
+// already-deployed content the moment their paths overlap.
+func TestRsyncArgsNoDelete(t *testing.T) {
+	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}
+	got := rsyncArgs(target, "/local/output")
+	for _, a := range got {
+		if a == "--delete" {
+			t.Errorf("rsyncArgs() = %v, must never include --delete (see comment on rsyncArgs)", got)
 		}
 	}
 }
@@ -244,8 +262,8 @@ func TestCheckLocalDirDeployableNonEmpty(t *testing.T) {
 
 // TestDeployRefusesEmptyLocalDir is an integration-style test for finding
 // #3: Deploy must refuse to run (and must never reach the exec.CommandContext
-// call) when localDir is missing/empty, since a real invocation would run
-// rsync --delete against an effectively-empty source and wipe the remote.
+// call) when localDir is missing/empty, rather than wasting a deploy
+// round-trip pushing nothing.
 func TestDeployRefusesEmptyLocalDir(t *testing.T) {
 	dir := t.TempDir() // exists but empty
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}

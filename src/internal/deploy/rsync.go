@@ -124,19 +124,31 @@ func sshTransport(t Target) string {
 // remote destination matter for rsync semantics — they make rsync copy the
 // *contents* of localDir/remotePath rather than the directory itself.
 //
+// Deliberately no --delete: this project supports pointing several channels'
+// HandlerConfig at the same RemotePath (e.g. multiple single-gallery
+// channels sharing one domain, each gallery living in its own postID
+// subfolder), and --delete mirrors the destination to exactly what one
+// channel's local output contains — deploying channel A would delete
+// channel B's already-deployed content the moment they share a remote
+// path. The tradeoff is that a gallery deleted locally isn't automatically
+// removed from the remote; that's an acceptable cost against silently
+// destroying a sibling channel's live content.
+//
 // site.json and gallery.json are always excluded from what gets pushed:
 // they're local statefiles used to rebuild/regenerate the site (and, for
 // site.json, they record every album's Slug/Unlisted fields — pushing them
 // would publish the supposedly-unguessable folder name of every "Unlisted"
 // album, defeating the point of the token). They are never needed on the
-// remote, which only serves the already-generated static HTML.
+// remote, which only serves the already-generated static HTML. .DS_Store is
+// also excluded — harmless but pointless clutter on the remote.
 func rsyncArgs(t Target, localDir string) []string {
 	local := strings.TrimRight(localDir, "/") + "/"
 	remote := strings.TrimRight(t.RemotePath, "/") + "/"
 	return []string{
-		"-az", "--delete",
+		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=.DS_Store",
 		"-e", sshTransport(t),
 		local,
 		fmt.Sprintf("%s@%s:%s", t.User, t.Host, remote),
@@ -183,11 +195,11 @@ func TestConnection(t Target) error {
 }
 
 // checkLocalDirDeployable verifies that dir exists and contains at least one
-// entry before it's used as the source of a destructive `rsync --delete`.
-// Without this guard, a missing, empty, or stale local directory (e.g. the
-// site was never built, or a build failed partway through) would cause
-// rsync to happily mirror that emptiness onto the remote, deleting whatever
-// was already deployed there.
+// entry before it's used as an rsync source. A missing, empty, or stale
+// local directory (e.g. the site was never built, or a build failed partway
+// through) would otherwise waste a deploy round-trip pushing nothing, or —
+// on a misconfigured OutputPath — silently succeed while deploying the
+// wrong (empty) thing instead of failing loudly.
 func checkLocalDirDeployable(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -197,7 +209,7 @@ func checkLocalDirDeployable(dir string) error {
 		return fmt.Errorf("deploy source directory %q: %w", dir, err)
 	}
 	if len(entries) == 0 {
-		return fmt.Errorf("deploy source directory %q is empty; refusing to run a destructive rsync --delete against it", dir)
+		return fmt.Errorf("deploy source directory %q is empty; refusing to deploy nothing", dir)
 	}
 	return nil
 }
