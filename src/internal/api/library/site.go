@@ -827,7 +827,7 @@ var siteGalleryTmpl = template.Must(template.New("sitegallery").Parse(`<!DOCTYPE
 const photos = {{.PhotosJSON}};
 let cur = 0;
 
-function open(idx) {
+function openLightbox(idx) {
   cur = idx;
   const lb = document.getElementById('lb');
   document.getElementById('lb-img').src = photos[idx].full;
@@ -836,33 +836,33 @@ function open(idx) {
   updateCounter();
 }
 
-function close() {
+function closeLightbox() {
   document.getElementById('lb').classList.remove('open');
   document.getElementById('lb-img').src = '';
   document.body.style.overflow = '';
 }
 
-function prev() { open((cur - 1 + photos.length) % photos.length); }
-function next() { open((cur + 1) % photos.length); }
+function prev() { openLightbox((cur - 1 + photos.length) % photos.length); }
+function next() { openLightbox((cur + 1) % photos.length); }
 
 function updateCounter() {
   document.getElementById('lb-counter').textContent = (cur + 1) + ' / ' + photos.length;
 }
 
-document.getElementById('lb-close').addEventListener('click', close);
+document.getElementById('lb-close').addEventListener('click', closeLightbox);
 document.getElementById('lb-prev').addEventListener('click', prev);
 document.getElementById('lb-next').addEventListener('click', next);
-document.getElementById('lb').addEventListener('click', e => { if (e.target === e.currentTarget) close(); });
+document.getElementById('lb').addEventListener('click', e => { if (e.target === e.currentTarget) closeLightbox(); });
 
 document.addEventListener('keydown', e => {
   if (!document.getElementById('lb').classList.contains('open')) return;
   if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
   if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-  if (e.key === 'Escape')     { e.preventDefault(); close(); }
+  if (e.key === 'Escape')     { e.preventDefault(); closeLightbox(); }
 });
 
 document.querySelectorAll('#gallery figure').forEach(fig => {
-  fig.addEventListener('click', () => open(parseInt(fig.dataset.index, 10)));
+  fig.addEventListener('click', () => openLightbox(parseInt(fig.dataset.index, 10)));
 });
 
 let swipeStartX = 0, swipeStartY = 0;
