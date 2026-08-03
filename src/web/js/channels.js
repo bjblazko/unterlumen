@@ -96,6 +96,25 @@ const ChannelAPI = {
     },
 };
 
+/* --- Deploy URL helpers ---
+ * A channel's public base URL comes from Site URL (site-export channels only).
+ * Gallery-export (single-gallery) channels have no such field, but when an
+ * rsync handler is configured its Host is, in practice, almost always the
+ * same domain the content is served from — so fall back to it as a labelled
+ * best-effort guess rather than showing nothing. */
+
+function _deployBaseURL(ch) {
+    if (ch.siteURL) return { url: ch.siteURL.replace(/\/$/, ''), guessed: false };
+    if (ch.handler === 'rsync' && ch.handlerConfig?.host) return { url: 'https://' + ch.handlerConfig.host, guessed: true };
+    return null;
+}
+
+// Site-export albums live under /albums/<folder>/; gallery-export (single
+// gallery) albums are written directly at the deploy root as /<folder>/.
+function _albumPath(ch, folderName) {
+    return ch.siteExport ? `/albums/${folderName}/` : `/${folderName}/`;
+}
+
 /* --- ChannelSettingsModal --- */
 
 class ChannelSettingsModal {
@@ -169,7 +188,7 @@ class ChannelSettingsModal {
                 </div>
                 <div class="channel-row-actions">
                     ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
-                    ${ch.siteExport ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
+                    ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
                     ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
                         <button class="btn btn-sm ch-path-toggle">Path ▾</button>
@@ -206,6 +225,8 @@ class ChannelSettingsModal {
         if (ch.siteExport) {
             const rebuildBtn = row.querySelector('.ch-rebuild');
             rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
+        }
+        if (ch.siteExport || ch.galleryExport) {
             row.querySelector('.ch-albums').addEventListener('click', () => this._showAlbums(ch));
         }
         if (ch.handler === 'rsync') {
@@ -257,9 +278,16 @@ class ChannelSettingsModal {
             btn.textContent = res.ok ? 'Deployed' : 'Failed';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
             if (res.ok) {
-                const link = ch.siteURL
-                    ? `<a href="${escapeHtml(ch.siteURL)}" target="_blank" rel="noopener">${escapeHtml(ch.siteURL)}</a>`
-                    : '<em>no Site URL set — add one in Edit to get a link here</em>';
+                const base = _deployBaseURL(ch);
+                let link;
+                if (base) {
+                    const note = base.guessed
+                        ? ' <span class="form-hint">(guessed from deploy Host — confirm this matches your public domain)</span>'
+                        : '';
+                    link = `<a href="${escapeHtml(base.url)}" target="_blank" rel="noopener">${escapeHtml(base.url)}</a>${note}`;
+                } else {
+                    link = '<em>no URL known — set a Site URL (site channels) or a Host (rsync handler) to get a link here</em>';
+                }
                 showResult(true, `✓ Deployed just now. ${link}`);
             } else {
                 showResult(false, `✗ Deploy failed: ${escapeHtml(res.error || 'unknown error')}`);
@@ -295,14 +323,19 @@ class ChannelSettingsModal {
                 body.innerHTML = '<div class="channel-empty">No albums built yet.</div>';
                 return;
             }
+            const base = _deployBaseURL(ch);
             body.innerHTML = albums.map(a => {
-                const path = `/albums/${a.folderName}/`;
-                const url = ch.siteURL ? ch.siteURL.replace(/\/$/, '') + path : path;
+                const path = _albumPath(ch, a.folderName);
+                const url = base ? base.url + path : path;
                 const dateStr = new Date(a.publishedAt).toLocaleDateString();
                 const badge = a.unlisted ? '<span class="album-badge album-badge--unlisted">Unlisted</span>' : '';
-                const linkHtml = ch.siteURL
-                    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`
-                    : `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL in Edit for a full link)</span>`;
+                let linkHtml;
+                if (base) {
+                    const note = base.guessed ? ' <span class="form-hint">(guessed from deploy Host)</span>' : '';
+                    linkHtml = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>${note}`;
+                } else {
+                    linkHtml = `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL, or configure an rsync Host, for a full link)</span>`;
+                }
                 return `
                     <div class="album-row">
                         <div class="album-row-top">

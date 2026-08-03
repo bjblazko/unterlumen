@@ -2171,6 +2171,7 @@ func listGalleries(chStore *channels.Store) http.HandlerFunc {
 					PublishedAt: gs.PublishedAt,
 					UpdatedAt:   gs.UpdatedAt,
 					PhotoCount:  gs.PhotoCount,
+					FolderName:  e.Name(), // gallery-export mode: folder name == PostID, use the actual dir name on disk
 				})
 			}
 			sort.Slice(items, func(i, j int) bool {
