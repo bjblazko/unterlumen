@@ -7,7 +7,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -306,7 +305,8 @@ func exportWebPCwebp(srcPath string, opts ExportOptions) ([]byte, error) {
 	// -update 1: write a single file, not an image sequence
 	ffArgs := []string{"-i", srcPath, "-pix_fmt", "rgb24", "-vframes", "1", "-update", "1", "-y", tmpPNGPath}
 	var decodeStderr bytes.Buffer
-	decodeCmd := exec.Command("ffmpeg", ffArgs...)
+	decodeCmd, decodeCancel := commandWithTimeout("ffmpeg", ffArgs...)
+	defer decodeCancel()
 	decodeCmd.Stderr = &decodeStderr
 	if err := decodeCmd.Run(); err != nil {
 		return nil, fmt.Errorf("WebP via cwebp: decode: %v: %s", err, decodeStderr.String())
@@ -332,7 +332,8 @@ func exportWebPCwebp(srcPath string, opts ExportOptions) ([]byte, error) {
 	cwebpArgs = append(cwebpArgs, tmpPNGPath, "-o", "-")
 
 	var out, encStderr bytes.Buffer
-	encCmd := exec.Command("cwebp", cwebpArgs...)
+	encCmd, encCancel := commandWithTimeout("cwebp", cwebpArgs...)
+	defer encCancel()
 	encCmd.Stdout = &out
 	encCmd.Stderr = &encStderr
 	if err := encCmd.Run(); err != nil {
@@ -411,7 +412,8 @@ func injectExif(srcPath string, data []byte, format, mode string) ([]byte, error
 		args = []string{"-n", "-TagsFromFile", srcPath, "-Orientation=1", "-overwrite_original", tmpPath}
 	}
 
-	cmd := exec.Command("exiftool", args...)
+	cmd, cancel := commandWithTimeout("exiftool", args...)
+	defer cancel()
 	cmd.Stderr = &bytes.Buffer{}
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("exiftool: %w", err)

@@ -160,6 +160,26 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 	progress <- Progress{Done: total, Total: total, Finished: true}
 }
 
+// resolveCanonicalPath returns the path that should be recorded as photoID's
+// path_hint when indexFile is about to record absPath for it. Photos are
+// keyed by content hash, so scanning a byte-identical copy of an
+// already-indexed photo at a second location used to unconditionally
+// repoint that photo's single DB row at the new path — silently dropping
+// the original from the library (it's still on disk, just no longer
+// referenced) even though nothing was renamed or deleted. If the existing
+// path_hint still exists on disk and differs from absPath, this is a
+// genuine duplicate, not a rename: keep pointing at the original.
+func (idx *Indexer) resolveCanonicalPath(photoID, absPath string) string {
+	prevPath, err := idx.store.GetPhotoPathHint(photoID)
+	if err != nil || prevPath == "" || prevPath == absPath {
+		return absPath
+	}
+	if _, statErr := os.Stat(prevPath); statErr == nil {
+		return prevPath
+	}
+	return absPath
+}
+
 func (idx *Indexer) indexFile(absPath string) error {
 	info, err := os.Stat(absPath)
 	if err != nil {
@@ -175,7 +195,8 @@ func (idx *Indexer) indexFile(absPath string) error {
 		return err
 	}
 	if found && cachedMtime == mtimeNs && cachedSize == fileSize {
-		if err := idx.store.MarkPhotoPresent(cachedID, absPath, filepath.Base(absPath)); err != nil {
+		canonicalPath := idx.resolveCanonicalPath(cachedID, absPath)
+		if err := idx.store.MarkPhotoPresent(cachedID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
 			return err
 		}
 		idx.indexSidecar(absPath, cachedID)
@@ -203,7 +224,8 @@ func (idx *Indexer) indexFile(absPath string) error {
 		return err
 	}
 	if exists {
-		if err := idx.store.MarkPhotoPresent(photoID, absPath, filepath.Base(absPath)); err != nil {
+		canonicalPath := idx.resolveCanonicalPath(photoID, absPath)
+		if err := idx.store.MarkPhotoPresent(photoID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
 			return err
 		}
 		if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
@@ -321,7 +343,8 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 		if err := idx.store.SetPhotoThumbPath(photoID, thumbRel); err != nil {
 			return err
 		}
-		if err := idx.store.MarkPhotoPresent(photoID, absPath, filepath.Base(absPath)); err != nil {
+		canonicalPath := idx.resolveCanonicalPath(photoID, absPath)
+		if err := idx.store.MarkPhotoPresent(photoID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
 			return err
 		}
 	}

@@ -13,7 +13,23 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
+
+// externalCmdTimeout bounds every external decoder/converter/probe call
+// (ffmpeg, sips, heif-convert, exiftool, cwebp). Without a deadline, a
+// malformed or pathological input file that makes one of these hang blocks
+// the calling HTTP handler goroutine indefinitely. Not a const so tests can
+// shrink it to verify the timeout actually fires without waiting a minute.
+var externalCmdTimeout = 60 * time.Second
+
+// commandWithTimeout builds an exec.Cmd bounded by externalCmdTimeout. The
+// returned cancel func must be deferred by the caller to release the timer;
+// it does not itself kill an already-finished command.
+func commandWithTimeout(name string, args ...string) (*exec.Cmd, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), externalCmdTimeout)
+	return exec.CommandContext(ctx, name, args...), cancel
+}
 
 var supportedExtensions = map[string]bool{
 	".jpg":  true,
@@ -65,10 +81,12 @@ func CheckFFmpeg() FFmpegStatus {
 		ffmpegStatus.Available = true
 
 		var out bytes.Buffer
-		cmd := exec.Command("ffmpeg", "-decoders")
+		cmd, cancel := commandWithTimeout("ffmpeg", "-decoders")
 		cmd.Stdout = &out
 		cmd.Stderr = &bytes.Buffer{}
-		if err := cmd.Run(); err != nil {
+		err = cmd.Run()
+		cancel()
+		if err != nil {
 			ffmpegStatus.HEIFSupport = false
 			ffmpegStatus.ErrorMessage = "ffmpeg is installed but its decoder list could not be checked. HEIF/HEIC files may not display correctly."
 			return
@@ -82,10 +100,12 @@ func CheckFFmpeg() FFmpegStatus {
 		}
 
 		var encOut bytes.Buffer
-		encCmd := exec.Command("ffmpeg", "-encoders")
+		encCmd, encCancel := commandWithTimeout("ffmpeg", "-encoders")
 		encCmd.Stdout = &encOut
 		encCmd.Stderr = &bytes.Buffer{}
-		if err := encCmd.Run(); err == nil {
+		encErr := encCmd.Run()
+		encCancel()
+		if encErr == nil {
 			ffmpegStatus.WebPSupport = strings.Contains(encOut.String(), "webp")
 		}
 	})
@@ -448,7 +468,8 @@ func sipsConvert(path string) ([]byte, error) {
 	defer os.Remove(tmpPath)
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("sips", "-s", "format", "jpeg", "-s", "formatOptions", "92", path, "--out", tmpPath)
+	cmd, cancel := commandWithTimeout("sips", "-s", "format", "jpeg", "-s", "formatOptions", "92", path, "--out", tmpPath)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("sips failed: %v: %s", err, stderr.String())
@@ -471,7 +492,8 @@ func heifConvert(path string) ([]byte, error) {
 	outPath := filepath.Join(tmpDir, "out.jpg")
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("heif-convert", path, outPath)
+	cmd, cancel := commandWithTimeout("heif-convert", path, outPath)
+	defer cancel()
 	cmd.Stderr = &stderr
 	runErr := cmd.Run()
 
@@ -526,7 +548,8 @@ func ffmpegRun(inputPath string, args ...string) ([]byte, error) {
 	cmdArgs = append(cmdArgs, "-i", inputPath)
 	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.Command("ffmpeg", cmdArgs...)
+	cmd, cancel := commandWithTimeout("ffmpeg", cmdArgs...)
+	defer cancel()
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
@@ -539,7 +562,8 @@ func ffmpegRun(inputPath string, args ...string) ([]byte, error) {
 
 func ffmpegProbe(path string) string {
 	var stderr bytes.Buffer
-	cmd := exec.Command("ffmpeg", "-i", path)
+	cmd, cancel := commandWithTimeout("ffmpeg", "-i", path)
+	defer cancel()
 	cmd.Stderr = &stderr
 	cmd.Run() // always exits non-zero (no output file)
 	return stderr.String()
@@ -628,7 +652,7 @@ func probeHEIFJPEGStreamsWithFFProbe(path string) ([]heifJPEGPreviewStream, erro
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	cmd := exec.Command(
+	cmd, cancel := commandWithTimeout(
 		"ffprobe",
 		"-v", "error",
 		"-select_streams", "v",
@@ -636,6 +660,7 @@ func probeHEIFJPEGStreamsWithFFProbe(path string) ([]heifJPEGPreviewStream, erro
 		"-of", "json",
 		path,
 	)
+	defer cancel()
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

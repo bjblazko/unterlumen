@@ -9,7 +9,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -108,17 +107,40 @@ func cropWebP(srcPath string, x, y, w, h float64) error {
 		return fmt.Errorf("decode WebP: %w", err)
 	}
 
-	b := img.Bounds()
-	vW, vH := b.Dx(), b.Dy()
-	cX := clampInt(int(x*float64(vW)), 0, vW)
-	cY := clampInt(int(y*float64(vH)), 0, vH)
-	cW := clampInt(int(w*float64(vW)), 0, vW-cX)
-	cH := clampInt(int(h*float64(vH)), 0, vH-cY)
-	if cW <= 0 || cH <= 0 {
-		return fmt.Errorf("crop region is empty")
+	// Apply EXIF orientation before cropping, same as cropStandard/cropHEIF —
+	// x/y/w/h are fractions of the visually-rendered image, so an oriented
+	// WebP needs the same display-space correction those paths already do.
+	if orientation := ExtractOrientation(srcPath); orientation > 1 {
+		img = applyOrientation(img, orientation)
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(srcPath), ".crop_tmp_*.webp")
+	cropped, err := cropRect(img, x, y, w, h)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(srcPath)
+
+	// Encode the already-cropped, already-oriented raster to a lossless
+	// intermediate PNG so ffmpeg only has to re-encode pixels to WebP.
+	// (ffmpeg's own crop filter operates on the raw, un-rotated source; for a
+	// 90/270 orientation that would require mapping the crop rect through
+	// the inverse rotation, which cropRect already avoids by cropping in Go
+	// after the image is upright.)
+	tmpPNG, err := os.CreateTemp(dir, ".crop_tmp_*.png")
+	if err != nil {
+		return err
+	}
+	tmpPNGPath := tmpPNG.Name()
+	pngErr := png.Encode(tmpPNG, cropped)
+	tmpPNG.Close()
+	if pngErr != nil {
+		os.Remove(tmpPNGPath)
+		return fmt.Errorf("encode intermediate PNG: %w", pngErr)
+	}
+	defer os.Remove(tmpPNGPath)
+
+	tmp, err := os.CreateTemp(dir, ".crop_tmp_*.webp")
 	if err != nil {
 		return err
 	}
@@ -126,17 +148,17 @@ func cropWebP(srcPath string, x, y, w, h float64) error {
 	tmpPath := tmp.Name()
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("ffmpeg",
-		"-i", srcPath,
-		"-vf", fmt.Sprintf("crop=%d:%d:%d:%d", cW, cH, cX, cY),
+	cmd, cancel := commandWithTimeout("ffmpeg",
+		"-i", tmpPNGPath,
 		"-c:v", "libwebp",
 		"-quality", "90",
 		"-y", tmpPath,
 	)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		os.Remove(tmpPath)
-		return fmt.Errorf("ffmpeg WebP crop: %v: %s", err, stderr.String())
+		return fmt.Errorf("ffmpeg WebP encode: %v: %s", err, stderr.String())
 	}
 
 	if err := cropCopyMetadata(srcPath, tmpPath); err != nil {
@@ -210,7 +232,8 @@ func cropHEIF(srcPath string, x, y, w, h float64) error {
 	os.Remove(tmpHEICPath) // sips creates the output file itself
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("sips", "-s", "format", "heic", tmpJPGPath, "--out", tmpHEICPath)
+	cmd, cancel := commandWithTimeout("sips", "-s", "format", "heic", tmpJPGPath, "--out", tmpHEICPath)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		os.Remove(tmpHEICPath)
@@ -236,7 +259,7 @@ func cropCopyMetadata(srcPath, dstPath string) error {
 	}
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("exiftool",
+	cmd, cancel := commandWithTimeout("exiftool",
 		"-TagsFromFile", srcPath,
 		"-all:all",
 		"--ImageWidth", "--ImageHeight",
@@ -246,6 +269,7 @@ func cropCopyMetadata(srcPath, dstPath string) error {
 		"-overwrite_original",
 		dstPath,
 	)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("exiftool metadata copy: %v: %s", err, stderr.String())

@@ -36,13 +36,13 @@ type fileOpResponse struct {
 func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *library.Manager) {
 	mux.HandleFunc("/api/copy", handleCopy(root, cache, libMgr))
 	mux.HandleFunc("/api/move", handleMove(root, cache, libMgr))
-	mux.HandleFunc("/api/delete", handleDelete(root, cache))
+	mux.HandleFunc("/api/delete", handleDelete(root, cache, libMgr))
 	mux.HandleFunc("/api/mkdir", handleMkdir(root, cache))
-	mux.HandleFunc("/api/rename", handleRename(root, cache))
+	mux.HandleFunc("/api/rename", handleRename(root, cache, libMgr))
 	mux.HandleFunc("/api/list-recursive", handleListRecursive(root))
 }
 
-func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
+func handleDelete(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -71,8 +71,34 @@ func handleDelete(root string, cache *media.ScanCache) http.HandlerFunc {
 		for dir := range dirsToInvalidate {
 			cache.Invalidate(dir)
 		}
+		triggerLibraryCleanup(libMgr, dirsToInvalidate)
 
 		writeJSON(w, fileOpResponse{Results: results})
+	}
+}
+
+// triggerLibraryCleanup queues a background library cleanup for each directory
+// that a delete/rename touched, so any library indexing one of these folders
+// purges stale DB rows for files that no longer exist. Without this, a photo
+// deleted or renamed through the generic file-ops endpoints keeps showing up
+// (with a broken thumbnail) in library mode until a manual rescan.
+func triggerLibraryCleanup(libMgr *library.Manager, dirs map[string]struct{}) {
+	if libMgr == nil {
+		return
+	}
+	for dir := range dirs {
+		lib, ok := libMgr.FindLibraryForPath(dir)
+		if !ok {
+			continue
+		}
+		rel, err := filepath.Rel(lib.SourcePath, dir)
+		if err != nil {
+			continue
+		}
+		if rel == "." {
+			rel = ""
+		}
+		libMgr.TriggerCleanupInFolderBackground(lib.ID, rel)
 	}
 }
 
@@ -227,7 +253,7 @@ func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {
 	}
 }
 
-func handleRename(root string, cache *media.ScanCache) http.HandlerFunc {
+func handleRename(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -254,6 +280,12 @@ func handleRename(root string, cache *media.ScanCache) http.HandlerFunc {
 			return
 		}
 
+		srcInfo, err := os.Stat(srcPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		dstPath := filepath.Join(filepath.Dir(srcPath), req.Name)
 		if _, err := os.Stat(dstPath); err == nil {
 			http.Error(w, "Destination already exists", http.StatusConflict)
@@ -264,7 +296,22 @@ func handleRename(root string, cache *media.ScanCache) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		cache.Invalidate(filepath.Dir(srcPath))
+		parentDir := filepath.Dir(srcPath)
+		cache.Invalidate(parentDir)
+
+		// Keep the library index in sync: a plain file rename can be resolved
+		// immediately via content-hash matching (mirrors handleCopy/handleMove);
+		// a directory rename needs a folder-scoped cleanup to purge the old
+		// path_hint rows, since IndexFilesSync only indexes individual files.
+		if libMgr != nil {
+			if !srcInfo.IsDir() {
+				if lib, ok := libMgr.FindLibraryForPath(dstPath); ok {
+					libMgr.IndexFilesSync(lib.ID, []string{dstPath})
+				}
+			}
+			triggerLibraryCleanup(libMgr, map[string]struct{}{parentDir: {}})
+		}
+
 		writeJSON(w, map[string]bool{"success": true})
 	}
 }

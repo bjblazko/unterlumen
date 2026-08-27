@@ -32,9 +32,9 @@ class JustifiedRenderer {
     }
 
     _renderDirItem(idx, name, focusedClass) {
-        return `<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${name}" data-type="dir">
+        return `<div class="grid-item dir-item${focusedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
             <div class="dir-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></div>
-            <div class="item-name">${name}</div>
+            <div class="item-name">${escapeHtml(name)}</div>
         </div>`;
     }
 
@@ -43,13 +43,13 @@ class JustifiedRenderer {
         const selectedClass = selection.selected.has(fp) ? ' selected' : '';
         const markedClass = this._pane.isMarkedForDeletion(fp) ? ' marked-for-deletion' : '';
         const label = entry.label ?? entry.name;
-        const nameHtml = showNames ? `<div class="item-name">${label}</div>` : '';
+        const nameHtml = showNames ? `<div class="item-name">${escapeHtml(label)}</div>` : '';
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
         const ar = aspectRatios[idx] || 1.5;
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
         const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
-        return `<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${entry.name}" data-type="image" data-path="${fp}" style="width:${Math.round(targetHeight * ar)}px;height:${targetHeight}px">
-            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${label}" loading="lazy" decoding="async" fetchpriority="low" data-jidx="${idx}"${onerror}>${badgesHtml}${nameHtml}
+        return `<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="image" data-path="${escapeHtml(fp)}" style="width:${Math.round(targetHeight * ar)}px;height:${targetHeight}px">
+            <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${escapeHtml(label)}" loading="lazy" decoding="async" fetchpriority="low" data-jidx="${idx}"${onerror}>${badgesHtml}${nameHtml}
         </div>`;
     }
 

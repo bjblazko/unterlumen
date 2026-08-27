@@ -144,3 +144,55 @@ func TestPurgeMissingPhotos(t *testing.T) {
 		t.Error("orphan exif_index rows remain after purge")
 	}
 }
+
+// TestListPhotoRefsInFolderDoesNotMatchSiblingFolder guards against the LIKE
+// wildcard bug where an unescaped "_" in a folder name (e.g. "2024_Trip")
+// matched any single character, causing a folder-scoped cleanup to also pick
+// up an unrelated sibling folder like "2024XTrip" and purge its photos.
+func TestListPhotoRefsInFolderDoesNotMatchSiblingFolder(t *testing.T) {
+	s := newTestStore(t)
+
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(s.UpsertPhoto("a", "/root/2024_Trip/a.jpg", "a.jpg", 0, time.Now(), "", "", "", "jpeg"))
+	must(s.UpsertPhoto("c", "/root/2024XTrip/c.jpg", "c.jpg", 0, time.Now(), "", "", "", "jpeg"))
+
+	refs, err := s.ListPhotoRefsInFolder("/root/2024_Trip")
+	if err != nil {
+		t.Fatalf("ListPhotoRefsInFolder: %v", err)
+	}
+	if len(refs) != 1 || refs[0].ID != "a" {
+		t.Errorf("ListPhotoRefsInFolder(2024_Trip) = %+v, want only photo 'a' (sibling 2024XTrip must not match)", refs)
+	}
+}
+
+// TestDeletePathCacheForFolderDoesNotMatchSiblingFolder is the same guard as
+// above, for the path_cache-clearing counterpart.
+func TestDeletePathCacheForFolderDoesNotMatchSiblingFolder(t *testing.T) {
+	s := newTestStore(t)
+
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	// path_cache.photo_id references photos(id); insert the parent rows first.
+	must(s.UpsertPhoto("a", "/root/2024_Trip/a.jpg", "a.jpg", 0, time.Now(), "", "", "", "jpeg"))
+	must(s.UpsertPhoto("c", "/root/2024XTrip/c.jpg", "c.jpg", 0, time.Now(), "", "", "", "jpeg"))
+	must(s.UpsertPathCache("/root/2024_Trip/a.jpg", "a", 1, 1))
+	must(s.UpsertPathCache("/root/2024XTrip/c.jpg", "c", 1, 1))
+
+	must(s.DeletePathCacheForFolder("/root/2024_Trip"))
+
+	if _, _, _, found, _ := s.GetPathCache("/root/2024_Trip/a.jpg"); found {
+		t.Error("path_cache for 2024_Trip/a.jpg should have been cleared")
+	}
+	if _, _, _, found, _ := s.GetPathCache("/root/2024XTrip/c.jpg"); !found {
+		t.Error("path_cache for sibling 2024XTrip/c.jpg should NOT have been cleared")
+	}
+}

@@ -16,15 +16,16 @@ import (
 
 // Manager manages the set of libraries rooted at a base directory.
 type Manager struct {
-	root              string
-	indexMu           sync.Map // map[libraryID]bool — prevents concurrent reindex of same library
-	scans             sync.Map // map[libraryID]*Broadcaster — active scan progress broadcasters
-	openDBs           sync.Map // map[libraryID]*sql.DB — long-lived per-library connections
-	statsCache        sync.Map // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
-	timelineCache     sync.Map // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
-	exifRangesCache   sync.Map // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
-	exifValuesCache   sync.Map // map[cacheKey+"|"+field][]string — invalidated on scan start/end
-	folderStatsCache  sync.Map // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
+	root             string
+	indexMu          sync.Map   // map[libraryID]bool — prevents concurrent reindex of same library
+	scans            sync.Map   // map[libraryID]*Broadcaster — active scan progress broadcasters
+	dbMu             sync.Mutex // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
+	openDBs          sync.Map   // map[libraryID]*sql.DB — long-lived per-library connections
+	statsCache       sync.Map   // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
+	timelineCache    sync.Map   // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
+	exifRangesCache  sync.Map   // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
+	exifValuesCache  sync.Map   // map[cacheKey+"|"+field][]string — invalidated on scan start/end
+	folderStatsCache sync.Map   // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 }
 
 func statsCacheKey(ids []string, pathPrefix string) string {
@@ -165,7 +166,24 @@ func (m *Manager) LibDir(id string) string {
 }
 
 // getDB returns a cached *sql.DB for the library, opening and migrating it on first access.
+// The slow path (opening+caching a fresh handle) is serialized against
+// DeleteLibrary via dbMu, so a request racing a delete can't reopen and
+// re-cache a handle onto files that are mid-RemoveAll — see the fast-path
+// comment below for the one residual, unavoidable race.
 func (m *Manager) getDB(id string) (*sql.DB, error) {
+	// Fast path: no lock. A concurrent DeleteLibrary could close this handle
+	// just after we load it; that's an inherent close-vs-in-flight-use race
+	// shared by any pooled resource and is not the bug this guards against
+	// (a *stale, reopened* handle silently surviving a delete).
+	if db, ok := m.openDBs.Load(id); ok {
+		return db.(*sql.DB), nil
+	}
+
+	m.dbMu.Lock()
+	defer m.dbMu.Unlock()
+
+	// Re-check under the lock: another goroutine may have opened it already,
+	// or DeleteLibrary may have just evicted+removed it while we waited.
 	if db, ok := m.openDBs.Load(id); ok {
 		return db.(*sql.DB), nil
 	}
@@ -177,10 +195,7 @@ func (m *Manager) getDB(id string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if actual, loaded := m.openDBs.LoadOrStore(id, db); loaded {
-		db.Close() // another goroutine won the race; discard ours
-		return actual.(*sql.DB), nil
-	}
+	m.openDBs.Store(id, db)
 	return db, nil
 }
 
@@ -331,6 +346,11 @@ func (m *Manager) DeleteLibrary(id string) error {
 		return fmt.Errorf("library %s is currently being indexed", id)
 	}
 	defer m.indexMu.Delete(id)
+
+	// Hold dbMu across evict+RemoveAll so a concurrent getDB can't reopen
+	// and re-cache a handle in the gap between eviction and removal.
+	m.dbMu.Lock()
+	defer m.dbMu.Unlock()
 	if db, ok := m.openDBs.LoadAndDelete(id); ok {
 		db.(*sql.DB).Close()
 	}
@@ -1005,13 +1025,13 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 		CameraLens:     []CameraLensCount{},
 		ShootingDays:   make(map[string]int),
 	}
-	fmtMap    := make(map[string]int)
-	filmMap   := make(map[string]int)
-	clMap     := make(map[[2]string]int)
-	focalMap  := make(map[float64]int)
+	fmtMap := make(map[string]int)
+	filmMap := make(map[string]int)
+	clMap := make(map[[2]string]int)
+	focalMap := make(map[float64]int)
 	focal35Map := make(map[float64]int)
-	aperMap   := make(map[float64]int)
-	isoMap    := make(map[float64]int)
+	aperMap := make(map[float64]int)
+	isoMap := make(map[float64]int)
 
 	for _, l := range libs {
 		store, err := m.OpenStore(l.ID)
@@ -1034,10 +1054,18 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 		for _, nc := range st.FilmSims {
 			filmMap[nc.Name] += nc.Count
 		}
-		for _, vc := range st.FocalLengths   { focalMap[vc.Value]   += vc.Count }
-		for _, vc := range st.FocalLengths35 { focal35Map[vc.Value] += vc.Count }
-		for _, vc := range st.Apertures      { aperMap[vc.Value]    += vc.Count }
-		for _, vc := range st.ISOs           { isoMap[vc.Value]     += vc.Count }
+		for _, vc := range st.FocalLengths {
+			focalMap[vc.Value] += vc.Count
+		}
+		for _, vc := range st.FocalLengths35 {
+			focal35Map[vc.Value] += vc.Count
+		}
+		for _, vc := range st.Apertures {
+			aperMap[vc.Value] += vc.Count
+		}
+		for _, vc := range st.ISOs {
+			isoMap[vc.Value] += vc.Count
+		}
 		for _, clc := range st.CameraLens {
 			clMap[[2]string{clc.Camera, clc.Lens}] += clc.Count
 		}
@@ -1059,10 +1087,10 @@ func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistic
 	}
 	sortNameCounts(merged.FilmSims)
 
-	merged.FocalLengths   = mapToValueCounts(focalMap)
+	merged.FocalLengths = mapToValueCounts(focalMap)
 	merged.FocalLengths35 = mapToValueCounts(focal35Map)
-	merged.Apertures      = mapToValueCounts(aperMap)
-	merged.ISOs           = mapToValueCounts(isoMap)
+	merged.Apertures = mapToValueCounts(aperMap)
+	merged.ISOs = mapToValueCounts(isoMap)
 
 	for key, count := range clMap {
 		merged.CameraLens = append(merged.CameraLens, CameraLensCount{Camera: key[0], Lens: key[1], Count: count})

@@ -192,11 +192,11 @@ class ChannelSettingsModal {
         row.className = 'channel-row';
         const scaleDesc = _scaleDesc(ch.scale);
         const accountCount = (ch.accounts || []).length;
-        const handlerDesc = ch.handler ? ` · handler: ${ch.handler}` : '';
+        const handlerDesc = ch.handler ? ` · handler: ${escapeHtml(ch.handler)}` : '';
         const accountDesc = accountCount > 0 ? ` · ${accountCount} account${accountCount !== 1 ? 's' : ''}` : '';
         const outputDesc = ch.outputMode === 'download'
             ? ' · → download ZIP'
-            : (ch.outputPath ? ` · → ${ch.outputPath.split('/').pop() || ch.outputPath}` : '');
+            : (ch.outputPath ? ` · → ${escapeHtml(ch.outputPath.split('/').pop() || ch.outputPath)}` : '');
         row.innerHTML = `
             <div class="channel-row-top">
                 <div class="channel-row-header">

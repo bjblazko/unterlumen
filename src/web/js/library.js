@@ -499,17 +499,10 @@ class LibraryTab {
         return this._pane;
     }
 
-    _getActiveDetailPane() {
-        if (this._searchPane && this._searchPane.container.style.display !== 'none') {
-            return this._searchPane;
-        }
-        return this._pane;
-    }
-
     _updateCommanderBtn() {
         const btn = this._detailEl && this._detailEl.querySelector('#lib-commander-btn');
         if (!btn) return;
-        const pane = this._getActiveDetailPane();
+        const pane = this.getActivePaneForKeyboard();
         const target = pane ? pane.getOpenInCommanderTarget() : null;
         if (!target) {
             btn.disabled = true;
@@ -1103,7 +1096,7 @@ class LibraryTab {
 
         const commanderBtn = el.querySelector('#lib-commander-btn');
         commanderBtn.addEventListener('click', () => {
-            const pane = this._getActiveDetailPane();
+            const pane = this.getActivePaneForKeyboard();
             const target = pane ? pane.getOpenInCommanderTarget() : null;
             if (!target) return;
             App.openCommanderAt(target.dir, target.names);

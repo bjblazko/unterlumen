@@ -28,13 +28,14 @@ func RemoveGPSLocation(absPath string) error {
 		return fmt.Errorf("exiftool is not available")
 	}
 	var stderr bytes.Buffer
-	cmd := exec.Command("exiftool",
+	cmd, cancel := commandWithTimeout("exiftool",
 		"-GPSLatitude=", "-GPSLatitudeRef=",
 		"-GPSLongitude=", "-GPSLongitudeRef=",
 		"-GPSAltitude=", "-GPSAltitudeRef=",
 		"-overwrite_original",
 		absPath,
 	)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("exiftool GPS remove failed: %v: %s", err, stderr.String())
@@ -59,7 +60,7 @@ func WriteGPSLocation(absPath string, lat, lon float64) error {
 	}
 
 	var stderr bytes.Buffer
-	cmd := exec.Command("exiftool",
+	cmd, cancel := commandWithTimeout("exiftool",
 		fmt.Sprintf("-GPSLatitude=%f", math.Abs(lat)),
 		fmt.Sprintf("-GPSLatitudeRef=%s", latRef),
 		fmt.Sprintf("-GPSLongitude=%f", math.Abs(lon)),
@@ -67,6 +68,7 @@ func WriteGPSLocation(absPath string, lat, lon float64) error {
 		"-overwrite_original",
 		absPath,
 	)
+	defer cancel()
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("exiftool GPS write failed: %v: %s", err, stderr.String())

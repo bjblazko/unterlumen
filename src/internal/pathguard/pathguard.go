@@ -5,6 +5,19 @@ import (
 	"strings"
 )
 
+// withTrailingSeparator returns root with exactly one trailing path
+// separator, so it can be used as an unambiguous "is-inside" prefix (e.g.
+// "/foo" -> "/foo/"). Without this, blindly appending a separator breaks
+// when root is already the filesystem root ("/" + "/" = "//", which is a
+// prefix of nothing) — a real, deployed configuration (boundary "/" — no
+// navigation restriction), not just a theoretical edge case.
+func withTrailingSeparator(root string) string {
+	if strings.HasSuffix(root, string(filepath.Separator)) {
+		return root
+	}
+	return root + string(filepath.Separator)
+}
+
 // SafePath resolves a relative path within root and ensures it doesn't escape
 // the boundary via symlinks or path traversal. Returns the absolute path or
 // (_, false) if the path is invalid or escapes root.
@@ -34,13 +47,13 @@ func SafePath(root, relative string) (string, bool) {
 		if err != nil {
 			return "", false
 		}
-		if !strings.HasPrefix(resolvedParent, resolvedRoot) {
+		if resolvedParent != resolvedRoot && !strings.HasPrefix(resolvedParent, withTrailingSeparator(resolvedRoot)) {
 			return "", false
 		}
 		return filepath.Join(resolvedParent, filepath.Base(full)), true
 	}
 
-	if !strings.HasPrefix(resolved, resolvedRoot) {
+	if resolved != resolvedRoot && !strings.HasPrefix(resolved, withTrailingSeparator(resolvedRoot)) {
 		return "", false
 	}
 
@@ -61,7 +74,7 @@ func SafePathLogical(root, relative string) (string, bool) {
 	}
 
 	full := filepath.Join(root, cleaned)
-	if !strings.HasPrefix(full, root+string(filepath.Separator)) && full != root {
+	if !strings.HasPrefix(full, withTrailingSeparator(root)) && full != root {
 		return "", false
 	}
 

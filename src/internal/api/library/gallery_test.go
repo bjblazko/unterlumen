@@ -8,9 +8,13 @@ import (
 )
 
 func TestGenerateGallery(t *testing.T) {
+	// A third item is required to exercise the lazy path: the first two
+	// figures are always eager (above-the-fold), only later ones get
+	// loading="lazy" — see GenerateGallery's `if i < 2 { loading = "eager" }`.
 	items := []GalleryItem{
 		{Filename: "photo1.jpg", ThumbFilename: "thumbs/photo1.jpg", Width: 1200, Height: 800},
 		{Filename: "photo2.jpg", ThumbFilename: "thumbs/photo2.jpg", Width: 900, Height: 600},
+		{Filename: "photo3.jpg", ThumbFilename: "thumbs/photo3.jpg", Width: 1000, Height: 700},
 	}
 	html := string(GenerateGallery("Summer 2026", items, GalleryOptions{}))
 
@@ -19,7 +23,8 @@ func TestGenerateGallery(t *testing.T) {
 		"<h1>Summer 2026</h1>",
 		`"full":"photo1.jpg"`,
 		`"thumb":"thumbs/photo1.jpg"`,
-		`img.loading = 'lazy'`,
+		`loading="lazy"`,
+		`loading="eager"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("output missing %q", want)

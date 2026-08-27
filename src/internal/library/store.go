@@ -138,6 +138,17 @@ func newStore(db *sql.DB, dir string) *Store {
 	return &Store{db: db, dir: dir}
 }
 
+// likeEscaper escapes SQL LIKE metacharacters (\, %, _) so a folder path
+// can be used as a literal prefix in a LIKE pattern. Every query built with
+// this must pair the pattern with "LIKE ? ESCAPE '\'" — without escaping,
+// an underscore in a real folder name (e.g. "2024_Trip") matches any single
+// character, silently pulling in sibling folders like "2024XTrip".
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func escapeLikePattern(s string) string {
+	return likeEscaper.Replace(s)
+}
+
 // Close is a no-op. The underlying *sql.DB lifetime is managed by Manager.
 func (s *Store) Close() error {
 	return nil
@@ -354,16 +365,16 @@ type PhotoRef struct {
 // folderPath (i.e. starts with "<folderPath>/"). Forcing re-hashing on the next
 // indexFile call so EXIF and thumbnails are re-evaluated even for unchanged files.
 func (s *Store) DeletePathCacheForFolder(folderPath string) error {
-	prefix := folderPath + string(filepath.Separator) + "%"
-	_, err := s.db.Exec(`DELETE FROM path_cache WHERE abs_path LIKE ?`, prefix)
+	prefix := escapeLikePattern(folderPath) + string(filepath.Separator) + "%"
+	_, err := s.db.Exec(`DELETE FROM path_cache WHERE abs_path LIKE ? ESCAPE '\'`, prefix)
 	return err
 }
 
 // ListPhotoRefsInFolder returns the ID and path_hint for every ok photo whose
 // path_hint lives inside folderPath (i.e. starts with "<folderPath>/").
 func (s *Store) ListPhotoRefsInFolder(folderPath string) ([]PhotoRef, error) {
-	prefix := folderPath + string(filepath.Separator) + "%"
-	rows, err := s.db.Query(`SELECT id, path_hint FROM photos WHERE path_hint LIKE ? AND status='ok'`, prefix)
+	prefix := escapeLikePattern(folderPath) + string(filepath.Separator) + "%"
+	rows, err := s.db.Query(`SELECT id, path_hint FROM photos WHERE path_hint LIKE ? ESCAPE '\' AND status='ok'`, prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -1056,7 +1067,7 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 	// pathGlob is the LIKE pattern used on path_hint; empty means no path filter.
 	pathGlob := ""
 	if pathPrefix != "" {
-		pathGlob = pathPrefix + "/%"
+		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
 
 	// photosCond is appended to queries directly on the photos table.
@@ -1064,7 +1075,7 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 		if pathGlob == "" {
 			return "", nil
 		}
-		return " AND path_hint LIKE ?", []any{pathGlob}
+		return " AND path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
 	}
 
 	// exifJoin is an extra JOIN clause for queries that only touch exif_index.
@@ -1072,8 +1083,8 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 		if pathGlob == "" {
 			return "", "", nil
 		}
-		return "JOIN photos _ph ON _ph.id = e.photo_id AND _ph.status='ok' AND _ph.path_hint LIKE ?",
-			" AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ?)",
+		return "JOIN photos _ph ON _ph.id = e.photo_id AND _ph.status='ok' AND _ph.path_hint LIKE ? ESCAPE '\\'",
+			" AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')",
 			[]any{pathGlob}
 	}
 
@@ -1232,7 +1243,7 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 		cameraJoin := " JOIN photos _ph ON _ph.id = c.photo_id AND _ph.status='ok'"
 		var cameraArgs []any
 		if pathGlob != "" {
-			cameraJoin += " AND _ph.path_hint LIKE ?"
+			cameraJoin += " AND _ph.path_hint LIKE ? ESCAPE '\\'"
 			cameraArgs = []any{pathGlob}
 		}
 		rows, err := s.db.Query(`
@@ -1413,7 +1424,7 @@ func (s *Store) FolderStats(folderAbs string) (*LibraryFolderStats, error) {
 func (s *Store) Timeline(pathPrefix, granularity string) (*LibraryTimeline, error) {
 	pathGlob := ""
 	if pathPrefix != "" {
-		pathGlob = pathPrefix + "/%"
+		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
 	pcWhere, pcArgs := tlPhotoCond(pathGlob)
 	pWhere, pArgs := tlAliasCond(pathGlob)
@@ -1458,14 +1469,14 @@ func tlPhotoCond(pathGlob string) (string, []any) {
 	if pathGlob == "" {
 		return "", nil
 	}
-	return " AND path_hint LIKE ?", []any{pathGlob}
+	return " AND path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
 }
 
 func tlAliasCond(pathGlob string) (string, []any) {
 	if pathGlob == "" {
 		return "", nil
 	}
-	return " AND p.path_hint LIKE ?", []any{pathGlob}
+	return " AND p.path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
 }
 
 func tlDetectGranularity(db *sql.DB, pcWhere string, pcArgs []any) string {

@@ -5,6 +5,7 @@ import (
 	"image/jpeg"
 	"os"
 	"testing"
+	"time"
 )
 
 // examplePortraitJPEG is a real Fujifilm JPEG whose EXIF orientation tag says
@@ -67,5 +68,31 @@ func TestStripStaleHeifConvertOrientationNoOpWhenAlreadyNormal(t *testing.T) {
 	result := stripStaleHeifConvertOrientation(data)
 	if !bytes.Equal(result, data) {
 		t.Error("expected byte-identical passthrough when orientation is already normal")
+	}
+}
+
+// TestCommandWithTimeoutKillsHungProcess is a regression test for a hang
+// risk: every external decoder/converter call (ffmpeg, sips, heif-convert,
+// exiftool, cwebp) used to run via bare exec.Command with no deadline, so a
+// malformed input that made one of them hang would block the calling HTTP
+// handler goroutine forever. Verifies commandWithTimeout actually bounds
+// execution instead of just plumbing a context through unused.
+func TestCommandWithTimeoutKillsHungProcess(t *testing.T) {
+	old := externalCmdTimeout
+	externalCmdTimeout = 50 * time.Millisecond
+	defer func() { externalCmdTimeout = old }()
+
+	cmd, cancel := commandWithTimeout("sleep", "5")
+	defer cancel()
+
+	start := time.Now()
+	err := cmd.Run()
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected the timeout to kill `sleep 5`, but it exited cleanly")
+	}
+	if elapsed > 2*time.Second {
+		t.Errorf("command took %v to be killed, want well under the 5s sleep duration", elapsed)
 	}
 }

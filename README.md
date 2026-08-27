@@ -212,7 +212,7 @@ Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container
 
 ### Build from source
 
-Requires Go 1.21+.
+Requires Go 1.25+.
 
 ```
 cd src && go build -o ../unterlumen .
