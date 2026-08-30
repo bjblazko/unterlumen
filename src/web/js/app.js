@@ -522,8 +522,19 @@ const App = {
         } else if (tool === 'batch-rename') {
             // Files from SearchResultPane are absolute pathHints; files from
             // LibraryPane are relative to the library source dir. The batch rename
-            // API validates against server boundary (/), so normalise to boundary-relative.
-            const srcPrefix = sourcePath ? sourcePath.replace(/^\//, '') : '';
+            // API validates against the server's browse boundary, so an absolute
+            // sourcePath must be made relative to that boundary specifically —
+            // not to filesystem root "/" (only coincidentally the same when the
+            // server has no navigation restriction, e.g. desktop installs).
+            let srcPrefix = '';
+            if (sourcePath) {
+                srcPrefix = absPathRelativeToBoundary(sourcePath, this.config?.boundary);
+                if (srcPrefix === null) {
+                    alert('This library\'s folder is outside the server\'s browse root — batch rename is unavailable here.');
+                    if (onDone) onDone();
+                    return;
+                }
+            }
             const resolvedFiles = files.map(f =>
                 f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
             );

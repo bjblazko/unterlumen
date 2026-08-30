@@ -32,6 +32,12 @@ class InfoPanel {
         this.loading = true;
         this.error = null;
         this.data = null;
+        // render() prefers folderData over data when both are set, so a stale
+        // folderData/libraryStats from a previous loadFolderInfo() call (e.g.
+        // the folder was focused before any file was clicked) must be cleared
+        // here too — loadFolderInfo() already does the symmetric clear.
+        this.folderData = null;
+        this.libraryStats = null;
         this.render();
         const requestPath = path;
         try {

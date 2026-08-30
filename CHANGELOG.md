@@ -1,7 +1,13 @@
 # Changelog
 
-*Last modified: 2026-08-27*
+*Last modified: 2026-08-30*
 All notable changes to this project are documented in this file.
+
+## [0.10.7] - 2026-08-30
+
+### Fixed
+- **Batch Rename failed with "invalid path" for library photos whenever the server's browse root wasn't `/`** (e.g. the NAS install, `UNTERLUMEN_ROOT_PATH=/photos`) — `app.js`'s batch-rename handler turned a library's absolute `sourcePath` into a browse-root-relative path by naively stripping only the leading `/`, which only happens to be correct when the browse root is literally `/` (desktop installs with no navigation restriction). On any other root it produced a doubled, nonexistent path that the server correctly rejected. Fixed by reusing the same absolute-to-root-relative conversion Commander's "Jump to library" already did correctly, now shared as `absPathRelativeToBoundary()` in `api.js`.
+- **Info panel got stuck showing a previously-viewed folder's info after selecting a photo** — `InfoPanel.loadInfo()` cleared `data` but never `folderData`/`libraryStats`, unlike `loadFolderInfo()`, which clears both. Since rendering always preferred `folderData` over `data` when both were set, once any folder's info had been viewed, the panel kept showing that stale folder info indefinitely — even though the correct photo data had already loaded successfully in the background. `loadInfo()` now clears `folderData`/`libraryStats` too.
 
 ## [0.10.6] - 2026-08-27
 

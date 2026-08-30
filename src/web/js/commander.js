@@ -126,18 +126,14 @@ class Commander {
                 try {
                     const libs = await LibraryAPI.list();
                     loading.style.display = 'none';
-                    const boundary = (App.config && App.config.boundary)
-                        ? App.config.boundary.replace(/\/$/, '') : '';
+                    const boundary = App.config?.boundary;
                     if (libs.length === 0) {
                         itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--text-sec);font-size:12px">No libraries</div>';
                         return;
                     }
                     libs.forEach(lib => {
-                        let relPath = null;
                         const sp = lib.sourcePath.replace(/\/$/, '');
-                        if (sp === boundary) relPath = '';
-                        else if (!boundary) relPath = sp.replace(/^\//, '');
-                        else if (sp.startsWith(boundary + '/')) relPath = sp.substring(boundary.length + 1);
+                        const relPath = absPathRelativeToBoundary(sp, boundary);
                         const btn = document.createElement('button');
                         btn.className = 'btn dropdown-item';
                         btn.textContent = lib.name;

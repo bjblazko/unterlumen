@@ -81,6 +81,37 @@ test.describe('Folder info panel — browse mode', () => {
         await expect(page.locator('.folder-treemap')).not.toBeVisible({ timeout: 5_000 });
         await expect(page.locator('.info-panel.expanded')).not.toContainText('Size Map');
     });
+
+    // Regression test: unlike the test above, this alternates focus between a
+    // folder and a sibling image WITHOUT a load()/navigation in between (both
+    // items live in the same folder-a listing). load() always calls
+    // _notifyFocusChange() for entry 0 after navigating, which happened to
+    // mask a real bug: InfoPanel.loadInfo() never cleared folderData (only
+    // loadFolderInfo() cleared both), so render() — which prefers folderData
+    // over data whenever both are set — kept showing the previous folder's
+    // info forever after the first folder was focused, even though the
+    // correct file data had already loaded successfully in the background.
+    test('clicking a sibling photo after a sibling folder (no navigation in between) shows photo info', async ({ page }) => {
+        const folderA = page.locator('.grid-item.dir-item[data-name="folder-a"]');
+        await folderA.waitFor({ state: 'visible', timeout: 5_000 });
+        await folderA.dblclick();
+        await page.waitForSelector('.crumb[data-path="folder-a"]', { timeout: 5_000 });
+
+        // folder-a directly contains subfolders a1/a2/a3 and folder-a-sample.jpeg.
+        const subfolder = page.locator('.grid-item.dir-item[data-name="a1"]');
+        await subfolder.waitFor({ state: 'visible', timeout: 5_000 });
+        await subfolder.click();
+        await page.waitForSelector('.info-panel .info-section', { timeout: 8_000 });
+        await expect(page.locator('.info-panel.expanded')).toContainText('a1');
+        await expect(page.locator('.info-panel.expanded')).toContainText('Contents');
+
+        const photo = page.locator('[data-type="image"][data-name="folder-a-sample.jpeg"]');
+        await photo.waitFor({ state: 'visible', timeout: 5_000 });
+        await photo.click();
+
+        await expect(page.locator('.info-panel.expanded')).not.toContainText('Contents');
+        await expect(page.locator('.info-panel.expanded')).toContainText('folder-a-sample.jpeg');
+    });
 });
 
 test.describe('Folder info panel — library mode', () => {

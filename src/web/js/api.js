@@ -245,3 +245,19 @@ function escapeHtml(s) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+
+// Converts an absolute filesystem path to a path relative to the server's
+// browse boundary (App.config.boundary), which is what every path-taking API
+// endpoint validates against. Returns null if absPath isn't under boundary
+// at all. Naively stripping the leading "/" only happens to work when
+// boundary is "/" itself (no navigation restriction) — with any other
+// boundary (e.g. "/photos") it produces a bogus, doubled path that the
+// server correctly rejects as invalid.
+function absPathRelativeToBoundary(absPath, boundary) {
+    const b = (boundary || '').replace(/\/$/, '');
+    const p = (absPath || '').replace(/\/$/, '');
+    if (p === b) return '';
+    if (!b) return p.replace(/^\//, '');
+    if (p.startsWith(b + '/')) return p.substring(b.length + 1);
+    return null;
+}
