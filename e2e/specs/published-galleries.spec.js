@@ -144,8 +144,9 @@ test.describe('Published Galleries overview', () => {
         await expect(galRow).toBeVisible();
         await expect(siteRow).toBeVisible();
 
-        // No resolvable URL — must never show a checking/live/unreachable status.
-        await expect(galRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--na/);
+        // No resolvable URL — no reachability check can run, so status falls
+        // back to the plain "generated" state (no --checking/--ok/--down class).
+        await expect(galRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--generated/);
 
         // Deliberately unreachable SiteURL — must resolve to "Unreachable" within the check's timeout budget.
         await expect(siteRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--down/, { timeout: 10_000 });
@@ -229,7 +230,10 @@ test.describe('Channels list — links into Published overview', () => {
         const visitLink = row.locator('.ch-visit-site');
         await expect(visitLink).toHaveAttribute('href', 'https://example.com');
 
-        await row.locator('.ch-published').click();
+        // The status line loads its text asynchronously ("Loading status…" →
+        // gallery count), but the click handler is wired up synchronously in
+        // _row before the load completes, so clicking works regardless of load state.
+        await row.locator('.ch-status-line').click();
 
         // No galleries have been published to this channel, so the filter
         // bar falls back to the channel slug (it has no row to read a name from).

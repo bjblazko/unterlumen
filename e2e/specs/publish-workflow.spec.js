@@ -192,7 +192,11 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // two collected) photo before anything has been generated.
         await loadInfoForPhotoAt(page, photoOffset);
         await expect(page.locator('.info-pub-card--pending')).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('.info-pub-card:not(.info-pub-card--pending)')).toHaveCount(0);
+        // Scoped to this test's own channel: other spec files (e.g. build.spec.js)
+        // permanently write their own built:<slug> XMP sidecars to the shared
+        // folder-b fixture, so asserting "zero published cards of any kind" here
+        // can be defeated by unrelated leftover state from earlier spec files.
+        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key="built:${channelSlug}"]`)).toHaveCount(0);
 
         // ── 2. Published tab shows the Draft badge ──────────────────────────
         await reopenPublishedTab(page);
@@ -239,8 +243,12 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // ── 6. Info Panel now shows the photo as published, not pending ────
         await openLibraryDetail(page);
         await loadInfoForPhotoAt(page, photoOffset);
-        await expect(page.locator('.info-pub-card:not(.info-pub-card--pending)')).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('.info-pub-card--pending')).toHaveCount(0);
+        // Scoped to this test's own channel for the same reason as the check
+        // above: other channels/specs may have already published this same
+        // shared photo, so an unscoped locator can match multiple cards and
+        // trip Playwright's strict-mode violation on toBeVisible().
+        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key="built:${channelSlug}"]`)).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator(`.info-pub-card--pending .info-meta-del[data-key="pending:${channelSlug}"]`)).toHaveCount(0);
     }
 
     test('GalleryExport (plain) channel: collect, draft badge, generate, published state', async ({ page }) => {
