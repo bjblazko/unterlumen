@@ -4049,6 +4049,11 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
 }
 
+.info-pub-card--pending {
+    opacity: 0.75;
+    border: 1px dashed var(--border);
+}
+
 .info-pub-card-header {
     display: flex;
     justify-content: space-between;
@@ -4611,6 +4616,24 @@ body.slideshow-active #app { height: 100vh; }
     text-overflow: ellipsis;
 }
 
+.ch-status-line {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-2);
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ch-status-line:hover {
+    color: var(--fg);
+    text-decoration: underline;
+}
+
 .channel-row-actions {
     display: flex;
     align-items: center;
@@ -4618,51 +4641,7 @@ body.slideshow-active #app { height: 100vh; }
     flex-shrink: 0;
 }
 
-.channel-row-deploy-result {
-    font-size: 11px;
-    color: var(--success);
-    margin-top: 2px;
-}
-
-.channel-row-deploy-result--error {
-    color: var(--accent);
-}
-
-.channel-row-deploy-result a {
-    color: inherit;
-}
-
-/* --- Albums modal --- */
-
-.channel-albums-modal .modal-body {
-    gap: calc(var(--unit) * 1.5);
-}
-
-.album-row {
-    padding-bottom: calc(var(--unit) * 1);
-    border-bottom: 1px solid var(--border);
-}
-
-.album-row:last-child {
-    border-bottom: none;
-}
-
-.album-row-top {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--unit) * 0.75);
-    flex-wrap: wrap;
-}
-
-.album-row-title {
-    font-weight: 600;
-}
-
-.album-row-meta {
-    font-size: 11px;
-    color: var(--fg-2);
-    margin-left: auto;
-}
+/* --- Album badge (used by published galleries overview) --- */
 
 .album-badge {
     font-size: 10px;
@@ -4674,15 +4653,6 @@ body.slideshow-active #app { height: 100vh; }
 
 .album-badge--unlisted {
     color: var(--accent);
-}
-
-.album-row-url {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--unit) * 0.75);
-    font-size: 11px;
-    margin-top: 4px;
-    word-break: break-all;
 }
 
 /* --- Path dropdown --- */
@@ -4730,23 +4700,13 @@ body.slideshow-active #app { height: 100vh; }
 
 .channel-error { color: var(--accent); }
 
-/* --- Build modal --- */
-
-.build-modal .modal-body {
-    gap: calc(var(--unit) * 1);
-}
+/* --- Collect dialog (info/error rows used by _openCollectModal) --- */
 
 .build-info {
     font-size: 11px;
     color: var(--fg-2);
     min-height: 16px;
     padding: 2px 0;
-}
-
-.build-progress {
-    font-size: 11px;
-    color: var(--fg-2);
-    flex: 1;
 }
 
 .build-error {
@@ -4849,18 +4809,10 @@ body.slideshow-active #app { height: 100vh; }
     font-size: 11px;
 }
 
-/* --- Build modal extras --- */
+/* --- Publish dialog --- */
 
-.build-output-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.build-folder-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+.publish-dialog .modal {
+    width: 480px;
 }
 
 .build-destination {
@@ -4870,62 +4822,10 @@ body.slideshow-active #app { height: 100vh; }
     word-break: break-all;
 }
 
-.build-xmp-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.build-xmp-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.build-xmp-label {
-    font-size: 12px;
-}
-
-.build-xmp-note {
-    font-size: 11px;
-    color: var(--fg-2);
-    line-height: 1.4;
-}
-
-.build-group-note {
-    font-size: 11px;
-    color: var(--fg-2);
-    padding: 2px 0;
-}
-
-.build-date-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-
-.build-date-row .form-input {
-    flex: 1;
-}
-
-.build-time-toggle {
-    flex-shrink: 0;
-    font-size: 11px;
-    padding: 4px 8px;
-    color: var(--fg-2);
-    border-color: var(--border);
-}
-
 .build-date-note {
     font-size: 11px;
     color: var(--fg-2);
     line-height: 1.4;
-}
-
-/* --- Publish dialog --- */
-
-.publish-dialog .modal {
-    width: 480px;
 }
 
 .publish-step-photos {
@@ -5514,9 +5414,12 @@ body.slideshow-active #app { height: 100vh; }
     color: var(--danger);
 }
 
-.pub-gal-status--draft,
-.pub-gal-status--generated {
+.pub-gal-status--draft {
     color: var(--fg-3);
+}
+
+.pub-gal-status--generated {
+    color: var(--accent);
 }
 
 @keyframes pub-gal-pulse {
