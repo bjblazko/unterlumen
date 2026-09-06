@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-09-05*
+*Last modified: 2026-09-06*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### Added
 - **Published Galleries overview** — a new "Published" tab lists every published gallery across every channel (both single-gallery and multi-album site exports) in one table: title, channel, publish date, photo count, and Unlisted status. For channels with a resolvable public URL (an explicit Site URL, or a best-effort guess from the rsync deploy host), a live reachability check runs automatically when the tab opens and each row's status updates independently as its check completes — useful for noticing a previously-deployed site has since gone dark (DNS change, deleted remote directory, expired certificate) without opening every channel's Albums popup individually. New endpoints: `GET /api/channels/galleries` (aggregate listing) and `POST /api/channels/galleries/reachability` (bounded-concurrency SSE reachability sweep). See [ADR-0024](doc/architecture/adr/0024-published-galleries-overview.md).
 - **Edit and delete published galleries** — each row in the Published tab now has Edit (rename the title, regenerating its page and the site index/sitemap where applicable — the slug/URL never changes) and Delete (removes the local statefile entry and output folder, with an opt-in "also delete on the remote over SSH" option for rsync channels, scoped to exactly the one album's remote subfolder). The channels list also gained a "Visit site" link and a "Published" link that jumps to the overview pre-filtered to that channel. New endpoints: `PATCH`/`DELETE /api/channels/{slug}/galleries/{postID}`. See [ADR-0025](doc/architecture/adr/0025-gallery-edit-and-remote-delete.md).
+- **Publish dialog** — the Published tab's Status column now reflects a channel's collect/publish lifecycle (Draft with a pending-photo count, Generated, or a Live/Unreachable reachability result layered on top), and each row gets a Publish button that opens a new dialog: review the pending photos (with the option to drop one before publishing) and set the published/updated date, Generate (export + build), review the generated artifact (copy its path, reveal it in Finder/Explorer, open it in a browser), then Deploy for rsync-handler channels. Deleting a draft-only row now removes the pending draft instead of trying to delete a gallery that was never generated.
 - **Unlisted galleries** (documenting an existing, previously unreleased-noted feature) — site-export albums can be marked Unlisted at creation: the album gets a slug with a random, unguessable token appended, is excluded from the site's own index page and sitemap, and is served with a `<meta name="robots" content="noindex, nofollow">` tag. Privacy relies on the unguessable URL plus noindex, not on `robots.txt`, which is deliberately left permissive (`Allow: /`) for the site's listed albums — see the "Unlisted galleries" feature doc for the full rationale.
 
 ## [0.10.7] - 2026-08-30

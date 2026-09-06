@@ -4922,6 +4922,69 @@ body.slideshow-active #app { height: 100vh; }
     line-height: 1.4;
 }
 
+/* --- Publish dialog --- */
+
+.publish-dialog .modal {
+    width: 480px;
+}
+
+.publish-step-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.publish-step-photo {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
+.publish-step-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.publish-step-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: color-mix(in oklch, black, transparent 30%);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.publish-step-remove:hover {
+    background: var(--accent);
+}
+
+.publish-step-review {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.publish-step-review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--unit) * 1);
+}
+
 /* --- Statistics modal --- */
 
 .stats-overlay .modal {
@@ -5449,6 +5512,11 @@ body.slideshow-active #app { height: 100vh; }
 
 .pub-gal-status--down {
     color: var(--danger);
+}
+
+.pub-gal-status--draft,
+.pub-gal-status--generated {
+    color: var(--fg-3);
 }
 
 @keyframes pub-gal-pulse {
