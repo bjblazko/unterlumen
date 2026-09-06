@@ -412,90 +412,9 @@ class LibraryTab {
         this._listInfoPanel = null;
         this._listSearchPanel = null;
         this._cachedLibs = null;
-        this._detailBuildBtn = null;
-        this._listBuildBtn = null;
+        this._detailCollectBtn = null;
+        this._listCollectBtn = null;
         this._detailEl = null;
-        // Slug of the channel most recently built to, if it's rsync-configured
-        // with the fields deploy.TargetFromConfig requires — null otherwise.
-        // Drives Deploy button visibility in both the list and detail headers.
-        this._lastBuiltChannel = null;
-        // True when that build used a non-default per-build outputPath. deployChannel
-        // (backend, handler.go) always pushes store.OutputDir(slug) — the channel's
-        // *default* output dir — never a custom per-build path, so Deploy would push
-        // stale/unrelated content in that case. Drives a caveat next to the button
-        // rather than hiding it outright (the default dir may still be worth deploying).
-        this._lastBuiltCustomOutputPath = false;
-    }
-
-    // A channel is deploy-eligible once it has the rsync handler and the three
-    // fields deploy.TargetFromConfig (src/internal/deploy/rsync.go) requires.
-    _deployEligible(ch) {
-        if (!ch || ch.handler !== 'rsync') return false;
-        const cfg = ch.handlerConfig || {};
-        return !!(cfg.host && cfg.user && cfg.remotePath);
-    }
-
-    _registerBuiltChannel(ch, outputPath) {
-        this._lastBuiltChannel = this._deployEligible(ch) ? ch.slug : null;
-        this._lastBuiltCustomOutputPath = !!outputPath;
-        this._refreshDeployButtons();
-    }
-
-    _refreshDeployButtons() {
-        const slug = this._lastBuiltChannel;
-        const showCaveat = !!slug && this._lastBuiltCustomOutputPath;
-        const caveatText = "Deploy pushes this channel's default output folder — not the custom path used for this build.";
-
-        const listBtn = document.getElementById('lib-list-deploy-btn');
-        if (listBtn) listBtn.style.display = slug ? '' : 'none';
-        const listCaveat = document.getElementById('lib-list-deploy-caveat');
-        if (listCaveat) {
-            listCaveat.textContent = caveatText;
-            listCaveat.style.display = showCaveat ? '' : 'none';
-        }
-
-        const detailBtn = this._detailEl?.querySelector('#lib-deploy-btn');
-        if (detailBtn) detailBtn.style.display = slug ? '' : 'none';
-        const detailCaveat = this._detailEl?.querySelector('#lib-deploy-caveat');
-        if (detailCaveat) {
-            detailCaveat.textContent = caveatText;
-            detailCaveat.style.display = showCaveat ? '' : 'none';
-        }
-    }
-
-    // Returns a click handler that deploys the last-built channel via btn/outputEl.
-    _makeDeployHandler(btn, outputEl) {
-        return async () => {
-            const slug = this._lastBuiltChannel;
-            if (!slug) return;
-            const orig = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = 'Deploying…';
-            if (outputEl) {
-                outputEl.style.display = 'none';
-                outputEl.textContent = '';
-                outputEl.className = 'lib-deploy-output';
-            }
-            try {
-                const res = await ChannelAPI.deploy(slug);
-                if (outputEl) {
-                    outputEl.textContent = res.ok ? (res.output || 'Deploy finished (no output).') : res.error;
-                    outputEl.className = 'lib-deploy-output ' + (res.ok ? 'lib-deploy-ok' : 'lib-deploy-fail');
-                    outputEl.style.display = '';
-                }
-                App.showToast(res.ok ? `Deployed ${slug}.` : `Deploy failed: ${res.error}`);
-            } catch (err) {
-                if (outputEl) {
-                    outputEl.textContent = err.message;
-                    outputEl.className = 'lib-deploy-output lib-deploy-fail';
-                    outputEl.style.display = '';
-                }
-                App.showToast(`Deploy failed: ${err.message}`);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = orig;
-            }
-        };
     }
 
     getActivePaneForKeyboard() {
@@ -580,14 +499,11 @@ class LibraryTab {
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
-                    <button class="btn lib-build-btn" id="lib-list-build-btn" disabled>Build…</button>
-                    <button class="btn lib-deploy-btn" id="lib-list-deploy-btn" style="display:none">Deploy</button>
+                    <button class="btn lib-collect-btn" id="lib-list-collect-btn" disabled>Add to channel…</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                 </div>
             </div>
-            <div class="lib-deploy-caveat" id="lib-list-deploy-caveat" style="display:none"></div>
-            <div class="lib-deploy-output" id="lib-list-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="lib-search-content" id="lib-search-content">
@@ -602,9 +518,6 @@ class LibraryTab {
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
-        el.querySelector('#lib-list-deploy-btn').addEventListener('click',
-            this._makeDeployHandler(el.querySelector('#lib-list-deploy-btn'), el.querySelector('#lib-list-deploy-output')));
-        this._refreshDeployButtons();
 
         const sortToggle = el.querySelector('.lib-sort-toggle');
         const body = el.querySelector('#lib-list-body');
@@ -636,8 +549,8 @@ class LibraryTab {
             this._loadList(body);
         });
 
-        this._listBuildBtn = el.querySelector('#lib-list-build-btn');
-        this._listBuildBtn.addEventListener('click', () => this._openBuildModal());
+        this._listCollectBtn = el.querySelector('#lib-list-collect-btn');
+        this._listCollectBtn.addEventListener('click', () => this._openCollectModal());
 
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
@@ -656,8 +569,8 @@ class LibraryTab {
                 onFocusChange: (path) => this._onListSearchFocus(path),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: null }),
                 onSelectionChange: () => {
-                    if (this._listBuildBtn) {
-                        this._listBuildBtn.disabled =
+                    if (this._listCollectBtn) {
+                        this._listCollectBtn.disabled =
                             (this._listSearchPanel?._searchPane?.selection.selected.size ?? 0) === 0;
                     }
                 },
@@ -1067,13 +980,10 @@ class LibraryTab {
                     <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm lib-build-btn" id="lib-build-btn" disabled>Build…</button>
-                    <button class="btn btn-sm lib-deploy-btn" id="lib-deploy-btn" style="display:none">Deploy</button>
+                    <button class="btn btn-sm lib-collect-btn" id="lib-collect-btn" disabled>Add to channel…</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
-            <div class="lib-deploy-caveat" id="lib-deploy-caveat" style="display:none"></div>
-            <div class="lib-deploy-output" id="lib-deploy-output" style="display:none"></div>
             <div class="lib-search-body">
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="library-detail-body">
@@ -1084,10 +994,7 @@ class LibraryTab {
             </div>`;
         this.container.appendChild(el);
         this._detailEl = el;
-        this._detailBuildBtn = el.querySelector('#lib-build-btn');
-        el.querySelector('#lib-deploy-btn').addEventListener('click',
-            this._makeDeployHandler(el.querySelector('#lib-deploy-btn'), el.querySelector('#lib-deploy-output')));
-        this._refreshDeployButtons();
+        this._detailCollectBtn = el.querySelector('#lib-collect-btn');
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -1100,8 +1007,8 @@ class LibraryTab {
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
 
-        const buildBtn = el.querySelector('#lib-build-btn');
-        buildBtn.addEventListener('click', () => this._openBuildModal());
+        const collectBtn = el.querySelector('#lib-collect-btn');
+        collectBtn.addEventListener('click', () => this._openCollectModal());
 
         const commanderBtn = el.querySelector('#lib-commander-btn');
         commanderBtn.addEventListener('click', () => {
@@ -1158,7 +1065,7 @@ class LibraryTab {
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: () => {
-                this._updateDetailBuildBtn();
+                this._updateDetailCollectBtn();
                 this._updateCommanderBtn();
             },
         });
@@ -1176,7 +1083,7 @@ class LibraryTab {
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
-                onSelectionChange: () => { this._updateDetailBuildBtn(); this._updateCommanderBtn(); },
+                onSelectionChange: () => { this._updateDetailCollectBtn(); this._updateCommanderBtn(); },
                 onClose: () => this._filterPanel.close(),
             });
         }
@@ -1184,7 +1091,7 @@ class LibraryTab {
         this._searchPane.loadResults(photos, multiLib, paginationOpts);
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
-        this._updateDetailBuildBtn();
+        this._updateDetailCollectBtn();
         this._updateCommanderBtn();
     }
 
@@ -1196,7 +1103,7 @@ class LibraryTab {
         paneEl.style.display = '';
         // Keep _searchPane alive so it can be reused if the filter is reopened.
 
-        this._updateDetailBuildBtn();
+        this._updateDetailCollectBtn();
         this._updateCommanderBtn();
     }
 
@@ -1226,21 +1133,20 @@ class LibraryTab {
         }
     }
 
-    _updateDetailBuildBtn() {
-        if (!this._detailBuildBtn) return;
+    _updateDetailCollectBtn() {
+        if (!this._detailCollectBtn) return;
         const searchPaneEl = this._detailEl?.querySelector('#lib-search-pane');
         const searchActive = searchPaneEl && searchPaneEl.style.display !== 'none';
         if (searchActive) {
-            this._detailBuildBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
+            this._detailCollectBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
         } else {
-            this._detailBuildBtn.disabled =
+            this._detailCollectBtn.disabled =
                 (this._pane?.getSelectedFiles().length ?? 0) === 0 &&
                 !(this._pane?.selectedDirs?.size);
         }
     }
 
-    async _openBuildModal() {
-        // Detect source — SearchResultPane takes priority over LibraryPane
+    async _openCollectModal() {
         const searchPane = (() => {
             if (this._searchPane && this._detailEl?.querySelector('#lib-search-pane')?.style.display !== 'none'
                 && this._searchPane.selection.selected.size > 0) return this._searchPane;
@@ -1251,7 +1157,7 @@ class LibraryTab {
 
         let lib = this.currentLibrary;
         let selectedPaths, hasDirs, selectedDirs = [];
-        let photoGroups = null; // [{libID, photoIDs}] for SearchResultPane sources
+        let photoGroups = null;
 
         if (searchPane) {
             const hints = searchPane.getSelectedFiles();
@@ -1275,415 +1181,199 @@ class LibraryTab {
             selectedPaths = hasDirs ? [] : selectedFiles;
         }
 
-        let channels;
+        let channelList;
         try {
-            channels = await ChannelAPI.list();
+            channelList = await ChannelAPI.list();
         } catch (err) {
             alert('Failed to load channels: ' + err.message);
             return;
         }
-        if (channels.length === 0) {
+        if (channelList.length === 0) {
             alert('No channels configured. Use the Channels button to add one.');
             return;
         }
 
-        const now = new Date();
-        const todayUTC = now.toISOString().slice(0, 10);
-
-        const initialTitle = hasDirs ? 'Counting photos…' : `Build ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
+        const initialTitle = hasDirs ? 'Counting photos…'
+            : `Add ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''} to a channel`;
 
         const dlg = document.createElement('div');
         dlg.className = 'modal-backdrop';
         dlg.innerHTML = `
-            <div class="modal build-modal">
+            <div class="modal collect-modal">
                 <div class="modal-header">
                     <span class="modal-title">${initialTitle}</span>
-                    <button class="modal-close" id="build-close">&times;</button>
+                    <button class="modal-close" id="collect-close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <label class="form-label">Channel</label>
-                    <select class="form-select" id="build-channel">
-                        ${channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
+                    <select class="form-select" id="collect-channel">
+                        ${channelList.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
                     </select>
-                    <div id="build-account-wrap" style="display:none">
+                    <div id="collect-account-wrap" style="display:none">
                         <label class="form-label">Account</label>
-                        <select class="form-select" id="build-account"></select>
+                        <select class="form-select" id="collect-account"></select>
                     </div>
-                    <label class="form-label">Date</label>
-                    <div class="build-date-row">
-                        <input class="form-input" id="build-date" type="date" value="${todayUTC}">
-                        <button type="button" class="btn btn-sm build-time-toggle" id="build-time-toggle">+ Time</button>
-                    </div>
-                    <div id="build-time-wrap" style="display:none">
-                        <input class="form-input" id="build-time" type="time" value="12:00">
-                    </div>
-                    <span class="build-date-note">Sets album order in the built site and is stored in XMP sidecars.</span>
-                    <div class="build-info" id="build-info"></div>
-                    <div id="build-gallery-wrap" style="display:none">
-                        <div id="build-target-wrap" style="display:none">
-                            <label class="form-label">Add to</label>
-                            <select class="form-select" id="build-target"></select>
-                        </div>
-                        <div id="build-title-wrap">
-                            <label class="form-label" id="build-gallery-label">Gallery title</label>
-                            <input class="form-input" id="build-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
-                            <div id="build-unlisted-wrap" style="display:none">
+                    <div id="collect-gallery-wrap" style="display:none">
+                        <label class="form-label">Add to</label>
+                        <select class="form-select" id="collect-target">
+                            <option value="">New…</option>
+                        </select>
+                        <div id="collect-title-wrap">
+                            <label class="form-label" id="collect-gallery-label">Gallery title</label>
+                            <input class="form-input" id="collect-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
+                            <div id="collect-unlisted-wrap" style="display:none">
                                 <label class="export-radio-row">
-                                    <input type="checkbox" id="build-unlisted">
+                                    <input type="checkbox" id="collect-unlisted">
                                     Unlisted (not listed on the site index or sitemap — reachable only via direct link)
                                 </label>
                             </div>
                         </div>
                     </div>
-                    <div class="build-output-section">
-                        <label class="form-label">Output</label>
-                        <select class="form-select" id="build-output-mode">
-                            <option value="save">Save to folder</option>
-                            <option value="download">Download as ZIP</option>
-                        </select>
-                        <div id="build-folder-wrap">
-                            <div class="export-destination-wrap">
-                                <input class="form-input export-destination-input" id="build-output-path" autocomplete="off">
-                                <button type="button" class="btn btn-sm" id="build-output-pick" title="Browse folders">…</button>
-                            </div>
-                            <div class="build-destination" id="build-destination"></div>
-                        </div>
-                    </div>
-                    <div class="build-xmp-row">
-                        <div class="build-xmp-header">
-                            <button class="toggle" role="switch" id="build-record-xmp" data-state="on" aria-checked="true">
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                            </button>
-                            <span class="build-xmp-label">Record publication in XMP sidecar</span>
-                        </div>
-                        <span class="build-xmp-note">Writes channel name, post ID, and timestamp into the photo's .xmp sidecar. Used by the library to track what has been built.</span>
-                    </div>
+                    <div class="build-info" id="collect-info"></div>
                 </div>
                 <div class="modal-footer">
-                    <div class="build-error" id="build-error" style="display:none"></div>
-                    <div class="build-progress" id="build-progress" style="display:none"></div>
-                    <button class="btn" id="build-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="build-confirm"${hasDirs ? ' disabled' : ''}>Build</button>
+                    <div class="build-error" id="collect-error" style="display:none"></div>
+                    <button class="btn" id="collect-cancel">Cancel</button>
+                    <button class="btn btn-accent" id="collect-confirm"${hasDirs ? ' disabled' : ''}>Add to channel</button>
                 </div>
             </div>`;
         document.body.appendChild(dlg);
 
-        // Expand folder selections asynchronously (LibraryPane with dir selections only)
         if (hasDirs) {
             Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d)))
                 .then(arrays => {
                     selectedPaths = arrays.flat();
                     if (dlg.isConnected) {
                         dlg.querySelector('.modal-title').textContent =
-                            `Build ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''}`;
-                        dlg.querySelector('#build-confirm').disabled = selectedPaths.length === 0;
+                            `Add ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''} to a channel`;
+                        dlg.querySelector('#collect-confirm').disabled = selectedPaths.length === 0;
                     }
                 });
         }
 
-        const setXmpState = (on) => {
-            const btn = dlg.querySelector('#build-record-xmp');
-            btn.dataset.state = on ? 'on' : 'off';
-            btn.setAttribute('aria-checked', String(on));
-        };
-
-        const updateOutputDisplay = async (ch, mode) => {
-            const folderWrap = dlg.querySelector('#build-folder-wrap');
-            const destEl = dlg.querySelector('#build-destination');
-            const pathInput = dlg.querySelector('#build-output-path');
-            if (mode === 'download') {
-                folderWrap.style.display = 'none';
-            } else {
-                folderWrap.style.display = '';
-                if (!pathInput.value.trim()) {
-                    destEl.textContent = '…';
-                    try {
-                        const path = await ChannelAPI.path(ch.slug);
-                        if (destEl.isConnected && !pathInput.value.trim()) {
-                            pathInput.placeholder = path;
-                            destEl.textContent = '';
-                        }
-                    } catch {
-                        if (destEl.isConnected) destEl.textContent = '';
-                    }
-                }
-            }
-        };
-
-        const resetDateToToday = () => {
-            dlg.querySelector('#build-date').value = new Date().toISOString().slice(0, 10);
-            dlg.querySelector('#build-time').value = '12:00';
-        };
-
-        const applyTargetSelection = (galleries) => {
-            const targetSel = dlg.querySelector('#build-target');
-            const titleWrap = dlg.querySelector('#build-title-wrap');
-            const dateNote = dlg.querySelector('.build-date-note');
-            const selectedPostID = targetSel.value;
-            if (selectedPostID === '') {
-                titleWrap.style.display = '';
-                resetDateToToday();
-                dateNote.textContent = 'Sets album order in the built site and is stored in XMP sidecars.';
-            } else {
-                titleWrap.style.display = 'none';
-                // Pre-fill with today — this becomes the UpdatedAt date, not the sort date.
-                resetDateToToday();
-                // Collapse time; user can expand with + Time if needed.
-                dlg.querySelector('#build-time-wrap').style.display = 'none';
-                dlg.querySelector('#build-time-toggle').textContent = '+ Time';
-                dateNote.textContent = 'Sets the updated date shown on the album. Stored in XMP sidecars on the new photos.';
-            }
-        };
+        // draftsBySlug caches ChannelAPI.listDrafts() results per channel so the
+        // "Add to" dropdown can offer in-progress drafts alongside already-generated
+        // galleries without refetching on every channel switch.
+        const draftsBySlug = new Map();
 
         const updateChannel = async () => {
-            const slug = dlg.querySelector('#build-channel').value;
-            const ch = channels.find(c => c.slug === slug);
+            const slug = dlg.querySelector('#collect-channel').value;
+            const ch = channelList.find(c => c.slug === slug);
             if (!ch) return;
 
-            // Account dropdown
-            const accountWrap = dlg.querySelector('#build-account-wrap');
-            const accountSel  = dlg.querySelector('#build-account');
+            const accountWrap = dlg.querySelector('#collect-account-wrap');
+            const accountSel = dlg.querySelector('#collect-account');
             const accounts = ch.accounts || [];
             if (accounts.length > 0) {
-                accountSel.innerHTML = accounts.map(a =>
-                    `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label || a.id)}</option>`
-                ).join('');
+                accountSel.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label || a.id)}</option>`).join('');
                 accountWrap.style.display = '';
             } else {
                 accountWrap.style.display = 'none';
             }
 
-            // Gallery / album title field and target selector
-            const galleryWrap = dlg.querySelector('#build-gallery-wrap');
-            const targetWrap = dlg.querySelector('#build-target-wrap');
-            const targetSel = dlg.querySelector('#build-target');
-            const titleLabel = dlg.querySelector('#build-gallery-label');
+            const galleryWrap = dlg.querySelector('#collect-gallery-wrap');
+            const targetSel = dlg.querySelector('#collect-target');
+            const titleWrap = dlg.querySelector('#collect-title-wrap');
+            const titleLabel = dlg.querySelector('#collect-gallery-label');
             titleLabel.textContent = ch.siteExport ? 'Album title' : 'Gallery title';
 
             if (ch.galleryExport || ch.siteExport) {
                 galleryWrap.style.display = '';
-                // Fetch existing galleries and populate target selector.
-                targetWrap.style.display = 'none';
-                targetSel.innerHTML = '';
+                let generated = [];
+                let drafts = draftsBySlug.get(slug);
                 try {
-                    const galleries = await ChannelAPI.galleries(slug);
-                    if (galleries.length > 0) {
-                        targetSel.innerHTML = `<option value="">New ${ch.siteExport ? 'album' : 'gallery'}</option>` +
-                            galleries.map(g =>
-                                `<option value="${escapeHtml(g.postID)}">${escapeHtml(g.title)} (${g.photoCount}) · ${_galleryDateRange(g)}</option>`
-                            ).join('');
-                        targetWrap.style.display = '';
-                        targetSel.removeEventListener('change', targetSel._changeHandler);
-                        targetSel._changeHandler = () => applyTargetSelection(galleries);
-                        targetSel.addEventListener('change', targetSel._changeHandler);
+                    generated = await ChannelAPI.galleries(slug);
+                    if (!drafts) {
+                        drafts = await ChannelAPI.listDrafts(slug);
+                        draftsBySlug.set(slug, drafts);
                     }
-                } catch { /* show title input as fallback */ }
+                } catch { /* fall back to New-only */ }
+                const generatedOpts = generated.map(g =>
+                    `<option value="postID:${escapeHtml(g.postID)}">${escapeHtml(g.title)} (${g.photoCount}) · ${_galleryDateRange(g)}</option>`
+                );
+                const draftOpts = drafts.filter(d => !d.target.postID).map(d =>
+                    `<option value="draftID:${escapeHtml(d.id)}">${escapeHtml(d.target.title)} (draft, ${d.photos.length} pending)</option>`
+                );
+                targetSel.innerHTML = `<option value="">New ${ch.siteExport ? 'album' : 'gallery'}</option>` + generatedOpts.join('') + draftOpts.join('');
+                targetSel.onchange = () => {
+                    titleWrap.style.display = targetSel.value === '' ? '' : 'none';
+                };
+                titleWrap.style.display = targetSel.value === '' ? '' : 'none';
             } else {
                 galleryWrap.style.display = 'none';
             }
 
-            // Unlisted checkbox — only meaningful for site-export channels.
-            const unlistedWrap = dlg.querySelector('#build-unlisted-wrap');
+            const unlistedWrap = dlg.querySelector('#collect-unlisted-wrap');
             unlistedWrap.style.display = ch.siteExport ? '' : 'none';
-            dlg.querySelector('#build-unlisted').checked = false;
+            dlg.querySelector('#collect-unlisted').checked = false;
 
-            // Export summary
             const scaleDesc = _scaleDesc(ch.scale);
             const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
-            dlg.querySelector('#build-info').textContent =
+            dlg.querySelector('#collect-info').textContent =
                 `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}${handlerNote}`;
-
-            // Output mode — use channel default
-            const defaultMode = ch.outputMode === 'download' ? 'download' : 'save';
-            dlg.querySelector('#build-output-mode').value = defaultMode;
-            setXmpState(defaultMode !== 'download');
-            dlg.querySelector('#build-output-path').value = '';
-            updateOutputDisplay(ch, defaultMode);
         };
 
-        dlg.querySelector('#build-output-mode').addEventListener('change', function() {
-            setXmpState(this.value !== 'download');
-            const slug = dlg.querySelector('#build-channel').value;
-            const ch = channels.find(c => c.slug === slug);
-            if (ch) updateOutputDisplay(ch, this.value);
-        });
-
-        dlg.querySelector('#build-output-pick').addEventListener('click', async () => {
-            const current = dlg.querySelector('#build-output-path').value;
-            const chosen = await new FolderPicker().open(current || '');
-            if (chosen !== null) {
-                dlg.querySelector('#build-output-path').value = chosen;
-                dlg.querySelector('#build-destination').textContent = '';
-            }
-        });
-
-        dlg.querySelector('#build-time-toggle').addEventListener('click', function() {
-            const timeWrap = dlg.querySelector('#build-time-wrap');
-            const visible = timeWrap.style.display !== 'none';
-            timeWrap.style.display = visible ? 'none' : '';
-            this.textContent = visible ? '+ Time' : '− Time';
-            if (visible) dlg.querySelector('#build-time').value = '12:00';
-        });
-
-        dlg.querySelector('#build-record-xmp').addEventListener('click', function() {
-            const on = this.dataset.state !== 'on';
-            setXmpState(on);
-        });
-
-        dlg.querySelector('#build-channel').addEventListener('change', updateChannel);
+        dlg.querySelector('#collect-channel').addEventListener('change', updateChannel);
         updateChannel();
 
-        dlg.querySelector('#build-close').addEventListener('click', () => dlg.remove());
-        dlg.querySelector('#build-cancel').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#collect-close').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#collect-cancel').addEventListener('click', () => dlg.remove());
         dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
 
-        dlg.querySelector('#build-confirm').addEventListener('click', async () => {
-            const confirmBtn = dlg.querySelector('#build-confirm');
-            const errEl = dlg.querySelector('#build-error');
-            const channel = dlg.querySelector('#build-channel').value;
-            const dateVal = dlg.querySelector('#build-date').value;
-            const timeVisible = dlg.querySelector('#build-time-wrap').style.display !== 'none';
-            const timeVal = timeVisible ? (dlg.querySelector('#build-time').value || '12:00') : '12:00';
-            const publishedAt = dateVal
-                ? new Date(dateVal + 'T' + timeVal + ':00Z').toISOString()
-                : new Date().toISOString();
-            const targetSel = dlg.querySelector('#build-target');
-            const targetPostID = targetSel?.value || undefined;
-            const outputMode = dlg.querySelector('#build-output-mode').value;
-            const recordXMP = dlg.querySelector('#build-record-xmp').dataset.state === 'on';
-            const outputPath = dlg.querySelector('#build-output-path').value.trim() || undefined;
+        dlg.querySelector('#collect-confirm').addEventListener('click', async () => {
+            const confirmBtn = dlg.querySelector('#collect-confirm');
+            const errEl = dlg.querySelector('#collect-error');
+            const slug = dlg.querySelector('#collect-channel').value;
+            const ch = channelList.find(c => c.slug === slug);
+            const targetVal = dlg.querySelector('#collect-target')?.value || '';
+            const [targetKind, targetID] = targetVal.includes(':') ? targetVal.split(':') : [null, null];
+            const titleWrap = dlg.querySelector('#collect-title-wrap');
+            const galleryTitle = (titleWrap && titleWrap.style.display !== 'none')
+                ? dlg.querySelector('#collect-gallery-title').value.trim()
+                : undefined;
+            const isGalleryMode = ch?.galleryExport || ch?.siteExport;
+            if (isGalleryMode && !targetKind && !galleryTitle) {
+                errEl.textContent = ch.siteExport ? 'Album title is required for a new album.' : 'Gallery title is required for a new gallery.';
+                errEl.style.display = '';
+                return;
+            }
+            const accountWrap = dlg.querySelector('#collect-account-wrap');
+            const account = accountWrap.style.display !== 'none' ? (dlg.querySelector('#collect-account').value || undefined) : undefined;
+            const unlisted = (ch?.siteExport && !targetKind) ? dlg.querySelector('#collect-unlisted').checked : undefined;
 
             confirmBtn.disabled = true;
-            confirmBtn.textContent = outputMode === 'download' ? 'Working…' : 'Building…';
+            confirmBtn.textContent = 'Adding…';
             errEl.style.display = 'none';
 
             try {
-                // Resolve photo ID groups — search-pane sources already have IDs; LibraryPane uses API lookup
                 let validGroups;
                 if (photoGroups) {
                     validGroups = photoGroups.filter(g => g.photoIDs.length > 0);
                     if (validGroups.length === 0) throw new Error('No matching library photos found.');
                 } else {
-                    const photoIDs = await Promise.all(
-                        selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p))
-                    );
+                    const photoIDs = await Promise.all(selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p)));
                     validGroups = [{ libID: lib.id, photoIDs: photoIDs.filter(Boolean) }];
                     if (validGroups[0].photoIDs.length === 0) throw new Error('No matching library photos found for selection.');
                 }
 
-                if (outputMode === 'download') {
-                    if (validGroups.length > 1) {
-                        errEl.textContent = 'ZIP download is not supported when photos span multiple libraries.';
-                        errEl.style.display = '';
-                        confirmBtn.disabled = false;
-                        confirmBtn.textContent = 'Build';
-                        return;
-                    }
-                    const g = validGroups[0];
-                    const blob = await LibraryAPI.buildDownload(g.libID, { photoIDs: g.photoIDs, channel, recordXMP });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = channel + '-export.zip';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    dlg.remove();
-                    return;
+                let total = 0;
+                for (const g of validGroups) {
+                    await LibraryAPI.collect(g.libID, slug, {
+                        photoIDs: g.photoIDs,
+                        draftID: targetKind === 'draftID' ? targetID : undefined,
+                        postID: targetKind === 'postID' ? targetID : undefined,
+                        title: !targetKind ? galleryTitle : undefined,
+                        unlisted, account,
+                    });
+                    total += g.photoIDs.length;
                 }
-
-                const accountWrap = dlg.querySelector('#build-account-wrap');
-                const account = accountWrap.style.display !== 'none'
-                    ? (dlg.querySelector('#build-account').value || undefined)
-                    : undefined;
-
-                const galleryWrap = dlg.querySelector('#build-gallery-wrap');
-                const titleWrap = dlg.querySelector('#build-title-wrap');
-                // galleryTitle is empty when adding to an existing gallery (title comes from statefile).
-                const galleryTitle = (galleryWrap.style.display !== 'none' && titleWrap?.style.display !== 'none')
-                    ? (dlg.querySelector('#build-gallery-title').value.trim() || undefined)
-                    : undefined;
-
-                const ch = channels.find(c => c.slug === channel);
-                // unlisted is only meaningful for a brand-new site-export album; it's fixed
-                // at creation and ignored (not sent) when adding to an existing album.
-                const unlisted = (ch?.siteExport && titleWrap?.style.display !== 'none')
-                    ? dlg.querySelector('#build-unlisted').checked
-                    : undefined;
-                const isGalleryMode = ch?.galleryExport || ch?.siteExport;
-                if (isGalleryMode && !targetPostID && !galleryTitle) {
-                    errEl.textContent = ch.siteExport
-                        ? 'Album title is required for multi-album site export.'
-                        : 'Gallery title is required.';
-                    errEl.style.display = '';
-                    confirmBtn.disabled = false;
-                    confirmBtn.textContent = 'Build';
-                    return;
-                }
-
-                if (galleryTitle || targetPostID) {
-                    const progressEl = dlg.querySelector('#build-progress');
-                    progressEl.style.display = '';
-                    const groupCount = validGroups.length;
-                    let currentTargetPostID = targetPostID;
-                    let lastResp;
-                    const allErrors = [];
-                    for (let gi = 0; gi < groupCount; gi++) {
-                        const g = validGroups[gi];
-                        const prefix = groupCount > 1 ? `Library ${gi + 1} of ${groupCount}: ` : '';
-                        const resp = await LibraryAPI.buildStream(
-                            g.libID,
-                            {
-                                photoIDs: g.photoIDs, channel, account, publishedAt,
-                                galleryTitle: gi === 0 ? galleryTitle : undefined,
-                                targetPostID: currentTargetPostID,
-                                unlisted: gi === 0 ? unlisted : undefined,
-                                recordXMP, outputPath
-                            },
-                            (evt) => {
-                                if (evt.step === 'photo')
-                                    progressEl.textContent = `${prefix}Exporting photo ${evt.done} of ${evt.total}…`;
-                                else if (evt.step === 'zip' || evt.step === 'html' || evt.step === 'site')
-                                    progressEl.textContent = prefix + evt.file;
-                            }
-                        );
-                        if (gi === 0 && !targetPostID) currentTargetPostID = resp.postID;
-                        allErrors.push(...(resp.results || []).filter(r => r.error));
-                        lastResp = resp;
-                    }
-                    dlg.remove();
-                    if (allErrors.length > 0) {
-                        alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
-                    } else if (lastResp.sitePath) {
-                        this._registerBuiltChannel(ch, outputPath);
-                        App.showToast(targetPostID ? `Photos added to album · site at ${lastResp.sitePath}` : `Album added · site at ${lastResp.sitePath}`);
-                    } else {
-                        this._registerBuiltChannel(ch, outputPath);
-                        App.showToast(targetPostID ? `Photos added to gallery: ${lastResp.galleryPath}` : `Gallery ready: ${lastResp.galleryPath}`);
-                    }
-                } else {
-                    let totalBuilt = 0;
-                    let allErrors = [];
-                    for (const g of validGroups) {
-                        const resp = await LibraryAPI.build(g.libID, { photoIDs: g.photoIDs, channel, account, publishedAt, recordXMP, outputPath });
-                        const errors = (resp.results || []).filter(r => r.error);
-                        allErrors = [...allErrors, ...errors];
-                        totalBuilt += g.photoIDs.length - errors.length;
-                    }
-                    dlg.remove();
-                    if (allErrors.length > 0) {
-                        alert(`Built with ${allErrors.length} error(s):\n${allErrors.map(e => e.error).join('\n')}`);
-                    } else {
-                        this._registerBuiltChannel(ch, outputPath);
-                        App.showToast(`Built ${totalBuilt} photo${totalBuilt !== 1 ? 's' : ''} to ${channel}.`);
-                    }
-                }
+                dlg.remove();
+                App.showToast(`Added ${total} photo${total !== 1 ? 's' : ''} to "${galleryTitle || ch.name}" — not yet published.`);
             } catch (err) {
                 errEl.textContent = err.message;
                 errEl.style.display = '';
                 confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Build';
+                confirmBtn.textContent = 'Add to channel';
             }
         });
     }
