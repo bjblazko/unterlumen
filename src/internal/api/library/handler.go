@@ -1640,12 +1640,26 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 			pub.GalleryTitle = existingTitle
 		}
 
-		clearDraft := func() {
+		// clearSucceededPhotos removes only the draft photos that were actually
+		// exported without error, leaving failed ones (missing source file,
+		// unreadable image, disk full, ...) pending in the draft so the user can
+		// see and retry them — buildOne reports failure per-photo via res.Error
+		// rather than aborting the whole batch, so a draft can partially succeed.
+		clearSucceededPhotos := func(results []buildResult) {
 			if draftID == "-" {
 				return // synthetic draft — nothing was ever persisted
 			}
-			draftStore.Delete(slug, draftID) //nolint:errcheck
+			succeeded := make(map[string]bool, len(results))
+			for _, res := range results {
+				if res.Error == "" {
+					succeeded[res.PhotoID] = true
+				}
+			}
 			for _, dp := range draft.Photos {
+				if !succeeded[dp.PhotoID] {
+					continue // failed export: keep in draft and keep pending: meta
+				}
+				draftStore.RemovePhoto(slug, draftID, dp.LibraryID, dp.PhotoID) //nolint:errcheck
 				if s, ok := stores[dp.LibraryID]; ok {
 					s.DeleteMeta(dp.PhotoID, "pending:"+slug) //nolint:errcheck
 				}
@@ -1659,7 +1673,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				res := buildOne(stores[dp.LibraryID], ch, pub, ts, outDir, "", dp.PhotoID, true)
 				results = append(results, res)
 			}
-			clearDraft()
+			clearSucceededPhotos(results)
 			writeJSON(w, map[string]any{"postID": postID, "results": results})
 			return
 		}
@@ -1864,10 +1878,10 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
 			emit(map[string]any{"step": "site", "done": 1, "total": 1, "file": "Site index updated"})
-			clearDraft()
+			clearSucceededPhotos(results)
 			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "sitePath": siteDir, "results": results})
 		} else {
-			clearDraft()
+			clearSucceededPhotos(results)
 			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "results": results})
 		}
 	}

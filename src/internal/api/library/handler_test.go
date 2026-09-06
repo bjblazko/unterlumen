@@ -359,6 +359,18 @@ func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
 		t.Fatalf("Create draft: %v", err)
 	}
 
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	// Seed the pending:instagram meta key generateDraft is expected to clear —
+	// draftStore.Create only writes drafts.json, it never touches library meta,
+	// so without this the "cleared" assertion below would pass vacuously.
+	if err := store.UpsertMeta("photo1", "pending:instagram", draft.ID); err != nil {
+		t.Fatalf("UpsertMeta pending: %v", err)
+	}
+
 	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -370,11 +382,6 @@ func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
 		t.Fatal("expected draft to be deleted after generate")
 	}
 
-	store, err := mgr.OpenStore(libID)
-	if err != nil {
-		t.Fatalf("OpenStore: %v", err)
-	}
-	defer store.Close()
 	entries, err := store.GetMeta("photo1")
 	if err != nil {
 		t.Fatalf("GetMeta: %v", err)
@@ -393,6 +400,96 @@ func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
 	}
 	if !hasBuilt {
 		t.Error("expected built:instagram meta to be written")
+	}
+}
+
+// TestGenerateDraft_PartialFailure_KeepsFailedPhotoPending covers the bug where
+// clearDraft used to run unconditionally after the export loop: buildOne reports
+// per-photo failure via res.Error rather than aborting, so a draft with a mix of
+// succeeded and failed photos must keep the failed one (and its pending: meta)
+// so the user can see and retry it, while the succeeded photo is cleared normally.
+func TestGenerateDraft_PartialFailure_KeepsFailedPhotoPending(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "instagram", Name: "Instagram", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	goodLibID := seedLibraryPhoto(t, mgr, "good-photo")
+
+	// A library whose "missing-photo" row points at a path that doesn't exist on
+	// disk — buildOne's media.ExportImage fails to open it, simulating a missing
+	// source file / unreadable image without needing a real filesystem fault.
+	badSource := t.TempDir()
+	badLib, err := mgr.CreateLibrary("Bad-Lib", "", badSource)
+	if err != nil {
+		t.Fatalf("CreateLibrary: %v", err)
+	}
+	badStore, err := mgr.OpenStore(badLib.ID)
+	if err != nil {
+		t.Fatalf("OpenStore (bad): %v", err)
+	}
+	defer badStore.Close()
+	missingPath := filepath.Join(badSource, "missing-photo.jpg")
+	if err := badStore.UpsertPhoto("missing-photo", missingPath, "missing-photo.jpg", 0, time.Now(), "{}", "", "", "jpeg"); err != nil {
+		t.Fatalf("UpsertPhoto (bad): %v", err)
+	}
+	goodStore, err := mgr.OpenStore(goodLibID)
+	if err != nil {
+		t.Fatalf("OpenStore (good): %v", err)
+	}
+	defer goodStore.Close()
+
+	if err := goodStore.UpsertMeta("good-photo", "pending:instagram", "x"); err != nil {
+		t.Fatalf("UpsertMeta pending (good): %v", err)
+	}
+	if err := badStore.UpsertMeta("missing-photo", "pending:instagram", "x"); err != nil {
+		t.Fatalf("UpsertMeta pending (bad): %v", err)
+	}
+
+	draft, err := draftStore.Create("instagram", channels.DraftTarget{}, []channels.DraftPhoto{
+		{LibraryID: goodLibID, PhotoID: "good-photo"},
+		{LibraryID: badLib.ID, PhotoID: "missing-photo"},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	remaining, err := draftStore.Get("instagram", draft.ID)
+	if err != nil {
+		t.Fatalf("expected draft to survive partial failure, got: %v", err)
+	}
+	if len(remaining.Photos) != 1 || remaining.Photos[0].PhotoID != "missing-photo" {
+		t.Fatalf("expected only missing-photo to remain in draft, got %+v", remaining.Photos)
+	}
+
+	goodEntries, err := goodStore.GetMeta("good-photo")
+	if err != nil {
+		t.Fatalf("GetMeta (good): %v", err)
+	}
+	for _, e := range goodEntries {
+		if e.Key == "pending:instagram" {
+			t.Error("expected pending:instagram to be cleared for the succeeded photo")
+		}
+	}
+
+	badEntries, err := badStore.GetMeta("missing-photo")
+	if err != nil {
+		t.Fatalf("GetMeta (bad): %v", err)
+	}
+	var stillPending bool
+	for _, e := range badEntries {
+		if e.Key == "pending:instagram" {
+			stillPending = true
+		}
+	}
+	if !stillPending {
+		t.Error("expected pending:instagram to be kept for the failed photo")
 	}
 }
 

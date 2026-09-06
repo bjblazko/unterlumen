@@ -21,7 +21,7 @@ type DraftPhoto struct {
 // DraftTarget identifies where a draft's photos will land once generated:
 // either an existing gallery/album (PostID set) or a brand-new one (Title set).
 // Mirrors the addToExisting/new-gallery distinction already used by the
-// existing build pipeline (internal/api/library/handler.go's buildPhotos).
+// existing build pipeline (internal/api/library/handler.go's generateDraft).
 type DraftTarget struct {
 	PostID   string `json:"postID,omitempty"`   // non-empty = add to an existing gallery/album
 	Title    string `json:"title,omitempty"`    // new gallery/album title; ignored if PostID is set
