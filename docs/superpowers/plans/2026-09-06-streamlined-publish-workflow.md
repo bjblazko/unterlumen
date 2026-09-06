@@ -1890,19 +1890,20 @@ Read the existing row-rendering code in `published-galleries.js` (its `Actions` 
 row.querySelector('.pub-gal-publish').addEventListener('click', () => new PublishDialog().open(g));
 ```
 
-Status cell rendering (add a helper near the existing status-badge CSS classes `.pub-gal-status--pending/--ok/--down`):
+**Status naming note (ruling from Task 4's review):** the backend's `status` field is only ever `"draft"`, `"generated"`, or `"live-pending"` — it never says `"live"`, because this endpoint has no deploy/reachability signal (that's computed separately, client-side, by the pre-existing reachability SSE sweep that already runs after the list loads, per the original Published tab implementation). Despite its name, backend `"live-pending"` means "generated, with a pending draft on top" — it is **not** a claim that the gallery is actually reachable. Do not treat the literal string `"live"` as ever appearing from the backend. Instead, layer the existing reachability check's own per-row result (already implemented — read the existing reachability-check wiring in `published-galleries.js` first, it independently updates a status cell to Live/Unreachable/Checking per row once its ping resolves) on top of the backend's draft/generated/pending signal:
 
 ```js
-function _statusLabel(g) {
-    switch (g.status) {
-        case 'draft': return `Draft · ${g.pendingCount} photo${g.pendingCount !== 1 ? 's' : ''}`;
-        case 'generated': return 'Generated';
-        case 'live-pending': return `Live · ${g.pendingCount} pending`;
-        case 'live': return 'Live';
-        default: return g.status;
-    }
+function _statusLabel(g, reachability) {
+    if (g.status === 'draft') return `Draft · ${g.pendingCount} photo${g.pendingCount !== 1 ? 's' : ''}`;
+    // g.status is 'generated' or 'live-pending' here — both just mean "something is generated
+    // on disk"; whether it's actually reachable comes from the existing reachability check,
+    // not from this string.
+    const base = reachability || 'Generated'; // 'Live' / 'Unreachable' / 'Checking…' once resolved, else the pre-check default
+    return g.pendingCount > 0 ? `${base} · ${g.pendingCount} pending` : base;
 }
 ```
+
+Wire this so `_statusLabel` is re-invoked (or the cell's text updated in place) when the existing reachability check resolves for that row, exactly as the existing Live/Unreachable status cell already updates asynchronously today — this task only changes what feeds the *label text*, not the existing reachability-check mechanism itself.
 
 Draft-only rows' Delete action must call `ChannelAPI.deleteDraft(g.channelSlug, g.draftID)` instead of the existing `PublishedGalleryAPI.remove` (which assumes a generated gallery exists on disk) — branch on `g.status === 'draft'` in the existing delete handler.
 
