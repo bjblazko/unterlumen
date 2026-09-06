@@ -811,10 +811,27 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		draft, err := draftStore.Get(slug, draftID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+
+		// draftID == "-" is the sentinel for "regenerate this gallery/album with
+		// no newly collected photos" — used by the Publish dialog for a Live
+		// gallery that has no pending draft at all. It subsumes the old
+		// Rebuild/Rebuild-site actions: same code path below, just with an
+		// empty Photos list, driven by a synthetic in-memory draft instead of
+		// one loaded from drafts.json.
+		var draft *channels.Draft
+		if draftID == "-" {
+			postID := r.URL.Query().Get("postID")
+			if postID == "" {
+				http.Error(w, "postID query parameter required when regenerating without a draft", http.StatusBadRequest)
+				return
+			}
+			draft = &channels.Draft{Target: channels.DraftTarget{PostID: postID}}
+		} else {
+			draft, err = draftStore.Get(slug, draftID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 		if draft.Target.Account != "" && ch.AccountByID(draft.Target.Account) == nil {
 			http.Error(w, "account not found: "+draft.Target.Account, http.StatusBadRequest)
@@ -923,6 +940,9 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		}
 
 		clearDraft := func() {
+			if draftID == "-" {
+				return // synthetic draft — nothing was ever persisted
+			}
 			draftStore.Delete(slug, draftID) //nolint:errcheck
 			for _, dp := range draft.Photos {
 				if s, ok := stores[dp.LibraryID]; ok {
@@ -1198,11 +1218,11 @@ git commit -m "feat: surface draft/pending status in the published galleries ove
 
 **Interfaces:**
 - Produces (consumed by Tasks 6, 7, 8, 9):
-  - `LibraryAPI.collect(libID, { photoIDs, draftID, postID, title, unlisted, account })` → `POST /api/library/{id}/channels/{slug}/drafts` — wait, slug isn't in this signature; **fix**: `LibraryAPI.collect(libID, slug, {...})`.
+  - `LibraryAPI.collect(libID, slug, { photoIDs, draftID, postID, title, unlisted, account })` → `POST /api/library/{id}/channels/{slug}/drafts`.
   - `ChannelAPI.listDrafts(slug)` → `GET /api/channels/{slug}/drafts`.
   - `ChannelAPI.deleteDraft(slug, draftID)` → `DELETE /api/channels/{slug}/drafts/{draftID}`.
   - `ChannelAPI.removeDraftPhoto(slug, draftID, libID, photoID)` → `DELETE /api/channels/{slug}/drafts/{draftID}/photos/{libID}/{photoID}`.
-  - `ChannelAPI.generateStream(slug, draftID, { publishedAt }, onProgress)` → `POST /api/channels/{slug}/drafts/{draftID}/generate`, reusing the exact SSE-parsing loop already implemented in `LibraryAPI.buildStream` (`library.js:172-203`) — for a plain-export channel the response isn't SSE at all (see Task 3), so this helper must first read the response as JSON if `Content-Type` isn't `text/event-stream`, and only fall into the streaming reader otherwise.
+  - `ChannelAPI.generateStream(slug, draftID, postID, { publishedAt }, onProgress)` → `POST /api/channels/{slug}/drafts/{draftID}/generate` (plus `?postID=` when `draftID` is the `"-"` sentinel — see Task 3's zero-pending-draft regenerate path), reusing the exact SSE-parsing loop already implemented in `LibraryAPI.buildStream` (`library.js:172-203`) — for a plain-export channel the response isn't SSE at all (see Task 3), so this helper must first read the response as JSON if `Content-Type` isn't `text/event-stream`, and only fall into the streaming reader otherwise.
 
 - [ ] **Step 1: Add the frontend API methods** (no separate test step — these are thin fetch wrappers with no branching logic beyond the content-type check below; they're exercised end-to-end by the e2e spec in Task 10)
 
@@ -1235,8 +1255,13 @@ async removeDraftPhoto(slug, draftID, libID, photoID) {
     if (!r.ok) throw new Error(await r.text());
     return r.status === 204 ? null : r.json();
 },
-async generateStream(slug, draftID, { publishedAt } = {}, onProgress) {
-    const r = await fetch(`/api/channels/${slug}/drafts/${draftID}/generate`, {
+// draftID is a real draft ID for the normal collect-then-publish case, or the
+// literal sentinel "-" to regenerate an existing gallery/album with no newly
+// collected photos (subsumes the old "Rebuild"/"Rebuild site" actions) — in
+// the "-" case postID must identify which gallery/album to regenerate.
+async generateStream(slug, draftID, postID, { publishedAt } = {}, onProgress) {
+    const qs = draftID === '-' ? `?postID=${encodeURIComponent(postID)}` : '';
+    const r = await fetch(`/api/channels/${slug}/drafts/${draftID}/generate${qs}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publishedAt }),
@@ -1730,9 +1755,19 @@ class PublishDialog {
                 <button class="publish-step-remove" title="Remove from this publish">×</button>
             </div>`).join('');
 
+        const now = new Date();
+        const todayUTC = now.toISOString().slice(0, 10);
+        const dateLabel = this._row.postID ? 'Updated date' : 'Published date';
+        const dateNote = this._row.postID
+            ? 'Sets the updated date shown on the album. Stored in XMP sidecars on the newly added photos.'
+            : 'Sets album order in the built site and is stored in XMP sidecars.';
+
         body.innerHTML = `
             <p class="form-hint">${draft ? draft.photos.length : 0} photo${(draft?.photos.length ?? 0) !== 1 ? 's' : ''} pending for "${escapeHtml(this._row.title || this._row.channelName)}".</p>
             <div class="publish-step-photos">${photoRows || '<span class="channel-empty">Nothing pending — Generate will just refresh the current gallery.</span>'}</div>
+            <label class="form-label">${dateLabel}</label>
+            <input class="form-input" id="pub-date" type="date" value="${todayUTC}">
+            <span class="build-date-note">${dateNote}</span>
             <div class="modal-footer">
                 <button class="btn" id="pub-cancel">Cancel</button>
                 <button class="btn btn-accent" id="pub-generate">Generate</button>
@@ -1753,14 +1788,24 @@ class PublishDialog {
         body.querySelector('#pub-generate').addEventListener('click', () => this._runGenerate());
     }
 
+    // _runGenerate has two paths: a real pending draft (this._row.draftID set —
+    // the normal collect-then-publish case), or a Live gallery/album with
+    // nothing newly collected (this._row.draftID empty) — re-publishing an
+    // existing gallery with no new photos, which subsumes the old "Rebuild"
+    // action. The backend's generateDraft handler accepts the literal string
+    // "-" as a draftID sentinel for this second case, reading the target
+    // postID from a query parameter instead of a stored draft (see Task 3).
     async _runGenerate() {
         const body = this._el.querySelector('#pub-body');
+        const dateVal = body.querySelector('#pub-date')?.value;
+        const publishedAt = dateVal ? new Date(dateVal + 'T12:00:00Z').toISOString() : undefined;
+        const draftID = this._row.draftID || '-';
         body.innerHTML = '<div class="channel-loading" id="pub-progress">Generating…</div>';
         const progressEl = body.querySelector('#pub-progress');
         try {
             const result = await ChannelAPI.generateStream(
-                this._row.channelSlug, this._row.draftID,
-                {},
+                this._row.channelSlug, draftID, this._row.postID,
+                { publishedAt },
                 (evt) => {
                     if (evt.step === 'photo') progressEl.textContent = `Exporting photo ${evt.done} of ${evt.total}…`;
                     else if (evt.file) progressEl.textContent = evt.file;
