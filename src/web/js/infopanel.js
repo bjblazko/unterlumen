@@ -382,12 +382,13 @@ class InfoPanel {
         const ctx = this._metaContext;
         if (!ctx || !ctx.entries) return '';
 
-        const primaryPubs = ctx.entries.filter(e =>
+        const publishedPubs = ctx.entries.filter(e =>
             e.key.startsWith('built:') && !e.key.slice('built:'.length).includes(':')
         );
-        if (primaryPubs.length === 0) return '';
+        const pendingPubs = ctx.entries.filter(e => e.key.startsWith('pending:'));
+        if (publishedPubs.length === 0 && pendingPubs.length === 0) return '';
 
-        const cards = primaryPubs.map(e => {
+        const publishedCards = publishedPubs.map(e => {
             const slug = e.key.slice('built:'.length);
             const channelName = this._humanizeChannelSlug(slug);
             const date = this.formatDate(e.value);
@@ -404,7 +405,19 @@ class InfoPanel {
             `</div>`;
         });
 
-        return this.section('Publications', cards);
+        const pendingCards = pendingPubs.map(e => {
+            const slug = e.key.slice('pending:'.length);
+            const channelName = this._humanizeChannelSlug(slug);
+            return `<div class="info-pub-card info-pub-card--pending">` +
+                `<div class="info-pub-card-header">` +
+                    `<span class="info-pub-channel">${escapeHtml(channelName)}</span>` +
+                    `<button class="info-meta-del" title="Remove from pending" data-key="${escapeHtml(e.key)}">×</button>` +
+                `</div>` +
+                `<div class="info-pub-date">pending</div>` +
+            `</div>`;
+        });
+
+        return this.section('Publications', [...publishedCards, ...pendingCards]);
     }
 
     _renderTitleField(entry) {
@@ -424,7 +437,7 @@ class InfoPanel {
         const rows = [];
 
         const genericEntries = (ctx.entries || []).filter(e =>
-            e.key !== 'title' && !e.key.startsWith('built:')
+            e.key !== 'title' && !e.key.startsWith('built:') && !e.key.startsWith('pending:')
         );
 
         for (const e of genericEntries) {

@@ -304,6 +304,60 @@ func TestRebuildGalleriesRejectsNonGalleryChannel(t *testing.T) {
 	}
 }
 
+// --- deleteMeta ---
+
+// TestDeleteMeta_PendingKey_RemovesFromDraft verifies that deleting a
+// pending:<slug> meta key doesn't just remove the meta row — it also removes
+// the photo from the underlying draft (drafts.json), since pending: is a
+// derived signal for "this photo is in an unfinished draft for this
+// channel", not an independent fact.
+func TestDeleteMeta_PendingKey_RemovesFromDraft(t *testing.T) {
+	mgr := newTestManager(t)
+	dir := t.TempDir()
+	chStore := channels.NewStore(dir, dir)
+	draftStore := channels.NewDraftStore(chStore)
+	mux := http.NewServeMux()
+	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore, draftStore))
+
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+
+	draft, err := draftStore.Create("website", channels.DraftTarget{Title: "Pending Gallery"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	if err := store.UpsertMeta("photo1", "pending:website", draft.ID); err != nil {
+		t.Fatalf("UpsertMeta pending: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/api/library/"+libID+"/photo/photo1/meta?key=pending:website", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := draftStore.Get("website", draft.ID); err == nil {
+		t.Error("expected draft to be deleted since it had only one photo")
+	}
+
+	entries, err := store.GetMeta("photo1")
+	if err != nil {
+		t.Fatalf("GetMeta: %v", err)
+	}
+	for _, e := range entries {
+		if e.Key == "pending:website" {
+			t.Error("expected pending:website meta to be removed")
+		}
+	}
+}
+
 // --- generateDraft ---
 
 // setupGenerateTestMux mirrors setupDraftTestMux (drafts_test.go) but wires

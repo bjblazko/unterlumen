@@ -69,7 +69,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}", deleteLibraryPhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
-	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore))
+	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
@@ -1281,7 +1281,7 @@ func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
-func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
+func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		photoID := r.PathValue("photoID")
@@ -1297,6 +1297,28 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			return
 		}
 		defer store.Close()
+
+		// For pending:{slug} keys, the meta row is a derived signal that this
+		// photo sits in an unfinished draft for that channel — removing it must
+		// also remove the photo from the draft itself (drafts.json), not just
+		// delete the meta row and leave the draft still holding a reference the
+		// UI no longer shows.
+		const pendingPrefix = "pending:"
+		if strings.HasPrefix(key, pendingPrefix) && draftStore != nil {
+			slug := strings.TrimPrefix(key, pendingPrefix)
+			entries, metaErr := store.GetMeta(photoID)
+			if metaErr == nil {
+				for _, e := range entries {
+					if e.Key == key {
+						draftStore.RemovePhoto(slug, e.Value, id, photoID) //nolint:errcheck // e.Value is the draftID
+						break
+					}
+				}
+			}
+			store.DeleteMeta(photoID, key) //nolint:errcheck
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
 		// For built:{slug} keys on site-export channels, remove the photo from
 		// the site (site.json + physical files) and delete all related keys. The
