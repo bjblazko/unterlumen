@@ -162,24 +162,6 @@ function _deployBaseURL(ch) {
     return null;
 }
 
-// Site-export albums live under /albums/<folder>/; gallery-export (single
-// gallery) albums are written directly at the deploy root as /<folder>/.
-function _albumPath(ch, folderName) {
-    return ch.siteExport ? `/albums/${folderName}/` : `/${folderName}/`;
-}
-
-function _relativeTimeLabel(iso) {
-    const then = new Date(iso);
-    const mins = Math.floor((Date.now() - then.getTime()) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} minute${mins !== 1 ? 's' : ''} ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
-    return then.toLocaleDateString();
-}
-
 /* --- ChannelSettingsModal --- */
 
 class ChannelSettingsModal {
@@ -253,12 +235,7 @@ class ChannelSettingsModal {
                     <span class="channel-row-slug">${escapeHtml(ch.slug)}</span>
                 </div>
                 <div class="channel-row-actions">
-                    ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
-                    ${ch.galleryExport ? '<button class="btn btn-sm ch-rebuild-galleries">Rebuild</button>' : ''}
-                    ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
-                    ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-published">Published</button>' : ''}
                     ${base ? `<a class="btn btn-sm ch-visit-site" href="${escapeHtml(base.url)}" target="_blank" rel="noopener">Visit site</a>` : ''}
-                    ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
                         <button class="btn btn-sm ch-path-toggle">Path ▾</button>
                         <div class="ch-path-menu" hidden>
@@ -272,14 +249,10 @@ class ChannelSettingsModal {
                 </div>
             </div>
             <span class="channel-row-detail">${escapeHtml(ch.format.toUpperCase())} · q${ch.quality} · ${escapeHtml(scaleDesc)} · ${escapeHtml(ch.exifMode)}${escapeHtml(handlerDesc)}${escapeHtml(accountDesc)}${escapeHtml(outputDesc)}</span>
-            ${ch.handler === 'rsync' ? '<div class="channel-row-deploy-result" hidden></div>' : ''}`;
+            ${(ch.siteExport || ch.galleryExport) ? '<button class="link-btn ch-status-line">Loading status…</button>' : ''}`;
 
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
-        row.querySelector('.ch-published')?.addEventListener('click', () => {
-            this.close();
-            App.showPublishedForChannel(ch.slug);
-        });
 
         const toggle = row.querySelector('.ch-path-toggle');
         const menu = row.querySelector('.ch-path-menu');
@@ -289,29 +262,29 @@ class ChannelSettingsModal {
             document.querySelectorAll('.ch-path-menu').forEach(m => { m.hidden = true; });
             menu.hidden = open;
         });
-
-        const copyBtn = row.querySelector('.ch-copy-path');
-        copyBtn.addEventListener('click', () => { menu.hidden = true; this._copyPath(ch, toggle); });
+        row.querySelector('.ch-copy-path').addEventListener('click', () => { menu.hidden = true; this._copyPath(ch, toggle); });
         row.querySelector('.ch-reveal').addEventListener('click', () => { menu.hidden = true; this._revealChannel(ch); });
         row.querySelector('.ch-commander').addEventListener('click', () => { menu.hidden = true; this._openInCommander(ch); });
 
-        if (ch.siteExport) {
-            const rebuildBtn = row.querySelector('.ch-rebuild');
-            rebuildBtn.addEventListener('click', () => this._rebuildSite(ch, rebuildBtn));
-        }
-        if (ch.galleryExport) {
-            const rebuildGalleriesBtn = row.querySelector('.ch-rebuild-galleries');
-            rebuildGalleriesBtn.addEventListener('click', () => this._rebuildGalleries(ch, rebuildGalleriesBtn));
-        }
-        if (ch.siteExport || ch.galleryExport) {
-            row.querySelector('.ch-albums').addEventListener('click', () => this._showAlbums(ch));
-        }
-        if (ch.handler === 'rsync') {
-            const deployBtn = row.querySelector('.ch-deploy');
-            deployBtn.addEventListener('click', () => this._deployChannel(ch, deployBtn));
-            this._renderPersistedDeployStatus(ch, row);
+        const statusBtn = row.querySelector('.ch-status-line');
+        if (statusBtn) {
+            statusBtn.addEventListener('click', () => { this.close(); App.showPublishedForChannel(ch.slug); });
+            this._loadStatusLine(ch, statusBtn);
         }
         return row;
+    }
+
+    async _loadStatusLine(ch, statusBtn) {
+        try {
+            const [galleries, drafts] = await Promise.all([ChannelAPI.galleries(ch.slug), ChannelAPI.listDrafts(ch.slug)]);
+            const pending = drafts.length;
+            const galleryWord = ch.siteExport ? 'album' : 'gallery';
+            let text = `${galleries.length} ${galleryWord}${galleries.length !== 1 ? 's' : ''}`;
+            if (pending > 0) text += ` · ${pending} with pending changes`;
+            if (statusBtn.isConnected) statusBtn.textContent = text;
+        } catch {
+            if (statusBtn.isConnected) statusBtn.textContent = 'Status unavailable';
+        }
     }
 
     async _deleteChannel(ch, row) {
@@ -321,190 +294,6 @@ class ChannelSettingsModal {
             row.remove();
         } catch (err) {
             alert('Delete failed: ' + err.message);
-        }
-    }
-
-    async _rebuildSite(ch, btn) {
-        const orig = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Rebuilding…';
-        try {
-            const res = await ChannelAPI.rebuildSite(ch.slug);
-            btn.textContent = `Done (${res.albumCount})`;
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-        } catch (err) {
-            btn.textContent = 'Failed';
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            alert('Rebuild failed: ' + err.message);
-        }
-    }
-
-    // Regenerates index.html for every existing single-gallery build on this
-    // channel from its stored state and already-exported photos — picks up
-    // template fixes/changes without re-exporting or duplicating photos,
-    // unlike Build (which always creates a new gallery/URL).
-    async _rebuildGalleries(ch, btn) {
-        const orig = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Rebuilding…';
-        try {
-            const res = await ChannelAPI.rebuildGalleries(ch.slug);
-            btn.textContent = `Done (${res.rebuilt})`;
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            if (res.errors?.length) {
-                alert(`Rebuilt ${res.rebuilt}, but ${res.errors.length} failed:\n` + res.errors.join('\n'));
-            }
-        } catch (err) {
-            btn.textContent = 'Failed';
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            alert('Rebuild failed: ' + err.message);
-        }
-    }
-
-    async _deployChannel(ch, btn) {
-        const row = btn.closest('.channel-row');
-        const resultEl = row?.querySelector('.channel-row-deploy-result');
-        const showResult = (ok, html) => {
-            if (!resultEl) return;
-            resultEl.hidden = false;
-            resultEl.classList.toggle('channel-row-deploy-result--error', !ok);
-            resultEl.innerHTML = html;
-        };
-        const orig = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Deploying…';
-        try {
-            const res = await ChannelAPI.deploy(ch.slug);
-            btn.textContent = res.ok ? 'Deployed' : 'Failed';
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            if (res.ok) {
-                showResult(true, '✓ Deployed just now. Looking up what\'s live…');
-                showResult(true, await this._deployResultLinkHTML(ch, 'just now'));
-                resultEl?.querySelector('.ch-deploy-see-albums')?.addEventListener('click', () => this._showAlbums(ch));
-            } else {
-                showResult(false, `✗ Deploy failed: ${escapeHtml(res.error || 'unknown error')}`);
-            }
-        } catch (err) {
-            btn.textContent = 'Failed';
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-            showResult(false, `✗ Deploy failed: ${escapeHtml(err.message)}`);
-        }
-    }
-
-    // Builds the HTML shown after a successful deploy. Deploy mirrors the
-    // channel's *entire* local output directory to the remote (rsync
-    // --delete), which can contain any number of albums — so "the deployed
-    // URL" only makes sense once we know how many albums actually exist.
-    // Zero -> nothing built yet; one -> link straight to it; many -> point
-    // at the Albums list instead of guessing which one matters.
-    async _deployResultLinkHTML(ch, whenLabel) {
-        const base = _deployBaseURL(ch);
-        const guessNote = base?.guessed
-            ? ' <span class="form-hint">(domain guessed from deploy Host — confirm this matches your public domain)</span>'
-            : '';
-        let albums = [];
-        try {
-            albums = await ChannelAPI.galleries(ch.slug);
-        } catch {
-            // Fall through to a generic message below if the lookup itself fails.
-        }
-        if (albums.length === 0) {
-            return `✓ Deployed ${whenLabel}, but no built albums were found — nothing to link to yet.`;
-        }
-        if (albums.length === 1) {
-            const url = base ? base.url + _albumPath(ch, albums[0].folderName) : _albumPath(ch, albums[0].folderName);
-            const link = base
-                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>${guessNote}`
-                : `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL, or configure an rsync Host, for a full link)</span>`;
-            return `✓ Deployed ${whenLabel}. ${link}`;
-        }
-        return `✓ Deployed ${whenLabel} — ${albums.length} albums live. <button type="button" class="link-btn ch-deploy-see-albums">See Albums for direct links</button>`;
-    }
-
-    // Restores the deploy-result line from what's persisted on the channel
-    // (Channel.LastDeployedAt/LastDeployOK/LastDeployError), so "when and to
-    // what URL it was deployed" is visible on open, not only right after
-    // clicking Deploy.
-    async _renderPersistedDeployStatus(ch, row) {
-        if (!ch.lastDeployedAt) return;
-        const resultEl = row.querySelector('.channel-row-deploy-result');
-        if (!resultEl) return;
-        resultEl.hidden = false;
-        const when = _relativeTimeLabel(ch.lastDeployedAt);
-        if (!ch.lastDeployOK) {
-            resultEl.classList.add('channel-row-deploy-result--error');
-            resultEl.textContent = `✗ Last deploy (${when}) failed: ${ch.lastDeployError || 'unknown error'}`;
-            return;
-        }
-        resultEl.textContent = `✓ Last deployed ${when}. Looking up what's live…`;
-        resultEl.innerHTML = await this._deployResultLinkHTML(ch, when);
-        resultEl.querySelector('.ch-deploy-see-albums')?.addEventListener('click', () => this._showAlbums(ch));
-    }
-
-    async _showAlbums(ch) {
-        const backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop';
-        backdrop.innerHTML = `
-            <div class="modal channel-albums-modal">
-                <div class="modal-header">
-                    <span class="modal-title">Albums — ${escapeHtml(ch.name)}</span>
-                    <button class="modal-close" id="al-close">&times;</button>
-                </div>
-                <div class="modal-body" id="al-body">
-                    <div class="channel-loading">Loading…</div>
-                </div>
-            </div>`;
-        document.body.appendChild(backdrop);
-        backdrop.querySelector('#al-close').addEventListener('click', () => backdrop.remove());
-        backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.remove(); });
-
-        const body = backdrop.querySelector('#al-body');
-        try {
-            const albums = await ChannelAPI.galleries(ch.slug);
-            if (albums.length === 0) {
-                body.innerHTML = '<div class="channel-empty">No albums built yet.</div>';
-                return;
-            }
-            const base = _deployBaseURL(ch);
-            body.innerHTML = albums.map(a => {
-                const path = _albumPath(ch, a.folderName);
-                const url = base ? base.url + path : path;
-                const dateStr = new Date(a.publishedAt).toLocaleDateString();
-                const badge = a.unlisted ? '<span class="album-badge album-badge--unlisted">Unlisted</span>' : '';
-                let linkHtml;
-                if (base) {
-                    const note = base.guessed ? ' <span class="form-hint">(guessed from deploy Host)</span>' : '';
-                    linkHtml = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>${note}`;
-                } else {
-                    linkHtml = `<code>${escapeHtml(url)}</code> <span class="form-hint">(set Site URL, or configure an rsync Host, for a full link)</span>`;
-                }
-                return `
-                    <div class="album-row">
-                        <div class="album-row-top">
-                            <span class="album-row-title">${escapeHtml(a.title || '(untitled)')}</span>
-                            ${badge}
-                            <span class="album-row-meta">${dateStr} · ${a.photoCount} photo${a.photoCount !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div class="album-row-url">
-                            ${linkHtml}
-                            <button class="btn btn-sm album-copy" data-url="${escapeHtml(url)}">Copy</button>
-                        </div>
-                    </div>`;
-            }).join('');
-            body.querySelectorAll('.album-copy').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    try {
-                        await navigator.clipboard.writeText(btn.dataset.url);
-                        const orig = btn.textContent;
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => { btn.textContent = orig; }, 1500);
-                    } catch (err) {
-                        alert('Copy failed: ' + err.message);
-                    }
-                });
-            });
-        } catch (err) {
-            body.innerHTML = `<div class="channel-error">Failed to load albums: ${escapeHtml(err.message)}</div>`;
         }
     }
 
