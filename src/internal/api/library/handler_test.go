@@ -493,6 +493,102 @@ func TestGenerateDraft_PartialFailure_KeepsFailedPhotoPending(t *testing.T) {
 	}
 }
 
+// TestGenerateDraft_PartialFailure_CrossLibraryPhotoIDCollision_KeepsFailedPending
+// covers a narrower version of the bug above: clearSucceededPhotos used to key its
+// "did this succeed" map by the bare content-hash PhotoID, ignoring LibraryID. The
+// draft/meta model explicitly allows the SAME PhotoID (content hash) to appear under
+// two different LibraryIDs in one draft — e.g. duplicate-content imports across
+// libraries. If one library's copy succeeds and the other's fails, keying by PhotoID
+// alone let the successful library's entry mark the failed library's entry as
+// succeeded too, silently clearing its pending: meta and removing it from the draft
+// even though nothing was exported for it.
+func TestGenerateDraft_PartialFailure_CrossLibraryPhotoIDCollision_KeepsFailedPending(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "instagram", Name: "Instagram", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+
+	const sharedPhotoID = "shared-photo"
+
+	goodLibID := seedLibraryPhoto(t, mgr, sharedPhotoID)
+	goodStore, err := mgr.OpenStore(goodLibID)
+	if err != nil {
+		t.Fatalf("OpenStore (good): %v", err)
+	}
+	defer goodStore.Close()
+
+	// A second library whose row uses the SAME PhotoID but points at a path that
+	// doesn't exist on disk — buildOne's media.ExportImage fails to open it.
+	badSource := t.TempDir()
+	badLib, err := mgr.CreateLibrary("Bad-Lib-Collision", "", badSource)
+	if err != nil {
+		t.Fatalf("CreateLibrary: %v", err)
+	}
+	badStore, err := mgr.OpenStore(badLib.ID)
+	if err != nil {
+		t.Fatalf("OpenStore (bad): %v", err)
+	}
+	defer badStore.Close()
+	missingPath := filepath.Join(badSource, sharedPhotoID+".jpg")
+	if err := badStore.UpsertPhoto(sharedPhotoID, missingPath, sharedPhotoID+".jpg", 0, time.Now(), "{}", "", "", "jpeg"); err != nil {
+		t.Fatalf("UpsertPhoto (bad): %v", err)
+	}
+
+	if err := goodStore.UpsertMeta(sharedPhotoID, "pending:instagram", "x"); err != nil {
+		t.Fatalf("UpsertMeta pending (good): %v", err)
+	}
+	if err := badStore.UpsertMeta(sharedPhotoID, "pending:instagram", "x"); err != nil {
+		t.Fatalf("UpsertMeta pending (bad): %v", err)
+	}
+
+	draft, err := draftStore.Create("instagram", channels.DraftTarget{}, []channels.DraftPhoto{
+		{LibraryID: goodLibID, PhotoID: sharedPhotoID},
+		{LibraryID: badLib.ID, PhotoID: sharedPhotoID},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	remaining, err := draftStore.Get("instagram", draft.ID)
+	if err != nil {
+		t.Fatalf("expected draft to survive partial failure, got: %v", err)
+	}
+	if len(remaining.Photos) != 1 || remaining.Photos[0].LibraryID != badLib.ID || remaining.Photos[0].PhotoID != sharedPhotoID {
+		t.Fatalf("expected only the bad library's entry to remain in draft, got %+v", remaining.Photos)
+	}
+
+	goodEntries, err := goodStore.GetMeta(sharedPhotoID)
+	if err != nil {
+		t.Fatalf("GetMeta (good): %v", err)
+	}
+	for _, e := range goodEntries {
+		if e.Key == "pending:instagram" {
+			t.Error("expected pending:instagram to be cleared for the succeeded library's photo")
+		}
+	}
+
+	badEntries, err := badStore.GetMeta(sharedPhotoID)
+	if err != nil {
+		t.Fatalf("GetMeta (bad): %v", err)
+	}
+	var stillPending bool
+	for _, e := range badEntries {
+		if e.Key == "pending:instagram" {
+			stillPending = true
+		}
+	}
+	if !stillPending {
+		t.Error("expected pending:instagram to be kept for the failed library's photo despite the PhotoID collision")
+	}
+}
+
 func TestGenerateDraft_GalleryChannel_CreatesGalleryAndClearsDraft(t *testing.T) {
 	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
 	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {

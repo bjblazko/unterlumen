@@ -1645,18 +1645,21 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		// unreadable image, disk full, ...) pending in the draft so the user can
 		// see and retry them — buildOne reports failure per-photo via res.Error
 		// rather than aborting the whole batch, so a draft can partially succeed.
+		// clearSucceededPhotos pairs results with draft.Photos by index: both the
+		// synchronous and streaming build loops append exactly one buildResult per
+		// draft.Photos entry, in the same order, with no filtering in between — so
+		// results[i] always corresponds to draft.Photos[i]. This index pairing (rather
+		// than a map keyed by the bare content-hash PhotoID) is required because the
+		// same PhotoID can legitimately appear under two different LibraryIDs in one
+		// draft (duplicate-content imports across libraries): keying by PhotoID alone
+		// would let one library's success mark the other library's failed entry as
+		// succeeded too, silently clearing its pending: meta.
 		clearSucceededPhotos := func(results []buildResult) {
 			if draftID == "-" {
 				return // synthetic draft — nothing was ever persisted
 			}
-			succeeded := make(map[string]bool, len(results))
-			for _, res := range results {
-				if res.Error == "" {
-					succeeded[res.PhotoID] = true
-				}
-			}
-			for _, dp := range draft.Photos {
-				if !succeeded[dp.PhotoID] {
+			for i, dp := range draft.Photos {
+				if i >= len(results) || results[i].Error != "" {
 					continue // failed export: keep in draft and keep pending: meta
 				}
 				draftStore.RemovePhoto(slug, draftID, dp.LibraryID, dp.PhotoID) //nolint:errcheck
