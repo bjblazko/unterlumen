@@ -70,7 +70,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore))
-	mux.HandleFunc("POST /api/library/{id}/build", buildPhotos(mgr, chStore, root, serverRole))
+	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-galleries", rebuildGalleries(chStore))
@@ -1485,41 +1485,49 @@ type buildResult struct {
 	Error         string `json:"error,omitempty"`
 }
 
-func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverRole bool) http.HandlerFunc {
+func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if chStore == nil {
+		if chStore == nil || draftStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
 			return
 		}
-		id := r.PathValue("id")
+		slug := r.PathValue("slug")
+		draftID := r.PathValue("draftID")
 
 		var body struct {
-			PhotoIDs     []string `json:"photoIDs"`
-			Channel      string   `json:"channel"`
-			Account      string   `json:"account"`
-			PublishedAt  string   `json:"publishedAt"`
-			GalleryTitle string   `json:"galleryTitle"`
-			TargetPostID string   `json:"targetPostID,omitempty"` // non-empty = add to existing gallery/album
-			RecordXMP    *bool    `json:"recordXMP,omitempty"`    // nil → true (default)
-			OutputPath   string   `json:"outputPath,omitempty"`   // per-build override
-			Unlisted     bool     `json:"unlisted"`               // site-export only; fixed at album creation, ignored on add-to-existing
+			PublishedAt string `json:"publishedAt,omitempty"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-		if len(body.PhotoIDs) == 0 || body.Channel == "" {
-			http.Error(w, "photoIDs and channel required", http.StatusBadRequest)
-			return
-		}
+		json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck // empty body is valid; PublishedAt defaults below
 
-		ch, err := chStore.Get(body.Channel)
+		ch, err := chStore.Get(slug)
 		if err != nil {
 			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if body.Account != "" && ch.AccountByID(body.Account) == nil {
-			http.Error(w, "account not found: "+body.Account, http.StatusBadRequest)
+
+		// draftID == "-" is the sentinel for "regenerate this gallery/album with
+		// no newly collected photos" — used by the Publish dialog for a Live
+		// gallery that has no pending draft at all. It subsumes the old
+		// Rebuild/Rebuild-site actions: same code path below, just with an
+		// empty Photos list, driven by a synthetic in-memory draft instead of
+		// one loaded from drafts.json.
+		var draft *channels.Draft
+		if draftID == "-" {
+			postID := r.URL.Query().Get("postID")
+			if postID == "" {
+				http.Error(w, "postID query parameter required when regenerating without a draft", http.StatusBadRequest)
+				return
+			}
+			draft = &channels.Draft{Target: channels.DraftTarget{PostID: postID}}
+		} else {
+			draft, err = draftStore.Get(slug, draftID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		if draft.Target.Account != "" && ch.AccountByID(draft.Target.Account) == nil {
+			http.Error(w, "account not found: "+draft.Target.Account, http.StatusBadRequest)
 			return
 		}
 
@@ -1530,43 +1538,39 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			}
 		}
 
-		store, err := mgr.OpenStore(id)
-		if err != nil {
-			http.Error(w, "library not found", http.StatusNotFound)
-			return
+		// Open one *lib.Store per distinct library referenced by the draft —
+		// a draft's photos can span multiple libraries, collected across
+		// separate sessions (ADR-0016: channel output is library-independent).
+		stores := map[string]*lib.Store{}
+		defer func() {
+			for _, s := range stores {
+				s.Close()
+			}
+		}()
+		for _, dp := range draft.Photos {
+			if _, ok := stores[dp.LibraryID]; ok {
+				continue
+			}
+			s, openErr := mgr.OpenStore(dp.LibraryID)
+			if openErr != nil {
+				http.Error(w, "library not found: "+dp.LibraryID, http.StatusNotFound)
+				return
+			}
+			stores[dp.LibraryID] = s
 		}
-		defer store.Close()
 
 		postID := newPostID()
 		pub := media.Publication{
-			Channel:      body.Channel,
-			Account:      body.Account,
-			PostID:       postID,
-			GalleryTitle: body.GalleryTitle,
-			PublishedAt:  publishedAt,
+			Channel: slug, Account: draft.Target.Account, PostID: postID,
+			GalleryTitle: draft.Target.Title, PublishedAt: publishedAt,
 		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
-		addToExisting := body.TargetPostID != ""
-		galleryMode := ch.GalleryExport && (body.GalleryTitle != "" || addToExisting)
-		siteMode := ch.SiteExport && (body.GalleryTitle != "" || addToExisting)
-		channelDir := chStore.OutputDir(body.Channel)
-		if body.OutputPath != "" {
-			if serverRole && filepath.IsAbs(body.OutputPath) {
-				http.Error(w, "absolute paths not allowed in server mode", http.StatusBadRequest)
-				return
-			}
-			if !filepath.IsAbs(body.OutputPath) {
-				safe, ok := pathguard.SafePath(root, body.OutputPath)
-				if !ok {
-					http.Error(w, "invalid output path", http.StatusBadRequest)
-					return
-				}
-				channelDir = safe
-			} else {
-				channelDir = body.OutputPath
-			}
-		}
+		addToExisting := draft.Target.PostID != ""
+		galleryMode := ch.GalleryExport && (draft.Target.Title != "" || addToExisting)
+		siteMode := ch.SiteExport && (draft.Target.Title != "" || addToExisting)
+		channelDir := chStore.OutputDir(slug)
+
 		// albumPostID is the album's key in site.json (immutable).
 		// albumSlug is the human-readable folder name for site-mode albums.
 		albumPostID := postID
@@ -1578,7 +1582,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 
 		outDir := channelDir
 		if addToExisting {
-			albumPostID = body.TargetPostID
+			albumPostID = draft.Target.PostID
 			if galleryMode {
 				outDir = filepath.Join(channelDir, albumPostID)
 				gs, gsErr := loadGalleryState(filepath.Join(outDir, "gallery.json"))
@@ -1621,7 +1625,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			} else if siteMode {
 				// Compute a human-readable slug for the new album folder.
 				existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
-				albumSlug = computeSlug(body.GalleryTitle, publishedAt, existingAlbums, body.Unlisted)
+				albumSlug = computeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
 				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
 			}
 		}
@@ -1636,15 +1640,26 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			pub.GalleryTitle = existingTitle
 		}
 
-		recordXMP := body.RecordXMP == nil || *body.RecordXMP
+		clearDraft := func() {
+			if draftID == "-" {
+				return // synthetic draft — nothing was ever persisted
+			}
+			draftStore.Delete(slug, draftID) //nolint:errcheck
+			for _, dp := range draft.Photos {
+				if s, ok := stores[dp.LibraryID]; ok {
+					s.DeleteMeta(dp.PhotoID, "pending:"+slug) //nolint:errcheck
+				}
+			}
+		}
 
 		if !galleryMode && !siteMode {
 			// Fast synchronous path for regular (non-gallery) builds.
 			var results []buildResult
-			for _, photoID := range body.PhotoIDs {
-				res := buildOne(store, ch, pub, ts, outDir, "", photoID, recordXMP)
+			for _, dp := range draft.Photos {
+				res := buildOne(stores[dp.LibraryID], ch, pub, ts, outDir, "", dp.PhotoID, true)
 				results = append(results, res)
 			}
+			clearDraft()
 			writeJSON(w, map[string]any{"postID": postID, "results": results})
 			return
 		}
@@ -1672,10 +1687,10 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 			flusher.Flush()
 		}
 
-		total := len(body.PhotoIDs)
+		total := len(draft.Photos)
 		var results []buildResult
-		for i, photoID := range body.PhotoIDs {
-			res := buildOne(store, ch, pub, ts, outDir, thumbDir, photoID, recordXMP)
+		for i, dp := range draft.Photos {
+			res := buildOne(stores[dp.LibraryID], ch, pub, ts, outDir, thumbDir, dp.PhotoID, true)
 			results = append(results, res)
 			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
@@ -1715,7 +1730,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 		}
 
 		// Gallery title: use existing title when adding to an existing gallery.
-		galleryTitle := body.GalleryTitle
+		galleryTitle := draft.Target.Title
 		if existingTitle != "" {
 			galleryTitle = existingTitle
 		}
@@ -1731,7 +1746,7 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 
 		// Unlisted is fixed at album creation and does not change on add-to-existing,
 		// mirroring how Slug is immutable once set.
-		albumUnlisted := body.Unlisted
+		albumUnlisted := draft.Target.Unlisted
 		if addToExisting {
 			albumUnlisted = existingUnlisted
 		}
@@ -1849,8 +1864,10 @@ func buildPhotos(mgr *lib.Manager, chStore *channels.Store, root string, serverR
 				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
 			emit(map[string]any{"step": "site", "done": 1, "total": 1, "file": "Site index updated"})
+			clearDraft()
 			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "sitePath": siteDir, "results": results})
 		} else {
+			clearDraft()
 			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "results": results})
 		}
 	}

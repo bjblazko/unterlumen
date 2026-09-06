@@ -6,9 +6,11 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -299,5 +301,298 @@ func TestRebuildGalleriesRejectsNonGalleryChannel(t *testing.T) {
 
 	if rec.Code != 400 {
 		t.Errorf("status = %d, want 400 for a non-gallery-export channel", rec.Code)
+	}
+}
+
+// --- generateDraft ---
+
+// setupGenerateTestMux mirrors setupDraftTestMux (drafts_test.go) but wires
+// only the generate route, which is all these tests exercise.
+func setupGenerateTestMux(t *testing.T) (*http.ServeMux, *lib.Manager, *channels.Store, *channels.DraftStore) {
+	t.Helper()
+	mgr, err := lib.NewManager(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	dir := t.TempDir()
+	chStore := channels.NewStore(dir, dir)
+	draftStore := channels.NewDraftStore(chStore)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
+	return mux, mgr, chStore, draftStore
+}
+
+// seedLibraryPhoto creates a library with one real on-disk JPEG registered as
+// a photo, so buildOne's store.GetPhotoPathHint/media.ExportImage have a real
+// file to work with (mirrors writeTestJPEG + UpsertPhoto usage elsewhere in
+// this file — this codebase has no photo fixtures for Go tests).
+func seedLibraryPhoto(t *testing.T, mgr *lib.Manager, photoID string) (libID string) {
+	t.Helper()
+	source := t.TempDir()
+	l, err := mgr.CreateLibrary("Test-"+photoID, "", source)
+	if err != nil {
+		t.Fatalf("CreateLibrary: %v", err)
+	}
+	store, err := mgr.OpenStore(l.ID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+
+	realPath := filepath.Join(source, photoID+".jpg")
+	writeTestJPEG(t, realPath, 40, 30)
+	if err := store.UpsertPhoto(photoID, realPath, photoID+".jpg", 4, time.Now(), "{}", "", "", "jpeg"); err != nil {
+		t.Fatalf("UpsertPhoto: %v", err)
+	}
+	return l.ID
+}
+
+func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "instagram", Name: "Instagram", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+
+	draft, err := draftStore.Create("instagram", channels.DraftTarget{}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := draftStore.Get("instagram", draft.ID); err == nil {
+		t.Fatal("expected draft to be deleted after generate")
+	}
+
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	entries, err := store.GetMeta("photo1")
+	if err != nil {
+		t.Fatalf("GetMeta: %v", err)
+	}
+	var hasPending, hasBuilt bool
+	for _, e := range entries {
+		if e.Key == "pending:instagram" {
+			hasPending = true
+		}
+		if e.Key == "built:instagram" {
+			hasBuilt = true
+		}
+	}
+	if hasPending {
+		t.Error("expected pending:instagram meta to be cleared")
+	}
+	if !hasBuilt {
+		t.Error("expected built:instagram meta to be written")
+	}
+}
+
+func TestGenerateDraft_GalleryChannel_CreatesGalleryAndClearsDraft(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+
+	draft, err := draftStore.Create("website", channels.DraftTarget{Title: "My Gallery"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/website/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	var complete map[string]any
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+			t.Fatalf("decode SSE event: %v (line=%q)", err, line)
+		}
+		if done, _ := ev["complete"].(bool); done {
+			complete = ev
+		}
+	}
+	if complete == nil {
+		t.Fatalf("no complete:true event in SSE stream, body=%s", rec.Body.String())
+	}
+	galleryPath, _ := complete["galleryPath"].(string)
+	if galleryPath == "" {
+		t.Fatal("expected non-empty galleryPath in complete event")
+	}
+
+	if _, err := draftStore.Get("website", draft.ID); err == nil {
+		t.Fatal("expected draft to be deleted after generate")
+	}
+	if _, err := os.Stat(filepath.Join(galleryPath, "gallery.json")); err != nil {
+		t.Errorf("expected gallery.json at %s: %v", galleryPath, err)
+	}
+}
+
+func TestGenerateDraft_MultiLibraryDraft_MergesAllPhotos(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID1 := seedLibraryPhoto(t, mgr, "photoA")
+	libID2 := seedLibraryPhoto(t, mgr, "photoB")
+
+	draft, err := draftStore.Create("website", channels.DraftTarget{Title: "Multi-Library"}, []channels.DraftPhoto{
+		{LibraryID: libID1, PhotoID: "photoA"},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+	if _, err := draftStore.AppendPhotos("website", draft.ID, []channels.DraftPhoto{{LibraryID: libID2, PhotoID: "photoB"}}); err != nil {
+		t.Fatalf("AppendPhotos: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/website/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	var galleryPath string
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev map[string]any
+		json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev) //nolint:errcheck
+		if done, _ := ev["complete"].(bool); done {
+			galleryPath, _ = ev["galleryPath"].(string)
+		}
+	}
+	if galleryPath == "" {
+		t.Fatalf("no complete event with galleryPath, body=%s", rec.Body.String())
+	}
+
+	gs, err := loadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	if err != nil || gs == nil {
+		t.Fatalf("loadGalleryState: %v", err)
+	}
+	if gs.PhotoCount != 2 {
+		t.Errorf("PhotoCount = %d, want 2 (photos from both libraries)", gs.PhotoCount)
+	}
+}
+
+func TestGenerateDraft_UnknownDraft_Returns400(t *testing.T) {
+	mux, _, chStore, _ := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "instagram", Name: "Instagram", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/does-not-exist/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// TestGenerateDraft_SentinelRegeneratesWithoutDraft exercises the draftID=="-"
+// path used by the Publish dialog to regenerate an already-Live gallery that
+// has no pending draft: it must succeed using the postID query param alone.
+func TestGenerateDraft_SentinelRegeneratesWithoutDraft(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+
+	// First, generate a real draft to create the gallery.
+	draft, err := draftStore.Create("website", channels.DraftTarget{Title: "Existing Gallery"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+	req := httptest.NewRequest("POST", "/api/channels/website/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("initial generate status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var postID string
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev map[string]any
+		json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev) //nolint:errcheck
+		if done, _ := ev["complete"].(bool); done {
+			postID, _ = ev["postID"].(string)
+		}
+	}
+	if postID == "" {
+		t.Fatalf("no postID from initial generate, body=%s", rec.Body.String())
+	}
+
+	// Now regenerate with no draft at all, via the sentinel.
+	req = httptest.NewRequest("POST", "/api/channels/website/drafts/-/generate?postID="+postID, strings.NewReader("{}"))
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sentinel regenerate status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var complete map[string]any
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev map[string]any
+		json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev) //nolint:errcheck
+		if done, _ := ev["complete"].(bool); done {
+			complete = ev
+		}
+	}
+	if complete == nil {
+		t.Fatalf("no complete event for sentinel regenerate, body=%s", rec.Body.String())
+	}
+	// Note: the "postID" field in the complete event is always a freshly
+	// generated build ID (see media.Publication.PostID), not the album's
+	// identity — that's unchanged from the pre-refactor buildPhotos behavior.
+	// What must be reused is the *album*, keyed by gallery.json's own PostID.
+	galleryPath, _ := complete["galleryPath"].(string)
+	gs, err := loadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	if err != nil || gs == nil {
+		t.Fatalf("loadGalleryState after sentinel regenerate: %v", err)
+	}
+	if gs.PostID != postID {
+		t.Errorf("gallery.json PostID = %q, want %q (should reuse existing album, not create a new one)", gs.PostID, postID)
+	}
+	if gs.PhotoCount != 1 {
+		t.Errorf("PhotoCount = %d, want 1 (regenerate added no new photos)", gs.PhotoCount)
+	}
+}
+
+// TestGenerateDraft_SentinelWithoutPostID_Returns400 verifies the sentinel
+// path requires the postID query param — it has no draft to fall back on.
+func TestGenerateDraft_SentinelWithoutPostID_Returns400(t *testing.T) {
+	mux, _, chStore, _ := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/website/drafts/-/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
 	}
 }
