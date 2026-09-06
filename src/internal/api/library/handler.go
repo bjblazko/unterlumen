@@ -32,7 +32,7 @@ import (
 
 // Handle registers all library API routes on mux.
 // root is the browse boundary directory; serverRole is true when running in server/container mode.
-func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, root string, serverRole bool, chStore *channels.Store) {
+func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, root string, serverRole bool, chStore *channels.Store, draftStore *channels.DraftStore) {
 	mux.HandleFunc("GET /api/library/", listLibraries(mgr, root))
 	mux.HandleFunc("POST /api/library/", createLibrary(mgr, root))
 	mux.HandleFunc("PUT /api/library-order", setLibraryOrder(mgr))
@@ -79,6 +79,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("DELETE /api/channels/{slug}/galleries/{postID}", deleteGallery(chStore, mgr))
 	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore))
 	mux.HandleFunc("POST /api/channels/galleries/reachability", checkGalleryReachability())
+	registerDraftRoutes(mux, mgr, chStore, draftStore)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

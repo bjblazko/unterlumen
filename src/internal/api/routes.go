@@ -48,7 +48,15 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		apichannels.Handle(mux, chStore)
 	}
 	if libMgr != nil {
-		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore)
+		// DraftStore methods dereference channelStore directly (e.g. via
+		// OutputDir), so it is only constructed when chStore is non-nil;
+		// draftStore stays nil otherwise and collectDraft's own nil check
+		// in apilibrary handles that case with a 503.
+		var draftStore *channels.DraftStore
+		if chStore != nil {
+			draftStore = channels.NewDraftStore(chStore)
+		}
+		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore, draftStore)
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))
