@@ -15,19 +15,27 @@ function parseSseComplete(text) {
         .find(e => e.complete) ?? null;
 }
 
-// Build one photo to a gallery/album channel and return the complete SSE event.
+// Collect one photo into a draft for a gallery/album channel, then generate
+// it. Returns the complete SSE event from generate — same shape as the old
+// single-step /build endpoint's SSE (see publish-workflow.spec.js for the
+// UI-driven version of this same collect+generate flow).
 async function buildGallery(request, libID, photoID, channelSlug, galleryTitle, opts = {}) {
-    const body = {
-        photoIDs: [photoID],
-        channel: channelSlug,
-        recordXMP: false,
-        publishedAt: opts.publishedAt ?? '2026-01-15T12:00:00Z',
-    };
-    if (galleryTitle) body.galleryTitle = galleryTitle;
-    if (opts.targetPostID) body.targetPostID = opts.targetPostID;
+    const collectBody = { photoIDs: [photoID] };
+    if (opts.targetPostID) {
+        collectBody.postID = opts.targetPostID;
+    } else if (galleryTitle) {
+        collectBody.title = galleryTitle;
+    }
 
-    const res = await request.post(`/api/library/${libID}/build`, {
-        data: body,
+    const collectRes = await request.post(`/api/library/${libID}/channels/${channelSlug}/drafts`, {
+        data: collectBody,
+        timeout: 30_000,
+    });
+    expect(collectRes.status()).toBe(200);
+    const draft = await collectRes.json();
+
+    const res = await request.post(`/api/channels/${channelSlug}/drafts/${draft.id}/generate`, {
+        data: { publishedAt: opts.publishedAt ?? '2026-01-15T12:00:00Z' },
         timeout: 90_000,
     });
     expect(res.status()).toBe(200);
@@ -158,14 +166,25 @@ test.describe('Build — gallery listing and add-to-existing', () => {
         });
 
         test('add-to-existing with unknown targetPostID returns 400', async ({ request }) => {
-            const res = await request.post(`/api/library/${libID}/build`, {
+            // Collecting into a draft with an unknown postID succeeds — the
+            // draft's target is just stored data at this point, with no
+            // existence check against real galleries (DraftStore.Create).
+            // The 400 only surfaces at generate time, when generateDraft
+            // tries to load the existing gallery state for that postID and
+            // fails to find it (handler.go's generateDraft, "gallery not
+            // found" branch).
+            const collectRes = await request.post(`/api/library/${libID}/channels/${GALLERY_SLUG}/drafts`, {
                 data: {
                     photoIDs: [photoID1],
-                    channel: GALLERY_SLUG,
-                    galleryTitle: '',
-                    targetPostID: 'doesnotexist0000000000000',
-                    recordXMP: false,
+                    postID: 'doesnotexist0000000000000',
                 },
+                timeout: 10_000,
+            });
+            expect(collectRes.status()).toBe(200);
+            const draft = await collectRes.json();
+
+            const res = await request.post(`/api/channels/${GALLERY_SLUG}/drafts/${draft.id}/generate`, {
+                data: {},
                 timeout: 10_000,
             });
             expect(res.status()).toBe(400);

@@ -15,15 +15,24 @@ function parseSseComplete(text) {
         .find(e => e.complete) ?? null;
 }
 
+// Collect one photo into a draft for a gallery/album channel, then generate
+// it. Returns the complete SSE event from generate — same shape as the old
+// single-step /build endpoint's SSE.
 async function buildGallery(request, libID, photoID, channelSlug, galleryTitle, opts = {}) {
-    const body = {
-        photoIDs: [photoID],
-        channel: channelSlug,
-        recordXMP: false,
-        publishedAt: opts.publishedAt ?? '2026-01-15T12:00:00Z',
-    };
-    if (galleryTitle) body.galleryTitle = galleryTitle;
-    const res = await request.post(`/api/library/${libID}/build`, { data: body, timeout: 90_000 });
+    const collectBody = { photoIDs: [photoID] };
+    if (galleryTitle) collectBody.title = galleryTitle;
+
+    const collectRes = await request.post(`/api/library/${libID}/channels/${channelSlug}/drafts`, {
+        data: collectBody,
+        timeout: 30_000,
+    });
+    expect(collectRes.status()).toBe(200);
+    const draft = await collectRes.json();
+
+    const res = await request.post(`/api/channels/${channelSlug}/drafts/${draft.id}/generate`, {
+        data: { publishedAt: opts.publishedAt ?? '2026-01-15T12:00:00Z' },
+        timeout: 90_000,
+    });
     expect(res.status()).toBe(200);
     const evt = parseSseComplete(await res.text());
     expect(evt).toBeTruthy();
