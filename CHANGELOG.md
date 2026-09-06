@@ -11,6 +11,9 @@ All notable changes to this project are documented in this file.
 - **Publish dialog** — the Published tab's Status column now reflects a channel's collect/publish lifecycle (Draft with a pending-photo count, Generated, or a Live/Unreachable reachability result layered on top), and each row gets a Publish button that opens a new dialog: review the pending photos (with the option to drop one before publishing) and set the published/updated date, Generate (export + build), review the generated artifact (copy its path, reveal it in Finder/Explorer, open it in a browser), then Deploy for rsync-handler channels. Deleting a draft-only row now removes the pending draft instead of trying to delete a gallery that was never generated.
 - **Unlisted galleries** (documenting an existing, previously unreleased-noted feature) — site-export albums can be marked Unlisted at creation: the album gets a slug with a random, unguessable token appended, is excluded from the site's own index page and sitemap, and is served with a `<meta name="robots" content="noindex, nofollow">` tag. Privacy relies on the unguessable URL plus noindex, not on `robots.txt`, which is deliberately left permissive (`Allow: /`) for the site's listed albums — see the "Unlisted galleries" feature doc for the full rationale.
 
+### Changed
+- Replaced the Build/Channels-actions/Deploy/Published workflow with a collect-then-publish model: "Add to channel…" defers export/generation until you explicitly Publish, which now includes a review step before any deploy.
+
 ## [0.10.7] - 2026-08-30
 
 ### Fixed
