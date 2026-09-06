@@ -197,6 +197,7 @@ class ChannelSettingsModal {
         const outputDesc = ch.outputMode === 'download'
             ? ' · → download ZIP'
             : (ch.outputPath ? ` · → ${escapeHtml(ch.outputPath.split('/').pop() || ch.outputPath)}` : '');
+        const base = _deployBaseURL(ch);
         row.innerHTML = `
             <div class="channel-row-top">
                 <div class="channel-row-header">
@@ -207,6 +208,8 @@ class ChannelSettingsModal {
                     ${ch.siteExport ? '<button class="btn btn-sm ch-rebuild">Rebuild site</button>' : ''}
                     ${ch.galleryExport ? '<button class="btn btn-sm ch-rebuild-galleries">Rebuild</button>' : ''}
                     ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-albums">Albums</button>' : ''}
+                    ${(ch.siteExport || ch.galleryExport) ? '<button class="btn btn-sm ch-published">Published</button>' : ''}
+                    ${base ? `<a class="btn btn-sm ch-visit-site" href="${escapeHtml(base.url)}" target="_blank" rel="noopener">Visit site</a>` : ''}
                     ${ch.handler === 'rsync' ? '<button class="btn btn-sm ch-deploy">Deploy</button>' : ''}
                     <div class="ch-path-wrap">
                         <button class="btn btn-sm ch-path-toggle">Path ▾</button>
@@ -225,6 +228,10 @@ class ChannelSettingsModal {
 
         row.querySelector('.ch-edit').addEventListener('click', () => this._openForm(ch));
         row.querySelector('.ch-delete').addEventListener('click', () => this._deleteChannel(ch, row));
+        row.querySelector('.ch-published')?.addEventListener('click', () => {
+            this.close();
+            App.showPublishedForChannel(ch.slug);
+        });
 
         const toggle = row.querySelector('.ch-path-toggle');
         const menu = row.querySelector('.ch-path-menu');

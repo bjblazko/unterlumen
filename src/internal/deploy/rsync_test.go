@@ -318,6 +318,38 @@ func TestFixRemotePermissionsCommandShape(t *testing.T) {
 	assertNoAcceptNew(t, args)
 }
 
+func TestRemoteDeleteCommandBuildsQuotedRmRf(t *testing.T) {
+	cmd, err := remoteDeleteCommand("/var/www/my photos", "albums/summer trip")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "rm -rf -- '/var/www/my photos/albums/summer trip'"
+	if cmd != want {
+		t.Errorf("remoteDeleteCommand() = %q, want %q", cmd, want)
+	}
+}
+
+func TestRemoteDeleteCommandTrimsSlashes(t *testing.T) {
+	cmd, err := remoteDeleteCommand("/var/www/", "/a1b2c3/")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != "rm -rf -- '/var/www/a1b2c3'" {
+		t.Errorf("remoteDeleteCommand() = %q", cmd)
+	}
+}
+
+func TestRemoteDeleteCommandRejectsTraversal(t *testing.T) {
+	cases := []string{"", ".", "..", "../etc", "albums/../../etc", "albums//x"}
+	for _, subpath := range cases {
+		t.Run(subpath, func(t *testing.T) {
+			if _, err := remoteDeleteCommand("/var/www", subpath); err == nil {
+				t.Errorf("remoteDeleteCommand(%q) succeeded, want error", subpath)
+			}
+		})
+	}
+}
+
 func TestIsHostKeyVerificationFailure(t *testing.T) {
 	cases := []struct {
 		name   string

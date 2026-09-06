@@ -5368,3 +5368,90 @@ body.slideshow-active #app { height: 100vh; }
     padding: 16px 0;
     text-align: center;
 }
+
+/* --- Published Galleries --- */
+
+.pub-gal-pane {
+    padding: var(--space-4);
+    overflow: auto;
+    height: 100%;
+}
+
+.pub-gal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.pub-gal-table th,
+.pub-gal-table td {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.pub-gal-table th {
+    font-weight: 500;
+    color: var(--fg-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pub-gal-url {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pub-gal-empty {
+    text-align: center;
+    color: var(--fg-2);
+    padding: var(--space-6) 0;
+}
+
+.pub-gal-actions {
+    display: flex;
+    gap: var(--space-2);
+    white-space: nowrap;
+}
+
+.pub-gal-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--accentsoft);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+}
+
+.pub-gal-status {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.pub-gal-status--pending,
+.pub-gal-status--na {
+    color: var(--fg-3);
+}
+
+.pub-gal-status--pending {
+    animation: pub-gal-pulse 1.2s infinite ease-in-out;
+}
+
+.pub-gal-status--ok {
+    color: var(--success);
+}
+
+.pub-gal-status--down {
+    color: var(--danger);
+}
+
+@keyframes pub-gal-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}

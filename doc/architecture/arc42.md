@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-06-28*
+*Last modified: 2026-09-05*
 
 ## 1. Introduction and Goals
 
@@ -293,6 +293,8 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0021](adr/0021-database-schema-migrations.md) — Database schema migration strategy
 - [ADR-0022](adr/0022-read-ahead-prefetch.md) — Read-ahead prefetch and in-memory image cache
 - [ADR-0023](adr/0023-shared-channel-config-directory.md) — Shared channel config directory for multi-installation setups
+- [ADR-0024](adr/0024-published-galleries-overview.md) — Published galleries overview and live reachability check
+- [ADR-0025](adr/0025-gallery-edit-and-remote-delete.md) — Gallery title edit and scoped remote delete over SSH
 
 ## 10. Quality Requirements
 

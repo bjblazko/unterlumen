@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=10">
+    <link rel="stylesheet" href="/css/style.css?v=12">
     <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
 </head>
@@ -62,6 +62,14 @@
                             <line x1="3.5" y1="7" x2="10.5" y2="7" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
                     </span>
+                </button>
+                <button class="workflow-step" id="mode-published">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6" cy="6" r="5"/>
+                        <line x1="1" y1="6" x2="11" y2="6"/>
+                        <path d="M6 1c1.5 1.4 1.5 8.6 0 10M6 1c-1.5 1.4-1.5 8.6 0 10"/>
+                    </svg>
+                    <span class="workflow-label">Published</span>
                 </button>
             </nav>
             <div class="dropdown-wrap">
@@ -135,6 +143,7 @@
     <script src="/js/slideshow-modal.js?v=4"></script>
     <script src="/js/slideshow-player.js?v=4"></script>
     <script src="/js/channels.js?v=10"></script>
+    <script src="/js/published-galleries.js?v=2"></script>
     <script src="/js/library-pane.js?v=4"></script>
     <script src="/js/search-result-pane.js?v=4"></script>
     <script src="/js/chip-input.js?v=7"></script>

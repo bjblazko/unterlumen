@@ -239,6 +239,47 @@ func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
 	}
 }
 
+// TestListGalleriesPerChannelBehaviorPreserved is a regression guard for the
+// collectGalleryItems extraction: the per-channel GET .../galleries endpoint
+// must return exactly what it did before the shared helper was factored out.
+func TestListGalleriesPerChannelBehaviorPreserved(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	ch := &channels.Channel{Slug: "site-ch", Name: "Site Channel", SiteExport: true}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	siteDir := filepath.Join(chStore.OutputDir("site-ch"), "site")
+	if err := os.MkdirAll(siteDir, 0o755); err != nil {
+		t.Fatalf("mkdir site dir: %v", err)
+	}
+	albums := []SiteAlbum{
+		{PostID: "aaa", Slug: "album-one", Title: "Album One", PublishedAt: time.Now(), PhotoCount: 2, Unlisted: true},
+	}
+	if err := saveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+		t.Fatalf("saveSiteState: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/site-ch/galleries", nil)
+	req.SetPathValue("slug", "site-ch")
+	rec := httptest.NewRecorder()
+	listGalleries(chStore)(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var items []galleryListItem
+	if err := json.NewDecoder(rec.Body).Decode(&items); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	item := items[0]
+	if item.PostID != "aaa" || item.Title != "Album One" || item.PhotoCount != 2 || !item.Unlisted || item.FolderName != "album-one" {
+		t.Errorf("item = %+v, want the album's fields preserved through collectGalleryItems", item)
+	}
+}
+
 // TestRebuildGalleriesRejectsNonGalleryChannel verifies rebuildGalleries
 // refuses to run against a channel that isn't configured for single-gallery
 // export, rather than silently doing nothing or misinterpreting its output dir.

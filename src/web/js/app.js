@@ -19,6 +19,8 @@ const App = {
     _wastebinEl: null,
     _libraryEl: null,
     _libraryTab: null,
+    _publishedEl: null,
+    _publishedPane: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -48,11 +50,16 @@ const App = {
             this.setMode('library');
             if (this._libraryTab) this._libraryTab._showCreateDialog();
         });
+        document.getElementById('mode-published').addEventListener('click', () => {
+            if (this._publishedPane) this._publishedPane.setFilterChannel(null);
+            this.setMode('published');
+        });
 
         document.getElementById('mode-browse').title = `Select (1)`;
         document.getElementById('mode-wastebin').title = `Review (2)`;
         document.getElementById('mode-commander').title = `Organize (3)`;
         document.getElementById('mode-library').title = `Libraries (4)`;
+        document.getElementById('mode-published').title = `Published (5)`;
 
         this.keyboard.attach();
         this.theme.init();
@@ -176,7 +183,7 @@ const App = {
 
         this.mode = mode;
 
-        const stepOrder = { browse: 0, wastebin: 1, commander: 2, library: 3 };
+        const stepOrder = { browse: 0, wastebin: 1, commander: 2, library: 3, published: 4 };
         const prevIdx = stepOrder[prevMode] ?? 0;
         const currIdx = stepOrder[mode];
 
@@ -185,6 +192,7 @@ const App = {
             { el: document.getElementById('mode-wastebin'), idx: 1 },
             { el: document.getElementById('mode-commander'), idx: 2 },
             { el: document.getElementById('mode-library'), idx: 3 },
+            { el: document.getElementById('mode-published'), idx: 4 },
         ];
         for (const step of steps) {
             step.el.classList.remove('active', 'completed');
@@ -271,14 +279,26 @@ const App = {
             this._libraryTab.render();
         }
 
+        if (mode === 'published') {
+            if (!this._publishedEl) {
+                this._publishedEl = document.createElement('div');
+                this._publishedEl.style.height = '100%';
+                appEl.appendChild(this._publishedEl);
+                this._publishedPane = new PublishedGalleriesPane(this._publishedEl);
+            }
+            this._publishedPane.render();
+        }
+
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
+        if (this._publishedEl) this._publishedEl.style.display = mode === 'published' ? '' : 'none';
 
         const activeEl = mode === 'browse' ? this._browseEl :
                          mode === 'commander' ? this._commanderEl :
-                         mode === 'library' ? this._libraryEl : this._wastebinEl;
+                         mode === 'library' ? this._libraryEl :
+                         mode === 'published' ? this._publishedEl : this._wastebinEl;
         if (activeEl && prevMode !== mode) {
             const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
             activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
@@ -293,6 +313,16 @@ const App = {
         if (this.commander) {
             if (this.commander.leftPane) this.commander.leftPane.load(this.commander.leftPane.path);
             if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
+        }
+    },
+
+    // Switches to the Published tab pre-filtered to one channel — used by the
+    // channels list's "View in Published" link.
+    showPublishedForChannel(channelSlug) {
+        this.setMode('published');
+        if (this._publishedPane) {
+            this._publishedPane.setFilterChannel(channelSlug);
+            this._publishedPane._load();
         }
     },
 

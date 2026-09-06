@@ -273,3 +273,50 @@ func fixRemotePermissions(t Target) (string, error) {
 func shellQuoteSingle(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+// remoteDeleteCommand builds the `rm -rf` shell command string to remove one
+// album/gallery subfolder under remotePath, without touching anything else
+// under it (RemotePath can be shared by several channels/albums — see the
+// --delete rationale on rsyncArgs above). subpath must be a plain relative
+// path identifying exactly one folder; "", ".", ".." segments, and absolute
+// paths are all rejected so a malicious or corrupted postID/slug can never
+// expand into deleting remotePath itself or something outside it.
+func remoteDeleteCommand(remotePath, subpath string) (string, error) {
+	cleaned := strings.Trim(subpath, "/")
+	if cleaned == "" {
+		return "", fmt.Errorf("refusing to delete: empty remote subpath")
+	}
+	for _, seg := range strings.Split(cleaned, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", fmt.Errorf("refusing to delete: remote subpath %q contains an invalid segment", subpath)
+		}
+	}
+	full := strings.TrimRight(remotePath, "/") + "/" + cleaned
+	return "rm -rf -- " + shellQuoteSingle(full), nil
+}
+
+// DeleteRemote removes one album/gallery subfolder under t.RemotePath on the
+// remote host over SSH — used to take a single locally-deleted gallery
+// offline on the remote too. remoteSubpath identifies exactly one folder
+// relative to t.RemotePath (e.g. "albums/summer-trip" or "a1b2c3d4e5f6");
+// see remoteDeleteCommand for the validation rules.
+func DeleteRemote(t Target, remoteSubpath string) (string, error) {
+	remoteCmd, err := remoteDeleteCommand(t.RemotePath, remoteSubpath)
+	if err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), testConnectionTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs(t, remoteCmd)...)
+	out, err := cmd.CombinedOutput()
+	output := string(out)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return output, fmt.Errorf("remote delete timed out after %s", testConnectionTimeout)
+		}
+		return output, fmt.Errorf("remote delete failed: %w\n%s", err, output)
+	}
+	return output, nil
+}
