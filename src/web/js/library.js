@@ -160,47 +160,6 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async build(libID, { photoIDs, channel, account, publishedAt, recordXMP, outputPath }) {
-        const r = await fetch(`/api/library/${libID}/build`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt, recordXMP, outputPath }),
-        });
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-    },
-    async buildStream(libID, { photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, unlisted, recordXMP, outputPath }, onProgress) {
-        const r = await fetch(`/api/library/${libID}/build`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photoIDs, channel, account, publishedAt, galleryTitle, targetPostID, unlisted, recordXMP, outputPath }),
-        });
-        if (!r.ok) throw new Error(await r.text());
-
-        const reader = r.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let finalEvt = null;
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const blocks = buffer.split('\n\n');
-            buffer = blocks.pop() ?? '';
-            for (const block of blocks) {
-                const line = block.split('\n').find(l => l.startsWith('data: '));
-                if (!line) continue;
-                try {
-                    const evt = JSON.parse(line.slice(6));
-                    if (evt.complete) finalEvt = evt;
-                    else if (onProgress) onProgress(evt);
-                } catch { /* skip malformed */ }
-            }
-        }
-        if (!finalEvt) throw new Error('Gallery stream ended without completion event');
-        return finalEvt;
-    },
     async buildDownload(libID, { photoIDs, channel, recordXMP }) {
         const r = await fetch(`/api/library/${libID}/build-download`, {
             method: 'POST',

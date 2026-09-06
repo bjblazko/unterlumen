@@ -706,7 +706,7 @@ class ChannelSettingsModal {
             if (!ch.siteExport) return;
             statusEl.textContent = 'Rebuilding site…';
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Logo saved, but site rebuild failed — use Rebuild Site button.';
+                statusEl.textContent = 'Logo saved, but the site didn\'t rebuild — open the Published tab and click Publish on the affected album to regenerate it.';
             }
         };
 
@@ -765,7 +765,7 @@ class ChannelSettingsModal {
             if (!ch.siteExport) return;
             statusEl.textContent = 'Rebuilding site…';
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Photo saved, but site rebuild failed — use Rebuild Site button.';
+                statusEl.textContent = 'Portrait saved, but the site didn\'t rebuild — open the Published tab and click Publish on the affected album to regenerate it.';
             }
         };
 
