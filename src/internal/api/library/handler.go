@@ -77,7 +77,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 	mux.HandleFunc("PATCH /api/channels/{slug}/galleries/{postID}", renameGallery(chStore, mgr))
 	mux.HandleFunc("DELETE /api/channels/{slug}/galleries/{postID}", deleteGallery(chStore, mgr))
-	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore))
+	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/galleries/reachability", checkGalleryReachability())
 	registerDraftRoutes(mux, mgr, chStore, draftStore)
 }

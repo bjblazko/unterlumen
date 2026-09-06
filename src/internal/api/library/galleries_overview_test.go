@@ -16,8 +16,183 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 )
 
+func TestListAllGalleriesGeneratedOnlyHasGeneratedStatus(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	ch := &channels.Channel{Slug: "gal-ch", Name: "Gallery Channel", GalleryExport: true}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	outDir := filepath.Join(chStore.OutputDir("gal-ch"), "post1")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	gs := &GalleryState{PostID: "post1", Title: "Generated Gallery", PublishedAt: time.Now(), PhotoCount: 4}
+	if err := saveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1", len(out))
+	}
+	if out[0].Status != "generated" {
+		t.Errorf("Status = %q, want %q", out[0].Status, "generated")
+	}
+	if out[0].PendingCount != 0 {
+		t.Errorf("PendingCount = %d, want 0", out[0].PendingCount)
+	}
+}
+
+func TestListAllGalleriesDraftOnlyAppearsAsSyntheticRow(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	ch := &channels.Channel{Slug: "gal-ch", Name: "Gallery Channel", GalleryExport: true}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	draft, err := draftStore.Create("gal-ch", channels.DraftTarget{Title: "New Gallery"}, []channels.DraftPhoto{
+		{LibraryID: "lib1", PhotoID: "p1"},
+		{LibraryID: "lib1", PhotoID: "p2"},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1", len(out))
+	}
+	row := out[0]
+	if row.Status != "draft" {
+		t.Errorf("Status = %q, want %q", row.Status, "draft")
+	}
+	if row.PostID != "" {
+		t.Errorf("PostID = %q, want empty for a draft-only row", row.PostID)
+	}
+	if row.PhotoCount != 2 {
+		t.Errorf("PhotoCount = %d, want 2", row.PhotoCount)
+	}
+	if row.PendingCount != 2 {
+		t.Errorf("PendingCount = %d, want 2", row.PendingCount)
+	}
+	if row.DraftID != draft.ID {
+		t.Errorf("DraftID = %q, want %q", row.DraftID, draft.ID)
+	}
+	if row.ChannelSlug != "gal-ch" || row.ChannelName != "Gallery Channel" {
+		t.Errorf("channel tagging wrong: %+v", row)
+	}
+	if row.Title != "New Gallery" {
+		t.Errorf("Title = %q, want %q", row.Title, "New Gallery")
+	}
+}
+
+func TestListAllGalleriesDraftOnlyFallsBackToChannelNameWhenTitleBlank(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	// Plain-export channel: the collect dialog never shows a title field, so
+	// Target.Title is always empty for these drafts.
+	ch := &channels.Channel{Slug: "insta-ch", Name: "Instagram Channel"}
+	ch.GalleryExport = true // still needs an export flag to be listed at all
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := draftStore.Create("insta-ch", channels.DraftTarget{}, []channels.DraftPhoto{
+		{LibraryID: "lib1", PhotoID: "p1"},
+	}); err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1", len(out))
+	}
+	if out[0].Title != "Instagram Channel" {
+		t.Errorf("Title = %q, want fallback to channel name %q", out[0].Title, "Instagram Channel")
+	}
+}
+
+func TestListAllGalleriesGeneratedPlusDraftOnSamePostIDMergesIntoOneRow(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	ch := &channels.Channel{Slug: "gal-ch", Name: "Gallery Channel", GalleryExport: true}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	outDir := filepath.Join(chStore.OutputDir("gal-ch"), "post1")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	gs := &GalleryState{PostID: "post1", Title: "Existing Gallery", PublishedAt: time.Now(), PhotoCount: 4}
+	if err := saveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+	draft, err := draftStore.Create("gal-ch", channels.DraftTarget{PostID: "post1"}, []channels.DraftPhoto{
+		{LibraryID: "lib1", PhotoID: "p5"},
+		{LibraryID: "lib1", PhotoID: "p6"},
+		{LibraryID: "lib1", PhotoID: "p7"},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1 merged row (not two)", len(out))
+	}
+	row := out[0]
+	if row.PostID != "post1" {
+		t.Errorf("PostID = %q, want %q", row.PostID, "post1")
+	}
+	if row.Status != "live-pending" {
+		t.Errorf("Status = %q, want %q", row.Status, "live-pending")
+	}
+	if row.PendingCount != 3 {
+		t.Errorf("PendingCount = %d, want 3", row.PendingCount)
+	}
+	if row.DraftID != draft.ID {
+		t.Errorf("DraftID = %q, want %q", row.DraftID, draft.ID)
+	}
+	if row.PhotoCount != 4 {
+		t.Errorf("PhotoCount = %d, want 4 (generated count unchanged)", row.PhotoCount)
+	}
+}
+
 func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
 
 	siteCh := &channels.Channel{Slug: "site-ch", Name: "Site Channel", SiteExport: true, SiteURL: "https://example.com"}
 	if err := chStore.Save(siteCh); err != nil {
@@ -51,7 +226,7 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore)(rec, req)
+	listAllGalleries(chStore, draftStore)(rec, req)
 
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
@@ -100,6 +275,7 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 
 func TestListAllGalleriesSkipsNonPublishingChannels(t *testing.T) {
 	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
 	ch := &channels.Channel{Slug: "plain", Name: "Plain Channel"}
 	if err := chStore.Save(ch); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -107,7 +283,7 @@ func TestListAllGalleriesSkipsNonPublishingChannels(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore)(rec, req)
+	listAllGalleries(chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -120,6 +296,7 @@ func TestListAllGalleriesSkipsNonPublishingChannels(t *testing.T) {
 
 func TestListAllGalleriesToleratesOneBrokenChannel(t *testing.T) {
 	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
 
 	broken := &channels.Channel{Slug: "broken", Name: "Broken", SiteExport: true}
 	if err := chStore.Save(broken); err != nil {
@@ -148,7 +325,7 @@ func TestListAllGalleriesToleratesOneBrokenChannel(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore)(rec, req)
+	listAllGalleries(chStore, draftStore)(rec, req)
 
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, want 200 even with one broken channel", rec.Code)

@@ -32,6 +32,19 @@ type PublishedGallery struct {
 	// URLGuessed is true when URL was derived from the rsync handler's host
 	// rather than the channel's explicitly configured SiteURL.
 	URLGuessed bool `json:"urlGuessed,omitempty"`
+	// Status summarizes this row's publish state for the frontend's Published
+	// tab: "generated" (built, no pending draft), "draft" (collected photos
+	// awaiting Generate, no built gallery yet), or "live-pending" (already
+	// built/published, but a draft has more photos queued for it).
+	Status string `json:"status"`
+	// PendingCount is the number of photos queued in a not-yet-generated
+	// draft for this row — the draft's own photo count for a draft-only row,
+	// or the pending draft's photo count layered onto an already-generated
+	// gallery. Zero when there is no pending draft.
+	PendingCount int `json:"pendingCount"`
+	// DraftID identifies the pending draft backing this row's status, if any
+	// — lets the frontend open the Publish dialog against that exact draft.
+	DraftID string `json:"draftID,omitempty"`
 }
 
 // resolveGalleryURL computes the public URL for a published gallery item, if
@@ -61,8 +74,12 @@ func resolveGalleryURL(ch *channels.Channel, item galleryListItem) (url string, 
 }
 
 // listAllGalleries returns every published gallery across every channel,
-// merged into one flat, newest-first list.
-func listAllGalleries(chStore *channels.Store) http.HandlerFunc {
+// merged into one flat, newest-first list, with pending drafts layered on:
+// a draft targeting an already-generated gallery's PostID marks that row
+// "live-pending" and carries the draft's photo count as PendingCount; a
+// draft with no matching PostID (a gallery never generated) appears as its
+// own synthetic "draft" row.
+func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
@@ -86,16 +103,39 @@ func listAllGalleries(chStore *channels.Store) http.HandlerFunc {
 				// down the whole overview.
 				continue
 			}
+
+			drafts := channelDrafts(draftStore, ch.Slug)
+			byPostID := draftsByPostID(drafts)
+			matched := map[string]bool{}
+
 			for _, it := range items {
 				url, guessed := resolveGalleryURL(ch, it)
-				out = append(out, PublishedGallery{
+				row := PublishedGallery{
 					galleryListItem: it,
 					ChannelSlug:     ch.Slug,
 					ChannelName:     ch.Name,
 					ChannelHandler:  ch.Handler,
 					URL:             url,
 					URLGuessed:      guessed,
-				})
+					Status:          "generated",
+				}
+				if d, ok := byPostID[it.PostID]; ok {
+					row.Status = "live-pending"
+					row.PendingCount = len(d.Photos)
+					row.DraftID = d.ID
+					matched[d.ID] = true
+				}
+				out = append(out, row)
+			}
+
+			// Any draft not matched to a generated row above (either
+			// targeting a brand-new gallery, or a PostID that doesn't
+			// currently exist) becomes its own synthetic draft row.
+			for _, d := range drafts {
+				if matched[d.ID] {
+					continue
+				}
+				out = append(out, draftOnlyRow(ch, d))
 			}
 		}
 
@@ -103,6 +143,60 @@ func listAllGalleries(chStore *channels.Store) http.HandlerFunc {
 			return out[i].PublishedAt.After(out[j].PublishedAt)
 		})
 		writeJSON(w, out)
+	}
+}
+
+// channelDrafts returns the pending drafts for one channel, tolerating a nil
+// draftStore (e.g. in callers/tests that don't wire one up) or a read error
+// by treating either as "no drafts" — consistent with how collectGalleryItems
+// errors are handled just above, one channel's problem shouldn't sink the
+// whole overview.
+func channelDrafts(draftStore *channels.DraftStore, slug string) []*channels.Draft {
+	if draftStore == nil {
+		return nil
+	}
+	drafts, err := draftStore.List(slug)
+	if err != nil {
+		return nil
+	}
+	return drafts
+}
+
+// draftsByPostID indexes drafts that target an existing gallery/album by
+// PostID. Drafts targeting a brand-new gallery (Target.PostID empty) are
+// omitted — those become synthetic draft-only rows instead.
+func draftsByPostID(drafts []*channels.Draft) map[string]*channels.Draft {
+	out := map[string]*channels.Draft{}
+	for _, d := range drafts {
+		if d.Target.PostID != "" {
+			out[d.Target.PostID] = d
+		}
+	}
+	return out
+}
+
+// draftOnlyRow builds a synthetic PublishedGallery row for a draft that has
+// no corresponding generated gallery/album yet. Title falls back to the
+// channel's own name when the draft has none — always the case for
+// plain-export channels (e.g. Instagram-style), whose collect dialog never
+// shows a title field.
+func draftOnlyRow(ch *channels.Channel, d *channels.Draft) PublishedGallery {
+	title := d.Target.Title
+	if title == "" {
+		title = ch.Name
+	}
+	return PublishedGallery{
+		galleryListItem: galleryListItem{
+			Title:      title,
+			PhotoCount: len(d.Photos),
+			Unlisted:   d.Target.Unlisted,
+		},
+		ChannelSlug:    ch.Slug,
+		ChannelName:    ch.Name,
+		ChannelHandler: ch.Handler,
+		Status:         "draft",
+		PendingCount:   len(d.Photos),
+		DraftID:        d.ID,
 	}
 }
 
