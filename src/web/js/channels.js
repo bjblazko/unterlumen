@@ -99,6 +99,54 @@ const ChannelAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async listDrafts(slug) {
+        const r = await fetch(`/api/channels/${slug}/drafts`);
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async deleteDraft(slug, draftID) {
+        const r = await fetch(`/api/channels/${slug}/drafts/${draftID}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+    },
+    async removeDraftPhoto(slug, draftID, libID, photoID) {
+        const r = await fetch(`/api/channels/${slug}/drafts/${draftID}/photos/${libID}/${photoID}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.status === 204 ? null : r.json();
+    },
+    async generateStream(slug, draftID, postID, { publishedAt } = {}, onProgress) {
+        const qs = draftID === '-' ? `?postID=${encodeURIComponent(postID)}` : '';
+        const r = await fetch(`/api/channels/${slug}/drafts/${draftID}/generate${qs}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publishedAt }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        if (!r.headers.get('content-type')?.includes('text/event-stream')) {
+            return r.json();
+        }
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalEvt = null;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split('\n\n');
+            buffer = blocks.pop() ?? '';
+            for (const block of blocks) {
+                const line = block.split('\n').find(l => l.startsWith('data: '));
+                if (!line) continue;
+                try {
+                    const evt = JSON.parse(line.slice(6));
+                    if (evt.complete) finalEvt = evt;
+                    else if (onProgress) onProgress(evt);
+                } catch { /* skip malformed */ }
+            }
+        }
+        if (!finalEvt) throw new Error('Generate stream ended without completion event');
+        return finalEvt;
+    },
 };
 
 /* --- Deploy URL helpers ---

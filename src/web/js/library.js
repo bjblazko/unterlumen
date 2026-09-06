@@ -210,6 +210,15 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.blob();
     },
+    async collect(libID, slug, { photoIDs, draftID, postID, title, unlisted, account }) {
+        const r = await fetch(`/api/library/${libID}/channels/${slug}/drafts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoIDs, draftID, postID, title, unlisted, account }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async upsertMeta(libID, photoID, key, value) {
         const r = await fetch(`/api/library/${libID}/photo/${photoID}/meta`, {
             method: 'PUT',
