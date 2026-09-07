@@ -93,15 +93,20 @@ func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) 
 
 		out := []PublishedGallery{}
 		for _, ch := range chs {
-			if !ch.SiteExport && !ch.GalleryExport {
-				continue
-			}
-			channelDir := chStore.OutputDir(ch.Slug)
-			items, err := collectGalleryItems(ch, channelDir)
-			if err != nil {
-				// One channel's broken/missing statefile shouldn't take
-				// down the whole overview.
-				continue
+			// Only gallery/site-export channels have generated statefiles to
+			// read — but a plain-export channel (e.g. Instagram) can still
+			// have a pending draft, and must not be skipped entirely or that
+			// draft would never surface anywhere as a "draft" row below.
+			var items []galleryListItem
+			if ch.SiteExport || ch.GalleryExport {
+				channelDir := chStore.OutputDir(ch.Slug)
+				it, err := collectGalleryItems(ch, channelDir)
+				if err != nil {
+					// One channel's broken/missing statefile shouldn't take
+					// down the whole overview.
+					continue
+				}
+				items = it
 			}
 
 			drafts := channelDrafts(draftStore, ch.Slug)

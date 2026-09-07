@@ -107,10 +107,14 @@ func TestListAllGalleriesDraftOnlyFallsBackToChannelNameWhenTitleBlank(t *testin
 	chStore := channels.NewStore(t.TempDir(), t.TempDir())
 	draftStore := channels.NewDraftStore(chStore)
 
-	// Plain-export channel: the collect dialog never shows a title field, so
-	// Target.Title is always empty for these drafts.
+	// Plain-export channel (no GalleryExport/SiteExport at all — e.g. the
+	// real Instagram builtin): the collect dialog never shows a title field,
+	// so Target.Title is always empty for these drafts. A plain channel must
+	// still surface its draft as a row — it must not be skipped just because
+	// it has no gallery/site export flag set (see
+	// TestListAllGalleriesPlainExportChannelDraftAppearsAsRow for the
+	// regression this guards against).
 	ch := &channels.Channel{Slug: "insta-ch", Name: "Instagram Channel"}
-	ch.GalleryExport = true // still needs an export flag to be listed at all
 	if err := chStore.Save(ch); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -133,6 +137,53 @@ func TestListAllGalleriesDraftOnlyFallsBackToChannelNameWhenTitleBlank(t *testin
 	}
 	if out[0].Title != "Instagram Channel" {
 		t.Errorf("Title = %q, want fallback to channel name %q", out[0].Title, "Instagram Channel")
+	}
+}
+
+// Regression test: a channel with neither GalleryExport nor SiteExport set
+// (a plain-export channel, e.g. the real Instagram builtin) was previously
+// skipped entirely by an early "continue" in listAllGalleries, so a photo
+// collected into it via "Add to channel..." could never be found or
+// published — it never appeared in the Published tab at all, with no way to
+// reach the Publish dialog for it.
+func TestListAllGalleriesPlainExportChannelDraftAppearsAsRow(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	ch := &channels.Channel{Slug: "instagram", Name: "Instagram"}
+	if err := chStore.Save(ch); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	draft, err := draftStore.Create("instagram", channels.DraftTarget{}, []channels.DraftPhoto{
+		{LibraryID: "lib1", PhotoID: "p1"},
+	})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1 — a plain-export channel's draft must not be skipped", len(out))
+	}
+	row := out[0]
+	if row.Status != "draft" {
+		t.Errorf("Status = %q, want %q", row.Status, "draft")
+	}
+	if row.ChannelSlug != "instagram" {
+		t.Errorf("ChannelSlug = %q, want %q", row.ChannelSlug, "instagram")
+	}
+	if row.DraftID != draft.ID {
+		t.Errorf("DraftID = %q, want %q", row.DraftID, draft.ID)
+	}
+	if row.PendingCount != 1 {
+		t.Errorf("PendingCount = %d, want 1", row.PendingCount)
 	}
 }
 
