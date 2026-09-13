@@ -25,19 +25,19 @@ is one dialog that generates the artifact, lets you review it, and deploys it.
 
 ## Acceptance Criteria
 
-- [ ] Selecting photos and clicking "Add to channel…" creates/updates a draft
+- [x] Selecting photos and clicking "Add to channel…" creates/updates a draft
       with no files written to the channel's output directory.
-- [ ] The Published tab shows a Draft-status row for a channel with only
+- [x] The Published tab shows a Draft-status row for a channel with only
       pending photos, and a "Live · N pending" row for a channel with both
       generated and newly-collected photos.
-- [ ] The Publish dialog's Generate step produces the same gallery/site
+- [x] The Publish dialog's Generate step produces the same gallery/site
       output as the old Build action did, for both single-gallery and
       multi-album site channels.
-- [ ] The Publish dialog's review step offers copy-path / open-folder for
+- [x] The Publish dialog's review step offers copy-path / open-folder for
       plain-export channels, plus open-in-browser for gallery/site channels.
-- [ ] Deploy only appears for channels with an rsync handler, and only after
+- [x] Deploy only appears for channels with an rsync handler, and only after
       Generate has run.
-- [ ] The Channels dialog has no Rebuild/Albums/Deploy/Published buttons left
+- [x] The Channels dialog has no Rebuild/Albums/Deploy/Published buttons left
       on channel rows.
-- [ ] The Info Panel shows a "pending" Publications card for a collected but
+- [x] The Info Panel shows a "pending" Publications card for a collected but
       not-yet-generated photo, and a "published" card after Generate.
