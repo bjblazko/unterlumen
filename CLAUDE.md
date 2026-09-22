@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-07-06*
+*Last modified: 2026-09-23*
 
 ## Project
 
@@ -52,12 +52,18 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 
 ## Design Philosophy
 
-The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md)), inspired by Braun products (1961–1995). Key rules:
+The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md)), inspired by Braun products (1961–1995). Use the global `rams-design` skill for all UI work; the tokens come from its `references/tokens.css`. Key rules:
 
-- **Palette**: Warm neutrals (OKLCH-based), functional orange (#d35400) for accents — see [ADR-0018](doc/architecture/adr/0018-design-system-tokens.md)
-- **Typography**: IBM Plex Mono as UI voice (`--font-mono`); system sans-serif for display/body; restrained sizes, medium weight
-- **Controls**: Labeled, minimal, no gradients or heavy shadows; border-radius uses design system tokens (`--radius-sm` 6px → `--radius-lg` 14px)
-- **Layout**: 8px grid (`--unit`), 4px base spacing scale (`--space-1` … `--space-10`), generous whitespace, photos without ornament
+- **Tokens**: rams-design tokens — see [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md), which supersedes ADR-0018. Neutral ramp `--bg`/`--bg-2`/`--bg-3`/`--line`/`--line-strong`/`--fg-3`/`--fg-2`/`--fg`; signal colours `--accent` (#E85D04 light / #F07A2A dark), `--confirm`, `--time`, `--warning` with their `*-ink` variants. One meaning per signal colour, ~90 % neutral / 9 % structure / 1 % signal, and every screen must still read in grayscale.
+- **Typography**: IBM Plex Sans (`--font-sans`) is the UI voice for all labels, buttons, headings and body text. IBM Plex Mono (`--font-mono`) **only for data** — file names, paths, EXIF values, coordinates, counters, IDs, keyboard keys — with tabular numerals. Weights 400/500/600.
+- **Controls**: Every action has a frame; rank comes from colour and order. Orange marks the one primary action per screen. Frameless only for navigation entries and links in running text. Everything in one row shares one height: `--control-h` 36px, `--control-h-sm` 30px (set `height` with `box-sizing: border-box`; the border counts inside).
+- **Navigation**: A sidebar of places ([ADR-0028](doc/architecture/adr/0028-places-not-workflow-steps.md)) — entries are `<a href>` with `aria-current`, never `<button>`. `#mode-*` IDs and the number shortcuts stay.
+- **Shape and depth**: Flat. Radii `--radius-sm` 2px / `--radius-md` 4px / `--radius-lg` 8px, `--radius-full` for round controls and badges. Separate areas with a surface step *or* a hairline, never both. `--shadow-float` only for floating layers (menu, popover, modal); nothing at rest has a shadow. No gradients, glows or backdrop blur.
+- **Layout**: 4px base spacing scale (`--space-1` … `--space-12`), no off-scale values, generous whitespace, photos without ornament.
+- **Motion**: 120/160/240ms ease-out, state changes only; 0ms under `prefers-reduced-motion`.
+- **Copy**: Sentence case, plain declarative sentences, specifics over superlatives, no exclamation marks or emoji. Errors say what happened, why, and what to do next — inline, never `alert()`/`confirm()`.
+- **Vocabulary** ([ADR-0029](doc/architecture/adr/0029-destinations-galleries-one-publish-action.md)): in the UI a channel is a **Destination** and an album is a **Gallery**; publishing is one action called **Publish**. Backend names (`channel`, `galleryExport`, `siteExport`, `drafts.json`) are unchanged.
+- **Deviations** from rams-design are recorded in ADR-0030 under "Deviations from rams-design". An unrecorded deviation is a defect.
 - **Principle**: "Remove until it breaks." Every element must justify its existence.
 - Apply these principles to all future UI changes.
 

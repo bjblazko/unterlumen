@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-20*
+*Last modified: 2026-09-23*
 
 ## 1. Introduction and Goals
 
@@ -287,7 +287,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0015](adr/0015-coding-standards.md) — Coding standards and quality guidelines
 - [ADR-0016](adr/0016-global-channel-output.md) — Global channel output directory
 - [ADR-0017](adr/0017-d3-vendored-bundle.md) — Vendor D3.js for statistics visualisations
-- [ADR-0018](adr/0018-design-system-tokens.md) — Adopt Hüpattl! Design System token vocabulary
+- [ADR-0018](adr/0018-design-system-tokens.md) — Adopt Hüpattl! Design System token vocabulary (superseded by ADR-0030)
 - [ADR-0019](adr/0019-toggle-three-label-rule.md) — Toggle sliders must carry three visible labels
 - [ADR-0020](adr/0020-heic-crop-pipeline.md) — HEIC in-place crop via JPEG intermediary
 - [ADR-0021](adr/0021-database-schema-migrations.md) — Database schema migration strategy
@@ -297,6 +297,9 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0025](adr/0025-gallery-edit-and-remote-delete.md) — Gallery title edit and scoped remote delete over SSH
 - [ADR-0026](adr/0026-deferred-publish-drafts.md) — Deferred publish drafts replace immediate build
 - [ADR-0027](adr/0027-per-album-publication-meta-keys.md) — Album identity within a channel (per-album publication meta keys)
+- [ADR-0028](adr/0028-places-not-workflow-steps.md) — Places, not workflow steps (sidebar navigation)
+- [ADR-0029](adr/0029-destinations-galleries-one-publish-action.md) — Destinations and galleries; publish as one action
+- [ADR-0030](adr/0030-rams-design-tokens.md) — Adopt rams-design tokens (supersedes ADR-0018)
 
 ## 10. Quality Requirements
 

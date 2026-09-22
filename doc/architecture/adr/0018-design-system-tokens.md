@@ -1,10 +1,10 @@
 # ADR-0018: Adopt Hüpattl! Design System token vocabulary
 
-*Last modified: 2026-05-19*
+*Last modified: 2026-09-23*
 
 ## Status
 
-Accepted
+Superseded by [ADR-0030](0030-rams-design-tokens.md) (2026-09-23), which replaces this token vocabulary with the rams-design tokens: IBM Plex Sans as the UI voice with Mono reserved for data, a 2/4/8 px radius scale, and self-hosted fonts instead of the Google Fonts CDN.
 
 ## Context
 
