@@ -93,6 +93,14 @@ func updateChannel(store *channels.Store) http.HandlerFunc {
 			http.Error(w, "name is required", http.StatusBadRequest)
 			return
 		}
+		// Deploy status is written by the deploy path, not by the settings
+		// form — carry it over, or saving any setting would blank out the
+		// "last deployed" the UI shows.
+		if existing, getErr := store.Get(slug); getErr == nil {
+			ch.LastDeployedAt = existing.LastDeployedAt
+			ch.LastDeployOK = existing.LastDeployOK
+			ch.LastDeployError = existing.LastDeployError
+		}
 		if err := store.Save(&ch); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

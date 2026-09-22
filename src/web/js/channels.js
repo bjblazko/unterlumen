@@ -150,11 +150,11 @@ const ChannelAPI = {
 };
 
 /* --- Deploy URL helpers ---
- * A channel's public base URL comes from Site URL (site-export channels only).
- * Gallery-export (single-gallery) channels have no such field, but when an
- * rsync handler is configured its Host is, in practice, almost always the
- * same domain the content is served from — so fall back to it as a labelled
- * best-effort guess rather than showing nothing. */
+ * A channel's public base URL comes from its Base URL setting, available for
+ * both site-export and single-gallery channels. When it is empty but an rsync
+ * handler is configured, that handler's Host is, in practice, almost always
+ * the same domain the content is served from — so fall back to it as a
+ * labelled best-effort guess rather than showing nothing. */
 
 function _deployBaseURL(ch) {
     if (ch.siteURL) return { url: ch.siteURL.replace(/\/$/, ''), guessed: false };
@@ -408,13 +408,17 @@ class ChannelSettingsModal {
                         <label class="form-label">Export mode</label>
                         <select class="form-select" id="chf-export-mode">
                             <option value="standard" ${!ch.galleryExport && !ch.siteExport ? 'selected' : ''}>Standard — files only</option>
-                            <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — index.html per build</option>
+                            <option value="gallery"  ${ch.galleryExport && !ch.siteExport  ? 'selected' : ''}>Single gallery — one host, many share-link galleries</option>
                             <option value="site"     ${ch.siteExport                       ? 'selected' : ''}>Multi-album site — static website</option>
                         </select>
                     </div>
 
                     <!-- Website tab -->
                     <div class="ch-panel" data-tab="website">
+                        <div id="chf-base-url-wrap" style="display:${(ch.siteExport || ch.galleryExport) ? '' : 'none'}">
+                            <label class="form-label">Base URL <span class="form-hint">(public address this channel's output is served from)</span></label>
+                            <input class="form-input" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
+                        </div>
                         <div id="chf-site-opts-wrap" style="display:${ch.siteExport ? '' : 'none'}">
                             <label class="form-label">Site logo <span class="form-hint">(shown next to the site name on every page)</span></label>
                             <div class="ch-avatar-wrap" id="chf-logo-wrap">
@@ -431,9 +435,6 @@ class ChannelSettingsModal {
                                 <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
                                 <option value="dark"  ${ch.siteTheme === 'dark'              ? 'selected' : ''}>Dark</option>
                             </select>
-                            <label class="form-label">Site URL <span class="form-hint">(optional — enables canonical links, OG tags, sitemap.xml)</span></label>
-                            <input class="form-input" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
-
                             <label class="form-label">About page <span class="form-hint">(markdown — generates about.html)</span></label>
                             <textarea class="form-input" id="chf-site-about" rows="6" placeholder="Write a short introduction about yourself and your photography…" style="resize:vertical;font-family:inherit">${escapeHtml(ch.siteAbout || '')}</textarea>
 
@@ -454,7 +455,7 @@ class ChannelSettingsModal {
                             <input class="form-input" id="chf-site-contact-url" type="url" value="${escapeHtml(ch.siteContactURL || '')}" placeholder="https://yoursite.com">
                         </div>
                         <div id="chf-site-disabled-hint" style="display:${ch.siteExport ? 'none' : ''}">
-                            <p class="form-hint" style="padding:var(--space-4) 0">Website settings apply when <strong>Export mode</strong> (Export tab) is set to <em>Multi-album site</em>.</p>
+                            <p class="form-hint" style="padding:var(--space-4) 0">The remaining website settings (logo, title, about and imprint pages, footer contacts) apply when <strong>Export mode</strong> (Export tab) is set to <em>Multi-album site</em>.</p>
                         </div>
                     </div>
 
@@ -558,10 +559,14 @@ class ChannelSettingsModal {
         const exportModeEl = form.querySelector('#chf-export-mode');
         const siteOptsWrap = form.querySelector('#chf-site-opts-wrap');
         const siteDisabled = form.querySelector('#chf-site-disabled-hint');
+        const baseURLWrap = form.querySelector('#chf-base-url-wrap');
         exportModeEl.addEventListener('change', () => {
             const isSite = exportModeEl.value === 'site';
             siteOptsWrap.style.display = isSite ? '' : 'none';
             siteDisabled.style.display = isSite ? 'none' : '';
+            // Both gallery and site channels publish to a public address; only
+            // the site mode has the rest of the website settings.
+            baseURLWrap.style.display = (isSite || exportModeEl.value === 'gallery') ? '' : 'none';
         });
 
         // Output mode toggle
@@ -849,7 +854,7 @@ function _readChannelForm(form, isNew, existingSlug) {
         siteExport:       isSite ? true : undefined,
         siteTitle:        isSite ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
         siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
-        siteURL:          isSite ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
+        siteURL:          (isSite || exportModeVal === 'gallery') ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
         siteAbout:        isSite ? (form.querySelector('#chf-site-about').value.trim() || undefined) : undefined,
         siteImprint:      isSite ? (form.querySelector('#chf-site-imprint').value.trim() || undefined) : undefined,
         siteContactEmail: isSite ? (form.querySelector('#chf-site-contact-email').value.trim() || undefined) : undefined,

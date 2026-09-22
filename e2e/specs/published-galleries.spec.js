@@ -152,19 +152,28 @@ test.describe('Published Galleries overview', () => {
         await expect(siteRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--down/, { timeout: 10_000 });
     });
 
-    test('Edit renames a gallery via the prompt dialog', async ({ page }) => {
+    test('Edit renames a gallery and toggles its Unlisted flag', async ({ page, request }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
         const galRow = page.locator(`tr[data-postid="${galleryPostID}"]`);
         await expect(galRow).toBeVisible();
-
-        page.once('dialog', dialog => dialog.accept('Renamed Via E2E'));
         await galRow.locator('.pub-gal-edit').click();
 
-        const renamedRow = page.locator(`tr[data-postid="${galleryPostID}"]`);
-        await expect(renamedRow).toContainText('Renamed Via E2E');
+        const title = page.locator('#pub-gal-edit-title');
+        await expect(title).toBeVisible();
+        await title.fill('Renamed Via E2E');
+        // Unlisted is editable here because a single-gallery album's folder is
+        // the random postID either way — only the noindex tag changes.
+        await page.locator('#pub-gal-edit-unlisted').check();
+        await page.locator('#pub-gal-edit-save').click();
+
+        await expect(page.locator(`tr[data-postid="${galleryPostID}"]`)).toContainText('Renamed Via E2E');
+
+        const res = await request.get('/api/channels/galleries');
+        const row = (await res.json()).find(r => r.postID === galleryPostID);
+        expect(row.unlisted).toBe(true);
     });
 
     test('Delete removes a gallery after confirmation', async ({ page, request }) => {

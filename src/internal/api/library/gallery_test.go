@@ -146,3 +146,34 @@ func TestWriteGalleryAssets(t *testing.T) {
 		t.Error("gallery.js must be fully static — no leftover template placeholders")
 	}
 }
+
+// A single-gallery channel exists for sharing one album by link, so its pages
+// must carry a noindex tag. The unguessable folder name alone doesn't stop a
+// crawler that learns the URL some other way (an inbound link, a browser
+// sync), and unlike site albums there is no index page to leave it out of.
+func TestGenerateGalleryUnlistedRobotsMeta(t *testing.T) {
+	html := string(GenerateGallery("Uli", nil, GalleryOptions{Unlisted: true}))
+	if !strings.Contains(html, `<meta name="robots" content="noindex, nofollow">`) {
+		t.Error("unlisted gallery is missing its noindex/nofollow robots meta tag")
+	}
+
+	listed := string(GenerateGallery("Uli", nil, GalleryOptions{}))
+	if strings.Contains(listed, `name="robots"`) {
+		t.Error("a listed gallery must not emit a robots meta tag")
+	}
+}
+
+func TestGalleryStateRoundTripsUnlisted(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gallery.json")
+	in := &GalleryState{PostID: "abc123", Title: "Uli", Unlisted: true, PhotoCount: 2}
+	if err := saveGalleryState(path, in); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+	out, err := loadGalleryState(path)
+	if err != nil || out == nil {
+		t.Fatalf("loadGalleryState: %v", err)
+	}
+	if !out.Unlisted {
+		t.Error("Unlisted did not survive the statefile round trip — a rebuild would silently drop the noindex tag")
+	}
+}

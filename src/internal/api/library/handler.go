@@ -1305,17 +1305,29 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		// UI no longer shows.
 		const pendingPrefix = "pending:"
 		if strings.HasPrefix(key, pendingPrefix) && draftStore != nil {
-			slug := strings.TrimPrefix(key, pendingPrefix)
-			entries, metaErr := store.GetMeta(photoID)
-			if metaErr == nil {
-				for _, e := range entries {
-					if e.Key == key {
-						draftStore.RemovePhoto(slug, e.Value, id, photoID) //nolint:errcheck // e.Value is the draftID
-						break
+			// Two key shapes: "pending:<slug>" names the draft in its value,
+			// "pending:<slug>:<draftID>" names it in the key itself (its value
+			// is the album title).
+			slug, draftID, qualified := strings.Cut(strings.TrimPrefix(key, pendingPrefix), ":")
+			if !qualified {
+				if entries, metaErr := store.GetMeta(photoID); metaErr == nil {
+					for _, e := range entries {
+						if e.Key == key {
+							draftID = e.Value
+							break
+						}
 					}
 				}
 			}
+			if draftID != "" {
+				draftStore.RemovePhoto(slug, draftID, id, photoID) //nolint:errcheck
+			}
 			store.DeleteMeta(photoID, key) //nolint:errcheck
+			if qualified {
+				clearPendingMarkers(store, photoID, slug, draftID)
+			} else {
+				store.DeleteMeta(photoID, pendingPrefix+slug+":"+draftID) //nolint:errcheck
+			}
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -1325,43 +1337,33 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		// frontend only ever sends the normalized built: prefix (see getMeta), but a
 		// photo may still carry legacy published:{slug} entries from before this
 		// channel-membership key was renamed, so both prefixes are cleaned up here.
-		const buildPrefix = "built:"
-		const legacyPubPrefix = "published:"
 		if strings.HasPrefix(key, buildPrefix) && chStore != nil {
-			slug := strings.TrimPrefix(key, buildPrefix)
-			if !strings.Contains(slug, ":") {
-				if ch, chErr := chStore.Get(slug); chErr == nil && ch.SiteExport {
+			rest := strings.TrimPrefix(key, buildPrefix)
+			slug, albumPostID, _ := strings.Cut(rest, ":")
+			if ch, chErr := chStore.Get(slug); chErr == nil {
+				switch {
+				// Removing a publication from a site-export photo means taking
+				// it off the site entirely — there is no per-album removal —
+				// so both the channel marker and one album's key land here.
+				case ch.SiteExport && !reservedMetaSuffix(albumPostID):
 					if rmErr := removePhotoFromSite(store, ch, chStore, photoID, slug); rmErr != nil {
 						http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
 						return
 					}
-					// Read postID(s) before deleting so we can also remove the qualified
-					// keys, checking both the current and legacy key prefixes.
-					var qPostIDs []string
-					if entries, metaErr := store.GetMeta(photoID); metaErr == nil {
-						for _, e := range entries {
-							if e.Key == buildPrefix+slug+":postid" || e.Key == legacyPubPrefix+slug+":postid" {
-								qPostIDs = append(qPostIDs, e.Value)
-							}
-						}
+					deleteChannelPublicationKeys(store, photoID, slug)
+					w.WriteHeader(http.StatusNoContent)
+					return
+				// A gallery channel's albums are independent: drop just this
+				// album, and the channel marker only if it was the last one.
+				case albumPostID != "" && !reservedMetaSuffix(albumPostID):
+					deleteAlbumKeys(store, photoID, slug, albumPostID)
+					if entries, metaErr := store.GetMeta(photoID); metaErr == nil && len(albumPostIDsForChannel(entries, slug)) == 0 {
+						deleteChannelPublicationKeys(store, photoID, slug)
 					}
-					// Delete unqualified keys under both prefixes.
-					for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
-						for _, suffix := range []string{"", ":account", ":title", ":postid"} {
-							store.DeleteMeta(photoID, prefix+slug+suffix) //nolint:errcheck
-						}
-					}
-					// Delete qualified keys (written by builds) under both prefixes.
-					for _, qPostID := range qPostIDs {
-						if qPostID == "" {
-							continue
-						}
-						for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
-							for _, suffix := range []string{"", ":account", ":title"} {
-								store.DeleteMeta(photoID, prefix+slug+":"+qPostID+suffix) //nolint:errcheck
-							}
-						}
-					}
+					w.WriteHeader(http.StatusNoContent)
+					return
+				case albumPostID == "":
+					deleteChannelPublicationKeys(store, photoID, slug)
 					w.WriteHeader(http.StatusNoContent)
 					return
 				}
@@ -1581,11 +1583,6 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 			stores[dp.LibraryID] = s
 		}
 
-		postID := newPostID()
-		pub := media.Publication{
-			Channel: slug, Account: draft.Target.Account, PostID: postID,
-			GalleryTitle: draft.Target.Title, PublishedAt: publishedAt,
-		}
 		ts := publishedAt.UTC().Format("20060102T150405Z")
 
 		addToExisting := draft.Target.PostID != ""
@@ -1593,64 +1590,28 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		siteMode := ch.SiteExport && (draft.Target.Title != "" || addToExisting)
 		channelDir := chStore.OutputDir(slug)
 
-		// albumPostID is the album's key in site.json (immutable).
-		// albumSlug is the human-readable folder name for site-mode albums.
-		albumPostID := postID
-		albumSlug := ""
-		var existingPhotos []SitePhoto
-		var existingTitle string
-		var existingPublishedAt time.Time
-		var existingUnlisted bool
-
-		outDir := channelDir
-		if addToExisting {
-			albumPostID = draft.Target.PostID
-			if galleryMode {
-				outDir = filepath.Join(channelDir, albumPostID)
-				gs, gsErr := loadGalleryState(filepath.Join(outDir, "gallery.json"))
-				if gsErr != nil || gs == nil {
-					http.Error(w, "gallery not found: "+albumPostID, http.StatusBadRequest)
-					return
-				}
-				existingPhotos = gs.Photos
-				existingTitle = gs.Title
-				existingPublishedAt = gs.PublishedAt
-			} else if siteMode {
-				siteAlbums, stateErr := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
-				if stateErr != nil {
-					http.Error(w, "read site state: "+stateErr.Error(), http.StatusInternalServerError)
-					return
-				}
-				for i := range siteAlbums {
-					if siteAlbums[i].PostID == albumPostID {
-						existingPhotos = siteAlbums[i].Photos
-						existingTitle = siteAlbums[i].Title
-						existingPublishedAt = siteAlbums[i].PublishedAt
-						existingUnlisted = siteAlbums[i].Unlisted
-						albumSlug = albumFolderName(siteAlbums[i])
-						break
-					}
-				}
-				if existingTitle == "" {
-					http.Error(w, "album not found: "+albumPostID, http.StatusBadRequest)
-					return
-				}
-				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
-			}
-			if _, statErr := os.Stat(outDir); os.IsNotExist(statErr) {
-				http.Error(w, "gallery folder not found: "+albumPostID, http.StatusBadRequest)
-				return
-			}
-		} else {
-			if galleryMode {
-				outDir = filepath.Join(outDir, albumPostID)
-			} else if siteMode {
-				// Compute a human-readable slug for the new album folder.
-				existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
-				albumSlug = computeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
-				outDir = filepath.Join(channelDir, "site", "albums", albumSlug)
-			}
+		target, status, targetErr := resolveAlbumTarget(draft, channelDir, publishedAt, galleryMode, siteMode)
+		if targetErr != nil {
+			http.Error(w, targetErr.Error(), status)
+			return
 		}
+		albumPostID := target.postID
+		albumSlug := target.slug
+		outDir := target.outDir
+		existingPhotos := target.existingPhotos
+		existingTitle := target.existingTitle
+		existingPublishedAt := target.existingPublishedAt
+		albumUnlisted := target.unlisted
+
+		// PostID must name the album the photos actually land in. On
+		// add-to-existing that is the target album — minting a fresh ID here
+		// would write XMP sidecars and built: meta pointing at a gallery that
+		// is never created.
+		pub := media.Publication{
+			Channel: slug, Account: draft.Target.Account, PostID: albumPostID,
+			GalleryTitle: draft.Target.Title, PublishedAt: publishedAt,
+		}
+
 		if err := os.MkdirAll(outDir, 0o700); err != nil {
 			http.Error(w, "create output dir: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -1676,6 +1637,17 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		// draft (duplicate-content imports across libraries): keying by PhotoID alone
 		// would let one library's success mark the other library's failed entry as
 		// succeeded too, silently clearing its pending: meta.
+		// rememberAlbum pins the draft to the album its photos just landed in.
+		// Photos that failed to export stay in the draft; without this, the
+		// retry would mint a fresh postID and build a second album with the
+		// same title instead of completing the first one.
+		rememberAlbum := func() {
+			if addToExisting || draftID == "-" {
+				return
+			}
+			draftStore.SetTargetPostID(slug, draftID, albumPostID) //nolint:errcheck
+		}
+
 		clearSucceededPhotos := func(results []buildResult) {
 			if draftID == "-" {
 				return // synthetic draft — nothing was ever persisted
@@ -1686,7 +1658,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				}
 				draftStore.RemovePhoto(slug, draftID, dp.LibraryID, dp.PhotoID) //nolint:errcheck
 				if s, ok := stores[dp.LibraryID]; ok {
-					s.DeleteMeta(dp.PhotoID, "pending:"+slug) //nolint:errcheck
+					clearPendingMarkers(s, dp.PhotoID, slug, draftID)
 				}
 			}
 		}
@@ -1699,7 +1671,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				results = append(results, res)
 			}
 			clearSucceededPhotos(results)
-			writeJSON(w, map[string]any{"postID": postID, "results": results})
+			writeJSON(w, map[string]any{"postID": albumPostID, "results": results})
 			return
 		}
 
@@ -1783,13 +1755,6 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		}
 		dateStr := dateRangeStr(albumPublishedAt, albumUpdatedAt)
 
-		// Unlisted is fixed at album creation and does not change on add-to-existing,
-		// mirroring how Slug is immutable once set.
-		albumUnlisted := draft.Target.Unlisted
-		if addToExisting {
-			albumUnlisted = existingUnlisted
-		}
-
 		// Generate HTML gallery.
 		emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
 		var html []byte
@@ -1805,7 +1770,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				Nav:         buildSiteNavContext(ch, filepath.Join(channelDir, "site"), false),
 			})
 		} else {
-			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName, DateStr: dateStr})
+			html = GenerateGallery(galleryTitle, items, GalleryOptions{ZipFilename: zipName, DateStr: dateStr, Unlisted: albumUnlisted})
 		}
 		indexPath := filepath.Join(outDir, "index.html")
 		if err := os.WriteFile(indexPath, html, 0o644); err != nil {
@@ -1838,6 +1803,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				UpdatedAt:   gsUpdatedAt,
 				PhotoCount:  len(items),
 				HasZip:      zipName != "",
+				Unlisted:    albumUnlisted,
 				Photos:      sitePhotos,
 			}
 			saveGalleryState(filepath.Join(outDir, "gallery.json"), gs) //nolint:errcheck
@@ -1903,11 +1869,13 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				generateSitemap(siteDir, siteAlbums, ch.SiteURL) //nolint:errcheck
 			}
 			emit(map[string]any{"step": "site", "done": 1, "total": 1, "file": "Site index updated"})
+			rememberAlbum()
 			clearSucceededPhotos(results)
-			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "sitePath": siteDir, "results": results})
+			emit(map[string]any{"complete": true, "postID": albumPostID, "galleryPath": outDir, "sitePath": siteDir, "results": results})
 		} else {
+			rememberAlbum()
 			clearSucceededPhotos(results)
-			emit(map[string]any{"complete": true, "postID": postID, "galleryPath": outDir, "results": results})
+			emit(map[string]any{"complete": true, "postID": albumPostID, "galleryPath": outDir, "results": results})
 		}
 	}
 }
@@ -2164,20 +2132,170 @@ func newPostID() string {
 	return fmt.Sprintf("%x", b)
 }
 
+// Publication meta keys are "built:<slug>" (channel marker), "built:<slug>:<postID>"
+// (one album), and either of those plus a reserved suffix. The legacy
+// "published:" prefix predates the rename and is still cleaned up alongside.
+const (
+	buildPrefix     = "built:"
+	legacyPubPrefix = "published:"
+)
+
+// reservedMetaSuffix reports whether a key segment is a field name rather than
+// an album ID — "built:ch:title" is the channel's latest album title,
+// "built:ch:9f2a…" is membership in album 9f2a….
+func reservedMetaSuffix(s string) bool {
+	return s == "title" || s == "account" || s == "postid"
+}
+
+// albumPostIDsForChannel lists every album a photo belongs to in one channel.
+// The unqualified ":postid" key only ever names the most recently published
+// album, so it can't stand in for this.
+func albumPostIDsForChannel(entries []lib.MetaEntry, slug string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, e := range entries {
+		for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+			rest, ok := strings.CutPrefix(e.Key, prefix+slug+":")
+			if !ok || strings.Contains(rest, ":") || reservedMetaSuffix(rest) || seen[rest] {
+				continue
+			}
+			seen[rest] = true
+			out = append(out, rest)
+		}
+	}
+	return out
+}
+
+// deleteAlbumKeys removes one album's membership keys under both prefixes.
+func deleteAlbumKeys(s *lib.Store, photoID, slug, albumPostID string) {
+	for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+		for _, suffix := range []string{"", ":account", ":title"} {
+			s.DeleteMeta(photoID, prefix+slug+":"+albumPostID+suffix) //nolint:errcheck
+		}
+	}
+}
+
+// deleteChannelPublicationKeys removes a photo's channel marker and every
+// album key it holds for that channel, under both prefixes.
+func deleteChannelPublicationKeys(s *lib.Store, photoID, slug string) {
+	if entries, err := s.GetMeta(photoID); err == nil {
+		for _, albumPostID := range albumPostIDsForChannel(entries, slug) {
+			deleteAlbumKeys(s, photoID, slug, albumPostID)
+		}
+	}
+	for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+		for _, suffix := range []string{"", ":account", ":title", ":postid"} {
+			s.DeleteMeta(photoID, prefix+slug+suffix) //nolint:errcheck
+		}
+	}
+}
+
+// clearPendingMarkers drops one draft's pending marker for a photo. The
+// unqualified per-channel marker goes only once no other draft of that channel
+// still holds the photo — a photo can be collected into several albums of one
+// channel, and publishing one of them must not clear the others' pending state.
+func clearPendingMarkers(s *lib.Store, photoID, slug, draftID string) {
+	s.DeleteMeta(photoID, "pending:"+slug+":"+draftID) //nolint:errcheck
+	entries, err := s.GetMeta(photoID)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Key, "pending:"+slug+":") {
+			return
+		}
+	}
+	s.DeleteMeta(photoID, "pending:"+slug) //nolint:errcheck
+}
+
+// albumTarget is where a draft's photos are written: the album's stable ID, its
+// output folder, and — when appending to an album that already exists — that
+// album's current state.
+type albumTarget struct {
+	postID              string
+	slug                string // human-readable folder name; site mode only
+	outDir              string
+	existingPhotos      []SitePhoto
+	existingTitle       string
+	existingPublishedAt time.Time
+	unlisted            bool
+}
+
+// resolveAlbumTarget decides whether a draft appends to an existing album or
+// starts a new one, loading the existing album's state in the former case. A
+// non-nil error carries the HTTP status the request should fail with.
+//
+// Unlisted is fixed at album creation: on add-to-existing it comes from the
+// stored album, never from the draft, so appending photos can't silently
+// un-hide an album whose link has already been shared.
+func resolveAlbumTarget(draft *channels.Draft, channelDir string, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
+	t := albumTarget{outDir: channelDir}
+
+	if draft.Target.PostID == "" {
+		t.postID = newPostID()
+		t.unlisted = draft.Target.Unlisted
+		switch {
+		case galleryMode:
+			t.outDir = filepath.Join(channelDir, t.postID)
+		case siteMode:
+			existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+			t.slug = computeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
+			t.outDir = filepath.Join(channelDir, "site", "albums", t.slug)
+		}
+		return t, 0, nil
+	}
+
+	t.postID = draft.Target.PostID
+	switch {
+	case galleryMode:
+		t.outDir = filepath.Join(channelDir, t.postID)
+		gs, err := loadGalleryState(filepath.Join(t.outDir, "gallery.json"))
+		if err != nil || gs == nil {
+			return t, http.StatusBadRequest, fmt.Errorf("gallery not found: %s", t.postID)
+		}
+		t.existingPhotos, t.existingTitle, t.existingPublishedAt = gs.Photos, gs.Title, gs.PublishedAt
+		t.unlisted = gs.Unlisted
+	case siteMode:
+		siteAlbums, err := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+		if err != nil {
+			return t, http.StatusInternalServerError, fmt.Errorf("read site state: %w", err)
+		}
+		for i := range siteAlbums {
+			if siteAlbums[i].PostID != t.postID {
+				continue
+			}
+			t.existingPhotos, t.existingTitle = siteAlbums[i].Photos, siteAlbums[i].Title
+			t.existingPublishedAt, t.unlisted = siteAlbums[i].PublishedAt, siteAlbums[i].Unlisted
+			t.slug = albumFolderName(siteAlbums[i])
+			break
+		}
+		if t.existingTitle == "" {
+			return t, http.StatusBadRequest, fmt.Errorf("album not found: %s", t.postID)
+		}
+		t.outDir = filepath.Join(channelDir, "site", "albums", t.slug)
+	}
+
+	if _, err := os.Stat(t.outDir); os.IsNotExist(err) {
+		return t, http.StatusBadRequest, fmt.Errorf("gallery folder not found: %s", t.postID)
+	}
+	return t, 0, nil
+}
+
 // galleryListItem is the JSON shape returned by GET /api/channels/{slug}/galleries.
 type galleryListItem struct {
 	PostID      string    `json:"postID"`
 	Title       string    `json:"title"`
 	PublishedAt time.Time `json:"publishedAt"`
-	UpdatedAt   time.Time `json:"updatedAt,omitempty"`
+	UpdatedAt   time.Time `json:"updatedAt"` // zero-valued when never updated; omitempty does nothing on a time.Time
 	PhotoCount  int       `json:"photoCount"`
 	// FolderName is the actual on-disk (and on-URL) folder name for this
 	// album — the slugified title, or for unlisted albums the slug plus its
 	// random token. Empty for GalleryExport (non-site) channels, which have
 	// no per-album folder distinct from PostID.
 	FolderName string `json:"folderName,omitempty"`
-	// Unlisted mirrors SiteAlbum.Unlisted — true if this album is excluded
-	// from the site's own index/sitemap and only reachable via direct link.
+	// Unlisted mirrors SiteAlbum.Unlisted / GalleryState.Unlisted — true if
+	// this album carries a noindex tag and is only reachable via direct link
+	// (site channels additionally exclude it from their index and sitemap).
 	Unlisted bool `json:"unlisted,omitempty"`
 }
 
@@ -2229,6 +2347,7 @@ func collectGalleryItems(ch *channels.Channel, channelDir string) ([]galleryList
 				UpdatedAt:   gs.UpdatedAt,
 				PhotoCount:  gs.PhotoCount,
 				FolderName:  e.Name(), // gallery-export mode: folder name == PostID, use the actual dir name on disk
+				Unlisted:    gs.Unlisted,
 			})
 		}
 		sort.Slice(items, func(i, j int) bool {
@@ -2556,6 +2675,7 @@ func regenerateGalleryFolder(outDir string, gs *GalleryState) error {
 	html := GenerateGallery(gs.Title, items, GalleryOptions{
 		ZipFilename: zipName,
 		DateStr:     dateRangeStr(gs.PublishedAt, gs.UpdatedAt),
+		Unlisted:    gs.Unlisted,
 	})
 	if err := os.WriteFile(filepath.Join(outDir, "index.html"), html, 0o644); err != nil {
 		return err

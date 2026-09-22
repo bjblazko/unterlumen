@@ -382,42 +382,95 @@ class InfoPanel {
         const ctx = this._metaContext;
         if (!ctx || !ctx.entries) return '';
 
-        const publishedPubs = ctx.entries.filter(e =>
-            e.key.startsWith('built:') && !e.key.slice('built:'.length).includes(':')
-        );
-        const pendingPubs = ctx.entries.filter(e => e.key.startsWith('pending:'));
-        if (publishedPubs.length === 0 && pendingPubs.length === 0) return '';
-
-        const publishedCards = publishedPubs.map(e => {
-            const slug = e.key.slice('built:'.length);
-            const channelName = this._humanizeChannelSlug(slug);
-            const date = this.formatDate(e.value);
-            const titleEntry = ctx.entries.find(te => te.key === `built:${slug}:title`);
-            const galleryTitle = titleEntry ? escapeHtml(titleEntry.value) : '';
-
+        const publishedCards = this._publishedAlbums(ctx.entries).map(a => {
+            const galleryTitle = a.title ? escapeHtml(a.title) : '';
             return `<div class="info-pub-card">` +
                 `<div class="info-pub-card-header">` +
-                    `<span class="info-pub-channel">${escapeHtml(channelName)}</span>` +
-                    `<button class="info-meta-del" title="Remove publication" data-key="${escapeHtml(e.key)}">×</button>` +
+                    `<span class="info-pub-channel">${escapeHtml(a.channelName)}</span>` +
+                    `<button class="info-meta-del" title="Remove publication" data-key="${escapeHtml(a.key)}">×</button>` +
                 `</div>` +
-                `<div class="info-pub-date">${escapeHtml(date)}</div>` +
+                `<div class="info-pub-date">${escapeHtml(this.formatDate(a.date))}</div>` +
                 (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '') +
             `</div>`;
         });
 
-        const pendingCards = pendingPubs.map(e => {
-            const slug = e.key.slice('pending:'.length);
-            const channelName = this._humanizeChannelSlug(slug);
+        const pendingCards = this._pendingAlbums(ctx.entries).map(p => {
+            const albumTitle = p.title ? escapeHtml(p.title) : '';
             return `<div class="info-pub-card info-pub-card--pending">` +
                 `<div class="info-pub-card-header">` +
-                    `<span class="info-pub-channel">${escapeHtml(channelName)}</span>` +
-                    `<button class="info-meta-del" title="Remove from pending" data-key="${escapeHtml(e.key)}">×</button>` +
+                    `<span class="info-pub-channel">${escapeHtml(p.channelName)}</span>` +
+                    `<button class="info-meta-del" title="Remove from pending" data-key="${escapeHtml(p.key)}">×</button>` +
                 `</div>` +
                 `<div class="info-pub-date">pending</div>` +
+                (albumTitle ? `<div class="info-pub-title">${albumTitle}</div>` : '') +
             `</div>`;
         });
 
+        if (publishedCards.length === 0 && pendingCards.length === 0) return '';
         return this.section('Publications', [...publishedCards, ...pendingCards]);
+    }
+
+    /* One card per album, not per channel: a channel can hold many unrelated
+     * albums, and the unqualified `built:<slug>:title` key only ever remembers
+     * the most recently published one. Qualified `built:<slug>:<postID>` keys
+     * are preferred; the unqualified pair is the fallback for photos published
+     * before those keys existed, and for plain-export channels with no album. */
+    _publishedAlbums(entries) {
+        // built:<slug>:title / :postid / :account are field names, not album
+        // ids — they also have two segments, so they must be filtered out or
+        // they render as albums whose "date" is really a title string.
+        const RESERVED = new Set(['title', 'postid', 'account']);
+        const out = [];
+        const covered = new Set();
+        for (const e of entries) {
+            if (!e.key.startsWith('built:')) continue;
+            const parts = e.key.slice('built:'.length).split(':');
+            if (parts.length !== 2 || RESERVED.has(parts[1])) continue;
+            const [slug, postID] = parts;
+            covered.add(slug);
+            const titleEntry = entries.find(t => t.key === `built:${slug}:${postID}:title`);
+            out.push({
+                key: e.key,
+                channelName: this._humanizeChannelSlug(slug),
+                date: e.value,
+                title: titleEntry ? titleEntry.value : '',
+            });
+        }
+        for (const e of entries) {
+            if (!e.key.startsWith('built:') || e.key.slice('built:'.length).includes(':')) continue;
+            const slug = e.key.slice('built:'.length);
+            if (covered.has(slug)) continue;
+            const titleEntry = entries.find(t => t.key === `built:${slug}:title`);
+            out.push({
+                key: e.key,
+                channelName: this._humanizeChannelSlug(slug),
+                date: e.value,
+                title: titleEntry ? titleEntry.value : '',
+            });
+        }
+        return out;
+    }
+
+    /* Pending keys mirror the published ones: `pending:<slug>:<draftID>` holds
+     * the album title as its value, so a photo collected into two albums of one
+     * channel shows two cards. */
+    _pendingAlbums(entries) {
+        const out = [];
+        const covered = new Set();
+        for (const e of entries) {
+            if (!e.key.startsWith('pending:')) continue;
+            const parts = e.key.slice('pending:'.length).split(':');
+            if (parts.length !== 2) continue;
+            covered.add(parts[0]);
+            out.push({ key: e.key, channelName: this._humanizeChannelSlug(parts[0]), title: e.value });
+        }
+        for (const e of entries) {
+            if (!e.key.startsWith('pending:')) continue;
+            const slug = e.key.slice('pending:'.length);
+            if (slug.includes(':') || covered.has(slug)) continue;
+            out.push({ key: e.key, channelName: this._humanizeChannelSlug(slug), title: '' });
+        }
+        return out;
     }
 
     _renderTitleField(entry) {
@@ -645,10 +698,11 @@ class InfoPanel {
                 const key = btn.dataset.key;
                 try {
                     await ctx.onDelete(key);
-                    // For built:{slug} keys the backend removes multiple related keys;
-                    // refresh the full list instead of filtering out just one entry.
-                    const isMainBuildKey = key.startsWith('built:') && !key.slice('built:'.length).includes(':');
-                    if (isMainBuildKey && ctx.refresh) {
+                    // For publication keys the backend removes several related
+                    // keys (title, account, and for an album its qualified
+                    // siblings); refresh instead of filtering out just one.
+                    const isPublicationKey = key.startsWith('built:') || key.startsWith('pending:');
+                    if (isPublicationKey && ctx.refresh) {
                         ctx.entries = await ctx.refresh();
                     } else {
                         ctx.entries = ctx.entries.filter(e => e.key !== key);

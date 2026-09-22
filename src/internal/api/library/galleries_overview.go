@@ -27,6 +27,10 @@ type PublishedGallery struct {
 	// ChannelHandler mirrors Channel.Handler ("rsync", or empty) — lets the
 	// frontend offer a remote-delete option only where one is possible.
 	ChannelHandler string `json:"channelHandler,omitempty"`
+	// GalleryExport marks a single-gallery channel, where Unlisted is just a
+	// meta tag and can still be toggled after publish (a site album's slug
+	// encodes it, so there it is fixed).
+	GalleryExport bool `json:"galleryExport,omitempty"`
 	// URL is the resolved absolute public URL for this gallery, if computable.
 	URL string `json:"url,omitempty"`
 	// URLGuessed is true when URL was derived from the rsync handler's host
@@ -45,6 +49,19 @@ type PublishedGallery struct {
 	// DraftID identifies the pending draft backing this row's status, if any
 	// — lets the frontend open the Publish dialog against that exact draft.
 	DraftID string `json:"draftID,omitempty"`
+	// RowKey identifies this row uniquely across the whole table. Draft rows
+	// have no PostID yet, so (channel, postID) collides for every draft of a
+	// channel — a channel can hold several pending albums at once.
+	RowKey string `json:"rowKey"`
+}
+
+// rowKeyFor builds a PublishedGallery.RowKey. Generated galleries are keyed by
+// their album ID, pending drafts by their draft ID.
+func rowKeyFor(channelSlug, postID, draftID string) string {
+	if postID == "" {
+		return channelSlug + "|draft:" + draftID
+	}
+	return channelSlug + "|" + postID
 }
 
 // resolveGalleryURL computes the public URL for a published gallery item, if
@@ -120,15 +137,17 @@ func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) 
 					ChannelSlug:     ch.Slug,
 					ChannelName:     ch.Name,
 					ChannelHandler:  ch.Handler,
+					GalleryExport:   ch.GalleryExport,
 					URL:             url,
 					URLGuessed:      guessed,
 					Status:          "generated",
+					RowKey:          rowKeyFor(ch.Slug, it.PostID, ""),
 				}
-				if d, ok := byPostID[it.PostID]; ok {
+				if ds := byPostID[it.PostID]; len(ds) > 0 {
 					row.Status = "live-pending"
-					row.PendingCount = len(d.Photos)
-					row.DraftID = d.ID
-					matched[d.ID] = true
+					row.PendingCount = len(ds[0].Photos)
+					row.DraftID = ds[0].ID
+					matched[ds[0].ID] = true
 				}
 				out = append(out, row)
 			}
@@ -169,12 +188,14 @@ func channelDrafts(draftStore *channels.DraftStore, slug string) []*channels.Dra
 
 // draftsByPostID indexes drafts that target an existing gallery/album by
 // PostID. Drafts targeting a brand-new gallery (Target.PostID empty) are
-// omitted — those become synthetic draft-only rows instead.
-func draftsByPostID(drafts []*channels.Draft) map[string]*channels.Draft {
-	out := map[string]*channels.Draft{}
+// omitted — those become synthetic draft-only rows instead. A PostID can hold
+// several drafts; only the first layers onto the generated row, the rest get
+// their own draft rows rather than disappearing.
+func draftsByPostID(drafts []*channels.Draft) map[string][]*channels.Draft {
+	out := map[string][]*channels.Draft{}
 	for _, d := range drafts {
 		if d.Target.PostID != "" {
-			out[d.Target.PostID] = d
+			out[d.Target.PostID] = append(out[d.Target.PostID], d)
 		}
 	}
 	return out
@@ -190,6 +211,10 @@ func draftOnlyRow(ch *channels.Channel, d *channels.Draft) PublishedGallery {
 	if title == "" {
 		title = ch.Name
 	}
+	// The album folder doesn't exist yet, so this resolves to the channel's
+	// base address only — enough to show where the gallery is headed instead
+	// of a bare "No URL configured".
+	url, guessed := resolveGalleryURL(ch, galleryListItem{})
 	return PublishedGallery{
 		galleryListItem: galleryListItem{
 			Title:      title,
@@ -199,9 +224,13 @@ func draftOnlyRow(ch *channels.Channel, d *channels.Draft) PublishedGallery {
 		ChannelSlug:    ch.Slug,
 		ChannelName:    ch.Name,
 		ChannelHandler: ch.Handler,
+		GalleryExport:  ch.GalleryExport,
+		URL:            url,
+		URLGuessed:     guessed,
 		Status:         "draft",
 		PendingCount:   len(d.Photos),
 		DraftID:        d.ID,
+		RowKey:         rowKeyFor(ch.Slug, "", d.ID),
 	}
 }
 
@@ -213,12 +242,16 @@ const (
 type reachabilityTarget struct {
 	ChannelSlug string `json:"channelSlug"`
 	PostID      string `json:"postID"`
-	URL         string `json:"url"`
+	// RowKey is echoed back untouched so the client can route each result to
+	// the exact table row it came from.
+	RowKey string `json:"rowKey"`
+	URL    string `json:"url"`
 }
 
 type reachabilityResult struct {
 	ChannelSlug string `json:"channelSlug,omitempty"`
 	PostID      string `json:"postID,omitempty"`
+	RowKey      string `json:"rowKey,omitempty"`
 	Reachable   bool   `json:"reachable,omitempty"`
 	Error       string `json:"error,omitempty"`
 	Complete    bool   `json:"complete,omitempty"`
@@ -289,7 +322,7 @@ func probeReachability(parent context.Context, client *http.Client, t reachabili
 	ctx, cancel := context.WithTimeout(parent, reachabilityTimeout)
 	defer cancel()
 
-	res := reachabilityResult{ChannelSlug: t.ChannelSlug, PostID: t.PostID}
+	res := reachabilityResult{ChannelSlug: t.ChannelSlug, PostID: t.PostID, RowKey: t.RowKey}
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, t.URL, nil)
 	if err != nil {
 		res.Error = err.Error()
@@ -334,7 +367,8 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		}
 
 		var body struct {
-			Title string `json:"title"`
+			Title    string `json:"title"`
+			Unlisted *bool  `json:"unlisted"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -343,6 +377,14 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		title := strings.TrimSpace(body.Title)
 		if title == "" {
 			http.Error(w, "title must not be empty", http.StatusBadRequest)
+			return
+		}
+		// A site album's listedness is baked into its slug, so flipping it
+		// would change the URL of a link that may already be shared. A
+		// gallery-export album's folder is the random PostID either way, so
+		// there the flag is just a meta tag and safe to change.
+		if body.Unlisted != nil && !ch.GalleryExport {
+			http.Error(w, "unlisted cannot be changed after publish for site albums", http.StatusBadRequest)
 			return
 		}
 
@@ -382,6 +424,9 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				return
 			}
 			gs.Title = title
+			if body.Unlisted != nil {
+				gs.Unlisted = *body.Unlisted
+			}
 			if err := saveGalleryState(statePath, gs); err != nil {
 				http.Error(w, "save gallery state: "+err.Error(), http.StatusInternalServerError)
 				return

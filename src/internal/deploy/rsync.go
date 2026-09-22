@@ -141,6 +141,12 @@ func sshTransport(t Target) string {
 // album, defeating the point of the token). They are never needed on the
 // remote, which only serves the already-generated static HTML. .DS_Store is
 // also excluded — harmless but pointless clutter on the remote.
+//
+// drafts.json is excluded for the same reason as site.json, and more urgently:
+// it sits at the channel output root, so for a gallery-export channel it would
+// be served at <host>/drafts.json — publishing the filenames and library IDs of
+// photos that haven't been published yet, plus the postIDs of unlisted albums
+// being appended to.
 func rsyncArgs(t Target, localDir string) []string {
 	local := strings.TrimRight(localDir, "/") + "/"
 	remote := strings.TrimRight(t.RemotePath, "/") + "/"
@@ -148,6 +154,7 @@ func rsyncArgs(t Target, localDir string) []string {
 		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=drafts.json",
 		"--exclude=.DS_Store",
 		"-e", sshTransport(t),
 		local,

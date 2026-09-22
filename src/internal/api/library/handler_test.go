@@ -843,3 +843,136 @@ func TestGenerateDraft_SentinelWithoutPostID_Returns400(t *testing.T) {
 		t.Fatalf("status = %d, want 400", rec.Code)
 	}
 }
+
+// generateSSEComplete runs a generate request and returns its complete: event.
+func generateSSEComplete(t *testing.T, mux http.Handler, slug, draftID string) map[string]any {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/channels/"+slug+"/drafts/"+draftID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var complete map[string]any
+	for _, line := range strings.Split(rec.Body.String(), "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+			t.Fatalf("decode SSE event: %v (line=%q)", err, line)
+		}
+		if done, _ := ev["complete"].(bool); done {
+			complete = ev
+		}
+	}
+	if complete == nil {
+		t.Fatalf("no complete:true event, body=%s", rec.Body.String())
+	}
+	return complete
+}
+
+func photoMeta(t *testing.T, mgr *lib.Manager, libID, photoID string) map[string]string {
+	t.Helper()
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	entries, err := store.GetMeta(photoID)
+	if err != nil {
+		t.Fatalf("GetMeta: %v", err)
+	}
+	out := map[string]string{}
+	for _, e := range entries {
+		out[e.Key] = e.Value
+	}
+	return out
+}
+
+// The point of a single-gallery channel: one host, many unrelated albums. Each
+// album must keep its own membership keys — the unqualified built:<slug>:title
+// is overwritten by every publish, so it can only ever name the newest one.
+func TestGenerateDraft_TwoAlbumsInOneChannel_KeepSeparateMeta(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "fotoshare", Name: "Fotoshare", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+	libID2 := seedLibraryPhoto(t, mgr, "photo2")
+
+	first, err := draftStore.Create("fotoshare", channels.DraftTarget{Title: "Uli"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+	firstDone := generateSSEComplete(t, mux, "fotoshare", first.ID)
+	firstPostID, _ := firstDone["postID"].(string)
+
+	second, err := draftStore.Create("fotoshare", channels.DraftTarget{Title: "Regenwanderung"}, []channels.DraftPhoto{{LibraryID: libID2, PhotoID: "photo2"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+	secondDone := generateSSEComplete(t, mux, "fotoshare", second.ID)
+	secondPostID, _ := secondDone["postID"].(string)
+
+	if firstPostID == "" || secondPostID == "" || firstPostID == secondPostID {
+		t.Fatalf("expected two distinct album IDs, got %q and %q", firstPostID, secondPostID)
+	}
+
+	m1 := photoMeta(t, mgr, libID, "photo1")
+	if got := m1["built:fotoshare:"+firstPostID+":title"]; got != "Uli" {
+		t.Errorf("photo1 album title = %q, want %q", got, "Uli")
+	}
+	m2 := photoMeta(t, mgr, libID2, "photo2")
+	if got := m2["built:fotoshare:"+secondPostID+":title"]; got != "Regenwanderung" {
+		t.Errorf("photo2 album title = %q, want %q", got, "Regenwanderung")
+	}
+	// Publishing the second album must not have touched the first photo's
+	// record of which album it belongs to.
+	if got := m1["built:fotoshare:"+secondPostID+":title"]; got != "" {
+		t.Errorf("photo1 gained the second album's key: %q", got)
+	}
+}
+
+// On add-to-existing the publication must name the album the photos actually
+// land in. It used to record a freshly minted ID, so the XMP sidecar and meta
+// pointed at a gallery folder that was never created.
+func TestGenerateDraft_AddToExisting_RecordsRealAlbumID(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "fotoshare", Name: "Fotoshare", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+	libID2 := seedLibraryPhoto(t, mgr, "photo2")
+
+	first, _ := draftStore.Create("fotoshare", channels.DraftTarget{Title: "Uli"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	albumID, _ := generateSSEComplete(t, mux, "fotoshare", first.ID)["postID"].(string)
+
+	second, _ := draftStore.Create("fotoshare", channels.DraftTarget{PostID: albumID}, []channels.DraftPhoto{{LibraryID: libID2, PhotoID: "photo2"}})
+	done := generateSSEComplete(t, mux, "fotoshare", second.ID)
+
+	if got, _ := done["postID"].(string); got != albumID {
+		t.Errorf("complete event postID = %q, want the target album %q", got, albumID)
+	}
+	m := photoMeta(t, mgr, libID2, "photo2")
+	if _, ok := m["built:fotoshare:"+albumID]; !ok {
+		t.Errorf("photo2 has no membership key for the album it was added to; meta = %v", m)
+	}
+	if got := m["built:fotoshare:"+albumID+":title"]; got != "Uli" {
+		t.Errorf("album title = %q, want the existing album's title %q", got, "Uli")
+	}
+	// Exactly one album folder must exist — not a second one for the retry.
+	entries, err := os.ReadDir(chStore.OutputDir("fotoshare"))
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	dirs := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs++
+		}
+	}
+	if dirs != 1 {
+		t.Errorf("album folders = %d, want 1", dirs)
+	}
+}

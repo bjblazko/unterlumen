@@ -1183,7 +1183,7 @@ class LibraryTab {
                             <div id="collect-unlisted-wrap" style="display:none">
                                 <label class="export-radio-row">
                                     <input type="checkbox" id="collect-unlisted">
-                                    Unlisted (not listed on the site index or sitemap — reachable only via direct link)
+                                    Unlisted <span class="form-hint" id="collect-unlisted-hint"></span>
                                 </label>
                             </div>
                         </div>
@@ -1240,13 +1240,22 @@ class LibraryTab {
                 galleryWrap.style.display = '';
                 let generated = [];
                 let drafts = draftsBySlug.get(slug);
+                const errEl = dlg.querySelector('#collect-error');
                 try {
                     generated = await ChannelAPI.galleries(slug);
                     if (!drafts) {
                         drafts = await ChannelAPI.listDrafts(slug);
                         draftsBySlug.set(slug, drafts);
                     }
-                } catch { /* fall back to New-only */ }
+                    errEl.style.display = 'none';
+                } catch (err) {
+                    // Silently offering only "New gallery" here would look like
+                    // the channel has no galleries and quietly create a second
+                    // one alongside the album the user meant to add to.
+                    drafts = drafts || [];
+                    errEl.textContent = 'Could not load this channel\'s existing galleries: ' + err.message;
+                    errEl.style.display = '';
+                }
                 const generatedOpts = generated.map(g =>
                     `<option value="postID:${escapeHtml(g.postID)}">${escapeHtml(g.title)} (${g.photoCount}) · ${_galleryDateRange(g)}</option>`
                 );
@@ -1262,9 +1271,18 @@ class LibraryTab {
                 galleryWrap.style.display = 'none';
             }
 
+            // Single-gallery channels exist for sharing one album by link, so
+            // they default to unlisted; site albums are part of a public site
+            // and default to listed.
             const unlistedWrap = dlg.querySelector('#collect-unlisted-wrap');
-            unlistedWrap.style.display = ch.siteExport ? '' : 'none';
-            dlg.querySelector('#collect-unlisted').checked = false;
+            unlistedWrap.style.display = (ch.siteExport || ch.galleryExport) ? '' : 'none';
+            dlg.querySelector('#collect-unlisted').checked = !!ch.galleryExport;
+            const unlistedHint = dlg.querySelector('#collect-unlisted-hint');
+            if (unlistedHint) {
+                unlistedHint.textContent = ch.siteExport
+                    ? 'hidden from the site index and sitemap, and not indexed by search engines'
+                    : 'adds a noindex tag; the folder name is already unguessable';
+            }
 
             const scaleDesc = _scaleDesc(ch.scale);
             const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
@@ -1298,7 +1316,11 @@ class LibraryTab {
             }
             const accountWrap = dlg.querySelector('#collect-account-wrap');
             const account = accountWrap.style.display !== 'none' ? (dlg.querySelector('#collect-account').value || undefined) : undefined;
-            const unlisted = (ch?.siteExport && !targetKind) ? dlg.querySelector('#collect-unlisted').checked : undefined;
+            // Only meaningful for a new album — an existing one keeps the flag
+            // it was published with.
+            const unlisted = ((ch?.siteExport || ch?.galleryExport) && !targetKind)
+                ? dlg.querySelector('#collect-unlisted').checked
+                : undefined;
 
             confirmBtn.disabled = true;
             confirmBtn.textContent = 'Adding…';
@@ -1315,15 +1337,22 @@ class LibraryTab {
                     if (validGroups[0].photoIDs.length === 0) throw new Error('No matching library photos found for selection.');
                 }
 
+                // A selection can span several libraries, but it is still one
+                // album: the first call creates the draft, the rest append to
+                // it. Passing the title to every call would instead create one
+                // gallery per library, all with the same name.
                 let total = 0;
+                let draftID = targetKind === 'draftID' ? targetID : undefined;
                 for (const g of validGroups) {
-                    await LibraryAPI.collect(g.libID, slug, {
+                    const draft = await LibraryAPI.collect(g.libID, slug, {
                         photoIDs: g.photoIDs,
-                        draftID: targetKind === 'draftID' ? targetID : undefined,
-                        postID: targetKind === 'postID' ? targetID : undefined,
-                        title: !targetKind ? galleryTitle : undefined,
-                        unlisted, account,
+                        draftID,
+                        postID: !draftID && targetKind === 'postID' ? targetID : undefined,
+                        title: !draftID && !targetKind ? galleryTitle : undefined,
+                        unlisted: draftID ? undefined : unlisted,
+                        account: draftID ? undefined : account,
                     });
+                    draftID = draft?.id || draftID;
                     total += g.photoIDs.length;
                 }
                 dlg.remove();

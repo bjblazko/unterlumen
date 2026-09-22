@@ -8,11 +8,13 @@ const PublishedGalleryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async rename(channelSlug, postID, title) {
+    async rename(channelSlug, postID, title, unlisted) {
+        const body = { title };
+        if (unlisted !== undefined) body.unlisted = unlisted;
         const r = await fetch(`/api/channels/${encodeURIComponent(channelSlug)}/galleries/${encodeURIComponent(postID)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title }),
+            body: JSON.stringify(body),
         });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
@@ -126,7 +128,7 @@ class PublishedGalleriesPane {
             const publishBtn = e.target.closest('.pub-gal-publish');
             if (publishBtn) { new PublishDialog().open(this._rows[publishBtn.dataset.idx]); return; }
             const editBtn = e.target.closest('.pub-gal-edit');
-            if (editBtn) { this._editGallery(editBtn.dataset.channel, editBtn.dataset.postid); return; }
+            if (editBtn) { this._editGallery(editBtn.dataset.rowkey); return; }
             const deleteBtn = e.target.closest('.pub-gal-delete');
             if (deleteBtn) this._deleteGallery(deleteBtn.dataset.idx);
         });
@@ -167,23 +169,70 @@ class PublishedGalleriesPane {
         this._startReachabilityCheck(rows);
     }
 
-    _findRow(channelSlug, postID) {
-        return (this._rows || []).find(r => r.channelSlug === channelSlug && r.postID === postID);
+    _findRow(rowKey) {
+        return (this._rows || []).find(r => r.rowKey === rowKey);
     }
 
-    async _editGallery(channelSlug, postID) {
-        const row = this._findRow(channelSlug, postID);
+    async _editGallery(rowKey) {
+        const row = this._findRow(rowKey);
         if (!row) return;
-        const input = prompt('Rename gallery:', row.title || '');
-        if (input === null) return;
-        const title = input.trim();
-        if (!title || title === row.title) return;
-        try {
-            await PublishedGalleryAPI.rename(channelSlug, postID, title);
-            this._load();
-        } catch (err) {
-            alert('Rename failed: ' + err.message);
-        }
+        // Listedness is only editable for single-gallery channels: a site
+        // album encodes it in its slug, so changing it would break links
+        // already shared.
+        const dlg = this._openEditDialog(row, !!row.galleryExport);
+        dlg.querySelector('#pub-gal-edit-save').addEventListener('click', async () => {
+            const title = dlg.querySelector('#pub-gal-edit-title').value.trim();
+            const errEl = dlg.querySelector('#pub-gal-edit-error');
+            if (!title) {
+                errEl.textContent = 'Title must not be empty.';
+                errEl.style.display = '';
+                return;
+            }
+            const unlistedBox = dlg.querySelector('#pub-gal-edit-unlisted');
+            const unlisted = unlistedBox && !unlistedBox.disabled ? unlistedBox.checked : undefined;
+            try {
+                await PublishedGalleryAPI.rename(row.channelSlug, row.postID, title, unlisted);
+                dlg.remove();
+                this._load();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = '';
+            }
+        });
+    }
+
+    // Uses the .modal-backdrop pattern: the global keyboard guard closes it by
+    // clicking the cancel button, so this must not add its own key handler.
+    _openEditDialog(row, canEditUnlisted) {
+        const dlg = document.createElement('div');
+        dlg.className = 'modal-backdrop';
+        dlg.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Edit gallery</h2>
+                    <button class="modal-close" id="pub-gal-edit-cancel">×</button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Title</label>
+                    <input class="form-input" id="pub-gal-edit-title" value="${escapeHtml(row.title || '')}">
+                    <label class="export-radio-row">
+                        <input type="checkbox" id="pub-gal-edit-unlisted" ${row.unlisted ? 'checked' : ''} ${canEditUnlisted ? '' : 'disabled'}>
+                        Unlisted <span class="form-hint">${canEditUnlisted
+                            ? 'adds a noindex tag; the folder name is already unguessable'
+                            : 'fixed for site albums — the slug encodes it, changing it would break shared links'}</span>
+                    </label>
+                    <div class="build-error" id="pub-gal-edit-error" style="display:none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" id="pub-gal-edit-cancel2">Cancel</button>
+                    <button class="btn btn-accent" id="pub-gal-edit-save">Save</button>
+                </div>
+            </div>`;
+        document.body.appendChild(dlg);
+        dlg.querySelector('#pub-gal-edit-cancel').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#pub-gal-edit-cancel2').addEventListener('click', () => dlg.remove());
+        dlg.querySelector('#pub-gal-edit-title').focus();
+        return dlg;
     }
 
     async _deleteGallery(idx) {
@@ -225,18 +274,22 @@ class PublishedGalleriesPane {
         // would otherwise render as a nonsense date.
         const dateStr = row.status === 'draft' ? '—' : new Date(row.publishedAt).toLocaleDateString();
         const badge = row.unlisted ? '<span class="album-badge album-badge--unlisted">Unlisted</span>' : '';
-        const urlCell = row.url
-            ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener">${escapeHtml(row.url)}</a>${row.urlGuessed ? ' <span class="form-hint">(guessed)</span>' : ''}`
-            : '<span class="form-hint">No URL configured</span>';
+        // A draft has no gallery folder yet, so its URL is only the channel's
+        // base address — show it as the destination rather than a dead link.
+        const urlCell = !row.url
+            ? '<span class="form-hint">No URL configured</span>'
+            : row.status === 'draft'
+                ? `<span class="form-hint">${escapeHtml(row.url)} (target)</span>`
+                : `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener">${escapeHtml(row.url)}</a>${row.urlGuessed ? ' <span class="form-hint">(guessed)</span>' : ''}`;
         const reachState = row.status !== 'draft' && row.url ? 'checking' : undefined;
         const statusText = _statusLabel(row, reachState === 'checking' ? 'Checking…' : undefined);
         const statusCell = `<span class="pub-gal-status ${_statusClass(row, reachState)}">${escapeHtml(statusText)}</span>`;
         // Edit (rename) only makes sense for a row with a real generated
         // gallery/album on disk — a draft-only row has no postID yet.
         const editBtn = row.status === 'draft' ? '' :
-            `<button class="btn btn-sm pub-gal-edit" data-channel="${escapeHtml(row.channelSlug)}" data-postid="${escapeHtml(row.postID)}">Edit</button>`;
+            `<button class="btn btn-sm pub-gal-edit" data-rowkey="${escapeHtml(row.rowKey)}">Edit</button>`;
         return `
-            <tr data-idx="${idx}" data-channel="${escapeHtml(row.channelSlug)}" data-postid="${escapeHtml(row.postID)}">
+            <tr data-idx="${idx}" data-rowkey="${escapeHtml(row.rowKey)}" data-channel="${escapeHtml(row.channelSlug)}" data-postid="${escapeHtml(row.postID)}">
                 <td>${escapeHtml(row.title || '(untitled)')} ${badge}</td>
                 <td>${escapeHtml(row.channelName)}</td>
                 <td>${dateStr}</td>
@@ -252,24 +305,26 @@ class PublishedGalleriesPane {
     }
 
     async _startReachabilityCheck(rows) {
+        // Draft rows resolve to the channel's base address, not a gallery that
+        // exists yet — probing it would say nothing about the draft.
         const targets = rows
-            .filter(r => r.url)
-            .map(r => ({ channelSlug: r.channelSlug, postID: r.postID, url: r.url }));
+            .filter(r => r.status !== 'draft' && r.url)
+            .map(r => ({ channelSlug: r.channelSlug, postID: r.postID, rowKey: r.rowKey, url: r.url }));
         if (targets.length === 0) return;
 
         try {
             await PublishedGalleryAPI.checkReachability(targets, (evt) => {
-                this._updateRowStatus(evt.channelSlug, evt.postID, evt.reachable, evt.error);
+                this._updateRowStatus(evt.rowKey, evt.reachable, evt.error);
             });
         } catch { /* leave any still-pending rows as "Checking…" */ }
     }
 
-    _updateRowStatus(slug, postID, reachable, error) {
-        const row = this.container.querySelector(`tr[data-channel="${CSS.escape(slug)}"][data-postid="${CSS.escape(postID)}"]`);
+    _updateRowStatus(rowKey, reachable, error) {
+        const row = this.container.querySelector(`tr[data-rowkey="${CSS.escape(rowKey)}"]`);
         if (!row) return;
         const cell = row.querySelector('.pub-gal-status');
         if (!cell) return;
-        const rowData = this._findRow(slug, postID);
+        const rowData = this._findRow(rowKey);
         const reachState = reachable ? 'ok' : 'down';
         const label = reachable ? '● Live' : '✗ Unreachable';
         cell.className = 'pub-gal-status ' + (rowData ? _statusClass(rowData, reachState) : `pub-gal-status--${reachState}`);

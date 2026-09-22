@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-09-06*
+*Last modified: 2026-09-20*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -11,8 +11,25 @@ All notable changes to this project are documented in this file.
 - **Publish dialog** — the Published tab's Status column now reflects a channel's collect/publish lifecycle (Draft with a pending-photo count, Generated, or a Live/Unreachable reachability result layered on top), and each row gets a Publish button that opens a new dialog: review the pending photos (with the option to drop one before publishing) and set the published/updated date, Generate (export + build), review the generated artifact (copy its path, reveal it in Finder/Explorer, open it in a browser), then Deploy for rsync-handler channels. Deleting a draft-only row now removes the pending draft instead of trying to delete a gallery that was never generated.
 - **Unlisted galleries** (documenting an existing, previously unreleased-noted feature) — site-export albums can be marked Unlisted at creation: the album gets a slug with a random, unguessable token appended, is excluded from the site's own index page and sitemap, and is served with a `<meta name="robots" content="noindex, nofollow">` tag. Privacy relies on the unguessable URL plus noindex, not on `robots.txt`, which is deliberately left permissive (`Allow: /`) for the site's listed albums — see the "Unlisted galleries" feature doc for the full rationale.
 
+- **Many galleries per single-gallery channel** — a `galleryExport` channel now works as one host holding many unrelated albums, instead of effectively one gallery per channel. Each album keeps its own unguessable 24-hex URL, its own pending draft, its own Published-tab row, and its own per-photo tagging. Albums get an **Unlisted** checkbox of their own (on by default for this channel type), which adds a `noindex, nofollow` tag and — unlike site albums, whose slug encodes the flag — can still be toggled after publish from the Published tab's Edit dialog, since the folder name is the random album id either way. No `robots.txt` is written for these channels, because several may share one remote path. See [ADR-0027](doc/architecture/adr/0027-per-album-publication-meta-keys.md).
+- **Base URL for single-gallery channels** — the public address was previously only configurable for multi-album site channels, so gallery rows fell back to a guess from the rsync host (or showed "No URL configured"). Draft rows now also show the address the gallery is headed for instead of "No URL configured".
+
 ### Changed
 - Replaced the Build/Channels-actions/Deploy/Published workflow with a collect-then-publish model: "Add to channel…" defers export/generation until you explicitly Publish, which now includes a review step before any deploy.
+- The Published tab's Edit action is a small dialog (title plus the Unlisted toggle) rather than a browser prompt.
+
+### Fixed
+- **A photo published to several albums of one channel only ever showed the most recent one** — the Info Panel's Publications card read the unqualified `built:<slug>:title` key, which every publish to that channel overwrites. Cards are now per album, built from the qualified `built:<slug>:<postID>` keys, with the old keys kept as a fallback for photos published before this change.
+- **Re-indexing a library destroyed album history** — `indexSidecar` collapsed each channel's XMP publications to the newest one, so "Rebuild metadata" silently dropped every earlier album a photo belonged to, even though the sidecar still recorded them.
+- **Adding photos to an existing gallery recorded an album id that never existed** — the publication was stamped with a freshly minted `postID` instead of the album actually written to, so XMP sidecars, library meta, and the API response all pointed at a folder that was never created.
+- **A partially failed publish built a second gallery on retry** — photos that failed to export stay in the draft, but the draft had no memory of the album it had just produced, so publishing again created another album with the same title. The draft is now pinned to that album.
+- **Collecting photos into a second album of the same channel cleared the first album's pending state** — the `pending:<slug>` marker was keyed per channel, so one channel could only remember one pending album per photo.
+- **Two pending albums in one channel were indistinguishable in the Published tab** — every draft row had an empty album id, so status updates always landed on whichever row rendered first. Rows now carry a stable key.
+- **Collecting a selection that spans several libraries created one gallery per library**, all with the same title, instead of a single gallery.
+- **The "Add to" dropdown silently offered only "New gallery" when a channel's existing galleries failed to load**, which looked like the channel had none and quietly created a duplicate album. The error is now shown.
+- **`drafts.json` was deployed to the public host** — it sits at the channel output root, so a gallery channel served it at `<host>/drafts.json`, exposing the filenames and library ids of not-yet-published photos along with the folder names of unlisted albums. It is now excluded from rsync alongside `site.json` and `gallery.json`.
+- **Saving channel settings wiped the last-deploy status** shown in the UI: the settings form has no deploy fields, and the update replaced the whole record. The deploy status is now preserved server-side.
+- **Collecting the same photo into a draft twice exported it twice** into the same gallery.
 
 ## [0.10.7] - 2026-08-30
 

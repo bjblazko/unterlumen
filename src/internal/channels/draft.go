@@ -25,7 +25,7 @@ type DraftPhoto struct {
 type DraftTarget struct {
 	PostID   string `json:"postID,omitempty"`   // non-empty = add to an existing gallery/album
 	Title    string `json:"title,omitempty"`    // new gallery/album title; ignored if PostID is set
-	Unlisted bool   `json:"unlisted,omitempty"` // site-export only; fixed at draft creation
+	Unlisted bool   `json:"unlisted,omitempty"` // fixed at draft creation; noindex (site export also hides it from index/sitemap)
 	Account  string `json:"account,omitempty"`
 }
 
@@ -91,7 +91,7 @@ func (s *DraftStore) Create(slug string, target DraftTarget, photos []DraftPhoto
 	if err != nil {
 		return nil, err
 	}
-	d := &Draft{ID: newDraftID(), Target: target, Photos: photos}
+	d := &Draft{ID: newDraftID(), Target: target, Photos: dedupePhotos(nil, photos)}
 	drafts = append(drafts, d)
 	if err := s.writeLocked(slug, drafts); err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (s *DraftStore) AppendPhotos(slug, draftID string, photos []DraftPhoto) (*D
 	}
 	for _, d := range drafts {
 		if d.ID == draftID {
-			d.Photos = append(d.Photos, photos...)
+			d.Photos = dedupePhotos(d.Photos, photos)
 			if err := s.writeLocked(slug, drafts); err != nil {
 				return nil, err
 			}
@@ -117,6 +117,45 @@ func (s *DraftStore) AppendPhotos(slug, draftID string, photos []DraftPhoto) (*D
 		}
 	}
 	return nil, fmt.Errorf("draft %q not found", draftID)
+}
+
+// dedupePhotos appends add to existing, skipping photos already present.
+// Identity is (LibraryID, PhotoID): the same content hash can legitimately
+// appear under two libraries, and those are two distinct source files.
+// Without this, collecting the same selection twice exports every photo twice
+// into the same gallery.
+func dedupePhotos(existing, add []DraftPhoto) []DraftPhoto {
+	seen := make(map[DraftPhoto]struct{}, len(existing)+len(add))
+	out := make([]DraftPhoto, 0, len(existing)+len(add))
+	for _, src := range [][]DraftPhoto{existing, add} {
+		for _, p := range src {
+			if _, dup := seen[p]; dup {
+				continue
+			}
+			seen[p] = struct{}{}
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// SetTargetPostID records which album a draft's photos were published into, so
+// a draft that only partially succeeded resumes into that same album on retry
+// instead of minting a second one with the same title.
+func (s *DraftStore) SetTargetPostID(slug, draftID, postID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	drafts, err := s.loadLocked(slug)
+	if err != nil {
+		return err
+	}
+	for _, d := range drafts {
+		if d.ID == draftID {
+			d.Target.PostID = postID
+			return s.writeLocked(slug, drafts)
+		}
+	}
+	return fmt.Errorf("draft %q not found", draftID)
 }
 
 // RemovePhoto removes one photo from a draft. If the draft becomes empty it is

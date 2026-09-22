@@ -853,6 +853,7 @@ func (s *Store) GetMetaKeys() ([]string, error) {
 		  AND key NOT LIKE 'built:%:postid'
 		  AND key NOT LIKE 'published:%:account'
 		  AND key NOT LIKE 'published:%:postid'
+		  AND key NOT LIKE 'pending:%:%'
 		ORDER BY key`)
 	if err != nil {
 		return nil, err

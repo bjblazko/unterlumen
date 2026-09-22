@@ -6,6 +6,10 @@ Non-obvious patterns and traps discovered during test development.
 
 Use `UNTERLUMEN_ROOT_PATH=e2e/fixtures` (env var), **not** a CLI positional argument. The CLI arg sets boundary=`/` (whole filesystem), which makes `path=gps-jpeg.jpg` resolve to `/gps-jpeg.jpg` (not found) and prevents path-traversal blocking. The env var restricts boundary to the fixtures dir so `path=` browses the fixtures root correctly. Set in `playwright.config.js`.
 
+**Run the suite with `npm test`, never bare `npx playwright test`.** `npm test` is `bash fixtures/setup.sh && playwright test`, and that setup step re-copies the fixtures from `src/examples`. Several specs mutate fixtures in place — `crop.spec.js` crops the centre 50% out of the same Canon JPEG on every run, and `gps-editing.spec.js` rewrites GPS tags — so skipping setup silently degrades the images across runs. After enough bare runs the crop target shrinks to a few KB and `POST /api/crop` starts failing, taking apparently unrelated specs (overlays, library-search) down with it. Failures that move between runs, or a spec that fails in isolation but passed an hour ago, are the symptom.
+
+**Rebuild the binary after every frontend change.** `main.go` has `//go:embed web`, so the HTML/JS/CSS the tests run against is the copy compiled into `../unterlumen` — not the files on disk. Editing `src/web/js/*.js` and running the suite silently tests the *previous* frontend, which looks like a spec that fails for no reason. Always `cd src && go build -o ../unterlumen .` first. ("No build step" in CLAUDE.md means no bundler/transpiler; it does not mean the server reads the files live.)
+
 ## App initialisation race
 
 `setMode('browse')` fires asynchronously after `API.config` + `toolsCheck`. Clicking `#mode-library` before that completes gets overridden. Guard with `waitForAppReady(page)` (waits for `.browse-layout` in DOM) before clicking any mode button. Use in ALL specs that navigate modes.

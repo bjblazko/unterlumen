@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-06*
+*Last modified: 2026-09-20*
 
 ## 1. Introduction and Goals
 
@@ -296,6 +296,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0024](adr/0024-published-galleries-overview.md) — Published galleries overview and live reachability check
 - [ADR-0025](adr/0025-gallery-edit-and-remote-delete.md) — Gallery title edit and scoped remote delete over SSH
 - [ADR-0026](adr/0026-deferred-publish-drafts.md) — Deferred publish drafts replace immediate build
+- [ADR-0027](adr/0027-per-album-publication-meta-keys.md) — Album identity within a channel (per-album publication meta keys)
 
 ## 10. Quality Requirements
 

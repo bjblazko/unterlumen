@@ -47,8 +47,9 @@ func collectDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channel
 			http.Error(w, "library not found", http.StatusNotFound)
 			return
 		}
-		if _, err := chStore.Get(slug); err != nil {
-			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
+		ch, chErr := chStore.Get(slug)
+		if chErr != nil {
+			http.Error(w, "channel not found: "+chErr.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -75,12 +76,41 @@ func collectDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channel
 
 		if store, openErr := mgr.OpenStore(libID); openErr == nil {
 			defer store.Close()
-			for _, id := range body.PhotoIDs {
-				store.UpsertMeta(id, "pending:"+slug, draft.ID) //nolint:errcheck
-			}
+			writePendingMarkers(store, body.PhotoIDs, slug, draft, draftAlbumTitle(ch, chStore, draft))
 		}
 
 		writeJSON(w, draft)
+	}
+}
+
+// draftAlbumTitle is the album name to show for a pending photo: the new
+// album's title, or — when the draft appends to an already-published album —
+// that album's stored title.
+func draftAlbumTitle(ch *channels.Channel, chStore *channels.Store, draft *channels.Draft) string {
+	if draft.Target.Title != "" || draft.Target.PostID == "" {
+		return draft.Target.Title
+	}
+	items, err := collectGalleryItems(ch, chStore.OutputDir(ch.Slug))
+	if err != nil {
+		return ""
+	}
+	for _, it := range items {
+		if it.PostID == draft.Target.PostID {
+			return it.Title
+		}
+	}
+	return ""
+}
+
+// writePendingMarkers records that these photos are collected but not yet
+// published. Two keys per photo: an unqualified per-channel marker (kept for
+// the meta-key list and existing consumers) and a per-draft key carrying the
+// album title — a photo can be pending in several albums of one channel at
+// once, and the unqualified key alone can only remember the most recent.
+func writePendingMarkers(store *lib.Store, photoIDs []string, slug string, draft *channels.Draft, albumTitle string) {
+	for _, id := range photoIDs {
+		store.UpsertMeta(id, "pending:"+slug, draft.ID)                //nolint:errcheck
+		store.UpsertMeta(id, "pending:"+slug+":"+draft.ID, albumTitle) //nolint:errcheck
 	}
 }
 

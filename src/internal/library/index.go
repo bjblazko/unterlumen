@@ -451,6 +451,27 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 			}
 		}
 
+		// One key set per album the photo appears in. Collapsing to the
+		// newest publication per channel — as this did — silently dropped
+		// every earlier album of a channel that holds several, so a reindex
+		// erased album membership that the sidecar still recorded.
+		for _, p := range pubs {
+			if p.PostID == "" {
+				continue
+			}
+			key := "built:" + p.Channel + ":" + p.PostID
+			idx.store.UpsertMeta(photoID, key, p.PublishedAt.UTC().Format(time.RFC3339)) //nolint:errcheck
+			if p.Account != "" {
+				idx.store.UpsertMeta(photoID, key+":account", p.Account) //nolint:errcheck
+			}
+			if p.GalleryTitle != "" {
+				idx.store.UpsertMeta(photoID, key+":title", p.GalleryTitle) //nolint:errcheck
+			}
+		}
+
+		// Unqualified keys stay as the per-channel "has been built here"
+		// marker (the channel filter matches on them) and carry the most
+		// recent album's details.
 		for ch, e := range latest {
 			idx.store.UpsertMeta(photoID, "built:"+ch, e.ts) //nolint:errcheck
 			if e.account != "" {

@@ -15,9 +15,13 @@ type GalleryState struct {
 	PostID      string      `json:"postID"`
 	Title       string      `json:"title"`
 	PublishedAt time.Time   `json:"publishedAt"`
-	UpdatedAt   time.Time   `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
+	// UpdatedAt is set on add-to-existing and zero for a first publish. No
+	// omitempty: it does nothing on a time.Time, so the zero value always
+	// serializes as "0001-01-01T00:00:00Z" — readers must check for it.
+	UpdatedAt time.Time `json:"updatedAt"`
 	PhotoCount  int         `json:"photoCount"`
 	HasZip      bool        `json:"hasZip"`
+	Unlisted    bool        `json:"unlisted,omitempty"` // emit noindex/nofollow on the gallery page
 	Photos      []SitePhoto `json:"photos"`
 }
 
@@ -87,7 +91,7 @@ type GalleryOptions struct {
 	SiteURL     string    // base URL e.g. "https://example.com"; enables canonical, OG tags, sitemap
 	AlbumSlug   string    // album folder name; used with SiteURL to build absolute album URL
 	PublishedAt time.Time // used for datePublished in JSON-LD
-	Unlisted    bool      // when true, the site-gallery page gets a noindex/nofollow robots meta tag
+	Unlisted    bool      // when true, the gallery page gets a noindex/nofollow robots meta tag
 	Nav         SiteNavContext
 }
 
@@ -98,6 +102,9 @@ var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.Title}}</title>
 <meta name="description" content="{{.Description}}">
+{{- if .Unlisted}}
+<meta name="robots" content="noindex, nofollow">
+{{- end}}
 <script type="application/ld+json">{{.LDJSON}}</script>
 <script src="theme-init.js"></script>
 <style>
@@ -447,6 +454,7 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 		ZipFilename string
 		Figures     []galleryFigureData
 		PhotoCount  int
+		Unlisted    bool
 	}{
 		Title:       title,
 		Description: description,
@@ -455,6 +463,7 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 		ZipFilename: opts.ZipFilename,
 		Figures:     figures,
 		PhotoCount:  total,
+		Unlisted:    opts.Unlisted,
 	})
 	return buf.Bytes()
 }

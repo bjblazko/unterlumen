@@ -73,6 +73,7 @@ func TestRsyncArgsNoOptionalFields(t *testing.T) {
 		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=drafts.json",
 		"--exclude=.DS_Store",
 		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10",
 		"/local/output/",
@@ -93,6 +94,7 @@ func TestRsyncArgsPortAndIdentity(t *testing.T) {
 		"-az",
 		"--exclude=site.json",
 		"--exclude=gallery.json",
+		"--exclude=drafts.json",
 		"--exclude=.DS_Store",
 		"-e", "ssh -o BatchMode=yes -o ConnectTimeout=10 -i /home/alice/.ssh/id_ed25519 -p 2222",
 		"/local/output/",
@@ -106,12 +108,14 @@ func TestRsyncArgsPortAndIdentity(t *testing.T) {
 // TestRsyncArgsExcludesStatefiles guards finding #1: deploy must never push
 // site.json/gallery.json to the remote, since site.json records every
 // Unlisted album's supposedly-unguessable slug — publishing it defeats the
-// whole point of the token.
+// whole point of the token. drafts.json is worse still: it sits at the channel
+// output root, so it would be served at <host>/drafts.json, exposing photos
+// that have not been published yet.
 func TestRsyncArgsExcludesStatefiles(t *testing.T) {
 	target := Target{Host: "example.com", User: "alice", RemotePath: "/var/www/site"}
 	got := rsyncArgs(target, "/local/output")
 
-	for _, want := range []string{"--exclude=site.json", "--exclude=gallery.json"} {
+	for _, want := range []string{"--exclude=site.json", "--exclude=gallery.json", "--exclude=drafts.json"} {
 		found := false
 		for _, a := range got {
 			if a == want {

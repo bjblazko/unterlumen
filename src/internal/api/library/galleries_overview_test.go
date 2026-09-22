@@ -782,3 +782,145 @@ func parseSSEEvents(t *testing.T, raw string) []reachabilityResult {
 	}
 	return out
 }
+
+// A single-gallery channel is one host holding many unrelated albums, so two
+// albums can be pending at once. Both rows must be distinguishable: they share
+// an empty PostID, so a (channel, postID) key collides and the frontend would
+// route every status update to whichever row happened to render first.
+func TestListAllGalleriesTwoPendingDraftsGetDistinctRowKeys(t *testing.T) {
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	draftStore := channels.NewDraftStore(chStore)
+
+	if err := chStore.Save(&channels.Channel{Slug: "fotoshare", Name: "Fotoshare", GalleryExport: true}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	a, err := draftStore.Create("fotoshare", channels.DraftTarget{Title: "Uli"}, []channels.DraftPhoto{{LibraryID: "l", PhotoID: "p1"}})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	b, err := draftStore.Create("fotoshare", channels.DraftTarget{Title: "Regenwanderung"}, []channels.DraftPhoto{{LibraryID: "l", PhotoID: "p2"}})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("len(out) = %d, want 2 — both pending albums must get their own row", len(out))
+	}
+	if out[0].RowKey == out[1].RowKey {
+		t.Fatalf("both rows share RowKey %q", out[0].RowKey)
+	}
+	keys := map[string]bool{out[0].RowKey: true, out[1].RowKey: true}
+	for _, d := range []string{a.ID, b.ID} {
+		if !keys["fotoshare|draft:"+d] {
+			t.Errorf("no row keyed to draft %s; got %v", d, keys)
+		}
+	}
+}
+
+// A second draft queued against an already-published album must not vanish:
+// only the first layers onto the generated row as "live-pending".
+func TestListAllGalleriesSecondDraftOnSamePostIDGetsItsOwnRow(t *testing.T) {
+	base := t.TempDir()
+	chStore := channels.NewStore(base, base)
+	draftStore := channels.NewDraftStore(chStore)
+
+	if err := chStore.Save(&channels.Channel{Slug: "fotoshare", Name: "Fotoshare", GalleryExport: true}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	outDir := filepath.Join(chStore.OutputDir("fotoshare"), "abc123")
+	if err := os.MkdirAll(outDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	gs := &GalleryState{PostID: "abc123", Title: "Uli", PublishedAt: time.Now().UTC(), PhotoCount: 1}
+	if err := saveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := draftStore.Create("fotoshare", channels.DraftTarget{PostID: "abc123"}, []channels.DraftPhoto{{LibraryID: "l", PhotoID: "p" + strconv.Itoa(i)}}); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
+	rec := httptest.NewRecorder()
+	listAllGalleries(chStore, draftStore)(rec, req)
+
+	var out []PublishedGallery
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(out) != 2 {
+		t.Fatalf("len(out) = %d, want 2 (the live album plus the leftover draft)", len(out))
+	}
+	var live, draft int
+	for _, r := range out {
+		switch r.Status {
+		case "live-pending":
+			live++
+		case "draft":
+			draft++
+		}
+	}
+	if live != 1 || draft != 1 {
+		t.Fatalf("statuses = %d live-pending / %d draft, want 1 and 1", live, draft)
+	}
+}
+
+// Toggling Unlisted is safe for a single-gallery album (its folder is the
+// random PostID either way) but must stay refused for a site album, whose
+// slug encodes it — changing that would break links already shared.
+func TestRenameGalleryTogglesUnlistedForGalleryExportOnly(t *testing.T) {
+	base := t.TempDir()
+	chStore := channels.NewStore(base, base)
+	if err := chStore.Save(&channels.Channel{Slug: "fotoshare", Name: "Fotoshare", GalleryExport: true}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	outDir := filepath.Join(chStore.OutputDir("fotoshare"), "abc123")
+	if err := os.MkdirAll(outDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	statePath := filepath.Join(outDir, "gallery.json")
+	if err := saveGalleryState(statePath, &GalleryState{PostID: "abc123", Title: "Uli"}); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+
+	req := httptest.NewRequest("PATCH", "/api/channels/fotoshare/galleries/abc123", bytes.NewBufferString(`{"title":"Uli","unlisted":true}`))
+	req.SetPathValue("slug", "fotoshare")
+	req.SetPathValue("postID", "abc123")
+	rec := httptest.NewRecorder()
+	renameGallery(chStore, nil)(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	gs, err := loadGalleryState(statePath)
+	if err != nil || gs == nil || !gs.Unlisted {
+		t.Fatalf("Unlisted was not persisted: %+v (err %v)", gs, err)
+	}
+	html, err := os.ReadFile(filepath.Join(outDir, "index.html"))
+	if err != nil {
+		t.Fatalf("read regenerated page: %v", err)
+	}
+	if !strings.Contains(string(html), `name="robots"`) {
+		t.Error("regenerated page is missing the noindex tag")
+	}
+
+	if err := chStore.Save(&channels.Channel{Slug: "site-ch", Name: "Site", SiteExport: true}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	req = httptest.NewRequest("PATCH", "/api/channels/site-ch/galleries/abc123", bytes.NewBufferString(`{"title":"Uli","unlisted":true}`))
+	req.SetPathValue("slug", "site-ch")
+	req.SetPathValue("postID", "abc123")
+	rec = httptest.NewRecorder()
+	renameGallery(chStore, nil)(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("site album: status = %d, want 400 (slug encodes listedness)", rec.Code)
+	}
+}

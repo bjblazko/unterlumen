@@ -247,8 +247,11 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // above: other channels/specs may have already published this same
         // shared photo, so an unscoped locator can match multiple cards and
         // trip Playwright's strict-mode violation on toBeVisible().
-        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key="built:${channelSlug}"]`)).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator(`.info-pub-card--pending .info-meta-del[data-key="pending:${channelSlug}"]`)).toHaveCount(0);
+        // The card is per album, so its delete key is the qualified
+        // built:<slug>:<postID> once the photo belongs to one (a plain-export
+        // channel has no album and keeps the bare channel key).
+        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key^="built:${channelSlug}"]`).first()).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator(`.info-pub-card--pending .info-meta-del[data-key^="pending:${channelSlug}"]`)).toHaveCount(0);
     }
 
     test('GalleryExport (plain) channel: collect, draft badge, generate, published state', async ({ page }) => {
