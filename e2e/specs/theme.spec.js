@@ -20,9 +20,21 @@ test.describe('Theme', () => {
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
   });
 
-  test('orange accent attribute is set on html element', async ({ page }) => {
-    const accent = await page.locator('html').getAttribute('data-accent');
-    expect(accent).toBe('orange');
+  // ADR-0030 replaced the data-accent product-variant attribute with the
+  // rams-design tokens: the accent is a token value, and it differs per theme.
+  test('the accent token carries the rams-design orange', async ({ page }) => {
+    const accent = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().toUpperCase());
+    expect(['#E85D04', '#F07A2A']).toContain(accent);
+  });
+
+  test('the UI voice is Plex Sans and data is set in Plex Mono', async ({ page }) => {
+    const body = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+    expect(body).toContain('IBM Plex Sans');
+    await page.waitForSelector('.item-name, .list-name', { timeout: 10_000 });
+    const loaded = await page.evaluate(() => [...document.fonts]
+      .filter(f => f.status === 'loaded').map(f => f.family));
+    expect(loaded).toContain('IBM Plex Sans');
   });
 
   test('theme buttons exist in settings dropdown', async ({ page }) => {

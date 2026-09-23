@@ -252,7 +252,7 @@ class LibrarySearchPanel {
         }
         if (fields.length === 0) {
             const msg = document.createElement('div');
-            msg.style.cssText = 'font-size:11px;color:var(--text-sec);padding:4px 0';
+            msg.style.cssText = 'font-size:11px;color:var(--fg-2);padding:4px 0';
             msg.textContent = 'No numeric EXIF data — re-index the library to populate.';
             this._slidersWrap.appendChild(msg);
         }
