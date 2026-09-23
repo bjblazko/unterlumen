@@ -205,31 +205,35 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await expect(row.locator('.gal-state')).toHaveText('Not online yet');
         await expect(row.locator('.gal-row-sub')).toContainText('2 photos collected');
 
-        // ── 3. Open Publish dialog, review pending photos, remove one ───────
-        await row.locator('.gal-row-action').click();
-        const publishDlg = page.locator('.publish-dialog');
-        await expect(publishDlg).toBeVisible({ timeout: 5_000 });
-        await expect(publishDlg.locator('.publish-step-photo')).toHaveCount(2, { timeout: 10_000 });
+        // ── 3. The gallery's own view lists what is waiting; remove one ────
+        // Reviewing the collected photos belongs to the gallery, not to the
+        // publish run (ADR-0029), so it moved out of the dialog.
+        await row.click();
+        await expect(page.locator('.gal-detail')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.gal-pending-photo')).toHaveCount(2, { timeout: 10_000 });
 
         // Remove the second photo, keeping the first (the one the Info Panel
         // checks above and below both target) in the draft.
-        await publishDlg.locator('.publish-step-photo .publish-step-remove').nth(1).click();
-        await expect(publishDlg.locator('.publish-step-photo')).toHaveCount(1, { timeout: 5_000 });
-        await expect(publishDlg.locator('.form-hint').first()).toContainText('1 photo pending');
+        await page.locator('.gal-pending-photo .gal-pending-remove').nth(1).click();
+        await expect(page.locator('.gal-pending-photo')).toHaveCount(1, { timeout: 5_000 });
 
-        // ── 4. Generate and review the artifact ─────────────────────────────
-        await publishDlg.locator('#pub-generate').click();
-        await expect(publishDlg.locator('#pub-copy-path')).toBeVisible({ timeout: 30_000 });
+        // ── 4. Publish is one action: export → build → (upload) → check ────
+        await page.locator('.gal-detail-primary .gal-row-action').click();
+        const publishDlg = page.locator('.publish-dialog');
+        await expect(publishDlg).toBeVisible({ timeout: 5_000 });
+        await expect(publishDlg.locator('.publish-plan')).toContainText('Export 1 photo');
+        // Neither test channel configures an rsync handler (no fake rsync
+        // target exists in the fixture env), so no upload step is planned.
+        await expect(publishDlg.locator('.publish-plan')).not.toContainText('Upload');
+
+        await publishDlg.locator('#pub-run').click();
+        await expect(publishDlg.locator('.publish-step[data-step="build"][data-state="done"]'))
+            .toBeVisible({ timeout: 30_000 });
+        await expect(publishDlg.locator('.publish-step[data-step="export"]')).toHaveAttribute('data-state', 'done');
+        await expect(publishDlg.locator('#pub-copy-path')).toBeVisible();
         await expect(publishDlg.locator('#pub-open-folder')).toBeVisible();
-        if (isSite) {
-            await expect(publishDlg.locator('#pub-open-browser')).toBeVisible();
-        }
-        // Neither test channel configures an rsync handler, so Deploy must
-        // not be offered — confirming the "no handler configured" path the
-        // plan calls out as the expected behavior in this fixture env.
-        await expect(publishDlg.locator('#pub-deploy')).toHaveCount(0);
-        await expect(publishDlg.locator('#pub-close-2')).toHaveText('Done');
-        await publishDlg.locator('#pub-close-2').click();
+        await expect(publishDlg.locator('#pub-done')).toBeVisible();
+        await publishDlg.locator('#pub-done').click();
         await expect(publishDlg).toHaveCount(0);
 
         // ── 5. Published tab now shows Generated, not Draft ─────────────────
@@ -237,7 +241,9 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         const generatedRow = page.locator('.gal-row', { hasText: galleryTitle });
         await expect(generatedRow).toBeVisible({ timeout: 5_000 });
         await expect(generatedRow.locator('.gal-state')).not.toHaveText('Not online yet');
-        await expect(generatedRow.locator('.gal-state')).toHaveText(/Online|Built/);
+        // Built here, never uploaded — these channels have no upload target,
+        // and the state says that rather than claiming the gallery is online.
+        await expect(generatedRow.locator('.gal-state')).toHaveText('Built, not uploaded');
 
         // ── 6. Info Panel now shows the photo as published, not pending ────
         await openLibraryDetail(page);

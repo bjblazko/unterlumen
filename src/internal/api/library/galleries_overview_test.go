@@ -924,3 +924,75 @@ func TestRenameGalleryTogglesUnlistedForGalleryExportOnly(t *testing.T) {
 		t.Fatalf("site album: status = %d, want 400 (slug encodes listedness)", rec.Code)
 	}
 }
+
+// generatedAt/deployedAt are what tell "built, not uploaded" from "online"
+// (ADR-0029). A deploy stamps every gallery of the channel, because rsync
+// pushes the whole output directory; a later build moves generatedAt past it
+// again.
+func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
+	channelDir := t.TempDir()
+	for _, id := range []string{"aaa111", "bbb222"} {
+		dir := filepath.Join(channelDir, id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		gs := &GalleryState{PostID: id, Title: id, GeneratedAt: time.Now().Add(-time.Hour).UTC()}
+		if err := saveGalleryState(filepath.Join(dir, "gallery.json"), gs); err != nil {
+			t.Fatalf("saveGalleryState: %v", err)
+		}
+	}
+
+	at := time.Now().UTC()
+	MarkDeployed(channelDir, false, at)
+
+	for _, id := range []string{"aaa111", "bbb222"} {
+		gs, err := loadGalleryState(filepath.Join(channelDir, id, "gallery.json"))
+		if err != nil || gs == nil {
+			t.Fatalf("loadGalleryState(%s): %v", id, err)
+		}
+		if gs.DeployedAt.IsZero() {
+			t.Errorf("gallery %s was not stamped as deployed", id)
+		}
+		if gs.DeployedAt.Before(gs.GeneratedAt) {
+			t.Errorf("gallery %s: deployedAt %v is before generatedAt %v — it would still read as 'built, not uploaded'",
+				id, gs.DeployedAt, gs.GeneratedAt)
+		}
+	}
+}
+
+// A site channel deploys only its site/ subdirectory, so single-gallery
+// folders sharing the same output directory must not be marked as uploaded.
+func TestMarkDeployed_SiteChannelLeavesGalleryFoldersAlone(t *testing.T) {
+	channelDir := t.TempDir()
+	siteDir := SiteDir(channelDir)
+	if err := os.MkdirAll(siteDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := saveSiteState(filepath.Join(siteDir, "site.json"), []SiteAlbum{{PostID: "album1", Title: "Album"}}); err != nil {
+		t.Fatalf("saveSiteState: %v", err)
+	}
+	galDir := filepath.Join(channelDir, "ccc333")
+	if err := os.MkdirAll(galDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := saveGalleryState(filepath.Join(galDir, "gallery.json"), &GalleryState{PostID: "ccc333"}); err != nil {
+		t.Fatalf("saveGalleryState: %v", err)
+	}
+
+	MarkDeployed(channelDir, true, time.Now().UTC())
+
+	albums, err := loadSiteState(filepath.Join(siteDir, "site.json"))
+	if err != nil || len(albums) != 1 {
+		t.Fatalf("loadSiteState: %v (%d albums)", err, len(albums))
+	}
+	if albums[0].DeployedAt.IsZero() {
+		t.Error("the site album was not stamped as deployed")
+	}
+	gs, err := loadGalleryState(filepath.Join(galDir, "gallery.json"))
+	if err != nil || gs == nil {
+		t.Fatalf("loadGalleryState: %v", err)
+	}
+	if !gs.DeployedAt.IsZero() {
+		t.Error("a single-gallery folder was stamped although only site/ was uploaded")
+	}
+}

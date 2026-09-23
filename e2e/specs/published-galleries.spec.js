@@ -148,12 +148,14 @@ test.describe('Published Galleries overview', () => {
         await expect(page.locator('.gal-group', { hasText: 'E2E Published Solo Gallery' })
             .locator('.gal-group-name')).toHaveText('E2E Published Gallery');
 
-        // No resolvable address: we know it was built, and nothing more.
-        await expect(galRow.locator('.gal-state')).toHaveText('Built, no address configured');
+        // Neither test channel has an upload configured, so both galleries are
+        // built and not uploaded — the state says so instead of claiming they
+        // are online (ADR-0029).
+        await expect(galRow.locator('.gal-state')).toHaveText('Built, not uploaded');
+        await expect(siteRow.locator('.gal-state')).toHaveText('Built, not uploaded');
 
-        // A deliberately dead SiteURL: the state stays Online, and the failed
-        // check is reported next to it rather than replacing it (ADR-0029).
-        await expect(siteRow.locator('.gal-state')).toHaveText('Online');
+        // A deliberately dead SiteURL: the failed check is reported next to
+        // the state rather than replacing it (ADR-0029).
         await expect(siteRow.locator('.gal-check--down')).toContainText('Not reachable', { timeout: 10_000 });
         await expect(siteRow.locator('.gal-row-action')).toHaveText('Check again');
     });

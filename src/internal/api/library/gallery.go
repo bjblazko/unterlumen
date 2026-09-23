@@ -12,14 +12,21 @@ import (
 
 // GalleryState is the gallery.json statefile for single-gallery publishes.
 type GalleryState struct {
-	PostID      string      `json:"postID"`
-	Title       string      `json:"title"`
-	PublishedAt time.Time   `json:"publishedAt"`
+	PostID      string    `json:"postID"`
+	Title       string    `json:"title"`
+	PublishedAt time.Time `json:"publishedAt"`
 	// UpdatedAt is set on add-to-existing and zero for a first publish. No
 	// omitempty: it does nothing on a time.Time, so the zero value always
 	// serializes as "0001-01-01T00:00:00Z" — readers must check for it.
-	UpdatedAt time.Time `json:"updatedAt"`
-	PhotoCount  int         `json:"photoCount"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	PhotoCount int       `json:"photoCount"`
+	// GeneratedAt is when this gallery's files were last built, and
+	// DeployedAt when they were last uploaded. Together they tell "built, not
+	// uploaded" apart from "online" (ADR-0029). Both are zero for galleries
+	// written before this was recorded; readers must treat that as unknown
+	// rather than as "never".
+	GeneratedAt time.Time   `json:"generatedAt"`
+	DeployedAt  time.Time   `json:"deployedAt"`
 	HasZip      bool        `json:"hasZip"`
 	Unlisted    bool        `json:"unlisted,omitempty"` // emit noindex/nofollow on the gallery page
 	Photos      []SitePhoto `json:"photos"`
