@@ -221,55 +221,36 @@ test.describe('Published Galleries overview', () => {
         const rows = await (await request.get('/api/channels/galleries')).json();
         expect(rows.find(r => r.postID === disposablePostID)).toBeFalsy();
     });
-});
 
-// Coverage for the channels list's links into Galleries: a "Visit site" link
-// to the resolved public URL, and a status line that opens Galleries filtered
-// to that one destination.
-test.describe('Channels list — links into Published overview', () => {
-    const LINK_SITE_SLUG = 'e2e-published-links-site';
-
-    test.beforeAll(async ({ request }) => {
-        await request.delete(`/api/channels/${LINK_SITE_SLUG}`).catch(() => {});
-        const res = await request.post('/api/channels/', {
-            data: {
-                slug: LINK_SITE_SLUG,
-                name: 'E2E Published Links Site',
-                format: 'jpeg',
-                quality: 75,
-                exifMode: 'strip',
-                siteExport: true,
-                siteURL: 'https://example.com',
-                outputMode: 'save',
-            },
-        });
-        expect(res.status()).toBe(201);
-    });
-
-    test.afterAll(async ({ request }) => {
-        await request.delete(`/api/channels/${LINK_SITE_SLUG}`).catch(() => {});
-    });
-
-    test('channel row shows a Visit site link and a Published link that filters the overview', async ({ page }) => {
+    // The destinations list links into Galleries: the address opens the public
+    // site, and the gallery count opens Galleries filtered to that destination.
+    test('the destinations list links to the public site and into Galleries', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
-        await page.click('#mode-library');
-        await page.click('#lib-channels-btn');
+        await page.click('#mode-destinations');
 
-        const row = page.locator('.channel-row', { hasText: 'E2E Published Links Site' });
-        await expect(row).toBeVisible();
+        const siteRow = page.locator('.dest-row', { hasText: 'E2E Published Site' });
+        await expect(siteRow).toBeVisible({ timeout: 8_000 });
+        await expect(siteRow.locator('.dest-visit')).toHaveAttribute('href', 'http://127.0.0.1:1');
 
-        const visitLink = row.locator('.ch-visit-site');
-        await expect(visitLink).toHaveAttribute('href', 'https://example.com');
+        const galRow = page.locator('.dest-row', { hasText: 'E2E Published Gallery' });
+        await galRow.locator('.dest-galleries-link').click();
+        await expect(page.locator('#gal-filter')).toContainText('E2E Published Gallery');
+    });
 
-        // The status line loads its text asynchronously ("Loading status…" →
-        // gallery count), but the click handler is wired up synchronously in
-        // _row before the load completes, so clicking works regardless of load state.
-        await row.locator('.ch-status-line').click();
+    test('opening a destination shows its type first, and the type is fixed', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-destinations');
 
-        // No galleries have been published to this channel, so the filter
-        // bar falls back to the channel slug (it has no row to read a name from).
-        await expect(page.locator('#gal-filter')).toBeVisible();
-        await expect(page.locator('#gal-filter')).toContainText('E2E Published Links Site');
+        await page.locator('.dest-row', { hasText: 'E2E Published Site' }).click();
+        const form = page.locator('#dest-form');
+        await expect(form).toBeVisible();
+        await expect(form).toHaveAttribute('data-type', 'site');
+        // A site's type decides its layout and its links, so it cannot change.
+        await expect(form.locator('input[name="dest-type"]').first()).toBeDisabled();
+        // Only the sections this type needs: a website has no "Output" section.
+        await expect(form.locator('.dest-when-files')).toBeHidden();
+        await expect(form.locator('.dest-when-site')).toBeVisible();
     });
 });

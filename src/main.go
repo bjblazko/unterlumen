@@ -169,7 +169,7 @@ func main() {
 		if cfgDir == "" {
 			cfgDir = *libDir
 		}
-		chStore = channels.NewStore(cfgDir, *libDir)
+		chStore = channels.NewStore(cfgDir, *libDir).WithBoundary(absBoundary)
 	}
 
 	mux := api.NewRouter(absBoundary, relStart, homeRelPath, sub, serverRole, libMgr, chStore, Version)

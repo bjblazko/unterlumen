@@ -249,7 +249,7 @@ class GalleriesPane {
         for (const btn of this.container.querySelectorAll('.gal-dest-settings')) {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                new ChannelSettingsModal().open(null);
+                App.showDestination(btn.dataset.slug);
             });
         }
         for (const el of this.container.querySelectorAll('.gal-row')) {

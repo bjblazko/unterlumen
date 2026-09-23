@@ -62,3 +62,42 @@ func TestOutputDirFallsBackToBuiltinChannel(t *testing.T) {
 		t.Fatalf("OutputDir = %q, want %q", got, wantOutputDir)
 	}
 }
+
+// A channel's OutputPath comes from the folder picker, which returns paths
+// relative to the browse root. Resolving them against the process's working
+// directory instead makes the same configuration behave differently depending
+// on where the server was started from — the app finds its galleries when
+// launched from "/" and finds nothing when launched from a project folder.
+func TestOutputDir_ResolvesRelativePathAgainstBoundary(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir, dir).WithBoundary("/srv/photos")
+	if err := store.Save(&Channel{Slug: "site", Name: "Site", OutputPath: "Users/someone/Pictures/out"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := store.OutputDir("site")
+	if want := "/srv/photos/Users/someone/Pictures/out"; got != want {
+		t.Errorf("OutputDir = %q, want %q", got, want)
+	}
+	if !filepath.IsAbs(got) {
+		t.Errorf("OutputDir returned a relative path (%q); every caller treats it as a filesystem path", got)
+	}
+}
+
+func TestOutputDir_KeepsAbsolutePathAndDefault(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir, dir).WithBoundary("/srv/photos")
+	if err := store.Save(&Channel{Slug: "abs", Name: "Abs", OutputPath: "/var/www/out"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := store.Save(&Channel{Slug: "plain", Name: "Plain"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := store.OutputDir("abs"); got != "/var/www/out" {
+		t.Errorf("absolute OutputPath = %q, want it unchanged", got)
+	}
+	if got, want := store.OutputDir("plain"), filepath.Join(dir, "channels", "plain"); got != want {
+		t.Errorf("default OutputDir = %q, want %q", got, want)
+	}
+}

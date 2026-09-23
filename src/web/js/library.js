@@ -437,8 +437,6 @@ class LibraryTab {
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
-                    <button class="btn" id="lib-channels-btn">Channels ›</button>
-                    <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-new-btn">New library…</button>
                 </div>
             </div>
@@ -454,7 +452,6 @@ class LibraryTab {
             </div>`;
         this.container.appendChild(el);
 
-        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._showCreateDialog());
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
@@ -924,7 +921,6 @@ class LibraryTab {
                 <div class="library-detail-controls">
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
             <div class="lib-search-body">
@@ -952,7 +948,6 @@ class LibraryTab {
             this.render();
         });
 
-        el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
 
         this._filterPanel = new LibrarySearchPanel(
