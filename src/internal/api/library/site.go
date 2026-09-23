@@ -44,12 +44,16 @@ type SitePhoto struct {
 
 // SiteAlbum records metadata for one published album in the site statefile.
 type SiteAlbum struct {
-	PostID      string      `json:"postID"`
-	Slug        string      `json:"slug,omitempty"` // human-readable folder name; falls back to PostID when empty
-	Title       string      `json:"title"`
-	PublishedAt time.Time   `json:"publishedAt"`
-	UpdatedAt   time.Time   `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
-	PhotoCount  int         `json:"photoCount"`
+	PostID      string    `json:"postID"`
+	Slug        string    `json:"slug,omitempty"` // human-readable folder name; falls back to PostID when empty
+	Title       string    `json:"title"`
+	PublishedAt time.Time `json:"publishedAt"`
+	UpdatedAt   time.Time `json:"updatedAt,omitempty"` // set on add-to-existing; zero for first publish
+	PhotoCount  int       `json:"photoCount"`
+	// GeneratedAt / DeployedAt: see GalleryState. Zero means "not recorded",
+	// which is the case for every album published before ADR-0029.
+	GeneratedAt time.Time   `json:"generatedAt"`
+	DeployedAt  time.Time   `json:"deployedAt"`
 	CoverFile   string      `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
 	HasZip      bool        `json:"hasZip"`
 	Photos      []SitePhoto `json:"photos"`             // stored so album pages can be rebuilt without re-export

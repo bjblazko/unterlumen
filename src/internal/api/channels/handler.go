@@ -332,7 +332,13 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 			localDir = apilibrary.SiteDir(localDir)
 		}
 		output, deployErr := deploy.Deploy(target, localDir)
-		ch.LastDeployedAt = time.Now().UTC()
+		deployedAt := time.Now().UTC()
+		if deployErr == nil {
+			// Per-gallery, so a gallery built after the last upload can say so
+			// instead of the channel-level flag implying everything is online.
+			apilibrary.MarkDeployed(store.OutputDir(slug), ch.SiteExport, deployedAt)
+		}
+		ch.LastDeployedAt = deployedAt
 		ch.LastDeployOK = deployErr == nil
 		if deployErr != nil {
 			ch.LastDeployError = deployErr.Error()

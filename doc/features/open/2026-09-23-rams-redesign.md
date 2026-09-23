@@ -163,11 +163,14 @@ point.
   - "Built, not uploaded" and "Exported to folder" wait for phase 4: both
     need per-gallery `generatedAt`/`deployedAt` in the statefiles. Until
     then a built gallery with no address says exactly that.
-- [ ] Phase 4: publish as one action.
+- [x] Phase 4: publish as one action.
   - Generate, then (rsync) deploy, then the reachability check for that URL.
   - Progress comes from `buildStream` events.
   - Errors show inline.
   - The state "Built, not uploaded" is persisted per gallery.
+  - A plain-export destination still has no row of its own after its draft
+    is consumed — it writes no statefile, so there is nothing to list.
+    "Exported to folder" covers the destinations that do write one.
 - [ ] Phase 5: selection bar and "Add to gallery".
   - One shared SelectionBar for folders, libraries and search results.
   - The collect dialog becomes a gallery list with search and "New

@@ -1796,12 +1796,21 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 			for i, item := range items {
 				sitePhotos[i] = SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
+			// The build time is now; the deploy time belongs to the last
+			// upload and is carried over, so a rebuild without an upload
+			// leaves the gallery visibly "built, not uploaded" (ADR-0029).
+			var gsDeployedAt time.Time
+			if existing, _ := loadGalleryState(filepath.Join(outDir, "gallery.json")); existing != nil {
+				gsDeployedAt = existing.DeployedAt
+			}
 			gs := &GalleryState{
 				PostID:      albumPostID,
 				Title:       galleryTitle,
 				PublishedAt: gsPublishedAt,
 				UpdatedAt:   gsUpdatedAt,
 				PhotoCount:  len(items),
+				GeneratedAt: time.Now().UTC(),
+				DeployedAt:  gsDeployedAt,
 				HasZip:      zipName != "",
 				Unlisted:    albumUnlisted,
 				Photos:      sitePhotos,
@@ -1829,13 +1838,15 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				sitePhotos[i] = SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
 			if addToExisting {
-				// Update existing album entry; preserve PublishedAt for sort order.
+				// Update existing album entry; preserve PublishedAt for sort
+				// order and DeployedAt, which describes the last upload.
 				for i := range siteAlbums {
 					if siteAlbums[i].PostID == albumPostID {
 						siteAlbums[i].Photos = sitePhotos
 						siteAlbums[i].PhotoCount = len(items)
 						siteAlbums[i].HasZip = zipName != ""
 						siteAlbums[i].UpdatedAt = publishedAt
+						siteAlbums[i].GeneratedAt = time.Now().UTC()
 						break
 					}
 				}
@@ -1846,6 +1857,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 					Title:       galleryTitle,
 					PublishedAt: publishedAt,
 					PhotoCount:  len(items),
+					GeneratedAt: time.Now().UTC(),
 					CoverFile:   "cover.jpg",
 					HasZip:      zipName != "",
 					Photos:      sitePhotos,
@@ -2288,6 +2300,10 @@ type galleryListItem struct {
 	PublishedAt time.Time `json:"publishedAt"`
 	UpdatedAt   time.Time `json:"updatedAt"` // zero-valued when never updated; omitempty does nothing on a time.Time
 	PhotoCount  int       `json:"photoCount"`
+	// GeneratedAt / DeployedAt let the frontend tell "built, not uploaded"
+	// from "online" (ADR-0029). Zero means not recorded, not "never".
+	GeneratedAt time.Time `json:"generatedAt"`
+	DeployedAt  time.Time `json:"deployedAt"`
 	// FolderName is the actual on-disk (and on-URL) folder name for this
 	// album — the slugified title, or for unlisted albums the slug plus its
 	// random token. Empty for GalleryExport (non-site) channels, which have
@@ -2319,6 +2335,8 @@ func collectGalleryItems(ch *channels.Channel, channelDir string) ([]galleryList
 				PublishedAt: a.PublishedAt,
 				UpdatedAt:   a.UpdatedAt,
 				PhotoCount:  a.PhotoCount,
+				GeneratedAt: a.GeneratedAt,
+				DeployedAt:  a.DeployedAt,
 				FolderName:  albumFolderName(a),
 				Unlisted:    a.Unlisted,
 			})
@@ -2346,6 +2364,8 @@ func collectGalleryItems(ch *channels.Channel, channelDir string) ([]galleryList
 				PublishedAt: gs.PublishedAt,
 				UpdatedAt:   gs.UpdatedAt,
 				PhotoCount:  gs.PhotoCount,
+				GeneratedAt: gs.GeneratedAt,
+				DeployedAt:  gs.DeployedAt,
 				FolderName:  e.Name(), // gallery-export mode: folder name == PostID, use the actual dir name on disk
 				Unlisted:    gs.Unlisted,
 			})

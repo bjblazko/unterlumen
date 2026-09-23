@@ -72,26 +72,50 @@ const PublishedGalleryAPI = {
  * check result layered *on top of* a state, not a state of its own: a gallery
  * can be "Changes not online" and unreachable at the same time.
  *
- * "Built, not uploaded" needs a per-gallery generatedAt/deployedAt in the
- * statefiles, which arrives with the publish action (ADR-0029). Until then a
- * generated gallery with no address is described by what we do know: it was
- * built, and nothing says where it should go.
+ * `generatedAt` and `deployedAt` are per gallery. Both are absent for
+ * galleries built before they were recorded, and absent means "not recorded",
+ * never "never" — an old gallery is not accused of having failed to upload.
  */
 
-function galleryState(row) {
+// A recorded timestamp, or null. Go's omitempty does nothing for a
+// time.Time, so an unrecorded time arrives as "0001-01-01T00:00:00Z" rather
+// than as an absent field — and must not be read as "this never happened".
+function recordedTime(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    return isNaN(d) || d.getUTCFullYear() <= 1970 ? null : d;
+}
+
+function galleryState(row, channel) {
     if (row.status === 'draft') return { key: 'draft', label: 'Not online yet' };
     if (row.status === 'live-pending') return { key: 'pending', label: 'Changes not online' };
+
+    // A files destination builds no pages and has nowhere to upload to: the
+    // files are ready in a folder, and posting them is the user's own job.
+    const buildsPages = !!(row.galleryExport || channel?.siteExport);
+    if (!buildsPages) return { key: 'exported', label: 'Exported to folder' };
+
+    // Built after the last upload — or never uploaded at all. Only decidable
+    // for galleries built since these timestamps were recorded; for older
+    // ones the absence of a timestamp means "not recorded", not "never".
+    const generated = recordedTime(row.generatedAt);
+    const deployed = recordedTime(row.deployedAt);
+    if (generated && (!deployed || deployed < generated)) {
+        return { key: 'built', label: 'Built, not uploaded' };
+    }
     if (!row.url) return { key: 'built', label: 'Built, no address configured' };
     return { key: 'online', label: 'Online' };
 }
 
 // The one thing worth doing to this gallery right now, if there is one.
-function galleryAction(row, check) {
-    const state = galleryState(row);
+function galleryAction(row, check, channel) {
+    const state = galleryState(row, channel);
     if (state.key === 'draft') return { act: 'publish', label: 'Publish' };
     if (state.key === 'pending') {
         return { act: 'publish', label: `Publish ${row.pendingCount} change${row.pendingCount !== 1 ? 's' : ''}` };
     }
+    if (state.key === 'built' && channel?.handler) return { act: 'publish', label: 'Retry upload' };
+    if (state.key === 'exported') return { act: 'reveal', label: 'Show in Finder' };
     if (check && check.reachable === false) return { act: 'recheck', label: 'Check again' };
     return null;
 }
@@ -176,7 +200,7 @@ class GalleriesPane {
             bySlug.get(row.channelSlug).push(row);
         }
 
-        const todo = filtered.filter(r => galleryAction(r, this._checks.get(r.rowKey))?.act === 'publish').length;
+        const todo = filtered.filter(r => galleryAction(r, this._checks.get(r.rowKey), this._channelBySlug(r.channelSlug))?.act === 'publish').length;
 
         const groups = [...bySlug.entries()].map(([slug, groupRows]) => {
             const ch = this._channelBySlug(slug);
@@ -253,9 +277,10 @@ class GalleriesPane {
     }
 
     _rowHTML(row) {
-        const state = galleryState(row);
+        const channel = this._channelBySlug(row.channelSlug);
+        const state = galleryState(row, channel);
         const check = this._checks.get(row.rowKey);
-        const action = galleryAction(row, check);
+        const action = galleryAction(row, check, channel);
         const sub = state.key === 'draft'
             ? `${row.pendingCount} photo${row.pendingCount !== 1 ? 's' : ''} collected`
             : state.key === 'pending'
@@ -279,7 +304,8 @@ class GalleriesPane {
 
     // The link check is a result about the state, never a state of its own.
     _checkHTML(row) {
-        if (galleryState(row).key === 'draft' || !row.url) return '';
+        const state = galleryState(row, this._channelBySlug(row.channelSlug)).key;
+        if (state === 'draft' || state === 'exported' || !row.url) return '';
         const check = this._checks.get(row.rowKey);
         if (!check) return '<span class="gal-check gal-check--running">Checking the link…</span>';
         const at = formatTime(check.at);
@@ -294,6 +320,10 @@ class GalleriesPane {
             await new PublishDialog().open(row);
             this._checks.delete(rowKey);
             this._load();
+            return;
+        }
+        if (act === 'reveal') {
+            ChannelAPI.reveal(row.channelSlug);
             return;
         }
         if (act === 'recheck') {
@@ -328,9 +358,11 @@ class GalleriesPane {
         const row = this._findRow(rowKey);
         const rowEl = this.container.querySelector(`.gal-row[data-rowkey="${CSS.escape(rowKey)}"]`);
         if (!row || !rowEl) return;
+        const channel = this._channelBySlug(row.channelSlug);
+        const state = galleryState(row, channel);
         rowEl.querySelector('.gal-row-state').innerHTML =
-            `<span class="gal-state gal-state--${galleryState(row).key}">${escapeHtml(galleryState(row).label)}</span>${this._checkHTML(row)}`;
-        const action = galleryAction(row, this._checks.get(rowKey));
+            `<span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>${this._checkHTML(row)}`;
+        const action = galleryAction(row, this._checks.get(rowKey), channel);
         rowEl.querySelector('.gal-row-actions').innerHTML = action
             ? `<button class="btn btn-sm gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(rowKey)}">${escapeHtml(action.label)}</button>`
             : '';
@@ -344,18 +376,25 @@ class GalleriesPane {
         const row = this._findRow(this._openRowKey);
         if (!row) { this._renderList(); return; }
         const ch = this._channelBySlug(row.channelSlug);
-        const state = galleryState(row);
+        const state = galleryState(row, ch);
         const check = this._checks.get(row.rowKey);
-        const action = galleryAction(row, check);
+        const action = galleryAction(row, check, ch);
         const canEditVisibility = !!row.galleryExport;
 
+        const published = new Date(row.publishedAt).toLocaleDateString();
         const stateLine = state.key === 'draft'
             ? 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.'
             : state.key === 'pending'
-                ? `Online since ${new Date(row.publishedAt).toLocaleDateString()}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`
-                : check && check.reachable === false
-                    ? `Published ${new Date(row.publishedAt).toLocaleDateString()}. The address did not answer at ${formatTime(check.at)}.`
-                    : `Published ${new Date(row.publishedAt).toLocaleDateString()}.`;
+                ? `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`
+                : state.key === 'exported'
+                    ? `Exported ${published} as ${row.photoCount} file${row.photoCount !== 1 ? 's' : ''}. This destination has no upload configured, so putting them anywhere is up to you.`
+                    : state.key === 'built'
+                        ? (ch?.handler
+                            ? `Built${recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : ''}, and not uploaded since. Publishing again uploads it.`
+                            : `Built${recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : ''}. This destination has no upload configured, so the files only exist in the local output folder.`)
+                        : check && check.reachable === false
+                            ? `Published ${published}. The address did not answer at ${formatTime(check.at)}.`
+                            : `Published ${published}.`;
 
         this.container.innerHTML = `
             <div class="gal-pane gal-detail">
@@ -530,7 +569,7 @@ class GalleriesPane {
         }
         const photos = draft?.photos || [];
         wrap.innerHTML = `
-            <h2 class="gal-section-title">${galleryState(row).key === 'draft'
+            <h2 class="gal-section-title">${galleryState(row, this._channelBySlug(row.channelSlug)).key === 'draft'
                 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''} collected`
                 : `Not online yet: ${photos.length} added`}</h2>
             <div class="gal-pending-photos">
