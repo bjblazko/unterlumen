@@ -193,10 +193,13 @@ point.
   - The map turned out to be broken for everyone: MapLibre came from an
     unversioned CDN URL that MapLibre 6 emptied out. It is vendored now
     ([ADR-0031](../../architecture/adr/0031-vendor-maplibre.md)).
-- [ ] Phase 8: phone.
+- [x] Phase 8: phone.
   - Tab bar; `.desk-only` hides all actions.
   - A full-screen viewer with swipe and an info sheet.
   - Statistics as a full page with responsive d3 charts.
   - Desktop-only screens show a notice instead.
-- [ ] Each phase is compared against the prototype and covered by e2e
+  - Filter and Statistics stay reachable on a phone: they only look at
+    photos. The charts were already responsive (`svgBase` sets a viewBox
+    and `width: 100%`), so only the dialog needed to fill the screen.
+- [x] Each phase is compared against the prototype and covered by e2e
       tests. New or changed behavior is documented in the CHANGELOG.
