@@ -222,7 +222,7 @@ class LocationModal {
             if (this.marker) {
                 this.marker.setLngLat([this.lon, this.lat]);
             } else {
-                this.marker = new maplibregl.Marker({ color: '#d35400' })
+                this.marker = new maplibregl.Marker({ color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#E85D04' })
                     .setLngLat([this.lon, this.lat])
                     .addTo(this.map);
             }

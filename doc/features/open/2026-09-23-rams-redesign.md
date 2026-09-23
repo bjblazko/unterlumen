@@ -148,7 +148,7 @@ excludes migration, so this needs its own design.
 Phases are independent enough to ship one at a time. Phase 8 can come at any
 point.
 
-- [ ] Phase 1: tokens and type. The `style.css` tokens are replaced with
+- [x] Phase 1: tokens and type. The `style.css` tokens are replaced with
       rams-design. Plex Sans is the UI font, Mono is used only for data.
       There is a new ADR superseding 0018.
 - [ ] Phase 2: navigation. Sidebar with groups; entries are `<a href>` with

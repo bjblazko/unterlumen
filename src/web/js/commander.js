@@ -128,7 +128,7 @@ class Commander {
                     loading.style.display = 'none';
                     const boundary = App.config?.boundary;
                     if (libs.length === 0) {
-                        itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--text-sec);font-size:12px">No libraries</div>';
+                        itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--fg-2);font-size:12px">No libraries</div>';
                         return;
                     }
                     libs.forEach(lib => {
@@ -147,7 +147,7 @@ class Commander {
                     });
                 } catch {
                     loading.style.display = 'none';
-                    itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--text-sec);font-size:12px">Failed to load</div>';
+                    itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--fg-2);font-size:12px">Failed to load</div>';
                 }
             },
         });

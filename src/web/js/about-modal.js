@@ -38,7 +38,7 @@ class AboutModal {
                         <svg class="about-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <rect x="0" y="0" width="25" height="4" fill="currentColor"/>
                             <rect x="26" y="0" width="10" height="4" fill="currentColor" fill-opacity="0.3"/>
-                            <polygon points="0,8 36,8 18,28" fill="#d35400"/>
+                            <polygon points="0,8 36,8 18,28" fill="var(--accent)"/>
                         </svg>
                         <div>
                             <div class="about-app-name">Unterlumen</div>

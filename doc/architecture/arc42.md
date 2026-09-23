@@ -169,6 +169,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
 | `maplibre-gl.js` | External dependency (CDN) — MapLibre GL JS for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md)) |
+| `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
 
 ## 6. Runtime View
 

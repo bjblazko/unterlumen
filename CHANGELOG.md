@@ -1,6 +1,6 @@
 # Changelog
 
-*Last modified: 2026-09-20*
+*Last modified: 2026-09-23*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 - **Base URL for single-gallery channels** — the public address was previously only configurable for multi-album site channels, so gallery rows fell back to a guess from the rsync host (or showed "No URL configured"). Draft rows now also show the address the gallery is headed for instead of "No URL configured".
 
 ### Changed
+- **New design tokens and typography** — the Hüpattl! design tokens are replaced with the rams-design tokens: a slightly different warm neutral ramp, one meaning per signal colour (orange for the primary action, green for confirmed, yellow for time passing, red for attention), and radii of 2/4/8 px instead of 6/10/14 px. **IBM Plex Sans is now the interface font**; IBM Plex Mono is kept for data only — file names, paths, EXIF values, coordinates and counters, with tabular numerals so changing digits no longer shift the layout. The accent orange moves from `#d35400` to `#E85D04` (`#F07A2A` in dark mode), which reaches the required contrast against its label colour; the logo mark follows the accent. Both fonts are now **self-hosted** (latin and latin-ext WOFF2 subsets, ~90 KB for the faces a German or English UI actually uses), so the interface looks the same offline and no longer calls the Google Fonts CDN. See [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md), which supersedes ADR-0018.
 - Replaced the Build/Channels-actions/Deploy/Published workflow with a collect-then-publish model: "Add to channel…" defers export/generation until you explicitly Publish, which now includes a review step before any deploy.
 - The Published tab's Edit action is a small dialog (title plus the Unlisted toggle) rather than a browser prompt.
 
