@@ -14,8 +14,8 @@ import (
 func registerDraftRoutes(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) {
 	mux.HandleFunc("POST /api/library/{id}/channels/{slug}/drafts", collectDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("GET /api/channels/{slug}/drafts", listDrafts(draftStore))
-	mux.HandleFunc("DELETE /api/channels/{slug}/drafts/{draftID}", deleteDraft(draftStore))
-	mux.HandleFunc("DELETE /api/channels/{slug}/drafts/{draftID}/photos/{libID}/{photoID}", removeDraftPhoto(draftStore))
+	mux.HandleFunc("DELETE /api/channels/{slug}/drafts/{draftID}", deleteDraft(mgr, draftStore))
+	mux.HandleFunc("DELETE /api/channels/{slug}/drafts/{draftID}/photos/{libID}/{photoID}", removeDraftPhoto(mgr, draftStore))
 }
 
 func collectDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
@@ -129,33 +129,77 @@ func listDrafts(draftStore *channels.DraftStore) http.HandlerFunc {
 	}
 }
 
-func deleteDraft(draftStore *channels.DraftStore) http.HandlerFunc {
+// clearDraftPending drops the pending markers a draft's photos carry, so the
+// library stops claiming a photo is collected into a gallery that no longer
+// holds it. Photos of a draft can come from several libraries, so each
+// library's store is opened once.
+func clearDraftPending(mgr *lib.Manager, slug, draftID string, photos []channels.DraftPhoto) {
+	if mgr == nil {
+		return
+	}
+	stores := map[string]*lib.Store{}
+	defer func() {
+		for _, s := range stores {
+			s.Close() //nolint:errcheck
+		}
+	}()
+	for _, p := range photos {
+		s, ok := stores[p.LibraryID]
+		if !ok {
+			opened, err := mgr.OpenStore(p.LibraryID)
+			if err != nil {
+				continue // a library that is gone cannot hold a stale marker either
+			}
+			s = opened
+			stores[p.LibraryID] = s
+		}
+		clearPendingMarkers(s, p.PhotoID, slug, draftID)
+	}
+}
+
+func deleteDraft(mgr *lib.Manager, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if draftStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
 			return
 		}
-		if err := draftStore.Delete(r.PathValue("slug"), r.PathValue("draftID")); err != nil {
+		slug, draftID := r.PathValue("slug"), r.PathValue("draftID")
+
+		// Read the draft before deleting it: afterwards nothing records which
+		// photos carried this draft's pending markers.
+		var photos []channels.DraftPhoto
+		if drafts, err := draftStore.List(slug); err == nil {
+			for _, d := range drafts {
+				if d.ID == draftID {
+					photos = d.Photos
+					break
+				}
+			}
+		}
+
+		if err := draftStore.Delete(slug, draftID); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		clearDraftPending(mgr, slug, draftID, photos)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
-func removeDraftPhoto(draftStore *channels.DraftStore) http.HandlerFunc {
+func removeDraftPhoto(mgr *lib.Manager, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if draftStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
 			return
 		}
-		draft, err := draftStore.RemovePhoto(
-			r.PathValue("slug"), r.PathValue("draftID"), r.PathValue("libID"), r.PathValue("photoID"),
-		)
+		slug, draftID := r.PathValue("slug"), r.PathValue("draftID")
+		libID, photoID := r.PathValue("libID"), r.PathValue("photoID")
+		draft, err := draftStore.RemovePhoto(slug, draftID, libID, photoID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		clearDraftPending(mgr, slug, draftID, []channels.DraftPhoto{{LibraryID: libID, PhotoID: photoID}})
 		if draft == nil {
 			w.WriteHeader(http.StatusNoContent)
 			return

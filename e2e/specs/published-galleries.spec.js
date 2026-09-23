@@ -134,51 +134,72 @@ test.describe('Published Galleries overview', () => {
         expect(siteRow.url).toContain('127.0.0.1:1');
     });
 
-    test('tab renders a unified table with both gallery types and resolves live status', async ({ page }) => {
+    test('Galleries groups rows by destination and layers the link check on the state', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
-        const galRow = page.locator(`tr[data-postid="${galleryPostID}"]`);
-        const siteRow = page.locator(`tr[data-postid="${sitePostID}"]`);
+        const galRow = page.locator(`.gal-row[data-postid="${galleryPostID}"]`);
+        const siteRow = page.locator(`.gal-row[data-postid="${sitePostID}"]`);
         await expect(galRow).toBeVisible();
         await expect(siteRow).toBeVisible();
 
-        // No resolvable URL — no reachability check can run, so status falls
-        // back to the plain "generated" state (no --checking/--ok/--down class).
-        await expect(galRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--generated/);
+        // Each destination is its own group, with the row under its heading.
+        await expect(page.locator('.gal-group', { hasText: 'E2E Published Solo Gallery' })
+            .locator('.gal-group-name')).toHaveText('E2E Published Gallery');
 
-        // Deliberately unreachable SiteURL — must resolve to "Unreachable" within the check's timeout budget.
-        await expect(siteRow.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--down/, { timeout: 10_000 });
+        // No resolvable address: we know it was built, and nothing more.
+        await expect(galRow.locator('.gal-state')).toHaveText('Built, no address configured');
+
+        // A deliberately dead SiteURL: the state stays Online, and the failed
+        // check is reported next to it rather than replacing it (ADR-0029).
+        await expect(siteRow.locator('.gal-state')).toHaveText('Online');
+        await expect(siteRow.locator('.gal-check--down')).toContainText('Not reachable', { timeout: 10_000 });
+        await expect(siteRow.locator('.gal-row-action')).toHaveText('Check again');
     });
 
-    test('Edit renames a gallery and toggles its Unlisted flag', async ({ page, request }) => {
+    test('an Online gallery with nothing pending offers no action in its row', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
-        const galRow = page.locator(`tr[data-postid="${galleryPostID}"]`);
+        const galRow = page.locator(`.gal-row[data-postid="${galleryPostID}"]`);
         await expect(galRow).toBeVisible();
-        await galRow.locator('.pub-gal-edit').click();
-
-        const title = page.locator('#pub-gal-edit-title');
-        await expect(title).toBeVisible();
-        await title.fill('Renamed Via E2E');
-        // Unlisted is editable here because a single-gallery album's folder is
-        // the random postID either way — only the noindex tag changes.
-        await page.locator('#pub-gal-edit-unlisted').check();
-        await page.locator('#pub-gal-edit-save').click();
-
-        await expect(page.locator(`tr[data-postid="${galleryPostID}"]`)).toContainText('Renamed Via E2E');
-
-        const res = await request.get('/api/channels/galleries');
-        const row = (await res.json()).find(r => r.postID === galleryPostID);
-        expect(row.unlisted).toBe(true);
+        // "Publish" used to sit on every row, including rows with nothing to
+        // publish — and re-dated the gallery when pressed (ADR-0029).
+        await expect(galRow.locator('.gal-row-action')).toHaveCount(0);
     });
 
-    test('Delete removes a gallery after confirmation', async ({ page, request }) => {
-        // Build a disposable second gallery on the gallery-export channel so
-        // this test's delete doesn't interfere with other tests' fixtures.
+    test('the detail view renames a gallery and toggles its visibility', async ({ page, request }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-published');
+
+        await page.locator(`.gal-row[data-postid="${galleryPostID}"]`).click();
+        await expect(page.locator('.gal-detail')).toBeVisible();
+
+        await page.locator('#gal-title-input').fill('Renamed Via E2E');
+        await page.locator('#gal-title-save').click();
+        await expect(page.locator('.gal-crumb-here')).toHaveText('Renamed Via E2E');
+
+        // Unlisted is editable here because a single-gallery album's folder is
+        // the random postID either way — only the noindex tag changes. Three
+        // visible labels, as every toggle carries (ADR-0019).
+        const toggle = page.locator('#gal-visibility .toggle');
+        await expect(toggle.locator('.toggle-label-on')).toHaveText('Hidden');
+        await expect(toggle.locator('.toggle-label-off')).toHaveText('Allowed');
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+        await expect.poll(async () => {
+            const rows = await (await request.get('/api/channels/galleries')).json();
+            return rows.find(r => r.postID === galleryPostID)?.unlisted;
+        }).toBe(true);
+    });
+
+    test('Unpublish confirms in place and removes the gallery', async ({ page, request }) => {
+        // A disposable second gallery, so this test's delete leaves the other
+        // tests' fixtures alone.
         const evt = await buildGallery(request, libID, photoID, GALLERY_SLUG, 'E2E Disposable Gallery');
         const disposablePostID = evt.postID;
 
@@ -186,23 +207,23 @@ test.describe('Published Galleries overview', () => {
         await waitForAppReady(page);
         await page.click('#mode-published');
 
-        const row = page.locator(`tr[data-postid="${disposablePostID}"]`);
-        await expect(row).toBeVisible();
+        await page.locator(`.gal-row[data-postid="${disposablePostID}"]`).click();
+        await page.locator('#gal-remove').click();
 
-        page.once('dialog', dialog => dialog.accept()); // confirm() for the delete itself
-        await row.locator('.pub-gal-delete').click();
+        // Inline confirmation naming the object, no browser confirm() dialog.
+        await expect(page.locator('.gal-danger-question')).toContainText('E2E Disposable Gallery');
+        await page.locator('#gal-remove-confirm').click();
 
-        await expect(page.locator(`tr[data-postid="${disposablePostID}"]`)).toHaveCount(0);
+        await expect(page.locator(`.gal-row[data-postid="${disposablePostID}"]`)).toHaveCount(0);
 
-        const res = await request.get('/api/channels/galleries');
-        const rows = await res.json();
+        const rows = await (await request.get('/api/channels/galleries')).json();
         expect(rows.find(r => r.postID === disposablePostID)).toBeFalsy();
     });
 });
 
-// Coverage for the channels list's new links into the Published overview:
-// a "Visit site" link to the resolved public URL, and a "Published" link
-// that switches to #mode-published pre-filtered to that one channel.
+// Coverage for the channels list's links into Galleries: a "Visit site" link
+// to the resolved public URL, and a status line that opens Galleries filtered
+// to that one destination.
 test.describe('Channels list — links into Published overview', () => {
     const LINK_SITE_SLUG = 'e2e-published-links-site';
 
@@ -246,7 +267,7 @@ test.describe('Channels list — links into Published overview', () => {
 
         // No galleries have been published to this channel, so the filter
         // bar falls back to the channel slug (it has no row to read a name from).
-        await expect(page.locator('#pub-gal-filter')).toBeVisible();
-        await expect(page.locator('#pub-gal-filter')).toContainText(LINK_SITE_SLUG);
+        await expect(page.locator('#gal-filter')).toBeVisible();
+        await expect(page.locator('#gal-filter')).toContainText('E2E Published Links Site');
     });
 });

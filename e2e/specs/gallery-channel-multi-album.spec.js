@@ -226,7 +226,7 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         }
     });
 
-    test('two pending albums render as two separate rows in the Published tab', async ({ request, page }) => {
+    test('two pending albums render as two separate rows under their destination', async ({ request, page }) => {
         await collect(request, libID, [photos[0]], { title: 'Pending One' });
         await collect(request, libID, [photos[1]], { title: 'Pending Two' });
 
@@ -234,8 +234,8 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         await waitForAppReady(page);
         await page.click('#mode-published');
 
-        const rowOne = page.locator('tr', { hasText: 'Pending One' });
-        const rowTwo = page.locator('tr', { hasText: 'Pending Two' });
+        const rowOne = page.locator('.gal-row', { hasText: 'Pending One' });
+        const rowTwo = page.locator('.gal-row', { hasText: 'Pending Two' });
         await expect(rowOne).toBeVisible();
         await expect(rowTwo).toBeVisible();
 
@@ -243,9 +243,12 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         const keyTwo = await rowTwo.getAttribute('data-rowkey');
         expect(keyOne).toBeTruthy();
         expect(keyOne).not.toBe(keyTwo);
+        await expect(rowOne.locator('.gal-state')).toHaveText('Not online yet');
 
-        // A draft has no gallery folder yet, so it shows where it is headed
-        // rather than "No URL configured".
-        await expect(rowOne).toContainText('https://fotos.e2e.invalid');
+        // A draft has no address of its own yet; where it is headed is the
+        // destination's address, which the group heading carries once for all
+        // of its galleries instead of repeating it per row.
+        await expect(page.locator('.gal-group', { hasText: 'Pending One' })
+            .locator('.gal-group-addr')).toContainText('fotos.e2e.invalid');
     });
 });
