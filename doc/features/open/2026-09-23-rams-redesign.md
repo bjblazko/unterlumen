@@ -179,11 +179,13 @@ point.
     from: a plain folder holds files, not library photos, and the collect
     API needs photo IDs. The prototype shows the action everywhere
     because everything in it is a library.
-- [ ] Phase 6: Destinations as a place.
+- [x] Phase 6: Destinations as a place.
   - A type-first form.
   - The slug is derived.
   - An upload section with "Test connection".
-  - Accounts and key/value settings under Advanced.
+  - Accounts and key/value settings under Advanced, together with
+    "Rebuild"'s neighbours: reveal the output folder and delete the
+    destination.
 - [ ] Phase 7: overlays and info panel.
   - Uniform dark badges.
   - Details and Names as visible switches.

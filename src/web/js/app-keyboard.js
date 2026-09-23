@@ -322,13 +322,14 @@ class GlobalKeyboard {
             app.toggleSidebar();
         }
 
-        // 1/2/3/4/5: switch places
+        // 1–6: switch places
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             if (e.key === '1') { e.preventDefault(); app.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); app.setMode('wastebin'); }
             else if (e.key === '3') { e.preventDefault(); app.setMode('commander'); }
             else if (e.key === '4') { e.preventDefault(); app.setMode('library'); }
             else if (e.key === '5') { e.preventDefault(); app.setMode('published'); }
+            else if (e.key === '6') { e.preventDefault(); app.setMode('destinations'); }
         }
 
         // H: toggle UI visibility

@@ -33,7 +33,12 @@ var builtinChannels = []*Channel{
 type Store struct {
 	path       string
 	outputBase string
-	mu         sync.Mutex
+	// boundary is the browse root. A channel's OutputPath is picked with the
+	// folder picker, which browses inside that root and returns paths relative
+	// to it — so a relative OutputPath has to be resolved against the same
+	// root, not against the server process's working directory.
+	boundary string
+	mu       sync.Mutex
 }
 
 // NewStore creates a Store whose channels.json lives in configDir and whose default
@@ -44,12 +49,26 @@ func NewStore(configDir, outputBaseDir string) *Store {
 	return &Store{path: filepath.Join(configDir, "channels.json"), outputBase: outputBaseDir}
 }
 
-// OutputDir returns the effective output directory for the given channel slug.
-// If the channel has a custom OutputPath, that is returned. Otherwise the default
+// WithBoundary records the browse root used to resolve relative output paths.
+// Without it a relative OutputPath silently depends on the working directory
+// the server happens to be started from: the same configuration then finds a
+// channel's galleries when launched from "/" and finds nothing when launched
+// from a project folder.
+func (s *Store) WithBoundary(boundary string) *Store {
+	s.boundary = boundary
+	return s
+}
+
+// OutputDir returns the effective output directory for the given channel slug,
+// always as an absolute path. A custom OutputPath wins; a relative one is
+// resolved against the browse root. Otherwise the default
 // <outputBaseDir>/channels/<slug>/ path is used.
 func (s *Store) OutputDir(slug string) string {
 	if ch, err := s.Get(slug); err == nil && ch.OutputPath != "" {
-		return ch.OutputPath
+		if filepath.IsAbs(ch.OutputPath) {
+			return ch.OutputPath
+		}
+		return filepath.Join(s.boundary, ch.OutputPath)
 	}
 	return filepath.Join(s.outputBase, "channels", slug)
 }

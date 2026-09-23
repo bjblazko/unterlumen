@@ -5861,3 +5861,138 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-direction: column;
     gap: var(--space-1);
 }
+
+/* --- Destinations: a place, with a type-first form --- */
+
+.dest-pane {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.dest-intro {
+    color: var(--fg-2);
+    max-width: 42rem;
+}
+
+.dest-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.dest-table th {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--line-strong);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+}
+
+.dest-table td {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+.dest-row { cursor: pointer; }
+.dest-row:hover { background: var(--hover-overlay); }
+.dest-name { font-weight: 500; }
+.dest-mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.dest-quiet { color: var(--fg-3); }
+.dest-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.dest-form {
+    max-width: 52rem;
+    gap: var(--space-6);
+}
+
+.dest-fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.dest-fieldset legend {
+    font-weight: 600;
+    padding: 0;
+    margin-bottom: var(--space-3);
+}
+
+/* Only the sections this type needs. */
+.dest-form[data-type="files"] .dest-when-online,
+.dest-form[data-type="files"] .dest-when-site,
+.dest-form[data-type="share"] .dest-when-site,
+.dest-form[data-type="share"] .dest-when-files,
+.dest-form[data-type="site"] .dest-when-files { display: none; }
+
+.dest-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-3);
+}
+
+.dest-choice {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+
+.dest-choice:has(input:checked) {
+    border-color: var(--fg);
+    box-shadow: inset 0 0 0 1px var(--fg);
+}
+
+.dest-choice input { margin-top: 4px; accent-color: var(--fg); }
+.dest-choice strong { display: block; font-weight: 600; }
+.dest-choice span span { font-size: var(--text-sm); color: var(--fg-3); }
+
+.dest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-4);
+}
+
+.dest-form .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.dest-textarea {
+    height: auto;
+    padding: var(--space-2) var(--space-3);
+    resize: vertical;
+    font-family: inherit;
+}
+
+.dest-advanced summary {
+    cursor: pointer;
+    font-weight: 500;
+    padding: var(--space-2) 0;
+}
+
+.dest-advanced-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-3);
+}
+
+.dest-maintenance {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}

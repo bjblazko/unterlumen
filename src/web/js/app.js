@@ -21,6 +21,8 @@ const App = {
     _libraryTab: null,
     _galleriesEl: null,
     _galleriesPane: null,
+    _destinationsEl: null,
+    _destinationsPane: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -75,6 +77,7 @@ const App = {
         commander: { hash: 'organize', id: 'mode-commander', key: '3' },
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
+        destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
     },
 
     initNav() {
@@ -360,6 +363,16 @@ const App = {
             this._libraryTab.render();
         }
 
+        if (mode === 'destinations') {
+            if (!this._destinationsEl) {
+                this._destinationsEl = document.createElement('div');
+                this._destinationsEl.style.height = '100%';
+                appEl.appendChild(this._destinationsEl);
+                this._destinationsPane = new DestinationsPane(this._destinationsEl);
+            }
+            this._destinationsPane.render();
+        }
+
         if (mode === 'published') {
             if (!this._galleriesEl) {
                 this._galleriesEl = document.createElement('div');
@@ -375,6 +388,7 @@ const App = {
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
         if (this._galleriesEl) this._galleriesEl.style.display = mode === 'published' ? '' : 'none';
+        if (this._destinationsEl) this._destinationsEl.style.display = mode === 'destinations' ? '' : 'none';
 
         this._markCurrentLibraryNav();
     },
@@ -385,6 +399,12 @@ const App = {
             if (this.commander.leftPane) this.commander.leftPane.load(this.commander.leftPane.path);
             if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
         }
+    },
+
+    // Opens one destination's settings — used by the Galleries screen.
+    showDestination(slug) {
+        this.setMode('destinations');
+        if (this._destinationsPane) this._destinationsPane.openBySlug(slug);
     },
 
     // Opens Galleries filtered to one destination — used by the channels
