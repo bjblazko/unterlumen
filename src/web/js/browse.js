@@ -412,14 +412,6 @@ class BrowsePane {
                         </div>
                     </div>
                     <div class="dropdown-section">
-                        <label class="dropdown-label">Show names</label>
-                        <div class="toggle-names-wrap"></div>
-                    </div>
-                    <div class="dropdown-section">
-                        <label class="dropdown-label">Show details</label>
-                        <div class="toggle-overlays-wrap"></div>
-                    </div>
-                    <div class="dropdown-section">
                         <label class="dropdown-label">Sort</label>
                         <select class="sort-field">
                             <option value="name" ${this.sort === 'name' ? 'selected' : ''}>Name</option>
@@ -471,6 +463,16 @@ class BrowsePane {
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="view-switches">
+                <span class="view-switch">
+                    <span class="view-switch-label">Names</span>
+                    <span class="toggle-names-wrap"></span>
+                </span>
+                <span class="view-switch">
+                    <span class="view-switch-label">Details</span>
+                    <span class="toggle-overlays-wrap"></span>
+                </span>
             </div>
             <button class="btn btn-sm dropdown-btn slideshow-btn" ${imageCount === 0 ? 'disabled' : ''} title="Slideshow">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -691,12 +693,14 @@ class BrowsePane {
         const namesWrap = this.container.querySelector('.toggle-names-wrap');
         if (namesWrap) Toggle.create(namesWrap, {
             initial: this.showNames,
+            labelOn: 'Shown', labelOff: 'Hidden',
             onChange: (on) => { this.showNames = on; this.render(); }
         });
 
         const overlaysWrap = this.container.querySelector('.toggle-overlays-wrap');
         if (overlaysWrap) Toggle.create(overlaysWrap, {
             initial: this.showOverlays,
+            labelOn: 'Shown', labelOff: 'Hidden',
             onChange: (on) => { this.showOverlays = on; this.render(); }
         });
 
@@ -841,46 +845,37 @@ class BrowsePane {
 
     // --- Overlay badge builders ---
 
+    // All overlay chips look the same: a dark chip with mono text over the
+    // photo. Colour is a signal in this UI (ADR-0030), and a colour per file
+    // format and per film simulation would be eight decorative colours
+    // competing with the photograph itself. Every value from before is still
+    // shown, in the same order.
     _buildOverlayBadges(name, meta) {
         if (!this.showOverlays) return '';
         const badges = [];
         if (meta && meta.hasGPS) {
-            badges.push(`<span class="overlay-badge overlay-badge-gps"><svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
+            badges.push(`<span class="overlay-badge overlay-badge-gps" title="Has GPS coordinates"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
         }
-        const ft = this._getFileTypeBadge(name);
-        if (ft) badges.push(`<span class="overlay-badge" style="background:${ft.color}">${ft.label}</span>`);
+        const fileType = this._fileTypeLabel(name);
+        if (fileType) badges.push(`<span class="overlay-badge">${fileType}</span>`);
         if (meta && meta.filmSimulation) {
-            const fs = this._getFilmSimBadge(meta.filmSimulation);
-            if (fs) badges.push(`<span class="overlay-badge" style="background:${fs.color}">${fs.label}</span>`);
+            badges.push(`<span class="overlay-badge">${escapeHtml(meta.filmSimulation)}</span>`);
         }
         if (meta && meta.aspectRatio) {
             const icon = this._aspectRatioIcon(meta.aspectRatio);
-            badges.push(`<span class="overlay-badge" style="background:#5a6872;display:inline-flex;align-items:center;gap:3px">${icon}${meta.aspectRatio}</span>`);
+            badges.push(`<span class="overlay-badge overlay-badge-ratio">${icon}${escapeHtml(meta.aspectRatio)}</span>`);
         }
         if (badges.length === 0) return '';
         return `<div class="overlay-badges">${badges.join('')}</div>`;
     }
 
-    _getFileTypeBadge(name) {
-        const ext = name.split('.').pop().toLowerCase();
-        const types = {
-            jpg: { label: 'JPEG', color: '#c27833' }, jpeg: { label: 'JPEG', color: '#c27833' },
-            heif: { label: 'HEIF', color: '#4a8c5c' }, heic: { label: 'HEIF', color: '#4a8c5c' }, hif: { label: 'HEIF', color: '#4a8c5c' },
-            png: { label: 'PNG', color: '#4a6fa5' }, gif: { label: 'GIF', color: '#8c6b4a' }, webp: { label: 'WebP', color: '#7b5299' },
+    _fileTypeLabel(name) {
+        const labels = {
+            jpg: 'JPEG', jpeg: 'JPEG',
+            heif: 'HEIF', heic: 'HEIF', hif: 'HEIF',
+            png: 'PNG', gif: 'GIF', webp: 'WebP',
         };
-        return types[ext] || null;
-    }
-
-    _getFilmSimBadge(sim) {
-        if (!sim) return null;
-        const colors = {
-            'Provia': '#3a7ca5', 'Astia': '#5a9ab5', 'Velvia': '#b5443a', 'Classic Chrome': '#8a7d3a',
-            'Classic Neg.': '#b07040', 'Eterna': '#3a8a8a', 'Nostalgic Neg.': '#a05050', 'Reala Ace': '#3a8a5a',
-            'Pro Neg. Std': '#6a6a7a', 'Pro Neg. Hi': '#7a6a8a', 'Bleach Bypass': '#8a8a8a',
-            'Monochrome': '#404040', 'Monochrome + R': '#5a3030', 'Monochrome + Ye': '#5a5a30', 'Monochrome + G': '#305a30',
-            'Acros': '#333333', 'Acros + R': '#4a2828', 'Acros + Ye': '#4a4a28', 'Acros + G': '#284a28', 'Sepia': '#6a5038',
-        };
-        return { label: sim, color: colors[sim] || '#6a6a7a' };
+        return labels[name.split('.').pop().toLowerCase()] || null;
     }
 
     _aspectRatioIcon(ratioStr) {

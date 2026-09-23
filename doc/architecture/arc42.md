@@ -168,7 +168,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
-| `maplibre-gl.js` | External dependency (CDN) — MapLibre GL JS for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md)) |
+| `js/vendor/maplibre-gl.js` | Vendored MapLibre GL JS 5.24.0 for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
 
 ## 6. Runtime View
@@ -301,6 +301,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0028](adr/0028-places-not-workflow-steps.md) — Places, not workflow steps (sidebar navigation)
 - [ADR-0029](adr/0029-destinations-galleries-one-publish-action.md) — Destinations and galleries; publish as one action
 - [ADR-0030](adr/0030-rams-design-tokens.md) — Adopt rams-design tokens (supersedes ADR-0018)
+- [ADR-0031](adr/0031-vendor-maplibre.md) — Vendor MapLibre GL JS (supersedes ADR-0013's CDN delivery)
 
 ## 10. Quality Requirements
 

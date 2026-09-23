@@ -11,6 +11,9 @@ class InfoPanel {
         this.currentPath = null;
         this.loading = false;
         this.collapsedSections = new Set();
+        // Remembered across photos and sessions: opening it every time would
+        // bury the short list again on the next photo.
+        this.metadataOpen = localStorage.getItem('info-all-metadata-open') === '1';
         this.onToggle = null;
         this.onDirNavigate = null;
         this._metaContext = null;
@@ -188,6 +191,14 @@ class InfoPanel {
         this.container.querySelector('.info-collapse-btn')
             .addEventListener('click', () => this.toggle());
 
+        const allMeta = this.container.querySelector('.info-all-meta');
+        if (allMeta) {
+            allMeta.addEventListener('toggle', () => {
+                this.metadataOpen = allMeta.open;
+                localStorage.setItem('info-all-metadata-open', allMeta.open ? '1' : '0');
+            });
+        }
+
         this.container.querySelectorAll('.info-section-title').forEach(el => {
             el.addEventListener('click', () => {
                 const name = el.dataset.section;
@@ -208,7 +219,14 @@ class InfoPanel {
 
     initMap() {
         const mapEl = this.container.querySelector('#info-map');
-        if (!mapEl || typeof maplibregl === 'undefined') return;
+        if (!mapEl) return;
+        // Say so rather than leaving an empty box: a blank rectangle where a
+        // map should be looks like the photo has no location.
+        if (typeof maplibregl === 'undefined') {
+            mapEl.classList.add('info-map-unavailable');
+            mapEl.textContent = 'The map library could not be loaded. The coordinates below are unaffected.';
+            return;
+        }
 
         const lat = parseFloat(mapEl.dataset.lat);
         const lon = parseFloat(mapEl.dataset.lon);
@@ -261,6 +279,9 @@ class InfoPanel {
         });
     }
 
+    // The panel reads top to bottom in the order a photo is looked at: the few
+    // facts that matter while culling, then where it was taken, then — folded
+    // away — everything the file knows (ADR-0029's info panel rules).
     renderData(d) {
         const sections = [];
 
@@ -269,67 +290,91 @@ class InfoPanel {
             sections.push(this._renderTitleField(titleEntry));
         }
 
-        // File section
-        const fileRows = [];
-        fileRows.push(this.row('Name', d.name));
-        fileRows.push(this.row('Path', d.path));
-        fileRows.push(this.row('Size', formatSize(d.size)));
-        fileRows.push(this.colorBadgeRow('Format', (d.format || '').toUpperCase(), this.formatColor(d.format)));
-        fileRows.push(this.row('Modified', this.formatDate(d.modified)));
-        sections.push(this.section('File', fileRows));
-
-        if (!d.exif) return sections.join('');
-
-        const tags = d.exif.tags || {};
+        const tags = (d.exif && d.exif.tags) || {};
         const used = new Set();
 
-        // Location section (placed early so the map is visible without scrolling)
-        if (d.exif.latitude != null && d.exif.longitude != null) {
-            const lat = d.exif.latitude.toFixed(6);
-            const lon = d.exif.longitude.toFixed(6);
-            const locRows = [];
-            locRows.push('<div id="info-map" class="info-map-container" data-lat="' + lat + '" data-lon="' + lon + '"></div>');
-            locRows.push('<div class="info-map-controls">' +
-                '<div class="info-map-style-wrap"></div>' +
-                '<button class="btn btn-sm" data-action="open">\u2197 Open</button>' +
-            '</div>');
-            locRows.push(this.row('Latitude', lat));
-            locRows.push(this.row('Longitude', lon));
-            sections.push(this.section('Location', locRows));
+        sections.push(this._renderShortList(d, tags, used));
+        const location = this._renderLocationSection(d, used);
+        if (location) sections.push(location);
+
+        if (d.exif) sections.push(this._renderAllMetadata(d, tags, used));
+
+        if (this._metaContext) {
+            const pubSect = this._renderPublicationsSection();
+            if (pubSect) sections.push(pubSect);
+            sections.push(this._renderMetaSection());
         }
-        // Mark GPS tags as used
+
+        return sections.join('');
+    }
+
+    // The short list: what you need to tell two frames apart.
+    _renderShortList(d, tags, used) {
+        const rows = [];
+        rows.push(this.row('Name', d.name));
+        if (d.exif && d.exif.dateTaken) {
+            rows.push(this.row('Taken', this.formatExifDate(d.exif.dateTaken)));
+        } else {
+            rows.push(this.row('Modified', this.formatDate(d.modified)));
+        }
+        this.addTag(rows, tags, used, 'Model', 'Camera');
+        this.addTag(rows, tags, used, 'LensModel', 'Lens');
+
+        // Every decoder expects the unquoted value, the way addTag feeds it.
+        const tag = (name) => tags[name] != null ? this.stripQuotes(tags[name]) : null;
+        const exposure = [
+            tag('ExposureTime') != null ? this.decodeExposureTime(tag('ExposureTime')) : null,
+            tag('FNumber') != null ? this.decodeFNumber(tag('FNumber')) : null,
+            tag('ISOSpeedRatings') != null ? 'ISO ' + tag('ISOSpeedRatings') : null,
+            tag('FocalLength') != null ? this.decodeFocalLength(tag('FocalLength')) : null,
+        ].filter(Boolean);
+        if (exposure.length) rows.push(this.row('Exposure', exposure.join(' · ')));
+
+        if (d.exif && d.exif.width && d.exif.height) {
+            const arLabel = this._aspectRatioLabel(d.exif.width, d.exif.height);
+            rows.push(this.row('Size', d.exif.width + ' \u00d7 ' + d.exif.height + (arLabel ? ' · ' + arLabel : '')));
+        }
+        rows.push(this.row('File', formatSize(d.size)));
+        rows.push(this.badgeRow('Format', (d.format || '').toUpperCase()));
+        used.add('Model');
+        used.add('LensModel');
+        return this.section('Photo', rows);
+    }
+
+    // Where it was taken, with the map right there — or an honest "None".
+    _renderLocationSection(d, used) {
         ['GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef',
          'GPSAltitude', 'GPSAltitudeRef', 'GPSTimeStamp', 'GPSDateStamp',
          'GPSVersionID'].forEach(t => used.add(t));
 
-        // Image section
-        const imageRows = [];
-        if (d.exif.width && d.exif.height) {
-            imageRows.push(this.row('Dimensions', d.exif.width + ' \u00d7 ' + d.exif.height));
-            const arLabel = this._aspectRatioLabel(d.exif.width, d.exif.height);
-            if (arLabel) {
-                const icon = this._aspectRatioIcon(arLabel, 'rgba(60,50,40,0.6)');
-                imageRows.push(this.row('Aspect Ratio', `<span style="display:inline-flex;align-items:center;gap:4px">${icon}${arLabel}</span>`));
-            }
+        if (!d.exif || d.exif.latitude == null || d.exif.longitude == null) {
+            return this.section('Location', [this.row('Coordinates', 'None')]);
         }
-        this.addTag(imageRows, tags, used, 'Orientation', 'Orientation', this.decodeOrientation);
-        this.addTag(imageRows, tags, used, 'ColorSpace', 'Color Space', this.decodeColorSpace);
-        if (imageRows.length) sections.push(this.section('Image', imageRows));
+        const lat = d.exif.latitude.toFixed(6);
+        const lon = d.exif.longitude.toFixed(6);
+        return this.section('Location', [
+            '<div id="info-map" class="info-map-container" data-lat="' + lat + '" data-lon="' + lon + '"></div>',
+            '<div class="info-map-controls">' +
+                '<div class="info-map-style-wrap"></div>' +
+                '<button class="btn btn-sm" data-action="open">\u2197 Open</button>' +
+            '</div>',
+            this.row('Latitude', lat),
+            this.row('Longitude', lon),
+        ]);
+    }
 
-        // Camera section
+    // Everything else, folded away and grouped, so the panel stays short but
+    // loses nothing.
+    _renderAllMetadata(d, tags, used) {
+        const groups = [];
+
         const cameraRows = [];
         this.addTag(cameraRows, tags, used, 'Make', 'Make');
-        this.addTag(cameraRows, tags, used, 'Model', 'Model');
-        this.addTag(cameraRows, tags, used, 'LensModel', 'Lens');
-        if (tags['FilmSimulation'] != null) {
-            used.add('FilmSimulation');
-            const sim = this.stripQuotes(tags['FilmSimulation']);
-            cameraRows.push(this.colorBadgeRow('Film Simulation', sim, this.filmSimColor(sim)));
-        }
         this.addTag(cameraRows, tags, used, 'Software', 'Software');
-        if (cameraRows.length) sections.push(this.section('Camera', cameraRows));
+        this.addTag(cameraRows, tags, used, 'Orientation', 'Orientation', this.decodeOrientation);
+        this.addTag(cameraRows, tags, used, 'ColorSpace', 'Color Space', this.decodeColorSpace);
+        if (cameraRows.length) groups.push(this.metaGroup('Camera', cameraRows));
 
-        // Exposure section
         const expRows = [];
         this.addTag(expRows, tags, used, 'ExposureTime', 'Shutter Speed', v => this.decodeExposureTime(v));
         this.addTag(expRows, tags, used, 'FNumber', 'Aperture', v => this.decodeFNumber(v));
@@ -340,38 +385,52 @@ class InfoPanel {
         this.addTag(expRows, tags, used, 'ExposureProgram', 'Program', this.decodeExposureProgram);
         this.addTag(expRows, tags, used, 'Flash', 'Flash', this.decodeFlash);
         this.addTag(expRows, tags, used, 'WhiteBalance', 'White Balance', this.decodeWhiteBalance);
-        if (expRows.length) sections.push(this.section('Exposure', expRows));
+        if (expRows.length) groups.push(this.metaGroup('Exposure', expRows));
 
-        // Dates section — use pre-parsed structured fields when available
-        const dateRows = [];
-        // Mark raw date and offset tags as used so they don't appear in Other
-        ['DateTimeOriginal','DateTimeDigitized','DateTime',
-         'OffsetTimeOriginal','OffsetTimeDigitized','OffsetTime'].forEach(t => used.add(t));
-        if (d.exif.dateTaken)     dateRows.push(this.row('Original',  this.formatExifDate(d.exif.dateTaken)));
-        if (d.exif.dateDigitized) dateRows.push(this.row('Digitized', this.formatExifDate(d.exif.dateDigitized)));
-        if (d.exif.dateModified)  dateRows.push(this.row('Modified',  this.formatExifDate(d.exif.dateModified)));
-        if (dateRows.length) sections.push(this.section('Dates', dateRows));
+        // Fujifilm's maker notes are the reason this group exists: a film
+        // simulation says more about a frame than most EXIF tags.
+        const fujiRows = [];
+        if (tags['FilmSimulation'] != null) {
+            used.add('FilmSimulation');
+            fujiRows.push(this.badgeRow('Film Simulation', this.stripQuotes(tags['FilmSimulation'])));
+        }
+        for (const key of Object.keys(tags).sort()) {
+            if (used.has(key)) continue;
+            if (!/^(Fuji|DynamicRange|GrainEffect|ColorChrome|Highlight|Shadow|NoiseReduction|Sharpness|Saturation|WhiteBalanceFineTune)/i.test(key)) continue;
+            used.add(key);
+            fujiRows.push(this.row(key, this.stripQuotes(tags[key])));
+        }
+        if (fujiRows.length) groups.push(this.metaGroup('Fujifilm', fujiRows));
 
-        // Also mark dimension tags as used
+        const fileRows = [];
+        fileRows.push(this.row('Path', d.path));
+        fileRows.push(this.row('Modified', this.formatDate(d.modified)));
+        ['DateTimeOriginal', 'DateTimeDigitized', 'DateTime',
+         'OffsetTimeOriginal', 'OffsetTimeDigitized', 'OffsetTime'].forEach(t => used.add(t));
+        if (d.exif.dateDigitized) fileRows.push(this.row('Digitized', this.formatExifDate(d.exif.dateDigitized)));
+        if (d.exif.dateModified) fileRows.push(this.row('EXIF modified', this.formatExifDate(d.exif.dateModified)));
         ['PixelXDimension', 'PixelYDimension', 'ImageWidth', 'ImageLength'].forEach(t => used.add(t));
+        groups.push(this.metaGroup('File', fileRows));
 
-        // Other section — remaining tags
         const otherRows = [];
-        const sortedKeys = Object.keys(tags).sort();
-        for (const key of sortedKeys) {
-            if (!used.has(key)) {
-                otherRows.push(this.row(key, this.stripQuotes(tags[key])));
-            }
+        for (const key of Object.keys(tags).sort()) {
+            if (used.has(key)) continue;
+            otherRows.push(this.row(key, this.stripQuotes(tags[key])));
         }
-        if (otherRows.length) sections.push(this.section('Other', otherRows));
+        if (otherRows.length) groups.push(this.metaGroup('XMP and other tags', otherRows));
 
-        if (this._metaContext) {
-            const pubSect = this._renderPublicationsSection();
-            if (pubSect) sections.push(pubSect);
-            sections.push(this._renderMetaSection());
-        }
+        const open = this.metadataOpen ? ' open' : '';
+        return '<details class="info-all-meta"' + open + '>' +
+            '<summary>All metadata</summary>' +
+            '<div class="info-all-meta-body">' + groups.join('') + '</div>' +
+            '</details>';
+    }
 
-        return sections.join('');
+    metaGroup(title, rows) {
+        return '<div class="info-meta-group">' +
+            '<h4 class="info-meta-group-title">' + title + '</h4>' +
+            rows.join('') +
+            '</div>';
     }
 
     _humanizeChannelSlug(slug) {
@@ -407,7 +466,7 @@ class InfoPanel {
         });
 
         if (publishedCards.length === 0 && pendingCards.length === 0) return '';
-        return this.section('Publications', [...publishedCards, ...pendingCards]);
+        return this.section('Galleries', [...publishedCards, ...pendingCards]);
     }
 
     /* One card per album, not per channel: a channel can hold many unrelated
@@ -534,41 +593,15 @@ class InfoPanel {
             '</div>';
     }
 
-    colorBadgeRow(label, value, color) {
-        if (!value || !color) return this.row(label, value);
+    // The same neutral chip the thumbnails use: format and film simulation are
+    // data, not status, so they get the data voice rather than a colour each
+    // (ADR-0030).
+    badgeRow(label, value) {
+        if (!value) return this.row(label, value);
         return '<div class="info-row">' +
             '<span class="info-label">' + label + '</span>' +
-            '<span class="info-value"><span class="info-color-badge" style="background:' + color + '">' + value + '</span></span>' +
+            '<span class="info-value"><span class="info-chip">' + value + '</span></span>' +
             '</div>';
-    }
-
-    formatColor(format) {
-        const colors = {
-            jpeg: '#c27833', jpg: '#c27833',
-            heif: '#4a8c5c', heic: '#4a8c5c', hif: '#4a8c5c',
-            png: '#4a6fa5',
-            gif: '#8c6b4a',
-            webp: '#7b5299',
-        };
-        return colors[(format || '').toLowerCase()] || null;
-    }
-
-    filmSimColor(sim) {
-        const colors = {
-            'Provia': '#3a7ca5', 'Astia': '#5a9ab5',
-            'Velvia': '#b5443a',
-            'Classic Chrome': '#8a7d3a', 'Classic Neg.': '#b07040',
-            'Eterna': '#3a8a8a',
-            'Nostalgic Neg.': '#a05050', 'Reala Ace': '#3a8a5a',
-            'Pro Neg. Std': '#6a6a7a', 'Pro Neg. Hi': '#7a6a8a',
-            'Bleach Bypass': '#8a8a8a',
-            'Monochrome': '#404040', 'Monochrome + R': '#5a3030',
-            'Monochrome + Ye': '#5a5a30', 'Monochrome + G': '#305a30',
-            'Acros': '#333333', 'Acros + R': '#4a2828',
-            'Acros + Ye': '#4a4a28', 'Acros + G': '#284a28',
-            'Sepia': '#6a5038',
-        };
-        return colors[sim] || '#6a6a7a';
     }
 
     _aspectRatioLabel(w, h) {
