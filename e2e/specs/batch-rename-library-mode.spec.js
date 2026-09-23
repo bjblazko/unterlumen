@@ -51,8 +51,8 @@ test.describe('Batch rename in library mode', () => {
         await waitForThumbnailsLoaded(page, 1);
 
         await page.locator('[data-type="image"]').first().click();
-        await page.locator('.tools-menu-btn:visible').click();
-        await page.locator('button.tool-item[data-tool="batch-rename"]:visible').click();
+        // Renaming several photos at once is the selection bar's Rename…
+        await page.locator('.selection-bar [data-action="rename"]').click();
 
         await page.waitForSelector('.batch-rename-preview-list', { timeout: 8_000 });
         // The preview only (re-)renders on an 'input' event; re-fill the

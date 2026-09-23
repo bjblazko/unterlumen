@@ -105,9 +105,9 @@ test.describe('Export', () => {
     await page.waitForSelector(`[data-name="${GPS_IMAGE}"]`, { timeout: 10_000 });
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
 
-    // Open the Tools dropdown then click "Convert & Export"
-    await page.locator('.tools-menu-btn').click();
-    const exportBtn = page.locator('button.tool-item[data-tool="export"]');
+    // Actions on a selection live in the selection bar (ADR-0029), not in
+    // the Tools dropdown, which now only holds folder/library actions.
+    const exportBtn = page.locator('.selection-bar [data-action="export"]');
     await expect(exportBtn).toBeVisible({ timeout: 3_000 });
     await exportBtn.click();
 

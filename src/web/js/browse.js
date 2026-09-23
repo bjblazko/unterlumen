@@ -438,28 +438,10 @@ class BrowsePane {
                     <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
                 </button>
                 <div class="dropdown-menu tools-menu" style="display:none">
-                    <div class="tools-menu-loading" style="display:none">Checking...</div>
                     <div class="tools-menu-items">
-                        <div class="dropdown-section tools-geo-section" style="display:none">
-                            <label class="dropdown-label tools-geo-label">Geolocation</label>
-                            <div class="dropdown-toggle">
-                                <button class="btn btn-sm tool-item" data-tool="set-location">Set</button>
-                                <button class="btn btn-sm tool-item" data-tool="remove-location">Remove</button>
-                            </div>
-                        </div>
-                        <div class="dropdown-section">
-                            <label class="dropdown-label">Rename</label>
-                            <div class="dropdown-toggle">
-                                <button class="btn btn-sm tool-item" data-tool="rename">Single</button>
-                                <button class="btn btn-sm tool-item" data-tool="batch-rename">Batch (Metadata)</button>
-                            </div>
-                        </div>
-                        <div class="dropdown-section">
-                            <label class="dropdown-label">Export</label>
-                            <div class="dropdown-toggle">
-                                <button class="btn btn-sm tool-item" data-tool="export">Convert &amp; Export</button>
-                            </div>
-                        </div>
+                        <!-- Actions on a selection (rename, export, location)
+                             live in the selection bar; what is left here acts
+                             on the folder or the library. -->
                         <div class="dropdown-section tools-library-section" style="display:none">
                             <label class="dropdown-label">Library</label>
                             <div class="dropdown-toggle">
@@ -638,11 +620,8 @@ class BrowsePane {
 
             const { close: closeToolsMenu } = Dropdown.init(toolsMenuBtn, toolsMenu, {
                 onOpen: () => {
-                    this._updateToolsGeoLabel();
-                    this._updateToolsRenameState();
                     this._updateToolsLibraryState();
                     this._updateToolsCacheLabel();
-                    this._checkToolsAvailability();
                     closeScanToolsMenu();
                 },
             });
@@ -751,36 +730,6 @@ class BrowsePane {
     }
 
     // --- Tools menu helpers ---
-
-    async _checkToolsAvailability() {
-        const loading = this.container.querySelector('.tools-menu-loading');
-        const geoSection = this.container.querySelector('.tools-geo-section');
-        if (!loading || !geoSection) return;
-        if (this._toolsChecked !== null) {
-            loading.style.display = 'none';
-            geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
-            return;
-        }
-        loading.style.display = '';
-        try { this._toolsChecked = await API.toolsCheck(); }
-        catch { this._toolsChecked = { exiftool: false }; }
-        loading.style.display = 'none';
-        geoSection.style.display = this._toolsChecked.exiftool ? '' : 'none';
-    }
-
-    _updateToolsGeoLabel() {
-        const label = this.container.querySelector('.tools-geo-label');
-        if (!label) return;
-        const count = this.getActionableFiles().length;
-        label.textContent = count > 0
-            ? `Geolocation (${count} image${count !== 1 ? 's' : ''})`
-            : 'Geolocation';
-    }
-
-    _updateToolsRenameState() {
-        const btn = this.container.querySelector('[data-tool="rename"]');
-        if (btn) btn.disabled = this.getActionableFiles().length !== 1;
-    }
 
     _updateToolsLibraryState() {
         const makeSection = this.container.querySelector('.tools-library-section');

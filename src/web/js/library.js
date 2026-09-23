@@ -371,8 +371,6 @@ class LibraryTab {
         this._listInfoPanel = null;
         this._listSearchPanel = null;
         this._cachedLibs = null;
-        this._detailCollectBtn = null;
-        this._listCollectBtn = null;
         this._detailEl = null;
     }
 
@@ -386,25 +384,6 @@ class LibraryTab {
         return this._pane;
     }
 
-    _updateCommanderBtn() {
-        const btn = this._detailEl && this._detailEl.querySelector('#lib-commander-btn');
-        if (!btn) return;
-        const pane = this.getActivePaneForKeyboard();
-        const target = pane ? pane.getOpenInCommanderTarget() : null;
-        if (!target) {
-            btn.disabled = true;
-            btn.title = pane ? pane.commanderBtnHint() : 'Select a folder to open in Organise view';
-            return;
-        }
-        const boundary = (App.config && App.config.boundary)
-            ? App.config.boundary.replace(/\/$/, '') : '';
-        const sp = target.dir.replace(/\/$/, '');
-        const withinBoundary = !boundary || sp === boundary || sp.startsWith(boundary + '/');
-        btn.disabled = !withinBoundary;
-        btn.title = withinBoundary
-            ? 'Open selected photos in Commander'
-            : 'Library folder is outside the server root — cannot open in Commander';
-    }
 
     async _openStats() {
         const lib = this.currentLibrary;
@@ -458,8 +437,6 @@ class LibraryTab {
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
-                    <button class="btn lib-collect-btn" id="lib-list-collect-btn" disabled>Add to channel…</button>
-                    <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-new-btn">New library…</button>
@@ -511,8 +488,10 @@ class LibraryTab {
             this._loadList(body);
         });
 
-        this._listCollectBtn = el.querySelector('#lib-list-collect-btn');
-        this._listCollectBtn.addEventListener('click', () => this._openCollectModal());
+        this._listSelectionBar = new SelectionBar(el, {
+            actions: ['collect', 'export', 'rename', 'location', 'organize', 'mark'],
+            onAction: (action) => this._runSelectionAction(action),
+        });
 
         const infoPanelEl = el.querySelector('#lib-search-info-panel');
         this._listInfoPanel = new InfoPanel(infoPanelEl);
@@ -530,12 +509,7 @@ class LibraryTab {
                 resultsContainer: el.querySelector('#lib-search-results-area'),
                 onFocusChange: (path) => this._onListSearchFocus(path),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: null }),
-                onSelectionChange: () => {
-                    if (this._listCollectBtn) {
-                        this._listCollectBtn.disabled =
-                            (this._listSearchPanel?._searchPane?.selection.selected.size ?? 0) === 0;
-                    }
-                },
+                onSelectionChange: () => this._updateSelectionBar(),
                 onClose: () => { if (this._listInfoPanel) this._listInfoPanel.clear(); },
             }
         );
@@ -948,10 +922,8 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
-                    <button class="btn btn-sm lib-commander-btn" id="lib-commander-btn" disabled title="Select photos to open in Commander">Organise: jump to folder</button>
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm lib-collect-btn" id="lib-collect-btn" disabled>Add to channel…</button>
                     <button class="btn btn-sm" id="lib-channels-btn" title="Manage channels">Channels ›</button>
                 </div>
             </div>
@@ -965,7 +937,12 @@ class LibraryTab {
             </div>`;
         this.container.appendChild(el);
         this._detailEl = el;
-        this._detailCollectBtn = el.querySelector('#lib-collect-btn');
+        // Actions on a selection live in the bar, not in the header, so they
+        // are never shown greyed out with no reason given.
+        this._detailSelectionBar = new SelectionBar(el, {
+            actions: ['collect', 'export', 'rename', 'location', 'organize', 'mark'],
+            onAction: (action) => this._runSelectionAction(action),
+        });
 
         el.querySelector('#lib-back').addEventListener('click', () => {
             this._pane = null;
@@ -977,17 +954,6 @@ class LibraryTab {
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(lib.id));
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
-
-        const collectBtn = el.querySelector('#lib-collect-btn');
-        collectBtn.addEventListener('click', () => this._openCollectModal());
-
-        const commanderBtn = el.querySelector('#lib-commander-btn');
-        commanderBtn.addEventListener('click', () => {
-            const pane = this.getActivePaneForKeyboard();
-            const target = pane ? pane.getOpenInCommanderTarget() : null;
-            if (!target) return;
-            App.openCommanderAt(target.dir, target.names);
-        });
 
         this._filterPanel = new LibrarySearchPanel(
             el.querySelector('#lib-search-panel'),
@@ -1036,8 +1002,7 @@ class LibraryTab {
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
             onSelectionChange: () => {
-                this._updateDetailCollectBtn();
-                this._updateCommanderBtn();
+                this._updateSelectionBar();
             },
         });
 
@@ -1054,7 +1019,7 @@ class LibraryTab {
                 onFocusChange: (path) => this._onPhotoFocusFromSearch(path),
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
-                onSelectionChange: () => { this._updateDetailCollectBtn(); this._updateCommanderBtn(); },
+                onSelectionChange: () => this._updateSelectionBar(),
                 onClose: () => this._filterPanel.close(),
             });
         }
@@ -1062,8 +1027,7 @@ class LibraryTab {
         this._searchPane.loadResults(photos, multiLib, paginationOpts);
         paneEl.style.display = 'none';
         searchPaneEl.style.display = '';
-        this._updateDetailCollectBtn();
-        this._updateCommanderBtn();
+        this._updateSelectionBar();
     }
 
     _showLibraryPane(detailEl) {
@@ -1074,8 +1038,7 @@ class LibraryTab {
         paneEl.style.display = '';
         // Keep _searchPane alive so it can be reused if the filter is reopened.
 
-        this._updateDetailCollectBtn();
-        this._updateCommanderBtn();
+        this._updateSelectionBar();
     }
 
     async _onPhotoFocusFromSearch(path) {
@@ -1104,19 +1067,59 @@ class LibraryTab {
         }
     }
 
-    _updateDetailCollectBtn() {
-        if (!this._detailCollectBtn) return;
-        const searchPaneEl = this._detailEl?.querySelector('#lib-search-pane');
-        const searchActive = searchPaneEl && searchPaneEl.style.display !== 'none';
-        if (searchActive) {
-            this._detailCollectBtn.disabled = (this._searchPane?.selection.selected.size ?? 0) === 0;
-        } else {
-            this._detailCollectBtn.disabled =
-                (this._pane?.getSelectedFiles().length ?? 0) === 0 &&
-                !(this._pane?.selectedDirs?.size);
-        }
+    // The active pane's selection drives the bar; "Show in Organize" needs a
+    // folder or file that exists on disk under the browse root, which not
+    // every selection has, so it says why when it cannot be used.
+    _updateSelectionBar() {
+        const pane = this.getActivePaneForKeyboard();
+        const count = (pane?.getSelectedFiles().length ?? 0) + (pane?.selectedDirs?.size ?? 0);
+        // The list view and an opened library each have their own bar; only
+        // the one belonging to the visible screen may show anything.
+        const active = this.currentLibrary ? this._detailSelectionBar : this._listSelectionBar;
+        const other = this.currentLibrary ? this._listSelectionBar : this._detailSelectionBar;
+        other?.update(0);
+        const target = pane ? pane.getOpenInCommanderTarget() : null;
+        active?.update(count, {
+            organize: target ? '' : (pane ? pane.commanderBtnHint() : 'Select photos to show them in Organize'),
+        });
     }
 
+    _runSelectionAction(action) {
+        const pane = this.getActivePaneForKeyboard();
+        if (!pane) return;
+        if (action === 'clear') {
+            pane.selection.clear();
+            pane.selectedDirs?.clear();
+            pane.updateSelectionClasses();
+            this._updateSelectionBar();
+            return;
+        }
+        if (action === 'collect') { this._openCollectModal(); return; }
+        if (action === 'organize') {
+            const target = pane.getOpenInCommanderTarget();
+            if (target) App.openCommanderAt(target.dir, target.names);
+            return;
+        }
+        const files = pane.getSelectedFiles();
+        if (!files.length) return;
+        if (action === 'mark') {
+            App.markForDeletion(files, pane.entries, pane.path);
+            pane.updateMarkedForDeletion();
+            return;
+        }
+        const tool = action === 'export' ? 'export'
+            : action === 'location' ? 'set-location'
+            // Always the batch dialog, even for one photo: it previews the
+            // result, and the single-file path was a browser prompt().
+            : action === 'rename' ? 'batch-rename'
+            : null;
+        if (!tool) return;
+        App.handleToolInvoke({ tool, files, path: pane.path, sourcePath: this.currentLibrary?.sourcePath ?? null });
+    }
+
+    // Resolves the current selection to library photo IDs and hands the
+    // picking to CollectDialog. A selection can span several libraries (the
+    // cross-library search), and it is still one gallery.
     async _openCollectModal() {
         const searchPane = (() => {
             if (this._searchPane && this._detailEl?.querySelector('#lib-search-pane')?.style.display !== 'none'
@@ -1126,256 +1129,71 @@ class LibraryTab {
             return null;
         })();
 
-        let lib = this.currentLibrary;
-        let selectedPaths, hasDirs, selectedDirs = [];
+        const lib = this.currentLibrary;
         let photoGroups = null;
+        let selectedPaths = [];
+        let selectedDirs = [];
 
         if (searchPane) {
-            const hints = searchPane.getSelectedFiles();
             const byLib = new Map();
-            for (const h of hints) {
-                const info = searchPane.getPhotoInfo(h);
+            for (const hint of searchPane.getSelectedFiles()) {
+                const info = searchPane.getPhotoInfo(hint);
                 if (!info) continue;
                 if (!byLib.has(info.libID)) byLib.set(info.libID, []);
                 byLib.get(info.libID).push(info.photoID);
             }
             photoGroups = Array.from(byLib.entries()).map(([libID, photoIDs]) => ({ libID, photoIDs }));
-            selectedPaths = hints;
-            hasDirs = false;
         } else {
             const pane = this._pane;
             if (!pane) return;
-            const selectedFiles = pane.getSelectedFiles();
+            selectedPaths = pane.getSelectedFiles();
             selectedDirs = Array.from(pane.selectedDirs || []);
-            hasDirs = selectedDirs.length > 0;
-            if (selectedFiles.length === 0 && !hasDirs) return;
-            selectedPaths = hasDirs ? [] : selectedFiles;
+            if (selectedPaths.length === 0 && selectedDirs.length === 0) return;
         }
 
-        let channelList;
-        try {
-            channelList = await ChannelAPI.list();
-        } catch (err) {
-            alert('Failed to load channels: ' + err.message);
-            return;
-        }
-        if (channelList.length === 0) {
-            alert('No channels configured. Use the Channels button to add one.');
-            return;
+        // A selected folder means every photo in it, which takes a round trip
+        // to resolve — do it before the dialog so its count is the real one.
+        if (selectedDirs.length > 0) {
+            const arrays = await Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d)));
+            selectedPaths = selectedPaths.concat(arrays.flat());
         }
 
-        const initialTitle = hasDirs ? 'Counting photos…'
-            : `Add ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''} to a channel`;
+        const count = photoGroups
+            ? photoGroups.reduce((n, g) => n + g.photoIDs.length, 0)
+            : selectedPaths.length;
+        if (count === 0) return;
 
-        const dlg = document.createElement('div');
-        dlg.className = 'modal-backdrop';
-        dlg.innerHTML = `
-            <div class="modal collect-modal">
-                <div class="modal-header">
-                    <span class="modal-title">${initialTitle}</span>
-                    <button class="modal-close" id="collect-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <label class="form-label">Channel</label>
-                    <select class="form-select" id="collect-channel">
-                        ${channelList.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
-                    </select>
-                    <div id="collect-account-wrap" style="display:none">
-                        <label class="form-label">Account</label>
-                        <select class="form-select" id="collect-account"></select>
-                    </div>
-                    <div id="collect-gallery-wrap" style="display:none">
-                        <label class="form-label">Add to</label>
-                        <select class="form-select" id="collect-target">
-                            <option value="">New…</option>
-                        </select>
-                        <div id="collect-title-wrap">
-                            <label class="form-label" id="collect-gallery-label">Gallery title</label>
-                            <input class="form-input" id="collect-gallery-title" placeholder="e.g. Summer 2026" autocomplete="off">
-                            <div id="collect-unlisted-wrap" style="display:none">
-                                <label class="export-radio-row">
-                                    <input type="checkbox" id="collect-unlisted">
-                                    Unlisted <span class="form-hint" id="collect-unlisted-hint"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="build-info" id="collect-info"></div>
-                </div>
-                <div class="modal-footer">
-                    <div class="build-error" id="collect-error" style="display:none"></div>
-                    <button class="btn" id="collect-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="collect-confirm"${hasDirs ? ' disabled' : ''}>Add to channel</button>
-                </div>
-            </div>`;
-        document.body.appendChild(dlg);
-
-        if (hasDirs) {
-            Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d)))
-                .then(arrays => {
-                    selectedPaths = arrays.flat();
-                    if (dlg.isConnected) {
-                        dlg.querySelector('.modal-title').textContent =
-                            `Add ${selectedPaths.length} photo${selectedPaths.length !== 1 ? 's' : ''} to a channel`;
-                        dlg.querySelector('#collect-confirm').disabled = selectedPaths.length === 0;
-                    }
-                });
-        }
-
-        // draftsBySlug caches ChannelAPI.listDrafts() results per channel so the
-        // "Add to" dropdown can offer in-progress drafts alongside already-generated
-        // galleries without refetching on every channel switch.
-        const draftsBySlug = new Map();
-
-        const updateChannel = async () => {
-            const slug = dlg.querySelector('#collect-channel').value;
-            const ch = channelList.find(c => c.slug === slug);
-            if (!ch) return;
-
-            const accountWrap = dlg.querySelector('#collect-account-wrap');
-            const accountSel = dlg.querySelector('#collect-account');
-            const accounts = ch.accounts || [];
-            if (accounts.length > 0) {
-                accountSel.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label || a.id)}</option>`).join('');
-                accountWrap.style.display = '';
-            } else {
-                accountWrap.style.display = 'none';
-            }
-
-            const galleryWrap = dlg.querySelector('#collect-gallery-wrap');
-            const targetSel = dlg.querySelector('#collect-target');
-            const titleWrap = dlg.querySelector('#collect-title-wrap');
-            const titleLabel = dlg.querySelector('#collect-gallery-label');
-            titleLabel.textContent = ch.siteExport ? 'Album title' : 'Gallery title';
-
-            if (ch.galleryExport || ch.siteExport) {
-                galleryWrap.style.display = '';
-                let generated = [];
-                let drafts = draftsBySlug.get(slug);
-                const errEl = dlg.querySelector('#collect-error');
-                try {
-                    generated = await ChannelAPI.galleries(slug);
-                    if (!drafts) {
-                        drafts = await ChannelAPI.listDrafts(slug);
-                        draftsBySlug.set(slug, drafts);
-                    }
-                    errEl.style.display = 'none';
-                } catch (err) {
-                    // Silently offering only "New gallery" here would look like
-                    // the channel has no galleries and quietly create a second
-                    // one alongside the album the user meant to add to.
-                    drafts = drafts || [];
-                    errEl.textContent = 'Could not load this channel\'s existing galleries: ' + err.message;
-                    errEl.style.display = '';
-                }
-                const generatedOpts = generated.map(g =>
-                    `<option value="postID:${escapeHtml(g.postID)}">${escapeHtml(g.title)} (${g.photoCount}) · ${_galleryDateRange(g)}</option>`
-                );
-                const draftOpts = drafts.filter(d => !d.target.postID).map(d =>
-                    `<option value="draftID:${escapeHtml(d.id)}">${escapeHtml(d.target.title)} (draft, ${d.photos.length} pending)</option>`
-                );
-                targetSel.innerHTML = `<option value="">New ${ch.siteExport ? 'album' : 'gallery'}</option>` + generatedOpts.join('') + draftOpts.join('');
-                targetSel.onchange = () => {
-                    titleWrap.style.display = targetSel.value === '' ? '' : 'none';
-                };
-                titleWrap.style.display = targetSel.value === '' ? '' : 'none';
-            } else {
-                galleryWrap.style.display = 'none';
-            }
-
-            // Single-gallery channels exist for sharing one album by link, so
-            // they default to unlisted; site albums are part of a public site
-            // and default to listed.
-            const unlistedWrap = dlg.querySelector('#collect-unlisted-wrap');
-            unlistedWrap.style.display = (ch.siteExport || ch.galleryExport) ? '' : 'none';
-            dlg.querySelector('#collect-unlisted').checked = !!ch.galleryExport;
-            const unlistedHint = dlg.querySelector('#collect-unlisted-hint');
-            if (unlistedHint) {
-                unlistedHint.textContent = ch.siteExport
-                    ? 'hidden from the site index and sitemap, and not indexed by search engines'
-                    : 'adds a noindex tag; the folder name is already unguessable';
-            }
-
-            const scaleDesc = _scaleDesc(ch.scale);
-            const handlerNote = ch.handler ? ` · handler: ${ch.handler}` : '';
-            dlg.querySelector('#collect-info').textContent =
-                `Export: ${ch.format.toUpperCase()} · quality ${ch.quality}${scaleDesc ? ' · ' + scaleDesc : ''}${handlerNote}`;
-        };
-
-        dlg.querySelector('#collect-channel').addEventListener('change', updateChannel);
-        updateChannel();
-
-        dlg.querySelector('#collect-close').addEventListener('click', () => dlg.remove());
-        dlg.querySelector('#collect-cancel').addEventListener('click', () => dlg.remove());
-        dlg.addEventListener('click', e => { if (e.target === dlg) dlg.remove(); });
-
-        dlg.querySelector('#collect-confirm').addEventListener('click', async () => {
-            const confirmBtn = dlg.querySelector('#collect-confirm');
-            const errEl = dlg.querySelector('#collect-error');
-            const slug = dlg.querySelector('#collect-channel').value;
-            const ch = channelList.find(c => c.slug === slug);
-            const targetVal = dlg.querySelector('#collect-target')?.value || '';
-            const [targetKind, targetID] = targetVal.includes(':') ? targetVal.split(':') : [null, null];
-            const titleWrap = dlg.querySelector('#collect-title-wrap');
-            const galleryTitle = (titleWrap && titleWrap.style.display !== 'none')
-                ? dlg.querySelector('#collect-gallery-title').value.trim()
-                : undefined;
-            const isGalleryMode = ch?.galleryExport || ch?.siteExport;
-            if (isGalleryMode && !targetKind && !galleryTitle) {
-                errEl.textContent = ch.siteExport ? 'Album title is required for a new album.' : 'Gallery title is required for a new gallery.';
-                errEl.style.display = '';
-                return;
-            }
-            const accountWrap = dlg.querySelector('#collect-account-wrap');
-            const account = accountWrap.style.display !== 'none' ? (dlg.querySelector('#collect-account').value || undefined) : undefined;
-            // Only meaningful for a new album — an existing one keeps the flag
-            // it was published with.
-            const unlisted = ((ch?.siteExport || ch?.galleryExport) && !targetKind)
-                ? dlg.querySelector('#collect-unlisted').checked
-                : undefined;
-
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = 'Adding…';
-            errEl.style.display = 'none';
-
-            try {
-                let validGroups;
-                if (photoGroups) {
-                    validGroups = photoGroups.filter(g => g.photoIDs.length > 0);
-                    if (validGroups.length === 0) throw new Error('No matching library photos found.');
-                } else {
+        new CollectDialog({
+            count,
+            onCollect: async ({ slug, draftID, postID, title, unlisted, account }) => {
+                let groups = photoGroups;
+                if (!groups) {
                     const photoIDs = await Promise.all(selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p)));
-                    validGroups = [{ libID: lib.id, photoIDs: photoIDs.filter(Boolean) }];
-                    if (validGroups[0].photoIDs.length === 0) throw new Error('No matching library photos found for selection.');
+                    groups = [{ libID: lib.id, photoIDs: photoIDs.filter(Boolean) }];
                 }
+                groups = groups.filter(g => g.photoIDs.length > 0);
+                if (groups.length === 0) throw new Error('No matching library photos found for this selection.');
 
-                // A selection can span several libraries, but it is still one
-                // album: the first call creates the draft, the rest append to
-                // it. Passing the title to every call would instead create one
+                // The first call creates the draft, the rest append to it.
+                // Passing the title to every call would instead create one
                 // gallery per library, all with the same name.
                 let total = 0;
-                let draftID = targetKind === 'draftID' ? targetID : undefined;
-                for (const g of validGroups) {
+                let currentDraft = draftID;
+                for (const g of groups) {
                     const draft = await LibraryAPI.collect(g.libID, slug, {
                         photoIDs: g.photoIDs,
-                        draftID,
-                        postID: !draftID && targetKind === 'postID' ? targetID : undefined,
-                        title: !draftID && !targetKind ? galleryTitle : undefined,
-                        unlisted: draftID ? undefined : unlisted,
-                        account: draftID ? undefined : account,
+                        draftID: currentDraft,
+                        postID: !currentDraft ? postID : undefined,
+                        title: !currentDraft && !postID ? title : undefined,
+                        unlisted: currentDraft ? undefined : unlisted,
+                        account: currentDraft ? undefined : account,
                     });
-                    draftID = draft?.id || draftID;
+                    currentDraft = draft?.id || currentDraft;
                     total += g.photoIDs.length;
                 }
-                dlg.remove();
-                App.showToast(`Added ${total} photo${total !== 1 ? 's' : ''} to "${galleryTitle || ch.name}" — not yet published.`);
-            } catch (err) {
-                errEl.textContent = err.message;
-                errEl.style.display = '';
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Add to channel';
-            }
-        });
+                return total;
+            },
+        }).open();
     }
 
     async _onPhotoFocus(path) {

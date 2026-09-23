@@ -43,16 +43,19 @@ async function selectTwoPhotosAt(page, offset) {
     const images = page.locator('#lib-pane [data-type="image"]');
     await images.nth(offset).click();
     await images.nth(offset + 1).click({ modifiers: ['Meta'] });
-    await expect(page.locator('#lib-collect-btn')).toBeEnabled({ timeout: 5_000 });
+    // The selection bar appears once something is selected (ADR-0029).
+    await expect(page.locator('.selection-bar [data-action="collect"]')).toBeVisible({ timeout: 5_000 });
 }
 
+// The dialog asks for a gallery, not a channel: "New gallery…" then a title
+// and the destination it belongs to.
 async function collectSelectionToChannel(page, { channelSlug, galleryTitle }) {
-    await page.locator('#lib-collect-btn').click();
+    await page.locator('.selection-bar [data-action="collect"]').click();
     const dlg = page.locator('.collect-modal');
     await expect(dlg).toBeVisible({ timeout: 5_000 });
-    await dlg.locator('#collect-channel').selectOption(channelSlug);
-    await expect(dlg.locator('#collect-gallery-wrap')).toBeVisible({ timeout: 5_000 });
-    await dlg.locator('#collect-gallery-title').fill(galleryTitle);
+    await dlg.locator('.collect-item--new').click();
+    await dlg.locator('#collect-new-title').fill(galleryTitle);
+    await dlg.locator('#collect-new-dest').selectOption(channelSlug);
     await dlg.locator('#collect-confirm').click();
     await expect(page.locator('#ui-hint.visible')).toContainText('Added 2 photos', { timeout: 5_000 });
     await expect(dlg).toHaveCount(0, { timeout: 5_000 });

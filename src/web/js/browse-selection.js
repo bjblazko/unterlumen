@@ -56,15 +56,10 @@ class SelectionManager {
         if (!statusEl) return;
         const imageCount = container.querySelectorAll('[data-type="image"]').length;
         const selectedCount = this.selected.size;
-        if (selectedCount > 0) {
-            statusEl.innerHTML = `${imageCount} images · ${selectedCount} selected <button class="btn btn-sm btn-deselect">Deselect</button>`;
-            statusEl.querySelector('.btn-deselect').addEventListener('click', () => {
-                this.selected.clear();
-                this.updateClasses(container);
-                if (this._onSelectionChange) this._onSelectionChange([]);
-            });
-        } else {
-            statusEl.textContent = `${imageCount} images`;
-        }
+        // Clearing the selection belongs to the selection bar, which is where
+        // every other action on a selection is; the status bar only counts.
+        statusEl.textContent = selectedCount > 0
+            ? `${imageCount} images · ${selectedCount} selected`
+            : `${imageCount} images`;
     }
 }

@@ -170,8 +170,7 @@ test.describe('Export modes', () => {
         await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
         await page.locator(`[data-name="${NO_GPS_IMAGE}"]`).click({ modifiers: ['Meta'] });
 
-        await page.locator('.tools-menu-btn').click();
-        await page.locator('button.tool-item[data-tool="export"]').click();
+        await page.locator('.selection-bar [data-action="export"]').click();
         await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
@@ -195,8 +194,7 @@ test.describe('Export modes', () => {
         await images.nth(0).click();
         await images.nth(1).click({ modifiers: ['Meta'] });
 
-        await page.locator('#lib-pane .tools-menu-btn').click();
-        await page.locator('#lib-pane button.tool-item[data-tool="export"]').click();
+        await page.locator('.selection-bar [data-action="export"]').click();
         await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
@@ -221,8 +219,7 @@ test.describe('Export modes', () => {
         await images.nth(0).click();
         await images.nth(1).click({ modifiers: ['Meta'] });
 
-        await page.locator('#lib-search-pane .tools-menu-btn').click();
-        await page.locator('#lib-search-pane button.tool-item[data-tool="export"]').click();
+        await page.locator('.selection-bar [data-action="export"]').click();
         await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
@@ -252,8 +249,7 @@ test.describe('Export modes', () => {
         await images.nth(0).click();
         await images.nth(1).click({ modifiers: ['Meta'] });
 
-        await page.locator('#lib-search-results-area .tools-menu-btn').click();
-        await page.locator('#lib-search-results-area button.tool-item[data-tool="export"]').click();
+        await page.locator('.selection-bar [data-action="export"]').click();
         await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
