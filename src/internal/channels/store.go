@@ -59,16 +59,27 @@ func (s *Store) WithBoundary(boundary string) *Store {
 	return s
 }
 
+// absoluteOutputPath turns a folder-picker path into one that means the same
+// thing wherever the server is started from. The picker browses inside the
+// browse root and returns paths relative to it, which read as relative
+// filesystem paths everywhere else; storing them absolute keeps what is on
+// screen, in channels.json and on disk the same thing.
+func (s *Store) absoluteOutputPath(path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(s.boundary, path)
+}
+
 // OutputDir returns the effective output directory for the given channel slug,
 // always as an absolute path. A custom OutputPath wins; a relative one is
 // resolved against the browse root. Otherwise the default
 // <outputBaseDir>/channels/<slug>/ path is used.
 func (s *Store) OutputDir(slug string) string {
 	if ch, err := s.Get(slug); err == nil && ch.OutputPath != "" {
-		if filepath.IsAbs(ch.OutputPath) {
-			return ch.OutputPath
-		}
-		return filepath.Join(s.boundary, ch.OutputPath)
+		// Still resolved on read: entries written before paths were stored
+		// absolute keep working without rewriting anyone's configuration.
+		return s.absoluteOutputPath(ch.OutputPath)
 	}
 	return filepath.Join(s.outputBase, "channels", slug)
 }
@@ -98,6 +109,7 @@ func (s *Store) Get(slug string) (*Channel, error) {
 func (s *Store) Save(ch *Channel) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ch.OutputPath = s.absoluteOutputPath(ch.OutputPath)
 	chs, err := s.loadLocked()
 	if err != nil {
 		return err

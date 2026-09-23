@@ -71,6 +71,32 @@ test.describe('Destinations', () => {
         await expect(advanced.locator('#chf-handler')).toBeVisible();
     });
 
+    // A folder picked with the browser is relative to the browse root; stored
+    // that way it would mean a different directory depending on where the
+    // server was started from.
+    test('a chosen output folder is stored as an absolute path', async ({ page, request }) => {
+        const slug = 'e2e-destinations-files';
+        await request.delete(`/api/channels/${slug}`).catch(() => {});
+
+        await page.goto('/#destinations');
+        await waitForAppReady(page);
+        await page.locator('#dest-new').click();
+        const form = page.locator('#dest-form');
+        await form.locator('input[name="dest-type"][value="files"]').check();
+        await form.locator('#chf-name').fill('E2E Destinations Files');
+        await form.locator('#chf-output-path').fill('folder-a/exports');
+        await page.locator('#dest-save').click();
+        await expect(page.locator('.dest-row', { hasText: 'E2E Destinations Files' })).toBeVisible({ timeout: 8_000 });
+
+        const channels = await (await request.get('/api/channels/')).json();
+        const ch = channels.find(c => c.slug === slug);
+        expect(ch.outputPath.startsWith('/')).toBe(true);
+        expect(ch.outputPath.endsWith('folder-a/exports')).toBe(true);
+        expect(ch.outputDir).toBe(ch.outputPath);
+
+        await request.delete(`/api/channels/${slug}`).catch(() => {});
+    });
+
     test('is a place with an address of its own', async ({ page }) => {
         await page.goto('/#destinations');
         await waitForAppReady(page);

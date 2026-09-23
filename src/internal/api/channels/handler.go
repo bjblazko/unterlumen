@@ -44,6 +44,15 @@ func writeJSON(w http.ResponseWriter, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// channelWithOutputDir is a channel plus the directory its files actually go
+// to. OutputPath may be empty (the default location) or — in configurations
+// written before paths were stored absolute — relative to the browse root, so
+// it is not something the UI can show as a path on its own.
+type channelWithOutputDir struct {
+	*channels.Channel
+	OutputDir string `json:"outputDir"`
+}
+
 func listChannels(store *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		chs, err := store.List()
@@ -51,7 +60,11 @@ func listChannels(store *channels.Store) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, chs)
+		out := make([]channelWithOutputDir, len(chs))
+		for i, ch := range chs {
+			out[i] = channelWithOutputDir{Channel: ch, OutputDir: store.OutputDir(ch.Slug)}
+		}
+		writeJSON(w, out)
 	}
 }
 

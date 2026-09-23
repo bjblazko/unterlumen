@@ -148,10 +148,13 @@ class DestinationsPane {
         return destinationType(ch) === 'files' ? 'No upload — you post the files yourself' : 'Not set up';
     }
 
+    // For an online destination the address is its public URL; for a files
+    // destination it is the folder the files land in — the resolved one, not
+    // the possibly-relative string in the configuration.
     _addressDesc(ch) {
         const base = _deployBaseURL(ch);
         if (base) return base.url.replace(/^https?:\/\//, '') + (base.guessed ? ' (guessed)' : '');
-        return ch.outputPath || '—';
+        return ch.outputDir || ch.outputPath || '—';
     }
 
     _renderList() {
@@ -372,7 +375,7 @@ class DestinationsPane {
                                 <label class="form-label" for="chf-output-path">Folder</label>
                                 <div class="export-destination-wrap">
                                     <input class="form-input export-destination-input dest-mono" id="chf-output-path"
-                                           value="${escapeHtml(ch.outputPath || '')}"
+                                           value="${escapeHtml(ch.outputPath ? (ch.outputDir || ch.outputPath) : '')}"
                                            placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<name>')}/">
                                     <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
                                 </div>
