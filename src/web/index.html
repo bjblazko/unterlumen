@@ -13,73 +13,80 @@
     <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
 </head>
 <body>
-    <header class="header">
-        <h1 id="about-trigger" role="button" tabindex="0" title="About Unterlumen"><svg class="header-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <rect x="0" y="0" width="25" height="4" fill="currentColor"/>
-    <rect x="26" y="0" width="10" height="4" fill="currentColor" fill-opacity="0.3"/>
-    <polygon points="0,8 36,8 18,28" fill="var(--accent)"/>
-</svg>Unterlumen</h1>
-        <div class="header-right">
-            <nav class="workflow">
-                <button class="workflow-step active" id="mode-browse">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="7" y="1" width="4" height="4" rx="0.5"/>
-                        <rect x="1" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="7" width="4" height="4" rx="0.5"/>
+    <div class="shell">
+        <nav class="sidebar" id="sidebar" aria-label="Main">
+            <div class="brand">
+                <span class="brand-left" id="about-trigger" role="button" tabindex="0" title="About Unterlumen">
+                    <svg class="brand-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="0" y="0" width="25" height="4" fill="currentColor"/>
+                        <rect x="26" y="0" width="10" height="4" fill="currentColor" fill-opacity="0.3"/>
+                        <polygon points="0,8 36,8 18,28" fill="var(--accent)"/>
                     </svg>
-                    <span class="workflow-label">Select</span>
+                    <span class="brand-name">Unterlumen</span>
+                </span>
+                <button class="collapse-btn" id="sidebar-collapse" aria-expanded="true" aria-controls="sidebar" aria-label="Collapse sidebar" title="Collapse sidebar (\)">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <rect x="1.5" y="2.5" width="13" height="11"/><path d="M5.5 2.5v11"/>
+                        <path class="collapse-chevron" d="M11 6l-2 2 2 2"/>
+                    </svg>
                 </button>
-                <button class="workflow-step" id="mode-wastebin">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <line x1="1.5" y1="3" x2="10.5" y2="3"/>
-                        <path d="M4 3V2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1"/>
-                        <path d="M10 3l-.75 7a.75.75 0 0 1-.75.75H3.5A.75.75 0 0 1 2.75 10L2 3"/>
-                        <line x1="5" y1="5.5" x2="5" y2="8.5"/><line x1="7" y1="5.5" x2="7" y2="8.5"/>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-label">Cull</div>
+                <a class="nav-item" id="mode-browse" href="#folders" data-mode="browse">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1.5 4.5v8h13v-7H7.5L6 4H1.5z"/>
                     </svg>
-                    <span class="workflow-label">Review <span class="workflow-badge" id="wastebin-count"></span></span>
-                </button>
-                <button class="workflow-step" id="mode-commander">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <rect x="1" y="1" width="4" height="10" rx="0.5"/>
-                        <rect x="7" y="1" width="4" height="10" rx="0.5"/>
-                        <line x1="2" y1="3.5" x2="4" y2="3.5"/><line x1="2" y1="5.5" x2="4" y2="5.5"/>
-                        <line x1="8" y1="3.5" x2="10" y2="3.5"/><line x1="8" y1="5.5" x2="10" y2="5.5"/>
+                    <span class="nav-text">Folders</span>
+                </a>
+                <a class="nav-item" id="mode-wastebin" href="#marked" data-mode="wastebin">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                        <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"/>
                     </svg>
-                    <span class="workflow-label">Organize</span>
-                </button>
-                <button class="workflow-step" id="mode-library">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <rect x="1" y="2" width="10" height="8" rx="0.5"/>
-                        <line x1="1" y1="5" x2="11" y2="5"/>
-                        <line x1="4" y1="2" x2="4" y2="10"/>
+                    <span class="nav-text">Marked for deletion</span>
+                    <span class="nav-count" id="wastebin-count"></span>
+                </a>
+                <a class="nav-item" id="mode-commander" href="#organize" data-mode="commander">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <rect x="1.5" y="2.5" width="5.5" height="11"/><rect x="9" y="2.5" width="5.5" height="11"/>
                     </svg>
-                    <span class="workflow-label">Libraries</span>
-                    <span class="workflow-step-create" id="mode-library-create" title="New library">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                            <circle cx="7" cy="7" r="6"/>
-                            <line x1="7" y1="3.5" x2="7" y2="10.5" stroke-width="1.5" stroke-linecap="round"/>
-                            <line x1="3.5" y1="7" x2="10.5" y2="7" stroke-width="1.5" stroke-linecap="round"/>
+                    <span class="nav-text">Organize</span>
+                </a>
+            </div>
+
+            <div class="nav-group" id="nav-catalog">
+                <div class="nav-label">Catalog</div>
+                <a class="nav-item" id="mode-library" href="#libraries" data-mode="library">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 6h13M5.5 6v7.5"/>
+                    </svg>
+                    <span class="nav-text">Libraries</span>
+                </a>
+                <div id="nav-libraries"></div>
+            </div>
+
+            <div class="nav-group">
+                <div class="nav-label">Publish</div>
+                <a class="nav-item" id="mode-published" href="#published" data-mode="published">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 11l4-4 3 3 2-2 4 4"/>
+                    </svg>
+                    <span class="nav-text">Published</span>
+                </a>
+            </div>
+
+            <div class="nav-foot">
+                <div class="dropdown-wrap">
+                    <button class="btn btn-sm dropdown-btn nav-settings-btn" id="settings-btn" title="Settings">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                            <circle cx="8" cy="8" r="2.5"/>
+                            <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/>
                         </svg>
-                    </span>
-                </button>
-                <button class="workflow-step" id="mode-published">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="6" cy="6" r="5"/>
-                        <line x1="1" y1="6" x2="11" y2="6"/>
-                        <path d="M6 1c1.5 1.4 1.5 8.6 0 10M6 1c-1.5 1.4-1.5 8.6 0 10"/>
-                    </svg>
-                    <span class="workflow-label">Published</span>
-                </button>
-            </nav>
-            <div class="dropdown-wrap">
-                <button class="btn btn-sm dropdown-btn" id="settings-btn" title="Settings">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="8" cy="8" r="2.5"/>
-                        <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/>
-                    </svg>
-                    Settings
-                    <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
-                </button>
-                <div class="dropdown-menu dropdown-menu-right" id="settings-menu" style="display:none">
+                        <span class="nav-text">Settings</span>
+                        <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3l2 2 2-2"/></svg>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-up" id="settings-menu" style="display:none">
                     <div class="dropdown-section">
                         <label class="dropdown-label">Theme</label>
                         <div class="dropdown-toggle">
@@ -109,11 +116,12 @@
                     <div class="dropdown-section" style="padding:0">
                         <button class="btn dropdown-item" id="settings-check-deps">Check dependencies</button>
                     </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </header>
-    <main id="app"></main>
+        </nav>
+        <main id="app"></main>
+    </div>
 
     <div id="ui-hint" class="ui-hint"></div>
     <script src="/js/toggle.js?v=4"></script>

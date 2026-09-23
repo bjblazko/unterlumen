@@ -359,10 +359,11 @@ Notes:
 | Enter | Open focused folder or image |
 | Space | Toggle selection of focused item |
 | Escape | Close viewer / go up a directory |
-| `I` | Toggle info panel |
+| `I` | Collapse or expand the info panel |
+| `\` | Collapse or expand the sidebar |
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
-| Cmd/Ctrl+1/2/3 | Switch to Browse & Cull / File Manager / Marked for Deletion |
+| 1 / 2 / 3 / 4 / 5 | Go to Folders / Marked for deletion / Organize / Libraries / Published |
 | Tab | Switch panes in File Manager mode |
 | F5 | Copy selected files (File Manager) |
 | F6 | Move selected files (File Manager) |

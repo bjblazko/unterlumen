@@ -151,7 +151,7 @@ point.
 - [x] Phase 1: tokens and type. The `style.css` tokens are replaced with
       rams-design. Plex Sans is the UI font, Mono is used only for data.
       There is a new ADR superseding 0018.
-- [ ] Phase 2: navigation. Sidebar with groups; entries are `<a href>` with
+- [x] Phase 2: navigation. Sidebar with groups; entries are `<a href>` with
       `aria-current`. The sidebar and info panel collapse. Chevrons and the
       slide animation are removed. e2e selectors `#mode-*` keep working.
 - [ ] Phase 3: Galleries.

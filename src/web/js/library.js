@@ -461,6 +461,8 @@ class LibraryTab {
                     <button class="btn lib-collect-btn" id="lib-list-collect-btn" disabled>Add to channel…</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-channels-btn">Channels ›</button>
+                    <div class="header-actions-sep"></div>
+                    <button class="btn" id="lib-new-btn">New library…</button>
                 </div>
             </div>
             <div class="lib-search-body">
@@ -476,6 +478,7 @@ class LibraryTab {
         this.container.appendChild(el);
 
         el.querySelector('#lib-channels-btn').addEventListener('click', () => new ChannelSettingsModal().open(null));
+        el.querySelector('#lib-new-btn').addEventListener('click', () => this._showCreateDialog());
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
         const sortToggle = el.querySelector('.lib-sort-toggle');
@@ -917,6 +920,15 @@ class LibraryTab {
         this._pane = null;
         this._infoPanel = null;
         this.render();
+        App.refreshLibraryVisibility();
+    }
+
+    // Open a library by id — used by the sidebar's per-library entries.
+    async openLibraryById(libraryId) {
+        if (String(this.currentLibrary?.id) === String(libraryId)) return;
+        const libs = this._cachedLibs?.length ? this._cachedLibs : await LibraryAPI.list().catch(() => []);
+        const lib = libs.find(l => String(l.id) === String(libraryId));
+        if (lib) this._openLibrary(lib);
     }
 
     _renderDetail() {

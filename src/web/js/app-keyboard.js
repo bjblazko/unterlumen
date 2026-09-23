@@ -315,7 +315,14 @@ class GlobalKeyboard {
             }
         }
 
-        // 1/2/3/4/5: switch modes
+        // Backslash: collapse or expand the sidebar
+        if (e.key === '\\' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if (document.querySelector('.viewer')) return;
+            e.preventDefault();
+            app.toggleSidebar();
+        }
+
+        // 1/2/3/4/5: switch places
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             if (e.key === '1') { e.preventDefault(); app.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); app.setMode('wastebin'); }

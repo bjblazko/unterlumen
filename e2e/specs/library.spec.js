@@ -34,7 +34,7 @@ test.describe('Library list view', () => {
 
     test('switches to library mode and shows list view', async ({ page }) => {
         await expect(page.locator('.library-list-view')).toBeVisible();
-        await expect(page.locator('#mode-library')).toHaveClass(/active/);
+        await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
     });
 
     test('shows library card with correct name and source path', async ({ page }) => {

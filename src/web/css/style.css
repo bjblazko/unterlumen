@@ -171,173 +171,187 @@ body {
 
 /* Digits that change in place must not shift the layout around them. */
 .status-bar,
-.workflow-badge,
 .progress-detail,
 .info-panel-title {
     font-variant-numeric: tabular-nums;
 }
 
-/* —— Header —— */
+/* —— Shell: sidebar of places + content —— */
 
-.header {
+.shell {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    height: 100vh;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: var(--space-4) var(--space-3);
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+    overflow-y: auto;
+}
+
+.brand {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--space-6);
-    background: var(--bg-2);
-    border-bottom: 1px solid var(--line);
-    height: var(--space-12);
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
 }
 
-.header h1 {
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: var(--fg);
+.brand-left {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+    font-weight: 600;
+    letter-spacing: 0.01em;
     cursor: pointer;
     user-select: none;
 }
 
-.header h1:hover { opacity: 0.75; }
+.brand-left:hover { opacity: 0.75; }
 
-.header-logo {
-    height: 30px;
-    display: block;
+.brand-logo {
+    width: 22px;
+    height: 18px;
     flex-shrink: 0;
 }
 
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
+.collapse-btn {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    color: var(--fg-3);
+    cursor: pointer;
 }
 
-/* —— Workflow chevron stepper —— */
-
-.workflow {
-    display: flex;
-    align-items: center;
+.collapse-btn:hover {
+    background: var(--hover-overlay);
+    color: var(--fg);
 }
 
-.workflow-step {
+/* —— Navigation: places, not steps (ADR-0028) —— */
+
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.nav-label {
+    padding: 0 var(--space-2) var(--space-1);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-3);
+}
+
+.nav-item {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    height: 28px;
-    padding: 0 var(--space-5) 0 var(--space-4);
-    background: var(--bg);
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
+    min-height: 34px;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
     color: var(--fg-2);
-    position: relative;
-    z-index: 1;
-    margin-left: -8px;
-    clip-path: polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%);
-    transition: background 0.15s;
-}
-
-.workflow-step:first-of-type {
-    margin-left: 0;
-    z-index: 3;
-}
-
-.workflow-step:nth-of-type(2) {
-    z-index: 2;
-}
-
-.workflow-step:nth-of-type(4) {
-    z-index: 0;
-}
-
-.workflow-step:last-of-type {
-    padding-right: var(--space-3);
-    clip-path: none;
-}
-
-/* When library button is hidden, Organize becomes the visual last step */
-.workflow:has(#mode-library[style*="display: none"]) #mode-commander {
-    clip-path: none;
-    padding-right: var(--space-3);
-}
-
-.workflow-step.completed {
-    background: var(--line);
-}
-
-.workflow-step.active {
-    background: var(--accent);
-    color: var(--accent-fg);
-}
-
-.workflow-step:not(.active):hover {
-    filter: brightness(0.94);
-}
-
-.workflow-label {
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    pointer-events: none;
-}
-
-.workflow-step.active .workflow-label {
-    font-weight: 600;
-}
-
-.workflow-step-create {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: var(--space-2);
-    padding-left: var(--space-2);
-    border-left: 1px solid rgba(0, 0, 0, 0.15);
-    opacity: 0.65;
-    transition: opacity 0.1s;
-    pointer-events: auto;
+    text-decoration: none;
     cursor: pointer;
 }
-.workflow-step-create svg circle {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1;
-}
-.workflow-step-create svg line {
-    stroke: currentColor;
+
+.nav-item:hover { background: var(--hover-overlay); }
+
+.nav-item[aria-current="page"] {
+    background: var(--fg);
+    color: var(--bg);
 }
 
-.workflow-step.active .workflow-step-create {
-    border-left-color: rgba(255, 255, 255, 0.3);
-}
-.workflow-step.active .workflow-step-create svg circle {
-    fill: #fff;
-    stroke: none;
-}
-.workflow-step.active .workflow-step-create svg line {
-    stroke: var(--accent);
+.nav-item svg { flex-shrink: 0; }
+
+.nav-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.workflow-step-create:hover {
-    opacity: 1;
+/* Counts appear only where something is waiting for the user. */
+.nav-count {
+    margin-left: auto;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
 }
 
-.workflow-badge {
-    display: none;
-    background: var(--accent);
-    color: var(--accent-fg);
+.nav-count:empty { display: none; }
+
+.nav-item.nav-sub {
+    min-height: 30px;
+    padding-left: calc(var(--space-2) + 22px);
+    font-size: var(--text-sm);
+}
+
+.nav-foot { margin-top: auto; }
+
+.nav-foot .dropdown-wrap { display: block; }
+
+.nav-settings-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    background: var(--bg);
+}
+
+/* Collapsed: icons only, counts shrink to a mark so nothing is lost. */
+.shell.sidebar-collapsed { grid-template-columns: 60px minmax(0, 1fr); }
+
+.sidebar-collapsed .sidebar {
+    align-items: center;
+    padding-inline: var(--space-2);
+}
+
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .nav-text,
+.sidebar-collapsed .brand-name,
+.sidebar-collapsed .nav-item.nav-sub,
+.sidebar-collapsed .dropdown-chevron { display: none; }
+
+.sidebar-collapsed .nav-item,
+.sidebar-collapsed .nav-settings-btn {
+    position: relative;
+    justify-content: center;
+    width: 44px;
+    padding-inline: 0;
+}
+
+.sidebar-collapsed .brand {
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 0;
+}
+
+.sidebar-collapsed .nav-count {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    margin: 0;
+    padding: 2px 3px;
+    border-radius: var(--radius-full);
+    background: var(--bg-3);
+    color: var(--fg);
     font-size: 10px;
-    font-weight: 600;
     line-height: 1;
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
-    margin-left: 2px;
 }
 
-.workflow-step.active .workflow-badge {
-    background: rgba(255, 255, 255, 0.25);
+.sidebar-collapsed .nav-item[aria-current="page"] .nav-count {
+    background: var(--bg);
 }
 
 /* —— Shared dropdown —— */
@@ -635,7 +649,8 @@ button.toggle {
 /* —— App container —— */
 
 #app {
-    height: calc(100vh - var(--space-12));
+    min-width: 0;
+    height: 100vh;
     overflow: hidden;
 }
 
@@ -1858,8 +1873,11 @@ body.ui-hidden .viewer-filmstrip {
 
 .browse-layout {
     display: flex;
+    align-items: stretch;
     height: 100%;
 }
+
+.browse-layout > #info-panel-container { display: flex; }
 
 .browse-layout > .browse-container {
     flex: 1;
@@ -1868,8 +1886,10 @@ body.ui-hidden .viewer-filmstrip {
 
 /* —— Info panel —— */
 
+/* Collapsed, the panel stays a full-height rail, so reopening it is visible. */
 .info-panel.collapsed {
     width: var(--space-10);
+    height: 100%;
     border-left: 1px solid var(--line);
     background: var(--bg-2);
     display: flex;
@@ -2084,29 +2104,16 @@ body.ui-hidden .viewer-filmstrip {
     background: var(--fg-2);
 }
 
-/* —— Mode transition animations —— */
-
-@keyframes slide-in-right {
-    from { transform: translateX(24px); opacity: 0.5; }
-    to   { transform: translateX(0);    opacity: 1; }
-}
-
-@keyframes slide-in-left {
-    from { transform: translateX(-24px); opacity: 0.5; }
-    to   { transform: translateX(0);     opacity: 1; }
-}
-
-.mode-enter-right { animation: slide-in-right 0.2s ease-out; }
-.mode-enter-left  { animation: slide-in-left  0.2s ease-out; }
-
-/* Hide-interface mode */
-body.ui-hidden .header { display: none; }
-body.ui-hidden #app { height: 100vh; }
+/* Hide-interface mode: the places go away, the photos stay */
+body.ui-hidden .sidebar { display: none; }
+body.ui-hidden .shell,
+body.ui-hidden .shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
 body.ui-hidden .viewer-toolbar { display: none; }
 
-/* Slideshow active: full-screen, no header */
-body.slideshow-active .header { display: none; }
-body.slideshow-active #app { height: 100vh; }
+/* Slideshow active: full-screen */
+body.slideshow-active .sidebar { display: none; }
+body.slideshow-active .shell,
+body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
 
 /* Floating hint toast */
 .ui-hint {

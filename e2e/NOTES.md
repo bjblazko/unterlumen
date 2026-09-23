@@ -12,7 +12,11 @@ Use `UNTERLUMEN_ROOT_PATH=e2e/fixtures` (env var), **not** a CLI positional argu
 
 ## App initialisation race
 
-`setMode('browse')` fires asynchronously after `API.config` + `toolsCheck`. Clicking `#mode-library` before that completes gets overridden. Guard with `waitForAppReady(page)` (waits for `.browse-layout` in DOM) before clicking any mode button. Use in ALL specs that navigate modes.
+`setMode()` fires asynchronously after `API.config` + `toolsCheck`. Clicking `#mode-library` before that completes gets overridden. Guard with `waitForAppReady(page)` before clicking any mode button. Use in ALL specs that navigate modes.
+
+**The helper no longer waits for `.browse-layout`.** Since ADR-0028 the app routes on the hash, so a `page.reload()` after clicking a nav entry — or a `goto('/#libraries')` — starts in that place and never renders browse. The helper waits for `.nav-item[aria-current="page"]` plus any child of `#app` instead. A spec that reloads mid-test used to pass only because every start was a browse start; if you assert on browse DOM after a reload, navigate back to `#folders` first.
+
+**Places are marked with `aria-current="page"`, not a CSS class.** The chevron stepper's `.active`/`.completed` classes are gone. Assert `toHaveAttribute('aria-current', 'page')`.
 
 `const App = {}` in a plain `<script>` does NOT become `window.App`. The DOM signal (`.browse-layout`) is the only reliable readiness check.
 

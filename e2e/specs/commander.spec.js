@@ -172,7 +172,7 @@ test.describe('Commander (Organize mode)', () => {
 
   test('keyboard shortcut 1 returns to browse mode', async ({ page }) => {
     await page.keyboard.press('1');
-    await expect(page.locator('#mode-browse')).toHaveClass(/active/, { timeout: 3_000 });
+    await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page', { timeout: 3_000 });
     await expect(page.locator('#left-pane')).not.toBeVisible();
   });
 });
