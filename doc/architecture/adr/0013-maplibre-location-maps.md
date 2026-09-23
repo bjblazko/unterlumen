@@ -4,7 +4,7 @@
 
 ## Status
 
-Accepted
+Accepted. The delivery method is superseded by [ADR-0031](0031-vendor-maplibre.md) (2026-09-23): MapLibre is vendored instead of loaded from a CDN. MapLibre and OpenFreeMap themselves are unchanged.
 
 ## Context
 

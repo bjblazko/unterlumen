@@ -186,10 +186,13 @@ point.
   - Accounts and key/value settings under Advanced, together with
     "Rebuild"'s neighbours: reveal the output folder and delete the
     destination.
-- [ ] Phase 7: overlays and info panel.
+- [x] Phase 7: overlays and info panel.
   - Uniform dark badges.
   - Details and Names as visible switches.
   - The info panel ordered as short list, then map, then "All metadata".
+  - The map turned out to be broken for everyone: MapLibre came from an
+    unversioned CDN URL that MapLibre 6 emptied out. It is vendored now
+    ([ADR-0031](../../architecture/adr/0031-vendor-maplibre.md)).
 - [ ] Phase 8: phone.
   - Tab bar; `.desk-only` hides all actions.
   - A full-screen viewer with swipe and an info sheet.
