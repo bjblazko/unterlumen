@@ -1884,6 +1884,17 @@ body.ui-hidden .viewer-filmstrip {
     min-width: 0;
 }
 
+/* The bar is a sibling of the browse column, pinned under it. */
+.browse-layout { position: relative; }
+.browse-layout > .selection-bar {
+    position: absolute;
+    left: 0;
+    right: 300px;
+    bottom: 0;
+}
+
+.browse-layout:has(.info-panel.collapsed) > .selection-bar { right: var(--space-10); }
+
 /* —— Info panel —— */
 
 /* Collapsed, the panel stays a full-height rail, so reopening it is visible. */
@@ -5769,4 +5780,84 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .publish-summary {
     margin: var(--space-2) 0;
+}
+
+/* --- Selection bar: every action on a selection, in one place --- */
+
+.selection-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    background: var(--bg);
+    border-top: 1px solid var(--line-strong);
+}
+
+.selection-bar-count {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    margin-right: var(--space-2);
+}
+
+.selection-bar-spacer { flex: 1; }
+
+/* --- Collect dialog: pick a gallery, not a channel --- */
+
+.collect-search-row { margin-bottom: var(--space-3); }
+
+.collect-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    max-height: 260px;
+    overflow: auto;
+}
+
+.collect-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.collect-item:last-child { border-bottom: 0; }
+.collect-item:hover { background: var(--hover-overlay); }
+
+.collect-item.selected {
+    background: var(--bg-2);
+    box-shadow: inset 3px 0 0 var(--fg);
+}
+
+.collect-item-title { font-weight: 500; }
+
+.collect-item-meta {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.collect-new {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--line);
+}
+
+.collect-new .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
 }

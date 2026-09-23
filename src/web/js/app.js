@@ -314,6 +314,13 @@ const App = {
                         this.currentBrowsePath = path;
                     }
                 };
+                // One bar for every action on a selection. "Add to gallery"
+                // is missing on purpose: collecting needs library photos, and
+                // a folder is not a library.
+                this._browseSelectionBar = new SelectionBar(this._browseEl, {
+                    actions: ['export', 'rename', 'location', 'mark'],
+                    onAction: (action) => this.runSelectionAction(action, this.browsePane),
+                });
                 this.browsePane.load(this.currentBrowsePath);
             }
         }
@@ -499,7 +506,41 @@ const App = {
     },
 
     handleSelectionChange(selected) {
-        // Selection changes don't drive the info panel; focus does.
+        // Selection changes don't drive the info panel; focus does. They do
+        // drive the selection bar, which is the only place a selection's
+        // actions live.
+        this._browseSelectionBar?.update(selected.length, {
+            // Renaming one file at a time is a different dialog than renaming
+            // by metadata, but both are reachable — nothing is disabled here
+            // without a reason the tooltip can state.
+        });
+    },
+
+    // Every action on a selection goes through here, from the bar and from the
+    // keyboard alike, so the two can never drift apart.
+    runSelectionAction(action, pane) {
+        if (!pane) return;
+        const files = pane.getSelectedFiles();
+        if (action === 'clear') {
+            pane.selection.clear();
+            pane.updateSelectionClasses();
+            pane.onSelectionChange?.([]);
+            return;
+        }
+        if (!files.length) return;
+        if (action === 'mark') {
+            this.markForDeletion(files, pane.entries, pane.path);
+            pane.updateMarkedForDeletion();
+            return;
+        }
+        const tool = action === 'export' ? 'export'
+            : action === 'location' ? 'set-location'
+            // Always the batch dialog, even for one photo: it previews the
+            // result, and the single-file path was a browser prompt().
+            : action === 'rename' ? 'batch-rename'
+            : null;
+        if (!tool) return;
+        this.handleToolInvoke({ tool, files, path: pane.path });
     },
 
     handleFocusChange(path, type) {

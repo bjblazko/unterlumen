@@ -171,10 +171,14 @@ point.
   - A plain-export destination still has no row of its own after its draft
     is consumed — it writes no statefile, so there is nothing to list.
     "Exported to folder" covers the destinations that do write one.
-- [ ] Phase 5: selection bar and "Add to gallery".
+- [x] Phase 5: selection bar and "Add to gallery".
   - One shared SelectionBar for folders, libraries and search results.
   - The collect dialog becomes a gallery list with search and "New
     gallery".
+  - "Add to gallery" appears only where there is a library to collect
+    from: a plain folder holds files, not library photos, and the collect
+    API needs photo IDs. The prototype shows the action everywhere
+    because everything in it is a library.
 - [ ] Phase 6: Destinations as a place.
   - A type-first form.
   - The slug is derived.

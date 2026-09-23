@@ -40,6 +40,12 @@ Three `.lib-filter-groups` elements exist: first wraps the date filter, second w
 
 `e2e/helpers/library.js` — POSTs to `/api/library/{id}/reindex` and checks for `"finished":true` in the buffered SSE response. Fixtures (3 photos) reindex in < 1 s.
 
+## Selection actions live in the selection bar
+
+Since ADR-0029 there is no Tools-menu entry for export, rename or location: a spec that acts on a selection clicks `.selection-bar [data-action="export|rename|location|mark|collect|clear"]`. The bar exists only while something is selected, and only one is visible at a time (the library list view and an opened library each own one), so an unscoped `.selection-bar` locator is unambiguous.
+
+`[data-action="rename"]` always opens the batch-rename dialog, including for a single photo.
+
 ## Selectors
 
 - **View mode buttons** live inside `.view-menu` (hidden by default). Click `.view-menu-btn` first, then `button[data-view="grid|list|justified"]`.
