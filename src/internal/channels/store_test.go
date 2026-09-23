@@ -101,3 +101,38 @@ func TestOutputDir_KeepsAbsolutePathAndDefault(t *testing.T) {
 		t.Errorf("default OutputDir = %q, want %q", got, want)
 	}
 }
+
+// Saving normalises a folder-picker path to an absolute one, so what the
+// destinations list shows is the path that is actually used.
+func TestSave_StoresOutputPathAbsolute(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir, dir).WithBoundary("/srv/photos")
+	if err := store.Save(&Channel{Slug: "site", Name: "Site", OutputPath: "Users/someone/out"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	ch, err := store.Get("site")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if want := "/srv/photos/Users/someone/out"; ch.OutputPath != want {
+		t.Errorf("stored OutputPath = %q, want %q", ch.OutputPath, want)
+	}
+}
+
+// A destination with no custom folder keeps none: an empty path means "the
+// default under the library directory", not the browse root.
+func TestSave_LeavesEmptyOutputPathEmpty(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir, dir).WithBoundary("/srv/photos")
+	if err := store.Save(&Channel{Slug: "plain", Name: "Plain"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	ch, _ := store.Get("plain")
+	if ch.OutputPath != "" {
+		t.Errorf("OutputPath = %q, want it left empty", ch.OutputPath)
+	}
+	if got, want := store.OutputDir("plain"), filepath.Join(dir, "channels", "plain"); got != want {
+		t.Errorf("OutputDir = %q, want the default %q", got, want)
+	}
+}
