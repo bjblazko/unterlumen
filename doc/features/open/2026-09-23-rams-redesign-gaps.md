@@ -52,6 +52,55 @@ implementation hints per element.
 - **Subfolders.** Shown as a row of framed buttons with a folder icon above
   the photos, instead of large empty folder tiles inside the photo grid.
 
+### Tools inventory (written 2026-09-23, before building)
+
+Every entry of the two dropdowns, and where it goes. "Selection" means the
+selection bar from phase 5, "folder" the Folders page head, "library" the
+library's own screen, "settings" the Settings place.
+
+| Entry | What it does | Goes to | Why |
+| --- | --- | --- | --- |
+| View › Layout (Grid / Justified / List) | Switches how photos are laid out | folder — segment group in the page head | A view you switch while looking; two clicks deep is one too many |
+| View › Sort field (Name, File modified, Photo taken, Size) | Orders the folder | folder — select styled as a button, with the direction in the same control | Same reason; the direction arrow becomes part of the select's label rather than a separate 30 px button |
+| View › Show names, View › Show details | Toggles the name and the chips on a thumbnail | done in phase 7 — switches in the page head | — |
+| Tools › Make library | Turns the focused folder into a library | folder — quiet framed button "Make library…", shown when a folder is focused | Acts on the folder, not on a selection |
+| Tools › Scan for new photos | Indexes new files of the open library | library — the row's own "Scan for new photos" on Libraries, and "Edit library…" in the detail | Acts on the library; the Libraries overview already shows when it was last indexed |
+| Tools › Rebuild metadata & previews | Re-reads EXIF, rebuilds previews | library — "Edit library…" | Rare maintenance on one library |
+| Tools › Generate missing previews | Fills gaps in the preview cache | library — "Edit library…" | Rare maintenance on one library |
+| Tools › Rebuild all previews | Rebuilds every preview | library — "Edit library…" | Rare maintenance on one library |
+| Tools › Remove deleted photos | Drops rows whose files are gone | library — "Edit library…" | Rare maintenance on one library |
+| Tools › Clear cache for selection | Clears cached previews for the selected files, or the focused folder | settings — folded into the existing "Clear cache" | See the open question below |
+| Selection: rename, batch rename, export, set location, mark for deletion, add to gallery, show in Organize | — | done in phase 5 — selection bar | — |
+| Crop | Crops one photo | stays in the viewer | It needs the photo on screen to draw a rectangle on |
+
+#### Decided 2026-09-23
+
+1. **"Clear cache for selection" stays**, as a quiet framed button in the
+   Folders page head (owner: "einbauen, clear cache for selection als ruhiger
+   knopf").
+2. **Both location actions stay** (owner: "beides benoetigen wir, du
+   entscheidest, wohin die aufrufe hinkommen"). "Set location…" keeps its
+   place in the selection bar; the dialog it opens gains "Remove location" as
+   a destructive secondary action, so everything about a photo's location is
+   in one dialog instead of an eighth button in the bar.
+
+#### The open questions those decisions answered
+
+1. **"Clear cache for selection" disappears.** Settings already has a global
+   "Clear cache"; a per-selection variant is a maintenance action hidden in a
+   menu, used to work around a stale preview. Dropping it removes a capability
+   — say so if you use it, and it becomes a quiet button in the page head
+   instead.
+2. **"Remove location" has no entry point at all right now.** Phase 5 moved
+   the selection actions into the bar and took the Tools dropdown's
+   Geolocation section (Set / Remove) with it, but only "Set location…" was
+   put back. The handler and `POST /api/remove-location` are untouched, so
+   this is a UI regression introduced by that phase, not a lost feature.
+   Proposal: everything about a photo's location belongs in one dialog, so
+   the Set location dialog gets "Remove location" as a destructive secondary
+   action, rather than an eighth button in the bar. The alternative is a
+   separate "Remove location" entry in the selection bar.
+
 ### Libraries overview (`scrLibs`, note `libs`)
 
 - **One row per library, the whole row clickable.** No orange "Open" button;
