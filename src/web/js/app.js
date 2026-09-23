@@ -41,25 +41,7 @@ const App = {
 
         this.viewer = new Viewer(document.getElementById('app'));
 
-        document.getElementById('mode-browse').addEventListener('click', () => this.setMode('browse'));
-        document.getElementById('mode-commander').addEventListener('click', () => this.setMode('commander'));
-        document.getElementById('mode-wastebin').addEventListener('click', () => this.setMode('wastebin'));
-        document.getElementById('mode-library').addEventListener('click', () => this.setMode('library'));
-        document.getElementById('mode-library-create').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.setMode('library');
-            if (this._libraryTab) this._libraryTab._showCreateDialog();
-        });
-        document.getElementById('mode-published').addEventListener('click', () => {
-            if (this._publishedPane) this._publishedPane.setFilterChannel(null);
-            this.setMode('published');
-        });
-
-        document.getElementById('mode-browse').title = `Select (1)`;
-        document.getElementById('mode-wastebin').title = `Review (2)`;
-        document.getElementById('mode-commander').title = `Organize (3)`;
-        document.getElementById('mode-library').title = `Libraries (4)`;
-        document.getElementById('mode-published').title = `Published (5)`;
+        this.initNav();
 
         this.keyboard.attach();
         this.theme.init();
@@ -75,10 +57,108 @@ const App = {
             this.config = cfg;
             this.toolsStatus = tools;
             this.currentBrowsePath = cfg.startPath || '';
-            this.setMode('browse');
+            this.setMode(this._modeFromHash(), { replaceHistory: true });
         }).catch(() => {
-            this.setMode('browse');
+            this.setMode(this._modeFromHash(), { replaceHistory: true });
         });
+    },
+
+    // —— Navigation: places, not steps (ADR-0028) ——
+    //
+    // Every place has an address, so the back button, deep links and
+    // "open in a new tab" all work. The nav entries are real links; the
+    // click handler only exists to avoid a reload.
+
+    NAV: {
+        browse: { hash: 'folders', id: 'mode-browse', key: '1' },
+        wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
+        commander: { hash: 'organize', id: 'mode-commander', key: '3' },
+        library: { hash: 'libraries', id: 'mode-library', key: '4' },
+        published: { hash: 'published', id: 'mode-published', key: '5' },
+    },
+
+    initNav() {
+        for (const [mode, place] of Object.entries(this.NAV)) {
+            const el = document.getElementById(place.id);
+            if (!el) continue;
+            el.title = `${el.querySelector('.nav-text').textContent} (${place.key})`;
+            el.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
+                e.preventDefault();
+                if (mode === 'published' && this._publishedPane) this._publishedPane.setFilterChannel(null);
+                this.setMode(mode);
+            });
+        }
+
+        window.addEventListener('popstate', () => this.setMode(this._modeFromHash(), { fromHistory: true }));
+
+        const collapseBtn = document.getElementById('sidebar-collapse');
+        collapseBtn.addEventListener('click', () => this.toggleSidebar());
+        this._applySidebarState(localStorage.getItem('sidebar-collapsed') === '1');
+    },
+
+    _modeFromHash() {
+        const hash = location.hash.replace(/^#/, '');
+        const entry = Object.entries(this.NAV).find(([, place]) => place.hash === hash);
+        return entry ? entry[0] : 'browse';
+    },
+
+    toggleSidebar() {
+        const collapsed = !document.querySelector('.shell').classList.contains('sidebar-collapsed');
+        this._applySidebarState(collapsed);
+        localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0');
+        // The justified layout measures its container, so it has to re-pack.
+        if (this.browsePane && this.browsePane.view === 'justified') {
+            this.browsePane._justifiedRenderer.scheduleRelayout();
+        }
+    },
+
+    _applySidebarState(collapsed) {
+        document.querySelector('.shell').classList.toggle('sidebar-collapsed', collapsed);
+        const btn = document.getElementById('sidebar-collapse');
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        btn.title = `${collapsed ? 'Expand' : 'Collapse'} sidebar (\\)`;
+        btn.querySelector('.collapse-chevron').setAttribute('d', collapsed ? 'M8.5 6l2 2-2 2' : 'M11 6l-2 2 2 2');
+    },
+
+    // One sub-entry per library, so a library is one click away from anywhere.
+    async _renderLibraryNav() {
+        const wrap = document.getElementById('nav-libraries');
+        if (!wrap) return;
+        let libs = [];
+        try {
+            libs = await LibraryAPI.list();
+        } catch {
+            wrap.innerHTML = '';
+            return;
+        }
+        wrap.innerHTML = libs.map(lib => `
+            <a class="nav-item nav-sub" href="#libraries" data-library-id="${lib.id}" title="${escapeHtml(lib.name)}">
+                <span class="nav-text">${escapeHtml(lib.name)}</span>
+            </a>`).join('');
+        for (const el of wrap.querySelectorAll('[data-library-id]')) {
+            el.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                this.openLibrary(el.dataset.libraryId);
+            });
+        }
+        this._markCurrentLibraryNav();
+    },
+
+    openLibrary(libraryId) {
+        this.setMode('library');
+        if (this._libraryTab) this._libraryTab.openLibraryById(libraryId);
+    },
+
+    _markCurrentLibraryNav() {
+        const currentId = this._libraryTab?.currentLibrary?.id;
+        for (const el of document.querySelectorAll('#nav-libraries [data-library-id]')) {
+            const isCurrent = this.mode === 'library' && el.dataset.libraryId === String(currentId ?? '');
+            el.toggleAttribute('aria-current', isCurrent);
+            if (isCurrent) el.setAttribute('aria-current', 'page');
+        }
     },
 
     _initUIVisibility() {
@@ -169,7 +249,7 @@ const App = {
         });
     },
 
-    setMode(mode) {
+    setMode(mode, { fromHistory = false, replaceHistory = false } = {}) {
         if (this.viewer) {
             this.viewer.close();
             this.viewer = null;
@@ -183,24 +263,18 @@ const App = {
 
         this.mode = mode;
 
-        const stepOrder = { browse: 0, wastebin: 1, commander: 2, library: 3, published: 4 };
-        const prevIdx = stepOrder[prevMode] ?? 0;
-        const currIdx = stepOrder[mode];
+        // Mark where we are. There is no "done" or "next" — these are places.
+        for (const [navMode, place] of Object.entries(this.NAV)) {
+            const el = document.getElementById(place.id);
+            if (!el) continue;
+            if (navMode === mode) el.setAttribute('aria-current', 'page');
+            else el.removeAttribute('aria-current');
+        }
 
-        const steps = [
-            { el: document.getElementById('mode-browse'), idx: 0 },
-            { el: document.getElementById('mode-wastebin'), idx: 1 },
-            { el: document.getElementById('mode-commander'), idx: 2 },
-            { el: document.getElementById('mode-library'), idx: 3 },
-            { el: document.getElementById('mode-published'), idx: 4 },
-        ];
-        for (const step of steps) {
-            step.el.classList.remove('active', 'completed');
-            if (step.idx === currIdx) {
-                step.el.classList.add('active');
-            } else if (step.idx < currIdx) {
-                step.el.classList.add('completed');
-            }
+        const hash = '#' + this.NAV[mode].hash;
+        if (!fromHistory && location.hash !== hash) {
+            if (replaceHistory) history.replaceState(null, '', hash);
+            else history.pushState(null, '', hash);
         }
 
         const appEl = document.getElementById('app');
@@ -295,17 +369,7 @@ const App = {
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
         if (this._publishedEl) this._publishedEl.style.display = mode === 'published' ? '' : 'none';
 
-        const activeEl = mode === 'browse' ? this._browseEl :
-                         mode === 'commander' ? this._commanderEl :
-                         mode === 'library' ? this._libraryEl :
-                         mode === 'published' ? this._publishedEl : this._wastebinEl;
-        if (activeEl && prevMode !== mode) {
-            const cls = currIdx > prevIdx ? 'mode-enter-right' : 'mode-enter-left';
-            activeEl.classList.remove('mode-enter-right', 'mode-enter-left');
-            void activeEl.offsetWidth;
-            activeEl.classList.add(cls);
-            activeEl.addEventListener('animationend', () => activeEl.classList.remove(cls), { once: true });
-        }
+        this._markCurrentLibraryNav();
     },
 
     _refreshPanes() {
@@ -449,15 +513,10 @@ const App = {
         }
     },
 
+    // Libraries stays visible even with none configured: it is the only place
+    // where the first one gets created. Only the per-library entries come and go.
     async _updateLibraryButton() {
-        const btn = document.getElementById('mode-library');
-        if (!btn) return;
-        try {
-            const libs = await LibraryAPI.list();
-            btn.style.display = libs.length === 0 ? 'none' : '';
-        } catch {
-            btn.style.display = 'none';
-        }
+        this._renderLibraryNav();
     },
 
     refreshLibraryVisibility() {

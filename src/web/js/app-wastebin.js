@@ -113,7 +113,7 @@ class Wastebin {
         const items = Array.from(this._items.entries());
 
         if (items.length === 0) {
-            containerEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos marked yet for deletion. Use the "Select" or "Organize view to do so."</div></div>';
+            containerEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos are marked for deletion. Mark them in Folders or Organize with Backspace.</div></div>';
             return;
         }
 

@@ -1,12 +1,18 @@
 import { expect } from '@playwright/test';
 
 // Waits for the App initialization Promise.all (API.config + API.toolsCheck) to
-// complete.  The init sequence ends with setMode('browse'), which creates the
-// .browse-layout div.  Without this guard, clicking #mode-library in a beforeEach
-// can race with the deferred setMode('browse') call and switch back to browse mode.
+// complete.  The init sequence ends with setMode(<place from the hash>), which
+// marks that place with aria-current and renders it into #app.  Without this
+// guard, clicking #mode-library in a beforeEach can race with the deferred
+// setMode call and switch back.
+//
+// Do not wait for .browse-layout here: since ADR-0028 a reload or a deep link
+// (#libraries, #organize, …) legitimately starts in another place, and browse
+// is then never rendered.
 export async function waitForAppReady(page) {
   await page.waitForFunction(
-    () => document.querySelector('.browse-layout') !== null,
+    () => document.querySelector('.nav-item[aria-current="page"]') !== null
+          && document.querySelector('#app > *') !== null,
     { timeout: 15_000 },
   );
 }

@@ -10,7 +10,7 @@ test.describe('Browse', () => {
 
   test('page title and initial state', async ({ page }) => {
     await expect(page).toHaveTitle('Unterlumen');
-    await expect(page.locator('#mode-browse')).toHaveClass(/active/);
+    await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.breadcrumb')).toBeVisible();
     await expect(page.locator('.status-bar')).toBeVisible();
   });
