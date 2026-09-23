@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=20">
     <link href="/css/vendor/maplibre-gl.css?v=1" rel="stylesheet" />
     <script src="/js/vendor/maplibre-gl.js?v=1"></script>
 </head>
@@ -127,6 +127,34 @@
             </div>
         </nav>
         <main id="app"></main>
+        <div class="desk-only-notice">
+            <h2>This is desktop work</h2>
+            <p>Culling, organising and publishing change files and settings, which is not something to do on a phone. Open Unterlumen on your computer for this.</p>
+            <p>On a phone you can browse your libraries and folders, look at photos and their metadata, and see how your galleries are doing.</p>
+            <a class="btn btn-accent" href="#folders" data-mode="browse">Go to Folders</a>
+        </div>
+        <!-- Phone: the same places, reachable with a thumb. Same hrefs as the
+             sidebar, so back and deep links behave identically. -->
+        <nav class="tabbar" aria-label="Main">
+            <a class="tabbar-item" id="tab-library" href="#libraries" data-mode="library">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 6h13M5.5 6v7.5"/>
+                </svg>
+                <span>Libraries</span>
+            </a>
+            <a class="tabbar-item" id="tab-browse" href="#folders" data-mode="browse">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M1.5 4.5v8h13v-7H7.5L6 4H1.5z"/>
+                </svg>
+                <span>Folders</span>
+            </a>
+            <a class="tabbar-item" id="tab-published" href="#galleries" data-mode="published">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 11l4-4 3 3 2-2 4 4"/>
+                </svg>
+                <span>Galleries</span>
+            </a>
+        </nav>
     </div>
 
     <div id="ui-hint" class="ui-hint"></div>
@@ -142,7 +170,7 @@
     <script src="/js/browse.js?v=6"></script>
     <script src="/js/crop-tool.js?v=4"></script>
     <script src="/js/zoom-tool.js?v=4"></script>
-    <script src="/js/viewer.js?v=4"></script>
+    <script src="/js/viewer.js?v=5"></script>
     <script src="/js/exif-labels.js?v=1"></script>
     <script src="/js/infopanel.js?v=7"></script>
     <script src="/js/progress-dialog.js?v=4"></script>
@@ -170,6 +198,6 @@
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=4"></script>
     <script src="/js/app-keyboard.js?v=4"></script>
-    <script src="/js/app.js?v=6"></script>
+    <script src="/js/app.js?v=7"></script>
 </body>
 </html>

@@ -1,5 +1,8 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
+// The places a phone is for: looking at photos and seeing where they went.
+const PHONE_PLACES = new Set(['browse', 'library', 'published']);
+
 const App = {
     mode: 'browse',
     locationModal: null,
@@ -90,6 +93,17 @@ const App = {
                 e.preventDefault();
                 if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
                 this.setMode(mode);
+            });
+        }
+
+        // The phone's tab bar, and any other link that names a place, point at
+        // the same places as the sidebar. A hash link on its own would not
+        // fire popstate, so the app would stay where it is.
+        for (const el of document.querySelectorAll('.tabbar-item, .desk-only-notice a[data-mode]')) {
+            el.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                this.setMode(el.dataset.mode);
             });
         }
 
@@ -273,6 +287,13 @@ const App = {
             if (navMode === mode) el.setAttribute('aria-current', 'page');
             else el.removeAttribute('aria-current');
         }
+        for (const el of document.querySelectorAll('.tabbar-item')) {
+            if (el.dataset.mode === mode) el.setAttribute('aria-current', 'page');
+            else el.removeAttribute('aria-current');
+        }
+        // A phone browses; it does not cull, organise or configure. Those
+        // places say so rather than showing controls that cannot work there.
+        document.body.classList.toggle('desk-only-place', !PHONE_PLACES.has(mode));
 
         const hash = '#' + this.NAV[mode].hash;
         if (!fromHistory && location.hash !== hash) {

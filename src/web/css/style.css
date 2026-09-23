@@ -6070,3 +6070,193 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--fg-3);
     background: var(--bg-2);
 }
+
+/* --- Phone: read-only browsing (ADR-0029's phone scope) ---
+ *
+ * A phone is for looking: libraries, folders, statistics, metadata and what a
+ * gallery's state is. Everything that changes files or settings is desktop
+ * work, so it is not shown here rather than shown and refused.
+ */
+
+.tabbar { display: none; }
+
+@media (max-width: 700px) {
+    .sidebar { display: none; }
+
+    .shell,
+    .shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #app {
+        height: calc(100vh - 60px - env(safe-area-inset-bottom, 0px));
+    }
+
+    .tabbar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+        justify-content: space-around;
+        padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+        background: var(--bg);
+        border-top: 1px solid var(--line-strong);
+    }
+
+    .tabbar-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-height: 48px;
+        border-radius: var(--radius-md);
+        color: var(--fg-3);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .tabbar-item[aria-current="page"] { color: var(--fg); }
+
+    .tabbar-item[aria-current="page"] svg {
+        background: var(--fg);
+        color: var(--bg);
+        border-radius: var(--radius-md);
+    }
+
+    .tabbar-item svg {
+        width: 40px;
+        height: 26px;
+        padding: 5px 12px;
+    }
+
+    /* Anything that changes files or settings is desktop work. */
+    .selection-bar,
+    .view-switches,
+    .tools-menu-btn,
+    .slideshow-btn,
+    .gal-row-actions,
+    .gal-detail-primary,
+    .gal-detail-danger,
+    .gal-dest-settings,
+    .lib-card-actions,
+    #lib-new-btn,
+    .desk-only {
+        display: none !important;
+    }
+
+    /* Filter and Statistics stay: they only look at photos. */
+    .library-detail-controls,
+    .library-list-header-actions {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    /* Statistics is a full page here, not a dialog in a corner. */
+    .modal-overlay .modal.stats-modal {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        max-height: none;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .browse-container { padding: 0 var(--space-4); }
+    .browse-header { padding-top: var(--space-3); }
+
+    /* One column of content; the info panel becomes a sheet (see viewer). */
+    .browse-layout > #info-panel-container,
+    .library-detail-body .lib-info-panel-container,
+    .gal-detail-panel { display: none; }
+
+    .gal-detail-body,
+    .split,
+    .split.panel-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
+
+    .gal-head,
+    .gal-body,
+    .dest-pane .gal-body { padding-inline: var(--space-4); }
+
+    .gal-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+    .gal-row-state { align-items: flex-start; }
+
+    /* Denser tiles: a phone screen holds a handful of photos, not a wall. */
+    .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--space-2); }
+    .dir-icon { height: 84px; }
+    .dir-icon svg { width: 32px; height: 26px; }
+    .grid-item .item-name { font-size: 10px; padding: var(--space-1) var(--space-2); }
+
+    /* Two facts fit on a small thumbnail; the rest is in the photo's info. */
+    .overlay-badge:nth-of-type(n+3) { display: none; }
+}
+
+/* A place a phone has no business in says so, instead of showing a screen
+   whose every control is hidden. */
+.desk-only-notice { display: none; }
+
+@media (max-width: 700px) {
+    /* The place itself is not rendered at all here, so nothing of it can
+       scroll into view behind the notice. */
+    body.desk-only-place #app { display: none; }
+
+    body.desk-only-place .desk-only-notice {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        align-items: flex-start;
+        padding: var(--space-8) var(--space-4);
+        /* Clear of the tab bar, so the way out stays tappable. */
+        padding-bottom: calc(var(--space-8) + 60px + env(safe-area-inset-bottom, 0px));
+        max-width: 32rem;
+    }
+
+    .desk-only-notice h2 { font-size: var(--text-lg); }
+    .desk-only-notice p { color: var(--fg-2); }
+}
+
+/* --- Phone viewer: full screen, swipe, info from below --- */
+
+.phone-only { display: none; }
+
+@media (max-width: 700px) {
+    .phone-only { display: revert; }
+
+    .viewer-toolbar { padding: var(--space-2) var(--space-3); gap: var(--space-2); }
+    .viewer-filename { font-size: var(--text-xs); }
+
+    /* The arrows stay for anyone who prefers tapping, but the photo fills
+       the screen and a swipe moves through the set. */
+    .viewer-prev,
+    .viewer-next { opacity: 0.5; }
+
+    .viewer-content { flex-direction: column; }
+
+    /* The info panel becomes a sheet from the bottom, over the photo. */
+    .viewer-info-container:not(:empty) {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 66;
+        max-height: 78%;
+        overflow: auto;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        box-shadow: var(--shadow-float);
+        background: var(--bg);
+    }
+
+    .viewer .info-panel.expanded {
+        width: 100%;
+        max-width: none;
+        border-left: 0;
+        padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Collapsed, the sheet has nothing to show: the Info button reopens it. */
+    .viewer .info-panel.collapsed { display: none; }
+}

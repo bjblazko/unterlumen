@@ -132,6 +132,30 @@ class Viewer {
         }
     }
 
+    // Horizontal swipe moves through the photos; vertical is left to the page
+    // so the info sheet can still be scrolled. A zoomed-in photo is being
+    // panned, not flicked through, so swiping is off then.
+    _attachSwipe(el) {
+        if (!el) return;
+        let startX = 0, startY = 0, tracking = false;
+        el.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) { tracking = false; return; }
+            if (this._zoomTool && this._zoomTool.getCurrentLevel() !== 'fit') { tracking = false; return; }
+            tracking = true;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+        el.addEventListener('touchend', (e) => {
+            if (!tracking) return;
+            tracking = false;
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - startX;
+            const dy = touch.clientY - startY;
+            if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+            this.navigate(dx < 0 ? 1 : -1);
+        }, { passive: true });
+    }
+
     markCurrentForDeletion() {
         if (this.onDelete) this.onDelete(this.currentPath);
 
@@ -220,10 +244,11 @@ class Viewer {
                 <div class="viewer-toolbar">
                     <button class="btn viewer-back" title="Back (Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> Back</button>
                     <span class="viewer-filename">${filename}</span>
-                    <span class="viewer-filmstrip-label">Film strip</span>
-                    <div class="viewer-filmstrip-toggle-wrap" title="Film strip (F)"></div>
+                    <span class="viewer-filmstrip-label desk-only">Film strip</span>
+                    <div class="viewer-filmstrip-toggle-wrap desk-only" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
-                    <div class="viewer-zoom-group">
+                    <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
+                    <div class="viewer-zoom-group desk-only">
                         <button class="btn viewer-zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                         <select class="viewer-zoom-select" title="Zoom level">
                             <option value="fit">Fit</option>
@@ -242,7 +267,7 @@ class Viewer {
                         <button class="btn viewer-zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                         <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
                     </div>
-                    <div class="viewer-action-group">
+                    <div class="viewer-action-group desk-only">
                         <button class="btn viewer-crop-btn" title="Crop">Crop</button>
                         <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
                     </div>
@@ -261,6 +286,7 @@ class Viewer {
         `;
 
         this.container.querySelector('.viewer-back').addEventListener('click', () => this.close());
+        this.container.querySelector('.viewer-info-btn')?.addEventListener('click', () => this.toggleInfo());
 
         const imgEl       = this.container.querySelector('.viewer-image-container img');
         const containerEl = this.container.querySelector('.viewer-image-container');
@@ -281,6 +307,8 @@ class Viewer {
         const nextBtn = this.container.querySelector('.viewer-next');
         if (hasPrev) prevBtn.addEventListener('click', () => this.navigate(-1));
         if (hasNext) nextBtn.addEventListener('click', () => this.navigate(1));
+
+        this._attachSwipe(this.container.querySelector('.viewer-body'));
 
         // Re-append persistent film strip element
         if (this.filmStripEl) {
