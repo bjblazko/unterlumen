@@ -268,7 +268,7 @@ class ChannelSettingsModal {
 
         const statusBtn = row.querySelector('.ch-status-line');
         if (statusBtn) {
-            statusBtn.addEventListener('click', () => { this.close(); App.showPublishedForChannel(ch.slug); });
+            statusBtn.addEventListener('click', () => { this.close(); App.showGalleriesForChannel(ch.slug); });
             this._loadStatusLine(ch, statusBtn);
         }
         return row;

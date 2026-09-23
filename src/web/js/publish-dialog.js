@@ -60,18 +60,23 @@ class PublishDialog {
                 <button class="publish-step-remove" title="Remove from this publish">×</button>
             </div>`).join('');
 
-        const now = new Date();
-        const todayUTC = now.toISOString().slice(0, 10);
-        const dateLabel = this._row.postID ? 'Updated date' : 'Published date';
+        // The date belongs to the gallery, not to this publish run: default to
+        // the date it already carries, so publishing changes does not silently
+        // re-date a gallery (ADR-0029). Only a gallery that has never been
+        // published starts at today.
+        const existing = this._row.postID && this._row.publishedAt ? new Date(this._row.publishedAt) : null;
+        const validExisting = existing && !isNaN(existing) && existing.getFullYear() > 1970 ? existing : null;
+        const dateValue = (validExisting || new Date()).toISOString().slice(0, 10);
+        const dateLabel = this._row.postID ? 'Date shown on the gallery' : 'Published date';
         const dateNote = this._row.postID
-            ? 'Sets the updated date shown on the album. Stored in XMP sidecars on the newly added photos.'
+            ? 'Stays as it is unless you change it here. Stored in XMP sidecars on the newly added photos.'
             : 'Sets album order in the built site and is stored in XMP sidecars.';
 
         body.innerHTML = `
             <p class="form-hint">${draft ? draft.photos.length : 0} photo${(draft?.photos.length ?? 0) !== 1 ? 's' : ''} pending for "${escapeHtml(this._row.title || this._row.channelName)}".</p>
             <div class="publish-step-photos">${photoRows || '<span class="channel-empty">Nothing pending — Generate will just refresh the current gallery.</span>'}</div>
             <label class="form-label">${dateLabel}</label>
-            <input class="form-input" id="pub-date" type="date" value="${todayUTC}">
+            <input class="form-input" id="pub-date" type="date" value="${dateValue}">
             <span class="build-date-note">${dateNote}</span>
             <div class="modal-footer">
                 <button class="btn" id="pub-cancel">Cancel</button>

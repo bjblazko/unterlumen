@@ -110,7 +110,7 @@ async function reopenPublishedTab(page) {
     // it (even when already active) is enough to force a fresh fetch.
     await page.locator('#mode-library').click();
     await page.locator('#mode-published').click();
-    await page.waitForSelector('.pub-gal-table', { timeout: 8_000 });
+    await page.waitForSelector('.gal-pane', { timeout: 8_000 });
 }
 
 test.describe('Publish workflow — collect, draft, generate', () => {
@@ -200,14 +200,13 @@ test.describe('Publish workflow — collect, draft, generate', () => {
 
         // ── 2. Published tab shows the Draft badge ──────────────────────────
         await reopenPublishedTab(page);
-        const row = page.locator('#pub-gal-rows tr', { hasText: galleryTitle });
+        const row = page.locator('.gal-row', { hasText: galleryTitle });
         await expect(row).toBeVisible({ timeout: 5_000 });
-        await expect(row.locator('.pub-gal-status')).toHaveClass(/pub-gal-status--draft/);
-        await expect(row.locator('.pub-gal-status')).toContainText('Draft');
-        await expect(row.locator('.pub-gal-status')).toContainText('2');
+        await expect(row.locator('.gal-state')).toHaveText('Not online yet');
+        await expect(row.locator('.gal-row-sub')).toContainText('2 photos collected');
 
         // ── 3. Open Publish dialog, review pending photos, remove one ───────
-        await row.locator('.pub-gal-publish').click();
+        await row.locator('.gal-row-action').click();
         const publishDlg = page.locator('.publish-dialog');
         await expect(publishDlg).toBeVisible({ timeout: 5_000 });
         await expect(publishDlg.locator('.publish-step-photo')).toHaveCount(2, { timeout: 10_000 });
@@ -235,10 +234,10 @@ test.describe('Publish workflow — collect, draft, generate', () => {
 
         // ── 5. Published tab now shows Generated, not Draft ─────────────────
         await reopenPublishedTab(page);
-        const generatedRow = page.locator('#pub-gal-rows tr', { hasText: galleryTitle });
+        const generatedRow = page.locator('.gal-row', { hasText: galleryTitle });
         await expect(generatedRow).toBeVisible({ timeout: 5_000 });
-        await expect(generatedRow.locator('.pub-gal-status')).not.toHaveClass(/pub-gal-status--draft/);
-        await expect(generatedRow.locator('.pub-gal-status')).toContainText('Generated');
+        await expect(generatedRow.locator('.gal-state')).not.toHaveText('Not online yet');
+        await expect(generatedRow.locator('.gal-state')).toHaveText(/Online|Built/);
 
         // ── 6. Info Panel now shows the photo as published, not pending ────
         await openLibraryDetail(page);
@@ -270,5 +269,32 @@ test.describe('Publish workflow — collect, draft, generate', () => {
             isSite: true,
             photoOffset: 2,
         });
+    });
+
+    // The date belongs to the gallery, not to the publish run. The dialog used
+    // to default to today, so refreshing a gallery silently re-dated it
+    // (ADR-0029).
+    test('publishing again keeps the date the gallery already carries', async ({ page, request }) => {
+        const rows = await (await request.get('/api/channels/galleries')).json();
+        const published = rows.find(r => r.channelSlug === GALLERY_SLUG && r.status !== 'draft');
+        expect(published, 'the GalleryExport test above must have published one gallery').toBeTruthy();
+
+        const existing = new Date(published.publishedAt);
+        const existingValue = existing.toISOString().slice(0, 10);
+        const today = new Date().toISOString().slice(0, 10);
+
+        await page.goto('/');
+        await waitForAppReady(page);
+        await reopenPublishedTab(page);
+        await page.locator(`.gal-row[data-postid="${published.postID}"]`).click();
+        await page.locator('.gal-detail-primary .gal-row-action').click();
+
+        const dateInput = page.locator('#pub-date');
+        await expect(dateInput).toBeVisible({ timeout: 5_000 });
+        await expect(dateInput).toHaveValue(existingValue);
+        if (existingValue !== today) {
+            await expect(dateInput).not.toHaveValue(today);
+        }
+        await page.locator('#pub-cancel').click();
     });
 });

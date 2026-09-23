@@ -14,7 +14,7 @@ test.describe('Navigation — places, not steps', () => {
   test('nav entries are links with an address, not buttons', async ({ page }) => {
     for (const [id, hash] of [['mode-browse', '#folders'], ['mode-wastebin', '#marked'],
                               ['mode-commander', '#organize'], ['mode-library', '#libraries'],
-                              ['mode-published', '#published']]) {
+                              ['mode-published', '#galleries']]) {
       const el = page.locator(`#${id}`);
       await expect(el).toHaveJSProperty('tagName', 'A');
       expect(await el.getAttribute('href')).toBe(hash);
@@ -43,7 +43,7 @@ test.describe('Navigation — places, not steps', () => {
     await page.locator('#mode-wastebin').click();
     await expect(page).toHaveURL(/#marked$/);
     await page.locator('#mode-published').click();
-    await expect(page).toHaveURL(/#published$/);
+    await expect(page).toHaveURL(/#galleries$/);
     await page.goBack();
     await expect(page).toHaveURL(/#marked$/);
     await expect(page.locator('#mode-wastebin')).toHaveAttribute('aria-current', 'page');

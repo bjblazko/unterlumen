@@ -19,8 +19,8 @@ const App = {
     _wastebinEl: null,
     _libraryEl: null,
     _libraryTab: null,
-    _publishedEl: null,
-    _publishedPane: null,
+    _galleriesEl: null,
+    _galleriesPane: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -74,7 +74,7 @@ const App = {
         wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
         commander: { hash: 'organize', id: 'mode-commander', key: '3' },
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
-        published: { hash: 'published', id: 'mode-published', key: '5' },
+        published: { hash: 'galleries', id: 'mode-published', key: '5' },
     },
 
     initNav() {
@@ -85,7 +85,7 @@ const App = {
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
                 e.preventDefault();
-                if (mode === 'published' && this._publishedPane) this._publishedPane.setFilterChannel(null);
+                if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
                 this.setMode(mode);
             });
         }
@@ -354,20 +354,20 @@ const App = {
         }
 
         if (mode === 'published') {
-            if (!this._publishedEl) {
-                this._publishedEl = document.createElement('div');
-                this._publishedEl.style.height = '100%';
-                appEl.appendChild(this._publishedEl);
-                this._publishedPane = new PublishedGalleriesPane(this._publishedEl);
+            if (!this._galleriesEl) {
+                this._galleriesEl = document.createElement('div');
+                this._galleriesEl.style.height = '100%';
+                appEl.appendChild(this._galleriesEl);
+                this._galleriesPane = new GalleriesPane(this._galleriesEl);
             }
-            this._publishedPane.render();
+            this._galleriesPane.render();
         }
 
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
         if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
-        if (this._publishedEl) this._publishedEl.style.display = mode === 'published' ? '' : 'none';
+        if (this._galleriesEl) this._galleriesEl.style.display = mode === 'published' ? '' : 'none';
 
         this._markCurrentLibraryNav();
     },
@@ -380,13 +380,13 @@ const App = {
         }
     },
 
-    // Switches to the Published tab pre-filtered to one channel — used by the
-    // channels list's "View in Published" link.
-    showPublishedForChannel(channelSlug) {
+    // Opens Galleries filtered to one destination — used by the channels
+    // list's status link.
+    showGalleriesForChannel(channelSlug) {
         this.setMode('published');
-        if (this._publishedPane) {
-            this._publishedPane.setFilterChannel(channelSlug);
-            this._publishedPane._load();
+        if (this._galleriesPane) {
+            this._galleriesPane.setFilterChannel(channelSlug);
+            this._galleriesPane._load();
         }
     },
 

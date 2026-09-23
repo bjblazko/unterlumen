@@ -154,12 +154,15 @@ point.
 - [x] Phase 2: navigation. Sidebar with groups; entries are `<a href>` with
       `aria-current`. The sidebar and info panel collapse. Chevrons and the
       slide animation are removed. e2e selectors `#mode-*` keep working.
-- [ ] Phase 3: Galleries.
+- [x] Phase 3: Galleries.
   - The Published tab becomes Galleries, grouped by destination.
   - It uses the new status labels and contextual row actions.
   - A gallery detail view covers pending photos, title, date, visibility
     toggle (ADR-0019) and unpublish.
   - The date bug is fixed.
+  - "Built, not uploaded" and "Exported to folder" wait for phase 4: both
+    need per-gallery `generatedAt`/`deployedAt` in the statefiles. Until
+    then a built gallery with no address says exactly that.
 - [ ] Phase 4: publish as one action.
   - Generate, then (rsync) deploy, then the reachability check for that URL.
   - Progress comes from `buildStream` events.

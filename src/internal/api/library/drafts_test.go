@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
@@ -160,4 +162,114 @@ func TestRemoveDraftPhoto_PartialThenFinal(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d after removing last photo", rec.Code)
 	}
+}
+
+// Discarding a draft must take its photos' pending markers with it. Without
+// that, the Info Panel and the tag-chip filters keep claiming the photos are
+// collected into a gallery that no longer exists — the "app says X, disk says
+// Y" bug class (ADR-0026's pending:<slug> markers).
+func TestDeleteDraft_ClearsPendingMarkers(t *testing.T) {
+	mux, mgr, draftStore := setupDraftTestMux(t)
+	libID := seedLibraryPhotos(t, mgr, "p1", "p2")
+	body, _ := json.Marshal(map[string]any{"photoIDs": []string{"p1", "p2"}, "title": "Summer 2026"})
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/library/"+libID+"/channels/website/drafts", bytes.NewReader(body)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("collect status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	drafts, _ := draftStore.List("website")
+	draftID := drafts[0].ID
+
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	if !hasPendingKey(t, store, "p1", "website") {
+		t.Fatal("collect did not write a pending marker — test cannot prove anything")
+	}
+
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/channels/website/drafts/"+draftID, nil))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	for _, id := range []string{"p1", "p2"} {
+		if hasPendingKey(t, store, id, "website") {
+			t.Errorf("photo %s still carries a pending marker after the draft was discarded", id)
+		}
+	}
+}
+
+// Removing one photo from a draft clears that photo's markers and leaves the
+// rest of the draft alone.
+func TestRemoveDraftPhoto_ClearsPendingMarkersForThatPhotoOnly(t *testing.T) {
+	mux, mgr, draftStore := setupDraftTestMux(t)
+	libID := seedLibraryPhotos(t, mgr, "p1", "p2")
+	body, _ := json.Marshal(map[string]any{"photoIDs": []string{"p1", "p2"}, "title": "Summer 2026"})
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/library/"+libID+"/channels/website/drafts", bytes.NewReader(body)))
+	drafts, _ := draftStore.List("website")
+	draftID := drafts[0].ID
+
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/channels/website/drafts/"+draftID+"/photos/"+libID+"/p1", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("remove status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if hasPendingKey(t, store, "p1", "website") {
+		t.Error("the removed photo still carries a pending marker")
+	}
+	if !hasPendingKey(t, store, "p2", "website") {
+		t.Error("the photo still in the draft lost its pending marker")
+	}
+}
+
+func hasPendingKey(t *testing.T, store *lib.Store, photoID, slug string) bool {
+	t.Helper()
+	entries, err := store.GetMeta(photoID)
+	if err != nil {
+		t.Fatalf("GetMeta(%s): %v", photoID, err)
+	}
+	for _, e := range entries {
+		if e.Key == "pending:"+slug || e.Key == "pending:"+slug+":" {
+			return true
+		}
+		if len(e.Key) > len("pending:"+slug) && e.Key[:len("pending:"+slug)+1] == "pending:"+slug+":" {
+			return true
+		}
+	}
+	return false
+}
+
+// seedLibraryPhotos creates a library holding real photo rows, which meta rows
+// hang off — UpsertMeta on an unknown photo id writes nothing.
+func seedLibraryPhotos(t *testing.T, mgr *lib.Manager, photoIDs ...string) (libID string) {
+	t.Helper()
+	source := t.TempDir()
+	l, err := mgr.CreateLibrary("Test", "", source)
+	if err != nil {
+		t.Fatalf("CreateLibrary: %v", err)
+	}
+	store, err := mgr.OpenStore(l.ID)
+	if err != nil {
+		t.Fatalf("OpenStore: %v", err)
+	}
+	defer store.Close()
+	for _, id := range photoIDs {
+		realPath := filepath.Join(source, id+".jpg")
+		writeTestJPEG(t, realPath, 40, 30)
+		if err := store.UpsertPhoto(id, realPath, id+".jpg", 4, time.Now(), "{}", "", "", "jpeg"); err != nil {
+			t.Fatalf("UpsertPhoto(%s): %v", id, err)
+		}
+	}
+	return l.ID
 }
