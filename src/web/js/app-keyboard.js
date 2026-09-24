@@ -330,6 +330,7 @@ class GlobalKeyboard {
             else if (e.key === '4') { e.preventDefault(); app.setMode('library'); }
             else if (e.key === '5') { e.preventDefault(); app.setMode('published'); }
             else if (e.key === '6') { e.preventDefault(); app.setMode('destinations'); }
+            else if (e.key === ',') { e.preventDefault(); app.setMode('settings'); }
         }
 
         // H: toggle UI visibility

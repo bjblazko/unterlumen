@@ -292,14 +292,25 @@ class GalleriesPane {
                     <span class="gal-row-title">${escapeHtml(row.title || '(untitled)')}</span>
                     <span class="gal-row-sub">${escapeHtml(sub)}${row.unlisted && row.galleryExport ? ' · hidden from search' : ''}</span>
                 </span>
-                <span class="gal-row-state">
-                    <span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>
-                    ${this._checkHTML(row)}
-                </span>
+                <span class="gal-row-state">${this._stateHTML(row, state)}</span>
                 <span class="gal-row-actions">
                     ${action ? `<button class="btn btn-sm gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button>` : ''}
                 </span>
             </div>`;
+    }
+
+    // "Online" means uploaded and answering. When the last check found
+    // nothing at the address, saying both would be two answers to one
+    // question, so the check result replaces the claim; in every other state
+    // it is shown beside it, because a gallery can be "Changes not online"
+    // and unreachable at the same time.
+    _stateHTML(row, state) {
+        const check = this._checks.get(row.rowKey);
+        const unreachable = check && check.reachable === false;
+        const pill = (unreachable && state.key === 'online')
+            ? ''
+            : `<span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>`;
+        return pill + this._checkHTML(row);
     }
 
     // The link check is a result about the state, never a state of its own.
@@ -360,8 +371,7 @@ class GalleriesPane {
         if (!row || !rowEl) return;
         const channel = this._channelBySlug(row.channelSlug);
         const state = galleryState(row, channel);
-        rowEl.querySelector('.gal-row-state').innerHTML =
-            `<span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>${this._checkHTML(row)}`;
+        rowEl.querySelector('.gal-row-state').innerHTML = this._stateHTML(row, state);
         const action = galleryAction(row, this._checks.get(rowKey), channel);
         rowEl.querySelector('.gal-row-actions').innerHTML = action
             ? `<button class="btn btn-sm gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(rowKey)}">${escapeHtml(action.label)}</button>`
@@ -411,11 +421,11 @@ class GalleriesPane {
                     <div class="gal-detail-main">
                         <div class="gal-detail-title-row">
                             <h1 class="gal-title">${escapeHtml(row.title || '(untitled)')}</h1>
-                            <span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>
+                            ${this._stateHTML(row, state)}
                         </div>
                         <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
                         ${action
-                            ? `<div class="gal-detail-primary"><button class="btn btn-accent gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button></div>`
+                            ? `<div class="gal-detail-primary"><button class="btn${action.act === 'publish' ? ' btn-accent' : ''} gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button></div>`
                             : `<div class="gal-detail-primary">
                                    <button class="btn btn-sm gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>
                                    <span class="form-hint">Nothing is waiting. Publishing again rebuilds this gallery — needed only after a theme or format change.</span>

@@ -66,8 +66,17 @@ class BrowsePane {
             if (item.dataset.type === 'dir') {
                 this.keyboard.focusedIndex = idx;
                 this.keyboard.updateFocusClass();
-                this._notifyFocusChange();
                 const fp = this.fullPath(item.dataset.name);
+                // A folder chip is a button: one click goes there. Holding the
+                // modifier selects it instead, which is also how you read a
+                // folder's info without leaving where you are. Folder tiles in
+                // the list view keep the old select-then-open behaviour.
+                if (item.classList.contains('folder-chip') && !(e.ctrlKey || e.metaKey)) {
+                    this.load(fp);
+                    if (this.onNavigate) this.onNavigate(fp);
+                    return;
+                }
+                this._notifyFocusChange();
                 if (e.ctrlKey || e.metaKey) {
                     if (this.selectedDirs.has(fp)) this.selectedDirs.delete(fp);
                     else this.selectedDirs.add(fp);
@@ -279,6 +288,7 @@ class BrowsePane {
 
     updateSelectionClasses() {
         this.selection.updateClasses(this.container);
+        this._updateFolderToolButtons();
     }
 
     async notifyFilesChanged() {
@@ -323,6 +333,7 @@ class BrowsePane {
         header.push(this._renderControls());
 
         const content = [];
+        if (!this._loading && this.entries.length > 0) content.push(this._renderFolderTitle());
         if (this._loading) {
             content.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
         } else if (this.entries.length === 0) {
@@ -351,6 +362,24 @@ class BrowsePane {
             this._resizeHandler = () => this._justifiedRenderer.scheduleRelayout();
             window.addEventListener('resize', this._resizeHandler);
         }
+    }
+
+    // The folder's name, and what is in it. The counts are what the pane
+    // already knows; nothing is fetched for this.
+    _renderFolderTitle() {
+        const name = this.path ? this.path.split('/').filter(Boolean).pop() : 'Root';
+        const images = this.getImageEntries().length;
+        const dirs = this.entries.filter(e => e.type === 'dir').length;
+        const bytes = this.entries.reduce((sum, e) => sum + (e.size || 0), 0);
+        const parts = [
+            `${images} photo${images !== 1 ? 's' : ''}`,
+            dirs > 0 ? `${dirs} folder${dirs !== 1 ? 's' : ''}` : null,
+            bytes > 0 ? formatSize(bytes) : null,
+        ].filter(Boolean);
+        return `<div class="folder-title">
+            <h1>${escapeHtml(name)}</h1>
+            <span class="folder-title-meta">${parts.join(' · ')}</span>
+        </div>`;
     }
 
     _renderChunk(start, end) {
@@ -394,93 +423,39 @@ class BrowsePane {
             ? `${imageCount} images · ${selectedCount} selected`
             : `${imageCount} images`;
 
+        const libraryMode = App.mode === 'library';
         return `<div class="controls">
             <div class="controls-left">
-            <div class="dropdown-wrap">
-                <button class="btn btn-sm dropdown-btn view-menu-btn" title="View options">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="3.5" x2="12" y2="3.5"/><line x1="2" y1="7" x2="12" y2="7"/><line x1="2" y1="10.5" x2="12" y2="10.5"/><circle cx="5" cy="3.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="9" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="10.5" r="1.5" fill="currentColor" stroke="none"/></svg>
-                    View
-                    <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
-                </button>
-                <div class="dropdown-menu view-menu" style="display:none">
-                    <div class="dropdown-section">
-                        <label class="dropdown-label">Layout</label>
-                        <div class="dropdown-toggle">
-                            <button class="btn btn-sm ${this.view === 'grid' ? 'active' : ''}" data-view="grid">Grid</button>
-                            <button class="btn btn-sm ${this.view === 'justified' ? 'active' : ''}" data-view="justified">Justified</button>
-                            <button class="btn btn-sm ${this.view === 'list' ? 'active' : ''}" data-view="list">List</button>
-                        </div>
-                    </div>
-                    <div class="dropdown-section">
-                        <label class="dropdown-label">Sort</label>
-                        <select class="sort-field">
-                            <option value="name" ${this.sort === 'name' ? 'selected' : ''}>Name</option>
-                            <option value="date" ${this.sort === 'date' ? 'selected' : ''}>File Modified</option>
-                            <option value="taken" ${this.sort === 'taken' ? 'selected' : ''}>Photo Taken</option>
-                            <option value="size" ${this.sort === 'size' ? 'selected' : ''}>Size</option>
-                        </select>
-                        <button class="btn btn-sm sort-order" title="Toggle order">${this.order === 'asc' ? '↑' : '↓'}</button>
-                    </div>
-                </div>
+            <!-- The layout is a view you switch while looking at photos, so
+                 it is a visible control rather than an entry in a menu. -->
+            <div class="seg" role="group" aria-label="Layout">
+                ${['justified', 'grid', 'list'].map(v => `
+                    <button aria-pressed="${this.view === v}" data-view="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
             </div>
-            <div class="dropdown-wrap">
-                <button class="btn btn-sm dropdown-btn tools-menu-btn" title="Tools">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 1.5l4 4-7.5 7.5H1v-4z"/><path d="M7 3l4 4"/></svg>
-                    Tools
-                    <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>
-                </button>
-                <div class="dropdown-menu tools-menu" style="display:none">
-                    <div class="tools-menu-items">
-                        <!-- Actions on a selection (rename, export, location)
-                             live in the selection bar; what is left here acts
-                             on the folder or the library. -->
-                        <div class="dropdown-section tools-library-section" style="display:none">
-                            <label class="dropdown-label">Library</label>
-                            <div class="dropdown-toggle">
-                                <button class="btn btn-sm tool-item" data-tool="make-library">Make library</button>
-                            </div>
-                        </div>
-                        <div class="dropdown-section tools-cache-section">
-                            <label class="dropdown-label tools-cache-label">Cache</label>
-                            <div class="dropdown-toggle">
-                                <button class="btn btn-sm tool-item" data-tool="clear-cache">Clear cache for selection</button>
-                            </div>
-                        </div>
-                        <div class="dropdown-section tools-lib-scan-section" style="display:none">
-                            <label class="dropdown-label">Library</label>
-                            <div class="dropdown-wrap lib-scan-tools-wrap">
-                                <div class="dropdown-toggle">
-                                    <button class="btn btn-sm tool-item" data-tool="lib-scan-new">Scan for new photos</button>
-                                    <button class="btn btn-sm lib-scan-tools-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
-                                </div>
-                                <div class="dropdown-menu lib-scan-tools-menu" style="display:none">
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-reindex">Rebuild metadata &amp; previews</button>
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-regen-missing">Generate missing previews</button>
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-rebuild-all">Rebuild all previews</button>
-                                    <button class="btn dropdown-item tool-item" data-tool="lib-cleanup">Remove deleted photos</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <select class="btn btn-sm select-btn sort-field" aria-label="Sort photos">
+                ${[['taken', 'Photo taken'], ['name', 'Name'], ['date', 'File modified'], ['size', 'Size']].map(([v, label]) => `
+                    <option value="${v}" ${this.sort === v ? 'selected' : ''}>${label}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm sort-order" title="${this.order === 'asc' ? 'Sorting oldest first' : 'Sorting newest first'}" aria-label="Reverse the order">${this.order === 'asc' ? '↑' : '↓'}</button>
             <div class="view-switches">
-                <span class="view-switch">
+                <span class="view-switch view-switch--names">
                     <span class="view-switch-label">Names</span>
                     <span class="toggle-names-wrap"></span>
                 </span>
-                <span class="view-switch">
+                <span class="view-switch view-switch--details">
                     <span class="view-switch-label">Details</span>
                     <span class="toggle-overlays-wrap"></span>
                 </span>
             </div>
-            <button class="btn btn-sm dropdown-btn slideshow-btn" ${imageCount === 0 ? 'disabled' : ''} title="Slideshow">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polygon points="3,2 12,7 3,12" fill="currentColor" stroke="none"/>
-                    <line x1="1" y1="2" x2="1" y2="12"/>
-                </svg>
-                Slideshow
-            </button>
+            <button class="btn btn-sm slideshow-btn"${imageCount === 0 ? ' disabled title="This folder holds no photos"' : ' title="Slideshow"'}>Slideshow</button>
+            <!-- What used to be the Tools dropdown: each entry acts on the
+                 folder or the library, and says so on its own button. -->
+            <button class="btn btn-sm folder-tool make-library-btn" data-tool="make-library" style="display:none">Make library…</button>
+            <button class="btn btn-sm folder-tool clear-cache-btn" data-tool="clear-cache">Clear cache</button>
+            <!-- Scanning acts on the folders you have open, so it stays here;
+                 the rarer maintenance runs live in "Edit library…". -->
+            ${libraryMode ? `
+            <button class="btn btn-sm folder-tool lib-scan-tools-wrap" data-tool="lib-scan-new">Scan for new photos</button>` : ''}
             </div>
             <span class="status-bar">${statusText}</span>
         </div>`;
@@ -605,83 +580,47 @@ class BrowsePane {
             el.addEventListener('click', () => this.setView(el.dataset.view));
         });
 
-        const viewMenuBtn = this.container.querySelector('.view-menu-btn');
-        const viewMenu = this.container.querySelector('.view-menu');
-        if (viewMenuBtn && viewMenu) Dropdown.init(viewMenuBtn, viewMenu);
-
-        const toolsMenuBtn = this.container.querySelector('.tools-menu-btn');
-        const toolsMenu = this.container.querySelector('.tools-menu');
-        if (toolsMenuBtn && toolsMenu) {
-            let closeScanToolsMenu = () => {};
-            const libScanToggle = toolsMenu.querySelector('.lib-scan-tools-toggle');
-            const libScanToolsMenu = toolsMenu.querySelector('.lib-scan-tools-menu');
-            if (libScanToggle && libScanToolsMenu) {
-                const { close } = Dropdown.init(libScanToggle, libScanToolsMenu);
-                closeScanToolsMenu = close;
-            }
-
-            const { close: closeToolsMenu } = Dropdown.init(toolsMenuBtn, toolsMenu, {
-                onOpen: () => {
-                    this._updateToolsLibraryState();
-                    this._updateToolsCacheLabel();
-                    closeScanToolsMenu();
-                },
-            });
-            toolsMenu.querySelectorAll('.tool-item').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const tool = btn.dataset.tool;
-                    if (tool === 'make-library') {
-                        const dir = this.getFocusedDir();
-                        if (!dir) return;
-                        if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
-                        closeToolsMenu();
-                        return;
-                    }
-                    if (tool === 'clear-cache') {
-                        const files = this.getActionableFiles();
-                        const dir = this.getFocusedDir();
-                        if (files.length === 0 && !dir) return;
-                        const toolsBtn = this.container.querySelector('.tools-menu-btn');
-                        if (toolsBtn) toolsBtn.disabled = true;
-                        closeToolsMenu();
-                        if (this.onToolInvoke) this.onToolInvoke({
-                            tool, files,
-                            path: dir || this.path,
-                            onDone: () => { if (toolsBtn) toolsBtn.disabled = false; },
-                        });
-                        return;
-                    }
-                    if (tool === 'lib-scan-new' || tool === 'lib-reindex' || tool === 'lib-cleanup') {
-                        const toolsBtn = this.container.querySelector('.tools-menu-btn');
-                        if (toolsBtn) toolsBtn.disabled = true;
-                        closeScanToolsMenu();
-                        closeToolsMenu();
-                        const scanPaths = this.selectedDirs.size > 0
-                            ? Array.from(this.selectedDirs)
-                            : [this.path];
-                        const doNext = (i) => {
-                            if (i >= scanPaths.length) {
-                                if (toolsBtn) toolsBtn.disabled = false;
-                                return;
-                            }
-                            if (this.onToolInvoke) this.onToolInvoke({
-                                tool, files: [],
-                                path: scanPaths[i],
-                                onDone: () => doNext(i + 1),
-                            });
-                        };
-                        doNext(0);
-                        return;
-                    }
+        this.container.querySelectorAll('.folder-tool').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                if (tool === 'make-library') {
+                    const dir = this.getFocusedDir();
+                    if (!dir) return;
+                    if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
+                    return;
+                }
+                if (tool === 'clear-cache') {
                     const files = this.getActionableFiles();
-                    if (files.length === 0) { alert('No images selected.'); return; }
-                    const params = {};
-                    if (tool === 'rotate') params.angle = parseInt(btn.dataset.angle);
-                    if (this.onToolInvoke) this.onToolInvoke({ tool, files, ...params });
-                    closeToolsMenu();
-                });
+                    const dir = this.getFocusedDir();
+                    if (files.length === 0 && !dir) return;
+                    btn.disabled = true;
+                    if (this.onToolInvoke) this.onToolInvoke({
+                        tool, files,
+                        path: dir || this.path,
+                        onDone: () => { btn.disabled = false; },
+                    });
+                    return;
+                }
+                if (tool === 'lib-scan-new') {
+                    btn.disabled = true;
+                    const scanPaths = this.selectedDirs.size > 0
+                        ? Array.from(this.selectedDirs)
+                        : [this.path];
+                    const doNext = (i) => {
+                        if (i >= scanPaths.length) { btn.disabled = false; return; }
+                        if (this.onToolInvoke) this.onToolInvoke({
+                            tool, files: [],
+                            path: scanPaths[i],
+                            onDone: () => doNext(i + 1),
+                        });
+                    };
+                    doNext(0);
+                }
             });
-        }
+        });
+
+        const sortSelect = this.container.querySelector('.sort-field');
+        if (sortSelect) sortSelect.addEventListener('change', () => this.setSort(sortSelect.value, this.order));
 
         const slideshowBtn = this.container.querySelector('.slideshow-btn');
         if (slideshowBtn) {
@@ -703,9 +642,6 @@ class BrowsePane {
             labelOn: 'Shown', labelOff: 'Hidden',
             onChange: (on) => { this.showOverlays = on; this.render(); }
         });
-
-        const sortField = this.container.querySelector('.sort-field');
-        if (sortField) sortField.addEventListener('change', () => this.setSort(sortField.value, this.order));
 
         const sortOrder = this.container.querySelector('.sort-order');
         if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
@@ -733,37 +669,42 @@ class BrowsePane {
         });
     }
 
-    // --- Tools menu helpers ---
+    // --- Folder tool buttons ---
+    //
+    // The two folder-level buttons say what they would act on, and are hidden
+    // or disabled only when there is genuinely nothing for them to do.
 
-    _updateToolsLibraryState() {
-        const makeSection = this.container.querySelector('.tools-library-section');
-        if (makeSection) makeSection.style.display =
-            (this.getFocusedDir() && App.mode !== 'library') ? '' : 'none';
-        const scanSection = this.container.querySelector('.tools-lib-scan-section');
-        if (scanSection) scanSection.style.display = App.mode === 'library' ? '' : 'none';
-    }
+    _updateFolderToolButtons() {
+        const makeBtn = this.container.querySelector('.make-library-btn');
+        if (makeBtn) {
+            const dir = this.getFocusedDir();
+            makeBtn.style.display = (dir && App.mode !== 'library') ? '' : 'none';
+        }
 
-    _updateToolsCacheLabel() {
-        const label = this.container.querySelector('.tools-cache-label');
-        const btn = this.container.querySelector('[data-tool="clear-cache"]');
-        if (!label || !btn) return;
-        const files = this.getActionableFiles();
-        const dir = this.getFocusedDir();
-        if (files.length > 0) {
-            label.textContent = `Cache (${files.length} file${files.length !== 1 ? 's' : ''})`;
-            btn.disabled = false;
-        } else if (dir) {
-            label.textContent = 'Cache (folder)';
-            btn.disabled = false;
-        } else {
-            label.textContent = 'Cache';
-            btn.disabled = true;
+        const cacheBtn = this.container.querySelector('.clear-cache-btn');
+        if (cacheBtn) {
+            const files = this.getActionableFiles();
+            const dir = this.getFocusedDir();
+            if (files.length > 0) {
+                cacheBtn.textContent = `Clear cache · ${files.length} file${files.length !== 1 ? 's' : ''}`;
+                cacheBtn.disabled = false;
+                cacheBtn.title = 'Clear the cached previews of the selected files';
+            } else if (dir) {
+                cacheBtn.textContent = 'Clear cache · folder';
+                cacheBtn.disabled = false;
+                cacheBtn.title = 'Clear the cached previews of the focused folder';
+            } else {
+                cacheBtn.textContent = 'Clear cache';
+                cacheBtn.disabled = true;
+                cacheBtn.title = 'Select photos or a folder whose cached previews to clear';
+            }
         }
     }
 
     // --- Focus change notification ---
 
     _notifyFocusChange() {
+        this._updateFolderToolButtons();
         if (!this.onFocusChange) return;
         const idx = this.keyboard.focusedIndex;
         if (idx < 0 || idx >= this.entries.length) { this.onFocusChange(null, null); return; }

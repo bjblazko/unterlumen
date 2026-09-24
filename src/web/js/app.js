@@ -26,6 +26,8 @@ const App = {
     _galleriesPane: null,
     _destinationsEl: null,
     _destinationsPane: null,
+    _settingsEl: null,
+    _settingsPane: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -51,7 +53,6 @@ const App = {
         this.keyboard.attach();
         this.theme.init();
         this._initUIVisibility();
-        this.initSettingsMenu();
 
         this._updateLibraryButton();
 
@@ -81,6 +82,7 @@ const App = {
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
+        settings: { hash: 'settings', id: 'mode-settings', key: ',' },
     },
 
     initNav() {
@@ -212,59 +214,6 @@ const App = {
         this._toastTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
     },
 
-    initSettingsMenu() {
-        const btn = document.getElementById('settings-btn');
-        const menu = document.getElementById('settings-menu');
-
-        const loadCacheInfo = () => {
-            API.cacheInfo().then(info => {
-                const mb = (info.bytes / 1048576).toFixed(1);
-                document.getElementById('settings-cache-size').textContent = mb + ' MB';
-                document.getElementById('settings-cache-path').textContent = info.path;
-            }).catch(() => {
-                document.getElementById('settings-cache-size').textContent = 'unavailable';
-            });
-        };
-
-        const { close: closeMenu } = Dropdown.init(btn, menu, { onOpen: loadCacheInfo });
-
-        menu.addEventListener('click', (e) => {
-            const themeBtn = e.target.closest('[data-theme-set]');
-            if (themeBtn) {
-                const preference = themeBtn.dataset.themeSet;
-                localStorage.setItem('theme', preference);
-                this.theme._apply(preference);
-                this.theme._updateButtons(preference);
-            }
-        });
-
-        const savedQ = localStorage.getItem('thumbnail-quality') || 'standard';
-        this._qualityToggle = Toggle.create(document.getElementById('settings-thumb-quality-wrap'), {
-            initial: savedQ === 'high',
-            labelOn: 'High',
-            labelOff: 'Standard',
-            onChange: (on) => this.theme.setQuality(on ? 'high' : 'standard')
-        });
-
-        this._hideUiToggle = Toggle.create(document.getElementById('settings-hide-ui-wrap'), {
-            initial: !this.uiHidden,
-            onChange: () => {
-                this.toggleUIVisibility();
-                closeMenu();
-            }
-        });
-
-        document.getElementById('settings-clear-cache').addEventListener('click', () => {
-            const btn = document.getElementById('settings-clear-cache');
-            btn.disabled = true;
-            API.cacheClear().then(loadCacheInfo).finally(() => { btn.disabled = false; });
-        });
-
-        document.getElementById('settings-check-deps').addEventListener('click', () => {
-            closeMenu();
-            new DepsModal().open(this.toolsStatus);
-        });
-    },
 
     setMode(mode, { fromHistory = false, replaceHistory = false } = {}) {
         if (this.viewer) {
@@ -384,6 +333,16 @@ const App = {
             this._libraryTab.render();
         }
 
+        if (mode === 'settings') {
+            if (!this._settingsEl) {
+                this._settingsEl = document.createElement('div');
+                this._settingsEl.style.height = '100%';
+                appEl.appendChild(this._settingsEl);
+                this._settingsPane = new SettingsPane(this._settingsEl);
+            }
+            this._settingsPane.render();
+        }
+
         if (mode === 'destinations') {
             if (!this._destinationsEl) {
                 this._destinationsEl = document.createElement('div');
@@ -410,6 +369,7 @@ const App = {
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
         if (this._galleriesEl) this._galleriesEl.style.display = mode === 'published' ? '' : 'none';
         if (this._destinationsEl) this._destinationsEl.style.display = mode === 'destinations' ? '' : 'none';
+        if (this._settingsEl) this._settingsEl.style.display = mode === 'settings' ? '' : 'none';
 
         this._markCurrentLibraryNav();
     },
@@ -675,22 +635,7 @@ const App = {
             return;
         } else if (tool === 'set-location') {
             this.locationModal.open(files, onSuccess);
-        } else if (tool === 'remove-location') {
-            this.locationModal.openRemove(files, onSuccess);
-        } else if (tool === 'rename') {
-            if (files.length !== 1) return;
-            const filePath = files[0];
-            const oldName = filePath.split('/').pop();
-            const newName = prompt('New name:', oldName);
-            if (!newName || !newName.trim() || newName.trim() === oldName) return;
-            API.rename(filePath, newName.trim()).then(() => {
-                if (pane) pane.load(pane.path);
-                if (this.mode === 'commander' && this.commander) {
-                    const other = this.commander.getOtherPane();
-                    if (other) other.load(other.path);
-                }
-            }).catch(err => alert('Rename failed: ' + err.message));
-        } else if (tool === 'batch-rename') {
+                } else if (tool === 'batch-rename') {
             // Files from SearchResultPane are absolute pathHints; files from
             // LibraryPane are relative to the library source dir. The batch rename
             // API validates against the server's browse boundary, so an absolute
@@ -701,7 +646,7 @@ const App = {
             if (sourcePath) {
                 srcPrefix = absPathRelativeToBoundary(sourcePath, this.config?.boundary);
                 if (srcPrefix === null) {
-                    alert('This library\'s folder is outside the server\'s browse root — batch rename is unavailable here.');
+                    this.showToast('This library\'s folder is outside the server\'s browse root, so batch rename cannot reach it.');
                     if (onDone) onDone();
                     return;
                 }

@@ -53,7 +53,7 @@ class SlideshowModal {
                     </div>
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Transition</span>
-                        <div class="dropdown-toggle">
+                        <div class="btn-choice">
                             <button class="btn btn-sm active" data-transition="fade">Fade</button>
                             <button class="btn btn-sm" data-transition="slide">Slide</button>
                             <button class="btn btn-sm" data-transition="zoom">Zoom</button>
@@ -62,7 +62,7 @@ class SlideshowModal {
                     </div>
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Display</span>
-                        <div class="dropdown-toggle">
+                        <div class="btn-choice">
                             <button class="btn btn-sm active" data-display="single">Single</button>
                             <button class="btn btn-sm" data-display="kenburns">Ken Burns</button>
                             <button class="btn btn-sm" data-display="2up">2-up</button>
@@ -134,7 +134,7 @@ class SlideshowModal {
         });
 
         // Segmented toggles (transition + display)
-        this.overlay.querySelectorAll('.dropdown-toggle').forEach(group => {
+        this.overlay.querySelectorAll('.btn-choice').forEach(group => {
             group.querySelectorAll('.btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     group.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));

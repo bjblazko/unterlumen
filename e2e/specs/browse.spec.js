@@ -16,7 +16,8 @@ test.describe('Browse', () => {
   });
 
   test('root shows folder-a and folder-b directories', async ({ page }) => {
-    const items = page.locator('.grid-item.dir-item');
+    // Folders are chips above the photos now (phase 9).
+    const items = page.locator('.folder-chip');
     await expect(items.filter({ hasText: 'folder-a' })).toBeVisible({ timeout: 5_000 });
     await expect(items.filter({ hasText: 'folder-b' })).toBeVisible({ timeout: 5_000 });
     // No images at root
@@ -50,33 +51,29 @@ test.describe('Browse', () => {
 
   test('navigate folder-a → a1 → back via breadcrumb', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    const a1 = page.locator('.grid-item.dir-item[data-name="a1"]');
+    const a1 = page.locator('.folder-chip[data-name="a1"]');
     await expect(a1).toBeVisible({ timeout: 5_000 });
-    await a1.dblclick();
+    await a1.click();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).toBeVisible({ timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     // Navigate back to folder-a via breadcrumb
     await page.locator('.crumb[data-path="folder-a"]').click();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('.grid-item.dir-item[data-name="a1"]')).toBeVisible();
+    await expect(page.locator('.folder-chip[data-name="a1"]')).toBeVisible();
   });
 
   test('switch to grid view', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="grid"]').click();
-    await expect(page.locator('.grid-item.image-item, .grid-item.dir-item').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.grid-item.image-item, .folder-chip').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('switch to list view', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="list"]').click();
     await expect(page.locator('table.list-view')).toBeVisible({ timeout: 5_000 });
   });
 
   test('switch back to justified view', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="grid"]').click();
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="justified"]').click();
     await expect(page.locator('.justified')).toBeVisible({ timeout: 5_000 });
   });
@@ -89,7 +86,6 @@ test.describe('Browse', () => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
 
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="list"]').click();
 
     const table = page.locator('table.list-view');
@@ -110,7 +106,6 @@ test.describe('Browse', () => {
     const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
     await expect(item.locator('.item-name')).toHaveCount(0);
 
-    await page.locator('.view-menu-btn').click();
     const namesToggle = page.locator('.toggle-names-wrap .toggle');
     await namesToggle.click();
 
@@ -118,7 +113,6 @@ test.describe('Browse', () => {
     await expect(item.locator('.item-name')).toHaveText(GPS_IMAGE);
 
     // Toggle back off.
-    await page.locator('.view-menu-btn').click();
     await namesToggle.click();
     await expect(item.locator('.item-name')).toHaveCount(0);
   });
@@ -130,14 +124,12 @@ test.describe('Browse', () => {
     const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
     await expect(item.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
 
-    await page.locator('.view-menu-btn').click();
     const overlaysToggle = page.locator('.toggle-overlays-wrap .toggle');
     await overlaysToggle.click();
 
     await expect(item.locator('.overlay-badges')).toHaveCount(0);
 
     // Toggle back on.
-    await page.locator('.view-menu-btn').click();
     await overlaysToggle.click();
     await expect(item.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
   });

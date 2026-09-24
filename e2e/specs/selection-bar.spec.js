@@ -41,13 +41,15 @@ test.describe('Selection bar', () => {
         await expect(page.locator('.selection-bar [data-action="collect"]')).toHaveCount(0);
     });
 
-    test('the Tools menu keeps only what acts on the folder or the library', async ({ page }) => {
+    test('only folder-level actions are left beside the view controls', async ({ page }) => {
         await page.locator('[data-type="image"]').first().click();
-        await page.locator('.tools-menu-btn').click();
-        const menu = page.locator('.tools-menu');
-        await expect(menu).toBeVisible();
+        // The Tools dropdown is gone entirely (phase 9): what acted on a
+        // selection is in the bar, what acts on the folder is a button.
+        await expect(page.locator('.tools-menu-btn')).toHaveCount(0);
+        await expect(page.locator('.view-menu-btn')).toHaveCount(0);
+        await expect(page.locator('.clear-cache-btn')).toBeVisible();
         for (const tool of ['export', 'batch-rename', 'rename', 'set-location', 'remove-location']) {
-            await expect(menu.locator(`[data-tool="${tool}"]`)).toHaveCount(0);
+            await expect(page.locator(`.folder-tool[data-tool="${tool}"]`)).toHaveCount(0);
         }
     });
 

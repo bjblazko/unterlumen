@@ -426,12 +426,11 @@ class LibraryTab {
             <div class="library-list-header">
                 <h2 class="library-list-title">Libraries</h2>
                 <div class="library-list-header-actions">
-                    <button class="toggle lib-sort-toggle" role="switch" aria-checked="true" data-state="on" title="Sort order">
-                        <span class="toggle-label">Sort by</span>
-                        <span class="toggle-label toggle-label-on">recent additions</span>
-                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                        <span class="toggle-label toggle-label-off">custom</span>
-                    </button>
+                    <select class="btn btn-sm select-btn lib-sort-select" aria-label="Sort libraries">
+                        <option value="auto">Recently added</option>
+                        <option value="name">Name</option>
+                        <option value="manual">Custom order</option>
+                    </select>
                     <div class="header-actions-sep"></div>
                     <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">Filter</button>
                     <div class="header-actions-sep"></div>
@@ -455,33 +454,29 @@ class LibraryTab {
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._showCreateDialog());
         el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
-        const sortToggle = el.querySelector('.lib-sort-toggle');
+        const sortSelect = el.querySelector('.lib-sort-select');
         const body = el.querySelector('#lib-list-body');
 
-        // Render immediately from localStorage, then reconcile with server
+        // Render immediately from localStorage, then reconcile with the server.
         const cachedMode = localStorage.getItem('library.sortMode') || 'auto';
         this._sortMode = cachedMode;
-        sortToggle.dataset.state = cachedMode === 'auto' ? 'on' : 'off';
-        sortToggle.setAttribute('aria-checked', cachedMode === 'auto' ? 'true' : 'false');
+        sortSelect.value = cachedMode;
         LibraryAPI.getSettings().then(s => {
             const serverMode = s.librarySortMode || 'auto';
             if (serverMode !== this._sortMode) {
                 this._sortMode = serverMode;
                 localStorage.setItem('library.sortMode', serverMode);
-                sortToggle.dataset.state = serverMode === 'auto' ? 'on' : 'off';
-                sortToggle.setAttribute('aria-checked', serverMode === 'auto' ? 'true' : 'false');
+                sortSelect.value = serverMode;
                 this._loadList(body);
             }
         }).catch(() => {});
 
-        sortToggle.addEventListener('click', async () => {
-            const newMode = sortToggle.dataset.state === 'on' ? 'manual' : 'auto';
+        sortSelect.addEventListener('change', async () => {
+            const newMode = sortSelect.value;
             if (newMode === 'manual') await this._initManualOrder(this._cachedLibs || []);
             this._sortMode = newMode;
             localStorage.setItem('library.sortMode', newMode);
             LibraryAPI.patchSettings({ librarySortMode: newMode }); // fire-and-forget
-            sortToggle.dataset.state = newMode === 'auto' ? 'on' : 'off';
-            sortToggle.setAttribute('aria-checked', newMode === 'auto' ? 'true' : 'false');
             this._loadList(body);
         });
 
@@ -562,12 +557,8 @@ class LibraryTab {
                 }
                 if (mode === 'manual') this._addManualSortButtons(lib, card, body);
             }
-            // Update sort toggle active state
-            const sortToggle = body.closest('.library-list-view')?.querySelector('.lib-sort-toggle');
-            if (sortToggle) {
-                sortToggle.dataset.state = mode === 'auto' ? 'on' : 'off';
-                sortToggle.setAttribute('aria-checked', mode === 'auto' ? 'true' : 'false');
-            }
+            const sortSelect = body.closest('.library-list-view')?.querySelector('.lib-sort-select');
+            if (sortSelect) sortSelect.value = mode;
         } catch (err) {
             body.innerHTML = `<div class="library-error">Failed to load libraries: ${err.message}</div>`;
         }
@@ -584,29 +575,20 @@ class LibraryTab {
 
         const top = document.createElement('div');
         top.className = 'library-card-top';
+        // The whole row opens the library — five orange Open buttons on one
+        // screen were five primary actions. Scanning stays here because the
+        // row is also where you see when it was last indexed; editing and
+        // deleting moved into the library itself.
         top.innerHTML = `
-            <div class="library-card-info">
-                <div class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</div>
-                <div class="library-card-meta">${escapeHtml(lib.sourcePath)}</div>
-                <div class="library-card-stats">${lib.photoCount} photos · Last indexed: ${lastIdx}</div>
-                ${lib.description ? `<div class="library-card-desc">${escapeHtml(lib.description)}</div>` : ''}
-            </div>
+            <button class="library-card-open lib-open">
+                <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</span>
+                <span class="library-card-count">${lib.photoCount.toLocaleString()} photo${lib.photoCount !== 1 ? 's' : ''}</span>
+                <span class="library-card-meta">${escapeHtml(lib.sourcePath)}</span>
+                ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
+            </button>
             <div class="library-card-actions">
-                <button class="btn btn-sm btn-accent lib-open">Open</button>
-                <button class="btn btn-sm lib-edit" aria-label="Edit library">Edit</button>
-                <div class="dropdown-wrap lib-scan-wrap">
-                    <div class="dropdown-toggle">
-                        <button class="btn btn-sm lib-scan-new">Scan for new photos</button>
-                        <button class="btn btn-sm lib-scan-toggle" aria-label="More scan options"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
-                    </div>
-                    <div class="dropdown-menu lib-scan-menu dropdown-menu-right" style="display:none">
-                        <button class="btn dropdown-item lib-reindex">Rebuild metadata &amp; previews</button>
-                        <button class="btn dropdown-item lib-regen-missing">Generate missing previews</button>
-                        <button class="btn dropdown-item lib-rebuild-all">Rebuild all previews</button>
-                        <button class="btn dropdown-item lib-cleanup">Remove deleted photos</button>
-                    </div>
-                </div>
-                <button class="btn btn-sm lib-delete">Delete</button>
+                <button class="btn btn-sm lib-scan-new">Scan for new photos</button>
+                <span class="library-card-indexed">Indexed ${lastIdx}</span>
             </div>`;
         card.appendChild(top);
 
@@ -618,28 +600,8 @@ class LibraryTab {
         }
 
         top.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
-        top.querySelector('.lib-edit').addEventListener('click', () => this._showEditDialog(lib, card));
-        card.querySelector('.lib-delete').addEventListener('click', () => this._deleteLibrary(lib, card));
-        const scanWrap = card.querySelector('.lib-scan-wrap');
-        const scanMenu = scanWrap.querySelector('.lib-scan-menu');
-        const { close: closeScanMenu } = Dropdown.init(scanWrap.querySelector('.lib-scan-toggle'), scanMenu);
-        scanWrap.querySelector('.lib-scan-new').addEventListener('click', () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning'));
-        scanWrap.querySelector('.lib-reindex').addEventListener('click', () => {
-            closeScanMenu();
-            this._runScanCard(lib, card, (id, cb) => LibraryAPI.reindex(id, cb), 'Indexing');
-        });
-        scanWrap.querySelector('.lib-regen-missing').addEventListener('click', () => {
-            closeScanMenu();
-            this._runScanCard(lib, card, (id, cb) => LibraryAPI.regenMissingPreviews(id, cb), 'Generating');
-        });
-        scanWrap.querySelector('.lib-rebuild-all').addEventListener('click', () => {
-            closeScanMenu();
-            this._runScanCard(lib, card, (id, cb) => LibraryAPI.rebuildAllPreviews(id, cb), 'Rebuilding');
-        });
-        scanWrap.querySelector('.lib-cleanup').addEventListener('click', () => {
-            closeScanMenu();
-            this._runScanCard(lib, card, (id, cb) => LibraryAPI.cleanup(id, cb), 'Checking');
-        });
+        card.querySelector('.lib-scan-new').addEventListener('click',
+            () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning'));
         return card;
     }
 
@@ -660,7 +622,7 @@ class LibraryTab {
             card.querySelector('.library-card-actions').appendChild(p);
             return p;
         })();
-        const scanBtns = card.querySelectorAll('.lib-scan-new, .lib-scan-toggle');
+        const scanBtns = card.querySelectorAll('.lib-scan-new');
         scanBtns.forEach(b => { b.disabled = true; });
         progressEl.textContent = `${label}…`;
         try {
@@ -675,8 +637,10 @@ class LibraryTab {
                 }
             });
             const updated = await LibraryAPI.get(lib.id);
-            card.querySelector('.library-card-stats').textContent =
-                `${updated.photoCount} photos · Last indexed: ${new Date(updated.lastIndexed).toLocaleDateString()}`;
+            card.querySelector('.library-card-count').textContent =
+                `${updated.photoCount.toLocaleString()} photo${updated.photoCount !== 1 ? 's' : ''}`;
+            card.querySelector('.library-card-indexed').textContent =
+                `Indexed ${new Date(updated.lastIndexed).toLocaleDateString()}`;
         } catch (err) {
             progressEl.textContent = `Error: ${err.message}`;
         } finally {
@@ -684,20 +648,11 @@ class LibraryTab {
         }
     }
 
-    async _deleteLibrary(lib, card) {
-        if (!confirm(`Delete library "${lib.name}"?\n\nThis removes the index and thumbnails. Your original photos are not affected.`)) return;
-        try {
-            await LibraryAPI.delete(lib.id);
-            this._cachedLibs = null;
-            card.remove();
-            App.refreshLibraryVisibility();
-        } catch (err) {
-            alert('Delete failed: ' + err.message);
-        }
-    }
-
     _sortLibs(libs) {
         const mode = this._sortMode || localStorage.getItem('library.sortMode') || 'auto';
+        if (mode === 'name') {
+            return [...libs].sort((a, b) => a.name.localeCompare(b.name));
+        }
         if (mode === 'manual') {
             return [...libs].sort((a, b) => {
                 const ai = a.sortPosition ?? Infinity;
@@ -759,25 +714,47 @@ class LibraryTab {
         });
     }
 
-    _showEditDialog(lib, card) {
+    // Everything about the library itself: its name, its description, and —
+    // behind a two-step confirmation naming what goes — deleting it.
+    _showEditDialog(lib, onSaved = null) {
         const dlg = document.createElement('div');
         dlg.className = 'library-dialog-backdrop';
         dlg.innerHTML = `
             <div class="library-dialog">
-                <h3 class="library-dialog-title">Edit Library</h3>
-                <label class="library-dialog-label">Name</label>
+                <h3 class="library-dialog-title">Edit library</h3>
+                <label class="library-dialog-label" for="lib-edit-name">Name</label>
                 <input class="library-dialog-input" id="lib-edit-name" type="text" autocomplete="off">
-                <label class="library-dialog-label">Description (optional)</label>
+                <label class="library-dialog-label" for="lib-edit-desc">Description (optional)</label>
                 <input class="library-dialog-input" id="lib-edit-desc" type="text">
+                <div class="library-dialog-field">
+                    <span class="library-dialog-label">Folder</span>
+                    <span class="library-dialog-path">${escapeHtml(lib.sourcePath)}</span>
+                    <span class="form-hint">The folder a library reads is fixed; make a new library to read another one.</span>
+                </div>
+                <div class="library-dialog-field">
+                    <span class="library-dialog-label">Maintenance</span>
+                    <div class="lib-maint-actions" id="lib-edit-maint-actions">
+                        <button class="btn btn-sm" data-maint="scanNew">Scan for new photos</button>
+                        <button class="btn btn-sm" data-maint="reindex">Rebuild metadata &amp; previews</button>
+                        <button class="btn btn-sm" data-maint="regenMissingPreviews">Generate missing previews</button>
+                        <button class="btn btn-sm" data-maint="rebuildAllPreviews">Rebuild all previews</button>
+                        <button class="btn btn-sm" data-maint="cleanup">Remove deleted photos</button>
+                    </div>
+                    <span class="form-hint">Rarely needed. Scanning finds new files; the others re-read what is already indexed.</span>
+                    <span class="library-dialog-progress" id="lib-edit-maint-progress" hidden></span>
+                </div>
+                <div class="library-dialog-danger" id="lib-edit-danger"></div>
                 <div class="library-dialog-actions">
                     <button class="btn" id="lib-edit-cancel">Cancel</button>
                     <button class="btn btn-accent" id="lib-edit-save">Save</button>
                 </div>
+                <div class="build-error" id="lib-edit-error" hidden></div>
             </div>`;
         document.body.appendChild(dlg);
 
         const nameEl = dlg.querySelector('#lib-edit-name');
         const descEl = dlg.querySelector('#lib-edit-desc');
+        const errEl = dlg.querySelector('#lib-edit-error');
         nameEl.value = lib.name;
         descEl.value = lib.description || '';
         nameEl.focus();
@@ -791,22 +768,80 @@ class LibraryTab {
                 const updated = await LibraryAPI.update(lib.id, name, descEl.value.trim());
                 lib.name = updated.name;
                 lib.description = updated.description;
-                card.querySelector('.library-card-name').firstChild.textContent = updated.name;
-                if (updated.description) {
-                    let descEl2 = card.querySelector('.library-card-desc');
-                    if (!descEl2) {
-                        descEl2 = document.createElement('div');
-                        descEl2.className = 'library-card-desc';
-                        card.querySelector('.library-card-stats').after(descEl2);
-                    }
-                    descEl2.textContent = updated.description;
-                } else {
-                    card.querySelector('.library-card-desc')?.remove();
-                }
+                this._cachedLibs = null;
                 close();
+                if (onSaved) onSaved(updated);
             } catch (err) {
-                alert('Save failed: ' + err.message);
+                errEl.textContent = err.message;
+                errEl.hidden = false;
             }
+        });
+
+        this._wireMaintenance(dlg, lib);
+        this._renderLibraryDanger(dlg, lib, close);
+        return dlg;
+    }
+
+    // All five maintenance runs live here rather than behind a chevron on the
+    // Libraries row: they are rare, they act on this one library, and the
+    // dialog has room to say what each one does while it runs.
+    _wireMaintenance(dlg, lib) {
+        const actions = dlg.querySelector('#lib-edit-maint-actions');
+        const progress = dlg.querySelector('#lib-edit-maint-progress');
+        const buttons = [...actions.querySelectorAll('[data-maint]')];
+        const labels = {
+            scanNew: 'Scanning',
+            reindex: 'Indexing',
+            regenMissingPreviews: 'Generating',
+            rebuildAllPreviews: 'Rebuilding',
+            cleanup: 'Checking',
+        };
+
+        for (const btn of buttons) {
+            btn.addEventListener('click', async () => {
+                const run = btn.dataset.maint;
+                buttons.forEach(b => { b.disabled = true; });
+                progress.hidden = false;
+                progress.textContent = `${labels[run]}…`;
+                try {
+                    await LibraryAPI[run](lib.id, (p) => {
+                        progress.textContent = p.finished
+                            ? `Done — ${p.total} photos.`
+                            : `${labels[run]} ${p.done}/${p.total}`;
+                    });
+                    this._cachedLibs = null;
+                } catch (err) {
+                    progress.textContent = `It stopped: ${err.message}`;
+                } finally {
+                    buttons.forEach(b => { b.disabled = false; });
+                }
+            });
+        }
+    }
+
+    _renderLibraryDanger(dlg, lib, closeDialog) {
+        const wrap = dlg.querySelector('#lib-edit-danger');
+        wrap.innerHTML = '<button class="btn btn-sm btn-danger" id="lib-delete-start">Delete library…</button>';
+        wrap.querySelector('#lib-delete-start').addEventListener('click', () => {
+            wrap.innerHTML = `
+                <p class="gal-danger-question">Delete "${escapeHtml(lib.name)}"? This removes the index and its thumbnails. The photos in ${escapeHtml(lib.sourcePath)} are not touched.</p>
+                <div class="gal-danger-actions">
+                    <button class="btn btn-sm" id="lib-delete-cancel">Keep it</button>
+                    <button class="btn btn-sm btn-danger" id="lib-delete-confirm">Delete library</button>
+                </div>`;
+            wrap.querySelector('#lib-delete-cancel').addEventListener('click', () => this._renderLibraryDanger(dlg, lib, closeDialog));
+            wrap.querySelector('#lib-delete-confirm').addEventListener('click', async () => {
+                try {
+                    await LibraryAPI.delete(lib.id);
+                    this._cachedLibs = null;
+                    this.currentLibrary = null;
+                    closeDialog();
+                    this.render();
+                    App.refreshLibraryVisibility();
+                } catch (err) {
+                    wrap.innerHTML = `<div class="build-error">Could not delete it: ${escapeHtml(err.message)}</div>`;
+                }
+            });
         });
     }
 
@@ -851,7 +886,12 @@ class LibraryTab {
             const name = nameEl.value.trim();
             const path = stripQuotes(pathEl.value.trim());
             pathEl.value = path; // show cleaned value
-            if (!name || !path) { alert('Name and source folder are required.'); return; }
+            if (!name || !path) {
+                progressEl.style.display = '';
+                progressEl.textContent = 'A library needs a name and a folder to read.';
+                (name ? pathEl : nameEl).focus();
+                return;
+            }
 
             createBtn.disabled = true;
             progressEl.style.display = '';
@@ -919,8 +959,9 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
-                    <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-filter-btn" title="Filter by EXIF values">Filter</button>
+                    <button class="btn btn-sm" aria-pressed="true" data-state="on" id="lib-filter-btn" title="Show or hide the filter panel">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
+                    <button class="btn btn-sm" id="lib-edit-btn">Edit library…</button>
                 </div>
             </div>
             <div class="lib-search-body">
@@ -949,6 +990,12 @@ class LibraryTab {
         });
 
         el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
+        el.querySelector('#lib-edit-btn').addEventListener('click', () => {
+            this._showEditDialog(lib, (updated) => {
+                this.currentLibrary = { ...lib, ...updated };
+                this.render();
+            });
+        });
 
         this._filterPanel = new LibrarySearchPanel(
             el.querySelector('#lib-search-panel'),
@@ -972,6 +1019,11 @@ class LibraryTab {
                 },
             }
         );
+
+        // The filter is how a library is used, so the panel is there from the
+        // start rather than behind a toggle you have to find first.
+        this._filterPanel.open();
+
 
         const paneEl = el.querySelector('#lib-pane');
         const infoPanelEl = el.querySelector('#lib-info-panel');

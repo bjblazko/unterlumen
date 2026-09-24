@@ -95,9 +95,9 @@ class Wastebin {
         this._updateBadge();
         if (onRefresh) onRefresh();
         if (afterDelete) afterDelete();
-        if (failures.length > 0) {
-            alert(`Delete: ${failures.length} error(s):\n${failures.join('\n')}`);
-        }
+        // Failures belong on the screen that caused them, not in an alert box
+        // the user has to dismiss before seeing what is left.
+        this._lastFailures = failures;
     }
 
     _updateBadge() {
@@ -113,17 +113,40 @@ class Wastebin {
         const items = Array.from(this._items.entries());
 
         if (items.length === 0) {
-            containerEl.innerHTML = '<div class="browse-container"><div class="wastebin-empty">No photos are marked for deletion. Mark them in Folders or Organize with Backspace.</div></div>';
+            containerEl.innerHTML = `
+                <div class="browse-container">
+                    <div class="page-title-row"><h1>Marked for deletion</h1></div>
+                    <div class="wastebin-empty-box">
+                        <strong>Nothing marked</strong>
+                        <span>Select photos in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.</span>
+                        <div><button class="btn" id="wb-go-folders">Go to Folders</button></div>
+                    </div>
+                </div>`;
+            containerEl.querySelector('#wb-go-folders').addEventListener('click', () => App.setMode('browse'));
             return;
         }
 
-        const header = `<div class="wastebin-header">${items.length} file${items.length !== 1 ? 's' : ''} marked for deletion</div>`;
         const selectedCount = this.selected.size;
-
-        const actions = `<div class="wastebin-actions">
-            <button class="btn btn-action" id="wb-restore" ${selectedCount === 0 ? 'disabled' : ''}>Restore${selectedCount > 0 ? ` (${selectedCount})` : ''}</button>
-            <button class="btn btn-action btn-danger" id="wb-delete" ${selectedCount === 0 ? 'disabled' : ''}>Delete permanently${selectedCount > 0 ? ` (${selectedCount})` : ''}</button>
-        </div>`;
+        const deleteCount = selectedCount || items.length;
+        // Say what marking means, because "marked" is not "deleted" — nothing
+        // leaves the disk until it is deleted here.
+        const header = `
+            <div class="page-title-row">
+                <h1>Marked for deletion</h1>
+                <span class="folder-title-meta">${items.length} file${items.length !== 1 ? 's' : ''}</span>
+                <span class="page-title-spacer"></span>
+                <div class="wastebin-actions" id="wb-actions">
+                    <button class="btn btn-sm" id="wb-restore">${selectedCount > 0 ? `Restore ${selectedCount}` : 'Restore all'}</button>
+                    <button class="btn btn-sm btn-danger" id="wb-delete">Delete ${deleteCount} permanently…</button>
+                </div>
+            </div>
+            <p class="wastebin-note">These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.</p>
+            ${(this._lastFailures && this._lastFailures.length) ? `
+            <div class="wastebin-failures">
+                <strong>${this._lastFailures.length} file${this._lastFailures.length !== 1 ? 's' : ''} could not be deleted</strong>
+                <ul>${this._lastFailures.map(f => `<li>${f}</li>`).join('')}</ul>
+            </div>` : ''}`;
+        const actions = '';
 
         const gridItems = items.map(([path, entry], idx) => {
             const selectedClass = this.selected.has(path) ? ' selected' : '';
@@ -139,20 +162,31 @@ class Wastebin {
 
         containerEl.innerHTML = `<div class="browse-container"><div class="browse-header">${header}${actions}</div><div class="browse-content"><div class="grid">${gridItems.join('')}</div></div></div>`;
 
-        document.getElementById('wb-restore').addEventListener('click', () => {
-            this.restore(this.selected);
+        containerEl.querySelector('#wb-restore').addEventListener('click', () => {
+            const paths = this.selected.size > 0 ? new Set(this.selected) : new Set(items.map(([path]) => path));
+            this.restore(paths);
             this.selected.clear();
             this.render(containerEl, onRefresh);
         });
 
-        document.getElementById('wb-delete').addEventListener('click', async () => {
-            const count = this.selected.size;
-            if (!confirm(`Permanently delete ${count} file${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
-            const afterDelete = () => {
-                this.selected.clear();
-                this.render(containerEl, onRefresh);
-            };
-            await this.permanentlyDelete(this.selected, onRefresh, afterDelete);
+        // Deleting from disk confirms in place, naming the count, rather than
+        // through a browser confirm() box.
+        containerEl.querySelector('#wb-delete').addEventListener('click', () => {
+            const paths = this.selected.size > 0 ? new Set(this.selected) : new Set(items.map(([path]) => path));
+            const count = paths.size;
+            const actionsEl = containerEl.querySelector('#wb-actions');
+            actionsEl.innerHTML = `
+                <span class="wastebin-question">Delete ${count} file${count !== 1 ? 's' : ''} from disk? This can't be undone.</span>
+                <button class="btn btn-sm" id="wb-delete-cancel">Cancel</button>
+                <button class="btn btn-sm btn-danger" id="wb-delete-confirm">Delete ${count} file${count !== 1 ? 's' : ''}</button>`;
+            actionsEl.querySelector('#wb-delete-cancel').addEventListener('click', () => this.render(containerEl, onRefresh));
+            actionsEl.querySelector('#wb-delete-confirm').addEventListener('click', async () => {
+                const afterDelete = () => {
+                    this.selected.clear();
+                    this.render(containerEl, onRefresh);
+                };
+                await this.permanentlyDelete(paths, onRefresh, afterDelete);
+            });
         });
 
         containerEl.querySelectorAll('[data-type="image"]').forEach(el => {

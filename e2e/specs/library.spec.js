@@ -44,10 +44,10 @@ test.describe('Library list view', () => {
         await expect(card.locator('.library-card-meta')).toContainText('folder-a');
     });
 
-    test('shows photo count and last-indexed info on card', async ({ page }) => {
+    test('the row carries the photo count and when it was last indexed', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
-        await expect(card).toBeVisible({ timeout: 8_000 }); // cards load async after list view appears
-        await expect(card.locator('.library-card-stats')).toContainText('0 photos');
+        await expect(card.locator('.library-card-count')).toContainText('photo');
+        await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
     });
 
     test('Search button toggles search panel open and closed', async ({ page }) => {
@@ -86,13 +86,14 @@ test.describe('Library list view', () => {
         await expect(page.locator('#lib-filter-btn')).toBeVisible();
     });
 
-    test('Delete button removes library card after confirmation', async ({ page }) => {
-        // Create a disposable library inline for this test
+    // Deleting a library moved out of its row and into the library itself
+    // (phase 9): never a Delete button sitting next to Edit, and no
+    // confirm() box — the question is asked in the dialog.
+    test('deleting a library happens in Edit library, in two steps', async ({ page }) => {
         const res = await page.request.post('/api/library/', {
             data: { name: 'To Delete', description: '', sourcePath: 'folder-a' },
         });
-        const body = await res.json();
-        const deleteID = body.id;
+        const deleteID = (await res.json()).id;
 
         await page.reload();
         await waitForAppReady(page);
@@ -101,12 +102,18 @@ test.describe('Library list view', () => {
 
         const card = page.locator('.library-card', { hasText: 'To Delete' });
         await expect(card).toBeVisible({ timeout: 8_000 });
+        // The row itself opens the library — no accent button per row.
+        await expect(card.locator('.btn-accent')).toHaveCount(0);
+        await card.locator('.lib-open').click();
+        await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
-        page.on('dialog', (dialog) => dialog.accept());
-        await card.locator('.lib-delete').click();
-        await expect(card).not.toBeVisible({ timeout: 5_000 });
+        await page.locator('#lib-edit-btn').click();
+        await page.locator('#lib-delete-start').click();
+        await expect(page.locator('.gal-danger-question')).toContainText('To Delete');
+        await page.locator('#lib-delete-confirm').click();
 
-        // Cleanup in case the delete button didn't hit the API (belt-and-suspenders)
+        await expect(page.locator('.library-card', { hasText: 'To Delete' })).toHaveCount(0, { timeout: 8_000 });
+
         await page.request.delete(`/api/library/${deleteID}`).catch(() => {});
     });
 });

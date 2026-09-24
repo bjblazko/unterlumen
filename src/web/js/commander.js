@@ -27,31 +27,19 @@ class Commander {
                 <div class="commander-resizer" id="cmd-resizer"></div>
                 <div class="commander-actions">
                     <div class="cmd-top-actions">
-                        <button class="btn btn-action" id="cmd-delete" title="Mark for Deletion (Del)" disabled>${CMD_ICONS.delete} Delete</button>
-                        <button class="btn btn-action" id="cmd-mkdir" title="New Folder">${CMD_ICONS.mkdir} Folder</button>
-                        <div class="dropdown-wrap cmd-rename-wrap">
-                            <button class="btn btn-action dropdown-btn cmd-rename-btn" id="cmd-rename" title="Rename" disabled>${CMD_ICONS.rename} Rename <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
-                            <div class="dropdown-menu cmd-rename-menu" id="cmd-rename-menu" style="display:none">
-                                <button class="btn dropdown-item" data-rename="rename">Single</button>
-                                <button class="btn dropdown-item" data-rename="batch-rename">Batch (Metadata)</button>
-                            </div>
-                        </div>
+                        <button class="btn btn-sm" id="cmd-delete" title="Mark the selection for deletion (Delete)" disabled>Mark for deletion</button>
+                        <button class="btn btn-sm" id="cmd-mkdir" title="Create a folder in the active pane">New folder</button>
+                        <button class="btn btn-sm" id="cmd-rename" title="Rename the selection" disabled>Rename…</button>
                     </div>
                     <div class="cmd-dir-actions">
-                        <svg id="cmd-direction-arrow" class="cmd-arrow" viewBox="0 0 100 160" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                            <path d="M 0,56 L 20,56 L 20,0 L 100,80 L 20,160 L 20,104 L 0,104 Z"/>
-                        </svg>
-                        <button class="btn btn-action" id="cmd-copy" title="Copy (F5)" disabled>${CMD_ICONS.copy} Copy</button>
-                        <button class="btn btn-action" id="cmd-move" title="Move (F6)" disabled>${CMD_ICONS.move} Move</button>
+                        <button class="btn" id="cmd-copy" disabled>Copy <span class="key">F5</span></button>
+                        <button class="btn" id="cmd-move" disabled>Move <span class="key">F6</span></button>
                     </div>
+                    <div class="cmd-status" id="cmd-status" hidden></div>
                     <div class="cmd-lib-actions">
-                        <div class="dropdown-wrap">
-                            <button class="btn btn-action dropdown-btn" id="cmd-lib-btn" title="Navigate active pane to a library folder">Jump to library… <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg></button>
-                            <div class="dropdown-menu dropdown-menu-up" id="cmd-lib-menu" style="display:none">
-                                <div class="cmd-lib-loading" style="display:none">Loading…</div>
-                                <div class="cmd-lib-items"></div>
-                            </div>
-                        </div>
+                        <select class="btn btn-sm" id="cmd-lib-select" aria-label="Jump to library" title="Navigate the active pane to a library folder">
+                            <option value="">Jump to library…</option>
+                        </select>
                     </div>
                 </div>
                 <div class="commander-pane right-pane" id="right-pane"></div>
@@ -99,58 +87,15 @@ class Commander {
         document.getElementById('cmd-move').addEventListener('click', () => this.doMove());
         document.getElementById('cmd-delete').addEventListener('click', () => this.doDelete());
         document.getElementById('cmd-mkdir').addEventListener('click', () => this.doMkdir());
-        // Rename dropdown
-        const renameBtn = document.getElementById('cmd-rename');
-        const renameMenu = document.getElementById('cmd-rename-menu');
-        const { close: closeRenameMenu } = Dropdown.init(renameBtn, renameMenu);
-        renameMenu.addEventListener('click', (e) => {
-            const option = e.target.closest('[data-rename]');
-            if (!option) return;
-            closeRenameMenu();
-            this.doRename(option.dataset.rename);
-        });
+        // One rename for one or many files: the batch dialog previews what it
+        // would do, where the old "Single" option was a browser prompt().
+        document.getElementById('cmd-rename').addEventListener('click', () => this.doRename('batch-rename'));
 
         // Set default views: left=grid, right=list
         this.leftPane.view = 'grid';
         this.rightPane.view = 'list';
 
-        // Wire Libraries dropdown
-        const libBtn = document.getElementById('cmd-lib-btn');
-        const libMenu = document.getElementById('cmd-lib-menu');
-        const { close: closeLibMenu } = Dropdown.init(libBtn, libMenu, {
-            onOpen: async () => {
-                const loading = libMenu.querySelector('.cmd-lib-loading');
-                const itemsEl = libMenu.querySelector('.cmd-lib-items');
-                loading.style.display = '';
-                itemsEl.innerHTML = '';
-                try {
-                    const libs = await LibraryAPI.list();
-                    loading.style.display = 'none';
-                    const boundary = App.config?.boundary;
-                    if (libs.length === 0) {
-                        itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--fg-2);font-size:12px">No libraries</div>';
-                        return;
-                    }
-                    libs.forEach(lib => {
-                        const sp = lib.sourcePath.replace(/\/$/, '');
-                        const relPath = absPathRelativeToBoundary(sp, boundary);
-                        const btn = document.createElement('button');
-                        btn.className = 'btn dropdown-item';
-                        btn.textContent = lib.name;
-                        btn.disabled = relPath === null;
-                        btn.title = relPath === null ? 'Outside server root — cannot navigate here' : sp;
-                        btn.addEventListener('click', () => {
-                            this.getActivePane().load(relPath);
-                            closeLibMenu();
-                        });
-                        itemsEl.appendChild(btn);
-                    });
-                } catch {
-                    loading.style.display = 'none';
-                    itemsEl.innerHTML = '<div style="padding:6px 10px;color:var(--fg-2);font-size:12px">Failed to load</div>';
-                }
-            },
-        });
+        this._wireLibrarySelect();
 
         // Load both panes (prime preselect before loading left pane)
         leftEl.classList.add('active');
@@ -159,10 +104,46 @@ class Commander {
         this.rightPane.load(this.initialPath);
 
         // Set initial pane labels
-        leftEl.dataset.paneLabel = 'From';
-        rightEl.dataset.paneLabel = 'To';
+        this._updatePaneLabels();
 
         this._initResizer();
+    }
+
+    // The panes are navigation, and a library is a place to navigate to, so
+    // this is a list to pick from rather than a menu of actions. Libraries
+    // outside the server root cannot be reached and say so instead of being
+    // offered.
+    async _wireLibrarySelect() {
+        const select = document.getElementById('cmd-lib-select');
+        select.addEventListener('change', () => {
+            const path = select.value;
+            select.selectedIndex = 0;
+            if (path !== '') this.getActivePane().load(path);
+        });
+
+        let libs;
+        try {
+            libs = await LibraryAPI.list();
+        } catch {
+            select.firstElementChild.textContent = 'Libraries did not load';
+            select.disabled = true;
+            return;
+        }
+        if (libs.length === 0) {
+            select.firstElementChild.textContent = 'No libraries yet';
+            select.disabled = true;
+            return;
+        }
+        const boundary = App.config?.boundary;
+        for (const lib of libs) {
+            const sourcePath = lib.sourcePath.replace(/\/$/, '');
+            const relPath = absPathRelativeToBoundary(sourcePath, boundary);
+            const option = document.createElement('option');
+            option.value = relPath ?? '';
+            option.textContent = relPath === null ? `${lib.name} — outside the server root` : lib.name;
+            option.disabled = relPath === null;
+            select.appendChild(option);
+        }
     }
 
     _initResizer() {
@@ -260,6 +241,7 @@ class Commander {
     }
 
     updateActions() {
+        this._updatePaneLabels();
         const active = this.getActivePane();
         const actionable = active.getActionableFiles();
         const hasTargets = actionable.length > 0;
@@ -271,27 +253,60 @@ class Commander {
         document.getElementById('cmd-delete').disabled = !hasTargets;
         document.getElementById('cmd-rename').disabled = !hasTargets && !focused;
 
-        document.getElementById('cmd-copy').innerHTML = `${CMD_ICONS.copy} Copy`;
-        document.getElementById('cmd-move').innerHTML = `${CMD_ICONS.move} Move`;
-        document.getElementById('cmd-delete').innerHTML = `${CMD_ICONS.delete} Delete`;
-        document.getElementById('cmd-mkdir').innerHTML = `${CMD_ICONS.mkdir} Folder`;
-        document.getElementById('cmd-rename').innerHTML = `${CMD_ICONS.rename} Rename <svg class="dropdown-chevron" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3l2 2 2-2"/></svg>`;
+        // The button itself says where the files would go: the arrow points at
+        // the receiving pane, and the title spells it out in words.
+        const targetSide = this.activePane === 'left' ? 'right' : 'left';
+        const toRight = targetSide === 'right';
+        const label = (verb) => toRight ? `${verb} →` : `← ${verb}`;
+        document.getElementById('cmd-copy').innerHTML = `${label('Copy')} <span class="key">F5</span>`;
+        document.getElementById('cmd-move').innerHTML = `${label('Move')} <span class="key">F6</span>`;
+        document.getElementById('cmd-copy').title = `Copy the selection to the ${targetSide} pane (F5)`;
+        document.getElementById('cmd-move').title = `Move the selection to the ${targetSide} pane (F6)`;
+        document.getElementById('cmd-delete').innerHTML = 'Mark for deletion';
+        document.getElementById('cmd-mkdir').innerHTML = 'New folder';
+        document.getElementById('cmd-rename').innerHTML = 'Rename…';
 
-        // Disable simple rename when multiple files selected
-        const simpleRenameBtn = document.querySelector('#cmd-rename-menu [data-rename="rename"]');
-        if (simpleRenameBtn) {
-            simpleRenameBtn.disabled = actionable.length > 1;
-        }
+        this._updatePaneLabels();
+    }
 
-        // Flip arrow: left-active → points right (default); right-active → points left
-        const arrow = document.getElementById('cmd-direction-arrow');
-        if (arrow) {
-            arrow.style.transform = this.activePane === 'right' ? 'scaleX(-1)' : '';
-        }
+    // Each pane's header says where it is and how much of it is selected —
+    // the two things you need before pressing Copy or Move.
+    _updatePaneLabels() {
+        const describe = (pane, isActive) => {
+            if (!pane) return isActive ? 'From' : 'To';
+            const path = pane.path ? '…/' + pane.path.split('/').filter(Boolean).slice(-2).join('/') : '/';
+            const selected = pane.selection.selected.size + (pane.selectedDirs?.size ?? 0);
+            const total = pane.entries.length;
+            const count = selected > 0 ? `${selected} of ${total} selected` : `${total} item${total !== 1 ? 's' : ''}`;
+            return `${path}  ·  ${count}`;
+        };
+        const leftEl = document.getElementById('left-pane');
+        const rightEl = document.getElementById('right-pane');
+        if (leftEl) leftEl.dataset.paneLabel = describe(this.leftPane, this.activePane === 'left');
+        if (rightEl) rightEl.dataset.paneLabel = describe(this.rightPane, this.activePane === 'right');
+    }
 
-        // Update pane labels
-        document.getElementById('left-pane').dataset.paneLabel = this.activePane === 'left' ? 'From' : 'To';
-        document.getElementById('right-pane').dataset.paneLabel = this.activePane === 'right' ? 'From' : 'To';
+    // Failures and questions belong next to the buttons that caused them.
+    _say(message, kind = 'info') {
+        const el = document.getElementById('cmd-status');
+        if (!el) return;
+        el.className = 'cmd-status' + (kind === 'error' ? ' cmd-status--error' : '');
+        el.textContent = message;
+        el.hidden = !message;
+    }
+
+    _ask(question, confirmLabel, onConfirm) {
+        const el = document.getElementById('cmd-status');
+        if (!el) return;
+        el.hidden = false;
+        el.className = 'cmd-status';
+        el.innerHTML = `<p>${escapeHtml(question)}</p>
+            <div class="cmd-status-actions">
+                <button class="btn btn-sm" data-ask="cancel">Cancel</button>
+                <button class="btn btn-sm btn-danger" data-ask="confirm">${escapeHtml(confirmLabel)}</button>
+            </div>`;
+        el.querySelector('[data-ask="cancel"]').addEventListener('click', () => this._say(''));
+        el.querySelector('[data-ask="confirm"]').addEventListener('click', () => { this._say(''); onConfirm(); });
     }
 
     async doCopy() {
@@ -323,7 +338,7 @@ class Commander {
                 allFiles.push(...(listing.files || []));
             }
         } catch (err) {
-            alert('Copy failed: ' + err.message);
+            this._say('Copy failed: ' + err.message, 'error');
             return;
         }
 
@@ -335,7 +350,7 @@ class Commander {
                 otherPane.load(otherPane.path);
                 if (result.libraryUpdated) App.reloadLibraryPane();
             } catch (err) {
-                alert('Copy failed: ' + err.message);
+                this._say('Copy failed: ' + err.message, 'error');
             }
             return;
         }
@@ -417,7 +432,7 @@ class Commander {
             } catch (err) {
                 // If direct move fails for dirs, fall through would be complex;
                 // for now just report the error
-                alert('Move failed: ' + err.message);
+                this._say('Move failed: ' + err.message, 'error');
                 return;
             }
         }
@@ -461,25 +476,7 @@ class Commander {
             const msg = dirItems.length === 1
                 ? `Delete folder '${dirNames}' and all its contents? This cannot be undone.`
                 : `Delete ${dirItems.length} folders (${dirNames}) and all their contents? This cannot be undone.`;
-            if (!confirm(msg)) return;
-
-            // Delete directories directly via API
-            API.delete(dirItems).then(result => {
-                const failures = result.results.filter(r => !r.success);
-                if (failures.length > 0) {
-                    const msgs = failures.map(f => `${f.file}: ${f.error}`).join('\n');
-                    alert(`Delete: ${failures.length} error(s):\n${msgs}`);
-                }
-                // Mark remaining file items for waste bin
-                if (fileItems.length > 0) {
-                    App.markForDeletion(fileItems, active.entries, active.path);
-                }
-                active.selected.clear();
-                active.load(active.path);
-                this.updateActions();
-            }).catch(err => {
-                alert('Delete failed: ' + err.message);
-            });
+            this._ask(msg, dirItems.length === 1 ? 'Delete folder' : `Delete ${dirItems.length} folders`, () => this._deleteDirs(dirItems, fileItems, active));
             return;
         }
 
@@ -490,17 +487,54 @@ class Commander {
         this.updateActions();
     }
 
-    async doMkdir() {
+    _deleteDirs(dirItems, fileItems, active) {
+        API.delete(dirItems).then(result => {
+            const failures = result.results.filter(r => !r.success);
+            if (failures.length > 0) {
+                this._say(`${failures.length} could not be deleted: ${failures.map(f => f.file + ' (' + f.error + ')').join(', ')}`, 'error');
+            }
+            // Files go to the waste bin, as they do everywhere else.
+            if (fileItems.length > 0) {
+                App.markForDeletion(fileItems, active.entries, active.path);
+            }
+            active.selected.clear();
+            active.load(active.path);
+            this.updateActions();
+        }).catch(err => this._say('Delete failed: ' + err.message, 'error'));
+    }
+
+    // Asks for the name in the status line, where every other question in
+    // Organize is asked, instead of a browser prompt().
+    doMkdir() {
         const pane = this.getActivePane();
-        const name = prompt('New folder name:');
-        if (!name || !name.trim()) return;
-        const path = pane.path ? pane.path + '/' + name.trim() : name.trim();
-        try {
-            await API.mkdir(path);
-            pane.load(pane.path);
-        } catch (err) {
-            alert('Create folder failed: ' + err.message);
-        }
+        const el = document.getElementById('cmd-status');
+        if (!el) return;
+        el.hidden = false;
+        el.className = 'cmd-status';
+        el.innerHTML = `
+            <label class="form-label" for="cmd-mkdir-name">New folder in ${escapeHtml(pane.path || '/')}</label>
+            <input class="form-input" id="cmd-mkdir-name" autocomplete="off" placeholder="Folder name">
+            <div class="cmd-status-actions">
+                <button class="btn btn-sm" id="cmd-mkdir-cancel">Cancel</button>
+                <button class="btn btn-sm btn-accent" id="cmd-mkdir-create">Create folder</button>
+            </div>`;
+        const input = el.querySelector('#cmd-mkdir-name');
+        input.focus();
+        const create = async () => {
+            const name = input.value.trim();
+            if (!name) { input.focus(); return; }
+            const path = pane.path ? pane.path + '/' + name : name;
+            try {
+                await API.mkdir(path);
+                this._say('');
+                pane.load(pane.path);
+            } catch (err) {
+                this._say('Could not create the folder: ' + err.message, 'error');
+            }
+        };
+        el.querySelector('#cmd-mkdir-cancel').addEventListener('click', () => this._say(''));
+        el.querySelector('#cmd-mkdir-create').addEventListener('click', create);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') create(); });
     }
 
     doRename(tool = 'rename') {
@@ -519,7 +553,7 @@ class Commander {
         const failures = results.filter(r => !r.success);
         if (failures.length > 0) {
             const msgs = failures.map(f => `${f.file}: ${f.error}`).join('\n');
-            alert(`${op}: ${failures.length} error(s):\n${msgs}`);
+            this._say(`${op}: ${failures.length} failed — ${msgs.replace(/\n/g, ', ')}`, 'error');
         }
     }
 }
