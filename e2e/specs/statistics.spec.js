@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
 
-test.describe('Statistics modal', () => {
+test.describe('Statistics dialog', () => {
     let libID;
 
     test.beforeAll(async ({ request }) => {
@@ -9,7 +9,7 @@ test.describe('Statistics modal', () => {
         const existing = await (await request.get('/api/library/')).json();
         await Promise.all(existing.filter(l => l.name === 'Stats test library').map(l => request.delete(`/api/library/${l.id}`)));
 
-        // Create a test library (unindexed — stats will be empty but modal structure is testable)
+        // Create a test library (unindexed — stats will be empty but the dialog structure is testable)
         const res = await request.post('/api/library/', {
             data: { name: 'Stats test library', description: '', sourcePath: 'folder-a' },
         });
@@ -54,7 +54,7 @@ test.describe('Statistics modal', () => {
         expect(Array.isArray(body.shootingHours)).toBe(true);
     });
 
-    test('Statistics button opens modal in library mode', async ({ page }) => {
+    test('Statistics button opens the dialog in library mode', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -65,12 +65,12 @@ test.describe('Statistics modal', () => {
         await expect(statsBtn).toBeVisible();
         await statsBtn.click();
 
-        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
-        await expect(page.locator('.stats-overlay')).toBeVisible();
-        await expect(page.locator('.modal-title')).toContainText('Statistics');
+        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
+        await expect(page.locator('.stats-dialog')).toBeVisible();
+        await expect(page.locator('.dialog-title')).toContainText('Statistics');
     });
 
-    test('Statistics modal shows chart cards', async ({ page }) => {
+    test('Statistics dialog shows chart cards', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -89,7 +89,7 @@ test.describe('Statistics modal', () => {
         await expect(page.locator('.stats-chart-title', { hasText: 'Film simulation' })).toHaveCount(0);
     });
 
-    test('Statistics modal has library filter dropdown', async ({ page }) => {
+    test('Statistics dialog has library filter dropdown', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -100,29 +100,29 @@ test.describe('Statistics modal', () => {
         await expect(page.locator('.stats-lib-select')).toBeVisible();
     });
 
-    test('Escape closes statistics modal', async ({ page }) => {
+    test('Escape closes the statistics dialog', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
+        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
 
         await page.keyboard.press('Escape');
-        await expect(page.locator('.stats-overlay')).not.toBeVisible({ timeout: 3_000 });
+        await expect(page.locator('.stats-dialog')).not.toBeVisible({ timeout: 3_000 });
     });
 
-    test('Close button dismisses modal', async ({ page }) => {
+    test('Close button closes the dialog', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
         await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
         await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-overlay', { timeout: 30_000 });
+        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
 
-        await page.locator('#stats-close').click();
-        await expect(page.locator('.stats-overlay')).not.toBeVisible({ timeout: 3_000 });
+        await page.locator('.dialog-foot .btn', { hasText: 'Close' }).click();
+        await expect(page.locator('.stats-dialog')).not.toBeVisible({ timeout: 3_000 });
     });
 });

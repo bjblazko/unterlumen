@@ -51,7 +51,7 @@ async function selectTwoPhotosAt(page, offset) {
 // and the destination it belongs to.
 async function collectSelectionToChannel(page, { channelSlug, galleryTitle }) {
     await page.locator('.selection-bar [data-action="collect"]').click();
-    const dlg = page.locator('.collect-modal');
+    const dlg = page.locator('.collect-dialog');
     await expect(dlg).toBeVisible({ timeout: 5_000 });
     await dlg.locator('.collect-item--new').click();
     await dlg.locator('#collect-new-title').fill(galleryTitle);

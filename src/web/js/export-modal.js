@@ -18,18 +18,12 @@ class ExportModal {
         this._sourcePath = sourcePath;
 
         this._buildDOM();
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
-
         this._refreshEstimates();
     }
 
     close() {
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
-        document.removeEventListener('keydown', this._onKeyDown);
+        this._dialog?.close(null);
+        this.overlay = null;
         if (this._estimateTimer) {
             clearTimeout(this._estimateTimer);
             this._estimateTimer = null;
@@ -66,15 +60,12 @@ class ExportModal {
                 </label>
             </div>`;
 
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.innerHTML = `
-            <div class="modal export-modal">
-                <div class="modal-header">
-                    <span class="modal-title">Export ${files.length === 1 ? '1 image' : files.length + ' images'}</span>
-                    <button class="info-collapse-btn modal-close-btn" title="Close">&times;</button>
-                </div>
-                <div class="modal-body">
+        this._dialog = new Dialog({
+            title: 'Export',
+            subtitle: files.length === 1 ? '1 photo' : `${files.length} photos`,
+            size: 'md',
+            className: 'export-dialog',
+            body: `
 
                     <div class="export-section">
                         <div class="export-row">
@@ -153,22 +144,14 @@ class ExportModal {
 
                     ${outputSection}
 
-                </div>
-                <div class="modal-footer">
-                    <div class="export-status"></div>
-                    <button class="btn" id="export-cancel-btn">Cancel</button>
-                    <button class="btn btn-accent" id="export-confirm-btn">Export</button>
-                </div>
-            </div>`;
-
-        // Close on overlay click
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
+`,
+            actions: [
+                { label: 'Cancel', id: 'export-cancel-btn', onClick: () => this.close() },
+                { label: 'Export', kind: 'primary', id: 'export-confirm-btn', onClick: () => this._doExport() },
+            ],
+            onClose: () => { this.overlay = null; },
         });
-
-        // Close and cancel buttons
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#export-cancel-btn').addEventListener('click', () => this.close());
+        this.overlay = this._dialog.open();
 
         // Format tabs
         this.overlay.querySelectorAll('[data-format]').forEach(btn => {
@@ -234,7 +217,6 @@ class ExportModal {
         }
 
         // Export button
-        this.overlay.querySelector('#export-confirm-btn').addEventListener('click', () => this._doExport());
 
         // Build initial file list
         this._buildFileList();
@@ -451,11 +433,10 @@ class ExportModal {
     async _doExport() {
         const confirmBtn = this.overlay.querySelector('#export-confirm-btn');
         const cancelBtn = this.overlay.querySelector('#export-cancel-btn');
-        const statusEl = this.overlay.querySelector('.export-status');
 
         confirmBtn.disabled = true;
         cancelBtn.disabled = true;
-        statusEl.textContent = '';
+        this._dialog.setNote('');
 
         const basePayload = {
             format: this._getFormat(),
@@ -524,7 +505,7 @@ class ExportModal {
             } else {
                 const destination = this._getDestination();
                 if (!destination) {
-                    statusEl.textContent = 'Please enter a destination folder.';
+                    this._dialog.setNote('Name a folder to export into, or choose one with "…".', 'error');
                     confirmBtn.disabled = false;
                     cancelBtn.disabled = false;
                     return;
@@ -558,7 +539,7 @@ class ExportModal {
                 if (failed === 0) {
                     this.close();
                 } else {
-                    statusEl.textContent = `${failed} file(s) failed.`;
+                    this._dialog.setNote(`${failed} file${failed !== 1 ? 's' : ''} did not export.`, 'error');
                     confirmBtn.disabled = false;
                     cancelBtn.disabled = false;
                 }
@@ -566,7 +547,7 @@ class ExportModal {
         } catch (err) {
             if (this.overlay) {
                 this._setProgress(false);
-                statusEl.textContent = 'Export failed: ' + err.message;
+                this._dialog.setNote('The export stopped: ' + err.message, 'error');
                 confirmBtn.disabled = false;
                 cancelBtn.disabled = false;
             }

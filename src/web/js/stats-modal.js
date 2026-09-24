@@ -16,40 +16,27 @@ class StatsModal {
         this._tlData = null;
         this._tlGeneration = 0;
 
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay stats-overlay';
-        overlay.innerHTML = `
-            <div class="modal stats-modal">
-                <div class="modal-header">
-                    <div class="stats-title-block">
-                        <span class="modal-title">Statistics</span>
-                        ${opts.scopeLabel ? `<span class="stats-scope-label">${escapeHtml(opts.scopeLabel)}</span>` : ''}
-                    </div>
-                    <div class="stats-header-controls">
-                        <div class="stats-lib-filter" id="stats-lib-filter"></div>
-                        <button class="modal-close" id="stats-close" aria-label="Close">&times;</button>
-                    </div>
-                </div>
-                <div class="modal-body stats-body" id="stats-body">
+        this._dialog = new Dialog({
+            title: 'Statistics',
+            subtitle: opts.scopeLabel || '',
+            size: 'lg',
+            className: 'stats-dialog',
+            body: `
+                <div class="stats-lib-filter" id="stats-lib-filter"></div>
+                <div class="stats-body" id="stats-body">
                     <div class="stats-loading">Loading…</div>
-                </div>
-            </div>`;
-        document.body.appendChild(overlay);
+                </div>`,
+            actions: [{ label: 'Close', onClick: () => this.close() }],
+        });
+        const overlay = this._dialog.open();
         this._overlay = overlay;
 
         this._buildLibFilter(overlay.querySelector('#stats-lib-filter'));
-        overlay.querySelector('#stats-close').addEventListener('click', () => this.close());
-        overlay.addEventListener('click', e => { if (e.target === overlay) this.close(); });
-
-        this._escHandler = e => { if (e.key === 'Escape') this.close(); };
-        document.addEventListener('keydown', this._escHandler);
-
         this._load(overlay.querySelector('#stats-body'));
     }
 
     close() {
-        document.removeEventListener('keydown', this._escHandler);
-        this._overlay.remove();
+        this._dialog?.close(null);
     }
 
     _buildLibFilter(el) {
@@ -306,16 +293,28 @@ function resolveColor(cssValue) {
     return rgb;
 }
 
+// Every colour a chart draws with comes from the tokens (ADR-0034), so the
+// two themes are designed rather than flipped, and the eight categorical
+// slots keep their order: slot N is the same entity in light and in dark.
+// Magnitude reads as a step on one hue, not as an opacity guess: five steps,
+// light to dark in light mode and the other way round in dark (ADR-0034).
+function seqStep(c, value, max) {
+    if (!(max > 0) || !(value > 0)) return null;
+    const i = Math.min(c.seq.length - 1, Math.floor(Math.sqrt(value / max) * c.seq.length));
+    return c.seq[i];
+}
+
 function chartColors() {
     return {
         text:    cssVar('--fg'),
         textSec: cssVar('--fg-2'),
-        border:  resolveColor(cssVar('--border')),
+        border:  cssVar('--chart-grid'),
+        axis:    cssVar('--chart-axis'),
         surface: cssVar('--bg'),
         accent:  cssVar('--accent'),
         accentRgb: resolveColor(cssVar('--accent')),
-        // warm-gray palette for categorical series
-        cats: ['#8b7355','#a08060','#b89070','#c8a880','#d4b890','#b8a090','#9a8878','#7a6858'],
+        cats: Array.from({ length: 8 }, (_, i) => cssVar(`--chart-${i + 1}`)),
+        seq:  Array.from({ length: 5 }, (_, i) => cssVar(`--chart-seq-${i + 1}`)),
     };
 }
 
@@ -342,7 +341,7 @@ function renderFormatDonut(el, formats) {
 
     const color = d3.scaleOrdinal()
         .domain(formats.map(d => d.name))
-        .range([c.accent, ...c.cats]);
+        .range(c.cats);
 
     const tooltip = d3.select(el).append('div').attr('class','stats-tooltip').style('display','none');
 
@@ -386,22 +385,31 @@ function renderFormatDonut(el, formats) {
 
 /* ─── 2. Film simulation bar ────────────────────────────────────── */
 
-const FILMSIM_COLORS = {
-    'Provia':        '#8b8b80',
-    'Velvia':        '#c87830',
-    'Astia':         '#b8a090',
-    'Classic Chrome':'#7a7060',
-    'Pro Neg. Hi':   '#909090',
-    'Pro Neg. Std':  '#a0a0a0',
-    'Eterna':        '#6878a0',
-    'Classic Neg.':  '#988870',
-    'Nostalgic Neg.':'#c8a870',
-    'Reala ACE':     '#9090a0',
-    'Acros':         '#4a4a4a',
-    'Monochrome':    '#5a5a5a',
-    'Sepia':         '#8a7060',
-    'None':          '#c8c0b8',
+// A film simulation's colour shows the look it is named after — Velvia is
+// punchy, Acros is grey — so this is a domain palette, not an identity ramp
+// (ADR-0034). It is legible only because every bar carries its name; colour
+// alone never has to carry the difference here.
+const FILMSIM_TOKENS = {
+    'Provia':         '--film-provia',
+    'Velvia':         '--film-velvia',
+    'Astia':          '--film-astia',
+    'Classic Chrome': '--film-classic-chrome',
+    'Pro Neg. Hi':    '--film-pro-neg-hi',
+    'Pro Neg. Std':   '--film-pro-neg-std',
+    'Eterna':         '--film-eterna',
+    'Classic Neg.':   '--film-classic-neg',
+    'Nostalgic Neg.': '--film-nostalgic-neg',
+    'Reala ACE':      '--film-reala-ace',
+    'Acros':          '--film-acros',
+    'Monochrome':     '--film-monochrome',
+    'Sepia':          '--film-sepia',
+    'None':           '--film-none',
 };
+
+function filmSimColor(name) {
+    const token = FILMSIM_TOKENS[name];
+    return token ? cssVar(token) : null;
+}
 
 function renderFilmSimBar(el, filmSims) {
     if (!filmSims?.length) { el.textContent = 'No data'; return; }
@@ -443,7 +451,7 @@ function renderFilmSimBar(el, filmSims) {
         data.forEach((d, i) => {
             const y = pad.top + i * barH;
             const name = cleanExif(d.name);
-            const barColor = FILMSIM_COLORS[name] ?? c.cats[i % c.cats.length];
+            const barColor = filmSimColor(name) ?? c.cats[i % c.cats.length];
             svg.append('text')
                 .attr('x', pad.left - 8).attr('y', y + barH/2 + 4)
                 .attr('text-anchor','end').attr('fill', c.text).attr('font-size', 11)
@@ -451,7 +459,7 @@ function renderFilmSimBar(el, filmSims) {
             svg.append('rect')
                 .attr('x', pad.left).attr('y', y + 3)
                 .attr('width', x(d.count)).attr('height', barH - 6)
-                .attr('rx', 2).attr('fill', barColor).attr('opacity', 0.85);
+                .attr('rx', 2).attr('fill', barColor);
             svg.append('text')
                 .attr('x', pad.left + x(d.count) + 5).attr('y', y + barH/2 + 4)
                 .attr('fill', c.textSec).attr('font-size', 10)
@@ -519,7 +527,7 @@ function renderFocalHistogram(el, focalLengths, focalLengths35) {
             .attr('y', d => y(d.length))
             .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 2))
             .attr('height', d => iH - y(d.length))
-            .attr('fill', c.accent).attr('opacity', 0.7).attr('rx', 1);
+            .attr('fill', c.cats[0]).attr('rx', 1);
 
         return svg.node();
     }
@@ -555,7 +563,7 @@ function renderApertureHistogram(el, apertures) {
         .attr('y', d => y(d.length))
         .attr('width', d => Math.max(0, x(Math.max(0.9, d.x1)) - x(Math.max(0.9, d.x0)) - 2))
         .attr('height', d => iH - y(d.length))
-        .attr('fill', c.cats[0]).attr('opacity', 0.8).attr('rx', 1);
+        .attr('fill', c.cats[0]).attr('rx', 1);
 }
 
 /* ─── 5. ISO histogram (log scale) ─────────────────────────────── */
@@ -589,7 +597,7 @@ function renderISOHistogram(el, isos) {
         .attr('y', d => y(d.length))
         .attr('width', d => Math.max(0, x(Math.max(50, d.x1)) - x(Math.max(50, d.x0)) - 2))
         .attr('height', d => iH - y(d.length))
-        .attr('fill', c.cats[2]).attr('opacity', 0.8).attr('rx', 1);
+        .attr('fill', c.cats[0]).attr('rx', 1);
 }
 
 /* ─── 6. Camera × lens treemap ──────────────────────────────────── */
@@ -620,7 +628,7 @@ function renderCameraLensTreemap(el, cameraLens, totalPhotos) {
 
     const cameraNames = [...cameraMap.keys()];
     const camColor = d3.scaleOrdinal().domain(cameraNames)
-        .range([c.accent, ...c.cats]);
+        .range(c.cats);
 
     const tooltip = d3.select(el).append('div').attr('class','stats-tooltip').style('display','none');
 
@@ -715,7 +723,7 @@ function renderShootingClock(el, shootingHours) {
         const arc = d3.arc()({ innerRadius: innerR, outerRadius: rScale(n), startAngle, endAngle });
         svg.append('path').attr('d', arc)
             .attr('transform', `translate(${cx},${cy})`)
-            .attr('fill', c.accent).attr('opacity', 0.6 + 0.4 * (n / maxVal));
+            .attr('fill', seqStep(c, n, maxVal) ?? c.seq[0]);
     }
 
     // Clock face labels: midnight top, 6am right, noon bottom, 6pm left
@@ -835,8 +843,8 @@ function renderCalendarHeatmap(el, shootingDays) {
                     .attr('y', monthLabelHeight + di * step)
                     .attr('width', cellSize).attr('height', cellSize)
                     .attr('rx', 2)
-                    .attr('fill', n > 0 ? c.accent : c.border)
-                    .attr('opacity', n > 0 ? (0.15 + 0.85 * Math.sqrt(n / maxCount)) : 0.25);
+                    .attr('fill', n > 0 ? seqStep(c, n, maxCount) : c.border)
+                    .attr('opacity', n > 0 ? 1 : 0.4);
                 if (n > 0) {
                     rect.on('mouseover', function(event) {
                             tooltip.style('display','block').html(`${key}<br>${n} photo${n !== 1 ? 's':''}`);
@@ -859,7 +867,7 @@ function renderCalendarHeatmap(el, shootingDays) {
 
 /* ─── Timeline helpers ──────────────────────────────────────────── */
 
-const TL_CAM_COLORS = ['#d35400', '#8b5a2b', '#c8a860', '#7a9e7e', '#6b8cba', '#9b7ec8'];
+// The cameras of a timeline are categories like any other (ADR-0034).
 
 function tlAxisBottom(g, x, periods, iH, c) {
     const tickMod = periods.length > 24 ? Math.ceil(periods.length / 12) : 1;
@@ -895,7 +903,7 @@ function renderCameraStream(el, tlData) {
     });
 
     const stack = d3.stack().keys(cameraNames)(stackData);
-    const colorScale = d3.scaleOrdinal().domain(cameraNames).range(TL_CAM_COLORS);
+    const colorScale = d3.scaleOrdinal().domain(cameraNames).range(c.cats);
 
     const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.08);
     const maxY = d3.max(stack[stack.length - 1], d => d[1]);
@@ -963,13 +971,13 @@ function renderFocalDrift(el, tlData) {
         .attr('d', d3.area()
             .x(p => xC(p)).y0(p => y(statsMap.get(p).p25)).y1(p => y(statsMap.get(p).p75))
             .curve(d3.curveMonotoneX))
-        .attr('fill', c.accent).attr('opacity', 0.15);
+        .attr('fill', c.cats[0]).attr('opacity', 0.18);
 
     // Median line
     g.append('path')
         .datum(validPeriods)
         .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+        .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
 }
 
 /* ─── TL 3. ISO evolution ───────────────────────────────────────── */
@@ -1011,12 +1019,12 @@ function renderISOEvolution(el, tlData) {
     g.append('path')
         .datum(validPeriods)
         .attr('d', d3.area().x(p => xC(p)).y0(iH).y1(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', c.accent).attr('opacity', 0.15);
+        .attr('fill', c.cats[0]).attr('opacity', 0.18);
 
     g.append('path')
         .datum(validPeriods)
         .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+        .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
 }
 
 /* ─── TL 4. Aperture heatmap ────────────────────────────────────── */
@@ -1064,8 +1072,8 @@ function renderApertureHeat(el, tlData) {
             g.append('rect')
                 .attr('x', pi * cellW).attr('y', bi * cellH)
                 .attr('width', cellW - 1).attr('height', cellH - 1).attr('rx', 1)
-                .attr('fill', count > 0 ? c.accent : c.border)
-                .attr('opacity', count > 0 ? cellOpacity(norm) : 0.2)
+                .attr('fill', count > 0 ? seqStep(c, norm, 1) : c.border)
+                .attr('opacity', count > 0 ? 1 : 0.3)
                 .on('mouseover', function(event) {
                     if (!count) return;
                     tooltip.style('display', 'block')
@@ -1082,7 +1090,10 @@ function renderApertureHeat(el, tlData) {
 
 /* ─── TL 5. Aspect ratio river ──────────────────────────────────── */
 
-const TL_ASPECT_COLORS = { '3:2': '#b89070', '4:3': '#8b7355', '16:9+': '#d4a870', '1:1': '#7a8070', 'other': '#c0bab0' };
+// Aspect ratios are a fixed set, so each keeps its slot in the ramp whatever
+// the library holds (ADR-0034).
+const TL_ASPECT_SLOTS = { '3:2': 0, '4:3': 1, '16:9+': 2, '1:1': 3, 'other': 4 };
+const aspectColor = (c, ratio) => c.cats[TL_ASPECT_SLOTS[ratio] ?? 4];
 
 function renderAspectRiver(el, tlData) {
     const aspects = tlData.aspectRatios;
@@ -1115,7 +1126,7 @@ function renderAspectRiver(el, tlData) {
 
     g.selectAll('.aspect-layer').data(stack).join('path')
         .attr('class', 'aspect-layer')
-        .attr('fill', d => TL_ASPECT_COLORS[d.key] ?? '#c0bab0')
+        .attr('fill', d => aspectColor(c, d.key))
         .attr('opacity', 0.85)
         .attr('d', d3.area().x(d => xC(d.data.period)).y0(d => y(d[0])).y1(d => y(d[1])).curve(d3.curveMonotoneX));
 
@@ -1124,7 +1135,7 @@ function renderAspectRiver(el, tlData) {
     ratioNames.forEach(ratio => {
         const item = document.createElement('div');
         item.className = 'stats-tl-legend-item';
-        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${TL_ASPECT_COLORS[ratio] ?? '#c0bab0'}"></span>${escapeHtml(ratio)}`;
+        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${aspectColor(c, ratio)}"></span>${escapeHtml(ratio)}`;
         legend.appendChild(item);
     });
     el.appendChild(legend);
@@ -1166,7 +1177,7 @@ function renderMegapixelTimeline(el, tlData) {
     g.append('path')
         .datum(validPeriods)
         .attr('d', d3.line().x(p => xC(p)).y(p => y(byPeriod.get(p).max)).curve(d3.curveStepAfter))
-        .attr('fill', 'none').attr('stroke', c.accent).attr('stroke-width', 2);
+        .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
 
     // Mark significant max jumps (>20%)
     for (let i = 1; i < validPeriods.length; i++) {
@@ -1174,7 +1185,7 @@ function renderMegapixelTimeline(el, tlData) {
         const curr = byPeriod.get(validPeriods[i]);
         if (curr.max > prev.max * 1.2) {
             g.append('circle').attr('cx', xC(validPeriods[i])).attr('cy', y(curr.max))
-                .attr('r', 4).attr('fill', c.accent).attr('stroke', '#f5f2ed').attr('stroke-width', 2);
+                .attr('r', 4).attr('fill', c.cats[0]).attr('stroke', c.surface).attr('stroke-width', 2);
         }
     }
 
@@ -1182,7 +1193,7 @@ function renderMegapixelTimeline(el, tlData) {
     legend.className = 'stats-tl-legend';
     legend.innerHTML = `
         <div class="stats-tl-legend-item">
-            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.accent}" stroke-width="2"/></svg>
+            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.cats[0]}" stroke-width="2"/></svg>
             Max MP
         </div>
         <div class="stats-tl-legend-item">

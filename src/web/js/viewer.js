@@ -409,8 +409,9 @@ class Viewer {
         const img = this.container.querySelector('.viewer-image-container img');
         this._cropTool = new CropTool(img);
 
-        // Add modal-overlay class so app-keyboard.js defers on this viewer
-        this._cropTool._overlay.classList.add('modal-overlay');
+        // Crop draws on the photo and owns the keyboard while it does; the
+        // class tells the global shortcuts to stand back (app-keyboard.js).
+        this._cropTool._overlay.classList.add('keyboard-owner');
 
         this._cropKeyHandler = (e) => {
             if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this._exitCropMode(); }

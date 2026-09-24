@@ -717,11 +717,13 @@ class LibraryTab {
     // Everything about the library itself: its name, its description, and —
     // behind a two-step confirmation naming what goes — deleting it.
     _showEditDialog(lib, onSaved = null) {
-        const dlg = document.createElement('div');
-        dlg.className = 'library-dialog-backdrop';
-        dlg.innerHTML = `
-            <div class="library-dialog">
-                <h3 class="library-dialog-title">Edit library</h3>
+        const self = this;
+        this._editDialog = new Dialog({
+            title: 'Edit library',
+            subtitle: lib.name,
+            size: 'md',
+            className: 'library-dialog',
+            body: `
                 <label class="library-dialog-label" for="lib-edit-name">Name</label>
                 <input class="library-dialog-input" id="lib-edit-name" type="text" autocomplete="off">
                 <label class="library-dialog-label" for="lib-edit-desc">Description (optional)</label>
@@ -744,13 +746,13 @@ class LibraryTab {
                     <span class="library-dialog-progress" id="lib-edit-maint-progress" hidden></span>
                 </div>
                 <div class="library-dialog-danger" id="lib-edit-danger"></div>
-                <div class="library-dialog-actions">
-                    <button class="btn" id="lib-edit-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="lib-edit-save">Save</button>
-                </div>
-                <div class="build-error" id="lib-edit-error" hidden></div>
-            </div>`;
-        document.body.appendChild(dlg);
+                <div class="build-error" id="lib-edit-error" hidden></div>`,
+            actions: [
+                { label: 'Cancel', id: 'lib-edit-cancel', onClick: () => this._editDialog.close(null) },
+                { label: 'Save', kind: 'primary', id: 'lib-edit-save', onClick: () => save() },
+            ],
+        });
+        const dlg = this._editDialog.open();
 
         const nameEl = dlg.querySelector('#lib-edit-name');
         const descEl = dlg.querySelector('#lib-edit-desc');
@@ -759,23 +761,23 @@ class LibraryTab {
         descEl.value = lib.description || '';
         nameEl.focus();
 
-        const close = () => dlg.remove();
-        dlg.querySelector('#lib-edit-cancel').addEventListener('click', close);
-        dlg.querySelector('#lib-edit-save').addEventListener('click', async () => {
+        const close = () => this._editDialog.close(null);
+
+        async function save() {
             const name = nameEl.value.trim();
             if (!name) { nameEl.focus(); return; }
             try {
                 const updated = await LibraryAPI.update(lib.id, name, descEl.value.trim());
                 lib.name = updated.name;
                 lib.description = updated.description;
-                this._cachedLibs = null;
+                self._cachedLibs = null;
                 close();
                 if (onSaved) onSaved(updated);
             } catch (err) {
                 errEl.textContent = err.message;
                 errEl.hidden = false;
             }
-        });
+        }
 
         this._wireMaintenance(dlg, lib);
         this._renderLibraryDanger(dlg, lib, close);
@@ -846,25 +848,25 @@ class LibraryTab {
     }
 
     _showCreateDialog(prefillPath) {
-        const dlg = document.createElement('div');
-        dlg.className = 'library-dialog-backdrop';
-        dlg.innerHTML = `
-            <div class="library-dialog">
-                <h3 class="library-dialog-title">New Library</h3>
-                <label class="library-dialog-label">Name</label>
+        this._createDialog = new Dialog({
+            title: 'New library',
+            size: 'md',
+            className: 'library-dialog',
+            body: `
+                <label class="library-dialog-label" for="lib-dlg-name">Name</label>
                 <input class="library-dialog-input" id="lib-dlg-name" type="text" placeholder="My Photos" autocomplete="off">
-                <label class="library-dialog-label">Source folder</label>
+                <label class="library-dialog-label" for="lib-dlg-path">Source folder</label>
                 <input class="library-dialog-input" id="lib-dlg-path" type="text" placeholder="/Fotos/2024">
-                <label class="library-dialog-label">Description (optional)</label>
+                <label class="library-dialog-label" for="lib-dlg-desc">Description (optional)</label>
                 <input class="library-dialog-input" id="lib-dlg-desc" type="text" placeholder="">
-                <div class="library-dialog-note">The folder will be scanned when you click Create. Large folders may take a few minutes.</div>
-                <div class="library-dialog-actions">
-                    <button class="btn" id="lib-dlg-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="lib-dlg-create">Create &amp; index</button>
-                </div>
-                <div class="library-dialog-progress" id="lib-dlg-progress" style="display:none"></div>
-            </div>`;
-        document.body.appendChild(dlg);
+                <div class="library-dialog-note">The folder is scanned when you press Create. A large folder takes a few minutes.</div>
+                <div class="library-dialog-progress" id="lib-dlg-progress" style="display:none"></div>`,
+            actions: [
+                { label: 'Cancel', id: 'lib-dlg-cancel', onClick: () => this._createDialog.close(null) },
+                { label: 'Create & index', kind: 'primary', id: 'lib-dlg-create', onClick: () => create() },
+            ],
+        });
+        const dlg = this._createDialog.open();
 
         const nameEl = dlg.querySelector('#lib-dlg-name');
         const pathEl = dlg.querySelector('#lib-dlg-path');
@@ -880,9 +882,7 @@ class LibraryTab {
             nameEl.focus();
         }
 
-        dlg.querySelector('#lib-dlg-cancel').addEventListener('click', () => dlg.remove());
-
-        createBtn.addEventListener('click', async () => {
+        const create = async () => {
             const name = nameEl.value.trim();
             const path = stripQuotes(pathEl.value.trim());
             pathEl.value = path; // show cleaned value
@@ -908,15 +908,15 @@ class LibraryTab {
                         progressEl.textContent = `${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
                     }
                 });
-                dlg.remove();
+                this._createDialog.close(null);
                 App.refreshLibraryVisibility();
                 this._openLibrary(lib);
             } catch (err) {
-                progressEl.style.color = 'var(--accent)';
-                progressEl.textContent = 'Error: ' + err.message;
+                progressEl.style.color = 'var(--warning-ink)';
+                progressEl.textContent = 'It did not work: ' + err.message;
                 createBtn.disabled = false;
             }
-        });
+        };
     }
 
     // Open the create dialog pre-filled with a known path (from Tools menu).

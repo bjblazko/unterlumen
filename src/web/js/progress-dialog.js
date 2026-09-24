@@ -15,44 +15,24 @@ class ProgressDialog {
         this._action = action;
         this._onComplete = onComplete;
         this._buildDOM();
-        document.body.appendChild(this.overlay);
         this._run();
     }
 
+    // Not dismissible: files are being moved behind it, and a stray Escape
+    // in the middle of that would leave the person guessing what happened.
     _buildDOM() {
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay progress-overlay';
-
-        this.overlay.innerHTML = `
-            <div class="modal" style="max-width: 400px">
-                <div class="modal-header">
-                    <span class="modal-title">${this._verb} files</span>
-                </div>
-                <div class="modal-body">
-                    <div class="progress-status">${this._verb} 0 of ${this._items.length} files...</div>
-                    <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
-                    <div class="progress-detail"></div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" id="progress-cancel">Cancel</button>
-                </div>
-            </div>`;
-
-        this.overlay.querySelector('#progress-cancel').addEventListener('click', () => {
-            this._cancelled = true;
+        this._dialog = new Dialog({
+            title: `${this._verb} files`,
+            size: 'sm',
+            dismissible: false,
+            className: 'progress-dialog',
+            body: `
+                <div class="progress-status">${this._verb} 0 of ${this._items.length} files…</div>
+                <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
+                <div class="progress-detail"></div>`,
+            actions: [{ label: 'Cancel', onClick: () => { this._cancelled = true; } }],
         });
-
-        // Block escape and overlay clicks during operation
-        this.overlay.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-        this._onKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        };
-        document.addEventListener('keydown', this._onKeyDown, true);
+        this.overlay = this._dialog.open();
     }
 
     async _run() {
@@ -99,13 +79,16 @@ class ProgressDialog {
             statusEl.textContent = `${pastTense} ${completed} of ${total} files.`;
         }
 
-        // Replace Cancel with OK
-        const footer = this.overlay.querySelector('.modal-footer');
-        footer.innerHTML = '<button class="btn btn-accent" id="progress-ok">OK</button>';
-        footer.querySelector('#progress-ok').addEventListener('click', () => {
-            this._close();
-            if (this._onComplete) this._onComplete(this._results);
-        });
+        // The run is over, so the one thing left to do is close the report.
+        this._dialog.dismissible = true;
+        this._dialog.setActions([{
+            label: 'Close',
+            kind: 'primary',
+            onClick: () => {
+                this._close();
+                if (this._onComplete) this._onComplete(this._results);
+            },
+        }]);
     }
 
     _showErrors(errors) {
@@ -125,10 +108,7 @@ class ProgressDialog {
     }
 
     _close() {
-        document.removeEventListener('keydown', this._onKeyDown, true);
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
+        this._dialog?.close(null);
+        this.overlay = null;
     }
 }

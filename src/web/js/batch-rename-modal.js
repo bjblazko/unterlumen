@@ -33,48 +33,33 @@ class BatchRenameModal {
         this.files = [];
         this._onSuccess = null;
         this._debounceTimer = null;
-        this._onKeyDown = (e) => {
-            if (e.key === 'Escape') this.close();
-        };
     }
 
     open(files, onSuccess = null) {
         this.files = files;
         this._onSuccess = onSuccess;
         this._buildDOM();
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
         const input = this.overlay.querySelector('.batch-rename-input');
         if (input) input.focus();
     }
 
     close() {
-        document.removeEventListener('keydown', this._onKeyDown);
         if (this._debounceTimer) clearTimeout(this._debounceTimer);
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
+        this._dialog?.close(null);
+        this.overlay = null;
     }
 
     _buildDOM() {
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
-        });
-
         const tokenButtons = BATCH_RENAME_TOKENS.map(t =>
             `<button class="btn btn-sm batch-rename-token batch-rename-cat-${t.category}" data-token="${t.token}" title="${t.label} — e.g. ${t.example}" draggable="true">${t.token}</button>`
         ).join('');
 
-        this.overlay.innerHTML = `
-            <div class="modal" style="max-width:900px;width:90vw">
-                <div class="modal-header">
-                    <span class="modal-title">Batch Rename</span>
-                    <button class="info-collapse-btn modal-close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
+        this._dialog = new Dialog({
+            title: 'Batch rename',
+            subtitle: `${this.files.length} file${this.files.length !== 1 ? 's' : ''}`,
+            size: 'lg',
+            className: 'batch-rename-dialog',
+            body: `
                     <div class="batch-rename-pattern-section">
                         <label class="field-label-inline">Pattern</label>
                         <div class="batch-rename-input-wrap">
@@ -89,16 +74,14 @@ class BatchRenameModal {
                             <div class="batch-rename-preview-empty">Enter a pattern to see preview</div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" id="batch-rename-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="batch-rename-apply" disabled>Rename</button>
-                </div>
-            </div>`;
-
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#batch-rename-cancel').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#batch-rename-apply').addEventListener('click', () => this._execute());
+`,
+            actions: [
+                { label: 'Cancel', id: 'batch-rename-cancel', onClick: () => this.close() },
+                { label: 'Rename', kind: 'primary', id: 'batch-rename-apply', disabled: true, onClick: () => this._execute() },
+            ],
+            onClose: () => { this.overlay = null; },
+        });
+        this.overlay = this._dialog.open();
 
         const input = this.overlay.querySelector('.batch-rename-input');
         input.addEventListener('input', () => {
@@ -347,7 +330,7 @@ class BatchRenameModal {
             applyBtn.disabled = hasErrors;
         } catch (err) {
             if (!this.overlay) return;
-            list.innerHTML = `<div class="batch-rename-preview-empty" style="color:#c0392b">${this._esc(err.message)}</div>`;
+            list.innerHTML = `<div class="batch-rename-preview-empty" style="color:var(--warning-ink)">${this._esc(err.message)}</div>`;
             applyBtn.disabled = true;
         }
     }
@@ -358,14 +341,12 @@ class BatchRenameModal {
         const pattern = input.value.trim();
         const total = this.files.length;
 
-        // Replace modal body with progress UI
-        const body = this.overlay.querySelector('.modal-body');
-        body.innerHTML = `
-            <div class="progress-status">Renaming 0 of ${total} files...</div>
+        // The dialog now reports the run it was asked for.
+        const body = this._dialog.setBody(`
+            <div class="progress-status">Renaming 0 of ${total} files…</div>
             <div class="progress-bar-track"><div class="progress-bar-fill" style="width:0"></div></div>
-            <div class="progress-detail"></div>`;
-        const footer = this.overlay.querySelector('.modal-footer');
-        footer.innerHTML = '';
+            <div class="progress-detail"></div>`);
+        this._dialog.setActions([]);
 
         const statusEl = body.querySelector('.progress-status');
         const fillEl = body.querySelector('.progress-bar-fill');
@@ -402,8 +383,7 @@ class BatchRenameModal {
 
             if (successes > 0 && this._onSuccess) this._onSuccess(result.libraryUpdated);
 
-            footer.innerHTML = '<button class="btn btn-accent" id="batch-rename-done">OK</button>';
-            footer.querySelector('#batch-rename-done').addEventListener('click', () => this.close());
+            this._dialog.setActions([{ label: 'Close', kind: 'primary', id: 'batch-rename-done', onClick: () => this.close() }]);
 
             if (failures.length === 0) {
                 setTimeout(() => this.close(), 1200);
@@ -411,11 +391,10 @@ class BatchRenameModal {
         } catch (err) {
             clearInterval(tick);
             fillEl.style.width = '100%';
-            fillEl.style.background = '#c0392b';
-            statusEl.textContent = 'Rename failed.';
+            fillEl.style.background = 'var(--warning)';
+            statusEl.textContent = 'The rename stopped.';
             detailEl.innerHTML = `<div class="progress-errors"><div class="progress-error-line">${this._esc(err.message)}</div></div>`;
-            footer.innerHTML = '<button class="btn" id="batch-rename-done">OK</button>';
-            footer.querySelector('#batch-rename-done').addEventListener('click', () => this.close());
+            this._dialog.setActions([{ label: 'Close', id: 'batch-rename-done', onClick: () => this.close() }]);
         }
     }
 

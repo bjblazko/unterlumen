@@ -111,7 +111,7 @@ test.describe('Export', () => {
     await expect(exportBtn).toBeVisible({ timeout: 3_000 });
     await exportBtn.click();
 
-    const exportModal = page.locator('.export-modal');
+    const exportModal = page.locator('.export-dialog');
     await expect(exportModal).toBeVisible({ timeout: 5_000 });
     await page.keyboard.press('Escape');
     await expect(exportModal).not.toBeVisible({ timeout: 3_000 });

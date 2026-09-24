@@ -32,7 +32,7 @@ test.describe('Folder picker', () => {
         await waitForAppReady(page);
         await page.waitForSelector('.organize-source .browse-header', { timeout: 10_000 });
         await page.locator('[data-org="add"]').click();
-        await expect(page.locator('.fp-modal')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.fp-dialog')).toBeVisible({ timeout: 5_000 });
     });
 
     test('opens in the filesystem with a clickable path', async ({ page }) => {
@@ -40,7 +40,7 @@ test.describe('Folder picker', () => {
         await expect(page.locator('.fp-crumbs')).toBeVisible();
         await page.locator('.fp-row', { hasText: 'folder-a' }).click();
         await expect(page.locator('.fp-crumb-here')).toHaveText('folder-a');
-        await expect(page.locator('.fp-selected')).toContainText('folder-a');
+        await expect(page.locator('.fp-dialog .dialog-note')).toContainText('folder-a');
     });
 
     test('a library is one click away, and lands in its folder', async ({ page }) => {
@@ -52,18 +52,18 @@ test.describe('Folder picker', () => {
         // Back in the filesystem view, inside the library's own folder.
         await expect(page.locator('.fp-sources [data-source="fs"]')).toHaveAttribute('aria-pressed', 'true');
         await expect(page.locator('.fp-crumb-here')).toHaveText('folder-a');
-        await expect(page.locator('.fp-selected')).toContainText('folder-a');
+        await expect(page.locator('.fp-dialog .dialog-note')).toContainText('folder-a');
     });
 
     test('Select returns the folder, Cancel returns nothing', async ({ page }) => {
         await page.locator('.fp-row', { hasText: 'folder-b' }).click();
         await page.locator('#fp-select').click();
-        await expect(page.locator('.fp-modal')).toHaveCount(0);
+        await expect(page.locator('.fp-dialog')).toHaveCount(0);
         await expect(page.locator('.org-target', { hasText: 'folder-b' })).toBeVisible();
 
         await page.locator('[data-org="add"]').click();
         await page.locator('#fp-cancel').click();
-        await expect(page.locator('.fp-modal')).toHaveCount(0);
+        await expect(page.locator('.fp-dialog')).toHaveCount(0);
         await expect(page.locator('.org-target')).toHaveCount(2); // folder-b and "Mark for deletion"
     });
 
@@ -75,12 +75,12 @@ test.describe('Folder picker', () => {
         await page.locator('.fp-home').click();
         await expect(page.locator('.fp-crumbs')).toContainText('Root');
         await expect(page.locator('.fp-home')).toBeDisabled();
-        await expect(page.locator('.fp-selected')).toContainText('browse root');
+        await expect(page.locator('.fp-dialog .dialog-note')).toContainText('browse root');
     });
 
     test('Escape closes it without choosing', async ({ page }) => {
         await page.keyboard.press('Escape');
-        await expect(page.locator('.fp-modal')).toHaveCount(0);
+        await expect(page.locator('.fp-dialog')).toHaveCount(0);
         await expect(page.locator('.org-target')).toHaveCount(1); // only "Mark for deletion"
     });
 });

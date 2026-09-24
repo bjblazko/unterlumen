@@ -6,9 +6,8 @@
 // to") asked for the destination first, which is the part you rarely care
 // about (ADR-0029's vocabulary).
 //
-// Uses the .modal-backdrop keyboard-guard pattern (see CLAUDE.md): the global
-// guard closes it by clicking #collect-cancel, so this must not add its own
-// keydown listener.
+// The frame, Escape, the scrim and the focus are the Dialog's (ADR-0033);
+// this file only knows about galleries.
 class CollectDialog {
     // count:    how many photos are being added (for the title).
     // onCollect: async ({ slug, draftID, postID, title, unlisted, account })
@@ -21,28 +20,22 @@ class CollectDialog {
     }
 
     async open() {
-        this._el = document.createElement('div');
-        this._el.className = 'modal-backdrop';
-        this._el.innerHTML = `
-            <div class="modal collect-modal">
-                <div class="modal-header">
-                    <span class="modal-title" id="collect-title">Add ${this._count} photo${this._count !== 1 ? 's' : ''} to a gallery</span>
-                    <button class="modal-close" id="collect-close">&times;</button>
-                </div>
-                <div class="modal-body" id="collect-body">
+        this._dialog = new Dialog({
+            title: `Add ${this._count} photo${this._count !== 1 ? 's' : ''} to a gallery`,
+            size: 'md',
+            className: 'collect-dialog',
+            body: `
+                <div id="collect-body">
                     <div class="channel-loading">Loading your galleries…</div>
                 </div>
-                <div class="modal-footer">
-                    <div class="build-error" id="collect-error" hidden></div>
-                    <button class="btn" id="collect-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="collect-confirm" disabled>Add to gallery</button>
-                </div>
-            </div>`;
-        document.body.appendChild(this._el);
-        this._el.querySelector('#collect-close').addEventListener('click', () => this.close());
-        this._el.querySelector('#collect-cancel').addEventListener('click', () => this.close());
-        this._el.addEventListener('click', e => { if (e.target === this._el) this.close(); });
-        this._el.querySelector('#collect-confirm').addEventListener('click', () => this._confirm());
+                <div class="build-error" id="collect-error" hidden></div>`,
+            actions: [
+                { label: 'Cancel', id: 'collect-cancel', onClick: () => this.close() },
+                { label: 'Add to gallery', kind: 'primary', id: 'collect-confirm', disabled: true, onClick: () => this._confirm() },
+            ],
+            onClose: () => { this._el = null; },
+        });
+        this._el = this._dialog.open();
 
         try {
             [this._galleries, this._channels] = await Promise.all([
@@ -63,7 +56,7 @@ class CollectDialog {
     }
 
     close() {
-        this._el?.remove();
+        this._dialog?.close(null);
         this._el = null;
     }
 

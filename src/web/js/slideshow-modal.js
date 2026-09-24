@@ -8,42 +8,29 @@ class SlideshowModal {
         this._images = [];
         this._audioFiles = [];  // persists within session — not reset on re-open
         this._audioMode = 'none';
-        this._onKeyDown = this._onKeyDown.bind(this);
     }
 
     open(images) {
         if (this.overlay) this.close();
         this._images = images;
         this._buildDOM();
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
     }
 
     close() {
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
-        document.removeEventListener('keydown', this._onKeyDown);
-    }
-
-    _onKeyDown(e) {
-        if (e.key === 'Escape') this.close();
+        this._dialog?.close(null);
+        this.overlay = null;
     }
 
     _buildDOM() {
         const count = this._images.length;
-        const label = count === 1 ? '1 image' : `${count} images`;
+        const label = count === 1 ? '1 photo' : `${count} photos`;
 
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.innerHTML = `
-            <div class="modal slideshow-modal">
-                <div class="modal-header">
-                    <span class="modal-title">Slideshow — ${label}</span>
-                    <button class="info-collapse-btn modal-close-btn" title="Close">&times;</button>
-                </div>
-                <div class="modal-body">
+        this._dialog = new Dialog({
+            title: 'Slideshow',
+            subtitle: label,
+            size: 'md',
+            className: 'slideshow-dialog',
+            body: `
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Delay</span>
                         <div class="ss-delay-row">
@@ -53,20 +40,20 @@ class SlideshowModal {
                     </div>
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Transition</span>
-                        <div class="btn-choice">
-                            <button class="btn btn-sm active" data-transition="fade">Fade</button>
-                            <button class="btn btn-sm" data-transition="slide">Slide</button>
-                            <button class="btn btn-sm" data-transition="zoom">Zoom</button>
-                            <button class="btn btn-sm" data-transition="instant">Instant</button>
+                        <div class="seg" role="group" aria-label="Transition">
+                            <button aria-pressed="true" data-transition="fade">Fade</button>
+                            <button aria-pressed="false" data-transition="slide">Slide</button>
+                            <button aria-pressed="false" data-transition="zoom">Zoom</button>
+                            <button aria-pressed="false" data-transition="instant">Instant</button>
                         </div>
                     </div>
                     <div class="ss-opt-section">
                         <span class="ss-opt-label">Display</span>
-                        <div class="btn-choice">
-                            <button class="btn btn-sm active" data-display="single">Single</button>
-                            <button class="btn btn-sm" data-display="kenburns">Ken Burns</button>
-                            <button class="btn btn-sm" data-display="2up">2-up</button>
-                            <button class="btn btn-sm" data-display="4up">4-up</button>
+                        <div class="seg" role="group" aria-label="Display">
+                            <button aria-pressed="true" data-display="single">Single</button>
+                            <button aria-pressed="false" data-display="kenburns">Ken Burns</button>
+                            <button aria-pressed="false" data-display="2up">2-up</button>
+                            <button aria-pressed="false" data-display="4up">4-up</button>
                         </div>
                     </div>
                     <div class="ss-opt-section">
@@ -109,22 +96,14 @@ class SlideshowModal {
                     </div>
                     <input type="file" class="ss-file-input" accept="audio/*" style="display:none">
                     <input type="file" class="ss-folder-input" accept="audio/*" style="display:none" webkitdirectory>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn ss-cancel-btn">Cancel</button>
-                    <button class="btn btn-accent ss-start-btn">Start</button>
-                </div>
-            </div>
-        `;
-
-        // Close button
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('.ss-cancel-btn').addEventListener('click', () => this.close());
-
-        // Click outside to close
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
+`,
+            actions: [
+                { label: 'Cancel', onClick: () => this.close() },
+                { label: 'Start slideshow', kind: 'primary', onClick: () => this._onStart() },
+            ],
+            onClose: () => { this.overlay = null; },
         });
+        this.overlay = this._dialog.open();
 
         // Delay range
         const range = this.overlay.querySelector('.ss-delay-range');
@@ -134,11 +113,11 @@ class SlideshowModal {
         });
 
         // Segmented toggles (transition + display)
-        this.overlay.querySelectorAll('.btn-choice').forEach(group => {
-            group.querySelectorAll('.btn').forEach(btn => {
+        this.overlay.querySelectorAll('.seg').forEach(group => {
+            group.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    group.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                    group.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+                    btn.setAttribute('aria-pressed', 'true');
                 });
             });
         });
@@ -239,13 +218,12 @@ class SlideshowModal {
         });
 
         // Start button
-        this.overlay.querySelector('.ss-start-btn').addEventListener('click', () => this._onStart());
     }
 
     _getOptions() {
         const delay = parseInt(this.overlay.querySelector('.ss-delay-range').value, 10);
-        const transition = this.overlay.querySelector('[data-transition].active')?.dataset.transition || 'fade';
-        const display = this.overlay.querySelector('[data-display].active')?.dataset.display || 'single';
+        const transition = this.overlay.querySelector('[data-transition][aria-pressed="true"]')?.dataset.transition || 'fade';
+        const display = this.overlay.querySelector('[data-display][aria-pressed="true"]')?.dataset.display || 'single';
         const audioMode = this.overlay.querySelector('input[name="ss-audio"]:checked')?.value || 'none';
         const loop = this._loopToggle.state();
         const builtinTracks = audioMode === 'builtin'

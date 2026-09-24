@@ -1,39 +1,11 @@
 // About dialog — app info, author, and legal notice
 
 class AboutModal {
-    constructor() {
-        this.overlay = null;
-        this._onKeyDown = (e) => { if (e.key === 'Escape') this.close(); };
-    }
-
     open(version) {
-        this._build(version);
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
-    }
-
-    close() {
-        document.removeEventListener('keydown', this._onKeyDown);
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
-    }
-
-    _build(version) {
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
-        });
-
-        this.overlay.innerHTML = `
-            <div class="modal about-modal">
-                <div class="modal-header">
-                    <span class="modal-title">About Unterlumen</span>
-                    <button class="info-collapse-btn modal-close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
+        this._dialog = new Dialog({
+            title: 'About Unterlumen',
+            size: 'sm',
+            body: `
                     <div class="about-logo-row">
                         <svg class="about-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <rect x="0" y="0" width="25" height="4" fill="currentColor"/>
@@ -63,13 +35,13 @@ class AboutModal {
                     <div class="about-section about-disclaimer">
                         This software is provided as-is, without warranty of any kind. Always keep backups of your files before using tools that move, rename, or delete files.
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-accent" id="about-close-btn">Close</button>
-                </div>
-            </div>`;
+`,
+            actions: [{ label: 'Close', value: null }],
+        });
+        this._dialog.open();
+    }
 
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#about-close-btn').addEventListener('click', () => this.close());
+    close() {
+        this._dialog?.close(null);
     }
 }

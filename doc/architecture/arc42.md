@@ -165,6 +165,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
 | `organize.js` | `OrganizePane` class — source browse pane, remembered targets, move/copy with undo |
+| `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
@@ -303,6 +304,8 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0030](adr/0030-rams-design-tokens.md) — Adopt rams-design tokens (supersedes ADR-0018)
 - [ADR-0031](adr/0031-vendor-maplibre.md) — Vendor MapLibre GL JS (supersedes ADR-0013's CDN delivery)
 - [ADR-0032](adr/0032-organize-one-source-many-targets.md) — Organize is one source and many targets (supersedes ADR-0005)
+- [ADR-0033](adr/0033-dialogs-and-places.md) — Dialogs and places, and one dialog to build them with
+- [ADR-0034](adr/0034-colour-in-charts.md) — Colour in charts
 
 ## 10. Quality Requirements
 

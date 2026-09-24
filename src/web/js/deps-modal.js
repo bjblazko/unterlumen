@@ -1,52 +1,20 @@
 // Dependency check modal — shows status of external tools with install instructions
 
 class DepsModal {
-    constructor() {
-        this.overlay = null;
-        this._onKeyDown = (e) => { if (e.key === 'Escape') this.close(); };
-    }
-
     open(status) {
-        this._build(status);
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
+        const deps = this._deps(status, status ? status.platform : 'unknown');
+        this._dialog = new Dialog({
+            title: 'Helper programs',
+            subtitle: 'What each one is for, and how to install it',
+            size: 'md',
+            body: `<div class="deps-list">${deps.map(d => this._renderDep(d)).join('')}</div>`,
+            actions: [{ label: 'Close', value: null }],
+        });
+        this._dialog.open();
     }
 
     close() {
-        document.removeEventListener('keydown', this._onKeyDown);
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
-    }
-
-    _build(status) {
-        const platform = status ? status.platform : 'unknown';
-
-        const deps = this._deps(status, platform);
-
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
-        });
-
-        this.overlay.innerHTML = `
-            <div class="modal" style="max-width:520px">
-                <div class="modal-header">
-                    <span class="modal-title">Dependencies</span>
-                    <button class="info-collapse-btn modal-close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="deps-list">${deps.map(d => this._renderDep(d)).join('')}</div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-accent" id="deps-close-btn">Close</button>
-                </div>
-            </div>`;
-
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#deps-close-btn').addEventListener('click', () => this.close());
+        this._dialog?.close(null);
     }
 
     _deps(status, platform) {

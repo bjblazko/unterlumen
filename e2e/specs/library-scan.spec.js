@@ -97,7 +97,7 @@ test.describe('Library scan operations', () => {
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
         await page.locator('#lib-edit-btn').click();
-        const dialog = page.locator('.library-dialog-backdrop');
+        const dialog = page.locator('.library-dialog');
         await expect(dialog).toBeVisible({ timeout: 5_000 });
 
         const actions = dialog.locator('#lib-edit-maint-actions');

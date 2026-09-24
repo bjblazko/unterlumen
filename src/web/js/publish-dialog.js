@@ -6,12 +6,8 @@
 // determinate and comes from the buildStream events; errors appear in the
 // sheet, never in an alert().
 //
-// Uses the .modal-backdrop keyboard-guard pattern (see CLAUDE.md's Dialogs &
-// keyboard guard section): the header — including #pub-close — is rendered
-// once in open() and never replaced; only #pub-body's innerHTML changes
-// between steps. The global keyboard guard (app-keyboard.js) handles Escape
-// centrally by clicking #pub-close, so this dialog must not add its own
-// keydown listener.
+// The frame is the shared Dialog (ADR-0033): Escape, the scrim, the focus and
+// the footer belong to it, so this file only knows about publishing.
 class PublishDialog {
     constructor() {
         this._el = null;
@@ -26,19 +22,19 @@ class PublishDialog {
     // Resolves once the sheet closes, so the caller can reload its list.
     open(row) {
         this._row = row;
-        this._el = document.createElement('div');
-        this._el.className = 'modal-backdrop';
-        this._el.innerHTML = `
-            <div class="modal publish-dialog">
-                <div class="modal-header">
-                    <span class="modal-title">Publish — ${escapeHtml(row.title || row.channelName)}</span>
-                    <button class="modal-close" id="pub-close">&times;</button>
-                </div>
-                <div class="modal-body" id="pub-body"></div>
-            </div>`;
-        document.body.appendChild(this._el);
-        this._el.querySelector('#pub-close').addEventListener('click', () => this.close());
-        this._el.addEventListener('click', e => { if (e.target === this._el) this.close(); });
+        this._dialog = new Dialog({
+            title: 'Publish',
+            subtitle: row.title || row.channelName,
+            size: 'md',
+            className: 'publish-dialog',
+            body: '<div id="pub-body"></div>',
+            actions: [],
+            onClose: () => {
+                this._el = null;
+                this._resolveClosed?.({ published: this._done });
+            },
+        });
+        this._el = this._dialog.open();
 
         this._closed = new Promise(resolve => { this._resolveClosed = resolve; });
         this._renderConfirmStep();
@@ -46,9 +42,7 @@ class PublishDialog {
     }
 
     close() {
-        this._el?.remove();
-        this._el = null;
-        this._resolveClosed?.({ published: this._done });
+        this._dialog?.close(null);
     }
 
     // Everything that is about to happen, in the order it happens, plus the
@@ -95,15 +89,17 @@ class PublishDialog {
             <span class="build-date-note">${this._row.postID
                 ? 'Stays as it is unless you change it here. Stored in XMP sidecars on the newly added photos.'
                 : 'Sets album order in the built site and is stored in XMP sidecars.'}</span>
-            <div class="modal-footer">
-                <button class="btn" id="pub-cancel">Cancel</button>
-                <button class="btn btn-accent" id="pub-run">${pending > 0
-                    ? `Publish ${pending} photo${pending !== 1 ? 's' : ''}`
-                    : 'Publish'}</button>
-            </div>`;
+            `;
 
-        body.querySelector('#pub-cancel').addEventListener('click', () => this.close());
-        body.querySelector('#pub-run').addEventListener('click', () => this._run());
+        this._dialog.setActions([
+            { label: 'Cancel', id: 'pub-cancel', onClick: () => this.close() },
+            {
+                label: pending > 0 ? `Publish ${pending} photo${pending !== 1 ? 's' : ''}` : 'Publish',
+                kind: 'primary',
+                id: 'pub-run',
+                onClick: () => this._run(),
+            },
+        ]);
     }
 
     _uploadHost() {
@@ -134,8 +130,8 @@ class PublishDialog {
                         <span class="publish-step-detail"></span>
                     </li>`).join('')}
             </ol>
-            <div class="publish-error" id="pub-error" hidden></div>
-            <div class="modal-footer" id="pub-foot"></div>`;
+            <div class="publish-error" id="pub-error" hidden></div>`;
+        this._dialog.setActions([]);
 
         this._setStep('export', 'doing');
         const draftID = this._row.draftID || '-';
@@ -225,16 +221,10 @@ class PublishDialog {
         const errEl = this._el.querySelector('#pub-error');
         errEl.innerHTML = `<strong>${escapeHtml(what)}</strong><span>${escapeHtml(why || '')}</span>`;
         errEl.hidden = false;
-        const foot = this._el.querySelector('#pub-foot');
-        foot.innerHTML = '<button class="btn" id="pub-close-2">Close</button>';
-        foot.querySelector('#pub-close-2').addEventListener('click', () => this.close());
-        for (const action of actions) {
-            const btn = document.createElement('button');
-            btn.className = 'btn btn-accent';
-            btn.textContent = action.label;
-            btn.addEventListener('click', () => action.run());
-            foot.appendChild(btn);
-        }
+        this._dialog.setActions([
+            { label: 'Close', onClick: () => this.close() },
+            ...actions.map(action => ({ label: action.label, kind: 'primary', onClick: () => action.run() })),
+        ]);
     }
 
     _renderResult(failed) {
@@ -265,9 +255,7 @@ class PublishDialog {
                 </div>
             </div>`);
 
-        const foot = this._el.querySelector('#pub-foot');
-        foot.innerHTML = '<button class="btn btn-accent" id="pub-done">Done</button>';
-        foot.querySelector('#pub-done').addEventListener('click', () => this.close());
+        this._dialog.setActions([{ label: 'Done', kind: 'primary', id: 'pub-done', onClick: () => this.close() }]);
         body.querySelector('#pub-copy-path').addEventListener('click', () => navigator.clipboard.writeText(localPath));
         // ChannelAPI.reveal(slug) reveals the channel's own output folder in
         // Finder/Explorer — it takes no path argument (see channels.js).

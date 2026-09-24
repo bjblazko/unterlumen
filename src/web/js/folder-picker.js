@@ -25,58 +25,55 @@ class FolderPicker {
             this._resolve = resolve;
             this._currentPath = startPath;
             this._build(title);
-            document.body.appendChild(this._overlay);
             document.addEventListener('keydown', this._onKeyDown);
             this._showSource(this._source, startPath);
         });
     }
 
     _close(result) {
-        this._overlay?.remove();
+        this._dialog?.close(result);
+    }
+
+    // Escape and the scrim are the dialog's job; this settles the promise
+    // whichever way the dialog was closed.
+    _settle(result) {
         this._overlay = null;
         document.removeEventListener('keydown', this._onKeyDown);
         if (this._resolve) {
-            this._resolve(result);
+            this._resolve(result ?? null);
             this._resolve = null;
         }
     }
 
+    // Enter takes the folder that the footer names, the way a file dialog
+    // does — but not while the focus is on a row, where Enter opens it.
     _onKeyDown(e) {
-        if (e.key === 'Escape') { e.preventDefault(); this._close(null); }
-        // Enter takes the folder that the footer names, the way a file dialog
-        // does — but not while the focus is on a row, where Enter opens it.
-        if (e.key === 'Enter' && !e.target.closest('.fp-body')) {
+        if (e.key === 'Enter' && this._overlay && !e.target.closest('.fp-body')) {
             e.preventDefault();
             this._close(this._currentPath);
         }
     }
 
     _build(title) {
-        this._overlay = document.createElement('div');
-        this._overlay.className = 'modal-overlay';
-        this._overlay.innerHTML = `
-            <div class="modal fp-modal" role="dialog" aria-label="${escapeHtml(title)}">
-                <div class="modal-header">
-                    <span class="modal-title">${escapeHtml(title)}</span>
-                    <div class="seg fp-sources" role="group" aria-label="Where to look">
-                        <button data-source="fs">Filesystem</button>
-                        <button data-source="libs">Libraries</button>
-                    </div>
+        this._dialog = new Dialog({
+            title,
+            size: 'md',
+            className: 'fp-dialog',
+            body: `
+                <div class="seg fp-sources" role="group" aria-label="Where to look">
+                    <button data-source="fs">Filesystem</button>
+                    <button data-source="libs">Libraries</button>
                 </div>
                 <div class="fp-crumbs" aria-label="Path"></div>
-                <div class="modal-body fp-body"></div>
-                <div class="modal-footer">
-                    <span class="fp-selected mono"></span>
-                    <button class="btn" id="fp-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="fp-select">Select</button>
-                </div>
-            </div>`;
+                <div class="fp-body"></div>`,
+            actions: [
+                { label: 'Cancel', id: 'fp-cancel', onClick: () => this._close(null) },
+                { label: 'Select', kind: 'primary', id: 'fp-select', onClick: () => this._close(this._currentPath) },
+            ],
+            onClose: (result) => this._settle(result),
+        });
+        this._overlay = this._dialog.open();
 
-        // Clicking the scrim is the same as Cancel; there is no second close
-        // button doing what Cancel already does.
-        this._overlay.addEventListener('click', e => { if (e.target === this._overlay) this._close(null); });
-        this._overlay.querySelector('#fp-cancel').addEventListener('click', () => this._close(null));
-        this._overlay.querySelector('#fp-select').addEventListener('click', () => this._close(this._currentPath));
         this._overlay.querySelector('.fp-sources').addEventListener('click', (e) => {
             const btn = e.target.closest('[data-source]');
             if (btn) this._showSource(btn.dataset.source);
@@ -205,9 +202,7 @@ class FolderPicker {
     // The footer names what "Select" would return — shortened from the front,
     // because the folder's own name is the part that matters.
     _renderSelected(path) {
-        const el = this._overlay.querySelector('.fp-selected');
-        el.textContent = path ? shortenPath(path, 3) : '/ (the browse root)';
-        el.title = path || '/';
+        this._dialog.setNote(path ? shortenPath(path, 3) : '/ (the browse root)');
     }
 }
 

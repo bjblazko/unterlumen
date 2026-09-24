@@ -104,7 +104,7 @@ test.describe('Phone', () => {
         await expect(page.locator('#lib-stats-btn')).toBeVisible({ timeout: 8_000 });
         await page.locator('#lib-stats-btn').tap();
 
-        const modal = page.locator('.stats-modal');
+        const modal = page.locator('.stats-dialog');
         await expect(modal).toBeVisible({ timeout: 8_000 });
         const box = await modal.boundingBox();
         const viewport = page.viewportSize();

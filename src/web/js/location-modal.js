@@ -8,9 +8,20 @@ class LocationModal {
         this.files = [];
         this.lat = null;
         this.lon = null;
-        this._onKeyDown = (e) => {
-            if (e.key === 'Escape') this.close();
-        };
+    }
+
+    // Taking a location away is destructive, so it asks first — in the dialog
+    // it was started from, naming what it will strip.
+    _confirmRemove() {
+        const n = this.files.length;
+        this._dialog.setBody(`
+            <div class="location-confirm-msg">
+                <p>Remove the location from <strong>${n} photo${n !== 1 ? 's' : ''}</strong>? The GPS coordinates are deleted from the files; nothing else changes.</p>
+            </div>`);
+        this._dialog.setActions([
+            { label: 'Keep it', onClick: () => { const files = this.files; const cb = this._onSuccess; this.close(); this.open(files, cb); } },
+            { label: `Remove from ${n} photo${n !== 1 ? 's' : ''}`, kind: 'danger', onClick: () => this._executeRemove() },
+        ]);
     }
 
     async _executeRemove() {
@@ -40,8 +51,8 @@ class LocationModal {
             return;
         }
 
-        const footer = this.overlay.querySelector('.modal-footer');
-        footer.innerHTML = '<span class="info-label">Removing GPS data...</span>';
+        this._dialog.setActions([]);
+        this._dialog.setNote('Removing the location…');
 
         try {
             const result = await API.removeLocation(this.files);
@@ -50,16 +61,18 @@ class LocationModal {
             let msg = `GPS data removed from ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
             const successFiles = result.results.filter(r => r.success).map(r => r.file);
             if (failures.length > 0) {
-                msg += ' Some files failed.';
-                footer.innerHTML = `<span class="info-label" style="color:#c0392b">${msg}</span>`;
+                msg += ` ${failures.length} did not: ${failures.map(f => f.error).join(', ')}`;
+                this._dialog.setNote(msg, 'error');
+                this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
                 if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
             } else {
-                footer.innerHTML = `<span class="info-label">${msg}</span>`;
+                this._dialog.setNote(msg);
                 if (this._onSuccess) this._onSuccess(successFiles);
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            footer.innerHTML = `<span class="info-label" style="color:#c0392b">Failed: ${err.message}</span>`;
+            this._dialog.setNote(`It did not work: ${err.message}`, 'error');
+            this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
         }
     }
 
@@ -69,65 +82,48 @@ class LocationModal {
         this.lat = null;
         this.lon = null;
         this._buildDOM();
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
         this._initMap();
         this._loadInitialPosition(files);
     }
 
     close() {
-        document.removeEventListener('keydown', this._onKeyDown);
         if (this.map) {
             this.map.remove();
             this.map = null;
         }
-        if (this.overlay) {
-            this.overlay.remove();
-            this.overlay = null;
-        }
+        this._dialog?.close(null);
+        this.overlay = null;
         this.marker = null;
     }
 
     _buildDOM() {
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
+        // Everything about a photo's location is in this one dialog: setting
+        // it, and taking it away again.
+        this._dialog = new Dialog({
+            title: 'Location',
+            subtitle: `${this.files.length} photo${this.files.length !== 1 ? 's' : ''}`,
+            size: 'md',
+            className: 'location-dialog',
+            body: `
+                <div class="location-map" id="location-map"></div>
+                <div class="location-fields">
+                    <label class="location-field">
+                        <span class="field-label-inline">Latitude</span>
+                        <input type="text" class="location-input" id="loc-lat" placeholder="e.g. 48.8566">
+                    </label>
+                    <label class="location-field">
+                        <span class="field-label-inline">Longitude</span>
+                        <input type="text" class="location-input" id="loc-lon" placeholder="e.g. 2.3522">
+                    </label>
+                </div>`,
+            actions: [
+                { label: 'Remove location…', kind: 'danger', id: 'loc-remove', onClick: () => this._confirmRemove() },
+                { label: 'Cancel', id: 'loc-cancel', onClick: () => this.close() },
+                { label: 'Set location', kind: 'primary', id: 'loc-confirm', disabled: true, onClick: () => this._showConfirmation() },
+            ],
+            onClose: () => { this.overlay = null; },
         });
-
-        this.overlay.innerHTML = `
-            <div class="modal">
-                <div class="modal-header">
-                    <span class="modal-title">Location</span>
-                    <button class="info-collapse-btn modal-close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="location-map" id="location-map"></div>
-                    <div class="location-fields">
-                        <label class="location-field">
-                            <span class="field-label-inline">Latitude</span>
-                            <input type="text" class="location-input" id="loc-lat" placeholder="e.g. 48.8566">
-                        </label>
-                        <label class="location-field">
-                            <span class="field-label-inline">Longitude</span>
-                            <input type="text" class="location-input" id="loc-lon" placeholder="e.g. 2.3522">
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <!-- Everything about a photo's location is in this one
-                         dialog: setting it, and taking it away again. -->
-                    <button class="btn btn-danger" id="loc-remove">Remove location…</button>
-                    <span class="modal-footer-spacer"></span>
-                    <button class="btn" id="loc-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="loc-confirm" disabled>Set location</button>
-                </div>
-            </div>`;
-
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#loc-cancel').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#loc-confirm').addEventListener('click', () => this._showConfirmation());
-        this.overlay.querySelector('#loc-remove').addEventListener('click', () => this._confirmRemove());
+        this.overlay = this._dialog.open();
 
         const latInput = this.overlay.querySelector('#loc-lat');
         const lonInput = this.overlay.querySelector('#loc-lon');
@@ -234,27 +230,19 @@ class LocationModal {
     }
 
     _showConfirmation() {
-        const body = this.overlay.querySelector('.modal-body');
-        const footer = this.overlay.querySelector('.modal-footer');
-
-        body.innerHTML = `
+        this._dialog.setBody(`
             <div class="location-confirm-msg">
                 <p>Location data will be set on <strong>${this.files.length} image${this.files.length !== 1 ? 's' : ''}</strong>. Existing GPS coordinates will be overwritten.</p>
                 <div class="location-confirm-coords">
                     <span class="info-label">Latitude</span> <span class="info-value">${this.lat}</span><br>
                     <span class="info-label">Longitude</span> <span class="info-value">${this.lon}</span>
                 </div>
-            </div>`;
+            </div>`);
 
-        footer.innerHTML = `
-            <button class="btn" id="loc-back">Back</button>
-            <button class="btn btn-accent" id="loc-do-it">Confirm</button>`;
-
-        footer.querySelector('#loc-back').addEventListener('click', () => {
-            this.close();
-            this.open(this.files);
-        });
-        footer.querySelector('#loc-do-it').addEventListener('click', () => this._execute());
+        this._dialog.setActions([
+            { label: 'Back', onClick: () => { const files = this.files; this.close(); this.open(files, this._onSuccess); } },
+            { label: 'Set the location', kind: 'primary', onClick: () => this._execute() },
+        ]);
     }
 
     async _execute() {
@@ -286,8 +274,8 @@ class LocationModal {
             return;
         }
 
-        const footer = this.overlay.querySelector('.modal-footer');
-        footer.innerHTML = '<span class="info-label">Setting location...</span>';
+        this._dialog.setActions([]);
+        this._dialog.setNote('Setting the location…');
 
         try {
             const result = await API.setLocation(this.files, this.lat, this.lon);
@@ -296,16 +284,18 @@ class LocationModal {
             const successFiles = result.results.filter(r => r.success).map(r => r.file);
             let msg = `Location set on ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
             if (failures.length > 0) {
-                msg += ' Some files failed.';
-                footer.innerHTML = `<span class="info-label" style="color:#c0392b">${msg}</span>`;
+                msg += ` ${failures.length} did not: ${failures.map(f => f.error).join(', ')}`;
+                this._dialog.setNote(msg, 'error');
+                this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
                 if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
             } else {
-                footer.innerHTML = `<span class="info-label">${msg}</span>`;
+                this._dialog.setNote(msg);
                 if (this._onSuccess) this._onSuccess(successFiles);
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            footer.innerHTML = `<span class="info-label" style="color:#c0392b">Failed: ${err.message}</span>`;
+            this._dialog.setNote(`It did not work: ${err.message}`, 'error');
+            this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
         }
     }
 }

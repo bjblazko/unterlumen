@@ -4,7 +4,7 @@
  *
  * API tests use actual pathHints (absolute paths) from the library search API
  * to confirm the backend fix for "invalid path" errors.
- * UI smoke tests confirm the tools-menu → export-modal path is wired up in
+ * UI smoke tests confirm the selection bar → export dialog path is wired up in
  * search-result panes (which previously had no onToolInvoke callback).
  */
 
@@ -171,7 +171,7 @@ test.describe('Export modes', () => {
         await page.locator(`[data-name="${NO_GPS_IMAGE}"]`).click({ modifiers: ['Meta'] });
 
         await page.locator('.selection-bar [data-action="export"]').click();
-        await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.export-dialog')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
 
@@ -195,7 +195,7 @@ test.describe('Export modes', () => {
         await images.nth(1).click({ modifiers: ['Meta'] });
 
         await page.locator('.selection-bar [data-action="export"]').click();
-        await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.export-dialog')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
 
@@ -223,7 +223,7 @@ test.describe('Export modes', () => {
         await images.nth(1).click({ modifiers: ['Meta'] });
 
         await page.locator('.selection-bar [data-action="export"]').click();
-        await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.export-dialog')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
 
@@ -253,7 +253,7 @@ test.describe('Export modes', () => {
         await images.nth(1).click({ modifiers: ['Meta'] });
 
         await page.locator('.selection-bar [data-action="export"]').click();
-        await expect(page.locator('.export-modal')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('.export-dialog')).toBeVisible({ timeout: 5_000 });
         await page.keyboard.press('Escape');
     });
 });

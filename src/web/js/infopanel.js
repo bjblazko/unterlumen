@@ -862,10 +862,10 @@ class InfoPanel {
         const H = Math.max(80, Math.min(maxH, Math.round(W * Math.min(total / (1024 * 1024 * 1024) + 0.5, 1))));
 
         const layout = this._squarify(sorted, 0, 0, W, H);
-        const colors = [
-            '#c27833', '#4a8c5c', '#4a6fa5', '#8c6b4a',
-            '#7b5299', '#3a8a8a', '#b5443a', '#6a6a7a',
-        ];
+        // The size map is a chart, so it takes the chart ramp (ADR-0034)
+        // rather than eight colours of its own.
+        const read = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const colors = Array.from({ length: 8 }, (_, i) => read(`--chart-${i + 1}`));
 
         let rects = '';
         layout.forEach((cell, i) => {

@@ -43,19 +43,10 @@ class GlobalKeyboard {
     _handle(e) {
         const app = this._app;
 
-        if (document.querySelector('.modal-overlay')) return;
-
-        // Block global hotkeys when backdrop-style dialogs are open; Escape closes them.
-        const openBackdrop = document.querySelector('.modal-backdrop, .library-dialog-backdrop');
-        if (openBackdrop) {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                const btn = openBackdrop.querySelector('.modal-close, [id$="-cancel"]');
-                if (btn) btn.click();
-                else openBackdrop.remove();
-            }
-            return;
-        }
+        // A dialog owns the keyboard while it is open, Escape included: the
+        // Dialog handles its own keys (ADR-0033). The same goes for the crop
+        // tool, which draws on the photo and takes the keys with it.
+        if (document.querySelector('.dialog-scrim, .keyboard-owner')) return;
 
         if (e.key !== 'Escape' && this._isInputFocused(e)) return;
 
