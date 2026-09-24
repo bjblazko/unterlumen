@@ -515,6 +515,8 @@ button.toggle {
 .toggle-label {
     font-size: var(--text-xs);
     line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     color: var(--fg-3);
     user-select: none;
 }
@@ -5180,9 +5182,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 /* Film simulation toggle row */
 .stats-filmsim-toggle-row {
     display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
+    align-items: center;
+    gap: var(--space-3);
     margin-bottom: var(--space-3);
 }
 
@@ -6124,26 +6125,25 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .view-switches {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-6);
     margin-left: var(--space-4);
+    height: var(--control-h-sm);
 }
 
-/* Name above, switch below: side by side they read as one sentence
-   ("Names shown …"), which is not what they say. */
+/* One line, one baseline. The name is a label in the UI voice, the two
+   states are small caps in the data voice — so "Names shown" cannot be read
+   as a sentence: they are visibly two different things. */
 .view-switch {
     display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
+    align-items: center;
+    gap: var(--space-3);
 }
 
 .view-switch-label {
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     line-height: 1;
     font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--fg-3);
+    color: var(--fg);
     white-space: nowrap;
 }
 
