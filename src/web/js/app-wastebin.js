@@ -150,10 +150,20 @@ class Wastebin {
 
         const gridItems = items.map(([path, entry], idx) => {
             const selectedClass = this.selected.has(path) ? ' selected' : '';
+            const label = entry.label || entry.name;
+            // A folder has no thumbnail, and a broken image icon would look
+            // like a defect rather than a folder waiting to be deleted.
+            if (entry.type === 'dir') {
+                return `<div class="grid-item image-item wastebin-dir${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
+                    <div class="wastebin-dir-tile">
+                        <svg width="40" height="34" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>
+                    </div>
+                    <div class="item-name">${label}</div>
+                </div>`;
+            }
             const thumbSrc = (entry.libID && entry.photoID)
                 ? LibraryAPI.thumbURL(entry.libID, entry.photoID)
                 : API.thumbnailURL(path, 200);
-            const label = entry.label || entry.name;
             return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
                 <img src="${thumbSrc}" alt="${label}" loading="lazy" onload="this.classList.add('img-loaded')">
                 <div class="item-name">${label}</div>
@@ -174,11 +184,13 @@ class Wastebin {
         containerEl.querySelector('#wb-delete').addEventListener('click', () => {
             const paths = this.selected.size > 0 ? new Set(this.selected) : new Set(items.map(([path]) => path));
             const count = paths.size;
+            const dirCount = [...paths].filter(p => this._items.get(p)?.type === 'dir').length;
+            const what = describeDeletion(count, dirCount);
             const actionsEl = containerEl.querySelector('#wb-actions');
             actionsEl.innerHTML = `
-                <span class="wastebin-question">Delete ${count} file${count !== 1 ? 's' : ''} from disk? This can't be undone.</span>
+                <span class="wastebin-question">Delete ${what} from disk?${dirCount ? ' A folder goes with everything inside it.' : ''} This can't be undone.</span>
                 <button class="btn btn-sm" id="wb-delete-cancel">Cancel</button>
-                <button class="btn btn-sm btn-danger" id="wb-delete-confirm">Delete ${count} file${count !== 1 ? 's' : ''}</button>`;
+                <button class="btn btn-sm btn-danger" id="wb-delete-confirm">Delete ${what}</button>`;
             actionsEl.querySelector('#wb-delete-cancel').addEventListener('click', () => this.render(containerEl, onRefresh));
             actionsEl.querySelector('#wb-delete-confirm').addEventListener('click', async () => {
                 const afterDelete = () => {
@@ -217,4 +229,15 @@ class Wastebin {
             });
         });
     }
+}
+
+
+// "3 photos and 1 folder" — the question has to say what it is about to do,
+// because a folder takes its contents with it.
+function describeDeletion(total, dirs) {
+    const files = total - dirs;
+    const parts = [];
+    if (files) parts.push(`${files} photo${files !== 1 ? 's' : ''}`);
+    if (dirs) parts.push(`${dirs} folder${dirs !== 1 ? 's' : ''}`);
+    return parts.join(' and ') || `${total} items`;
 }

@@ -59,21 +59,11 @@ class GlobalKeyboard {
 
         if (e.key !== 'Escape' && this._isInputFocused(e)) return;
 
-        // Tab: switch panes in commander mode
-        if (e.key === 'Tab' && app.mode === 'commander' && app.commander) {
-            e.preventDefault();
-            const leftEl = document.getElementById('left-pane');
-            const rightEl = document.getElementById('right-pane');
-            if (app.commander.activePane === 'left') {
-                app.commander.activePane = 'right';
-                leftEl.classList.remove('active');
-                rightEl.classList.add('active');
-            } else {
-                app.commander.activePane = 'left';
-                rightEl.classList.remove('active');
-                leftEl.classList.add('active');
-            }
-            app.commander.updateActions();
+        // Organize: the number keys aim at a target, Enter uses the current
+        // one, U takes the last move back (ADR-0032). The screen answers for
+        // itself so the shortcut list stays with the place that owns it.
+        if (app.mode === 'organize' && app.organize && !document.querySelector('.viewer')) {
+            if (app.organize.handleKey(e)) return;
         }
 
         // Escape: clear selection or go up in browse mode
@@ -126,10 +116,10 @@ class GlobalKeyboard {
             }
         }
 
-        // Escape: clear selection or go up in commander mode
-        if (e.key === 'Escape' && app.mode === 'commander' && app.commander) {
+        // Escape: clear selection or go up in Organize
+        if (e.key === 'Escape' && app.mode === 'organize' && app.organize) {
             e.preventDefault();
-            const pane = app.commander.getActivePane();
+            const pane = app.organize.pane;
             if (pane.selectedDirs?.size > 0) {
                 pane.selectedDirs.clear();
                 pane._updateDirSelectionClasses();
@@ -159,12 +149,10 @@ class GlobalKeyboard {
             app.browsePane.updateMarkedForDeletion();
         }
 
-        // Backspace: mark for deletion in commander mode
-        if (e.key === 'Backspace' && app.mode === 'commander' && app.commander) {
+        // Backspace: mark for deletion in Organize
+        if (e.key === 'Backspace' && app.mode === 'organize' && app.organize) {
             e.preventDefault();
-            const targets = app.commander.getActivePane().getActionableFiles();
-            if (targets.length === 0) return;
-            app.commander.doDelete();
+            app.organize.sendTo('mark');
         }
 
         // Backspace: mark for deletion in library mode
@@ -222,12 +210,10 @@ class GlobalKeyboard {
             app.browsePane.updateMarkedForDeletion();
         }
 
-        // Delete: mark for deletion in commander mode
-        if (e.key === 'Delete' && app.mode === 'commander' && app.commander) {
-            const targets = app.commander.getActivePane().getActionableFiles();
-            if (targets.length === 0) return;
+        // Delete: mark for deletion in Organize
+        if (e.key === 'Delete' && app.mode === 'organize' && app.organize) {
             e.preventDefault();
-            app.commander.doDelete();
+            app.organize.sendTo('mark');
         }
 
         // Delete: mark for deletion in library mode
@@ -250,12 +236,6 @@ class GlobalKeyboard {
             pane.updateMarkedForDeletion();
         }
 
-        // F5/F6: copy/move in commander mode
-        if (app.mode === 'commander' && app.commander) {
-            if (e.key === 'F5') { e.preventDefault(); app.commander.doCopy(); }
-            else if (e.key === 'F6') { e.preventDefault(); app.commander.doMove(); }
-        }
-
         const modKey = this.isMac ? e.metaKey : e.ctrlKey;
 
         // Cmd/Ctrl+A: select all
@@ -263,9 +243,9 @@ class GlobalKeyboard {
             if (app.mode === 'browse' && app.browsePane && !document.querySelector('.viewer')) {
                 e.preventDefault();
                 app.browsePane.selectAll();
-            } else if (app.mode === 'commander' && app.commander) {
+            } else if (app.mode === 'organize' && app.organize) {
                 e.preventDefault();
-                app.commander.getActivePane().selectAll();
+                app.organize.pane.selectAll();
             } else if (app.mode === 'library' && app._libraryTab) {
                 e.preventDefault();
                 app._libraryTab.getActivePaneForKeyboard()?.selectAll();
@@ -287,9 +267,9 @@ class GlobalKeyboard {
                     app.browsePane.updateSelectionClasses();
                     app.browsePane.updateMarkedForDeletion();
                 }
-            } else if (app.mode === 'commander' && app.commander) {
+            } else if (app.mode === 'organize' && app.organize) {
                 e.preventDefault();
-                app.commander.doDelete();
+                app.organize.sendTo('mark');
             }
         }
 
@@ -326,7 +306,7 @@ class GlobalKeyboard {
         if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
             if (e.key === '1') { e.preventDefault(); app.setMode('browse'); }
             else if (e.key === '2') { e.preventDefault(); app.setMode('wastebin'); }
-            else if (e.key === '3') { e.preventDefault(); app.setMode('commander'); }
+            else if (e.key === '3') { e.preventDefault(); app.setMode('organize'); }
             else if (e.key === '4') { e.preventDefault(); app.setMode('library'); }
             else if (e.key === '5') { e.preventDefault(); app.setMode('published'); }
             else if (e.key === '6') { e.preventDefault(); app.setMode('destinations'); }

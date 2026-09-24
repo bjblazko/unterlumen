@@ -117,7 +117,7 @@ class BrowsePane {
         });
     }
 
-    // Getters so external code (commander.js, renderers) can access sub-object state via the pane directly
+    // Getters so external code (organize.js, renderers) can access sub-object state via the pane directly
     get focusedIndex() { return this.keyboard.focusedIndex; }
     set focusedIndex(v) { this.keyboard.focusedIndex = v; }
     get selected() { return this.selection.selected; }

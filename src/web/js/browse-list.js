@@ -30,7 +30,8 @@ class ListRenderer {
     }
 
     _renderDirRow(idx, entry, focusedClass) {
-        return `<tr class="dir-row${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="dir">
+        const markedClass = this._pane.isMarkedForDeletion(this._pane.fullPath(entry.name)) ? ' marked-for-deletion' : '';
+        return `<tr class="dir-row${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="dir">
             <td class="list-icon"><svg width="32" height="26" viewBox="0 0 32 26" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h10l2-3h16v22H2z"/></svg></td>
             <td class="list-name">${escapeHtml(entry.name)}</td>
             <td class="list-date">${formatDate(entry.date)}</td>

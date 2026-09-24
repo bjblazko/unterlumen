@@ -10,7 +10,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 **What it does:**
 - Browse photos in justified, grid, or list view with breadcrumb navigation
 - Cull: review shots, mark rejects, restore or delete in bulk
-- Organize: dual-pane file manager (copy/move, create folders)
+- Organize: one folder in front of you, your target folders one key away (move, copy, undo)
 - Batch rename using EXIF fields (date, camera, film simulation, …)
 - Export & convert: resize, change format (JPEG/PNG/WebP), strip GPS, download as ZIP
 - Geolocation: set or remove GPS coordinates via interactive map
@@ -42,8 +42,9 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 
 #### Organize
 
-- Dual-pane file manager (Norton/Midnight/Total Commander style)
-- Copy, move, create folders; shortcuts to library locations
+- The folder you are sorting on the left, your target folders on the right
+- A number key moves the selection into that target; ⌥ copies, `U` takes the last move back
+- Targets are remembered; "Mark for deletion" is one of them, and takes folders too
 
 ![Organize files](doc/04-organize.gif)
 
@@ -93,7 +94,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 ## Features
 
 - **Browse & Cull mode** — Justified, grid, or list view of photos in a directory with breadcrumb navigation
-- **File Manager mode** — Dual-pane Norton Commander-style layout for copying/moving files between directories
+- **Organize** — One source folder shown large, your target folders as a list with a number key each: select, press the key, done. Moves run immediately with an undo beside the result; ⌥ copies instead. Targets are remembered between sessions, and "Mark for deletion" is a target like any other (folders included)
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search, key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
 - **Publish to Channels** — A two-phase collect-then-publish workflow. From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and use the selection bar's "Add to gallery…" to add them to a gallery's pending draft — a new or existing gallery/album. Nothing is exported yet, so a gallery can be built up incrementally across sessions. When ready, open Galleries and press Publish: one action exports the photos, builds the HTML (writing an XMP sidecar per photo using a custom `xmlns:ul` namespace — non-destructive and portable), uploads the result where an upload is configured (rsync channels), and checks the link, showing each step as it runs. A failed upload keeps the build, so the gallery reads "Built, not uploaded" and the retry only uploads. Afterwards you can open the gallery in a browser, copy the local path, reveal it in Finder/Explorer, or preview it locally. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Two publishing modes: a **multi-album site** (a real, growing website whose albums are navigable and indexable) and **single gallery** (one host holding many unrelated albums, each under its own unguessable 24-hex URL — for sharing one album by link with a specific group, marked Unlisted by default so it carries a `noindex` tag). A single-gallery channel holds as many albums as you like; each is published, renamed and deleted on its own. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json` (overridable with `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR`, e.g. to share channel config between multiple installations — see [Sharing channel config across installations](#sharing-channel-config-across-installations))

@@ -78,7 +78,7 @@ class SearchResultPane extends BrowsePane {
         return { dir: firstDir, names: paths.map(p => p.split('/').pop()) };
     }
 
-    commanderBtnHint() {
+    organizeBtnHint() {
         return this.selection.selected.size > 0
             ? 'Select photos from the same folder to open in Commander'
             : 'Select photos to open in Commander';

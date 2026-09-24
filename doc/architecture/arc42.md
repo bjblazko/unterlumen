@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-23*
+*Last modified: 2026-09-24*
 
 ## 1. Introduction and Goals
 
@@ -10,7 +10,7 @@ Unterlumen is a photo browser and culler. It allows users to:
 
 - Browse directories of photos in grid or list view
 - View individual photos full-screen with prev/next navigation
-- Organize photos by copying or moving them between directories using a dual-pane Commander interface
+- Organize photos by moving or copying them from one folder into a list of target folders
 - Sort by filename or date taken
 
 It explicitly does **not** support image editing, RAW file processing, tagging, rating, or persistent metadata.
@@ -103,7 +103,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | Goal | Approach |
 |------|----------|
 | Fast thumbnails | Extract embedded EXIF thumbnails rather than decoding full images ([ADR-0003](adr/0003-exif-thumbnails.md)) |
-| Simple culling | Dual-pane Commander interface with copy/move ([ADR-0005](adr/0005-commander-style-culling.md)) |
+| Simple culling | One source folder and a list of targets, one key each ([ADR-0032](adr/0032-organize-one-source-many-targets.md), supersedes ADR-0005) |
 | Easy deployment | Single Go binary, static files served from `web/` directory ([ADR-0001](adr/0001-go-http-server-with-browser-ui.md)) |
 | No state management | Filesystem is the only store; no database ([ADR-0002](adr/0002-no-persistence.md)) |
 | HEIF support | Shell out to ffmpeg ([ADR-0004](adr/0004-heif-via-ffmpeg.md)) |
@@ -164,7 +164,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-justified.js` | `JustifiedRenderer` — justified-view DOM rendering and row-packing layout |
 | `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
-| `commander.js` | `Commander` class — dual-pane layout, copy/move orchestration |
+| `organize.js` | `OrganizePane` class — source browse pane, remembered targets, move/copy with undo |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
@@ -193,7 +193,7 @@ Browser                     Server                    Filesystem
   │ ◄─────────────────────────│ ◄─────────────────────────│
 ```
 
-### 6.2 Copy Files (Commander Mode)
+### 6.2 Copy Files (Organize)
 
 ```
 Browser                     Server                    Filesystem
@@ -209,7 +209,7 @@ Browser                     Server                    Filesystem
   │  JSON {results:[...]}     │                           │
   │ ◄─────────────────────────│                           │
   │                           │                           │
-  │  GET /api/browse (×2)     │  Refresh both panes       │
+  │  GET /api/browse          │  Refresh the source       │
   │ ─────────────────────────►│ ─────────────────────────►│
 ```
 
@@ -275,7 +275,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0002](adr/0002-no-persistence.md) — No persistence, in-memory state only
 - [ADR-0003](adr/0003-exif-thumbnails.md) — EXIF embedded thumbnails
 - [ADR-0004](adr/0004-heif-via-ffmpeg.md) — HEIF support via ffmpeg
-- [ADR-0005](adr/0005-commander-style-culling.md) — Commander-style dual-pane culling
+- [ADR-0005](adr/0005-commander-style-culling.md) — Commander-style dual-pane culling (superseded by ADR-0032)
 - [ADR-0006](adr/0006-no-authentication.md) — No authentication
 - [ADR-0007](adr/0007-vanilla-frontend.md) — Vanilla HTML/JS/CSS frontend
 - [ADR-0008](adr/0008-dieter-rams-design-principles.md) — Dieter Rams' ten principles of good design
@@ -302,6 +302,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0029](adr/0029-destinations-galleries-one-publish-action.md) — Destinations and galleries; publish as one action
 - [ADR-0030](adr/0030-rams-design-tokens.md) — Adopt rams-design tokens (supersedes ADR-0018)
 - [ADR-0031](adr/0031-vendor-maplibre.md) — Vendor MapLibre GL JS (supersedes ADR-0013's CDN delivery)
+- [ADR-0032](adr/0032-organize-one-source-many-targets.md) — Organize is one source and many targets (supersedes ADR-0005)
 
 ## 10. Quality Requirements
 
@@ -352,7 +353,7 @@ Quality
 | Term | Definition |
 |------|------------|
 | Culling | The process of selecting the best photos from a set and discarding or separating the rest |
-| Commander mode | Dual-pane file browser layout inspired by Norton Commander (1986) |
+| Target | A folder Organize can send the selection to, remembered between sessions and reachable with a number key |
 | EXIF | Exchangeable Image File Format — metadata standard embedded in JPEG and other image files |
 | HEIF/HEIC | High Efficiency Image Format — container format used by Apple devices for photos |
 | Path traversal | An attack where crafted file paths (e.g. `../../etc/passwd`) escape the intended root directory |

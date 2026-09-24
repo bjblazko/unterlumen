@@ -1298,123 +1298,217 @@ button.toggle {
     font-size: 12px;
 }
 
-/* —— Commander mode —— */
-
-.commander {
-    display: flex;
-    height: 100%;
+/* A key hint is the key, drawn as one: mono, framed, quiet. The class was
+   used since phase 9 but never had a rule, so the hints read as plain text. */
+.key {
+    display: inline-flex;
+    align-items: center;
+    font: 500 var(--text-xs)/1 var(--font-mono);
+    color: var(--fg-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    white-space: nowrap;
 }
 
-.commander-pane {
+/* A marked folder is dimmed like a marked photo, so Organize's "Mark for
+   deletion" target reads the same on folders as on photos. */
+.folder-chip.marked-for-deletion,
+.dir-row.marked-for-deletion {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+
+/* A folder in the waste bin has no thumbnail; it shows what it is. */
+.wastebin-dir-tile {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    background: var(--bg-2);
+    color: var(--fg-3);
+}
+
+/* —— Organize: one source, many targets (ADR-0032) —— */
+
+.organize {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.organize-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.organize-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin: 0;
+}
+
+.organize-path {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+    overflow-wrap: anywhere;
+}
+
+.organize-session {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.organize-spacer { flex: 1; }
+
+.organize-keys {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.organize-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
     flex: 1;
+    min-height: 0;
+}
+
+/* The source is the folder you are judging, so it keeps the browse pane it
+   would have in Folders. What acts on a folder as a whole belongs there, not
+   here: this place moves photos. */
+.organize-source {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-height: 0;
-    padding: var(--space-4) var(--space-4);
-    border: 2px solid transparent;
 }
 
-/* Which pane is active is what everything else depends on, so it is stated
-   by a filled header rather than a coloured outline that competes with the
-   accent's one meaning. */
-.commander-pane {
-    border-color: transparent;
+.organize-source .folder-tool,
+.organize-source .slideshow-btn,
+.organize-source .status-bar {
+    display: none;
 }
 
-.commander-pane::before {
-    content: attr(data-pane-label);
-    display: block;
-    margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-3);
+.organize-targets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-left: 1px solid var(--line);
+    overflow-y: auto;
+}
+
+.org-target {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: var(--bg-2);
-    color: var(--fg-2);
-    font: 500 var(--text-sm)/1.3 var(--font-mono);
-    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+
+.org-target:hover {
+    background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+/* The current target is the screen's one primary action: Enter sends here. */
+.org-target[aria-current="true"] {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.org-target .key {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    align-self: center;
+}
+
+.org-target-name {
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.commander-pane.active::before {
-    background: var(--fg);
-    color: var(--bg);
-}
-
-/* Organize is for moving files between two places. The actions that act on a
-   folder as a whole (make a library of it, clear its cache, play it as a
-   slideshow) belong to Folders; here they would be six buttons competing with
-   the four that do the work. */
-.commander-pane .folder-tool,
-.commander-pane .slideshow-btn {
-    display: none;
-}
-
-.commander-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: var(--space-4) var(--space-2);
-    justify-content: flex-start;
-    align-items: stretch;
-    background: var(--bg);
-    border-left: 1px solid var(--line);
-    border-right: 1px solid var(--line);
-    min-width: 128px;
-    position: relative;
-    overflow: visible;
-}
-
-.cmd-top-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    flex-shrink: 0;
-    padding-bottom: var(--space-4);
-    position: relative;
-    z-index: 1;
-}
-
-
-.cmd-dir-actions {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--space-2);
-    position: relative;
+.org-target-path {
+    grid-column: 1;
+    font-size: var(--text-xs);
+    color: var(--fg-3);
     overflow: hidden;
-    min-height: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.cmd-lib-actions {
-    flex-shrink: 0;
-    padding-top: var(--space-4);
+.org-target-note {
+    grid-column: 1;
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.org-target--missing {
+    border-color: var(--warning);
+}
+
+.org-target--missing .org-target-note {
+    color: var(--warning-ink);
+}
+
+.org-target--mark .org-target-path {
+    white-space: normal;
+}
+
+.org-target-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-2);
+}
+
+.organize-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
     border-top: 1px solid var(--line);
-    margin-top: var(--space-4);
-}
-
-.commander-resizer {
-    width: 5px;
-    cursor: col-resize;
-    background: var(--line);
+    font-size: var(--text-sm);
+    color: var(--fg-2);
     flex-shrink: 0;
-    position: relative;
-    transition: background 0.15s;
 }
 
-.commander-resizer::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -4px;
-    right: -4px;
+.organize-result--problem {
+    color: var(--warning-ink);
 }
 
-.commander-resizer:hover,
-.commander-resizer.dragging {
-    background: var(--line-strong);
+.organize-ask {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    border-top: 1px solid var(--line-strong);
+    background: var(--bg-2);
+}
+
+.organize-ask-input {
+    height: var(--control-h-sm);
+    min-width: 12rem;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--fg);
 }
 
 /* —— Viewer —— */
@@ -6514,22 +6608,3 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .settings-body .toggle { align-self: flex-start; }
 
 /* Organize says what happened where it happened. */
-.cmd-status {
-    margin-top: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    background: var(--bg-2);
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    color: var(--fg-2);
-}
-
-.cmd-status--error {
-    background: var(--warning-soft);
-    color: var(--warning-ink);
-}
-
-.cmd-status-actions {
-    display: flex;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-}

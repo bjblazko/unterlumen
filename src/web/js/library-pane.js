@@ -81,8 +81,8 @@ class LibraryPane extends BrowsePane {
         return { dir, names: [] };
     }
 
-    commanderBtnHint() {
-        return 'Select a folder to open in Organise view';
+    organizeBtnHint() {
+        return 'Select a folder to open in Organize';
     }
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.

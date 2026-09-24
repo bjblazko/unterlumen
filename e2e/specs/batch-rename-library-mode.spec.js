@@ -10,7 +10,7 @@ import { reindexLibrary } from '../helpers/library.js';
 // stripping only the leading "/", which happens to be correct only when
 // boundary is "/" itself — otherwise it produces a doubled, nonexistent
 // path that pathguard.SafePath correctly rejects. Fixed by reusing the
-// same absolute-to-boundary-relative conversion commander.js's "Jump to
+// same absolute-to-boundary-relative conversion the Organize screen's "Jump to
 // library" feature already did correctly (api.js's
 // absPathRelativeToBoundary).
 test.describe('Batch rename in library mode', () => {

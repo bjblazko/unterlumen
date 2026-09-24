@@ -11,14 +11,14 @@ const App = {
     slideshowModal: null,
     browsePane: null,
     infoPanel: null,
-    commander: null,
+    organize: null,
     viewer: null,
     currentBrowsePath: '',
-    _commanderPreselect: null,
+    _organizePreselect: null,
     config: null,
     toolsStatus: null,
     _browseEl: null,
-    _commanderEl: null,
+    _organizeEl: null,
     _wastebinEl: null,
     _libraryEl: null,
     _libraryTab: null,
@@ -78,7 +78,7 @@ const App = {
     NAV: {
         browse: { hash: 'folders', id: 'mode-browse', key: '1' },
         wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
-        commander: { hash: 'organize', id: 'mode-commander', key: '3' },
+        organize: { hash: 'organize', id: 'mode-organize', key: '3' },
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
@@ -223,8 +223,8 @@ const App = {
 
         const prevMode = this.mode;
 
-        if (prevMode === 'commander' && this.commander) {
-            this.currentBrowsePath = this.commander.getActivePane().path;
+        if (prevMode === 'organize' && this.organize) {
+            this.currentBrowsePath = this.organize.pane.path;
         }
 
         this.mode = mode;
@@ -298,18 +298,18 @@ const App = {
             }
         }
 
-        if (mode === 'commander') {
-            if (!this._commanderEl) {
-                this._commanderEl = document.createElement('div');
-                this._commanderEl.style.height = '100%';
-                appEl.appendChild(this._commanderEl);
-                this.commander = new Commander(this._commanderEl, this.currentBrowsePath, {
-                    preselectFiles: this._commanderPreselect,
+        if (mode === 'organize') {
+            if (!this._organizeEl) {
+                this._organizeEl = document.createElement('div');
+                this._organizeEl.style.height = '100%';
+                appEl.appendChild(this._organizeEl);
+                this.organize = new OrganizePane(this._organizeEl, this.currentBrowsePath, {
+                    preselectFiles: this._organizePreselect,
+                    onImageClick: (path, pane) => this.openViewer(path, pane),
+                    onToolInvoke: (params) => this.handleToolInvoke(params),
                 });
-                this._commanderPreselect = null;
-                this.commander.onImageClick = (path, pane) => this.openViewer(path, pane);
-                this.commander.onToolInvoke = (params) => this.handleToolInvoke(params);
-                this.commander.init();
+                this._organizePreselect = null;
+                this.organize.init();
             }
         }
 
@@ -364,7 +364,7 @@ const App = {
         }
 
         if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
-        if (this._commanderEl) this._commanderEl.style.display = mode === 'commander' ? '' : 'none';
+        if (this._organizeEl) this._organizeEl.style.display = mode === 'organize' ? '' : 'none';
         if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
         if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
         if (this._galleriesEl) this._galleriesEl.style.display = mode === 'published' ? '' : 'none';
@@ -376,10 +376,7 @@ const App = {
 
     _refreshPanes() {
         if (this.browsePane) this.browsePane.load(this.browsePane.path);
-        if (this.commander) {
-            if (this.commander.leftPane) this.commander.leftPane.load(this.commander.leftPane.path);
-            if (this.commander.rightPane) this.commander.rightPane.load(this.commander.rightPane.path);
-        }
+        if (this.organize) this.organize.reload();
     },
 
     // Opens one destination's settings — used by the Galleries screen.
@@ -398,7 +395,7 @@ const App = {
         }
     },
 
-    // Public delegation methods — referenced by renderers and commander
+    // Public delegation methods — referenced by renderers and Organize
 
     markForDeletion(selectedPaths, entries, currentDir) {
         this.wastebin.mark(selectedPaths, entries, currentDir);
@@ -580,20 +577,16 @@ const App = {
             return;
         }
 
-        const wasCreated = !!this._commanderEl;
+        const wasCreated = !!this._organizeEl;
         this.currentBrowsePath = relPath;
 
         if (!wasCreated) {
-            this._commanderPreselect = preselectNames;
+            this._organizePreselect = preselectNames;
         }
 
-        this.setMode('commander');
+        this.setMode('organize');
 
-        if (wasCreated) {
-            const pane = this.commander.getActivePane();
-            if (preselectNames && preselectNames.length) pane.primePreselect(preselectNames);
-            pane.load(relPath);
-        }
+        if (wasCreated) this.organize.load(relPath, preselectNames);
     },
 
     reloadLibraryPane() {
@@ -603,7 +596,7 @@ const App = {
 
     getActiveBrowsePane() {
         if (this.mode === 'browse') return this.browsePane;
-        if (this.mode === 'commander' && this.commander) return this.commander.getActivePane();
+        if (this.mode === 'organize' && this.organize) return this.organize.pane;
         if (this.mode === 'library' && this._libraryTab) return this._libraryTab.getActivePaneForKeyboard();
         return null;
     },
@@ -656,10 +649,6 @@ const App = {
             );
             this.batchRenameModal.open(resolvedFiles, (libraryUpdated) => {
                 if (pane) pane.load(pane.path);
-                if (this.mode === 'commander' && this.commander) {
-                    const other = this.commander.getOtherPane();
-                    if (other) other.load(other.path);
-                }
                 if (libraryUpdated) this.reloadLibraryPane();
             });
         } else if (tool === 'export') {

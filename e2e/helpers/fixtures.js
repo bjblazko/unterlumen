@@ -44,7 +44,7 @@ export async function navigateToFolder(page, dirName) {
 }
 
 /**
- * Navigate the page into a named directory within a specific pane (for commander mode).
+ * Navigate the page into a named directory within a specific pane.
  * Works for both grid view (dir items) and list view (table rows).
  */
 export async function navigatePaneToFolder(page, paneSelector, dirName, expectedCrumbPath) {

@@ -34,9 +34,6 @@ class ThemeManager {
         localStorage.setItem('thumbnail-quality', quality);
         const app = this._app;
         if (app.browsePane) app.browsePane.reloadThumbnails();
-        if (app.commander) {
-            if (app.commander.leftPane) app.commander.leftPane.reloadThumbnails();
-            if (app.commander.rightPane) app.commander.rightPane.reloadThumbnails();
-        }
+        if (app.organize?.pane) app.organize.pane.reloadThumbnails();
     }
 }

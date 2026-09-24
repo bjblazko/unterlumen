@@ -1,10 +1,12 @@
 # ADR-0005: Norton Commander-Style Dual-Pane Culling
 
-*Last modified: 2026-03-04*
+*Last modified: 2026-09-24*
 
 ## Status
 
-Accepted
+Superseded by [ADR-0032](0032-organize-one-source-many-targets.md), which keeps the
+filesystem-only model and replaces the dual pane with one source folder and a
+list of targets.
 
 ## Context
 

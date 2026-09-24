@@ -1127,7 +1127,7 @@ class LibraryTab {
         other?.update(0);
         const target = pane ? pane.getOpenInCommanderTarget() : null;
         active?.update(count, {
-            organize: target ? '' : (pane ? pane.commanderBtnHint() : 'Select photos to show them in Organize'),
+            organize: target ? '' : (pane ? pane.organizeBtnHint() : 'Select photos to show them in Organize'),
         });
     }
 

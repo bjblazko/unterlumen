@@ -13,7 +13,7 @@ test.describe('Navigation — places, not steps', () => {
 
   test('nav entries are links with an address, not buttons', async ({ page }) => {
     for (const [id, hash] of [['mode-browse', '#folders'], ['mode-wastebin', '#marked'],
-                              ['mode-commander', '#organize'], ['mode-library', '#libraries'],
+                              ['mode-organize', '#organize'], ['mode-library', '#libraries'],
                               ['mode-published', '#galleries']]) {
       const el = page.locator(`#${id}`);
       await expect(el).toHaveJSProperty('tagName', 'A');
@@ -30,7 +30,7 @@ test.describe('Navigation — places, not steps', () => {
   });
 
   test('no step is shown as completed or upcoming', async ({ page }) => {
-    await page.locator('#mode-commander').click();
+    await page.locator('#mode-organize').click();
     await expect(page.locator('.workflow-step, .completed')).toHaveCount(0);
   });
 
@@ -52,7 +52,7 @@ test.describe('Navigation — places, not steps', () => {
   test('a deep link opens that place directly', async ({ page }) => {
     await page.goto('/#organize');
     await waitForAppReady(page);
-    await expect(page.locator('#mode-commander')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#mode-organize')).toHaveAttribute('aria-current', 'page');
   });
 
   test('number shortcuts still select places', async ({ page }) => {
