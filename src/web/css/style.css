@@ -509,12 +509,20 @@ button.toggle {
     font: inherit;
 }
 
+/* The two state words sit on one baseline with everything else in the row,
+   and the one that is true right now is the strong one. The track carries the
+   green; repeating it in the word would say the same thing twice. */
 .toggle-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--fg-2);
+    font-size: var(--text-xs);
+    line-height: 1;
+    color: var(--fg-3);
     user-select: none;
+}
+
+.toggle[data-state="on"] .toggle-label-on,
+.toggle[data-state="off"] .toggle-label-off {
+    color: var(--fg);
+    font-weight: 500;
 }
 
 .toggle-track {
@@ -551,10 +559,6 @@ button.toggle {
 
 .toggle[data-state="on"] .toggle-thumb {
     transform: translateX(0);
-}
-
-.toggle[data-state="on"] .toggle-label-on {
-    color: var(--confirm-ink);
 }
 
 .toggle:hover .toggle-track {
@@ -5175,12 +5179,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* Film simulation toggle row */
 .stats-filmsim-toggle-row {
-    margin-bottom: 10px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    margin-bottom: var(--space-3);
 }
 
 /* Focal length toggle */
 .stats-focal-toggle {
-    margin-bottom: 8px;
+    margin-bottom: var(--space-2);
 }
 
 .stats-toggle-btn {
@@ -6118,21 +6126,24 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     align-items: center;
     gap: var(--space-4);
     margin-left: var(--space-4);
-    height: var(--control-h-sm);
 }
 
+/* Name above, switch below: side by side they read as one sentence
+   ("Names shown …"), which is not what they say. */
 .view-switch {
     display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
 }
 
 .view-switch-label {
     font-size: var(--text-xs);
+    line-height: 1;
     font-weight: 500;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--fg-2);
+    color: var(--fg-3);
     white-space: nowrap;
 }
 
