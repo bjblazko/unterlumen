@@ -28,10 +28,18 @@ export const FOLDER_A_A1_IMAGE_COUNT = 7; // includes HIF
  * Navigate the page into a named directory from the current browse view.
  * Waits for the breadcrumb to update before returning.
  */
+// Folders are chips above the photos in grid and justified view (phase 9),
+// and one click opens them; the list view keeps rows that open on double
+// click.
 export async function navigateToFolder(page, dirName) {
-    const dir = page.locator(`.grid-item.dir-item[data-name="${dirName}"]`);
-    await dir.waitFor({ state: 'visible', timeout: 15_000 });
-    await dir.dblclick();
+    const chip = page.locator(`.folder-chip[data-name="${dirName}"]`);
+    const row = page.locator(`.dir-item[data-name="${dirName}"]`);
+    if (await chip.count()) {
+        await chip.first().click();
+    } else {
+        await row.first().waitFor({ state: 'visible', timeout: 15_000 });
+        await row.first().dblclick();
+    }
     await page.waitForSelector(`.crumb[data-path="${dirName}"]`, { timeout: 10_000 });
 }
 

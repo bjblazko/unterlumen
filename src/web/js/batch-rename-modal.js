@@ -76,7 +76,7 @@ class BatchRenameModal {
                 </div>
                 <div class="modal-body">
                     <div class="batch-rename-pattern-section">
-                        <label class="dropdown-label">Pattern</label>
+                        <label class="field-label-inline">Pattern</label>
                         <div class="batch-rename-input-wrap">
                             <div class="batch-rename-highlight" aria-hidden="true"></div>
                             <input type="text" class="batch-rename-input" value="{YYYY}-{MM}-{DD}_{original}" placeholder="{YYYY}_{original}">

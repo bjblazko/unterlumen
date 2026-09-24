@@ -121,6 +121,16 @@ class LibrarySearchPanel {
         if (this._options.onClose) this._options.onClose();
     }
 
+    // Opens the panel without a click, for the library detail where it is
+    // shown from the start. Nothing is filtered yet, so the library keeps
+    // showing its own folders and photos until a filter is actually set.
+    async open() {
+        if (this._container.classList.contains('visible')) return;
+        this._openedWithoutQuery = true;
+        await this._toggle();
+        this._openedWithoutQuery = false;
+    }
+
     async _toggle() {
         const opening = !this._container.classList.contains('visible');
         if (!opening) {
@@ -177,7 +187,7 @@ class LibrarySearchPanel {
         this._buildTextFilters();
         this._buildChipFilters();
         this._buildResultsPane();
-        this._runQuery();
+        if (!this._openedWithoutQuery) this._runQuery();
     }
 
     async _fetchRanges(libID) {

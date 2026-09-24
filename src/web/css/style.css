@@ -299,7 +299,6 @@ body {
 
 .nav-foot { margin-top: auto; }
 
-.nav-foot .dropdown-wrap { display: block; }
 
 .nav-settings-btn {
     display: flex;
@@ -321,7 +320,6 @@ body {
 .sidebar-collapsed .nav-text,
 .sidebar-collapsed .brand-name,
 .sidebar-collapsed .nav-item.nav-sub,
-.sidebar-collapsed .dropdown-chevron { display: none; }
 
 .sidebar-collapsed .nav-item,
 .sidebar-collapsed .nav-settings-btn {
@@ -354,66 +352,9 @@ body {
     background: var(--bg);
 }
 
-/* —— Shared dropdown —— */
+/* —— Small field label and button group (used inside modals) —— */
 
-.dropdown-wrap {
-    position: relative;
-}
-
-.dropdown-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-}
-
-.dropdown-btn svg {
-    flex-shrink: 0;
-}
-
-.dropdown-chevron {
-    flex-shrink: 0;
-    margin-left: 2px;
-    opacity: 0.5;
-}
-
-.dropdown-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: var(--space-1);
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-float);
-    z-index: 100;
-    min-width: 200px;
-    width: max-content;
-}
-
-.dropdown-menu-right {
-    left: auto;
-    right: 0;
-}
-
-.dropdown-menu-up {
-    top: auto;
-    bottom: 100%;
-    margin-top: 0;
-    margin-bottom: var(--space-1);
-}
-
-.dropdown-section {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-}
-
-.dropdown-section + .dropdown-section {
-    border-top: 1px solid var(--line);
-}
-
-.dropdown-label {
+.field-label-inline {
     color: var(--fg-2);
     font-size: 11px;
     text-transform: uppercase;
@@ -422,7 +363,7 @@ body {
     white-space: nowrap;
 }
 
-.dropdown-toggle {
+.btn-choice {
     display: flex;
     gap: 1px;
     background: var(--line);
@@ -431,34 +372,9 @@ body {
     overflow: hidden;
 }
 
-.dropdown-toggle .btn {
+.btn-choice .btn {
     border: none;
     border-radius: 0;
-}
-
-.dropdown-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    border: none !important;
-    border-radius: 0 !important;
-    white-space: nowrap;
-    padding: var(--space-3) var(--space-4) !important;
-    font-size: 13px !important;
-}
-
-.dropdown-item + .dropdown-item {
-    border-top: 1px solid var(--line) !important;
-}
-
-.dropdown-item:hover:not(:disabled) {
-    color: var(--accent);
-    background: var(--accent-soft);
-}
-
-.dropdown-item:disabled {
-    opacity: 0.35;
-    cursor: default;
 }
 
 .cache-size-col {
@@ -693,28 +609,32 @@ button.toggle {
     line-height: 0;
 }
 
+/* The accent belongs to the one primary action of a screen; a path is not an
+   action. Crumbs read as links (underlined), the current one as plain text. */
 .breadcrumb {
     padding: var(--space-2) 0;
-    font-size: 12px;
-    color: var(--fg-2);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
 }
 
 .breadcrumb .crumb {
     color: var(--fg-2);
-    text-decoration: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--line-strong);
 }
 
 .breadcrumb .crumb:hover {
-    color: var(--accent);
+    color: var(--fg);
 }
 
 .breadcrumb .crumb-sep {
-    color: var(--accent);
+    color: var(--fg-3);
 }
 
 .breadcrumb .crumb-current {
-    color: var(--accent);
-    font-weight: bold;
+    color: var(--fg);
+    font-weight: 500;
 }
 
 /* --- Browse library badge --- */
@@ -744,24 +664,6 @@ button.toggle {
     display: flex;
     align-items: center;
     gap: 0;
-}
-
-/* View / Tools / Slideshow: connected button group */
-.controls-left .dropdown-wrap .dropdown-btn {
-    border-radius: 0;
-}
-
-.controls-left .dropdown-wrap:first-child .dropdown-btn {
-    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-}
-
-.controls-left .dropdown-wrap ~ .dropdown-wrap .dropdown-btn {
-    border-left: none;
-}
-
-.controls-left > .slideshow-btn {
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    border-left: none;
 }
 
 .status-bar {
@@ -1139,18 +1041,20 @@ button.toggle {
 
 /* Focus and hover are states, not events: a steady ring says where you are.
    The pulsing one animated forever, which ADR-0030's motion rule rules out —
-   and a blinking frame is hard to look past while judging a photo. */
+   and a blinking frame is hard to look past while judging a photo. The ring is
+   drawn in the foreground colour: selecting photos is not the screen's one
+   primary action, and orange has to stay readable as "do this". */
 .grid-item:not(.selected):hover::after,
 .grid-item:not(.selected).focused::after {
     content: '';
     position: absolute;
     inset: 0;
-    box-shadow: inset 0 0 0 3px var(--accent);
+    box-shadow: inset 0 0 0 3px var(--fg);
     pointer-events: none;
 }
 
 .grid-item:not(.selected):hover:not(.focused)::after {
-    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--accent) 45%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--fg) 45%, transparent);
 }
 
 .grid-item.selected {
@@ -1161,8 +1065,8 @@ button.toggle {
     content: '';
     position: absolute;
     inset: 0;
-    box-shadow: inset 0 0 0 3px var(--accent);
-    background: color-mix(in oklch, var(--accent) 18%, transparent);
+    box-shadow: inset 0 0 0 3px var(--fg);
+    background: color-mix(in oklch, var(--fg) 18%, transparent);
     pointer-events: none;
 }
 
@@ -1231,7 +1135,7 @@ button.toggle {
     content: '';
     position: absolute;
     inset: 0;
-    box-shadow: inset 0 0 0 3px var(--accent);
+    box-shadow: inset 0 0 0 3px var(--fg);
     pointer-events: none;
 }
 
@@ -1266,20 +1170,20 @@ button.toggle {
     content: '';
     position: absolute;
     inset: 0;
-    box-shadow: inset 0 0 0 3px var(--accent);
+    box-shadow: inset 0 0 0 3px var(--fg);
     pointer-events: none;
 }
 
 .justified-item:not(.selected):hover:not(.focused)::after {
-    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--accent) 45%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--fg) 45%, transparent);
 }
 
 .justified-item.selected::after {
     content: '';
     position: absolute;
     inset: 0;
-    box-shadow: inset 0 0 0 3px var(--accent);
-    background: color-mix(in oklch, var(--accent) 18%, transparent);
+    box-shadow: inset 0 0 0 3px var(--fg);
+    background: color-mix(in oklch, var(--fg) 18%, transparent);
     pointer-events: none;
 }
 
@@ -1346,14 +1250,16 @@ button.toggle {
     transition: background 0.1s;
 }
 
+/* Focus and selection are structure, not a signal: a surface step and a bar
+   in the foreground colour, so the accent keeps its one meaning. */
 .list-view tr:hover,
 .list-view tr.focused {
-    background: var(--accent-soft);
+    background: color-mix(in srgb, var(--fg) 4%, transparent);
 }
 
 .list-view tr.selected {
-    background: color-mix(in oklch, var(--accent) 14%, transparent);
-    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--bg-2);
+    box-shadow: inset 3px 0 0 var(--fg);
 }
 
 .list-icon img {
@@ -1378,8 +1284,8 @@ button.toggle {
 }
 
 .dir-row.selected {
-    background: color-mix(in oklch, var(--accent) 14%, transparent);
-    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--bg-2);
+    box-shadow: inset 3px 0 0 var(--fg);
 }
 
 .list-date, .list-size {
@@ -1405,20 +1311,39 @@ button.toggle {
     border: 2px solid transparent;
 }
 
-.commander-pane.active {
-    border-color: var(--accent);
+/* Which pane is active is what everything else depends on, so it is stated
+   by a filled header rather than a coloured outline that competes with the
+   accent's one meaning. */
+.commander-pane {
+    border-color: transparent;
 }
 
 .commander-pane::before {
     content: attr(data-pane-label);
     display: block;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--fg-3);
-    padding: 0 0 var(--space-3);
+    margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-2);
+    color: var(--fg-2);
+    font: 500 var(--text-sm)/1.3 var(--font-mono);
     flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.commander-pane.active::before {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+/* Organize is for moving files between two places. The actions that act on a
+   folder as a whole (make a library of it, clear its cache, play it as a
+   slideshow) belong to Folders; here they would be six buttons competing with
+   the four that do the work. */
+.commander-pane .folder-tool,
+.commander-pane .slideshow-btn {
+    display: none;
 }
 
 .commander-actions {
@@ -1465,17 +1390,6 @@ button.toggle {
     margin-top: var(--space-4);
 }
 
-.cmd-arrow {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    fill: var(--accent);
-    opacity: 0.1;
-    transition: transform 0.2s ease;
-}
-
 .commander-resizer {
     width: 5px;
     cursor: col-resize;
@@ -1496,7 +1410,7 @@ button.toggle {
 
 .commander-resizer:hover,
 .commander-resizer.dragging {
-    background: var(--accent);
+    background: var(--line-strong);
 }
 
 /* —— Viewer —— */
@@ -3200,6 +3114,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-shrink: 0;
 }
 
+/* A separator with nothing after it separates nothing — this happens when the
+   buttons behind it are hidden, as they are on a phone. */
+.header-actions-sep:last-child {
+    display: none;
+}
+
 .btn-toggle::after {
     content: '·';
     margin-left: 4px;
@@ -3229,12 +3149,13 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-8);
 }
 
+/* A list of libraries is a list, not a deck of cards: one hairline between
+   rows, the page's own background underneath. */
 .library-card {
     display: flex;
     flex-direction: column;
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
+    background: transparent;
+    border-bottom: 1px solid var(--line);
     overflow: visible;
     flex-shrink: 0;
 }
@@ -3250,16 +3171,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .library-card-filmstrip {
     display: flex;
     overflow: hidden;
-    border-top: 1px solid var(--line);
     height: 48px;
     flex-shrink: 0;
-    border-bottom-left-radius: var(--radius-sm);
-    border-bottom-right-radius: var(--radius-sm);
-}
-
-.library-card-top:last-child {
-    border-bottom-left-radius: var(--radius-sm);
-    border-bottom-right-radius: var(--radius-sm);
+    margin: 0 var(--space-6) var(--space-4);
 }
 
 .library-card-filmstrip img {
@@ -3669,10 +3583,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-radius: var(--radius-sm);
 }
 
+/* The chosen range is state, not the screen's primary action: four orange
+   sliders in one panel would spend the accent on furniture. */
 .lib-range-fill {
     position: absolute;
     height: 100%;
-    background: var(--accent);
+    background: var(--fg-2);
     border-radius: var(--radius-sm);
 }
 
@@ -3681,7 +3597,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     width: 7px;
     height: 17px;
     background: none;
-    border: 2px solid var(--accent);
+    border: 2px solid var(--fg);
     box-sizing: border-box;
     cursor: ew-resize;
     top: 50%;
@@ -3699,7 +3615,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-range-handle:hover {
-    border-color: var(--accent-hover);
+    border-color: var(--fg-2);
 }
 
 .lib-search-loading {
@@ -6136,24 +6052,47 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* Anything that changes files or settings is desktop work. */
     .selection-bar,
-    .view-switches,
+    .view-switch--names,
     .tools-menu-btn,
+    .folder-tool,
+    .lib-scan-tools-wrap,
     .slideshow-btn,
     .gal-row-actions,
     .gal-detail-primary,
     .gal-detail-danger,
     .gal-dest-settings,
-    .lib-card-actions,
+    .lib-scan-new,
+    .lib-move-up,
+    .lib-move-down,
+    .lib-sort-select,
     #lib-new-btn,
     .desk-only {
         display: none !important;
     }
 
-    /* Filter and Statistics stay: they only look at photos. */
+    /* A phone browses what is there: one layout, one order, no counting bar
+       (the folder title line already says how much there is). The Details
+       switch stays — it decides what you can read on a thumbnail. */
+    .controls .seg,
+    .controls .sort-field,
+    .controls .sort-order,
+    .controls .status-bar {
+        display: none;
+    }
+
+    /* Filter and Statistics stay: they only look at photos. The head grows
+       with them instead of letting them sit on top of the title. */
     .library-detail-controls,
     .library-list-header-actions {
         flex-wrap: wrap;
         gap: var(--space-2);
+    }
+
+    .library-list-header {
+        height: auto;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
     }
 
     /* Statistics is a full page here, not a dialog in a corner. */
@@ -6259,4 +6198,334 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* Collapsed, the sheet has nothing to show: the Info button reopens it. */
     .viewer .info-panel.collapsed { display: none; }
+}
+
+/* Location dialog: setting and removing live together. */
+.modal-footer-spacer { flex: 1; }
+
+.location-remove-question {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+    max-width: 24rem;
+}
+
+/* --- Page head controls: one row, one height --- */
+
+.seg {
+    display: inline-flex;
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.seg button {
+    height: 100%;
+    padding: 0 var(--space-3);
+    border: 0;
+    background: var(--bg);
+    color: var(--fg-2);
+    font: 500 var(--text-sm)/1 var(--font-sans);
+    cursor: pointer;
+}
+
+.seg button + button { border-left: 1px solid var(--line-strong); }
+
+.seg button[aria-pressed="true"] {
+    background: var(--fg);
+    color: var(--bg);
+}
+
+/* A select that sits in a row of buttons is cut from the same stock: same
+   height, same frame, its own arrow instead of the native one. */
+.select-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: calc(var(--space-3) + 16px);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234A4C4E' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    cursor: pointer;
+}
+
+:root[data-theme="dark"] .select-btn {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23C2C3BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.controls-left {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.btn-group {
+    display: inline-flex;
+}
+
+.btn-group .btn + .btn {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* --- Folder title and the row of subfolders --- */
+
+.folder-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.folder-title h1 {
+    font-size: var(--text-xl);
+    font-weight: 600;
+}
+
+.folder-title-meta {
+    color: var(--fg-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.folder-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+}
+
+.folder-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    color: var(--fg);
+    font: 400 var(--text-sm)/1 var(--font-sans);
+    cursor: pointer;
+    max-width: 18rem;
+}
+
+.folder-chip:hover { background: var(--hover-overlay); }
+
+.folder-chip.focused,
+.folder-chip.selected {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+}
+
+.folder-chip .item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The folder-name rule for tiles is more specific than the chip's own
+   colour, so say it again where the chip is filled. */
+.folder-chip.focused .item-name,
+.folder-chip.selected .item-name {
+    color: inherit;
+}
+
+.controls .status-bar {
+    flex: none;
+    align-self: center;
+    white-space: nowrap;
+}
+
+/* --- Libraries: one row per library, the row itself opens it --- */
+
+.library-card-open {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+.library-card-open:hover .library-card-name { text-decoration: underline; }
+
+.library-card-name {
+    font-size: var(--text-md);
+    font-weight: 600;
+}
+
+.library-card-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.library-card-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+}
+
+.library-card-indexed {
+    font-size: var(--text-xs);
+    color: var(--fg-3);
+}
+
+.library-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+}
+
+.library-dialog-path {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+}
+
+.library-dialog-danger {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-4) 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+}
+
+/* --- Marked for deletion --- */
+
+.page-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-4);
+    padding-top: var(--space-4);
+}
+
+.page-title-row h1 {
+    font-size: var(--text-lg);
+    font-weight: 600;
+}
+
+.page-title-spacer { flex: 1; }
+
+.wastebin-note {
+    max-width: 42rem;
+    margin: var(--space-3) 0 var(--space-4);
+    color: var(--fg-2);
+}
+
+.wastebin-question {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+    align-self: center;
+}
+
+.wastebin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: 0;
+}
+
+.wastebin-empty-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: flex-start;
+    max-width: 32rem;
+    margin-top: var(--space-6);
+    padding: var(--space-4);
+    background: var(--bg-2);
+    border-radius: var(--radius-md);
+}
+
+.wastebin-empty-box span { color: var(--fg-2); }
+
+.wastebin-failures {
+    max-width: 42rem;
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--warning-soft);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+}
+
+.wastebin-failures strong { color: var(--warning-ink); }
+.wastebin-failures ul { margin: var(--space-2) 0 0 var(--space-4); }
+
+/* --- Settings as a place --- */
+
+.settings-pane {
+    height: 100%;
+    overflow: auto;
+}
+
+.settings-body {
+    max-width: 40rem;
+    gap: var(--space-6);
+}
+
+.settings-body .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.settings-cache {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+.settings-cache-path {
+    color: var(--fg-3);
+    overflow-wrap: anywhere;
+}
+
+.settings-tools {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+/* A segment group is as wide as its labels, not as wide as the column. */
+.settings-body .seg,
+.settings-body .toggle { align-self: flex-start; }
+
+/* Organize says what happened where it happened. */
+.cmd-status {
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-2);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.cmd-status--error {
+    background: var(--warning-soft);
+    color: var(--warning-ink);
+}
+
+.cmd-status-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
 }

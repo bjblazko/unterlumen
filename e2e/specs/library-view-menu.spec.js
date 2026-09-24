@@ -49,9 +49,8 @@ test.describe('View menu — library folder view', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.waitForSelector('#lib-pane .grid-item.dir-item[data-name="folder-a"]', { timeout: 10_000 });
+    await page.waitForSelector('#lib-pane .folder-chip.dir-item[data-name="folder-a"]', { timeout: 10_000 });
 
-    await page.locator('#lib-pane .view-menu-btn').click();
     await page.locator('#lib-pane button[data-view="list"]').click();
 
     await expect(page.locator('#lib-pane table.list-view')).toBeVisible({ timeout: 5_000 });
@@ -65,9 +64,9 @@ test.describe('View menu — library folder view', () => {
 
   test.describe('inside folder-b', () => {
     test.beforeEach(async ({ page }) => {
-      const folderB = page.locator('#lib-pane .grid-item.dir-item[data-name="folder-b"]');
+      const folderB = page.locator('#lib-pane .folder-chip.dir-item[data-name="folder-b"]');
       await folderB.waitFor({ state: 'visible', timeout: 10_000 });
-      await folderB.dblclick();
+      await folderB.click();
       await waitForThumbnailsLoaded(page, 1);
     });
 
@@ -75,7 +74,6 @@ test.describe('View menu — library folder view', () => {
       const errors = [];
       page.on('pageerror', (err) => errors.push(err.message));
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       await page.locator('#lib-pane button[data-view="list"]').click();
 
       await expect(page.locator('#lib-pane table.list-view')).toBeVisible({ timeout: 5_000 });
@@ -85,11 +83,9 @@ test.describe('View menu — library folder view', () => {
     });
 
     test('switch back to grid view inside a library folder', async ({ page }) => {
-      await page.locator('#lib-pane .view-menu-btn').click();
       await page.locator('#lib-pane button[data-view="list"]').click();
       await expect(page.locator('#lib-pane table.list-view')).toBeVisible({ timeout: 5_000 });
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       await page.locator('#lib-pane button[data-view="grid"]').click();
       await expect(page.locator('#lib-pane .grid-item.image-item').first()).toBeVisible({ timeout: 5_000 });
     });
@@ -98,13 +94,11 @@ test.describe('View menu — library folder view', () => {
       const item = page.locator(`#lib-pane [data-name*="${GPS_IMAGE}"], #lib-pane .grid-item.image-item`).first();
       await expect(item.locator('.item-name')).toHaveCount(0);
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       const namesToggle = page.locator('#lib-pane .toggle-names-wrap .toggle');
       await namesToggle.click();
 
       await expect(item.locator('.item-name')).toBeVisible({ timeout: 5_000 });
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       await namesToggle.click();
       await expect(item.locator('.item-name')).toHaveCount(0);
     });
@@ -113,13 +107,11 @@ test.describe('View menu — library folder view', () => {
       const gpsItem = page.locator(`#lib-pane [data-name="${GPS_IMAGE}"]`);
       await expect(gpsItem.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       const overlaysToggle = page.locator('#lib-pane .toggle-overlays-wrap .toggle');
       await overlaysToggle.click();
 
       await expect(gpsItem.locator('.overlay-badges')).toHaveCount(0);
 
-      await page.locator('#lib-pane .view-menu-btn').click();
       await overlaysToggle.click();
       await expect(gpsItem.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
     });

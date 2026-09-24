@@ -62,8 +62,8 @@ test.describe('Overlays — folder-a/a1 (HIF)', () => {
     await page.goto('/');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-a');
-    const a1 = page.locator('.grid-item.dir-item[data-name="a1"]');
-    await a1.dblclick();
+    const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
+    await a1.click();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
   });
@@ -105,9 +105,9 @@ test.describe('Overlays — library folder view', () => {
     await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
     // Navigate into folder-b
-    const folderB = page.locator('#lib-pane .grid-item.dir-item[data-name="folder-b"]');
+    const folderB = page.locator('#lib-pane .folder-chip.dir-item[data-name="folder-b"]');
     await folderB.waitFor({ state: 'visible', timeout: 10_000 });
-    await folderB.dblclick();
+    await folderB.click();
     await waitForThumbnailsLoaded(page, 1);
   });
 

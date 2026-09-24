@@ -187,7 +187,7 @@ test.describe('Export modes', () => {
 
         // Navigate into folder-b inside the library pane.
         await page.waitForSelector('#lib-pane [data-type="dir"]', { timeout: 15_000 });
-        await page.locator('#lib-pane [data-name="folder-b"]').dblclick();
+        await page.locator('#lib-pane [data-name="folder-b"]').first().click();
         await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 15_000 });
 
         const images = page.locator('#lib-pane [data-type="image"]');
@@ -209,9 +209,12 @@ test.describe('Export modes', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
-        // Open the in-detail filter panel and wait for search results.
-        await page.locator('#lib-filter-btn').click();
+        // The filter panel is open from the start (phase 9) and shows the
+        // library's own folders until a filter runs; picking the library in
+        // the panel's own selector is what produces results.
         await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
+        await page.waitForSelector('#lib-search-panel .lib-search-select', { timeout: 20_000 });
+        await page.locator('#lib-search-panel .lib-search-select').first().selectOption(String(libID));
         await page.waitForSelector('.search-breadcrumb', { timeout: 15_000 });
         await page.waitForSelector('#lib-search-pane [data-type="image"]', { timeout: 15_000 });
 

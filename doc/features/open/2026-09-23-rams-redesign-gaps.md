@@ -1,6 +1,6 @@
 # Rams redesign: remaining screens
 
-*Last modified: 2026-09-23*
+*Last modified: 2026-09-24*
 
 ## Summary
 
@@ -61,7 +61,7 @@ library's own screen, "settings" the Settings place.
 | Entry | What it does | Goes to | Why |
 | --- | --- | --- | --- |
 | View › Layout (Grid / Justified / List) | Switches how photos are laid out | folder — segment group in the page head | A view you switch while looking; two clicks deep is one too many |
-| View › Sort field (Name, File modified, Photo taken, Size) | Orders the folder | folder — select styled as a button, with the direction in the same control | Same reason; the direction arrow becomes part of the select's label rather than a separate 30 px button |
+| View › Sort field (Name, File modified, Photo taken, Size) | Orders the folder | folder — select styled as a button, plus a small button for the direction | Same reason. Built with two controls rather than the prototype's single select: four fields × two directions is eight options to read through, where a field and a direction is two things to point at. Both sit in one row at one height |
 | View › Show names, View › Show details | Toggles the name and the chips on a thumbnail | done in phase 7 — switches in the page head | — |
 | Tools › Make library | Turns the focused folder into a library | folder — quiet framed button "Make library…", shown when a folder is focused | Acts on the folder, not on a selection |
 | Tools › Scan for new photos | Indexes new files of the open library | library — the row's own "Scan for new photos" on Libraries, and "Edit library…" in the detail | Acts on the library; the Libraries overview already shows when it was last indexed |
@@ -172,30 +172,85 @@ header dropdown:
   - controls in one row with different heights
 - **Compare the finished work against the prototype.** For every prototype
   screen (desktop and phone), put the app into the same state, take a
-  Playwright screenshot and list the differences in a table:
+  Playwright screenshot and list the differences in a table. A difference is
+  fine only when it has a reason, for example a real data or API constraint as
+  in phase 5's "Add to gallery only in libraries". The result is the section
+  below.
 
-  | Screen | Element | Prototype | App | Fix / reason |
-  | --- | --- | --- | --- | --- |
+## Screenshot comparison (2026-09-23)
 
-  A difference is fine only when it has a reason, for example a real data
-  or API constraint as in phase 5's "Add to gallery only in libraries".
-  Record the kept differences in this doc.
+How it was made: the prototype was rendered from its saved source at 1440×950
+(desktop) and 480×950 (phone) with the notes layer off; the app was driven with
+Playwright against a dev build on port 8080 holding the real libraries,
+galleries and destinations, at 1440×950 and at 390×844 (2× phone). Every
+prototype screen has a counterpart: Folders, Marked for deletion, Organize,
+Libraries, library detail, Galleries, gallery detail, Destinations, destination
+detail, Settings; on the phone Folders, Libraries, Galleries and the
+desktop-only notice.
+
+### Fixed during the comparison
+
+| Screen | Element | Prototype | App (before) | Fix |
+| --- | --- | --- | --- | --- |
+| All with a path | Breadcrumb | Grey path, current segment plain `--fg` | Separators and current segment in orange, bold | Crumbs are links (underlined, `--fg-2`), current segment `--fg` 500. Orange is the primary action, and a path is not an action |
+| Folders, library | Selected / focused photo | 3 px ring in `--fg`, image dimmed | 3 px orange ring plus orange wash | Ring and wash in `--fg`. Selecting is not the screen's primary action, and the selection bar's "Add to gallery…" is |
+| Folders, Organize | List rows | `--bg-2` with a `--fg` bar | Orange tint with an orange bar | Same, in `--bg-2` / `--fg` |
+| Organize | Between the panes | Three framed buttons | Same buttons over a large orange arrow, the whole column tinted | Arrow removed; the direction is in the labels, which now flip (`Copy →` / `← Copy`) with the active pane |
+| Organize | Pane toolbars | Plain file lists | Each pane repeated Slideshow, Make library…, Clear cache | Folder tools hidden inside Organize; they belong to Folders |
+| Organize | Jump to library | — | `dropdown-btn` with a custom menu | A `<select>`: a library is a place to navigate to, not an action. Libraries outside the server root say so instead of being offered |
+| Libraries | Row | Hairline between rows | Bordered card on `--bg-2` | Hairline, page background, filmstrip aligned with the text |
+| Libraries | Maintenance | Not shown | Chevron menu on the row with four rare runs | The four runs moved into "Edit library…", as the tools inventory says; the row keeps only "Scan for new photos" |
+| Library detail | Head | Details · Statistics · Edit library… | Also a chevron menu with the same four runs | Removed; "Scan for new photos" stays, because it scans the folders you have open |
+| Galleries, gallery detail | State | One state per row; a dead link reads "Not reachable · time" | Row and detail showed a green "Online" next to a red "Not reachable · 03:33 AM", and the detail's sentence contradicted its own pill | "Online" means uploaded *and* answering, so a failed check now replaces it rather than sitting beside it. In every other state ("Changes not online", "Built, not uploaded") the check is still shown beside the state, because both can be true at once. "Check again" is no longer the accent button either — it publishes nothing |
+| Library detail | Filter sliders | — | Four orange range sliders in one panel | The chosen range is state, not the screen's one primary action |
+| Settings | Cache size | `2.4 GB` | `5759.7 MB` | Gigabytes above 1024 MB |
+| Phone · Folders | Page head | Breadcrumb + Details switch | Also layout segment, sort, sort direction, image count | Those are desktop controls (`desk-only` in the prototype); the count repeats the title line |
+| Phone · Libraries | Page head | Title + nothing that writes | Sort select and Scan buttons, head overlapping its own title | Sort, Scan and the reorder arrows hidden; the head wraps instead of overlapping |
+| Phone · desktop-only | Way out | Secondary button | Accent button | Secondary |
+
+### Kept differences
+
+| Screen | Element | Prototype | App | Reason |
+| --- | --- | --- | --- | --- |
+| Folders | Page head | Breadcrumb, layout, sort, switches, Slideshow | Also Home and Up buttons, "Make library…", "Clear cache · N files", an image count, wrapping to a second row | Home/Up are real navigation in a filesystem the prototype only sketches; the two folder tools are where the inventory (and the owner's decision) put them. Five more controls do not fit one row at 1440 px |
+| Folders | Sort | One select with eight combinations | A field select plus a direction button | Written down in the tools inventory: a field and a direction are two things to point at, not eight to read |
+| Folders, library | Switch labels | `Details On/Off` | `DETAILS SHOWN/HIDDEN` | ADR-0019's three-label rule and phase 7's wording; the prototype predates it |
+| Folders | Subfolder row | Framed buttons, always secondary | Same, with the focused folder filled | Keyboard focus has to be visible; the prototype has no keyboard |
+| Library detail | Filter panel | Search, chips, film simulation, folders | Date taken, shutter, aperture, focal length, ISO, camera, lens, film simulation, more filters | The real filter is the feature; the prototype only sketches one |
+| Library detail | Head | No Filter button | "Filter" toggles the panel | The panel is permanent, but on a narrow window it has to be closable; the width is remembered |
+| Libraries | Head | Sort, New library… | Also Filter and Statistics | Cross-library search and statistics have no other entry point; both only read |
+| Libraries | Custom order | Arrows only in custom order | Same | — |
+| Galleries, gallery, Destinations | Everything | — | — | Phases 3, 4 and 6; no new differences found |
+| Marked for deletion | Empty state | "press Delete" | "press Backspace" | Both keys mark; Backspace is the one that works everywhere, including laptops without a Delete key |
+| Organize | Page head | "Organize" plus `Tab` / `Space` hints | No head | The sidebar already names the place, and the two file lists need the height. The key hints live in the pane headers' own row |
+| Organize | Pane content | Plain lists | Full browse panes with layout, sort and switches | The panes are real browse panes (ADR-0005); choosing list or grid while moving files is the point of them |
+| Settings | Section labels | Sentence case | Small caps | The app's form-label style, used on every other form |
+| Settings | Sections | Theme, quality, cache, helpers | Also "Interface" (hide the UI) and "What these are for" | Real settings that existed before and have nowhere else to live |
+| Phone · Libraries | Row | Name, count, path, strip | Also "Indexed <date>" | It is information, not an action, and it is the one thing that says whether the list is current |
 
 ## Acceptance Criteria
 
-- [ ] Tools inventory written down here, one line per entry. Tools dropdown
+- [x] Tools inventory written down here, one line per entry. Tools dropdown
       and View dropdown removed; layout segment, sort select and Slideshow
       in the page head.
-- [ ] Folders starts in the last or configured folder; title line;
+- [x] Folders starts in the last or configured folder; title line;
       subfolders as a button row.
-- [ ] Libraries overview: row clickable, no accent buttons, Scan with
+- [x] Libraries overview: row clickable, no accent buttons, Scan with
       indexed date, sort select, Edit and Delete only in the detail.
-- [ ] Library detail: permanent filter panel with chips; head as specified;
+- [x] Library detail: permanent filter panel with chips; head as specified;
       "Channels ›" and "Organise: jump to folder" gone.
-- [ ] Marked for deletion: sentence, inline two-step delete, empty state.
-- [ ] Organize: pane headers and labelled Copy/Move buttons.
-- [ ] Settings as a place.
-- [ ] Code search above returns no leftovers.
-- [ ] Comparison table for every prototype screen, desktop and phone. Every
+- [x] Marked for deletion: sentence, inline two-step delete, empty state.
+- [x] Organize: pane headers and labelled Copy/Move buttons.
+- [x] Settings as a place.
+- [x] Code search above returns no leftovers: no `confirm(`, `alert(` or
+      `prompt(` left in `src/web/js`, no `dropdown-btn` (`dropdown.js` and its
+      CSS are gone, since nothing used them any more), at most one
+      `btn-accent` per screen or dialog state, every action framed.
+- [x] Comparison table for every prototype screen, desktop and phone. Every
       kept difference has a written reason.
-- [ ] e2e specs updated; CHANGELOG entry.
+- [x] e2e specs updated; CHANGELOG entry. The suite is green at 283/283
+      (2026-09-24). The specs that broke were reading the old DOM (folder
+      tiles instead of chips, `.wastebin-header`) or the old behaviour (a
+      Filter button that opens a panel which is now open, buttons that were
+      greyed out without a reason); one of them, the library's blank pane,
+      was a real defect and not a stale selector.

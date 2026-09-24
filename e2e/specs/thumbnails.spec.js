@@ -50,7 +50,6 @@ test.describe('Thumbnails', () => {
     });
 
     test('grid view renders thumbnail cells with consistent structure', async ({ page }) => {
-      await page.locator('.view-menu-btn').click();
       await page.locator('button[data-view="grid"]').click();
       await expect(page.locator('.grid-item.image-item').first()).toBeVisible({ timeout: 5_000 });
       const items = page.locator('.grid-item.image-item');
@@ -76,7 +75,7 @@ test.describe('Thumbnails', () => {
       await page.goto('/');
       await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
       await navigateToFolder(page, 'folder-a');
-      await page.locator('.grid-item.dir-item[data-name="a1"]').dblclick();
+      await page.locator('.folder-chip.dir-item[data-name="a1"]').click();
       await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
       await waitForThumbnailsLoaded(page, 1);
 

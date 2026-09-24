@@ -717,7 +717,7 @@ class InfoPanel {
             valEl.addEventListener('blur', () => {
                 const newVal = valEl.textContent.trim();
                 if (newVal !== originalValue) {
-                    ctx.onUpsert(key, newVal).catch(err => alert('Save failed: ' + err.message));
+                    ctx.onUpsert(key, newVal).catch(err => App.showToast('Could not save it: ' + err.message));
                     originalValue = newVal;
                 }
             });
@@ -742,7 +742,7 @@ class InfoPanel {
                     }
                     this.render();
                 } catch (err) {
-                    alert('Delete failed: ' + err.message);
+                    App.showToast('Could not delete it: ' + err.message);
                 }
             });
         });
@@ -760,7 +760,7 @@ class InfoPanel {
                     ctx.entries = await ctx.refresh();
                     this.render();
                 } catch (err) {
-                    alert('Failed to save: ' + err.message);
+                    App.showToast('Could not save it: ' + err.message);
                 }
             });
         }

@@ -67,7 +67,7 @@ test.describe('Library scan operations', () => {
 
     // ── Library card UI ──────────────────────────────────────────────────────
 
-    test('library card shows all five scan operations', async ({ page }) => {
+    test('library row offers Scan for new photos and the indexed date', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -76,52 +76,54 @@ test.describe('Library scan operations', () => {
         const card = page.locator('.library-card', { hasText: 'E2E Scan Ops' });
         await expect(card).toBeVisible({ timeout: 8_000 });
 
-        // Primary scan button
         await expect(card.locator('.lib-scan-new')).toContainText('Scan for new photos');
+        await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
 
-        // Expand the secondary scan operations via the toggle chevron
-        await card.locator('.lib-scan-toggle').click();
-        const scanMenu = card.locator('.lib-scan-menu');
-        await expect(scanMenu).toBeVisible({ timeout: 3_000 });
-        await expect(scanMenu.locator('.lib-reindex')).toContainText('Rebuild metadata & previews');
-        await expect(scanMenu.locator('.lib-regen-missing')).toContainText('Generate missing previews');
-        await expect(scanMenu.locator('.lib-rebuild-all')).toContainText('Rebuild all previews');
-        await expect(scanMenu.locator('.lib-cleanup')).toContainText('Remove deleted photos');
+        // The rarer maintenance runs are not on the row any more.
+        await expect(card.locator('.lib-scan-toggle')).toHaveCount(0);
+        await expect(card.locator('.lib-reindex')).toHaveCount(0);
     });
 
-    // ── Browse Tools dropdown ─────────────────────────────────────────────────
+    // ── Maintenance in "Edit library…" ───────────────────────────────────────
 
-    test('browse Tools dropdown in library mode shows all five scan operations', async ({ page }) => {
+    test('Edit library holds the four maintenance runs', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
 
-        // Open the library into the detail / browse pane
         const card = page.locator('.library-card', { hasText: 'E2E Scan Ops' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
-        // Open the Tools menu in the library pane (same .tools-menu-btn used elsewhere)
-        await page.locator('#lib-pane .tools-menu-btn').click();
+        await page.locator('#lib-edit-btn').click();
+        const dialog = page.locator('.library-dialog-backdrop');
+        await expect(dialog).toBeVisible({ timeout: 5_000 });
 
-        // Scope to the library pane — there are two .tools-lib-scan-section elements in the DOM
-        // (one per browse pane) and the lib-scan section is shown when App.mode === 'library'
+        const actions = dialog.locator('#lib-edit-maint-actions');
+        await expect(actions.locator('[data-maint="scanNew"]')).toContainText('Scan for new photos');
+        await expect(actions.locator('[data-maint="reindex"]')).toContainText('Rebuild metadata & previews');
+        await expect(actions.locator('[data-maint="regenMissingPreviews"]')).toContainText('Generate missing previews');
+        await expect(actions.locator('[data-maint="rebuildAllPreviews"]')).toContainText('Rebuild all previews');
+        await expect(actions.locator('[data-maint="cleanup"]')).toContainText('Remove deleted photos');
+
+        await dialog.locator('#lib-edit-cancel').click();
+    });
+
+    // ── Scanning the folder you have open ────────────────────────────────────
+
+    test('library page head keeps Scan for new photos, without a menu', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.locator('#mode-library').click();
+        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
+
+        const card = page.locator('.library-card', { hasText: 'E2E Scan Ops' });
+        await card.locator('.lib-open').click();
+        await page.waitForSelector('#lib-pane', { timeout: 8_000 });
+
         const libPane = page.locator('#lib-pane');
-        const section = libPane.locator('.tools-lib-scan-section');
-        await expect(section).toBeVisible({ timeout: 5_000 });
-
-        // Primary button
-        await expect(section.locator('[data-tool="lib-scan-new"]')).toContainText('Scan for new photos');
-
-        // Expand the secondary items
-        await section.locator('.lib-scan-tools-toggle').click();
-        const menu = section.locator('.lib-scan-tools-menu');
-        await expect(menu).toBeVisible({ timeout: 3_000 });
-
-        await expect(menu.locator('[data-tool="lib-reindex"]')).toContainText('Rebuild metadata & previews');
-        await expect(menu.locator('[data-tool="lib-regen-missing"]')).toContainText('Generate missing previews');
-        await expect(menu.locator('[data-tool="lib-rebuild-all"]')).toContainText('Rebuild all previews');
-        await expect(menu.locator('[data-tool="lib-cleanup"]')).toContainText('Remove deleted photos');
+        await expect(libPane.locator('[data-tool="lib-scan-new"]')).toContainText('Scan for new photos');
+        await expect(libPane.locator('.lib-scan-tools-menu')).toHaveCount(0);
     });
 });

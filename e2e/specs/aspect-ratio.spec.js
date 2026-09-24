@@ -34,7 +34,6 @@ test.describe('Aspect ratio rendering', () => {
   // ── Grid view ─────────────────────────────────────────────────────────────
 
   test('grid view renders all image cells with positive height', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="grid"]').click();
     await expect(page.locator('.grid-item.image-item').first()).toBeVisible({ timeout: 5_000 });
 
@@ -47,7 +46,6 @@ test.describe('Aspect ratio rendering', () => {
   });
 
   test('grid view has no horizontal overflow', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="grid"]').click();
     await expect(page.locator('.grid-item.image-item').first()).toBeVisible({ timeout: 5_000 });
 
@@ -60,7 +58,6 @@ test.describe('Aspect ratio rendering', () => {
   // ── List view ─────────────────────────────────────────────────────────────
 
   test('list view renders all rows with consistent height', async ({ page }) => {
-    await page.locator('.view-menu-btn').click();
     await page.locator('button[data-view="list"]').click();
     await expect(page.locator('table.list-view')).toBeVisible({ timeout: 5_000 });
 

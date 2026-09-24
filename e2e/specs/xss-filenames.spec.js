@@ -79,7 +79,6 @@ test.describe('Filename XSS safety', () => {
         await page.goto('/');
         await waitForAppReady(page);
         await navigateToFolder(page, XSS_FOLDER);
-        await page.locator('.view-menu-btn').click();
         await page.locator('button[data-view="list"]').click();
         await waitForThumbnailsLoaded(page, 1);
 

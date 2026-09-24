@@ -9,8 +9,8 @@ test.describe('Film strip', () => {
     await page.goto('/');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-a');
-    const a1 = page.locator('.grid-item.dir-item[data-name="a1"]');
-    await a1.dblclick();
+    const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
+    await a1.click();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     // Open viewer on the first image so data-index="0" assertions hold

@@ -55,7 +55,8 @@ test.describe('Phone', () => {
 
         await page.locator('[data-type="image"]').first().tap();
         await expect(page.locator('.selection-bar')).toBeHidden();
-        await expect(page.locator('.tools-menu-btn')).toBeHidden();
+        // Making a library or clearing a cache changes things: desktop work.
+        await expect(page.locator('.folder-tool').first()).toBeHidden();
         await expect(page.locator('.slideshow-btn')).toBeHidden();
     });
 

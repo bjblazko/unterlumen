@@ -1,16 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Settings is a place now, not a dropdown in a corner (phase 9).
 async function openSettings(page) {
-  // Close dropdown if open by clicking away, then open settings
-  const settingsMenu = page.locator('#settings-menu');
-  if (await settingsMenu.isVisible()) {
-    await page.locator('body').click({ position: { x: 10, y: 10 } });
-    await page.waitForFunction(() => {
-      const m = document.getElementById('settings-menu');
-      return m && m.style.display === 'none';
-    }, { timeout: 2_000 }).catch(() => {});
-  }
-  await page.locator('#settings-btn').click();
+  await page.locator('#mode-settings').click();
   await page.waitForSelector('[data-theme-set="light"]:visible', { timeout: 3_000 });
 }
 
@@ -76,9 +68,9 @@ test.describe('Theme', () => {
     await openSettings(page);
     await page.locator('[data-theme-set="light"]').click();
 
-    const dirItem = page.locator('.grid-item.dir-item').first();
+    const dirItem = page.locator('.folder-chip.dir-item').first();
     if (await dirItem.isVisible()) {
-      await dirItem.dblclick();
+      await dirItem.click();
       await page.waitForSelector('[data-type="image"]', { timeout: 5_000 }).catch(() => {});
     }
     const imageItem = page.locator('[data-type="image"]').first();

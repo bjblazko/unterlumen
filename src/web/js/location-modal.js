@@ -13,44 +13,6 @@ class LocationModal {
         };
     }
 
-    openRemove(files, onSuccess = null) {
-        this.files = files;
-        this._onSuccess = onSuccess;
-        this._buildRemoveDOM();
-        document.body.appendChild(this.overlay);
-        document.addEventListener('keydown', this._onKeyDown);
-    }
-
-    _buildRemoveDOM() {
-        this.overlay = document.createElement('div');
-        this.overlay.className = 'modal-overlay';
-        this.overlay.addEventListener('click', (e) => {
-            if (e.target === this.overlay) this.close();
-        });
-
-        const n = this.files.length;
-        this.overlay.innerHTML = `
-            <div class="modal">
-                <div class="modal-header">
-                    <span class="modal-title">Remove Geolocation</span>
-                    <button class="info-collapse-btn modal-close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="location-confirm-msg">
-                        <p>GPS data will be removed from <strong>${n} image${n !== 1 ? 's' : ''}</strong>. This cannot be undone.</p>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" id="loc-remove-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="loc-remove-confirm">Remove</button>
-                </div>
-            </div>`;
-
-        this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#loc-remove-cancel').addEventListener('click', () => this.close());
-        this.overlay.querySelector('#loc-remove-confirm').addEventListener('click', () => this._executeRemove());
-    }
-
     async _executeRemove() {
         // Large batches: use progress dialog
         if (this.files.length > 5) {
@@ -136,31 +98,36 @@ class LocationModal {
         this.overlay.innerHTML = `
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title">Set Location</span>
+                    <span class="modal-title">Location</span>
                     <button class="info-collapse-btn modal-close-btn">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="location-map" id="location-map"></div>
                     <div class="location-fields">
                         <label class="location-field">
-                            <span class="dropdown-label">Latitude</span>
+                            <span class="field-label-inline">Latitude</span>
                             <input type="text" class="location-input" id="loc-lat" placeholder="e.g. 48.8566">
                         </label>
                         <label class="location-field">
-                            <span class="dropdown-label">Longitude</span>
+                            <span class="field-label-inline">Longitude</span>
                             <input type="text" class="location-input" id="loc-lon" placeholder="e.g. 2.3522">
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <!-- Everything about a photo's location is in this one
+                         dialog: setting it, and taking it away again. -->
+                    <button class="btn btn-danger" id="loc-remove">Remove location…</button>
+                    <span class="modal-footer-spacer"></span>
                     <button class="btn" id="loc-cancel">Cancel</button>
-                    <button class="btn btn-accent" id="loc-confirm" disabled>Set Location</button>
+                    <button class="btn btn-accent" id="loc-confirm" disabled>Set location</button>
                 </div>
             </div>`;
 
         this.overlay.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
         this.overlay.querySelector('#loc-cancel').addEventListener('click', () => this.close());
         this.overlay.querySelector('#loc-confirm').addEventListener('click', () => this._showConfirmation());
+        this.overlay.querySelector('#loc-remove').addEventListener('click', () => this._confirmRemove());
 
         const latInput = this.overlay.querySelector('#loc-lat');
         const lonInput = this.overlay.querySelector('#loc-lon');

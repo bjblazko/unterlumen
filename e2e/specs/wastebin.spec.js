@@ -41,27 +41,30 @@ test.describe('Wastebin (non-destructive)', () => {
 
     await page.locator('#mode-wastebin').click();
 
-    await expect(page.locator('.wastebin-header')).toContainText('2 files', { timeout: 3_000 });
+    await expect(page.locator('.page-title-row')).toContainText('2 files', { timeout: 3_000 });
 
     const items = page.locator('.grid-item.image-item');
     await expect(items).toHaveCount(2);
 
-    await expect(page.locator('#wb-restore')).toBeDisabled();
-    await expect(page.locator('#wb-delete')).toBeDisabled();
+    // With nothing selected the buttons act on everything and say so
+    // (phase 9): no greyed-out button without a reason.
+    await expect(page.locator('#wb-restore')).toContainText('Restore all');
+    await expect(page.locator('#wb-delete')).toContainText('Delete 2 permanently');
   });
 
-  test('selecting a wastebin item enables Restore button', async ({ page }) => {
+  test('selecting a wastebin item scopes Restore to the selection', async ({ page }) => {
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.wastebin-header')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.page-title-row')).toBeVisible({ timeout: 3_000 });
 
     const item = page.locator('.grid-item.image-item').first();
     await item.click();
     await expect(item).toHaveClass(/selected/);
     await expect(page.locator('#wb-restore')).toBeEnabled();
-    await expect(page.locator('#wb-restore')).toContainText('Restore (1)');
+    await expect(page.locator('#wb-restore')).toContainText('Restore 1');
+    await expect(page.locator('#wb-delete')).toContainText('Delete 1 permanently');
   });
 
   test('restore removes item from wastebin and decrements badge', async ({ page }) => {
@@ -71,12 +74,12 @@ test.describe('Wastebin (non-destructive)', () => {
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.wastebin-header')).toContainText('2 files', { timeout: 3_000 });
+    await expect(page.locator('.page-title-row')).toContainText('2 files', { timeout: 3_000 });
 
     await page.locator('.grid-item.image-item').first().click();
     await page.locator('#wb-restore').click();
 
-    await expect(page.locator('.wastebin-header')).toContainText('1 file', { timeout: 3_000 });
+    await expect(page.locator('.page-title-row')).toContainText('1 file', { timeout: 3_000 });
     await expect(page.locator('#wastebin-count')).toHaveText('1');
   });
 
@@ -85,12 +88,12 @@ test.describe('Wastebin (non-destructive)', () => {
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.wastebin-header')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.page-title-row')).toBeVisible({ timeout: 3_000 });
 
     await page.locator('.grid-item.image-item').first().click();
     await page.locator('#wb-restore').click();
 
-    await expect(page.locator('.wastebin-empty')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.wastebin-empty-box')).toBeVisible({ timeout: 3_000 });
     const badge = page.locator('#wastebin-count');
     const isHidden = await badge.evaluate(
       (el) => el.style.display === 'none' || el.textContent.trim() === '',
