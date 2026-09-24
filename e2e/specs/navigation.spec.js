@@ -75,4 +75,21 @@ test.describe('Navigation — places, not steps', () => {
     await page.keyboard.press('\\');
     await expect(page.locator('.shell')).not.toHaveClass(/sidebar-collapsed/);
   });
+
+  // The rule that hides the words once lost its own braces, so the collapsed
+  // rail kept every label and clipped them to "F…", "Paula…" instead.
+  test('the collapsed sidebar is a rail of icons, with no words left over', async ({ page }) => {
+    await page.keyboard.press('\\');
+    await expect(page.locator('.shell')).toHaveClass(/sidebar-collapsed/);
+
+    await expect(page.locator('#mode-browse .nav-text')).toBeHidden();
+    await expect(page.locator('.sidebar .nav-label').first()).toBeHidden();
+    await expect(page.locator('.brand-name')).toBeHidden();
+    await expect(page.locator('.sidebar .nav-item.nav-sub').first()).toBeHidden();
+
+    // The icons stay, and the rail stays narrow enough to be a rail.
+    await expect(page.locator('#mode-browse svg')).toBeVisible();
+    const width = await page.locator('.sidebar').evaluate(el => el.getBoundingClientRect().width);
+    expect(width).toBeLessThan(80);
+  });
 });

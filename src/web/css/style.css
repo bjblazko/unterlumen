@@ -316,10 +316,14 @@ body {
     padding-inline: var(--space-2);
 }
 
+/* Collapsed means icons only: the words, the group headings, the wordmark
+   and the per-library entries are what the rail gives up for the space. */
 .sidebar-collapsed .nav-label,
 .sidebar-collapsed .nav-text,
 .sidebar-collapsed .brand-name,
-.sidebar-collapsed .nav-item.nav-sub,
+.sidebar-collapsed .nav-item.nav-sub {
+    display: none;
+}
 
 .sidebar-collapsed .nav-item,
 .sidebar-collapsed .nav-settings-btn {
