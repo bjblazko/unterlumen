@@ -432,7 +432,7 @@ class LibraryTab {
                         <option value="manual">Custom order</option>
                     </select>
                     <div class="header-actions-sep"></div>
-                    <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-search-btn" title="Filter by EXIF values">Filter</button>
+                    <button class="btn btn-sm" aria-pressed="false" data-state="off" id="lib-search-btn" title="Search across all libraries">Search…</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
@@ -959,12 +959,15 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
-                    <button class="btn btn-sm" aria-pressed="true" data-state="on" id="lib-filter-btn" title="Show or hide the filter panel">Filter</button>
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm" id="lib-edit-btn">Edit library…</button>
                 </div>
             </div>
             <div class="lib-search-body">
+                <button class="lib-filter-rail" id="lib-filter-btn" title="Show the filter" aria-label="Show the filter" aria-pressed="false" data-state="off">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5h12l-4.5 5v4l-3 1.5v-5.5z"/></svg>
+                    <span class="lib-filter-rail-count" hidden></span>
+                </button>
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="library-detail-body">
                     <div class="library-pane-wrap" id="lib-pane"></div>
@@ -1004,6 +1007,7 @@ class LibraryTab {
             {
                 onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, photos, multiLib, paginationOpts),
                 onClose: () => this._showLibraryPane(el),
+                onActiveCount: (n) => this._updateFilterRail(el, n),
                 onLoading: (isLoading) => {
                     const paneEl = el.querySelector('#lib-pane');
                     const searchPaneEl = el.querySelector('#lib-search-pane');
@@ -1054,6 +1058,15 @@ class LibraryTab {
         });
 
         this._pane.load('');
+    }
+
+    // The rail says how many filters are on, so a closed panel never hides the
+    // reason why fewer photos are shown.
+    _updateFilterRail(rootEl, count) {
+        const badge = rootEl.querySelector('.lib-filter-rail-count');
+        if (!badge) return;
+        badge.textContent = count ? String(count) : '';
+        badge.hidden = count === 0;
     }
 
     _showSearchResults(detailEl, photos, multiLib, paginationOpts) {

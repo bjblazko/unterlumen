@@ -30,6 +30,16 @@ class ChipInput {
 
     getChips() { return this._chips; }
 
+    // Drops one chip — the filter panel's active-filter chips remove exactly
+    // the criterion they name.
+    removeChip(chip) {
+        const i = this._chips.indexOf(chip);
+        if (i === -1) return;
+        this._chips.splice(i, 1);
+        this._renderChips();
+        this._onChange(this._chips);
+    }
+
     reset() {
         this._chips = [];
         this._renderChips();

@@ -50,15 +50,17 @@ test.describe('Library list view', () => {
         await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
     });
 
-    test('Search button toggles search panel open and closed', async ({ page }) => {
+    // Across libraries the panel replaces the list with results, so it opens
+    // from the head — and closes from its own head, like every panel.
+    test('Search opens the cross-library panel, the panel closes itself', async ({ page }) => {
         const panel = page.locator('#lib-search-panel');
         await expect(panel).not.toHaveClass(/visible/);
 
         await page.locator('#lib-search-btn').click();
         await expect(panel).toHaveClass(/visible/);
-        await expect(page.locator('#lib-search-btn')).toHaveAttribute('data-state', 'on');
+        await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
 
-        await page.locator('#lib-search-btn').click();
+        await page.locator('.lib-filter-close').click();
         await expect(panel).not.toHaveClass(/visible/);
     });
 
@@ -79,11 +81,13 @@ test.describe('Library list view', () => {
         await expect(page.locator('.library-list-view')).toBeVisible({ timeout: 5_000 });
     });
 
-    test('Filter button is visible in library detail view', async ({ page }) => {
+    test('the filter panel is there when a library opens, with its own head', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
-        await expect(page.locator('#lib-filter-btn')).toBeVisible();
+        await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/);
+        await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
+        await expect(page.locator('.lib-filter-close')).toBeVisible();
     });
 
     // Deleting a library moved out of its row and into the library itself

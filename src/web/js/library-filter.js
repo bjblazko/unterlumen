@@ -154,6 +154,7 @@ class LibrarySearchPanel {
         this._built = true;
         this._container.innerHTML = '';
         this._container.className = 'lib-search-panel visible';
+        this._buildHead();
 
         const ids = this._initialLibID || undefined;
         // Load libraries, ranges, text field values, channels, meta keys, album titles, and all EXIF fields in parallel.
@@ -195,6 +196,112 @@ class LibrarySearchPanel {
             if (libID) return await LibraryAPI.exifRanges(libID);
             return await LibraryAPI.globalExifRanges();
         } catch { return {}; }
+    }
+
+    // The panel says what it is and offers the way out, the way the info panel
+    // on the other side does. The button that opens it is the rail beside it,
+    // so control and panel are never a screen apart (ADR-0008, principle 4).
+    _buildHead() {
+        const head = document.createElement('div');
+        head.className = 'lib-filter-head';
+        head.innerHTML = `
+            <span class="lib-filter-title">Filter</span>
+            <span class="lib-filter-count" hidden></span>
+            <button class="info-collapse-btn lib-filter-close" title="Hide the filter" aria-label="Hide the filter">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg>
+            </button>`;
+        head.querySelector('.lib-filter-close').addEventListener('click', () => this.close());
+        this._container.appendChild(head);
+        this._countEl = head.querySelector('.lib-filter-count');
+
+        const active = document.createElement('div');
+        active.className = 'lib-filter-active';
+        this._activeEl = active;
+        this._container.appendChild(active);
+    }
+
+    // What is filtering right now, as one chip each — the reason the count
+    // under the photos is 412 and not 13 371. Every chip drops its own
+    // criterion; "Reset filters" drops them all.
+    activeFilters() {
+        const out = [];
+
+        for (const f of EXIF_FILTER_FIELDS) {
+            const range = this._ranges[f.field];
+            const active = this._active[f.field];
+            if (!range || !active) continue;
+            const narrowed = active.min > range.min + 1e-12 || active.max < range.max - 1e-12;
+            if (!narrowed) continue;
+            out.push({
+                label: `${f.label} ${f.format(active.min)} – ${f.format(active.max)}`,
+                clear: () => {
+                    this._active[f.field] = { min: range.min, max: range.max };
+                    this._rebuildSliders();
+                    this._runQuery();
+                },
+            });
+        }
+
+        if (this._dateMin || this._dateMax) {
+            const from = this._dateMin || 'the beginning';
+            const to = this._dateMax || 'today';
+            out.push({
+                label: `Taken ${from} – ${to}`,
+                clear: () => {
+                    this._dateMin = '';
+                    this._dateMax = '';
+                    if (this._dateMinInput) this._dateMinInput.value = '';
+                    if (this._dateMaxInput) this._dateMaxInput.value = '';
+                    this._runQuery();
+                },
+            });
+        }
+
+        for (const f of EXIF_TEXT_FILTER_FIELDS) {
+            const value = (this._textActive || {})[f.field];
+            if (!value) continue;
+            out.push({
+                label: `${f.label}: ${value}`,
+                clear: () => {
+                    delete this._textActive[f.field];
+                    this._rebuildTextFilters();
+                    this._runQuery();
+                },
+            });
+        }
+
+        for (const chip of (this._chipInput?.getChips() || [])) {
+            out.push({
+                label: `${chip.ns}: ${chip.value}`,
+                clear: () => {
+                    this._chipInput.removeChip(chip);
+                    this._runQuery();
+                },
+            });
+        }
+
+        return out;
+    }
+
+    activeCount() { return this.activeFilters().length; }
+
+    _renderActiveFilters() {
+        if (!this._activeEl) return;
+        const active = this.activeFilters();
+        this._activeEl.innerHTML = '';
+        for (const filter of active) {
+            const chip = document.createElement('button');
+            chip.className = 'lib-filter-chip';
+            chip.innerHTML = `${escapeHtml(filter.label)}<span aria-hidden="true">×</span>`;
+            chip.title = `Drop "${filter.label}"`;
+            chip.addEventListener('click', () => filter.clear());
+            this._activeEl.appendChild(chip);
+        }
+        if (this._countEl) {
+            this._countEl.textContent = active.length ? `${active.length} on` : '';
+            this._countEl.hidden = active.length === 0;
+        }
+        if (this._options.onActiveCount) this._options.onActiveCount(active.length);
     }
 
     _buildControls() {
@@ -634,6 +741,7 @@ class LibrarySearchPanel {
     }
 
     _renderResults(result, params = this._lastParams || {}) {
+        this._renderActiveFilters();
         const { results, total } = result;
         const multiLib = !this._initialLibID && this._libraries.length > 1;
 

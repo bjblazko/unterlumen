@@ -293,10 +293,11 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForSelector('.library-detail', { timeout: 8_000 });
         });
 
-        // The panel is simply there now (phase 9); the button hides it.
+        // The panel is simply there; its own head closes it, the rail beside
+        // it brings it back.
         test('the filter panel is open when a library opens', async ({ page }) => {
             await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 5_000 });
-            await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'on');
+            await expect(page.locator('.lib-filter-close')).toBeVisible();
         });
 
         test('filter panel shows sliders', async ({ page }) => {
@@ -307,16 +308,15 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('.lib-range-slider').first()).toBeVisible();
         });
 
-        test('Filter button hides the panel and brings it back', async ({ page }) => {
+        test('the panel closes itself and the rail brings it back', async ({ page }) => {
             await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
 
-            await page.locator('#lib-filter-btn').click();
+            await page.locator('.lib-filter-close').click();
             await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
-            await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'off');
+            await expect(page.locator('#lib-filter-btn')).toBeVisible();
 
             await page.locator('#lib-filter-btn').click();
             await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 3_000 });
-            await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'on');
         });
 
         test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {
