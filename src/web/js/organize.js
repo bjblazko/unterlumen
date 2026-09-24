@@ -91,7 +91,7 @@ class OrganizePane {
     }
 
     async _changeFolder() {
-        const picked = await new FolderPicker().open(this.pane.path);
+        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to sort' });
         if (picked === null) return;
         this.load(picked);
     }
@@ -103,7 +103,7 @@ class OrganizePane {
         const rows = this.targets.map((t, i) => {
             const key = i < 9 ? String(i + 1) : '';
             const name = targetName(t.path);
-            const where = shortPath(t.path);
+            const where = shortenPath(t.path);
             return `
             <button class="org-target${t.missing ? ' org-target--missing' : ''}" data-target="${i}" aria-current="${i === this.current}">
                 <span class="org-target-name">${escapeHtml(name)}</span>
@@ -147,7 +147,7 @@ class OrganizePane {
     }
 
     async _addTarget() {
-        const picked = await new FolderPicker().open(this.pane.path);
+        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to add as a target' });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
             this._say(`${targetName(picked)} is already a target.`);
@@ -159,7 +159,7 @@ class OrganizePane {
     }
 
     async _newTarget() {
-        const parent = await new FolderPicker().open(this.pane.path);
+        const parent = await new FolderPicker().open(this.pane.path, { title: 'Where the new folder goes' });
         if (parent === null) return;
         const name = await promptForName(this.container, 'Name of the new folder');
         if (!name) return;
@@ -369,13 +369,6 @@ function saveTargets(targets) {
     try {
         localStorage.setItem(ORGANIZE_TARGETS_KEY, JSON.stringify(targets.map(t => ({ path: t.path }))));
     } catch { /* a browser that refuses storage still sorts photos */ }
-}
-
-// The end of a path says which folder it is; the start rarely does. A long
-// path keeps its last three segments, so two "Auswahl" folders stay apart.
-function shortPath(path) {
-    const parts = path.split('/').filter(Boolean);
-    return parts.length > 3 ? `…/${parts.slice(-3).join('/')}` : path;
 }
 
 function targetName(path) {

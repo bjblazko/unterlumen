@@ -81,6 +81,11 @@ class LibraryPane extends BrowsePane {
         return { dir, names: [] };
     }
 
+    // A library has no filesystem home to go to; its top is its own root.
+    homeTarget() { return ''; }
+
+    homeLabel() { return 'Top of this library'; }
+
     organizeBtnHint() {
         return 'Select a folder to open in Organize';
     }

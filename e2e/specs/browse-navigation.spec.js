@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForThumbnailsLoaded } from '../helpers/wait.js';
+import { waitForThumbnailsLoaded, waitForAppReady } from '../helpers/wait.js';
 import { FOLDER_B_IMAGE_COUNT, FOLDER_A_A1_IMAGE_COUNT, navigateToFolder } from '../helpers/fixtures.js';
 
 test.describe('Folder navigation', () => {
@@ -122,4 +122,19 @@ test.describe('Folder navigation', () => {
     await expect(page.locator('.crumb[data-path="folder-a"]')).toBeVisible();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).toBeVisible();
   });
+});
+
+// The Home button means "the top of wherever you are": the folder the server
+// was started with while browsing, the library's own root inside a library.
+test.describe('Home button', () => {
+    test('in a folder it returns to the start folder', async ({ page }) => {
+        await page.goto('/#folders');
+        await waitForAppReady(page);
+        await page.locator('.folder-chip[data-name="folder-a"]').click();
+        await expect(page.locator('.crumb-current')).toHaveText('folder-a');
+
+        await page.locator('.home-btn').click();
+        await expect(page.locator('.crumb-current')).toHaveText('Root');
+        await expect(page.locator('.home-btn')).toBeDisabled();
+    });
 });

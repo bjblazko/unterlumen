@@ -216,6 +216,15 @@ class BrowsePane {
         return focused ? [focused] : [];
     }
 
+    // Home is the top of wherever you are: the folder the server was started
+    // with (or the OS home) while browsing the filesystem, and the library's
+    // own root inside a library — see LibraryPane.
+    homeTarget() {
+        return App.config?.homePath ?? App.config?.startPath ?? '';
+    }
+
+    homeLabel() { return 'Home folder'; }
+
     getFocusedDir()    { return this.keyboard.getFocusedDir(); }
     getFocusedFile()   { return this.keyboard.getFocusedFile(); }
     getFocusedEntry()  { return this.keyboard.getFocusedEntry(); }
@@ -400,11 +409,9 @@ class BrowsePane {
     _renderBreadcrumb() {
         const parts = this.path ? this.path.split('/') : [];
         const isAtRoot = parts.length === 0;
-        const homePath = App.config?.homePath ?? App.config?.startPath ?? '';
-        const showHome = App.mode !== 'library';
-        const isAtHome = this.path === homePath;
+        const isAtHome = this.path === this.homeTarget();
         const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6.5" y1="10.5" x2="6.5" y2="2.5"/><polyline points="3 6 6.5 2.5 10 6"/></svg></button>`;
-        const homeBtn = showHome ? `<button class="btn btn-sm home-btn" title="Home"${isAtHome ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.5 6.5 6.5 1.5 11.5 6.5"/><path d="M3 6V11H10V6"/></svg></button>` : '';
+        const homeBtn = `<button class="btn btn-sm home-btn" title="${escapeHtml(this.homeLabel())}" aria-label="${escapeHtml(this.homeLabel())}"${isAtHome ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.5 6.5 6.5 1.5 11.5 6.5"/><path d="M3 6V11H10V6"/></svg></button>`;
         let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
         let accumulated = '';
         for (let i = 0; i < parts.length; i++) {
@@ -570,7 +577,7 @@ class BrowsePane {
         const homeBtn = this.container.querySelector('.home-btn');
         if (homeBtn) {
             homeBtn.addEventListener('click', () => {
-                const path = App.config?.homePath ?? App.config?.startPath ?? '';
+                const path = this.homeTarget();
                 this.load(path);
                 if (this.onNavigate) this.onNavigate(path);
             });

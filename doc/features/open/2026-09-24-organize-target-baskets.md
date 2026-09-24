@@ -41,7 +41,7 @@ the three designs it was chosen from are in the Organize clickdummy
 | Copy instead of move | ⌥-click the target | `⌥`+number |
 | Take the last move back | "Undo" in the bar | `U` |
 | Clear the selection | "Clear selection" | `Esc` |
-| Add a target | "Add target…" (folder picker) | — |
+| Add a target | "Add target…" — the folder dialog, which also lists the libraries | — |
 | Create a target folder | "New target…" | — |
 
 The number keys are the place shortcuts everywhere else, so they only aim at

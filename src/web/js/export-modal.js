@@ -226,7 +226,7 @@ class ExportModal {
             pickerBtn.addEventListener('click', async () => {
                 const current = this.overlay.querySelector('.export-destination-input').value.trim();
                 const picker = new FolderPicker();
-                const chosen = await picker.open(current || '');
+                const chosen = await picker.open(current || '', { title: 'Where the exported files go' });
                 if (chosen !== null && this.overlay) {
                     this.overlay.querySelector('.export-destination-input').value = chosen;
                 }

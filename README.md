@@ -43,6 +43,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 #### Organize
 
 - The folder you are sorting on the left, your target folders on the right
+- Targets are picked from the filesystem or straight from a library, in one dialog
 - A number key moves the selection into that target; ⌥ copies, `U` takes the last move back
 - Targets are remembered; "Mark for deletion" is one of them, and takes folders too
 

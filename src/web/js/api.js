@@ -253,6 +253,13 @@ function escapeHtml(s) {
 // boundary is "/" itself (no navigation restriction) — with any other
 // boundary (e.g. "/photos") it produces a bogus, doubled path that the
 // server correctly rejects as invalid.
+// The end of a path says which folder it is; the start rarely does. A long
+// path keeps its last few segments, so two "Auswahl" folders stay apart.
+function shortenPath(path, keep = 3) {
+    const parts = (path || '').split('/').filter(Boolean);
+    return parts.length > keep ? `…/${parts.slice(-keep).join('/')}` : (path || '');
+}
+
 function absPathRelativeToBoundary(absPath, boundary) {
     const b = (boundary || '').replace(/\/$/, '');
     const p = (absPath || '').replace(/\/$/, '');

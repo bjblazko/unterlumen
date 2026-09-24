@@ -545,7 +545,7 @@ class DestinationsPane {
         });
         form.querySelector('#chf-output-pick').addEventListener('click', async () => {
             const current = form.querySelector('#chf-output-path').value.trim();
-            const chosen = await new FolderPicker().open(current || '');
+            const chosen = await new FolderPicker().open(current || '', { title: 'Output folder' });
             if (chosen !== null) form.querySelector('#chf-output-path').value = chosen;
         });
 
