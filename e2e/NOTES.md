@@ -75,3 +75,7 @@ page.waitForFunction(() =>
 ## Fixtures
 
 Downloaded via `e2e/fixtures/setup.sh`, gitignored. Sources: ianare/exif-samples (MIT) for JPEGs, strukturag/libheif (Apache 2.0) for HEIC.
+
+## Two installations in one spec
+
+`site-album-register.spec.js` starts a second server on port 8083 from `beforeAll`, with its own `UNTERLUMEN_LIB_DIR` (a temp dir) and `UNTERLUMEN_CHANNELS_DIR` pointing at the main server's `fixtures/.unterlumen-test`. That is exactly what two real installations share. Create the `APIRequestContext`s yourself in `beforeAll`: the `{ request }` fixture of a hook cannot be reused inside a test. A channel's output directory differs per installation; read it from `GET /api/channels/` (`outputDir`), not from `GET /api/channels/{slug}`. Index the second installation's library only after album A was published, so it reads A's XMP sidecar.
