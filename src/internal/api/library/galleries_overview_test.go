@@ -305,8 +305,8 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 	if one.ChannelSlug != "site-ch" || one.ChannelName != "Site Channel" {
 		t.Errorf("album-one channel tagging wrong: %+v", one)
 	}
-	if one.URL != "https://example.com/album-one/" {
-		t.Errorf("album-one URL = %q, want https://example.com/album-one/", one.URL)
+	if one.URL != "https://example.com/albums/album-one/" {
+		t.Errorf("album-one URL = %q, want https://example.com/albums/album-one/", one.URL)
 	}
 	if one.URLGuessed {
 		t.Error("album-one URL should not be marked as guessed (SiteURL is set)")
@@ -395,6 +395,20 @@ func TestResolveGalleryURLPrefersSiteURL(t *testing.T) {
 	url, guessed := resolveGalleryURL(ch, galleryListItem{PostID: "p1", FolderName: "my-album"})
 	if url != "https://example.com/my-album/" || guessed {
 		t.Errorf("url=%q guessed=%v, want https://example.com/my-album/ guessed=false", url, guessed)
+	}
+}
+
+// A website keeps its album pages under albums/<slug>/ (the site index links to
+// albums/<slug>/index.html), unlike a share-links gallery, whose folder sits at
+// the root. Asking for the root path always answered 404.
+func TestResolveGalleryURLPutsSiteAlbumsUnderAlbums(t *testing.T) {
+	ch := &channels.Channel{SiteExport: true, SiteURL: "https://example.com"}
+	url, _ := resolveGalleryURL(ch, galleryListItem{PostID: "p1", FolderName: "photos-2019"})
+	if url != "https://example.com/albums/photos-2019/" {
+		t.Errorf("url = %q, want https://example.com/albums/photos-2019/", url)
+	}
+	if url, _ := resolveGalleryURL(ch, galleryListItem{PostID: "p1"}); url != "https://example.com/albums/p1/" {
+		t.Errorf("an album without a slug is in the folder of its post ID: %q", url)
 	}
 }
 

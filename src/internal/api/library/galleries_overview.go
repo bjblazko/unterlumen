@@ -88,6 +88,10 @@ func resolveGalleryURL(ch *channels.Channel, item galleryListItem) (url string, 
 	if folder == "" {
 		return base, isGuess
 	}
+	if ch.SiteExport {
+		// A website keeps its album pages under albums/<slug>/.
+		return base + "/albums/" + folder + "/", isGuess
+	}
 	return base + "/" + folder + "/", isGuess
 }
 

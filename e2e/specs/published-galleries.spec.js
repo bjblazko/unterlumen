@@ -132,6 +132,8 @@ test.describe('Published Galleries overview', () => {
         expect(siteRow).toBeTruthy();
         expect(siteRow.channelSlug).toBe(SITE_SLUG);
         expect(siteRow.url).toContain('127.0.0.1:1');
+        // A website keeps its album pages under albums/<slug>/.
+        expect(siteRow.url).toContain('/albums/');
     });
 
     test('Galleries groups rows by destination and layers the link check on the state', async ({ page }) => {
