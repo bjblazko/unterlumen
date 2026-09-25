@@ -1,6 +1,6 @@
 # ADR-0033: Dialogs and places, and one dialog to build them with
 
-*Last modified: 2026-09-24*
+*Last modified: 2026-09-25*
 
 ## Status
 
@@ -36,6 +36,19 @@ The questions, in order:
    paging through? → place.
 4. Does it block the work behind it without needing it? → neither: put it
    inline on the screen that raised it, the way the delete confirmations do.
+5. Do you keep it in view while you work, watching the screen answer it?
+   → neither: a **panel**, a part of the screen you open and close.
+
+**The fifth answer, added 2026-09-25, is the filter.** A filter is not a
+decision (it changes continuously), and it is not a place (as a screen of
+its own you cannot see what it does). It is a panel, in the same sense as
+the sidebar: a column you open and close from a panel button that sits
+directly above it, carrying the same glyph as the sidebar's own. Open, it
+takes its width from the photos instead of lying over them — nothing is
+hidden behind it, and the thumbnails beside it answer for every criterion as
+it is set. It has no scrim and never traps the keyboard, because the photos
+stay live. On a phone there is no width to share, so there it covers the
+library for as long as it is open and gives the screen back on *Done*.
 
 All dialogs are built with one component, `src/web/js/dialog.js`, which owns
 the frame and the behaviour but never the content: scrim, header, scrolling

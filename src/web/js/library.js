@@ -954,20 +954,24 @@ class LibraryTab {
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2L3 6l4 4"/></svg>
                     Libraries
                 </button>
+                <button class="btn btn-sm lib-filter-toggle" id="lib-filter-btn" aria-pressed="false" aria-expanded="false" data-state="off" aria-controls="lib-search-panel">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <rect x="1.5" y="2.5" width="13" height="11"/><path d="M5.5 2.5v11"/>
+                        <path class="collapse-chevron" d="M8.5 6l2 2-2 2"/>
+                    </svg>
+                    Filter
+                    <span class="lib-filter-btn-count" hidden></span>
+                </button>
                 <div class="library-detail-title">
                     <span class="library-detail-name">${escapeHtml(lib.name)}</span>
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm" id="lib-edit-btn">Edit library…</button>
+                    <button class="btn btn-sm desk-only" id="lib-edit-btn">Edit library…</button>
                 </div>
             </div>
             <div class="lib-search-body">
-                <button class="lib-filter-rail" id="lib-filter-btn" title="Show the filter" aria-label="Show the filter" aria-pressed="false" data-state="off">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5h12l-4.5 5v4l-3 1.5v-5.5z"/></svg>
-                    <span class="lib-filter-rail-count" hidden></span>
-                </button>
                 <div class="lib-search-panel" id="lib-search-panel"></div>
                 <div class="library-detail-body">
                     <div class="library-pane-wrap" id="lib-pane"></div>
@@ -1005,8 +1009,15 @@ class LibraryTab {
             el.querySelector('#lib-filter-btn'),
             lib.id,
             {
+                quietOpen: true,
                 onResults: (photos, multiLib, paginationOpts) => this._showSearchResults(el, photos, multiLib, paginationOpts),
-                onClose: () => this._showLibraryPane(el),
+                // Done means "finished setting the filter", not "drop it":
+                // the panel only gets out of the way of the photos it made.
+                // The × on the results is what goes back to the library.
+                // The panel takes its width from the photos, so the justified
+                // layout has to re-pack when it comes and goes.
+                onOpen: () => this._relayoutPhotos(),
+                onClose: () => this._relayoutPhotos(),
                 onActiveCount: (n) => this._updateFilterRail(el, n),
                 onLoading: (isLoading) => {
                     const paneEl = el.querySelector('#lib-pane');
@@ -1024,9 +1035,8 @@ class LibraryTab {
             }
         );
 
-        // The filter is how a library is used, so the panel is there from the
-        // start rather than behind a toggle you have to find first.
-        this._filterPanel.open();
+        // The filter floats over the photos rather than pushing them aside, so
+        // it starts closed: on a phone it would cover the library outright.
 
 
         const paneEl = el.querySelector('#lib-pane');
@@ -1060,10 +1070,15 @@ class LibraryTab {
         this._pane.load('');
     }
 
-    // The rail says how many filters are on, so a closed panel never hides the
-    // reason why fewer photos are shown.
+    _relayoutPhotos() {
+        const pane = this._searchPane || this._pane;
+        if (pane && pane.view === 'justified') pane._justifiedRenderer.scheduleRelayout();
+    }
+
+    // The button says how many filters are on, so a closed panel never hides
+    // the reason why fewer photos are shown.
     _updateFilterRail(rootEl, count) {
-        const badge = rootEl.querySelector('.lib-filter-rail-count');
+        const badge = rootEl.querySelector('.lib-filter-btn-count');
         if (!badge) return;
         badge.textContent = count ? String(count) : '';
         badge.hidden = count === 0;
@@ -1080,7 +1095,10 @@ class LibraryTab {
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath || null }),
                 onSelectionChange: () => this._updateSelectionBar(),
-                onClose: () => this._filterPanel.close(),
+                onClose: () => {
+                    this._filterPanel.clearAndHide();
+                    this._showLibraryPane(detailEl);
+                },
             });
         }
 

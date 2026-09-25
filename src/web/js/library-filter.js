@@ -110,7 +110,13 @@ class LibrarySearchPanel {
         this._dateMaxInput = null;
         this._chipInput = null;
 
-        toggleBtn.addEventListener('click', () => this._toggle());
+        // Opening the filter must not throw away the folder you are looking
+        // at: the panel appears, the photos behind it stay as they are until
+        // a criterion is actually set.
+        toggleBtn.addEventListener('click', () => {
+            if (this._container.classList.contains('visible')) this.close();
+            else this.open();
+        });
     }
 
     close() {
@@ -118,15 +124,27 @@ class LibrarySearchPanel {
         this._container.classList.remove('visible');
         this._toggleBtn.dataset.state = 'off';
         this._toggleBtn.setAttribute('aria-pressed', 'false');
+        this._toggleBtn.setAttribute('aria-expanded', 'false');
         if (this._options.onClose) this._options.onClose();
     }
 
-    // Opens the panel without a click, for the library detail where it is
-    // shown from the start. Nothing is filtered yet, so the library keeps
-    // showing its own folders and photos until a filter is actually set.
+    // The × on the results goes back to the library itself: the criteria are
+    // dropped and the panel goes with them, without running one last query
+    // for a filter nobody set any more.
+    clearAndHide() {
+        this._suppressQuery = true;
+        if (this._built) this._reset();
+        this._suppressQuery = false;
+        this.close();
+    }
+
+    // With `quietOpen` (the library detail) nothing is filtered yet when the
+    // panel appears, so the library keeps showing its own folders and photos
+    // until a criterion is actually set. In the Libraries list the panel *is*
+    // the view — it replaces the list with results — so it queries at once.
     async open() {
         if (this._container.classList.contains('visible')) return;
-        this._openedWithoutQuery = true;
+        this._openedWithoutQuery = !!this._options.quietOpen;
         await this._toggle();
         this._openedWithoutQuery = false;
     }
@@ -140,6 +158,8 @@ class LibrarySearchPanel {
         this._container.classList.add('visible');
         this._toggleBtn.dataset.state = 'on';
         this._toggleBtn.setAttribute('aria-pressed', 'true');
+        this._toggleBtn.setAttribute('aria-expanded', 'true');
+        if (this._options.onOpen) this._options.onOpen();
 
         if (!this._built) {
             this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';
@@ -198,18 +218,16 @@ class LibrarySearchPanel {
         } catch { return {}; }
     }
 
-    // The panel says what it is and offers the way out, the way the info panel
-    // on the other side does. The button that opens it is the rail beside it,
-    // so control and panel are never a screen apart (ADR-0008, principle 4).
+    // The panel says what it is and offers the way out. It floats over the
+    // photos instead of pushing them aside, so the thumbnails behind it show
+    // what the filter does while it is being set (ADR-0008, principle 4).
     _buildHead() {
         const head = document.createElement('div');
         head.className = 'lib-filter-head';
         head.innerHTML = `
             <span class="lib-filter-title">Filter</span>
             <span class="lib-filter-count" hidden></span>
-            <button class="info-collapse-btn lib-filter-close" title="Hide the filter" aria-label="Hide the filter">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg>
-            </button>`;
+            <button class="btn btn-sm lib-filter-close">Done</button>`;
         head.querySelector('.lib-filter-close').addEventListener('click', () => this.close());
         this._container.appendChild(head);
         this._countEl = head.querySelector('.lib-filter-count');
@@ -711,6 +729,7 @@ class LibrarySearchPanel {
     }
 
     async _runQuery() {
+        if (this._suppressQuery) return;
         const params = this._buildParams();
         this._lastParams = params;
         this._setLoading(true);

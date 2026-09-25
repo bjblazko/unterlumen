@@ -81,13 +81,20 @@ test.describe('Library list view', () => {
         await expect(page.locator('.library-list-view')).toBeVisible({ timeout: 5_000 });
     });
 
-    test('the filter panel is there when a library opens, with its own head', async ({ page }) => {
+    // The filter is a panel: a button in the head opens the column beside
+    // the photos, Done closes it again.
+    test('the filter opens from the head and gives the room back on Done', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
+        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
+
+        await page.locator('#lib-filter-btn').click();
         await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/);
         await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
-        await expect(page.locator('.lib-filter-close')).toBeVisible();
+
+        await page.locator('.lib-filter-close').click();
+        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
     });
 
     // Deleting a library moved out of its row and into the library itself

@@ -293,14 +293,17 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForSelector('.library-detail', { timeout: 8_000 });
         });
 
-        // The panel is simply there; its own head closes it, the rail beside
-        // it brings it back.
-        test('the filter panel is open when a library opens', async ({ page }) => {
+        // The filter starts closed and opens as a column beside the photos,
+        // which keep showing what every criterion does.
+        test('the filter starts closed and the head button opens it', async ({ page }) => {
+            await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
+            await page.locator('#lib-filter-btn').click();
             await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 5_000 });
             await expect(page.locator('.lib-filter-close')).toBeVisible();
         });
 
         test('filter panel shows sliders', async ({ page }) => {
+            await page.locator('#lib-filter-btn').click();
             await page.waitForFunction(
                 () => document.querySelector('.lib-range-slider') !== null,
                 { timeout: 8_000 },
@@ -308,15 +311,15 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('.lib-range-slider').first()).toBeVisible();
         });
 
-        test('the panel closes itself and the rail brings it back', async ({ page }) => {
+        test('opening the filter leaves the photos beside it in place', async ({ page }) => {
+            await page.waitForSelector('#lib-pane [data-type="dir"], #lib-pane [data-type="image"]', { timeout: 15_000 });
+            await page.locator('#lib-filter-btn').click();
             await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
+            await expect(page.locator('#lib-pane')).toBeVisible();
 
             await page.locator('.lib-filter-close').click();
             await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
             await expect(page.locator('#lib-filter-btn')).toBeVisible();
-
-            await page.locator('#lib-filter-btn').click();
-            await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 3_000 });
         });
 
         test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {

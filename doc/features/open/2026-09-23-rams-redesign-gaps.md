@@ -1,6 +1,6 @@
 # Rams redesign: remaining screens
 
-*Last modified: 2026-09-24*
+*Last modified: 2026-09-25*
 
 ## Summary
 
@@ -127,9 +127,13 @@ library's own screen, "settings" the Settings place.
   - "Statistics".
   - "Edit library…", which holds rename, path, rescan and a two-step
     delete.
-- **Filter panel.** Permanently on the left instead of a Filter toggle
-  button. Active filters show as removable chips. The panel width is
-  remembered. On the phone it stays the sheet from phase 8.
+- **Filter panel.** A column you open and close from a panel button at the
+  left end of the library's head — the same glyph as the sidebar's collapse
+  button, with the number of active criteria on it. Open, it takes its width
+  from the photos; active filters show as removable chips inside it. On the
+  phone it covers the library while it is open (2026-09-25, revising the
+  permanently-open panel this document first called for; see ADR-0033,
+  rule 5).
 - **Removed from the head.** "Organise: jump to folder" becomes the
   selection-bar action "Show in Organize". "Channels ›" disappears, because
   destinations have their own place now.
@@ -217,7 +221,7 @@ desktop-only notice.
 | Folders, library | Switch labels | `Details On/Off` | `DETAILS SHOWN/HIDDEN` | ADR-0019's three-label rule and phase 7's wording; the prototype predates it |
 | Folders | Subfolder row | Framed buttons, always secondary | Same, with the focused folder filled | Keyboard focus has to be visible; the prototype has no keyboard |
 | Library detail | Filter panel | Search, chips, film simulation, folders | Date taken, shutter, aperture, focal length, ISO, camera, lens, film simulation, more filters | The real filter is the feature; the prototype only sketches one |
-| Library detail | Head | No Filter button | "Filter" toggles the panel | The panel is permanent, but on a narrow window it has to be closable; the width is remembered |
+| Library detail | Head | No Filter button | A panel button opens and closes the filter column, with the count of active criteria | A panel needs a way in and a way out; the clickdummy only ever showed it open |
 | Libraries | Head | Sort, New library… | Also Filter and Statistics | Cross-library search and statistics have no other entry point; both only read |
 | Libraries | Custom order | Arrows only in custom order | Same | — |
 | Galleries, gallery, Destinations | Everything | — | — | Phases 3, 4 and 6; no new differences found |

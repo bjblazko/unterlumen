@@ -209,14 +209,20 @@ test.describe('Export modes', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
-        // The filter panel is open from the start (phase 9) and shows the
-        // library's own folders until a filter runs; picking the library in
-        // the panel's own selector is what produces results.
+        // The filter is a column you open; it shows the library's own folders
+        // until a filter runs, and picking the library in the panel's own
+        // selector is what produces results.
+        await page.locator('#lib-filter-btn').click();
         await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
         await page.waitForSelector('#lib-search-panel .lib-search-select', { timeout: 20_000 });
         await page.locator('#lib-search-panel .lib-search-select').first().selectOption(String(libID));
         await page.waitForSelector('.search-breadcrumb', { timeout: 15_000 });
         await page.waitForSelector('#lib-search-pane [data-type="image"]', { timeout: 15_000 });
+
+        // Done closes the panel and keeps the results: the photos widen back
+        // out and stay exactly the ones the filter found.
+        await page.locator('.lib-filter-close').click();
+        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
 
         const images = page.locator('#lib-search-pane [data-type="image"]');
         await images.nth(0).click();
