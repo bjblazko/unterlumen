@@ -131,7 +131,7 @@ test.describe('Rebuild album list', () => {
         const advanced = await openRebuild(page);
         await advanced.locator('#dest-rebuild-albums').click();
         const report = advanced.locator('#dest-rebuild-albums-report');
-        await expect(report).toContainText('1 album could not be restored', { timeout: 15_000 });
+        await expect(report).toContainText('1 older publication is not in the list', { timeout: 15_000 });
         await expect(report).toContainText('Rebuild Alpha');
         await expect(report).toContainText('Added 0');
 
@@ -181,5 +181,34 @@ test.describe('Rebuild album list', () => {
         await advanced.locator('#dest-rebuild-albums').click();
         await expect(advanced.locator('#dest-rebuild-albums-report')).toContainText('Added 1', { timeout: 15_000 });
         expect(JSON.parse(fs.readFileSync(path.join(REGISTER, file), 'utf8')).slug).toBe(slug);
+    });
+
+    test('the register\'s membership is written into photos whose sidecars name only older albums', async ({ page, request }) => {
+        purgeOwnPublications();
+        for (const f of fs.readdirSync(REGISTER)) fs.rmSync(path.join(REGISTER, f));
+        const evt = await publish(request, photos[0], 'Rebuild Epsilon');
+        const slug = JSON.parse(fs.readFileSync(path.join(REGISTER, `${evt.postID}.json`), 'utf8')).slug;
+
+        // Take this album's record out of the sidecar and leave an older, unlisted one there.
+        for (const f of sidecarsOfDestination()) {
+            const text = fs.readFileSync(f, 'utf8').replace(
+                /\s*<rdf:li[^>]*>(?:(?!<\/rdf:li>)[\s\S])*<\/rdf:li>/g,
+                li => (li.includes(evt.postID)
+                    ? li.replace(new RegExp(`<ul:PostID>${evt.postID}</ul:PostID>`), '<ul:PostID>0ldpost1d</ul:PostID>').replace(/\s*<ul:Slug>[^<]*<\/ul:Slug>/, '')
+                    : li));
+            fs.writeFileSync(f, text);
+        }
+        expect(sidecarsOfDestination().some(f => fs.readFileSync(f, 'utf8').includes(evt.postID))).toBe(false);
+
+        const advanced = await openRebuild(page);
+        await advanced.locator('#dest-rebuild-albums').click();
+        const report = advanced.locator('#dest-rebuild-albums-report');
+        await expect(report).toContainText('Completed 1 photo sidecar', { timeout: 15_000 });
+        // The older record is reported as such, collapsed, and left alone.
+        await expect(report).toContainText('1 older publication is not in the list');
+        expect(sidecarsOfDestination().some(f => {
+            const t = fs.readFileSync(f, 'utf8');
+            return t.includes(`<ul:PostID>${evt.postID}</ul:PostID>`) && t.includes(`<ul:Slug>${slug}</ul:Slug>`) && t.includes('0ldpost1d');
+        })).toBe(true);
     });
 });

@@ -6254,6 +6254,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--warning-ink);
 }
 
+.dest-report-details summary {
+    cursor: pointer;
+    color: var(--fg-2);
+}
+
 .dest-report-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

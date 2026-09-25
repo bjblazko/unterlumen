@@ -648,12 +648,12 @@ class DestinationsPane {
         });
     }
 
-    // What the rebuild found, in plain sentences: what it added, what was
-    // already there, and what it could not restore and why.
+    // What the rebuild found, in plain sentences: what it added, what it
+    // completed, and what it left alone and why.
     _albumReportHTML(r) {
         const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
         const found = r.added.length + r.present + r.unreadable.length + r.deleted;
-        if (found === 0 && r.photos.length === 0) {
+        if (found === 0 && r.photos.length === 0 && !r.sidecarsCompleted && !r.unreachable) {
             return '<p>No albums found in the photos of this destination.</p>';
         }
         const left = r.deleted ? ` ${r.deleted} deleted earlier, left out.` : '';
@@ -662,11 +662,23 @@ class DestinationsPane {
             parts.push(`<ul>${r.added.map(a => `<li>${escapeHtml(a.title)} <span class="dest-report-data">/${escapeHtml(a.slug)}</span>, ${plural(a.photos, 'photo', 'photos')}</li>`).join('')}</ul>`);
         }
         if (r.sidecarsCompleted) {
-            parts.push(`<p>Completed ${plural(r.sidecarsCompleted, 'photo sidecar', 'photo sidecars')} with the album's address, so those albums can be restored from the photos too.</p>`);
+            parts.push(`<p>Completed ${plural(r.sidecarsCompleted, 'photo sidecar', 'photo sidecars')} with the listed albums' membership and address, so those albums can be restored from the photos too.</p>`);
+        }
+        if (r.unreachable) {
+            parts.push(`<p>${plural(r.unreachable, 'photo', 'photos')} of the listed albums could not be reached from here (not in a scanned library, not mounted, or an old entry without a photo). Their sidecars were not touched.</p>`);
         }
         if (r.unreadable.length) {
-            parts.push(`<p class="dest-report-warning">${plural(r.unreadable.length, 'album', 'albums')} could not be restored:</p>`);
-            parts.push(`<ul>${r.unreadable.map(u => `<li>${escapeHtml(u.title || u.postID)}: ${escapeHtml(u.reason)}.</li>`).join('')}</ul>`);
+            // Publications the list does not know and that carry no address:
+            // in practice albums that were deleted or replaced before deleting
+            // also cleaned up the photos. Left as they are, grouped by title.
+            const n = r.unreadable.length;
+            const groups = new Map();
+            for (const u of r.unreadable) {
+                const name = u.title || u.postID;
+                groups.set(name, (groups.get(name) || 0) + 1);
+            }
+            parts.push(`<p class="dest-report-warning">${plural(n, 'older publication is', 'older publications are')} not in the list and ${n === 1 ? 'has' : 'have'} no recorded address, so ${n === 1 ? 'it' : 'they'} cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.</p>`);
+            parts.push(`<details class="dest-report-details"><summary>Show ${n === 1 ? 'it' : 'them'}</summary><ul>${[...groups].map(([name, count]) => `<li>${escapeHtml(name)}${count > 1 ? ` <span class="dest-report-data">×${count}</span>` : ''}</li>`).join('')}</ul></details>`);
         }
         if (r.photos.length) {
             const shown = r.photos.slice(0, 10);

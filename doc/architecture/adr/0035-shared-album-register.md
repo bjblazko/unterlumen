@@ -71,9 +71,15 @@ first installation that reads a channel's albums after the upgrade copies its
 `site.json` into the register; installations that come later find the register
 and adopt nothing (see above). So the installation that really holds the
 albums — the one that publishes — has to be upgraded and opened first. Then
-*Rebuild album list* writes the register's address into the sidecars of the
-photos of those albums, after which they are restorable from the photos like
-any album published later.
+*Rebuild album list* writes each registered album's membership and address into
+the sidecars of its photos that this installation can reach, after which they are
+restorable from the photos like any album published later. Real data is messier
+than the model: the sidecars of the first website named 32 post IDs for four
+current albums, because earlier albums were deleted or replaced before deleting
+cleaned up sidecars. Those older records are reported as one line and left
+alone; only albums the register lists get their sidecars completed, and members
+that are not in a scanned library here (or that predate photo IDs) are counted,
+not written.
 
 ## Consequences
 

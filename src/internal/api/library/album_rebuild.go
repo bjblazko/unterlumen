@@ -2,6 +2,7 @@ package apilibrary
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,11 +19,15 @@ type albumRegisterReport struct {
 	Added   []rebuiltAlbum `json:"added"`
 	Present int            `json:"present"` // already in the register, left as they are
 	Deleted int            `json:"deleted"` // deleted on purpose, so not restored
-	// SidecarsCompleted counts photos whose sidecar got the address of a
-	// registered album that was published before addresses were recorded.
-	SidecarsCompleted int               `json:"sidecarsCompleted"`
-	Unreadable        []unreadableAlbum `json:"unreadable"` // found in sidecars but not registrable
-	Photos            []unreadablePhoto `json:"photos"`     // sidecars that could not be read
+	// SidecarsCompleted counts photos whose sidecar got a registered album's
+	// membership or address, because they predate addresses being recorded.
+	SidecarsCompleted int `json:"sidecarsCompleted"`
+	// Unreachable counts members of registered albums that could not be
+	// written to: not in a library here, gone from disk, or a legacy entry
+	// that names no photo.
+	Unreachable int               `json:"unreachable"`
+	Unreadable  []unreadableAlbum `json:"unreadable"` // found in sidecars but not registrable
+	Photos      []unreadablePhoto `json:"photos"`     // sidecars that could not be read
 }
 
 type rebuiltAlbum struct {
@@ -91,7 +96,76 @@ func rebuildAlbumRegister(sites *siteStore, mgr *lib.Manager, ch *channels.Chann
 			report.Added = append(report.Added, rebuiltAlbum{PostID: album.PostID, Title: album.Title, Slug: album.Slug, Photos: album.PhotoCount})
 		}
 	}
+	// The register knows every registered album's members. Their sidecars may
+	// name only older albums, so write the membership into them.
+	paths := photoPathIndex(mgr)
+	for _, a := range registered {
+		writeMembership(&report, ch, a, paths)
+	}
 	return report, nil
+}
+
+// photoPathIndex maps a photo's ID to its file for every photo the libraries
+// on this installation know.
+func photoPathIndex(mgr *lib.Manager) map[string]string {
+	paths := map[string]string{}
+	libs, err := mgr.ListLibraries()
+	if err != nil {
+		return paths
+	}
+	for _, l := range libs {
+		store, err := mgr.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		refs, _ := store.ListAllPhotoRefs()
+		store.Close()
+		for _, ref := range refs {
+			if _, ok := paths[ref.ID]; !ok {
+				paths[ref.ID] = ref.PathHint
+			}
+		}
+	}
+	return paths
+}
+
+// writeMembership records a registered album in the sidecar of each of its
+// members that lacks it, or lacks its address, so the album can be restored
+// from the photos. A sidecar is never created for a photo that is not there.
+func writeMembership(report *albumRegisterReport, ch *channels.Channel, album SiteAlbum, paths map[string]string) {
+	if album.Slug == "" {
+		return
+	}
+	for _, sp := range album.Photos {
+		path := paths[sp.PhotoID]
+		if sp.PhotoID == "" || path == "" {
+			report.Unreachable++
+			continue
+		}
+		if _, err := os.Stat(path); err != nil {
+			report.Unreachable++
+			continue
+		}
+		pubs, err := media.ReadSidecar(path)
+		if err != nil {
+			report.Photos = append(report.Photos, unreadablePhoto{Filename: filepath.Base(path), Reason: err.Error()})
+			continue
+		}
+		recorded := false
+		for _, p := range pubs {
+			recorded = recorded || (p.Channel == ch.Slug && p.PostID == album.PostID)
+		}
+		if !recorded {
+			pub := media.Publication{Channel: ch.Slug, PostID: album.PostID, GalleryTitle: album.Title, Slug: album.Slug, Unlisted: album.Unlisted, PublishedAt: album.PublishedAt}
+			if err := media.AppendPublication(path, pub); err != nil {
+				report.Photos = append(report.Photos, unreadablePhoto{Filename: filepath.Base(path), Reason: err.Error()})
+			} else {
+				report.SidecarsCompleted++
+			}
+			continue
+		}
+		completeSidecars(report, ch, album, []string{path})
+	}
 }
 
 // completeSidecars gives the photos of a registered album the address the

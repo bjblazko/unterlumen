@@ -331,3 +331,75 @@ func TestRebuildAlbumRegister_CompletesNothingForUnregisteredAlbums(t *testing.T
 		t.Fatalf("report = %+v", report)
 	}
 }
+
+// The register knows which photos are in a registered album; their sidecars may
+// only name older albums (deleted or replaced ones). Rebuilding writes the
+// membership into them, so the album can be restored from the photos too.
+func TestRebuildAlbumRegister_WritesMembershipOfRegisteredAlbumsIntoSidecars(t *testing.T) {
+	mgr, _, sites, ch := rebuildFixture(t)
+	libID := publishedPhoto(t, mgr, "photoA", media.Publication{Channel: "website", PostID: "older", GalleryTitle: "Photos 2019", PublishedAt: rebuildTime})
+	registered := testAlbum("p1", "Photos 2019")
+	registered.Slug, registered.Unlisted = "photos-2019", false
+	registered.PublishedAt = time.Date(2019, 12, 31, 12, 0, 0, 0, time.UTC)
+	registered.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
+	if err := sites.Upsert(registered); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := rebuildAlbumRegister(sites, mgr, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.SidecarsCompleted != 1 || report.Unreachable != 0 {
+		t.Fatalf("report = %+v", report)
+	}
+	store, _ := mgr.OpenStore(libID)
+	hint, _ := store.GetPhotoPathHint("photoA")
+	store.Close()
+	pubs, _ := media.ReadSidecar(hint)
+	if len(pubs) != 2 || pubs[0].PostID != "older" {
+		t.Fatalf("the older record must stay: %+v", pubs)
+	}
+	got := pubs[1]
+	if got.PostID != "p1" || got.Slug != "photos-2019" || got.GalleryTitle != "Photos 2019" || !got.PublishedAt.Equal(registered.PublishedAt) {
+		t.Errorf("membership = %+v", got)
+	}
+
+	if again, _ := rebuildAlbumRegister(sites, mgr, ch); again.SidecarsCompleted != 0 {
+		t.Errorf("second run completed %d", again.SidecarsCompleted)
+	}
+}
+
+// A member that cannot be reached from this installation is counted, and
+// nothing is written for it — least of all a sidecar next to a missing photo.
+func TestRebuildAlbumRegister_CountsMembersItCannotReach(t *testing.T) {
+	mgr, _, sites, ch := rebuildFixture(t)
+	libID := seedLibraryPhoto(t, mgr, "gone")
+	store, _ := mgr.OpenStore(libID)
+	hint, _ := store.GetPhotoPathHint("gone")
+	store.Close()
+	if err := os.Remove(hint); err != nil {
+		t.Fatal(err)
+	}
+	registered := testAlbum("p1", "Photos 2019")
+	registered.Slug = "photos-2019"
+	registered.Photos = []SitePhoto{
+		{PhotoID: "gone", Filename: "a.jpg"},    // file no longer there
+		{PhotoID: "unknown", Filename: "b.jpg"}, // not in any library here
+		{Filename: "c.jpg"},                     // legacy entry without a photo ID
+	}
+	if err := sites.Upsert(registered); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := rebuildAlbumRegister(sites, mgr, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Unreachable != 3 || report.SidecarsCompleted != 0 {
+		t.Fatalf("report = %+v", report)
+	}
+	if _, err := os.Stat(media.SidecarPath(hint)); err == nil {
+		t.Error("a sidecar was created for a photo that does not exist")
+	}
+}
