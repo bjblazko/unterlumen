@@ -116,8 +116,7 @@ func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) 
 			// draft would never surface anywhere as a "draft" row below.
 			var items []galleryListItem
 			if ch.SiteExport || ch.GalleryExport {
-				channelDir := chStore.OutputDir(ch.Slug)
-				it, err := collectGalleryItems(ch, channelDir)
+				it, err := collectGalleryItems(ch, chStore)
 				if err != nil {
 					// One channel's broken/missing statefile shouldn't take
 					// down the whole overview.
@@ -390,9 +389,8 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		switch {
 		case ch.SiteExport:
-			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			statePath := filepath.Join(siteDir, "site.json")
-			albums, err := loadSiteState(statePath)
+			sites := newSiteStore(chStore, slug)
+			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -402,8 +400,9 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				http.Error(w, "gallery not found", http.StatusNotFound)
 				return
 			}
-			albums[idx].Title = title
-			if err := saveSiteState(statePath, albums); err != nil {
+			renamed := albums[idx]
+			renamed.Title = title
+			if err := sites.Upsert(renamed); err != nil {
 				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -487,8 +486,8 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		switch {
 		case ch.SiteExport:
 			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			statePath := filepath.Join(siteDir, "site.json")
-			albums, err := loadSiteState(statePath)
+			sites := newSiteStore(chStore, slug)
+			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -507,8 +506,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			localDir = safeDir
 			remoteSubpath = "albums/" + folder
 
-			remaining := append(append([]SiteAlbum{}, albums[:idx]...), albums[idx+1:]...)
-			if err := saveSiteState(statePath, remaining); err != nil {
+			if err := sites.Remove(postID); err != nil {
 				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
 				return
 			}

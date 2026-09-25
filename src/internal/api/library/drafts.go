@@ -90,7 +90,7 @@ func draftAlbumTitle(ch *channels.Channel, chStore *channels.Store, draft *chann
 	if draft.Target.Title != "" || draft.Target.PostID == "" {
 		return draft.Target.Title
 	}
-	items, err := collectGalleryItems(ch, chStore.OutputDir(ch.Slug))
+	items, err := collectGalleryItems(ch, chStore)
 	if err != nil {
 		return ""
 	}

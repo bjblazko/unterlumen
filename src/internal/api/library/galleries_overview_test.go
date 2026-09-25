@@ -930,7 +930,8 @@ func TestRenameGalleryTogglesUnlistedForGalleryExportOnly(t *testing.T) {
 // pushes the whole output directory; a later build moves generatedAt past it
 // again.
 func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
-	channelDir := t.TempDir()
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	channelDir := chStore.OutputDir("gal")
 	for _, id := range []string{"aaa111", "bbb222"} {
 		dir := filepath.Join(channelDir, id)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -943,7 +944,7 @@ func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
 	}
 
 	at := time.Now().UTC()
-	MarkDeployed(channelDir, false, at)
+	MarkDeployed(chStore, "gal", false, at)
 
 	for _, id := range []string{"aaa111", "bbb222"} {
 		gs, err := loadGalleryState(filepath.Join(channelDir, id, "gallery.json"))
@@ -963,7 +964,8 @@ func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
 // A site channel deploys only its site/ subdirectory, so single-gallery
 // folders sharing the same output directory must not be marked as uploaded.
 func TestMarkDeployed_SiteChannelLeavesGalleryFoldersAlone(t *testing.T) {
-	channelDir := t.TempDir()
+	chStore := channels.NewStore(t.TempDir(), t.TempDir())
+	channelDir := chStore.OutputDir("web")
 	siteDir := SiteDir(channelDir)
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
@@ -979,11 +981,11 @@ func TestMarkDeployed_SiteChannelLeavesGalleryFoldersAlone(t *testing.T) {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
-	MarkDeployed(channelDir, true, time.Now().UTC())
+	MarkDeployed(chStore, "web", true, time.Now().UTC())
 
-	albums, err := loadSiteState(filepath.Join(siteDir, "site.json"))
+	albums, err := newSiteStore(chStore, "web").List()
 	if err != nil || len(albums) != 1 {
-		t.Fatalf("loadSiteState: %v (%d albums)", err, len(albums))
+		t.Fatalf("List: %v (%d albums)", err, len(albums))
 	}
 	if albums[0].DeployedAt.IsZero() {
 		t.Error("the site album was not stamped as deployed")

@@ -32,6 +32,7 @@ var builtinChannels = []*Channel{
 // Store manages the channels.json file.
 type Store struct {
 	path       string
+	configDir  string
 	outputBase string
 	// boundary is the browse root. A channel's OutputPath is picked with the
 	// folder picker, which browses inside that root and returns paths relative
@@ -46,7 +47,18 @@ type Store struct {
 // directory (e.g. ~/.unterlumen) or different — e.g. when configDir is a directory
 // shared between multiple installations while outputBaseDir stays machine-local.
 func NewStore(configDir, outputBaseDir string) *Store {
-	return &Store{path: filepath.Join(configDir, "channels.json"), outputBase: outputBaseDir}
+	return &Store{path: filepath.Join(configDir, "channels.json"), configDir: configDir, outputBase: outputBaseDir}
+}
+
+// ConfigDir is the directory holding channels.json — the one that is shared
+// between installations.
+func (s *Store) ConfigDir() string { return s.configDir }
+
+// AlbumRegisterDir is where a website channel's album register lives: one file
+// per album, beside channels.json so every installation sees the same albums.
+// It is deliberately not under OutputDir, which is per machine.
+func (s *Store) AlbumRegisterDir(slug string) string {
+	return filepath.Join(s.configDir, "albums", slug)
 }
 
 // WithBoundary records the browse root used to resolve relative output paths.

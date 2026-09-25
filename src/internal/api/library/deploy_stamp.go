@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"huepattl.de/unterlumen/internal/channels"
 )
 
 // MarkDeployed records that a channel's generated galleries were uploaded at
@@ -19,19 +21,20 @@ import (
 // already happened, and a statefile that could not be updated must not turn a
 // successful deploy into a failure. The worst case is a gallery that keeps
 // saying "built, not uploaded" until the next publish.
-func MarkDeployed(channelDir string, siteExport bool, at time.Time) {
+func MarkDeployed(chStore *channels.Store, slug string, siteExport bool, at time.Time) {
 	if siteExport {
-		statePath := filepath.Join(SiteDir(channelDir), "site.json")
-		albums, err := loadSiteState(statePath)
-		if err != nil || len(albums) == 0 {
+		store := newSiteStore(chStore, slug)
+		albums, err := store.List()
+		if err != nil {
 			return
 		}
-		for i := range albums {
-			albums[i].DeployedAt = at
+		for _, a := range albums {
+			a.DeployedAt = at
+			store.Upsert(a) //nolint:errcheck
 		}
-		saveSiteState(statePath, albums) //nolint:errcheck
 		return
 	}
+	channelDir := chStore.OutputDir(slug)
 
 	entries, err := os.ReadDir(channelDir)
 	if err != nil {

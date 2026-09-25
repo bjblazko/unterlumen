@@ -136,3 +136,15 @@ func TestSave_LeavesEmptyOutputPathEmpty(t *testing.T) {
 		t.Errorf("OutputDir = %q, want the default %q", got, want)
 	}
 }
+
+func TestAlbumRegisterDirLivesBesideChannelsJSON(t *testing.T) {
+	shared, lib := t.TempDir(), t.TempDir()
+	s := NewStore(shared, lib)
+	want := filepath.Join(shared, "albums", "website")
+	if got := s.AlbumRegisterDir("website"); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if s.ConfigDir() != shared {
+		t.Errorf("ConfigDir = %q, want %q", s.ConfigDir(), shared)
+	}
+}

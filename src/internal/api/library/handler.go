@@ -1389,9 +1389,9 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
 	channelDir := chStore.OutputDir(slug)
 	siteDir := filepath.Join(channelDir, "site")
-	statePath := filepath.Join(siteDir, "site.json")
+	sites := newSiteStore(chStore, slug)
 
-	albums, err := loadSiteState(statePath)
+	albums, err := sites.List()
 	if err != nil {
 		return fmt.Errorf("load site state: %w", err)
 	}
@@ -1417,6 +1417,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 	}
 
 	modified := false
+	touched := map[string]bool{} // postIDs of albums that lost photos
 	for i := range albums {
 		var kept []SitePhoto
 		albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
@@ -1437,6 +1438,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 		if len(kept) != len(albums[i].Photos) {
 			albums[i].Photos = kept
 			albums[i].PhotoCount = len(kept)
+			touched[albums[i].PostID] = true
 		}
 	}
 
@@ -1451,9 +1453,17 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 	for _, album := range albums {
 		if album.PhotoCount == 0 {
 			os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
+			if err := sites.Remove(album.PostID); err != nil {
+				return fmt.Errorf("save site state: %w", err)
+			}
 			continue
 		}
 		remaining = append(remaining, album)
+		if touched[album.PostID] {
+			if err := sites.Upsert(album); err != nil {
+				return fmt.Errorf("save site state: %w", err)
+			}
+		}
 		albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
 		items := buildGalleryItems(album.Photos)
 		zipName := ""
@@ -1480,10 +1490,6 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 			Nav:         albumNav,
 		})
 		os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
-	}
-
-	if err := saveSiteState(statePath, remaining); err != nil {
-		return fmt.Errorf("save site state: %w", err)
 	}
 
 	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
@@ -1590,7 +1596,7 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		siteMode := ch.SiteExport && (draft.Target.Title != "" || addToExisting)
 		channelDir := chStore.OutputDir(slug)
 
-		target, status, targetErr := resolveAlbumTarget(draft, channelDir, publishedAt, galleryMode, siteMode)
+		target, status, targetErr := resolveAlbumTarget(draft, channelDir, newSiteStore(chStore, slug), publishedAt, galleryMode, siteMode)
 		if targetErr != nil {
 			http.Error(w, targetErr.Error(), status)
 			return
@@ -1831,27 +1837,32 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 				emit(map[string]any{"error": "write site assets: " + assetsErr.Error()})
 				return
 			}
-			statePath := filepath.Join(siteDir, "site.json")
-			siteAlbums, _ := loadSiteState(statePath)
+			sites := newSiteStore(chStore, slug)
+			siteAlbums, listErr := sites.List()
+			if listErr != nil {
+				emit(map[string]any{"error": "read site state: " + listErr.Error()})
+				return
+			}
 			sitePhotos := make([]SitePhoto, len(items))
 			for i, item := range items {
 				sitePhotos[i] = SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 			}
+			// Only the album this build touched is written; the others belong
+			// to whichever installation published them.
+			var touched SiteAlbum
 			if addToExisting {
 				// Update existing album entry; preserve PublishedAt for sort
 				// order and DeployedAt, which describes the last upload.
-				for i := range siteAlbums {
-					if siteAlbums[i].PostID == albumPostID {
-						siteAlbums[i].Photos = sitePhotos
-						siteAlbums[i].PhotoCount = len(items)
-						siteAlbums[i].HasZip = zipName != ""
-						siteAlbums[i].UpdatedAt = publishedAt
-						siteAlbums[i].GeneratedAt = time.Now().UTC()
-						break
-					}
+				if idx := indexOfAlbum(siteAlbums, albumPostID); idx >= 0 {
+					touched = siteAlbums[idx]
+					touched.Photos = sitePhotos
+					touched.PhotoCount = len(items)
+					touched.HasZip = zipName != ""
+					touched.UpdatedAt = publishedAt
+					touched.GeneratedAt = time.Now().UTC()
 				}
 			} else {
-				siteAlbums = append(siteAlbums, SiteAlbum{
+				touched = SiteAlbum{
 					PostID:      albumPostID,
 					Slug:        albumSlug,
 					Title:       galleryTitle,
@@ -1862,10 +1873,19 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 					HasZip:      zipName != "",
 					Photos:      sitePhotos,
 					Unlisted:    albumUnlisted,
-				})
+				}
 			}
-			if saveErr := saveSiteState(statePath, siteAlbums); saveErr != nil {
-				emit(map[string]any{"error": "save site state: " + saveErr.Error()})
+			if touched.PostID != "" {
+				if saveErr := sites.Upsert(touched); saveErr != nil {
+					emit(map[string]any{"error": "save site state: " + saveErr.Error()})
+					return
+				}
+			}
+			// The index is derived from the whole register, not from the
+			// albums this machine happens to know.
+			siteAlbums, listErr = sites.List()
+			if listErr != nil {
+				emit(map[string]any{"error": "read site state: " + listErr.Error()})
 				return
 			}
 			rootNav := buildSiteNavContext(ch, siteDir, true)
@@ -2240,7 +2260,7 @@ type albumTarget struct {
 // Unlisted is fixed at album creation: on add-to-existing it comes from the
 // stored album, never from the draft, so appending photos can't silently
 // un-hide an album whose link has already been shared.
-func resolveAlbumTarget(draft *channels.Draft, channelDir string, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
+func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *siteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
 	t := albumTarget{outDir: channelDir}
 
 	if draft.Target.PostID == "" {
@@ -2250,7 +2270,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, publishedAt ti
 		case galleryMode:
 			t.outDir = filepath.Join(channelDir, t.postID)
 		case siteMode:
-			existingAlbums, _ := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+			existingAlbums, _ := sites.List()
 			t.slug = computeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
 			t.outDir = filepath.Join(channelDir, "site", "albums", t.slug)
 		}
@@ -2268,7 +2288,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, publishedAt ti
 		t.existingPhotos, t.existingTitle, t.existingPublishedAt = gs.Photos, gs.Title, gs.PublishedAt
 		t.unlisted = gs.Unlisted
 	case siteMode:
-		siteAlbums, err := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+		siteAlbums, err := sites.List()
 		if err != nil {
 			return t, http.StatusInternalServerError, fmt.Errorf("read site state: %w", err)
 		}
@@ -2319,12 +2339,13 @@ type galleryListItem struct {
 // from its statefile(s) — site.json for SiteExport channels, one gallery.json
 // per subfolder for GalleryExport channels. Shared by listGalleries (scoped to
 // one channel) and listAllGalleries (aggregated across every channel).
-func collectGalleryItems(ch *channels.Channel, channelDir string) ([]galleryListItem, error) {
+func collectGalleryItems(ch *channels.Channel, chStore *channels.Store) ([]galleryListItem, error) {
 	var items []galleryListItem
+	channelDir := chStore.OutputDir(ch.Slug)
 
 	switch {
 	case ch.SiteExport:
-		albums, err := loadSiteState(filepath.Join(channelDir, "site", "site.json"))
+		albums, err := newSiteStore(chStore, ch.Slug).List()
 		if err != nil {
 			return nil, fmt.Errorf("read site state: %w", err)
 		}
@@ -2391,8 +2412,7 @@ func listGalleries(chStore *channels.Store) http.HandlerFunc {
 			http.Error(w, "channel not found: "+err.Error(), http.StatusNotFound)
 			return
 		}
-		channelDir := chStore.OutputDir(slug)
-		items, err := collectGalleryItems(ch, channelDir)
+		items, err := collectGalleryItems(ch, chStore)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -2446,8 +2466,8 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.Channel) (siteDir string, albumCount int, err error) {
 	channelSlug := ch.Slug
 	siteDir = filepath.Join(chStore.OutputDir(channelSlug), "site")
-	statePath := filepath.Join(siteDir, "site.json")
-	albums, err := loadSiteState(statePath)
+	sites := newSiteStore(chStore, channelSlug)
+	albums, err := sites.List()
 	if err != nil {
 		return "", 0, fmt.Errorf("read site state: %w", err)
 	}
@@ -2507,19 +2527,21 @@ func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.
 		}
 	}
 
-	stateDirty := len(modifiedIdx) > 0
-
-	// Remove albums that became empty after pruning.
+	// Write only what pruning changed: albums that lost photos are upserted,
+	// albums that became empty are removed. Untouched albums stay as they are
+	// in the shared register.
 	var remaining []SiteAlbum
 	for i, album := range albums {
-		if album.PhotoCount == 0 && modifiedIdx[i] {
+		switch {
+		case !modifiedIdx[i]:
+			remaining = append(remaining, album)
+		case album.PhotoCount == 0:
 			os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
-			continue
+			sites.Remove(album.PostID)                                             //nolint:errcheck
+		default:
+			remaining = append(remaining, album)
+			sites.Upsert(album) //nolint:errcheck
 		}
-		remaining = append(remaining, album)
-	}
-	if stateDirty {
-		saveSiteState(statePath, remaining) //nolint:errcheck
 	}
 
 	rootNav := buildSiteNavContext(ch, siteDir, true)

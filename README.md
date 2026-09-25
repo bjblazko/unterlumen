@@ -351,6 +351,7 @@ docker run -p 8080:8080 \
 
 Notes:
 - The mount used for `UNTERLUMEN_CHANNELS_DIR` must be writable (the read-only `:ro` mount shown above works for browsing but not for a channels directory located on it).
+- A **website** channel also keeps its album list in the shared directory, one file per album under `albums/<channel>/`, so publishing album A from one installation and album B from the other leaves a site index and sitemap with both. Generated output (`site/`, including its `site.json` cache) stays per machine under `-lib-dir`. The album files contain no paths, so the two installations may disagree about the photo folder's location.
 - `channels.json` can include credentials (e.g. publish tokens) for some channel handlers — only point installations at a shared directory you trust equally.
 - The default Docker Compose example above doesn't set `UNTERLUMEN_LIB_DIR` or mount a volume for it, so the container's SQLite library database and thumbnails live in the container's filesystem and are lost when the container is recreated. If you rely on library data on the NAS, mount a volume for `UNTERLUMEN_LIB_DIR` too.
 

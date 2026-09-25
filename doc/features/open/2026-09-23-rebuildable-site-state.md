@@ -166,11 +166,13 @@ register files byte for byte.
 
 1. ~~The sidecar follows the file on copy, move and rename~~ (done
    2026-09-25).
-2. The album register moves to the shared channel directory, one file per
+2. ~~The album register moves to the shared channel directory, one file per
    album, with an `upsert`/`remove` API; `site.json` is demoted to a cache;
    the build reads the register. `channels.Store` gains `ConfigDir()` and
    `AlbumRegisterDir(slug)`, since the register belongs beside
-   `channels.json`, not in the output.
+   `channels.json`, not in the output.~~ (done 2026-09-25: `siteStore` in
+   `internal/api/library/site_store.go`; a register that is still empty adopts
+   a legacy `site.json` once.)
 3. Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
    Destinations → Advanced.
 4. Deleting writes a tombstone and clears the sidecars.
@@ -207,11 +209,12 @@ default under `-lib-dir`) is the configuration this feature should make safe.
 
 - [x] A photo's XMP sidecar is carried along by copy, move, rename and batch
       rename, including when a batch permutes a set of names.
-- [ ] A site destination's albums are stored one file per album in the shared
-      channel directory, written on every build.
-- [ ] A build writes the index and the sitemap from that register, not from
+- [x] A site destination's albums are stored one file per album in the shared
+      channel directory, written on every build (only the albums a build
+      touched).
+- [x] A build writes the index and the sitemap from that register, not from
       the local `site.json`, which becomes a cache.
-- [ ] Publishing album A from one installation and album B from another leaves
+- [x] Publishing album A from one installation and album B from another leaves
       an index and a sitemap containing both — covered by a Go test that
       simulates the two output directories.
 - [ ] The sidecar also records the album's slug and `unlisted`, and
