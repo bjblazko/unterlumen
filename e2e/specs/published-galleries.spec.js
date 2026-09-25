@@ -162,6 +162,23 @@ test.describe('Published Galleries overview', () => {
         await expect(siteRow.locator('.gal-row-action')).toHaveText('Check again');
     });
 
+    // An album that does not answer may simply never have been uploaded, and
+    // "Check again" would then only repeat the bad news: the way to put it
+    // online has to be there as well.
+    test('a gallery whose address does not answer offers Publish again next to Check again', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-published');
+
+        const siteRow = page.locator(`.gal-row[data-postid="${sitePostID}"]`);
+        await expect(siteRow.locator('.gal-check--down')).toContainText('Not reachable', { timeout: 10_000 });
+        await siteRow.click();
+
+        const primary = page.locator('.gal-detail-primary');
+        await expect(primary.locator('.gal-row-action[data-act="recheck"]')).toHaveText('Check again');
+        await expect(primary.locator('.gal-row-action[data-act="publish"]')).toHaveText('Publish again');
+    });
+
     test('an Online gallery with nothing pending offers no action in its row', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);

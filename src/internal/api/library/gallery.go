@@ -478,9 +478,53 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 // buildGalleryItems reconstructs GalleryItem entries from a SiteAlbum's stored photos.
 // Dimensions are unavailable for albums predating dimension storage; Width/Height will be 0.
 func buildGalleryItems(photos []SitePhoto) []GalleryItem {
+	photos = dedupePhotos(photos)
 	items := make([]GalleryItem, len(photos))
 	for i, p := range photos {
 		items[i] = GalleryItem{PhotoID: p.PhotoID, Filename: p.Filename, ThumbFilename: p.ThumbFilename}
+	}
+	return items
+}
+
+// dedupePhotos keeps the first entry of each exported file. Adding a photo
+// that is already in an album used to list it a second time (same file name),
+// on the page, in the register and in the ZIP.
+func dedupePhotos(photos []SitePhoto) []SitePhoto {
+	seen := make(map[string]bool, len(photos))
+	out := make([]SitePhoto, 0, len(photos))
+	for _, p := range photos {
+		if p.Filename != "" {
+			if seen[p.Filename] {
+				continue
+			}
+			seen[p.Filename] = true
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// mergePhotoItems is what an album shows after a publish run: the photos it
+// already had, then the ones just exported, each file once. A photo that is
+// added again keeps its place; one that failed to export is left out.
+func mergePhotoItems(existing []SitePhoto, results []buildResult) []GalleryItem {
+	items := buildGalleryItems(existing)
+	have := make(map[string]bool, len(items))
+	for _, it := range items {
+		have[it.Filename] = true
+	}
+	for _, res := range results {
+		if res.Error != "" || res.Filename == "" || have[res.Filename] {
+			continue
+		}
+		have[res.Filename] = true
+		items = append(items, GalleryItem{
+			PhotoID:       res.PhotoID,
+			Filename:      res.Filename,
+			ThumbFilename: res.ThumbFilename,
+			Width:         res.Width,
+			Height:        res.Height,
+		})
 	}
 	return items
 }

@@ -424,7 +424,17 @@ class GalleriesPane {
                             ${this._stateHTML(row, state)}
                         </div>
                         <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
-                        ${action
+                        ${action && action.act === 'recheck'
+                            // An address that does not answer may just never have been
+                            // uploaded, and checking again would only repeat the news.
+                            ? `<div class="gal-detail-primary">
+                                   <div class="gal-detail-primary-row">
+                                       <button class="btn gal-row-action" data-act="recheck" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button>
+                                       <button class="btn gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>
+                                   </div>
+                                   <span class="form-hint">Publishing again rebuilds this gallery and uploads it, where an upload is set up.</span>
+                               </div>`
+                            : action
                             ? `<div class="gal-detail-primary"><button class="btn${action.act === 'publish' ? ' btn-accent' : ''} gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button></div>`
                             : `<div class="gal-detail-primary">
                                    <button class="btn btn-sm gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>

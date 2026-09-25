@@ -1722,29 +1722,16 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 			emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 		}
 
-		// Build merged items list: existing photos first, then newly exported.
-		var items []GalleryItem
-		for _, ep := range existingPhotos {
-			items = append(items, GalleryItem{PhotoID: ep.PhotoID, Filename: ep.Filename, ThumbFilename: ep.ThumbFilename})
-		}
-		for _, res := range results {
-			if res.Error == "" && res.Filename != "" {
-				items = append(items, GalleryItem{
-					PhotoID:       res.PhotoID,
-					Filename:      res.Filename,
-					ThumbFilename: res.ThumbFilename,
-					Width:         res.Width,
-					Height:        res.Height,
-				})
-			}
-		}
+		// Build merged items list: existing photos first, then newly exported,
+		// each file once.
+		items := mergePhotoItems(existingPhotos, results)
 
-		// For add-to-existing, include previous photos in the ZIP.
-		var zipResults []buildResult
-		for _, ep := range existingPhotos {
-			zipResults = append(zipResults, buildResult{Filename: ep.Filename})
+		// The ZIP holds the same files as the page, including the previous
+		// photos when adding to an existing album.
+		zipResults := make([]buildResult, len(items))
+		for i, it := range items {
+			zipResults[i] = buildResult{Filename: it.Filename}
 		}
-		zipResults = append(zipResults, results...)
 
 		// ZIP of full-res photos.
 		emit(map[string]any{"step": "zip", "done": 0, "total": 1, "file": "Creating ZIP…"})
@@ -2506,6 +2493,14 @@ func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.
 	// Legacy entries without a PhotoID cannot be re-exported; they are also pruned
 	// when their exported file is absent from disk.
 	modifiedIdx := make(map[int]bool) // album index → was modified
+	// Repair repeats left by older runs (a photo added to an album it was
+	// already in was listed twice).
+	for i := range albums {
+		if unique := dedupePhotos(albums[i].Photos); len(unique) != len(albums[i].Photos) {
+			albums[i].Photos, albums[i].PhotoCount = unique, len(unique)
+			modifiedIdx[i] = true
+		}
+	}
 	for i := range albums {
 		albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
 		_, albumDirErr := os.Stat(albumDir)
