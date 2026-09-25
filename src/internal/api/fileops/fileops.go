@@ -183,6 +183,7 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		if err := op(srcPath, dstPath); err != nil {
 			results = append(results, fileOpResult{File: file, Error: err.Error()})
 		} else {
+			media.CarrySidecar(op, srcPath, dstPath) //nolint:errcheck
 			srcDir := filepath.Dir(srcPath)
 			dirsToInvalidate[srcDir] = struct{}{}
 			dirsToInvalidate[destDir] = struct{}{}
@@ -295,6 +296,9 @@ func handleRename(root string, cache *media.ScanCache, libMgr *library.Manager) 
 		if err := os.Rename(srcPath, dstPath); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if !srcInfo.IsDir() {
+			media.CarrySidecar(os.Rename, srcPath, dstPath) //nolint:errcheck
 		}
 		parentDir := filepath.Dir(srcPath)
 		cache.Invalidate(parentDir)

@@ -28,6 +28,27 @@ func SidecarPath(photoPath string) string {
 	return photoPath[:len(photoPath)-len(ext)] + ".xmp"
 }
 
+// CarrySidecar applies op to a photo's XMP sidecar so the sidecar travels with
+// the photo it belongs to. The sidecar holds the publication record (ADR-0027)
+// — which album on which channel a photo was published in — and that record is
+// what makes a published site rebuildable from the photos themselves. A photo
+// that is renamed or moved without it loses that history silently, and leaves
+// an orphaned .xmp behind.
+//
+// It is a no-op when there is no sidecar, and when srcPhoto is a sidecar
+// itself. Failures are the caller's to report: the photo has already moved,
+// so the operation is not undone for the sake of its metadata.
+func CarrySidecar(op func(src, dst string) error, srcPhoto, dstPhoto string) error {
+	src := SidecarPath(srcPhoto)
+	if src == srcPhoto {
+		return nil
+	}
+	if _, err := os.Stat(src); err != nil {
+		return nil
+	}
+	return op(src, SidecarPath(dstPhoto))
+}
+
 // ReadSidecar reads publication records from the XMP sidecar alongside photoPath.
 // Returns empty slice (not error) if the sidecar does not exist.
 func ReadSidecar(photoPath string) ([]Publication, error) {

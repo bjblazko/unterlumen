@@ -1,6 +1,6 @@
-# Rebuildable site state: one state file per album
+# Rebuildable site state: a shared album register
 
-*Last modified: 2026-09-23*
+*Last modified: 2026-09-25*
 
 ## Summary
 
@@ -11,8 +11,9 @@ same site from a second installation that never had it, and the regenerated
 index page and sitemap silently contain only the albums the local `site.json`
 happens to know.
 
-Write a small state file per album folder, so `site.json` becomes a cache that
-can be rebuilt from what is on disk rather than the single source of truth.
+Move the album list to the shared channel directory, one file per album, and
+let each photo carry its own album membership, so `site.json` becomes a cache
+that can be rebuilt rather than the single source of truth.
 
 ## Details
 
@@ -46,27 +47,70 @@ HTML *from* `site.json`, so it cannot help here. An album folder currently
 holds `index.html`, `cover.jpg`, `thumbs/`, `photos.zip` and the image files —
 everything except the facts needed to list it.
 
-### The shape of the fix
+### The strategy (decided 2026-09-25)
 
-Write an `album.json` next to each album's `index.html`, carrying what
-`site.json` stores for that album today: `postID`, `slug`, `title`,
-`publishedAt`, `updatedAt`, `photoCount`, `coverFile`, `hasZip`, `unlisted`,
-`generatedAt`, `deployedAt` and the photo list. `site.json` keeps its role as
-the fast path; a "Rebuild album list" action (Destinations → Advanced) scans
-the album folders and rewrites `site.json` from them, and a site build that
-finds no `site.json` at all reconstructs it rather than starting empty.
+The output directory becomes **disposable**. The truth moves to where both
+installations can see it, and — as a fallback — into the photos themselves.
+Re-converting on a rebuild is accepted: a website should be reconstructible at
+any time as long as the source photos still exist, and moving or renaming
+those photos has to stay allowed.
 
-Open questions for the design:
+**Layer 1 — the album register lives in the shared channel directory.**
+`-channels-dir` is already shared (ADR-0023). Albums move there as **one file
+per album**, `albums/<channel>/<postID>.json`, carrying what `site.json`
+records today: title, slug, `publishedAt`, `updatedAt`, `photoCount`,
+`coverFile`, `hasZip`, `unlisted`, `generatedAt`, `deployedAt` and the photo
+list. One file per album rather than one list for all, so two installations
+never write the same file — albums are independent of each other, and the
+index page is derived, not stored.
 
-- Does a build reconcile automatically when `site.json` knows fewer albums
-  than the folder holds, or only on request? Automatic is friendlier; on
-  request is honest about touching a file the user did not ask about.
-- What happens to an album folder whose `album.json` is missing (published
-  before this change)? Probably: list it with what the folder reveals and mark
-  it as incomplete rather than dropping it.
-- Should the reconstruction also consult the XMP sidecars, which hold the
-  publication record per photo ([ADR-0027](../../architecture/adr/0027-per-album-publication-meta-keys.md))?
-  They know which album a photo belongs to, but not the album's title or date.
+`site.json` loses its special status and becomes a build cache in the output
+directory: every build writes `index.html` and `sitemap.xml` from the
+register, not from whatever the local machine happens to know. That alone
+removes the reported problem, with no reconstruction involved.
+
+`outputPath` stays empty in the shared `channels.json`, so each installation
+uses its own default under `-lib-dir`. A path belongs to one machine and has
+no business in shared configuration.
+
+**Layer 2 — each photo carries its own membership**, so the register itself is
+rebuildable and "reconstructible from the source photos" is literally true.
+Most of this exists: ADR-0027 writes `built:<slug>:<postID>` with a timestamp
+and `:title` into the XMP sidecar. What is missing is the album's **slug**
+(and `unlisted`). Without it a reconstruction would have to mint a new slug,
+which changes a URL that was already shared — slugs must never be derived.
+With it, "Rebuild album list" can walk the library and write the register from
+the photos.
+
+### Two things that have to be right first
+
+**The sidecar has to travel with the photo.** Neither `batchrename` nor
+`fileops` touched the `.xmp`; the only place outside `media/xmp.go` that knew
+about sidecars was a delete. A renamed or moved photo lost its publication
+history silently and left an orphan behind. Fixed 2026-09-25 with
+`media.CarrySidecar`, which rides along with copy, move, rename and both
+passes of the batch rename — the two passes matter, because a set of names
+being permuted would otherwise make the sidecars collide exactly where the
+photos do not. (The library itself was never at risk: it identifies photos by
+content hash.)
+
+**Deleting an album needs a tombstone.** As soon as the register can be
+rebuilt from the photos, a deleted album would rise again on the next rebuild.
+Deleting has to leave a record in the shared register *and* clear the meta
+keys in the member photos' sidecars.
+
+### Order of work
+
+1. ~~The sidecar follows the file on copy, move and rename~~ (done
+   2026-09-25).
+2. The album register moves to the shared channel directory, one file per
+   album; `site.json` is demoted to a cache; the build reads the register.
+3. Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
+   Destinations → Advanced.
+4. Deleting writes a tombstone and clears the sidecars.
+
+Steps 1 and 2 together solve the concrete problem. Steps 3 and 4 are the price
+of "only the source photos have to survive" being true.
 
 ### The related path problem
 
@@ -95,19 +139,23 @@ default under `-lib-dir`) is the configuration this feature should make safe.
 
 ## Acceptance Criteria
 
-- [ ] Each album folder of a site destination carries an `album.json` with
-      everything `site.json` records for it, written on every build.
-- [ ] A site build whose `site.json` is missing or incomplete reconstructs the
-      album list from the album folders instead of publishing an index that
-      drops albums.
-- [ ] Destinations → Advanced offers "Rebuild album list", which reports how
-      many albums it found and what it changed.
-- [ ] An album folder without an `album.json` (published before this change)
-      is listed rather than dropped, and says what could not be read.
+- [x] A photo's XMP sidecar is carried along by copy, move, rename and batch
+      rename, including when a batch permutes a set of names.
+- [ ] A site destination's albums are stored one file per album in the shared
+      channel directory, written on every build.
+- [ ] A build writes the index and the sitemap from that register, not from
+      the local `site.json`, which becomes a cache.
 - [ ] Publishing album A from one installation and album B from another leaves
       an index and a sitemap containing both — covered by a Go test that
       simulates the two output directories.
+- [ ] The sidecar also records the album's slug and `unlisted`, and
+      Destinations → Advanced offers "Rebuild album list", which reports how
+      many albums it found and what it changed.
+- [ ] An album folder or photo from before this change is listed rather than
+      dropped, and says what could not be read.
+- [ ] Deleting an album leaves a tombstone in the register and clears the meta
+      keys in its photos' sidecars, so a rebuild does not resurrect it.
 - [ ] The two-installation setup is described in the README, including which
-      files are shared (`channels.json`, XMP sidecars next to the photos) and
-      which are per machine (`-lib-dir`, generated output).
+      files are shared (`channels.json`, the album register, XMP sidecars next
+      to the photos) and which are per machine (`-lib-dir`, generated output).
 - [ ] CHANGELOG entry under Unreleased.

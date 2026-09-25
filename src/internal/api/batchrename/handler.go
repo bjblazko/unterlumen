@@ -226,7 +226,11 @@ func executeTwoPassRename(pairs []renamePair) []batchRenameResult {
 		tempPath := filepath.Join(p.dir, p.tempName)
 		if err := os.Rename(p.absPath, tempPath); err != nil {
 			results[i] = batchRenameResult{File: p.relFile, Error: fmt.Sprintf("temp rename failed: %v", err)}
+			continue
 		}
+		// The sidecar goes through both passes with its photo, so a pair of
+		// names being swapped does not have the two sidecars collide either.
+		media.CarrySidecar(os.Rename, p.absPath, tempPath) //nolint:errcheck
 	}
 
 	for i, p := range pairs {
@@ -238,7 +242,9 @@ func executeTwoPassRename(pairs []renamePair) []batchRenameResult {
 		if err := os.Rename(tempPath, finalPath); err != nil {
 			results[i] = batchRenameResult{File: p.relFile, Error: fmt.Sprintf("final rename failed: %v", err)}
 			os.Rename(tempPath, p.absPath) // attempt restore
+			media.CarrySidecar(os.Rename, tempPath, p.absPath) //nolint:errcheck
 		} else {
+			media.CarrySidecar(os.Rename, tempPath, finalPath) //nolint:errcheck
 			results[i] = batchRenameResult{File: p.relFile, Success: true}
 		}
 	}

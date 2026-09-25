@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"huepattl.de/unterlumen/internal/library"
@@ -90,5 +91,64 @@ func TestBatchRenameSyncsLibrary(t *testing.T) {
 	}
 	if newID != origID {
 		t.Errorf("rename created a new photo record (%q) instead of updating the existing one (%q)", newID, origID)
+	}
+}
+
+// A photo's XMP sidecar carries its publication record (ADR-0027), so it has
+// to be renamed with the photo. Batch rename runs in two passes so a set of
+// names can be permuted; the sidecar goes through both, or two sidecars would
+// collide exactly where the two photos do not.
+
+func writeSidecar(t *testing.T, photoPath, marker string) {
+	t.Helper()
+	if err := os.WriteFile(media.SidecarPath(photoPath), []byte(marker), 0644); err != nil {
+		t.Fatalf("write sidecar for %s: %v", photoPath, err)
+	}
+}
+
+func sidecarOf(t *testing.T, photoPath string) string {
+	t.Helper()
+	data, err := os.ReadFile(media.SidecarPath(photoPath))
+	if err != nil {
+		t.Fatalf("sidecar missing beside %s: %v", photoPath, err)
+	}
+	return string(data)
+}
+
+func TestBatchRenameCarriesSidecars(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"a.jpg", "b.jpg"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte{0xFF, 0xD8, 0xFF, 0xD9, name[0]}, 0644); err != nil {
+			t.Fatal(err)
+		}
+		writeSidecar(t, filepath.Join(root, name), "record-"+name)
+	}
+
+	// The names are swapped: a.jpg -> b.jpg and b.jpg -> a.jpg.
+	pairs := buildRenamePairs(root, []batchRenameMapping{
+		{File: "a.jpg", NewName: "b.jpg"},
+		{File: "b.jpg", NewName: "a.jpg"},
+	})
+	for i, res := range executeTwoPassRename(pairs) {
+		if !res.Success {
+			t.Fatalf("pair %d: %s", i, res.Error)
+		}
+	}
+
+	if got := sidecarOf(t, filepath.Join(root, "b.jpg")); got != "record-a.jpg" {
+		t.Errorf("sidecar beside b.jpg = %q, want the one that followed a.jpg", got)
+	}
+	if got := sidecarOf(t, filepath.Join(root, "a.jpg")); got != "record-b.jpg" {
+		t.Errorf("sidecar beside a.jpg = %q, want the one that followed b.jpg", got)
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "_batch_tmp_") {
+			t.Errorf("temporary file left behind: %s", e.Name())
+		}
 	}
 }

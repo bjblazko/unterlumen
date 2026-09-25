@@ -162,3 +162,109 @@ func TestHandleRename_SyncsLibraryIndex(t *testing.T) {
 		t.Error("library DB was not updated to the post-rename filename")
 	}
 }
+
+// A photo's XMP sidecar carries its publication record (ADR-0027), which is
+// what lets a published site be rebuilt from the photos themselves. Renaming
+// or moving a photo without its sidecar loses that history and leaves an
+// orphan behind, so the sidecar travels with the file.
+
+func writeTestSidecar(t *testing.T, photoPath, marker string) {
+	t.Helper()
+	if err := os.WriteFile(media.SidecarPath(photoPath), []byte(marker), 0644); err != nil {
+		t.Fatalf("write sidecar for %s: %v", photoPath, err)
+	}
+}
+
+func assertSidecar(t *testing.T, photoPath, want string) {
+	t.Helper()
+	data, err := os.ReadFile(media.SidecarPath(photoPath))
+	if err != nil {
+		t.Fatalf("sidecar missing beside %s: %v", photoPath, err)
+	}
+	if string(data) != want {
+		t.Errorf("sidecar beside %s = %q, want %q", photoPath, data, want)
+	}
+}
+
+func assertNoSidecar(t *testing.T, photoPath string) {
+	t.Helper()
+	if _, err := os.Stat(media.SidecarPath(photoPath)); err == nil {
+		t.Errorf("orphaned sidecar left beside %s", photoPath)
+	}
+}
+
+func TestHandleRename_CarriesSidecar(t *testing.T) {
+	root := resolvedTempDir(t)
+	old := filepath.Join(root, "old.jpg")
+	writeTestJPEG(t, old, 7)
+	writeTestSidecar(t, old, "published")
+
+	rec := doPost(t, handleRename(root, media.NewScanCache(), nil), struct {
+		Path string `json:"path"`
+		Name string `json:"name"`
+	}{Path: "old.jpg", Name: "new.jpg"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rename: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+
+	assertSidecar(t, filepath.Join(root, "new.jpg"), "published")
+	assertNoSidecar(t, old)
+}
+
+func TestHandleMove_CarriesSidecar(t *testing.T) {
+	root := resolvedTempDir(t)
+	if err := os.MkdirAll(filepath.Join(root, "dst"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(root, "photo.jpg")
+	writeTestJPEG(t, src, 8)
+	writeTestSidecar(t, src, "published")
+
+	rec := doPost(t, handleMove(root, media.NewScanCache(), nil), fileOpRequest{
+		Files: []string{"photo.jpg"}, Destination: "dst",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("move: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+
+	assertSidecar(t, filepath.Join(root, "dst", "photo.jpg"), "published")
+	assertNoSidecar(t, src)
+}
+
+func TestHandleCopy_CarriesSidecar(t *testing.T) {
+	root := resolvedTempDir(t)
+	if err := os.MkdirAll(filepath.Join(root, "dst"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(root, "photo.jpg")
+	writeTestJPEG(t, src, 9)
+	writeTestSidecar(t, src, "published")
+
+	rec := doPost(t, handleCopy(root, media.NewScanCache(), nil), fileOpRequest{
+		Files: []string{"photo.jpg"}, Destination: "dst",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("copy: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+
+	assertSidecar(t, filepath.Join(root, "dst", "photo.jpg"), "published")
+	assertSidecar(t, src, "published")
+}
+
+// Renaming a folder must not go looking for a sidecar of its own.
+func TestHandleRename_FolderHasNoSidecar(t *testing.T) {
+	root := resolvedTempDir(t)
+	if err := os.MkdirAll(filepath.Join(root, "2024.07"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestSidecar(t, filepath.Join(root, "2024.07"), "not a photo's")
+
+	rec := doPost(t, handleRename(root, media.NewScanCache(), nil), struct {
+		Path string `json:"path"`
+		Name string `json:"name"`
+	}{Path: "2024.07", Name: "2024-07"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rename: HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+	assertSidecar(t, filepath.Join(root, "2024.07"), "not a photo's")
+}
