@@ -341,8 +341,6 @@ body {
     padding: 0 var(--space-2) var(--space-1);
     font-size: var(--text-xs);
     font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: var(--fg-3);
 }
 
@@ -451,9 +449,8 @@ body {
 
 .field-label-inline {
     color: var(--fg-2);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 500;
+    font-size: var(--text-sm);
     flex: 1;
     white-space: nowrap;
 }
@@ -515,8 +512,6 @@ button.toggle {
 .toggle-label {
     font-size: var(--text-xs);
     line-height: 1;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     color: var(--fg-3);
     user-select: none;
 }
@@ -921,10 +916,9 @@ button.toggle {
 }
 
 .about-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
+    font-weight: 500;
     color: var(--fg-2);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     margin-bottom: 4px;
 }
 
@@ -1282,9 +1276,7 @@ button.toggle {
     border-bottom: 1px solid var(--line);
     color: var(--fg-2);
     font-weight: 400;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: var(--text-xs);
 }
 
 .list-view td {
@@ -2118,11 +2110,9 @@ body.ui-hidden .viewer-filmstrip {
 }
 
 .info-panel-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .info-collapse-btn {
@@ -2158,11 +2148,9 @@ body.ui-hidden .viewer-filmstrip {
 }
 
 .info-section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    font-weight: 500;
+    font-weight: 600;
     padding: var(--space-2) 0 var(--space-1);
     border-bottom: 1px solid var(--line);
     margin-bottom: var(--space-1);
@@ -2483,11 +2471,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .batch-rename-preview-header {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    font-weight: 500;
+    font-weight: 600;
     padding-bottom: var(--space-1);
     border-bottom: 1px solid var(--line);
     margin-bottom: var(--space-1);
@@ -2567,11 +2553,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .export-section-title {
-    font-size: 11px;
-    font-weight: 500;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--fg-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     margin-bottom: var(--space-2);
 }
 
@@ -3274,9 +3258,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .ss-opt-label {
     color: var(--fg-2);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 500;
+    font-size: var(--text-sm);
     min-width: 72px;
     white-space: nowrap;
 }
@@ -3386,7 +3369,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .library-list-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--space-4);
     height: var(--space-12);
     padding: 0 var(--space-6);
     border-bottom: 1px solid var(--line);
@@ -3404,6 +3387,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    margin-left: auto;
 }
 
 
@@ -3442,6 +3426,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .library-list-body {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
     padding: var(--space-6) var(--space-8);
     display: flex;
@@ -3631,12 +3616,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-color: var(--accent);
 }
 
-.library-detail-body {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-}
-
 /* --- Library pane (shared grid/list/justified view) --- */
 
 .library-pane-wrap {
@@ -3678,16 +3657,38 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--fg);
 }
 
-/* --- Library Search / Filter Panel --- */
+/* --- Library filter ------------------------------------------------------
+   One column, the same in the Libraries overview and in a library: the
+   body holds the column and, beside it, what it filters (the list of
+   libraries or the library's folders), the results that replace that once a
+   criterion is set, and the info panel. */
 
-.lib-search-panel {
-    display: none;
-    flex-direction: column;
-    flex-shrink: 0;
+.lib-filter-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.lib-filter-main {
+    flex: 1;
+    display: flex;
+    min-width: 0;
     overflow: hidden;
 }
 
-.lib-search-panel.visible {
+.lib-filter-panel {
+    display: none;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 280px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--bg-2);
+}
+
+.lib-filter-panel.visible {
     display: flex;
 }
 
@@ -3736,11 +3737,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-filter-title {
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--fg-3);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--fg);
 }
 
 .lib-filter-count {
@@ -3793,63 +3792,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     background: var(--bg-2);
 }
 
-/* --- Library Search Body (sidebar wrapper, list page) --- */
-
-.lib-search-body {
-    display: none;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.lib-search-body:has(> .lib-search-panel.visible) {
-    display: flex;
-}
-
-.lib-search-body:has(> .lib-search-panel.visible) ~ .library-list-body {
-    display: none;
-}
-
-/* Detail view: the body is always there; the filter column joins it. */
-.library-detail .lib-search-body {
-    display: flex;
-    position: relative;
-}
-
-.library-detail .lib-search-panel.visible {
-    width: 280px;
-    background: var(--bg-2);
-}
-
-.lib-search-body > .lib-search-panel {
-    width: 260px;
-    flex-shrink: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    border-right: 1px solid var(--line);
-}
-
-/* --- Library search results area (list page) --- */
-
-.lib-search-content {
-    flex: 1;
-    overflow: hidden;
-}
-
-.lib-search-body > .lib-search-content {
-    display: flex;
-}
-
-.lib-search-results-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding: 0 var(--space-6);
-    position: relative;
-}
-
-.lib-search-controls {
+.lib-filter-controls {
     display: flex;
     align-items: center;
     gap: var(--space-4);
@@ -3860,33 +3803,18 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-wrap: wrap;
 }
 
-.lib-search-select {
-    height: 28px;
+/* Every field in the column is cut from the same stock as the buttons
+   beside it: the small control height, the control border, the UI voice. */
+.lib-filter-select {
+    height: var(--control-h-sm);
+    box-sizing: border-box;
     padding: 0 var(--space-3);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     background: var(--bg);
     color: var(--fg);
-    font-size: 12px;
-    outline: none;
+    font-size: var(--text-sm);
     cursor: pointer;
-}
-
-.lib-search-select:focus {
-    border-color: var(--accent);
-}
-
-.lib-search-reset {
-    font-size: 11px;
-    color: var(--fg-2);
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-}
-
-.lib-search-reset:hover {
-    color: var(--fg);
 }
 
 .lib-filter-groups {
@@ -3902,17 +3830,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .lib-filter-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
     min-width: 160px;
     flex: 1;
     max-width: 220px;
 }
 
+/* A label above its field: sentence case in the UI voice, never small caps. */
 .lib-filter-label {
-    font-size: 10px;
+    font-size: var(--text-sm);
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
     color: var(--fg-2);
     display: flex;
     justify-content: space-between;
@@ -3920,17 +3847,18 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-filter-range-display {
-    font-size: 10px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 400;
     color: var(--fg);
-    font-weight: 500;
     font-variant-numeric: tabular-nums;
 }
 
 .lib-filter-35mm {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 10px;
+    gap: var(--space-1);
+    font-size: var(--text-xs);
     color: var(--fg-2);
     cursor: pointer;
     user-select: none;
@@ -3950,29 +3878,31 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-date-row-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    width: 28px;
+    width: var(--space-10);
     flex-shrink: 0;
 }
 
 .lib-date-input {
     flex: 1;
-    height: 28px;
+    height: var(--control-h-sm);
+    box-sizing: border-box;
     padding: 0 var(--space-3);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     background: var(--bg);
     color: var(--fg);
-    font-size: 12px;
-    outline: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     cursor: pointer;
-    color-scheme: dark;
     min-width: 0;
 }
 
-.lib-date-input:focus {
-    border-color: var(--accent);
+.lib-filter-select:focus-visible,
+.lib-date-input:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 /* --- Combined range slider --- */
@@ -4027,7 +3957,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-color: var(--fg-2);
 }
 
-.lib-search-loading {
+.lib-filter-loading {
     padding: 16px;
     font-size: 11px;
     color: var(--fg-2);
@@ -4041,14 +3971,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     min-height: 200px;
 }
 
-.lib-results-spinner-wrap.lib-results-spinner-overlay {
-    position: absolute;
-    inset: 0;
-    background: var(--bg);
-    z-index: 2;
-    min-height: unset;
-}
-
 .lib-results-spinner {
     width: 20px;
     height: 20px;
@@ -4058,7 +3980,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     animation: spin 0.7s linear infinite;
 }
 
-.lib-search-status {
+.lib-filter-status {
     font-size: 11px;
     color: var(--fg-2);
     padding: var(--space-3) var(--space-6);
@@ -4070,62 +3992,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     z-index: 10;
 }
 
-.lib-search-status strong {
+.lib-filter-status strong {
     color: var(--fg);
-}
-
-.lib-search-results {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--space-4) var(--space-6);
-}
-
-.lib-search-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: var(--space-2);
-}
-
-.lib-search-thumb {
-    aspect-ratio: 1;
-    overflow: hidden;
-    border-radius: var(--radius-sm);
-    background: var(--line);
-    cursor: pointer;
-    position: relative;
-}
-
-.lib-search-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.lib-search-thumb-lib {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 3px 5px;
-    font-size: 9px;
-    color: var(--overlay-fg);
-    background: var(--overlay-shade);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: none;
-}
-
-.lib-search-thumb:hover .lib-search-thumb-lib {
-    display: block;
-}
-
-.lib-search-empty {
-    font-size: 12px;
-    color: var(--fg-2);
-    padding: var(--space-8) 0;
-    text-align: center;
 }
 
 .lib-text-filter-groups {
@@ -4138,9 +4006,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     max-width: 220px;
 }
 
-/* --- Sidebar overrides for list-page filter panel --- */
+/* Inside the column every group stacks. */
 
-.lib-search-body .lib-search-controls {
+.lib-filter-panel .lib-filter-controls {
     flex-direction: column;
     align-items: stretch;
     padding: var(--space-4);
@@ -4148,12 +4016,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-bottom: none;
 }
 
-.lib-search-body .lib-search-select {
+.lib-filter-panel .lib-filter-select {
     width: 100%;
     box-sizing: border-box;
 }
 
-.lib-search-body .lib-filter-groups {
+.lib-filter-panel .lib-filter-groups {
     flex-direction: column;
     flex-wrap: nowrap;
     gap: var(--space-5);
@@ -4162,29 +4030,28 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-top: 1px solid var(--line);
 }
 
-.lib-search-body .lib-filter-group {
+.lib-filter-panel .lib-filter-group {
     max-width: none;
     min-width: 0;
     flex: none;
 }
 
-.lib-search-body .lib-text-filter-groups {
+.lib-filter-panel .lib-text-filter-groups {
     border-top: 1px solid var(--line);
     padding-top: var(--space-4);
 }
 
-.lib-search-body .lib-text-filter-select {
+.lib-filter-panel .lib-text-filter-select {
     max-width: none;
 }
 
-.lib-search-body .lib-search-status {
+.lib-filter-panel .lib-filter-status {
     border-bottom: 1px solid var(--line);
     padding: var(--space-3) var(--space-4);
 }
 
-.lib-search-body .lib-search-reset {
+.lib-filter-panel .lib-filter-reset {
     align-self: flex-start;
-    padding: var(--space-1) 0;
 }
 
 /* --- Chip Input --- */
@@ -4195,10 +4062,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-filter-group-header {
-    font-size: 10px;
+    font-size: var(--text-sm);
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     color: var(--fg-2);
     margin-bottom: var(--space-2);
 }
@@ -4216,17 +4081,18 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    min-height: 28px;
-    padding: 3px var(--space-2);
-    border: 1px solid var(--line);
+    min-height: var(--control-h-sm);
+    box-sizing: border-box;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     background: var(--bg);
     cursor: text;
 }
 
+/* The field inside owns the focus; the ring goes round the whole control. */
 .chip-input-wrap:focus-within {
-    border-color: var(--accent);
-    outline: none;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 .chip {
@@ -4267,7 +4133,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .chip-remove:hover {
-    color: var(--text);
+    color: var(--fg);
 }
 
 .chip-ns-label {
@@ -4282,8 +4148,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     all: unset;
     flex: 1;
     min-width: 80px;
-    font-size: 12px;
-    color: var(--text);
+    font-size: var(--text-sm);
+    color: var(--fg);
     cursor: text;
 }
 
@@ -4320,7 +4186,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .chip-ac-ns {
     font-family: var(--font-mono);
     font-weight: 500;
-    color: var(--text);
+    color: var(--fg);
     flex-shrink: 0;
 }
 
@@ -4752,11 +4618,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 /* --- Form helpers (shared by channel and build modals) --- */
 
 .form-label {
-    font-size: 11px;
+    font-size: var(--text-sm);
     font-weight: 500;
     color: var(--fg-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     margin-top: var(--space-1);
 }
 
@@ -5254,10 +5118,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .stats-chart-title {
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--fg-2);
     margin-bottom: 10px;
 }
@@ -5570,10 +5432,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     padding: 12px 14px 14px;
 }
 .stats-tl-title {
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--fg-2);
     margin-bottom: 2px;
 }
@@ -5908,10 +5768,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .gal-section-title {
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--fg-3);
     margin-bottom: var(--space-2);
 }
@@ -6134,8 +5992,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-bottom: 1px solid var(--line-strong);
     font-size: var(--text-xs);
     font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: var(--fg-3);
 }
 
@@ -6330,10 +6186,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .info-meta-group-title {
     margin: 0 0 var(--space-1);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--text-sm);
+    font-weight: 600;
     color: var(--fg-3);
 }
 
@@ -6426,6 +6280,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .lib-move-down,
     .lib-sort-select,
     #lib-new-btn,
+    .library-list-header .header-actions-sep,
     .desk-only {
         display: none !important;
     }
@@ -6463,7 +6318,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* There is no room to put the filter beside the photos, so it takes the
        screen for as long as it is open and gives it back on Done. */
-    .library-detail .lib-search-panel.visible {
+    .lib-filter-panel.visible {
         position: absolute;
         inset: 0;
         width: auto;
@@ -6490,7 +6345,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* One column of content; the info panel becomes a sheet (see viewer). */
     .browse-layout > #info-panel-container,
-    .library-detail-body .lib-info-panel-container,
+    .lib-filter-main .lib-info-panel-container,
     .gal-detail-panel { display: none; }
 
     .gal-detail-body,

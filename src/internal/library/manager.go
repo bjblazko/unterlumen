@@ -734,7 +734,7 @@ func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibra
 		results[i].result = libResult{photos: photos, total: page.Total}
 	}
 
-	// Merge and sort by IndexedAt DESC.
+	// Merge and sort by date taken, newest first, undated last.
 	var all []LibraryPhoto
 	total := 0
 	for _, j := range results {

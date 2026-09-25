@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **One filter in the Libraries overview and in a library.** The overview had a "Search…" button that replaced the list of libraries with results as soon as it was clicked. A library had a "Filter" column that changed nothing until a criterion was set. Both were the same panel over the same endpoint, but they looked and closed differently. The overview now has the same filter as a library:
+  - The same panel button sits at the left end of the head, with the number of active criteria.
+  - It opens the same column. The list stays until a criterion is set.
+  - *Done* closes the column and keeps the results.
+  - The × on the results drops the criteria and brings the list back.
+
+  Only the starting scope differs: all libraries in the overview, the open library inside one. The panel's library select changes it in both places. The buttons in the overview's head now share one height. The filter column follows the same rules as the rest of the app:
+  - "Reset filters" is a framed button.
+  - Selects, date fields and the "More filters" field have the small control height (30 px), control borders and the app's focus ring.
+  - Field labels are in sentence case in the interface voice instead of small caps.
+  - Ranges are shown as data in mono ("f/1.4 – f/18.0", "4 mm – 300 mm").
+  - The date field's calendar icon is visible in the light theme again. It had been fixed to the dark colour scheme. On the server, both photo lists read their filter through one parser, so `GET /api/library/{id}/photos` now understands the same meta, album, format and destination filters as `GET /api/library/search`. See [ADR-0033](doc/architecture/adr/0033-dialogs-and-places.md).
+
+- **No more small caps.** Rams-design allows uppercase labels, but it never requires them, so they are gone everywhere:
+  - form labels, section titles in the info panel, export, statistics and galleries;
+  - table headers, the sidebar's section names and the states of every switch.
+
+  Everything is in sentence case, and hierarchy comes from size, weight and colour. A switch now reads "Details · Shown · Hidden" and defaults to "On"/"Off" instead of "ON"/"OFF". See [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md).
+
+### Fixed
+- **An ISO chip that could not be dropped.** A log-scale slider that nobody had touched counted as narrowed: its right end came out as 51199.99999999997 instead of 51200. The filter showed "ISO 16 – 51200" as active, and its × brought it straight back. Every result also silently left out photos taken at the highest ISO in the library. The ends of every slider are now exactly the range's own bounds.
+- **Closed filter results came back.** 300 ms after the × on the filter results, every photo appeared again as results. Resetting the "More filters" field had scheduled one last query, and nothing cancelled it.
+- **Keys went to hidden results in the Libraries overview.** After the filter's results were closed, arrow keys, `i` and the selection still acted on the hidden results pane instead of the list.
+
 ## [0.11.0] - 2026-09-26
 
 ### Added

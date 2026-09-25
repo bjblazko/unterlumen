@@ -1,4 +1,4 @@
-// LibrarySearchPanel — cross-library EXIF numeric range search with slider UI
+// LibraryFilterPanel — the Libraries photo filter: EXIF ranges, date, text and chip criteria
 
 // Fixed chip namespaces that map to EXIF fields or special filter params.
 const CHIP_NS_FIXED = [
@@ -73,9 +73,19 @@ function formatShutterSpeed(seconds) {
     return `1/${denom}`;
 }
 
+// The ends of the track are the range's own bounds, exactly: exp(log(51200))
+// is 51199.99999999997, and a slider nobody touched would otherwise count as
+// narrowed — an ISO chip that can't be dropped, and the top ISO silently
+// filtered out of every result.
 function sliderToValue(pos, min, max, log) {
+    if (pos <= 0) return min;
+    if (pos >= 1) return max;
     if (log) return Math.exp(Math.log(min) + pos * (Math.log(max) - Math.log(min)));
     return min + pos * (max - min);
+}
+
+function isNarrowed(active, range) {
+    return active.min > range.min || active.max < range.max;
 }
 
 function valueToSlider(val, min, max, log) {
@@ -83,16 +93,17 @@ function valueToSlider(val, min, max, log) {
     return (val - min) / (max - min);
 }
 
-class LibrarySearchPanel {
+// The one photo filter of the Libraries place. The overview and a library's
+// detail both open it the same way; they differ only in the scope it starts
+// with — every library, or the one that is open — and the scope select in
+// the panel changes that either way.
+class LibraryFilterPanel {
     // container    — the element that holds the full panel
     // toggleBtn    — the button that opens/closes the panel
     // initialLibID — pre-select this library (null = all)
-    // options      — { onResults(photos, multiLib), onClose(), resultsContainer, onFocusChange }
-    //   onResults:          if set, called with results instead of rendering a pane inside the panel
-    //   onClose:            called when the panel is closed
-    //   resultsContainer:   DOM element where SearchResultPane is mounted (list-page path)
-    //   onFocusChange:      forwarded to SearchResultPane for info panel integration
-    //   onSelectionChange:  forwarded to SearchResultPane; called when selection changes
+    // options:
+    //   onResults(photos, multiLib, {total, fetchPage}) — the host shows them
+    //   onLoading(isLoading), onActiveCount(n), onOpen(), onClose()
     constructor(container, toggleBtn, initialLibID = null, options = {}) {
         this._container = container;
         this._toggleBtn = toggleBtn;
@@ -103,7 +114,6 @@ class LibrarySearchPanel {
         this._use35mm = false;
         this._debounceTimer = null;
         this._libraries = [];
-        this._searchPane = null;
         this._dateMin = '';
         this._dateMax = '';
         this._dateMinInput = null;
@@ -130,31 +140,20 @@ class LibrarySearchPanel {
 
     // The × on the results goes back to the library itself: the criteria are
     // dropped and the panel goes with them, without running one last query
-    // for a filter nobody set any more.
+    // for a filter nobody set any more — not even a debounced one, which
+    // would bring the results back 300 ms after they were closed.
     clearAndHide() {
         this._suppressQuery = true;
         if (this._built) this._reset();
         this._suppressQuery = false;
+        this._renderActiveFilters();
         this.close();
     }
 
-    // With `quietOpen` (the library detail) nothing is filtered yet when the
-    // panel appears, so the library keeps showing its own folders and photos
-    // until a criterion is actually set. In the Libraries list the panel *is*
-    // the view — it replaces the list with results — so it queries at once.
+    // Nothing is filtered yet when the panel appears, so the libraries or
+    // the library's folders stay in view until a criterion is actually set.
     async open() {
         if (this._container.classList.contains('visible')) return;
-        this._openedWithoutQuery = !!this._options.quietOpen;
-        await this._toggle();
-        this._openedWithoutQuery = false;
-    }
-
-    async _toggle() {
-        const opening = !this._container.classList.contains('visible');
-        if (!opening) {
-            this.close();
-            return;
-        }
         this._container.classList.add('visible');
         this._toggleBtn.dataset.state = 'on';
         this._toggleBtn.setAttribute('aria-pressed', 'true');
@@ -162,7 +161,7 @@ class LibrarySearchPanel {
         if (this._options.onOpen) this._options.onOpen();
 
         if (!this._built) {
-            this._container.innerHTML = '<div class="lib-search-loading">Loading filters…</div>';
+            this._container.innerHTML = '<div class="lib-filter-loading">Loading filters…</div>';
             await this._build();
         } else {
             // Clear chip input caches so re-opening the panel picks up newly built albums etc.
@@ -173,7 +172,7 @@ class LibrarySearchPanel {
     async _build() {
         this._built = true;
         this._container.innerHTML = '';
-        this._container.className = 'lib-search-panel visible';
+        this._container.className = 'lib-filter-panel visible';
         this._buildHead();
 
         const ids = this._initialLibID || undefined;
@@ -207,8 +206,6 @@ class LibrarySearchPanel {
         this._buildSliders();
         this._buildTextFilters();
         this._buildChipFilters();
-        this._buildResultsPane();
-        if (!this._openedWithoutQuery) this._runQuery();
     }
 
     async _fetchRanges(libID) {
@@ -248,8 +245,7 @@ class LibrarySearchPanel {
             const range = this._ranges[f.field];
             const active = this._active[f.field];
             if (!range || !active) continue;
-            const narrowed = active.min > range.min + 1e-12 || active.max < range.max - 1e-12;
-            if (!narrowed) continue;
+            if (!isNarrowed(active, range)) continue;
             out.push({
                 label: `${f.label} ${f.format(active.min)} – ${f.format(active.max)}`,
                 clear: () => {
@@ -324,11 +320,11 @@ class LibrarySearchPanel {
 
     _buildControls() {
         const bar = document.createElement('div');
-        bar.className = 'lib-search-controls';
+        bar.className = 'lib-filter-controls';
 
         // Library selector
         const sel = document.createElement('select');
-        sel.className = 'lib-search-select';
+        sel.className = 'lib-filter-select';
         sel.innerHTML = `<option value="">All libraries</option>` +
             this._libraries.map(l =>
                 `<option value="${escapeHtml(l.id)}"${l.id === this._initialLibID ? ' selected' : ''}>${escapeHtml(l.name)}</option>`
@@ -354,7 +350,7 @@ class LibrarySearchPanel {
 
         // Reset button
         const reset = document.createElement('button');
-        reset.className = 'lib-search-reset';
+        reset.className = 'btn btn-sm lib-filter-reset';
         reset.textContent = 'Reset filters';
         reset.addEventListener('click', () => this._reset());
 
@@ -524,7 +520,7 @@ class LibrarySearchPanel {
         group.appendChild(label);
 
         const sel = document.createElement('select');
-        sel.className = 'lib-search-select lib-text-filter-select';
+        sel.className = 'lib-filter-select lib-text-filter-select';
         sel.innerHTML = `<option value="">All</option>` +
             this._textValues[spec.field].map(v =>
                 `<option value="${escapeHtml(v)}"${this._textActive[spec.field] === v ? ' selected' : ''}>${escapeHtml(v)}</option>`
@@ -656,32 +652,10 @@ class LibrarySearchPanel {
 
     _buildStatus() {
         const status = document.createElement('div');
-        status.className = 'lib-search-status';
+        status.className = 'lib-filter-status';
         status.style.display = 'none';
         this._statusEl = status;
         this._container.appendChild(status);
-    }
-
-    _buildResultsPane() {
-        // When onResults is set, the caller owns the results pane (detail-page path).
-        if (this._options.onResults) return;
-
-        // Otherwise mount a SearchResultPane in the provided container or inside the panel.
-        const paneEl = this._options.resultsContainer || (() => {
-            const div = document.createElement('div');
-            div.className = 'lib-search-results';
-            this._container.appendChild(div);
-            return div;
-        })();
-
-        this._searchPane = new SearchResultPane(paneEl, {
-            onImageClick: (path) => App.openViewer(path, this._searchPane),
-            onSlideshowInvoke: () => App.handleSlideshowInvoke(this._searchPane),
-            onFocusChange: this._options.onFocusChange || null,
-            onSelectionChange: this._options.onSelectionChange || null,
-            onToolInvoke: this._options.onToolInvoke || null,
-            onClose: () => this.close(),
-        });
     }
 
     _reset() {
@@ -700,6 +674,7 @@ class LibrarySearchPanel {
 
     _scheduleQuery() {
         clearTimeout(this._debounceTimer);
+        if (this._suppressQuery) return;
         this._debounceTimer = setTimeout(() => this._runQuery(), 300);
     }
 
@@ -709,9 +684,7 @@ class LibrarySearchPanel {
         for (const [field, active] of Object.entries(this._active)) {
             const r = this._ranges[field];
             if (!r) continue;
-            const minMoved = active.min > r.min + 1e-12;
-            const maxMoved = active.max < r.max - 1e-12;
-            if (minMoved || maxMoved) {
+            if (isNarrowed(active, r)) {
                 params[`${field}_min`] = active.min;
                 params[`${field}_max`] = active.max;
             }
@@ -741,22 +714,7 @@ class LibrarySearchPanel {
     }
 
     _setLoading(on) {
-        if (this._options.onLoading) {
-            this._options.onLoading(on);
-            return;
-        }
-        // List-view path: overlay a spinner on the results container.
-        const container = this._searchPane?.container;
-        if (!container) return;
-        if (on) {
-            if (!container.querySelector('.lib-results-spinner-wrap')) {
-                container.insertAdjacentHTML('afterbegin',
-                    '<div class="lib-results-spinner-wrap lib-results-spinner-overlay">' +
-                    '<div class="lib-results-spinner"></div></div>');
-            }
-        } else {
-            container.querySelector('.lib-results-spinner-wrap')?.remove();
-        }
+        this._options.onLoading?.(on);
     }
 
     _renderResults(result, params = this._lastParams || {}) {
@@ -774,13 +732,6 @@ class LibrarySearchPanel {
             return r.results;
         };
 
-        if (this._options.onResults) {
-            this._options.onResults(results, multiLib, { total, fetchPage });
-            return;
-        }
-
-        if (this._searchPane) {
-            this._searchPane.loadResults(results, multiLib, { total, fetchPage });
-        }
+        this._options.onResults(results, multiLib, { total, fetchPage });
     }
 }

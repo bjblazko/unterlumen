@@ -1,0 +1,47 @@
+package apilibrary
+
+import (
+	"net/url"
+	"reflect"
+	"testing"
+
+	lib "huepattl.de/unterlumen/internal/library"
+)
+
+// TestParseListPhotosOpts pins the one filter vocabulary shared by a single
+// library's photo list and the search across libraries.
+func TestParseListPhotosOpts(t *testing.T) {
+	q, _ := url.ParseQuery("ids=a,b&offset=200&limit=50" +
+		"&ISOSpeedRatings_min=200&ISOSpeedRatings_max=6400" +
+		"&date_taken_min=2024-01-01&date_taken_max=2024-12-31" +
+		"&Model=X-T50&meta_rating=5&album_title=Spring&ext=jpg&channel=site")
+
+	got := parseListPhotosOpts(q)
+	want := lib.ListPhotosOpts{
+		Filters:        map[string]string{"Model": "X-T50"},
+		NumericFilters: map[string]lib.NumericFilter{"ISOSpeedRatings": {Min: 200, Max: 6400}},
+		DateMin:        "2024-01-01",
+		DateMax:        "2024-12-31",
+		MetaFilters:    map[string]string{"rating": "5"},
+		MetaExists:     []string{"built:site"},
+		AlbumTitle:     "Spring",
+		ExtFilter:      "jpg",
+		Offset:         200,
+		Limit:          50,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseListPhotosOpts:\n got  %+v\n want %+v", got, want)
+	}
+}
+
+func TestParseListPhotosOptsClampsLimit(t *testing.T) {
+	for _, limit := range []string{"", "0", "-1", "501"} {
+		q := url.Values{"limit": {limit}}
+		if got := parseListPhotosOpts(q).Limit; got != 100 {
+			t.Errorf("limit=%q: got %d, want 100", limit, got)
+		}
+	}
+	if got := parseListPhotosOpts(url.Values{"limit": {"500"}}).Limit; got != 500 {
+		t.Errorf("limit=500: got %d, want 500", got)
+	}
+}

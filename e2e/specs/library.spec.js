@@ -50,15 +50,19 @@ test.describe('Library list view', () => {
         await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
     });
 
-    // Across libraries the panel replaces the list with results, so it opens
-    // from the head — and closes from its own head, like every panel.
-    test('Search opens the cross-library panel, the panel closes itself', async ({ page }) => {
-        const panel = page.locator('#lib-search-panel');
+    // The overview has the same filter as a library, starting with every
+    // library in scope: opening it sets nothing, so the list stays until a
+    // criterion is set, and Done closes it from its own head.
+    test('the filter opens beside the list of libraries and closes itself', async ({ page }) => {
+        const panel = page.locator('#lib-filter-panel');
         await expect(panel).not.toHaveClass(/visible/);
 
-        await page.locator('#lib-search-btn').click();
+        await page.locator('#lib-filter-btn').click();
         await expect(panel).toHaveClass(/visible/);
         await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
+        await expect(page.locator('.lib-filter-select').first()).toHaveValue('');
+        await expect(page.locator('#lib-list-body')).toBeVisible();
+        await expect(page.locator('#lib-results-pane')).toBeHidden();
 
         await page.locator('.lib-filter-close').click();
         await expect(panel).not.toHaveClass(/visible/);
@@ -87,14 +91,14 @@ test.describe('Library list view', () => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
-        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
+        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
 
         await page.locator('#lib-filter-btn').click();
-        await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/);
+        await expect(page.locator('#lib-filter-panel')).toHaveClass(/visible/);
         await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
 
         await page.locator('.lib-filter-close').click();
-        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
+        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
     });
 
     // Deleting a library moved out of its row and into the library itself

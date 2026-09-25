@@ -1,6 +1,6 @@
 # Library Internals
 
-*Last modified: 2026-05-02*
+*Last modified: 2026-09-26*
 
 A deep-dive reference for how Unterlumen libraries work: what they are, how they are stored on disk, how indexing works, and how cross-library search is assembled.
 
@@ -226,9 +226,11 @@ Re-scanning is always safe to run multiple times or to retry after an interrupti
 
 ---
 
-## 7. Cross-Library Search
+## 7. The Filter (one search, any scope)
 
-The search panel can query all libraries simultaneously. The `Manager` orchestrates this in memory:
+There is one photo filter. The Libraries overview and a library's detail open the same `LibraryFilterPanel` (`web/js/library-filter.js`), hosted the same way by `LibraryTab._mountFilter`. They differ only in the scope it starts with: all libraries in the overview, the open library in the detail. The panel's scope select changes it either way. Both call the same endpoint, `GET /api/library/search`, and send `ids=<libID>` when the scope is a single library. On the Go side, `parseListPhotosOpts` is the single reader of the filter vocabulary. It is shared with `GET /api/library/{id}/photos`.
+
+The `Manager` runs a search across the libraries in scope in memory:
 
 ```mermaid
 flowchart LR
@@ -237,12 +239,12 @@ flowchart LR
     ForEach --> Query["store.ListPhotos(\n  textFilters, numericFilters\n)"]
     Query --> SQL["SQL: WHERE EXISTS exif_index\nfor each active filter"]
     SQL --> Partial["Partial result + total count\nper library"]
-    Partial --> Merge["Merge all results\nSort by indexed_at DESC"]
+    Partial --> Merge["Merge all results\nSort by date taken DESC, undated last"]
     Merge --> Page["Apply offset + limit"]
     Page --> Response["JSON response"]
 ```
 
-Each library is queried independently (SQLite is single-connection). Results are merged in memory and sorted by `indexed_at` descending before the requested page is sliced out. The `total` field in the response is the sum of per-library match counts, not the size of the returned slice.
+Each library is queried independently (SQLite is single-connection). Results are merged in memory and sorted by date taken, newest first with undated photos last, before the requested page is sliced out. The `total` field in the response is the sum of per-library match counts, not the size of the returned slice.
 
 ### EXIF Range Aggregation
 

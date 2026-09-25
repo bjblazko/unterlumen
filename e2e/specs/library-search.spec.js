@@ -28,13 +28,13 @@ test.describe('Filter panel — no EXIF data', () => {
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('#lib-search-btn').click();
-        await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-        await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
-        await page.locator('.lib-search-select').first().selectOption(String(libID));
+        await page.locator('#lib-filter-btn').click();
+        await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
+        await page.waitForSelector('.lib-filter-select', { timeout: 20_000 });
+        await page.locator('.lib-filter-select').first().selectOption(String(libID));
         await page.waitForFunction(
             () => {
-                const el = document.querySelector('.lib-search-status');
+                const el = document.querySelector('.lib-filter-status');
                 return el && el.textContent.includes('0 photo');
             },
             { timeout: 15_000 },
@@ -42,8 +42,8 @@ test.describe('Filter panel — no EXIF data', () => {
     });
 
     test('filter panel opens with library selector and reset button', async ({ page }) => {
-        await expect(page.locator('.lib-search-select').first()).toBeVisible();
-        await expect(page.locator('.lib-search-reset')).toBeVisible();
+        await expect(page.locator('.lib-filter-select').first()).toBeVisible();
+        await expect(page.locator('.lib-filter-reset')).toBeVisible();
     });
 
     test('shows "No numeric EXIF data" for unindexed library', async ({ page }) => {
@@ -53,13 +53,13 @@ test.describe('Filter panel — no EXIF data', () => {
     });
 
     test('status shows 0 photos match for empty library', async ({ page }) => {
-        await expect(page.locator('.lib-search-status')).toContainText('0');
+        await expect(page.locator('.lib-filter-status')).toContainText('0');
     });
 
     test('closing filter panel hides it', async ({ page }) => {
-        await page.locator('#lib-search-btn').click();
-        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
-        await expect(page.locator('#lib-search-btn')).toHaveAttribute('data-state', 'off');
+        await page.locator('#lib-filter-btn').click();
+        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
+        await expect(page.locator('#lib-filter-btn')).toHaveAttribute('data-state', 'off');
     });
 });
 
@@ -89,7 +89,7 @@ test.describe('Library search with indexed fixtures', () => {
     async function waitForSearchStatus(page) {
         await page.waitForFunction(
             () => {
-                const el = document.querySelector('.lib-search-status');
+                const el = document.querySelector('.lib-filter-status');
                 return el && el.textContent.includes('match');
             },
             { timeout: 10_000 },
@@ -104,20 +104,19 @@ test.describe('Library search with indexed fixtures', () => {
             await waitForAppReady(page);
             await page.locator('#mode-library').click();
             await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-            await page.locator('#lib-search-btn').click();
-            await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-            await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
-            await waitForSearchStatus(page);
-            await page.locator('.lib-search-select').first().selectOption(String(libID));
-            // waitForSearchStatus would pass immediately (status already says "match" from the
-            // initial global search). Wait for the library-specific response instead so that the
-            // count shown in the DOM belongs to this library, not all libraries combined.
-            await page.waitForResponse(
+            await page.locator('#lib-filter-btn').click();
+            await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
+            await page.waitForSelector('.lib-filter-select', { timeout: 20_000 });
+            // Opening sets no criterion and runs no query; choosing the library does.
+            const scoped = page.waitForResponse(
                 res => res.url().includes('/api/library/search')
                     && new URL(res.url()).searchParams.get('ids') === String(libID)
                     && res.status() === 200,
                 { timeout: 15_000 },
             );
+            await page.locator('.lib-filter-select').first().selectOption(String(libID));
+            await scoped;
+            await waitForSearchStatus(page);
         });
 
         test('range sliders render when EXIF data exists', async ({ page }) => {
@@ -132,7 +131,7 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('status shows total photo count', async ({ page }) => {
-            const countText = await page.locator('.lib-search-status strong').textContent();
+            const countText = await page.locator('.lib-filter-status strong').textContent();
             // src/examples has 79 images; indexer may skip unsupported formats
             expect(parseInt(countText, 10)).toBeGreaterThan(50);
         });
@@ -143,12 +142,12 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('library selector has "All libraries" option', async ({ page }) => {
-            const allOption = page.locator('.lib-search-select option[value=""]').first();
+            const allOption = page.locator('.lib-filter-select option[value=""]').first();
             await expect(allOption).toHaveText('All libraries');
         });
 
         test('library selector contains the test library name', async ({ page }) => {
-            await expect(page.locator('.lib-search-select').first()).toContainText('E2E Indexed Library');
+            await expect(page.locator('.lib-filter-select').first()).toContainText('E2E Indexed Library');
         });
 
         test('text filter dropdowns appear for libraries with multiple camera models', async ({ page }) => {
@@ -157,7 +156,7 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('selecting a camera model filters results to a subset', async ({ page }) => {
-            const status = page.locator('.lib-search-status strong');
+            const status = page.locator('.lib-filter-status strong');
             const total = parseInt(await status.textContent(), 10);
 
             const sel = page.locator('.lib-text-filter-select').first();
@@ -165,7 +164,7 @@ test.describe('Library search with indexed fixtures', () => {
 
             await page.waitForFunction(
                 (prev) => {
-                    const el = document.querySelector('.lib-search-status strong');
+                    const el = document.querySelector('.lib-filter-status strong');
                     return el && parseInt(el.textContent, 10) !== prev;
                 },
                 total,
@@ -178,14 +177,14 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('Reset button restores full photo count after filtering', async ({ page }) => {
-            const status = page.locator('.lib-search-status strong');
+            const status = page.locator('.lib-filter-status strong');
             const total = parseInt(await status.textContent(), 10);
 
             const sel = page.locator('.lib-text-filter-select').first();
             await sel.selectOption({ index: 1 });
             await page.waitForFunction(
                 (prev) => {
-                    const el = document.querySelector('.lib-search-status strong');
+                    const el = document.querySelector('.lib-filter-status strong');
                     return el && parseInt(el.textContent, 10) !== prev;
                 },
                 total,
@@ -203,7 +202,7 @@ test.describe('Library search with indexed fixtures', () => {
                     && res.status() === 200,
                 { timeout: 30_000 },
             );
-            await page.locator('.lib-search-reset').click();
+            await page.locator('.lib-filter-reset').click();
             await resetResponse;
             await expect(status).toHaveText(String(total));
         });
@@ -216,20 +215,42 @@ test.describe('Library search with indexed fixtures', () => {
 
         test('arrow key moves focus through filter results', async ({ page }) => {
             // Results render in justified view; photos use .justified-item
-            const results = page.locator('#lib-search-results-area [data-type="image"]');
+            const results = page.locator('#lib-results-pane [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
             // loadResults sets focusedIndex=0 so first item is already focused
-            await expect(page.locator('#lib-search-results-area .focused')).toHaveCount(1, { timeout: 3_000 });
+            await expect(page.locator('#lib-results-pane .focused')).toHaveCount(1, { timeout: 3_000 });
             // ArrowRight moves focus to second item — still exactly 1 focused
             await page.keyboard.press('ArrowRight');
-            await expect(page.locator('#lib-search-results-area .focused')).toHaveCount(1);
+            await expect(page.locator('#lib-results-pane .focused')).toHaveCount(1);
         });
 
         test('i key opens info panel in list-view filter results', async ({ page }) => {
-            const results = page.locator('#lib-search-results-area [data-type="image"]');
+            const results = page.locator('#lib-results-pane [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
             await page.keyboard.press('i');
             await expect(page.locator('.info-panel.expanded')).toBeVisible({ timeout: 5_000 });
+        });
+
+        // The × works as in a library: criteria dropped, column closed, the
+        // list of libraries back. Regression: the hidden results pane used to
+        // keep taking keys, so `i` opened an info panel nobody could see.
+        test('× on the results resets the filter and gives the list back', async ({ page }) => {
+            await expect(page.locator('#lib-results-pane [data-type="image"]').first()).toBeVisible({ timeout: 10_000 });
+            await page.locator('.lib-text-filter-select').first().selectOption({ index: 1 });
+            await expect(page.locator('.lib-filter-btn-count')).toHaveText('1', { timeout: 5_000 });
+
+            await page.locator('#lib-results-pane .search-close-btn').click();
+            await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
+            await expect(page.locator('#lib-results-pane')).toBeHidden();
+            await expect(page.locator('#lib-list-body')).toBeVisible();
+            await expect(page.locator('.lib-filter-btn-count')).toBeHidden();
+            // Regression: resetting the chips scheduled a debounced query that
+            // brought every photo back 300 ms after the ×.
+            await page.waitForTimeout(700);
+            await expect(page.locator('#lib-results-pane')).toBeHidden();
+
+            await page.keyboard.press('i');
+            await expect(page.locator('.info-panel.expanded')).toHaveCount(0);
         });
 
         test('date taken filter section renders in the filter panel', async ({ page }) => {
@@ -238,12 +259,12 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('setting a far-future From date filters results to zero', async ({ page }) => {
-            const status = page.locator('.lib-search-status strong');
+            const status = page.locator('.lib-filter-status strong');
             await page.locator('.lib-date-input').first().fill('2099-01-01');
             await page.locator('.lib-date-input').first().dispatchEvent('change');
             await page.waitForFunction(
                 () => {
-                    const el = document.querySelector('.lib-search-status strong');
+                    const el = document.querySelector('.lib-filter-status strong');
                     return el && el.textContent.trim() === '0';
                 },
                 { timeout: 10_000 },
@@ -252,14 +273,14 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('Reset clears date inputs and restores photo count', async ({ page }) => {
-            const status = page.locator('.lib-search-status strong');
+            const status = page.locator('.lib-filter-status strong');
             const total = parseInt(await status.textContent(), 10);
 
             await page.locator('.lib-date-input').first().fill('2099-01-01');
             await page.locator('.lib-date-input').first().dispatchEvent('change');
             await page.waitForFunction(
                 () => {
-                    const el = document.querySelector('.lib-search-status strong');
+                    const el = document.querySelector('.lib-filter-status strong');
                     return el && el.textContent.trim() === '0';
                 },
                 { timeout: 10_000 },
@@ -271,7 +292,7 @@ test.describe('Library search with indexed fixtures', () => {
                     && res.status() === 200,
                 { timeout: 15_000 },
             );
-            await page.locator('.lib-search-reset').click();
+            await page.locator('.lib-filter-reset').click();
             await resetDone;
             expect(await status.textContent()).toBe(String(total));
 
@@ -296,9 +317,9 @@ test.describe('Library search with indexed fixtures', () => {
         // The filter starts closed and opens as a column beside the photos,
         // which keep showing what every criterion does.
         test('the filter starts closed and the head button opens it', async ({ page }) => {
-            await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/);
+            await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
             await page.locator('#lib-filter-btn').click();
-            await expect(page.locator('#lib-search-panel')).toHaveClass(/visible/, { timeout: 5_000 });
+            await expect(page.locator('#lib-filter-panel')).toHaveClass(/visible/, { timeout: 5_000 });
             await expect(page.locator('.lib-filter-close')).toBeVisible();
         });
 
@@ -311,14 +332,30 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('.lib-range-slider').first()).toBeVisible();
         });
 
+        // Regression: exp(log(51200)) is 51199.99999999997, so an untouched
+        // log slider counted as narrowed — an ISO chip that could not be
+        // dropped, and ISO 51200 photos filtered out of every result.
+        test('an untouched slider sets no criterion', async ({ page }) => {
+            const ends = await page.evaluate(() => [
+                sliderToValue(0, 16, 51200, true),
+                sliderToValue(1, 16, 51200, true),
+            ]);
+            expect(ends).toEqual([16, 51200]);
+
+            await page.locator('#lib-filter-btn').click();
+            await page.waitForSelector('.lib-range-slider', { timeout: 8_000 });
+            await expect(page.locator('.lib-filter-chip')).toHaveCount(0);
+            await expect(page.locator('.lib-filter-count')).toBeHidden();
+        });
+
         test('opening the filter leaves the photos beside it in place', async ({ page }) => {
             await page.waitForSelector('#lib-pane [data-type="dir"], #lib-pane [data-type="image"]', { timeout: 15_000 });
             await page.locator('#lib-filter-btn').click();
-            await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
+            await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
             await expect(page.locator('#lib-pane')).toBeVisible();
 
             await page.locator('.lib-filter-close').click();
-            await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
+            await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
             await expect(page.locator('#lib-filter-btn')).toBeVisible();
         });
 

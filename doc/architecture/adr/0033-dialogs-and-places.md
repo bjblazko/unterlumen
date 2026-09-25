@@ -1,6 +1,6 @@
 # ADR-0033: Dialogs and places, and one dialog to build them with
 
-*Last modified: 2026-09-25*
+*Last modified: 2026-09-26*
 
 ## Status
 
@@ -49,6 +49,20 @@ hidden behind it, and the thumbnails beside it answer for every criterion as
 it is set. It has no scrim and never traps the keyboard, because the photos
 stay live. On a phone there is no width to share, so there it covers the
 library for as long as it is open and gives the screen back on *Done*.
+
+**One filter, in both places (2026-09-26).** The Libraries overview had a
+"Search…" button of its own that replaced the list with results at once. It
+used the same panel and endpoint but behaved differently. Now the overview has
+the same filter as a library:
+- the same button at the left end of the head, and the same column;
+- nothing changes until a criterion is set;
+- *Done* closes the column and keeps the results;
+- the × on the results drops the criteria and gives back what they replaced.
+
+The only difference is the scope it starts with: every library in the
+overview, the open library inside one. The panel's library select changes
+the scope in both places. Searching across libraries is filtering with a
+wider scope, not a different tool.
 
 All dialogs are built with one component, `src/web/js/dialog.js`, which owns
 the frame and the behaviour but never the content: scrim, header, scrolling

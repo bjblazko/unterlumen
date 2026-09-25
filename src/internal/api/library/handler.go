@@ -15,6 +15,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -514,20 +515,7 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		q := r.URL.Query()
-		opts := lib.ListPhotosOpts{
-			Filters:        parseTextFilters(q),
-			NumericFilters: parseNumericFilters(q),
-			DateMin:        q.Get("date_taken_min"),
-			DateMax:        q.Get("date_taken_max"),
-		}
-		opts.Offset, _ = strconv.Atoi(q.Get("offset"))
-		opts.Limit, _ = strconv.Atoi(q.Get("limit"))
-		if opts.Limit <= 0 || opts.Limit > 500 {
-			opts.Limit = 100
-		}
-
-		result, err := store.ListPhotos(opts)
+		result, err := store.ListPhotos(parseListPhotosOpts(r.URL.Query()))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -539,31 +527,37 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		ids := parseIDList(q.Get("ids"))
-		opts := lib.ListPhotosOpts{
-			Filters:        parseTextFilters(q),
-			NumericFilters: parseNumericFilters(q),
-			DateMin:        q.Get("date_taken_min"),
-			DateMax:        q.Get("date_taken_max"),
-			MetaFilters:    parseMetaFilters(q),
-			AlbumTitle:     q.Get("album_title"),
-			ExtFilter:      q.Get("ext"),
-		}
-		if ch := q.Get("channel"); ch != "" {
-			opts.MetaExists = []string{"built:" + ch}
-		}
-		opts.Offset, _ = strconv.Atoi(q.Get("offset"))
-		opts.Limit, _ = strconv.Atoi(q.Get("limit"))
-		if opts.Limit <= 0 || opts.Limit > 500 {
-			opts.Limit = 100
-		}
-		result, err := mgr.SearchLibraries(ids, opts)
+		result, err := mgr.SearchLibraries(parseIDList(q.Get("ids")), parseListPhotosOpts(q))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, result)
 	}
+}
+
+// parseListPhotosOpts reads the photo filter shared by a single library's
+// photo list and the search across libraries: EXIF text, numeric and date
+// ranges, meta, album, format, destination and paging.
+func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
+	opts := lib.ListPhotosOpts{
+		Filters:        parseTextFilters(q),
+		NumericFilters: parseNumericFilters(q),
+		DateMin:        q.Get("date_taken_min"),
+		DateMax:        q.Get("date_taken_max"),
+		MetaFilters:    parseMetaFilters(q),
+		AlbumTitle:     q.Get("album_title"),
+		ExtFilter:      q.Get("ext"),
+	}
+	if ch := q.Get("channel"); ch != "" {
+		opts.MetaExists = []string{"built:" + ch}
+	}
+	opts.Offset, _ = strconv.Atoi(q.Get("offset"))
+	opts.Limit, _ = strconv.Atoi(q.Get("limit"))
+	if opts.Limit <= 0 || opts.Limit > 500 {
+		opts.Limit = 100
+	}
+	return opts
 }
 
 func globalExifValues(mgr *lib.Manager) http.HandlerFunc {

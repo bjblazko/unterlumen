@@ -213,18 +213,18 @@ test.describe('Export modes', () => {
         // until a filter runs, and picking the library in the panel's own
         // selector is what produces results.
         await page.locator('#lib-filter-btn').click();
-        await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-        await page.waitForSelector('#lib-search-panel .lib-search-select', { timeout: 20_000 });
-        await page.locator('#lib-search-panel .lib-search-select').first().selectOption(String(libID));
+        await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
+        await page.waitForSelector('#lib-filter-panel .lib-filter-select', { timeout: 20_000 });
+        await page.locator('#lib-filter-panel .lib-filter-select').first().selectOption(String(libID));
         await page.waitForSelector('.search-breadcrumb', { timeout: 15_000 });
-        await page.waitForSelector('#lib-search-pane [data-type="image"]', { timeout: 15_000 });
+        await page.waitForSelector('#lib-results-pane [data-type="image"]', { timeout: 15_000 });
 
         // Done closes the panel and keeps the results: the photos widen back
         // out and stay exactly the ones the filter found.
         await page.locator('.lib-filter-close').click();
-        await expect(page.locator('#lib-search-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
+        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
 
-        const images = page.locator('#lib-search-pane [data-type="image"]');
+        const images = page.locator('#lib-results-pane [data-type="image"]');
         await images.nth(0).click();
         await images.nth(1).click({ modifiers: ['Meta'] });
 
@@ -240,21 +240,21 @@ test.describe('Export modes', () => {
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
 
         // Open the cross-library filter panel (list view filter).
-        await page.locator('#lib-search-btn').click();
-        await page.waitForSelector('#lib-search-panel.visible', { timeout: 5_000 });
-        await page.waitForSelector('.lib-search-select', { timeout: 20_000 });
+        await page.locator('#lib-filter-btn').click();
+        await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
+        await page.waitForSelector('.lib-filter-select', { timeout: 20_000 });
 
         // Scope to our test library to ensure results appear.
-        await page.locator('.lib-search-select').first().selectOption(String(libID));
+        await page.locator('.lib-filter-select').first().selectOption(String(libID));
         await page.waitForResponse(
             res => res.url().includes('/api/library/search')
                 && new URL(res.url()).searchParams.get('ids') === String(libID)
                 && res.status() === 200,
             { timeout: 15_000 },
         );
-        await page.waitForSelector('#lib-search-results-area [data-type="image"]', { timeout: 15_000 });
+        await page.waitForSelector('#lib-results-pane [data-type="image"]', { timeout: 15_000 });
 
-        const images = page.locator('#lib-search-results-area [data-type="image"]');
+        const images = page.locator('#lib-results-pane [data-type="image"]');
         await images.nth(0).click();
         await images.nth(1).click({ modifiers: ['Meta'] });
 

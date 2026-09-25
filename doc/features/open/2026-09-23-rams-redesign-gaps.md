@@ -1,6 +1,6 @@
 # Rams redesign: remaining screens
 
-*Last modified: 2026-09-25*
+*Last modified: 2026-09-26*
 
 ## Summary
 
@@ -222,13 +222,13 @@ desktop-only notice.
 | Folders | Subfolder row | Framed buttons, always secondary | Same, with the focused folder filled | Keyboard focus has to be visible; the prototype has no keyboard |
 | Library detail | Filter panel | Search, chips, film simulation, folders | Date taken, shutter, aperture, focal length, ISO, camera, lens, film simulation, more filters | The real filter is the feature; the prototype only sketches one |
 | Library detail | Head | No Filter button | A panel button opens and closes the filter column, with the count of active criteria | A panel needs a way in and a way out; the clickdummy only ever showed it open |
-| Libraries | Head | Sort, New library… | Also Filter and Statistics | Cross-library search and statistics have no other entry point; both only read |
+| Libraries | Head | Sort, New library… | Also the Filter panel button (left end) and Statistics | The same filter as in a library, starting with every library in scope (2026-09-26, see ADR-0033); statistics have no other entry point. Both only read |
 | Libraries | Custom order | Arrows only in custom order | Same | — |
 | Galleries, gallery, Destinations | Everything | — | — | Phases 3, 4 and 6; no new differences found |
 | Marked for deletion | Empty state | "press Delete" | "press Backspace" | Both keys mark; Backspace is the one that works everywhere, including laptops without a Delete key |
 | Organize | Page head | "Organize" plus `Tab` / `Space` hints | No head | The sidebar already names the place, and the two file lists need the height. The key hints live in the pane headers' own row |
 | Organize | Pane content | Plain lists | Full browse panes with layout, sort and switches | The panes are real browse panes (ADR-0005); choosing list or grid while moving files is the point of them |
-| Settings | Section labels | Sentence case | Small caps | The app's form-label style, used on every other form |
+| Settings | Section labels | Sentence case | Same since 2026-09-26 | Small caps are removed app-wide (ADR-0030) |
 | Settings | Sections | Theme, quality, cache, helpers | Also "Interface" (hide the UI) and "What these are for" | Real settings that existed before and have nowhere else to live |
 | Phone · Libraries | Row | Name, count, path, strip | Also "Indexed <date>" | It is information, not an action, and it is the one thing that says whether the list is current |
 

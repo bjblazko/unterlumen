@@ -179,8 +179,9 @@ class GlobalKeyboard {
         // I: toggle info panel in library mode
         if ((e.key === 'i' || e.key === 'I') && app.mode === 'library' && app._libraryTab) {
             if (document.querySelector('.viewer')) return;
-            const ip = app._libraryTab._infoPanel || app._libraryTab._listInfoPanel;
-            if (!ip) return;
+            // Nothing to describe in the overview until the filter shows photos.
+            const ip = app._libraryTab._infoPanel;
+            if (!ip || !app._libraryTab.getActivePaneForKeyboard()) return;
             e.preventDefault();
             ip.toggle();
             if (ip.expanded) {

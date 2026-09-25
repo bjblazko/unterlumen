@@ -1,6 +1,6 @@
 # ADR-0019: Toggle sliders must carry three visible labels
 
-*Last modified: 2026-05-23*
+*Last modified: 2026-09-26*
 
 ## Status
 
@@ -15,10 +15,10 @@ Binary on/off controls that use colour or position as the sole state indicator a
 Every binary on/off toggle slider must expose three visible labels:
 
 1. **Purpose label** — what the control does. Can live outside the toggle element (e.g. as a `dropdown-label` sibling or a section heading) or as the leading `.toggle-label` inside a self-contained button.
-2. **ON-state label** (`.toggle-label-on`) — "ON" by default; use a contextual word when the states have inherent names (e.g. "3D", "High", "35mm").
-3. **OFF-state label** (`.toggle-label-off`) — "OFF" by default; analogously "2D", "Standard", "Native".
+2. **ON-state label** (`.toggle-label-on`) — "On" by default (sentence case since 2026-09-26, see ADR-0030); use a contextual word when the states have inherent names (e.g. "3D", "High", "35mm").
+3. **OFF-state label** (`.toggle-label-off`) — "Off" by default; analogously "2D", "Standard", "Native".
 
-`Toggle.create()` is extended with `labelOn` / `labelOff` options (default "ON"/"OFF") to support contextual labels without forking the component.
+`Toggle.create()` is extended with `labelOn` / `labelOff` options (default "On"/"Off") to support contextual labels without forking the component.
 
 **Multi-option selectors (3+ choices) are exempt** — button groups with three or more options are not binary toggles and are not affected by this rule.
 
