@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:ul="https://unterlumen.app/xmp/1.0/">
+      <ul:Publications>
+        <rdf:Bag>
+        <rdf:li rdf:parseType="Resource">
+          <ul:Channel>website-snaps-by-timo</ul:Channel>
+          <ul:PostID>1b77e9eb983b36fd69719d8d</ul:PostID>
+          <ul:GalleryTitle>Photos 2019</ul:GalleryTitle>
+          <ul:PublishedAt>2026-07-11T12:00:00Z</ul:PublishedAt>
+        </rdf:li>
+        <rdf:li rdf:parseType="Resource">
+          <ul:Channel>website-snaps-by-timo</ul:Channel>
+          <ul:PostID>25d2ab582739d77bd40a1b56</ul:PostID>
+          <ul:GalleryTitle>Photos 2019</ul:GalleryTitle>
+          <ul:PublishedAt>2026-07-11T12:00:00Z</ul:PublishedAt>
+        </rdf:li>
+        </rdf:Bag>
+      </ul:Publications>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>

@@ -73,6 +73,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-album-list", rebuildAlbumList(chStore, mgr))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-galleries", rebuildGalleries(chStore))
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 	mux.HandleFunc("PATCH /api/channels/{slug}/galleries/{postID}", renameGallery(chStore, mgr))
@@ -1616,6 +1617,11 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		pub := media.Publication{
 			Channel: slug, Account: draft.Target.Account, PostID: albumPostID,
 			GalleryTitle: draft.Target.Title, PublishedAt: publishedAt,
+		}
+		if siteMode {
+			// The slug is the album's URL and cannot be derived again, so
+			// each photo's sidecar carries it (with the flag it encodes).
+			pub.Slug, pub.Unlisted = albumSlug, albumUnlisted
 		}
 
 		if err := os.MkdirAll(outDir, 0o700); err != nil {

@@ -16,6 +16,7 @@ import (
 
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 )
 
 func newTestManager(t *testing.T) *lib.Manager {
@@ -974,5 +975,70 @@ func TestGenerateDraft_AddToExisting_RecordsRealAlbumID(t *testing.T) {
 	}
 	if dirs != 1 {
 		t.Errorf("album folders = %d, want 1", dirs)
+	}
+}
+
+// A published site album's slug is its URL. It has to be recorded in the
+// photo's own sidecar, so a lost register can be rebuilt without minting a
+// new slug for a link that was already shared.
+func TestGenerateDraft_SiteAlbum_RecordsSlugAndUnlistedInSidecar(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85, SiteExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+	draft, err := draftStore.Create("website", channels.DraftTarget{Title: "Iceland", Unlisted: true}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/channels/website/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	hint, _ := store.GetPhotoPathHint("photo1")
+	pubs, err := media.ReadSidecar(hint)
+	if err != nil || len(pubs) != 1 {
+		t.Fatalf("ReadSidecar: %+v, %v", pubs, err)
+	}
+	albums, _ := newSiteStore(chStore, "website").List()
+	if len(albums) != 1 {
+		t.Fatalf("register holds %d albums", len(albums))
+	}
+	if pubs[0].Slug == "" || pubs[0].Slug != albums[0].Slug {
+		t.Errorf("sidecar slug %q, register slug %q — want the same, non-empty", pubs[0].Slug, albums[0].Slug)
+	}
+	if !pubs[0].Unlisted {
+		t.Error("sidecar must record that the album is unlisted")
+	}
+}
+
+func TestGenerateDraft_GalleryChannel_WritesNoSlugToSidecar(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "shares", Name: "Shares", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+	draft, _ := draftStore.Create("shares", channels.DraftTarget{Title: "Trip"}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	req := httptest.NewRequest("POST", "/api/channels/shares/drafts/"+draft.ID+"/generate", strings.NewReader("{}"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	store, _ := mgr.OpenStore(libID)
+	defer store.Close()
+	hint, _ := store.GetPhotoPathHint("photo1")
+	pubs, _ := media.ReadSidecar(hint)
+	if len(pubs) != 1 || pubs[0].Slug != "" {
+		t.Errorf("a gallery album has no slug; got %+v", pubs)
 	}
 }

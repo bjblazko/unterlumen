@@ -19,6 +19,8 @@ type Publication struct {
 	Account      string    // account ID within the channel; empty when channel has no sub-accounts
 	PostID       string    // shared ID for photos published together in one action
 	GalleryTitle string    // title of the gallery/album this publish belongs to; empty for bare exports
+	Slug         string    // site album's folder name and URL; empty for anything that is not a site album. Never derived again once published.
+	Unlisted     bool      // site album is kept out of the index and sitemap; fixed with the slug
 	PublishedAt  time.Time
 }
 
@@ -136,6 +138,10 @@ func parseSidecarPublications(data []byte) ([]Publication, error) {
 					current.PostID = val
 				case "GalleryTitle":
 					current.GalleryTitle = val
+				case "Slug":
+					current.Slug = val
+				case "Unlisted":
+					current.Unlisted = val == "true"
 				case "PublishedAt":
 					current.PublishedAt, _ = time.Parse(time.RFC3339, val)
 				}
@@ -170,6 +176,12 @@ func renderULBlock(pubs []Publication) string {
 		}
 		if p.GalleryTitle != "" {
 			items.WriteString("\n          <ul:GalleryTitle>" + xmlEscapeStr(p.GalleryTitle) + "</ul:GalleryTitle>")
+		}
+		if p.Slug != "" {
+			items.WriteString("\n          <ul:Slug>" + xmlEscapeStr(p.Slug) + "</ul:Slug>")
+		}
+		if p.Unlisted {
+			items.WriteString("\n          <ul:Unlisted>true</ul:Unlisted>")
 		}
 		items.WriteString("\n          <ul:PublishedAt>" + p.PublishedAt.UTC().Format(time.RFC3339) + "</ul:PublishedAt>")
 		items.WriteString("\n        </rdf:li>")

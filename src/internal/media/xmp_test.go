@@ -3,6 +3,7 @@ package media
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -143,5 +144,39 @@ func TestWriteTitle_ClearTitle(t *testing.T) {
 	}
 	if title != "" {
 		t.Fatalf("expected empty title after clear, got %q", title)
+	}
+}
+
+// A site album's slug is its URL and must never be derived again, so the
+// sidecar has to carry it, together with the flag that is encoded in it.
+func TestPublication_SlugAndUnlistedRoundTrip(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	in := Publication{Channel: "website", PostID: "p1", GalleryTitle: "Iceland", Slug: "iceland-3fa9c1d2", Unlisted: true, PublishedAt: at}
+	if err := AppendPublication(photo, in); err != nil {
+		t.Fatal(err)
+	}
+	pubs, err := ReadSidecar(photo)
+	if err != nil || len(pubs) != 1 {
+		t.Fatalf("ReadSidecar: %+v, %v", pubs, err)
+	}
+	if pubs[0].Slug != in.Slug || !pubs[0].Unlisted {
+		t.Errorf("got slug %q unlisted %v, want %q true", pubs[0].Slug, pubs[0].Unlisted, in.Slug)
+	}
+}
+
+// Sidecars written before the slug existed still read, with the fields empty.
+func TestPublication_WithoutSlugReadsAsEmpty(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	if err := AppendPublication(photo, Publication{Channel: "website", PostID: "p1", PublishedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	pubs, _ := ReadSidecar(photo)
+	if len(pubs) != 1 || pubs[0].Slug != "" || pubs[0].Unlisted {
+		t.Fatalf("got %+v", pubs)
+	}
+	raw, _ := os.ReadFile(SidecarPath(photo))
+	if strings.Contains(string(raw), "ul:Slug") || strings.Contains(string(raw), "ul:Unlisted") {
+		t.Error("empty slug and false unlisted must not be written")
 	}
 }
