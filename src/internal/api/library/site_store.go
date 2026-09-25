@@ -26,14 +26,19 @@ func newSiteStore(chStore *channels.Store, slug string) *siteStore {
 	}
 }
 
-// List returns every album in the register. A register that is still empty
-// adopts the albums of a site.json written before the register existed, once;
-// after that the local cache is never read as a source, because it may hold an
-// album the other installation has since deleted.
+// List returns every album in the register. A register that has never been
+// used (its directory does not exist yet) adopts the albums of a site.json
+// written before the register existed, once. After that the local cache is
+// never read as a source, because it may hold an album the other installation
+// has since deleted — which is also why "no albums left" does not count as
+// "never used".
 func (s *siteStore) List() ([]SiteAlbum, error) {
 	albums, err := s.reg.List()
 	if err != nil || len(albums) > 0 {
 		return albums, err
+	}
+	if _, statErr := os.Stat(s.reg.dir); statErr == nil {
+		return albums, nil
 	}
 	legacy, err := loadSiteState(s.cachePath)
 	if err != nil || len(legacy) == 0 {

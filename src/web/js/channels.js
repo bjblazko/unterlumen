@@ -35,6 +35,11 @@ const ChannelAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    async rebuildAlbumList(slug) {
+        const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/rebuild-album-list`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async rebuildGalleries(slug) {
         const r = await fetch(`/api/channels/${encodeURIComponent(slug)}/rebuild-galleries`, { method: 'POST' });
         if (!r.ok) throw new Error(await r.text());

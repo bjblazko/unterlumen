@@ -173,8 +173,12 @@ register files byte for byte.
    `channels.json`, not in the output.~~ (done 2026-09-25: `siteStore` in
    `internal/api/library/site_store.go`; a register that is still empty adopts
    a legacy `site.json` once.)
-3. Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
-   Destinations → Advanced.
+3. ~~Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
+   Destinations → Advanced.~~ (done 2026-09-25. Until step 4 the rebuild can
+   bring a deleted album back, because deleting does not yet clear its
+   sidecars. The legacy `site.json` is adopted only while the register
+   directory does not exist, so "no albums left" is not mistaken for "never
+   used".)
 4. Deleting writes a tombstone and clears the sidecars.
 
 Steps 1 and 2 together solve the concrete problem. Steps 3 and 4 are the price
@@ -217,10 +221,10 @@ default under `-lib-dir`) is the configuration this feature should make safe.
 - [x] Publishing album A from one installation and album B from another leaves
       an index and a sitemap containing both — covered by a Go test that
       simulates the two output directories.
-- [ ] The sidecar also records the album's slug and `unlisted`, and
+- [x] The sidecar also records the album's slug and `unlisted`, and
       Destinations → Advanced offers "Rebuild album list", which reports how
       many albums it found and what it changed.
-- [ ] An album folder or photo from before this change is listed rather than
+- [x] An album folder or photo from before this change is listed rather than
       dropped, and says what could not be read.
 - [ ] Deleting an album leaves a tombstone in the register and clears the meta
       keys in its photos' sidecars, so a rebuild does not resurrect it.

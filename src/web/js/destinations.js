@@ -469,6 +469,15 @@ class DestinationsPane {
                                 <button class="btn btn-sm" id="chf-account-add">+ Add account</button>
                                 <span class="form-hint">Named sub-accounts, e.g. two Mastodon logins.</span>
                             </div>
+                            ${(isNew || !ch.siteExport) ? '' : `
+                            <div class="form-field">
+                                <span class="form-label">Album list</span>
+                                <div class="dest-maintenance">
+                                    <button class="btn btn-sm" id="dest-rebuild-albums">Rebuild album list</button>
+                                </div>
+                                <span class="form-hint">Adds albums that are missing from the list shared by your installations, from what the photos themselves record. Albums already listed stay as they are. Only photos in a library that has been scanned are looked at.</span>
+                                <div id="dest-rebuild-albums-report" class="dest-report" role="status" aria-live="polite"></div>
+                            </div>`}
                             ${isNew ? '' : `
                             <div class="form-field">
                                 <span class="form-label">Maintenance</span>
@@ -562,6 +571,7 @@ class DestinationsPane {
             this._initAvatarUI(form, ch);
             root.querySelector('#dest-reveal').addEventListener('click', () => ChannelAPI.reveal(ch.slug));
             this._wireDelete(root, ch);
+            if (ch.siteExport) this._wireRebuildAlbums(root, ch);
         } else {
             form.querySelector('#chf-logo-status').textContent = 'Create the destination first, then upload a logo.';
             form.querySelector('#chf-logo-upload').disabled = true;
@@ -620,6 +630,46 @@ class DestinationsPane {
                 testBtn.textContent = label;
             }
         });
+    }
+
+    _wireRebuildAlbums(root, ch) {
+        const btn = root.querySelector('#dest-rebuild-albums');
+        const out = root.querySelector('#dest-rebuild-albums-report');
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            out.textContent = 'Reading the photos…';
+            try {
+                out.innerHTML = this._albumReportHTML(await ChannelAPI.rebuildAlbumList(ch.slug));
+            } catch (err) {
+                out.innerHTML = `<div class="gal-detail-error">Could not rebuild the album list: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    // What the rebuild found, in plain sentences: what it added, what was
+    // already there, and what it could not restore and why.
+    _albumReportHTML(r) {
+        const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+        const found = r.added.length + r.present + r.unreadable.length;
+        if (found === 0 && r.photos.length === 0) {
+            return '<p>No albums found in the photos of this destination.</p>';
+        }
+        const parts = [`<p>Found ${plural(found, 'album', 'albums')} in the photos. Added ${r.added.length}; ${r.present} already listed.</p>`];
+        if (r.added.length) {
+            parts.push(`<ul>${r.added.map(a => `<li>${escapeHtml(a.title)} <span class="dest-report-data">/${escapeHtml(a.slug)}</span>, ${plural(a.photos, 'photo', 'photos')}</li>`).join('')}</ul>`);
+        }
+        if (r.unreadable.length) {
+            parts.push(`<p class="dest-report-warning">${plural(r.unreadable.length, 'album', 'albums')} could not be restored:</p>`);
+            parts.push(`<ul>${r.unreadable.map(u => `<li>${escapeHtml(u.title || u.postID)}: ${escapeHtml(u.reason)}.</li>`).join('')}</ul>`);
+        }
+        if (r.photos.length) {
+            const shown = r.photos.slice(0, 10);
+            parts.push(`<p class="dest-report-warning">${plural(r.photos.length, 'photo', 'photos')} could not be read:</p>`);
+            parts.push(`<ul>${shown.map(p => `<li><span class="dest-report-data">${escapeHtml(p.filename)}</span>: ${escapeHtml(p.reason)}</li>`).join('')}${r.photos.length > shown.length ? `<li>and ${r.photos.length - shown.length} more</li>` : ''}</ul>`);
+        }
+        return parts.join('');
     }
 
     _wireDelete(root, ch) {

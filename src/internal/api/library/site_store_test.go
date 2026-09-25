@@ -133,3 +133,23 @@ func TestRebuildSiteListsAlbumsOfBothInstallations(t *testing.T) {
 		}
 	}
 }
+
+// "Empty" is not "never used": once the last album was removed, a stale
+// site.json on another installation must not bring it back.
+func TestSiteStoreDoesNotAdoptAfterTheLastAlbumWasRemoved(t *testing.T) {
+	shared := t.TempDir()
+	first, _ := newTestSiteStore(t, shared, "/photos")
+	_ = first.Upsert(testAlbum("pA", "Alpha"))
+
+	second, cache := newTestSiteStore(t, shared, "/Volumes/nas/photos")
+	_ = os.MkdirAll(filepath.Dir(cache), 0o755)
+	_ = saveSiteState(cache, []SiteAlbum{testAlbum("pA", "Alpha")}) // its cache still has the album
+
+	if err := first.Remove("pA"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := second.List()
+	if err != nil || len(got) != 0 {
+		t.Fatalf("List = %+v, %v; the removed album must stay removed", got, err)
+	}
+}

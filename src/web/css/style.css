@@ -6228,6 +6228,37 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-2);
 }
 
+/* --- Album list rebuild report --- */
+
+.dest-report {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--fg);
+}
+
+.dest-report:empty {
+    display: none;
+}
+
+.dest-report p,
+.dest-report ul {
+    margin: 0;
+}
+
+.dest-report ul {
+    padding-left: var(--space-4);
+}
+
+.dest-report-warning {
+    color: var(--warning-ink);
+}
+
+.dest-report-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
 /* --- View switches: names and details, visible in the toolbar --- */
 
 .view-switches {
