@@ -222,6 +222,45 @@ test.describe('Published Galleries overview', () => {
         expect(rows.find(r => r.postID === disposablePostID)).toBeFalsy();
     });
 
+    // Unpublishing takes a moment (the sidecars of every photo are cleaned), so
+    // the confirmation says it is working (like a library scan does) and cannot be
+    // triggered a second time.
+    test('Unpublish shows that it is working and cannot be clicked twice', async ({ page, request }) => {
+        const evt = await buildGallery(request, libID, photoID, GALLERY_SLUG, 'E2E Busy Gallery');
+
+        // Hold the request until the assertions are done.
+        let release;
+        const gate = new Promise(r => { release = r; });
+        let deleteCalls = 0;
+        await page.route('**/api/channels/*/galleries/*', async route => {
+            if (route.request().method() !== 'DELETE') return route.continue();
+            deleteCalls++;
+            await gate;
+            await route.continue();
+        });
+
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-published');
+        await page.locator(`.gal-row[data-postid="${evt.postID}"]`).click();
+        await page.locator('#gal-remove').click();
+        await page.locator('#gal-remove-confirm').click();
+
+        // Same quiet status line as a library scan, and the controls are locked.
+        const status = page.locator('#gal-danger-status');
+        await expect(status).toBeVisible();
+        await expect(status).toContainText('Unpublishing');
+        await expect(page.locator('#gal-remove-confirm')).toBeDisabled();
+        await expect(page.locator('#gal-remove-cancel')).toBeDisabled();
+
+        // A second click does nothing.
+        await page.locator('#gal-remove-confirm').click({ force: true });
+        release();
+
+        await expect(page.locator(`.gal-row[data-postid="${evt.postID}"]`)).toHaveCount(0);
+        expect(deleteCalls).toBe(1);
+    });
+
     // The destinations list links into Galleries: the address opens the public
     // site, and the gallery count opens Galleries filtered to that destination.
     test('the destinations list links to the public site and into Galleries', async ({ page }) => {

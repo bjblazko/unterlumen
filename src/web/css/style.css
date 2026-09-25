@@ -5892,6 +5892,15 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-2);
 }
 
+.gal-danger-status {
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.gal-danger-status:empty {
+    display: none;
+}
+
 .gal-section-title {
     font-size: var(--text-xs);
     font-weight: 500;

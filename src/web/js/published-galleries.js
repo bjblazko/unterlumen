@@ -534,17 +534,31 @@ class GalleriesPane {
                     <button class="btn btn-sm" id="gal-remove-cancel">Keep it</button>
                     <button class="btn btn-sm btn-danger" id="gal-remove-confirm">${isDraft ? 'Discard draft' : 'Unpublish'}</button>
                 </div>
+                <div class="gal-danger-status" id="gal-danger-status" role="status" aria-live="polite"></div>
                 <div class="gal-detail-error" id="gal-danger-error" hidden></div>`;
             wrap.querySelector('#gal-remove-cancel').addEventListener('click', () => this._renderDangerZone(row, state));
             wrap.querySelector('#gal-remove-confirm').addEventListener('click', async () => {
                 const errEl = wrap.querySelector('#gal-danger-error');
+                const statusEl = wrap.querySelector('#gal-danger-status');
+                const controls = wrap.querySelectorAll('button, input');
+                // Removing takes a moment (the photos' sidecars are cleaned, and
+                // the remote copy is deleted over SSH): say so, and lock the
+                // controls so it cannot be started twice.
+                const setBusy = (text) => {
+                    controls.forEach(c => { c.disabled = !!text; });
+                    statusEl.textContent = text;
+                };
+                const deleteRemote = !!wrap.querySelector('#gal-remove-remote')?.checked;
+                errEl.hidden = true;
+                setBusy(isDraft ? 'Discarding the draft…'
+                    : deleteRemote ? 'Unpublishing and deleting on the remote host…' : 'Unpublishing…');
                 try {
                     if (isDraft) {
                         await ChannelAPI.deleteDraft(row.channelSlug, row.draftID);
                     } else {
-                        const deleteRemote = !!wrap.querySelector('#gal-remove-remote')?.checked;
                         const result = await PublishedGalleryAPI.remove(row.channelSlug, row.postID, deleteRemote);
                         if (result.remoteDeleteError) {
+                            setBusy('');
                             errEl.textContent = 'Removed locally, but the remote copy is still there: ' + result.remoteDeleteError;
                             errEl.hidden = false;
                             return;
@@ -554,6 +568,7 @@ class GalleriesPane {
                     this._checks.delete(row.rowKey);
                     await this._load();
                 } catch (err) {
+                    setBusy('');
                     errEl.textContent = 'Could not remove it: ' + err.message;
                     errEl.hidden = false;
                 }
