@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-09-23*
+*Last modified: 2026-09-25*
 
 ## Project
 
@@ -86,6 +86,8 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 ## Gotchas
 
 Non-obvious bugs that have already occurred and are easy to repeat:
+
+- **Paths: two views of the same photos.** The same tree is reached as a container path on the NAS and as a mounted path on the Mac, so a path string that is right in one view is silently wrong in the other. Before using any path, say which kind it is: *browse-root relative* (what the folder picker and API bodies carry) goes through `pathguard.SafePath(root, rel)` on the Go side and never through a `filepath.Join` against the process working directory; *absolute, headed back to the UI* goes through `absPathRelativeToBoundary(abs, boundary)` in `src/web/js/api.js`, whose `null` means "outside the root" and must be reported rather than dropped; *shared configuration* (`channels.json` in `-channels-dir`) must hold no machine-local absolute path — a destination's `outputPath` is left empty so each installation uses its own default; *`-lib-dir` content* (library DBs, thumbnails, generated output) may be absolute, it never leaves the machine. Two shipped bugs came from getting this wrong: batch rename stripped a leading `/` to make a path relative (right only when the browse root is `/`, a doubled nonexistent path otherwise), and a destination's output path was handed to the filesystem as picked, resolving against the working directory — every gallery of that destination then vanished from the overview.
 
 - **Library keyboard shortcuts — two search paths**: `LibraryTab` (`src/web/js/library.js`) has two separate code paths: `_searchPane` (single-library filter view) and `_listSearchPanel._searchPane` (cross-library list-view search). Any code routing keyboard events, info-panel updates, or selection state must handle both. Always go through `getActivePaneForKeyboard()`; never assume `_searchPane` or `_infoPanel` is non-null in list-view mode. Info panel must fall back to `_listInfoPanel` when `_infoPanel` is null.
 

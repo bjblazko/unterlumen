@@ -132,6 +132,36 @@ Call sites, for whoever picks this up:
 | `galleries_overview` delete (~490) | remove |
 | `deploy_stamp` | upsert (deployedAt) |
 
+### Paths: two views of the same photos
+
+The same photo tree is reached two ways — the NAS runs in a container whose
+browse root is a container path, the Mac runs natively against a mounted path.
+A path string that is right in one view is silently wrong in the other, and
+this has already produced two shipped bugs (batch rename's doubled path, a
+destination's output path resolved against the working directory). Step 2
+walks straight into it, because the register is shared while the output is
+not.
+
+For every path in this work, say which kind it is before using it:
+
+- **Browse-root relative**, as the folder picker and the API request bodies
+  produce it → `pathguard.SafePath(root, rel)`, never a `filepath.Join`
+  against the process working directory.
+- **Absolute, going back to the UI** → `absPathRelativeToBoundary(abs,
+  boundary)`; `null` means "outside the root" and has to be reported, not
+  dropped.
+- **In the shared register** → no machine-local absolute paths at all. An
+  album record names its own folder (`slug`) and its files, relative to the
+  site directory. Which site directory that is, is a per-machine question
+  answered by `chStore.OutputDir(slug)`; the register must not answer it.
+- **In `-lib-dir`** (databases, thumbnails, generated output) → absolute is
+  fine, it never leaves the machine.
+
+The register also has to survive the case the two installations disagree about
+the browse root: nothing in it may encode one. That is the test worth writing
+first — build the same album from two different roots and compare the
+register files byte for byte.
+
 ### Order of work
 
 1. ~~The sidecar follows the file on copy, move and rename~~ (done
