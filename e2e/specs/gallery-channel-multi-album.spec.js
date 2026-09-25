@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { reindexLibrary } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
 
 // A single-gallery channel is one host holding many unrelated, unlisted
 // albums. These specs guard the paths that used to assume one gallery per
 // channel, which forced users into one channel per album.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FOLDER = path.resolve(__dirname, '..', 'fixtures', 'photos', 'folder-b');
 const SLUG = 'e2e-multi-album';
 
 function parseSseComplete(text) {
@@ -156,6 +161,35 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         const afterKeys = after.map(e => e.key);
         expect(afterKeys).toContain(`built:${SLUG}:${albumA}:title`);
         expect(afterKeys).toContain(`built:${SLUG}:${albumB}:title`);
+    });
+
+    test('unpublishing a gallery takes it out of its photos, and the marker goes with the last one', async ({ request }) => {
+        const photo = photos[2] ?? photos[0];
+        const gone = await collect(request, libID, [photo], { title: 'Unpublish Gone', unlisted: true });
+        const goneID = (await generate(request, gone.id)).postID;
+        const stays = await collect(request, libID, [photo], { title: 'Unpublish Stays', unlisted: true });
+        const staysID = (await generate(request, stays.id)).postID;
+
+        const keys = async () => (await (await request.get(`/api/library/${libID}/photo/${photo}/meta`)).json()).map(e => e.key);
+        const sidecarsNaming = (postID) => fs.readdirSync(FOLDER).filter(f => f.endsWith('.xmp'))
+            .filter(f => fs.readFileSync(path.join(FOLDER, f), 'utf8').includes(`<ul:PostID>${postID}</ul:PostID>`));
+        expect(sidecarsNaming(goneID)).toHaveLength(1);
+
+        const del = await request.delete(`/api/channels/${SLUG}/galleries/${goneID}`, { data: { deleteRemote: false } });
+        expect(del.status()).toBe(200);
+
+        // Only that gallery's record and keys are gone; the other gallery and the channel marker stay.
+        expect(sidecarsNaming(goneID)).toHaveLength(0);
+        expect(sidecarsNaming(staysID)).toHaveLength(1);
+        let now = await keys();
+        expect(now).not.toContain(`built:${SLUG}:${goneID}`);
+        expect(now).toContain(`built:${SLUG}:${staysID}`);
+        expect(now).toContain(`built:${SLUG}`);
+
+        await request.delete(`/api/channels/${SLUG}/galleries/${staysID}`, { data: { deleteRemote: false } });
+        expect(sidecarsNaming(staysID)).toHaveLength(0);
+        now = await keys();
+        expect(now).not.toContain(`built:${SLUG}`);   // the channel filter matches on it
     });
 
     test('unlisted albums carry a noindex tag, listed ones do not', async ({ request }) => {

@@ -53,6 +53,11 @@ the deleting installation. The tombstone covers the photos that are not.
 `Remove` (without a tombstone) is for an album that only ran out of its list
 entry through pruning and may be restored.
 
+Unpublishing a share-links gallery gets the same cleaning without a tombstone
+(a gallery has no register): `forgetAlbumInPhotos` removes the album's record from
+the reachable photos' sidecars and its keys from the library, and the channel
+marker with the photo's last album of that destination.
+
 **A destination's output folder belongs to one installation.** `outputPath` was
 picked on one machine and stored in the shared `channels.json`, where it names a
 directory that does not exist on the other. It now lives in `output-paths.json`

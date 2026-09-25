@@ -510,7 +510,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 			// Take the album out of its photos first, then leave the tombstone
 			// for the photos this installation cannot reach.
-			sidecarsNotCleared = clearAlbumSidecars(mgr, albums[idx], slug)
+			sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, albums[idx].Photos)
 			if err := sites.Delete(postID); err != nil {
 				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -531,6 +531,10 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			}
 			localDir = safeDir
 			remoteSubpath = postID
+			// Take the gallery out of its photos before its state goes.
+			if gs, _ := loadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
+				sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, gs.Photos)
+			}
 			os.RemoveAll(localDir) //nolint:errcheck
 		default:
 			http.Error(w, "channel is not configured for gallery or site export", http.StatusBadRequest)
@@ -559,19 +563,50 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
-// clearAlbumSidecars removes an album's record from the sidecar of each of its
-// photos that this installation can reach, and returns how many it could not
-// reach or write. Those photos are covered by the tombstone.
-func clearAlbumSidecars(mgr *lib.Manager, album SiteAlbum, channelSlug string) (notCleared int) {
-	for _, sp := range album.Photos {
-		if sp.PhotoID == "" || mgr == nil {
+// forgetAlbumInPhotos takes one album out of its photos: its record leaves the
+// photo's sidecar and its keys leave the library, so nothing on the photo
+// claims it is published there any more (and a rebuild cannot find it). The
+// channel marker goes with the photo's last album of that destination. It
+// returns how many photos it could not reach from this installation — not in a
+// library here, not mounted, or an entry without a photo ID.
+func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []SitePhoto) (notCleared int) {
+	pending := map[string]bool{}
+	for _, sp := range photos {
+		if sp.PhotoID == "" {
 			notCleared++
-			continue
-		}
-		path, err := findPhotoSourcePath(mgr, sp.PhotoID)
-		if err != nil || path == "" || media.RemovePublication(path, channelSlug, album.PostID) != nil {
-			notCleared++
+		} else {
+			pending[sp.PhotoID] = true
 		}
 	}
-	return notCleared
+	if mgr != nil {
+		libs, _ := mgr.ListLibraries()
+		for _, l := range libs {
+			if len(pending) == 0 {
+				break
+			}
+			store, err := mgr.OpenStore(l.ID)
+			if err != nil {
+				continue
+			}
+			for id := range pending {
+				hint, err := store.GetPhotoPathHint(id)
+				if err != nil || hint == "" {
+					continue
+				}
+				if _, err := os.Stat(hint); err != nil {
+					continue // in a library here, but not reachable right now
+				}
+				delete(pending, id)
+				if media.RemovePublication(hint, channelSlug, postID) != nil {
+					notCleared++
+				}
+				deleteAlbumKeys(store, id, channelSlug, postID)
+				if entries, err := store.GetMeta(id); err == nil && len(albumPostIDsForChannel(entries, channelSlug)) == 0 {
+					deleteChannelPublicationKeys(store, id, channelSlug)
+				}
+			}
+			store.Close()
+		}
+	}
+	return notCleared + len(pending)
 }
