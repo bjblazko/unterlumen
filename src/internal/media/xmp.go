@@ -108,6 +108,34 @@ func RemovePublication(photoPath, channel, postID string) error {
 	return os.WriteFile(sidecarPath, mergeULBlock(raw, kept), 0o644)
 }
 
+// SetPublicationAddress records a site album's slug and Unlisted flag in the
+// publications of one album (channel and postID) that carry none — the ones
+// written before the address was recorded. An address that is already there is
+// never replaced: a slug is a URL that may be shared. It reports whether it
+// changed the sidecar.
+func SetPublicationAddress(photoPath, channel, postID, slug string, unlisted bool) (bool, error) {
+	pubs, err := ReadSidecar(photoPath)
+	if err != nil {
+		return false, fmt.Errorf("read sidecar: %w", err)
+	}
+	changed := false
+	for i := range pubs {
+		if pubs[i].Channel == channel && pubs[i].PostID == postID && pubs[i].Slug == "" {
+			pubs[i].Slug, pubs[i].Unlisted = slug, unlisted
+			changed = true
+		}
+	}
+	if !changed {
+		return false, nil
+	}
+	sidecarPath := SidecarPath(photoPath)
+	raw, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(sidecarPath, mergeULBlock(raw, pubs), 0o644)
+}
+
 // parseSidecarPublications extracts ul:Publications entries from XMP bytes.
 func parseSidecarPublications(data []byte) ([]Publication, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))

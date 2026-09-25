@@ -53,6 +53,17 @@ the deleting installation. The tombstone covers the photos that are not.
 `Remove` (without a tombstone) is for an album that only ran out of its list
 entry through pruning and may be restored.
 
+## Migration
+
+Existing albums live in `site.json` and their sidecars carry no address. The
+first installation that reads a channel's albums after the upgrade copies its
+`site.json` into the register; installations that come later find the register
+and adopt nothing (see above). So the installation that really holds the
+albums — the one that publishes — has to be upgraded and opened first. Then
+*Rebuild album list* writes the register's address into the sidecars of the
+photos of those albums, after which they are restorable from the photos like
+any album published later.
+
 ## Consequences
 
 - The output directory is disposable: anything under it can be rebuilt from the

@@ -15,11 +15,14 @@ import (
 // albumRegisterReport says what rebuilding the album register from the photos'
 // sidecars found, what it added and what it could not read.
 type albumRegisterReport struct {
-	Added      []rebuiltAlbum    `json:"added"`
-	Present    int               `json:"present"`    // already in the register, left as they are
-	Deleted    int               `json:"deleted"`    // deleted on purpose, so not restored
-	Unreadable []unreadableAlbum `json:"unreadable"` // found in sidecars but not registrable
-	Photos     []unreadablePhoto `json:"photos"`     // sidecars that could not be read
+	Added   []rebuiltAlbum `json:"added"`
+	Present int            `json:"present"` // already in the register, left as they are
+	Deleted int            `json:"deleted"` // deleted on purpose, so not restored
+	// SidecarsCompleted counts photos whose sidecar got the address of a
+	// registered album that was published before addresses were recorded.
+	SidecarsCompleted int               `json:"sidecarsCompleted"`
+	Unreadable        []unreadableAlbum `json:"unreadable"` // found in sidecars but not registrable
+	Photos            []unreadablePhoto `json:"photos"`     // sidecars that could not be read
 }
 
 type rebuiltAlbum struct {
@@ -46,6 +49,7 @@ type sidecarAlbum struct {
 	unlisted            bool
 	first, last         time.Time
 	photos              []SitePhoto
+	unaddressed         []string // photos whose sidecar records this album without an address
 }
 
 // rebuildAlbumRegister writes the albums the photos' sidecars record for a
@@ -62,17 +66,18 @@ func rebuildAlbumRegister(sites *siteStore, mgr *lib.Manager, ch *channels.Chann
 	if err != nil {
 		return report, err
 	}
-	have := make(map[string]bool, len(registered))
+	have := make(map[string]SiteAlbum, len(registered))
 	for _, a := range registered {
-		have[a.PostID] = true
+		have[a.PostID] = a
 	}
 
 	for _, sa := range found {
 		switch {
 		case sites.IsDeleted(sa.postID):
 			report.Deleted++
-		case have[sa.postID]:
+		case have[sa.postID].PostID != "":
 			report.Present++
+			completeSidecars(&report, ch, have[sa.postID], sa.unaddressed)
 		case sa.slug == "":
 			report.Unreadable = append(report.Unreadable, unreadableAlbum{
 				PostID: sa.postID, Title: sa.title,
@@ -87,6 +92,24 @@ func rebuildAlbumRegister(sites *siteStore, mgr *lib.Manager, ch *channels.Chann
 		}
 	}
 	return report, nil
+}
+
+// completeSidecars gives the photos of a registered album the address the
+// register knows and their sidecars lack, so the album can be restored from the
+// photos as well.
+func completeSidecars(report *albumRegisterReport, ch *channels.Channel, album SiteAlbum, paths []string) {
+	if album.Slug == "" {
+		return
+	}
+	for _, path := range paths {
+		changed, err := media.SetPublicationAddress(path, ch.Slug, album.PostID, album.Slug, album.Unlisted)
+		switch {
+		case err != nil:
+			report.Photos = append(report.Photos, unreadablePhoto{Filename: filepath.Base(path), Reason: err.Error()})
+		case changed:
+			report.SidecarsCompleted++
+		}
+	}
 }
 
 func (sa *sidecarAlbum) toSiteAlbum() SiteAlbum {
@@ -174,6 +197,9 @@ func (sa *sidecarAlbum) add(ch *channels.Channel, p lib.Photo, pub media.Publica
 	}
 	if sa.slug == "" {
 		sa.slug, sa.unlisted = pub.Slug, pub.Unlisted
+	}
+	if pub.Slug == "" {
+		sa.unaddressed = append(sa.unaddressed, p.PathHint)
 	}
 	name := exportedFilename(ch, pub.PublishedAt, p.PathHint)
 	sa.photos = append(sa.photos, SitePhoto{PhotoID: p.ID, Filename: name, ThumbFilename: "thumbs/" + name})

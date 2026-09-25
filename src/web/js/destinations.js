@@ -661,6 +661,9 @@ class DestinationsPane {
         if (r.added.length) {
             parts.push(`<ul>${r.added.map(a => `<li>${escapeHtml(a.title)} <span class="dest-report-data">/${escapeHtml(a.slug)}</span>, ${plural(a.photos, 'photo', 'photos')}</li>`).join('')}</ul>`);
         }
+        if (r.sidecarsCompleted) {
+            parts.push(`<p>Completed ${plural(r.sidecarsCompleted, 'photo sidecar', 'photo sidecars')} with the album's address, so those albums can be restored from the photos too.</p>`);
+        }
         if (r.unreadable.length) {
             parts.push(`<p class="dest-report-warning">${plural(r.unreadable.length, 'album', 'albums')} could not be restored:</p>`);
             parts.push(`<ul>${r.unreadable.map(u => `<li>${escapeHtml(u.title || u.postID)}: ${escapeHtml(u.reason)}.</li>`).join('')}</ul>`);

@@ -288,3 +288,46 @@ func TestRemovePhotoFromSite_ClearsItsSidecarEntry(t *testing.T) {
 		t.Error("the album ran out of photos and must stay gone")
 	}
 }
+
+// Albums published before slugs were recorded are in the register (adopted
+// from site.json) but their photos' sidecars carry no address. Rebuilding
+// completes the sidecars, so those albums become restorable from the photos too.
+func TestRebuildAlbumRegister_CompletesSidecarsOfRegisteredAlbums(t *testing.T) {
+	mgr, _, sites, ch := rebuildFixture(t)
+	libID := publishedPhoto(t, mgr, "photoA", media.Publication{Channel: "website", PostID: "p1", GalleryTitle: "Iceland", PublishedAt: rebuildTime})
+	registered := testAlbum("p1", "Iceland")
+	registered.Slug, registered.Unlisted = "iceland-3fa9c1d2", true
+	if err := sites.Upsert(registered); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := rebuildAlbumRegister(sites, mgr, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.SidecarsCompleted != 1 || report.Present != 1 || len(report.Unreadable) != 0 {
+		t.Fatalf("report = %+v", report)
+	}
+	store, _ := mgr.OpenStore(libID)
+	hint, _ := store.GetPhotoPathHint("photoA")
+	store.Close()
+	pubs, _ := media.ReadSidecar(hint)
+	if len(pubs) != 1 || pubs[0].Slug != "iceland-3fa9c1d2" || !pubs[0].Unlisted {
+		t.Errorf("sidecar = %+v", pubs)
+	}
+
+	// Nothing left to complete the second time.
+	if again, _ := rebuildAlbumRegister(sites, mgr, ch); again.SidecarsCompleted != 0 {
+		t.Errorf("second run completed %d", again.SidecarsCompleted)
+	}
+}
+
+// An album that is not registered cannot lend its address to anything.
+func TestRebuildAlbumRegister_CompletesNothingForUnregisteredAlbums(t *testing.T) {
+	mgr, _, sites, ch := rebuildFixture(t)
+	publishedPhoto(t, mgr, "photoA", media.Publication{Channel: "website", PostID: "p1", GalleryTitle: "Iceland", PublishedAt: rebuildTime})
+	report, _ := rebuildAlbumRegister(sites, mgr, ch)
+	if report.SidecarsCompleted != 0 || len(report.Unreadable) != 1 {
+		t.Fatalf("report = %+v", report)
+	}
+}

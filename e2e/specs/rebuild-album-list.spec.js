@@ -157,4 +157,29 @@ test.describe('Rebuild album list', () => {
         await expect(advanced.locator('#dest-rebuild-albums-report')).toContainText('No albums found', { timeout: 15_000 });
         expect(await (await request.get(`/api/channels/${SLUG}/galleries`)).json()).toHaveLength(0);
     });
+
+    test('an album published before addresses were recorded gets its address written into its photos', async ({ page, request }) => {
+        purgeOwnPublications();
+        for (const f of fs.readdirSync(REGISTER)) fs.rmSync(path.join(REGISTER, f));
+        await publish(request, photos[2], 'Rebuild Delta');
+        const [file] = fs.readdirSync(REGISTER).filter(f => f.endsWith('.json'));
+        const slug = JSON.parse(fs.readFileSync(path.join(REGISTER, file), 'utf8')).slug;
+
+        // The register knows the album; its photo's sidecar predates the address.
+        for (const f of sidecarsOfDestination()) {
+            fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/\s*<ul:Slug>[^<]*<\/ul:Slug>/g, ''));
+        }
+        expect(sidecarsOfDestination().some(f => fs.readFileSync(f, 'utf8').includes('<ul:Slug>'))).toBe(false);
+
+        const advanced = await openRebuild(page);
+        await advanced.locator('#dest-rebuild-albums').click();
+        await expect(advanced.locator('#dest-rebuild-albums-report')).toContainText('Completed 1 photo sidecar', { timeout: 15_000 });
+        expect(sidecarsOfDestination().some(f => fs.readFileSync(f, 'utf8').includes(`<ul:Slug>${slug}</ul:Slug>`))).toBe(true);
+
+        // Now the album survives losing its register entry.
+        fs.rmSync(path.join(REGISTER, file));
+        await advanced.locator('#dest-rebuild-albums').click();
+        await expect(advanced.locator('#dest-rebuild-albums-report')).toContainText('Added 1', { timeout: 15_000 });
+        expect(JSON.parse(fs.readFileSync(path.join(REGISTER, file), 'utf8')).slug).toBe(slug);
+    });
 });

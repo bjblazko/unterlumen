@@ -230,3 +230,37 @@ func TestRemovePublication_NoSidecarIsNotAnError(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSetPublicationAddress_FillsOnlyWhatIsMissing(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	for _, p := range []Publication{
+		{Channel: "website", PostID: "old", GalleryTitle: "Old", PublishedAt: at}, // published before slugs
+		{Channel: "website", PostID: "new", Slug: "kept", PublishedAt: at},        // already has one
+		{Channel: "shares", PostID: "old", PublishedAt: at},                       // other channel, same id
+	} {
+		if err := AppendPublication(photo, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	changed, err := SetPublicationAddress(photo, "website", "old", "old-album", true)
+	if err != nil || !changed {
+		t.Fatalf("changed = %v, err = %v", changed, err)
+	}
+	pubs, _ := ReadSidecar(photo)
+	if pubs[0].Slug != "old-album" || !pubs[0].Unlisted || pubs[0].GalleryTitle != "Old" {
+		t.Errorf("old = %+v", pubs[0])
+	}
+	if pubs[1].Slug != "kept" || pubs[2].Slug != "" {
+		t.Errorf("other publications changed: %+v", pubs[1:])
+	}
+
+	// An address that is already recorded is never overwritten.
+	if changed, _ := SetPublicationAddress(photo, "website", "new", "different", false); changed {
+		t.Error("a recorded slug must not be replaced")
+	}
+	if pubs, _ := ReadSidecar(photo); pubs[1].Slug != "kept" {
+		t.Errorf("slug = %q", pubs[1].Slug)
+	}
+}
