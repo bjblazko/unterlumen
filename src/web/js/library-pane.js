@@ -74,7 +74,18 @@ class LibraryPane extends BrowsePane {
         if (this.onLoad) this.onLoad();
     }
 
+    // Organize sorts one folder, so a selection has to name one. Photos in a
+    // library are all in the folder that is open, so that folder is the
+    // answer and they arrive selected; a folder picked on its own is the
+    // folder itself.
     getOpenInCommanderTarget() {
+        const files = this.getSelectedFiles();
+        if (files.length) {
+            return {
+                dir: this._sourcePath + (this.path ? '/' + this.path : ''),
+                names: files.map(p => p.split('/').pop()),
+            };
+        }
         if (this.selectedDirs.size !== 1) return null;
         const relDir = Array.from(this.selectedDirs)[0];
         const dir = this._sourcePath + (relDir ? '/' + relDir : '');
@@ -87,7 +98,7 @@ class LibraryPane extends BrowsePane {
     homeLabel() { return 'Top of this library'; }
 
     organizeBtnHint() {
-        return 'Select a folder to open in Organize';
+        return 'Select photos, or one folder, to show in Organize';
     }
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
-import { GPS_PATH, NO_GPS_PATH } from '../helpers/fixtures.js';
+import { GPS_PATH, NO_GPS_PATH, A1_GPS_IMAGE, A1_NO_GPS_IMAGE } from '../helpers/fixtures.js';
+import { reindexLibrary } from '../helpers/library.js';
 
 // Organize is one source folder and a list of targets (ADR-0032). Everything
 // here happens in throwaway folders, so the fixtures other specs rely on are
@@ -123,5 +124,105 @@ test.describe('Organize — one source, many targets', () => {
             .click({ modifiers: ['ControlOrMeta'] });
         await page.keyboard.press('1');
         await expect(page.locator('#org-result')).toContainText('Mark for deletion');
+    });
+});
+
+// ── "Show in Organize" from a library ───────────────────────────────────────
+//
+// Organize sorts one folder, so the selection has to name one. Photos in a
+// library are all in the folder that is open, so that folder is the answer and
+// they arrive selected. The button used to do nothing at all for a selection
+// of photos, and never said why, because the reason was handed to the
+// selection bar under the wrong key.
+
+test.describe('Show in Organize — from a library', () => {
+    const LIB = 'E2E Organize Library';
+    const SUB_B = `${SRC}/b-subfolder`;
+    let libID;
+
+    test.beforeEach(async ({ request }) => {
+        await request.post('/api/delete', { data: { files: [SRC] } }).catch(() => {});
+        expect((await request.post('/api/mkdir', { data: { path: SRC } })).status()).toBe(200);
+        for (const sub of [SUB, SUB_B]) {
+            expect((await request.post('/api/mkdir', { data: { path: sub } })).status()).toBe(200);
+        }
+        expect((await request.post('/api/copy', {
+            data: { files: [GPS_PATH, NO_GPS_PATH], destination: SRC },
+        })).status()).toBe(200);
+        // A library only knows folders that hold indexed photos, so an empty
+        // subfolder would not appear in it at all — and it indexes by content
+        // hash, so a copy of a photo the root already has is the same photo
+        // and would leave the subfolder empty again.
+        for (const [file, sub] of [[`folder-a/a1/${A1_GPS_IMAGE}`, SUB], [`folder-a/a1/${A1_NO_GPS_IMAGE}`, SUB_B]]) {
+            expect((await request.post('/api/copy', {
+                data: { files: [file], destination: sub },
+            })).status()).toBe(200);
+        }
+
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === LIB).map(l => request.delete(`/api/library/${l.id}`)));
+        const res = await request.post('/api/library/', {
+            data: { name: LIB, description: '', sourcePath: SRC },
+        });
+        expect(res.status()).toBe(201);
+        libID = (await res.json()).id;
+        await reindexLibrary(request, libID);
+    });
+
+    test.afterEach(async ({ request }) => {
+        if (libID) await request.delete(`/api/library/${libID}`);
+        await request.post('/api/delete', { data: { files: [SRC] } }).catch(() => {});
+    });
+
+    async function openLibrary(page) {
+        await page.addInitScript(([key, value]) => {
+            window.localStorage.setItem(key, value);
+        }, ['organize.targets', JSON.stringify([{ path: DST }])]);
+        await page.goto('/#libraries');
+        await waitForAppReady(page);
+        await page.locator('.library-card', { hasText: LIB }).click();
+        await page.waitForSelector('.library-detail', { timeout: 8_000 });
+    }
+
+    test('selected photos open Organize on their folder, already selected', async ({ page }) => {
+        await openLibrary(page);
+        await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 20_000 });
+
+        const images = page.locator('#lib-pane [data-type="image"]');
+        await expect(images).toHaveCount(2);
+        await images.nth(0).click();
+        await images.nth(1).click({ modifiers: ['ControlOrMeta'] });
+
+        const organize = page.locator('.selection-bar [data-action="organize"]');
+        await expect(organize).toBeEnabled();
+        await organize.click();
+
+        await expect(page.locator('#org-path')).toHaveText(SRC, { timeout: 10_000 });
+        await expect(page.locator('.organize-source .selected')).toHaveCount(2);
+    });
+
+    test('one folder opens Organize on that folder', async ({ page }) => {
+        await openLibrary(page);
+        await page.waitForSelector('#lib-pane .folder-chip', { timeout: 20_000 });
+
+        await page.locator('#lib-pane .folder-chip[data-name="a-subfolder"]')
+            .click({ modifiers: ['ControlOrMeta'] });
+        await page.locator('.selection-bar [data-action="organize"]').click();
+
+        await expect(page.locator('#org-path')).toHaveText(SUB, { timeout: 10_000 });
+    });
+
+    test('two folders cannot name one source, and the button says so', async ({ page }) => {
+        await openLibrary(page);
+        await page.waitForSelector('#lib-pane .folder-chip', { timeout: 20_000 });
+
+        for (const name of ['a-subfolder', 'b-subfolder']) {
+            await page.locator(`#lib-pane .folder-chip[data-name="${name}"]`)
+                .click({ modifiers: ['ControlOrMeta'] });
+        }
+
+        const organize = page.locator('.selection-bar [data-action="organize"]');
+        await expect(organize).toBeDisabled();
+        await expect(organize).toHaveAttribute('title', /one folder/);
     });
 });

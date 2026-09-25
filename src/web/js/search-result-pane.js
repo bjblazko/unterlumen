@@ -80,8 +80,8 @@ class SearchResultPane extends BrowsePane {
 
     organizeBtnHint() {
         return this.selection.selected.size > 0
-            ? 'Select photos from the same folder to open in Commander'
-            : 'Select photos to open in Commander';
+            ? 'Organize sorts one folder — these photos come from several'
+            : 'Select photos to show in Organize';
     }
 
     // pathHint is already an absolute path — no prefix needed.
