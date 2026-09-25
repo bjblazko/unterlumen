@@ -672,13 +672,15 @@ class DestinationsPane {
             // in practice albums that were deleted or replaced before deleting
             // also cleaned up the photos. Left as they are, grouped by title.
             const n = r.unreadable.length;
-            const groups = new Map();
+            const groups = new Map(); // label (HTML) -> count; an ID is data, a title is text
             for (const u of r.unreadable) {
-                const name = u.title || u.postID;
-                groups.set(name, (groups.get(name) || 0) + 1);
+                const label = u.title
+                    ? escapeHtml(u.title)
+                    : `<span class="dest-report-data">${escapeHtml(u.postID)}</span>`;
+                groups.set(label, (groups.get(label) || 0) + 1);
             }
-            parts.push(`<p class="dest-report-warning">${plural(n, 'older publication is', 'older publications are')} not in the list and ${n === 1 ? 'has' : 'have'} no recorded address, so ${n === 1 ? 'it' : 'they'} cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.</p>`);
-            parts.push(`<details class="dest-report-details"><summary>Show ${n === 1 ? 'it' : 'them'}</summary><ul>${[...groups].map(([name, count]) => `<li>${escapeHtml(name)}${count > 1 ? ` <span class="dest-report-data">×${count}</span>` : ''}</li>`).join('')}</ul></details>`);
+            parts.push(`<p>${plural(n, 'older publication is', 'older publications are')} not in the list and ${n === 1 ? 'has' : 'have'} no recorded address, so ${n === 1 ? 'it' : 'they'} cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.</p>`);
+            parts.push(`<details class="dest-report-details"><summary>Show ${n === 1 ? 'it' : 'them'}</summary><ul>${[...groups].map(([label, count]) => `<li>${label}${count > 1 ? ` <span class="dest-report-data">×${count}</span>` : ''}</li>`).join('')}</ul></details>`);
         }
         if (r.photos.length) {
             const shown = r.photos.slice(0, 10);
