@@ -99,12 +99,48 @@ rebuilt from the photos, a deleted album would rise again on the next rebuild.
 Deleting has to leave a record in the shared register *and* clear the meta
 keys in the member photos' sidecars.
 
+### What the register may not do (found 2026-09-25)
+
+Today the album list is read and written as a whole: `loadSiteState(path)` and
+`saveSiteState(path, albums)`, at eight places in `handler.go`,
+`galleries_overview.go` and `deploy_stamp.go`. Deleting an album is a
+`saveSiteState(path, remaining)` — the album disappears because it is missing
+from the list that gets written.
+
+**That shape must not be carried over to the shared register.** A machine
+writing "the albums I know about" would delete the other machine's albums from
+shared state — the same bug as today, one level worse, because it would no
+longer be only a local index that is wrong. The register's API is therefore
+`upsert(album)` and `remove(postID)`, never `save(list)`, and a build writes
+only the albums it actually touched.
+
+That makes the rewiring semantic rather than mechanical: each of the eight
+call sites has to say what it means — "this album changed" or "this album is
+gone" — instead of handing over a list. It also pulls step 4 forward: since
+`remove` is now explicit, it is the natural place for the tombstone.
+
+Call sites, for whoever picks this up:
+
+| Place | Means |
+| --- | --- |
+| `removePhotoFromSite` | upsert (one album's photo list shrank) |
+| generate/publish (handler.go ~1834) | upsert (album written or added to) |
+| `resolveTarget` (~2253, ~2271) | read only |
+| `collectGalleryItems` (~2327) | read only — needs the store passed in |
+| `rebuildSiteChannel` (~2449) | read, then upsert the albums that survived the existence check, remove the ones that did not |
+| `galleries_overview` rename (~394) | upsert |
+| `galleries_overview` delete (~490) | remove |
+| `deploy_stamp` | upsert (deployedAt) |
+
 ### Order of work
 
 1. ~~The sidecar follows the file on copy, move and rename~~ (done
    2026-09-25).
 2. The album register moves to the shared channel directory, one file per
-   album; `site.json` is demoted to a cache; the build reads the register.
+   album, with an `upsert`/`remove` API; `site.json` is demoted to a cache;
+   the build reads the register. `channels.Store` gains `ConfigDir()` and
+   `AlbumRegisterDir(slug)`, since the register belongs beside
+   `channels.json`, not in the output.
 3. Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
    Destinations → Advanced.
 4. Deleting writes a tombstone and clears the sidecars.
