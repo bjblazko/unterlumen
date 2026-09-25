@@ -63,7 +63,9 @@ func (s *siteStore) Upsert(a SiteAlbum) error {
 	return s.refreshCache()
 }
 
-// Remove records that one album is gone.
+// Remove records that one album lost its entry — for instance because it ran
+// out of photos — without forbidding it to come back. Use Delete for an album
+// the user deleted.
 func (s *siteStore) Remove(postID string) error {
 	if _, err := s.List(); err != nil {
 		return err
@@ -73,6 +75,21 @@ func (s *siteStore) Remove(postID string) error {
 	}
 	return s.refreshCache()
 }
+
+// Delete records that one album was deleted on purpose. Unlike Remove it
+// leaves a tombstone, so the album cannot be restored from the photos.
+func (s *siteStore) Delete(postID string) error {
+	if _, err := s.List(); err != nil {
+		return err
+	}
+	if err := s.reg.Delete(postID); err != nil {
+		return err
+	}
+	return s.refreshCache()
+}
+
+// IsDeleted reports whether an album was deleted on purpose.
+func (s *siteStore) IsDeleted(postID string) bool { return s.reg.IsDeleted(postID) }
 
 // refreshCache rewrites the local site.json from the register. The register
 // already holds the change, so a cache that cannot be written is not an error

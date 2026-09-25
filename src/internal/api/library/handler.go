@@ -1426,7 +1426,11 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 			match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
 				(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
 			if match {
-				// Delete exported file and thumbnail.
+				// Delete exported file and thumbnail, and take the album
+				// out of the photo's own sidecar so a rebuild cannot find it.
+				if pathHint != "" {
+					media.RemovePublication(pathHint, slug, albums[i].PostID) //nolint:errcheck
+				}
 				os.Remove(filepath.Join(albumDir, sp.Filename)) //nolint:errcheck
 				if sp.ThumbFilename != "" {
 					os.Remove(filepath.Join(albumDir, sp.ThumbFilename)) //nolint:errcheck
@@ -1454,7 +1458,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 	for _, album := range albums {
 		if album.PhotoCount == 0 {
 			os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
-			if err := sites.Remove(album.PostID); err != nil {
+			if err := sites.Delete(album.PostID); err != nil {                     // its last photo was taken off the site on purpose
 				return fmt.Errorf("save site state: %w", err)
 			}
 			continue

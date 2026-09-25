@@ -180,3 +180,53 @@ func TestPublication_WithoutSlugReadsAsEmpty(t *testing.T) {
 		t.Error("empty slug and false unlisted must not be written")
 	}
 }
+
+func TestRemovePublication_RemovesOnlyTheNamedAlbum(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	for _, p := range []Publication{
+		{Channel: "website", PostID: "p1", Slug: "one", PublishedAt: at},
+		{Channel: "website", PostID: "p2", Slug: "two", PublishedAt: at},
+		{Channel: "shares", PostID: "p1", PublishedAt: at}, // same album id, other channel
+	} {
+		if err := AppendPublication(photo, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := WriteTitle(photo, "Keep me"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemovePublication(photo, "website", "p1"); err != nil {
+		t.Fatal(err)
+	}
+
+	pubs, _ := ReadSidecar(photo)
+	if len(pubs) != 2 || pubs[0].PostID != "p2" || pubs[1].Channel != "shares" {
+		t.Fatalf("pubs = %+v", pubs)
+	}
+	if title, _ := ReadTitle(photo); title != "Keep me" {
+		t.Errorf("title = %q; the rest of the sidecar must survive", title)
+	}
+}
+
+func TestRemovePublication_LastOneLeavesAReadableSidecar(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	_ = AppendPublication(photo, Publication{Channel: "website", PostID: "p1", PublishedAt: time.Now()})
+	if err := RemovePublication(photo, "website", "p1"); err != nil {
+		t.Fatal(err)
+	}
+	pubs, err := ReadSidecar(photo)
+	if err != nil || len(pubs) != 0 {
+		t.Fatalf("pubs = %+v, err %v", pubs, err)
+	}
+	if err := AppendPublication(photo, Publication{Channel: "website", PostID: "p2", PublishedAt: time.Now()}); err != nil {
+		t.Fatalf("a sidecar that lost its last publication must accept a new one: %v", err)
+	}
+}
+
+func TestRemovePublication_NoSidecarIsNotAnError(t *testing.T) {
+	if err := RemovePublication(filepath.Join(t.TempDir(), "none.jpg"), "website", "p1"); err != nil {
+		t.Fatal(err)
+	}
+}

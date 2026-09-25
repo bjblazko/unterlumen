@@ -17,6 +17,7 @@ import (
 type albumRegisterReport struct {
 	Added      []rebuiltAlbum    `json:"added"`
 	Present    int               `json:"present"`    // already in the register, left as they are
+	Deleted    int               `json:"deleted"`    // deleted on purpose, so not restored
 	Unreadable []unreadableAlbum `json:"unreadable"` // found in sidecars but not registrable
 	Photos     []unreadablePhoto `json:"photos"`     // sidecars that could not be read
 }
@@ -68,6 +69,8 @@ func rebuildAlbumRegister(sites *siteStore, mgr *lib.Manager, ch *channels.Chann
 
 	for _, sa := range found {
 		switch {
+		case sites.IsDeleted(sa.postID):
+			report.Deleted++
 		case have[sa.postID]:
 			report.Present++
 		case sa.slug == "":

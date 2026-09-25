@@ -82,6 +82,32 @@ func AppendPublication(photoPath string, pub Publication) error {
 	return os.WriteFile(sidecarPath, []byte(renderFreshXMP(pubs)), 0o644)
 }
 
+// RemovePublication drops the record of one album (channel and postID) from the
+// photo's sidecar and leaves everything else in it alone. A photo without a
+// sidecar, or one that never was in that album, is not an error.
+func RemovePublication(photoPath, channel, postID string) error {
+	pubs, err := ReadSidecar(photoPath)
+	if err != nil {
+		return fmt.Errorf("read sidecar: %w", err)
+	}
+	kept := make([]Publication, 0, len(pubs))
+	for _, p := range pubs {
+		if p.Channel == channel && p.PostID == postID {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	if len(kept) == len(pubs) {
+		return nil
+	}
+	sidecarPath := SidecarPath(photoPath)
+	raw, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(sidecarPath, mergeULBlock(raw, kept), 0o644)
+}
+
 // parseSidecarPublications extracts ul:Publications entries from XMP bytes.
 func parseSidecarPublications(data []byte) ([]Publication, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))

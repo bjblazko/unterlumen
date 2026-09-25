@@ -652,11 +652,12 @@ class DestinationsPane {
     // already there, and what it could not restore and why.
     _albumReportHTML(r) {
         const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-        const found = r.added.length + r.present + r.unreadable.length;
+        const found = r.added.length + r.present + r.unreadable.length + r.deleted;
         if (found === 0 && r.photos.length === 0) {
             return '<p>No albums found in the photos of this destination.</p>';
         }
-        const parts = [`<p>Found ${plural(found, 'album', 'albums')} in the photos. Added ${r.added.length}; ${r.present} already listed.</p>`];
+        const left = r.deleted ? ` ${r.deleted} deleted earlier, left out.` : '';
+        const parts = [`<p>Found ${plural(found, 'album', 'albums')} in the photos. Added ${r.added.length}; ${r.present} already listed.${left}</p>`];
         if (r.added.length) {
             parts.push(`<ul>${r.added.map(a => `<li>${escapeHtml(a.title)} <span class="dest-report-data">/${escapeHtml(a.slug)}</span>, ${plural(a.photos, 'photo', 'photos')}</li>`).join('')}</ul>`);
         }

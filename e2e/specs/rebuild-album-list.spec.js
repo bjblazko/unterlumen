@@ -137,4 +137,24 @@ test.describe('Rebuild album list', () => {
 
         expect(fs.readdirSync(REGISTER).filter(f => f.endsWith('.json'))).toHaveLength(0);
     });
+
+    test('a deleted album stays deleted when the list is rebuilt', async ({ page, request }) => {
+        purgeOwnPublications();
+        for (const f of fs.readdirSync(REGISTER)) fs.rmSync(path.join(REGISTER, f));
+
+        const evt = await publish(request, photos[1], 'Rebuild Gamma');
+        expect(sidecarsOfDestination().some(f => fs.readFileSync(f, 'utf8').includes('Rebuild Gamma'))).toBe(true);
+
+        const del = await request.delete(`/api/channels/${SLUG}/galleries/${evt.postID}`, { data: { deleteRemote: false } });
+        expect(del.status()).toBe(200);
+
+        // Deleting takes the album out of its photos and leaves a tombstone.
+        expect(sidecarsOfDestination().some(f => fs.readFileSync(f, 'utf8').includes('Rebuild Gamma'))).toBe(false);
+        expect(fs.existsSync(path.join(REGISTER, `${evt.postID}.deleted`))).toBe(true);
+
+        const advanced = await openRebuild(page);
+        await advanced.locator('#dest-rebuild-albums').click();
+        await expect(advanced.locator('#dest-rebuild-albums-report')).toContainText('No albums found', { timeout: 15_000 });
+        expect(await (await request.get(`/api/channels/${SLUG}/galleries`)).json()).toHaveLength(0);
+    });
 });

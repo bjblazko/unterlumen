@@ -174,12 +174,11 @@ register files byte for byte.
    `internal/api/library/site_store.go`; a register that is still empty adopts
    a legacy `site.json` once.)
 3. ~~Slug and `unlisted` go into the sidecar as well; "Rebuild album list" in
-   Destinations → Advanced.~~ (done 2026-09-25. Until step 4 the rebuild can
-   bring a deleted album back, because deleting does not yet clear its
-   sidecars. The legacy `site.json` is adopted only while the register
+   Destinations → Advanced.~~ (done 2026-09-25. The legacy `site.json` is adopted only while the register
    directory does not exist, so "no albums left" is not mistaken for "never
    used".)
-4. Deleting writes a tombstone and clears the sidecars.
+4. ~~Deleting writes a tombstone and clears the sidecars.~~ (done 2026-09-25,
+   see [ADR-0035](../../architecture/adr/0035-shared-album-register.md).)
 
 Steps 1 and 2 together solve the concrete problem. Steps 3 and 4 are the price
 of "only the source photos have to survive" being true.
@@ -226,9 +225,9 @@ default under `-lib-dir`) is the configuration this feature should make safe.
       many albums it found and what it changed.
 - [x] An album folder or photo from before this change is listed rather than
       dropped, and says what could not be read.
-- [ ] Deleting an album leaves a tombstone in the register and clears the meta
+- [x] Deleting an album leaves a tombstone in the register and clears the meta
       keys in its photos' sidecars, so a rebuild does not resurrect it.
-- [ ] The two-installation setup is described in the README, including which
+- [x] The two-installation setup is described in the README, including which
       files are shared (`channels.json`, the album register, XMP sidecars next
       to the photos) and which are per machine (`-lib-dir`, generated output).
-- [ ] CHANGELOG entry under Unreleased.
+- [x] CHANGELOG entry under Unreleased.

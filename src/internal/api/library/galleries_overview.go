@@ -15,6 +15,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/deploy"
 	lib "huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
 
@@ -482,6 +483,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		var localDir, remoteSubpath string
 		var regenErr error
+		var sidecarsNotCleared int
 
 		switch {
 		case ch.SiteExport:
@@ -506,7 +508,10 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			localDir = safeDir
 			remoteSubpath = "albums/" + folder
 
-			if err := sites.Remove(postID); err != nil {
+			// Take the album out of its photos first, then leave the tombstone
+			// for the photos this installation cannot reach.
+			sidecarsNotCleared = clearAlbumSidecars(mgr, albums[idx], slug)
+			if err := sites.Delete(postID); err != nil {
 				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -536,6 +541,9 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		if regenErr != nil {
 			result["regenerateError"] = regenErr.Error()
 		}
+		if sidecarsNotCleared > 0 {
+			result["sidecarsNotCleared"] = sidecarsNotCleared
+		}
 		if body.DeleteRemote {
 			if ch.Handler != "rsync" {
 				result["remoteDeleteError"] = "channel does not use the rsync handler"
@@ -549,4 +557,21 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		}
 		writeJSON(w, result)
 	}
+}
+
+// clearAlbumSidecars removes an album's record from the sidecar of each of its
+// photos that this installation can reach, and returns how many it could not
+// reach or write. Those photos are covered by the tombstone.
+func clearAlbumSidecars(mgr *lib.Manager, album SiteAlbum, channelSlug string) (notCleared int) {
+	for _, sp := range album.Photos {
+		if sp.PhotoID == "" || mgr == nil {
+			notCleared++
+			continue
+		}
+		path, err := findPhotoSourcePath(mgr, sp.PhotoID)
+		if err != nil || path == "" || media.RemovePublication(path, channelSlug, album.PostID) != nil {
+			notCleared++
+		}
+	}
+	return notCleared
 }

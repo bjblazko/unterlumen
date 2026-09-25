@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-24*
+*Last modified: 2026-09-25*
 
 ## 1. Introduction and Goals
 
@@ -306,6 +306,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0032](adr/0032-organize-one-source-many-targets.md) — Organize is one source and many targets (supersedes ADR-0005)
 - [ADR-0033](adr/0033-dialogs-and-places.md) — Dialogs and places, and one dialog to build them with
 - [ADR-0034](adr/0034-colour-in-charts.md) — Colour in charts
+- [ADR-0035](adr/0035-shared-album-register.md) — The album list of a website lives in the shared channel directory
 
 ## 10. Quality Requirements
 

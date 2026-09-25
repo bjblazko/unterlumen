@@ -137,3 +137,56 @@ func TestAlbumRegisterRejectsPostIDThatIsAPath(t *testing.T) {
 		t.Error("want error for postID containing a path separator")
 	}
 }
+
+// A deleted album leaves a tombstone in the shared register, so neither
+// installation brings it back — not by rebuilding, not by a stale write.
+func TestAlbumRegisterDeleteLeavesATombstone(t *testing.T) {
+	dir := t.TempDir()
+	r := newAlbumRegister(dir)
+	_ = r.Upsert(testAlbum("pA", "Alpha"))
+	_ = r.Upsert(testAlbum("pB", "Beta"))
+
+	if err := r.Delete("pA"); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := r.List(); len(got) != 1 || got[0].PostID != "pB" {
+		t.Fatalf("List = %+v, want only pB", got)
+	}
+	// Another installation reads the same directory.
+	other := newAlbumRegister(dir)
+	if !other.IsDeleted("pA") || other.IsDeleted("pB") {
+		t.Error("the tombstone must be visible to every installation, and only for pA")
+	}
+	if err := other.Upsert(testAlbum("pA", "Alpha")); err == nil {
+		t.Error("writing a deleted album must be refused")
+	}
+}
+
+// Remove without a tombstone stays available for albums that only lost their
+// list entry (an emptied album); such an album may be restored from sidecars.
+func TestAlbumRegisterRemoveLeavesNoTombstone(t *testing.T) {
+	r := newAlbumRegister(t.TempDir())
+	_ = r.Upsert(testAlbum("pA", "Alpha"))
+	_ = r.Remove("pA")
+	if r.IsDeleted("pA") {
+		t.Error("Remove must not tombstone")
+	}
+	if err := r.Upsert(testAlbum("pA", "Alpha")); err != nil {
+		t.Errorf("an album that was only removed can be written again: %v", err)
+	}
+}
+
+func TestSiteStoreDeleteTombstonesAndRefreshesCache(t *testing.T) {
+	s, cache := newTestSiteStore(t, t.TempDir(), "/photos")
+	_ = s.Upsert(testAlbum("pA", "Alpha"))
+	_ = s.Upsert(testAlbum("pB", "Beta"))
+	if err := s.Delete("pA"); err != nil {
+		t.Fatal(err)
+	}
+	if !s.IsDeleted("pA") {
+		t.Error("pA must be tombstoned")
+	}
+	if cached, _ := loadSiteState(cache); len(cached) != 1 || cached[0].PostID != "pB" {
+		t.Errorf("cache = %+v", cached)
+	}
+}
