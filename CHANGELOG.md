@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-09-25*
+*Last modified: 2026-09-26*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.11.0] - 2026-09-26
 
 ### Added
 - **Rebuild album list** — Destinations → Advanced has a "Rebuild album list" button for website destinations. It restores albums that are missing from the shared album register from what the photos' own XMP sidecars record, leaves albums that are already listed as they are, and reports what it added and what it could not restore. To make that possible a site album's address (`ul:Slug`) and its Unlisted flag are now written into each photo's sidecar when it is published; an address is never derived, so albums published before this change are listed with the reason instead of being restored under a new URL. For albums that are already in the list the rebuild also writes their membership and address into their photos' sidecars where those are missing (a sidecar often names only older, replaced albums), so those albums can be restored from the photos too. Publications the list does not know and that carry no address — in practice deleted or replaced albums — are reported as one collapsed line and left alone. New endpoint: `POST /api/channels/{slug}/rebuild-album-list`. Deleting a website album now takes it out of its photos' sidecars and leaves a tombstone in the shared register, so a rebuild cannot bring it back; taking a photo off a site clears its sidecar entry too. See [ADR-0035](doc/architecture/adr/0035-shared-album-register.md).
