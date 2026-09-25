@@ -53,6 +53,17 @@ the deleting installation. The tombstone covers the photos that are not.
 `Remove` (without a tombstone) is for an album that only ran out of its list
 entry through pruning and may be restored.
 
+**A destination's output folder belongs to one installation.** `outputPath` was
+picked on one machine and stored in the shared `channels.json`, where it names a
+directory that does not exist on the other. It now lives in `output-paths.json`
+under each installation's own `-lib-dir` (slug → absolute path; an empty value
+means "the default, on purpose"). `Store.List`/`Get` lay the effective value over
+`Channel.OutputPath`, so callers and the UI are unchanged. `Save` never writes a
+folder to the shared file and leaves a legacy value there untouched; that legacy
+value counts as this installation's only where the folder exists, so an
+installation can neither take another's folder away by saving nor adopt a path
+that is not its own. Nothing is rewritten on upgrade.
+
 ## Migration
 
 Existing albums live in `site.json` and their sidecars carry no address. The

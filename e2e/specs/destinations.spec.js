@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { waitForAppReady } from '../helpers/wait.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Destinations are a place of their own now, and their form asks for the type
 // first and then shows only what that type needs (ADR-0029).
@@ -93,6 +98,11 @@ test.describe('Destinations', () => {
         expect(ch.outputPath.startsWith('/')).toBe(true);
         expect(ch.outputPath.endsWith('folder-a/exports')).toBe(true);
         expect(ch.outputDir).toBe(ch.outputPath);
+
+        // The folder is this installation's own: the file every installation
+        // shares must not carry it.
+        const shared = fs.readFileSync(path.resolve(__dirname, '..', 'fixtures', '.unterlumen-test', 'channels.json'), 'utf8');
+        expect(shared).not.toContain('folder-a/exports');
 
         await request.delete(`/api/channels/${slug}`).catch(() => {});
     });

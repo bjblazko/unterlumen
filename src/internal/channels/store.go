@@ -84,23 +84,74 @@ func (s *Store) absoluteOutputPath(path string) string {
 }
 
 // OutputDir returns the effective output directory for the given channel slug,
-// always as an absolute path. A custom OutputPath wins; a relative one is
-// resolved against the browse root. Otherwise the default
-// <outputBaseDir>/channels/<slug>/ path is used.
+// always as an absolute path. The channel's output folder (see outputPaths)
+// wins; otherwise the default <outputBaseDir>/channels/<slug>/ path is used.
 func (s *Store) OutputDir(slug string) string {
 	if ch, err := s.Get(slug); err == nil && ch.OutputPath != "" {
-		// Still resolved on read: entries written before paths were stored
-		// absolute keep working without rewriting anyone's configuration.
-		return s.absoluteOutputPath(ch.OutputPath)
+		return ch.OutputPath
 	}
 	return filepath.Join(s.outputBase, "channels", slug)
+}
+
+// The output folder is a path on one machine, so it does not live in the
+// shared channels.json but in output-paths.json under the installation's own
+// output base directory (its -lib-dir): a map from slug to an absolute path,
+// where an empty value means "the default, on purpose".
+//
+// A destination saved before that keeps its folder in the shared file. That
+// value is read as this installation's only where the folder exists here, and
+// Save never touches it, so saving on one installation cannot take the folder
+// away from another that still reads it.
+func (s *Store) outputPathsFile() string { return filepath.Join(s.outputBase, "output-paths.json") }
+
+func (s *Store) readOutputPaths() map[string]string {
+	paths := map[string]string{}
+	if data, err := os.ReadFile(s.outputPathsFile()); err == nil {
+		json.Unmarshal(data, &paths) //nolint:errcheck // an unreadable file means "no local paths"
+	}
+	return paths
+}
+
+func (s *Store) writeOutputPaths(paths map[string]string) error {
+	if err := os.MkdirAll(s.outputBase, 0o700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(paths, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.outputPathsFile(), data, 0o600)
+}
+
+// effectiveOutputPath is the output folder this installation uses for a
+// channel whose shared record says sharedPath, or "" for the default.
+func (s *Store) effectiveOutputPath(slug, sharedPath string, local map[string]string) string {
+	if p, ok := local[slug]; ok {
+		return p
+	}
+	if sharedPath == "" {
+		return ""
+	}
+	abs := s.absoluteOutputPath(sharedPath)
+	if info, err := os.Stat(abs); err == nil && info.IsDir() {
+		return abs
+	}
+	return ""
 }
 
 // List returns all channels. Returns built-in defaults if channels.json does not exist yet.
 func (s *Store) List() ([]*Channel, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.loadLocked()
+	chs, err := s.loadLocked()
+	if err != nil {
+		return nil, err
+	}
+	local := s.readOutputPaths()
+	for _, ch := range chs {
+		ch.OutputPath = s.effectiveOutputPath(ch.Slug, ch.OutputPath, local)
+	}
+	return chs, nil
 }
 
 // Get returns the channel with the given slug.
@@ -126,13 +177,27 @@ func (s *Store) Save(ch *Channel) error {
 	if err != nil {
 		return err
 	}
+	// The shared record keeps whatever legacy folder it already had and never
+	// gets a new one; the folder goes to this installation's own file.
+	stored := *ch
+	stored.OutputPath = ""
+	replaced := false
 	for i, existing := range chs {
 		if existing.Slug == ch.Slug {
-			chs[i] = ch
-			return s.writeLocked(chs)
+			stored.OutputPath = existing.OutputPath
+			chs[i] = &stored
+			replaced = true
 		}
 	}
-	return s.writeLocked(append(chs, ch))
+	if !replaced {
+		chs = append(chs, &stored)
+	}
+	if err := s.writeLocked(chs); err != nil {
+		return err
+	}
+	paths := s.readOutputPaths()
+	paths[ch.Slug] = ch.OutputPath
+	return s.writeOutputPaths(paths)
 }
 
 // Delete removes the channel with the given slug.
@@ -149,7 +214,16 @@ func (s *Store) Delete(slug string) error {
 			filtered = append(filtered, ch)
 		}
 	}
-	return s.writeLocked(filtered)
+	if err := s.writeLocked(filtered); err != nil {
+		return err
+	}
+	if paths := s.readOutputPaths(); len(paths) > 0 {
+		if _, ok := paths[slug]; ok {
+			delete(paths, slug)
+			return s.writeOutputPaths(paths)
+		}
+	}
+	return nil
 }
 
 func (s *Store) loadLocked() ([]*Channel, error) {

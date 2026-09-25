@@ -205,8 +205,8 @@ copy of this "state lives in one machine's output directory" problem turned up:
 
 Both point the same way: the album list should be recoverable from the files
 themselves, so it does not matter which machine holds which output directory.
-A destination whose `outputPath` is left empty (each installation uses its own
-default under `-lib-dir`) is the configuration this feature should make safe.
+Resolved 2026-09-25: the output folder is no longer stored in the shared file at
+all but per installation in `output-paths.json` (ADR-0035).
 
 ## Acceptance Criteria
 

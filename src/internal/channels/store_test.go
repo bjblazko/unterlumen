@@ -1,7 +1,9 @@
 package channels
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -146,5 +148,114 @@ func TestAlbumRegisterDirLivesBesideChannelsJSON(t *testing.T) {
 	}
 	if s.ConfigDir() != shared {
 		t.Errorf("ConfigDir = %q, want %q", s.ConfigDir(), shared)
+	}
+}
+
+// --- The output folder belongs to one installation ---
+
+func writeSharedChannels(t *testing.T, dir, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, "channels.json"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// channels.json is shared, and a folder is a path on one machine, so a saved
+// output folder must not end up in it.
+func TestSave_KeepsOutputPathOutOfTheSharedFile(t *testing.T) {
+	shared := t.TempDir()
+	s := NewStore(shared, t.TempDir())
+	if err := s.Save(&Channel{Slug: "site", Name: "Site", OutputPath: "/Users/someone/out"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(shared, "channels.json"))
+	if strings.Contains(string(raw), "/Users/someone/out") || strings.Contains(string(raw), "outputPath") {
+		t.Errorf("channels.json holds a machine-local path:\n%s", raw)
+	}
+	if got := s.OutputDir("site"); got != "/Users/someone/out" {
+		t.Errorf("OutputDir = %q", got)
+	}
+}
+
+func TestOutputPath_IsPerInstallation(t *testing.T) {
+	shared := t.TempDir()
+	mac := NewStore(shared, t.TempDir())
+	nas := NewStore(shared, t.TempDir())
+	if err := mac.Save(&Channel{Slug: "site", Name: "Site", OutputPath: "/Users/someone/out"}); err != nil {
+		t.Fatal(err)
+	}
+	ch, err := nas.Get("site")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ch.OutputPath != "" {
+		t.Errorf("the other installation sees %q, want nothing", ch.OutputPath)
+	}
+	if got, want := nas.OutputDir("site"), filepath.Join(nas.outputBase, "channels", "site"); got != want {
+		t.Errorf("OutputDir = %q, want the default %q", got, want)
+	}
+}
+
+// Destinations saved before this change carry their folder in the shared file.
+// Where that folder exists it is this installation's; where it does not, it is
+// someone else's and the default applies.
+func TestOutputDir_UsesALegacySharedPathOnlyWhereItExists(t *testing.T) {
+	shared, here := t.TempDir(), t.TempDir()
+	writeSharedChannels(t, shared, `[
+	  {"slug":"local","name":"Local","outputPath":"`+here+`"},
+	  {"slug":"foreign","name":"Foreign","outputPath":"/Users/nobody/there/out"}
+	]`)
+	s := NewStore(shared, t.TempDir())
+	if got := s.OutputDir("local"); got != here {
+		t.Errorf("existing legacy path: OutputDir = %q, want %q", got, here)
+	}
+	if got, want := s.OutputDir("foreign"), filepath.Join(s.outputBase, "channels", "foreign"); got != want {
+		t.Errorf("foreign legacy path: OutputDir = %q, want %q", got, want)
+	}
+}
+
+// Saving on one installation must not take away the folder another installation
+// still reads from the shared file.
+func TestSave_LeavesALegacySharedValueAlone(t *testing.T) {
+	shared, here := t.TempDir(), t.TempDir()
+	writeSharedChannels(t, shared, `[{"slug":"local","name":"Local","outputPath":"`+here+`"}]`)
+	s := NewStore(shared, t.TempDir())
+	ch, _ := s.Get("local")
+	ch.Name = "Renamed"
+	if err := s.Save(ch); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(shared, "channels.json"))
+	if !strings.Contains(string(raw), here) {
+		t.Errorf("the legacy value was removed from the shared file:\n%s", raw)
+	}
+	if got := s.OutputDir("local"); got != here {
+		t.Errorf("OutputDir = %q, want %q kept locally", got, here)
+	}
+}
+
+func TestSave_ClearingThePathBeatsALegacyValue(t *testing.T) {
+	shared, here := t.TempDir(), t.TempDir()
+	writeSharedChannels(t, shared, `[{"slug":"local","name":"Local","outputPath":"`+here+`"}]`)
+	s := NewStore(shared, t.TempDir())
+	ch, _ := s.Get("local")
+	ch.OutputPath = ""
+	if err := s.Save(ch); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := s.OutputDir("local"), filepath.Join(s.outputBase, "channels", "local"); got != want {
+		t.Errorf("OutputDir = %q, want the default %q", got, want)
+	}
+}
+
+func TestDelete_RemovesTheLocalPath(t *testing.T) {
+	s := NewStore(t.TempDir(), t.TempDir())
+	_ = s.Save(&Channel{Slug: "site", Name: "Site", OutputPath: "/Users/someone/out"})
+	if err := s.Delete("site"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(s.outputBase, "output-paths.json"))
+	if strings.Contains(string(raw), "site") {
+		t.Errorf("output-paths.json still names the deleted channel:\n%s", raw)
 	}
 }
