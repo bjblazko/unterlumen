@@ -205,166 +205,26 @@ const LibraryAPI = {
         });
         if (!r.ok) throw new Error(await r.text());
     },
-    reindex(id, onProgress, subfolder) {
+    reindex(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'reindex', onProgress, subfolder); },
+    cleanup(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'cleanup', onProgress, subfolder); },
+    regenMissingPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-missing', onProgress, subfolder); },
+    rebuildAllPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-all', onProgress, subfolder); },
+    scanNew(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'scan-new', onProgress, subfolder); },
+    // _libraryJob starts a job on a library, or on one of its folders, and
+    // reports each progress event. It resolves when the job says it finished
+    // or the stream ends.
+    _libraryJob(id, action, onProgress, subfolder) {
         return new Promise((resolve, reject) => {
             const url = subfolder
-                ? `/api/library/${id}/reindex?subfolder=${encodeURIComponent(subfolder)}`
-                : `/api/library/${id}/reindex`;
+                ? `/api/library/${id}/${action}?subfolder=${encodeURIComponent(subfolder)}`
+                : `/api/library/${id}/${action}`;
             fetch(url, { method: 'POST' })
                 .then(async r => {
                     if (!r.ok) { reject(new Error(await r.text())); return; }
-                    const reader = r.body.getReader();
-                    const dec = new TextDecoder();
-                    let buf = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += dec.decode(value, { stream: true });
-                        const lines = buf.split('\n');
-                        buf = lines.pop();
-                        for (const line of lines) {
-                            const t = line.trim();
-                            if (t.startsWith('data:')) {
-                                try {
-                                    const p = JSON.parse(t.slice(5).trim());
-                                    onProgress(p);
-                                    if (p.finished) { resolve(); return; }
-                                } catch {}
-                            }
-                        }
-                    }
-                    resolve();
-                })
-                .catch(err => { if (err.name !== 'AbortError') reject(err); });
-        });
-    },
-    cleanup(id, onProgress, subfolder) {
-        return new Promise((resolve, reject) => {
-            const url = subfolder
-                ? `/api/library/${id}/cleanup?subfolder=${encodeURIComponent(subfolder)}`
-                : `/api/library/${id}/cleanup`;
-            fetch(url, { method: 'POST' })
-                .then(async r => {
-                    if (!r.ok) { reject(new Error(await r.text())); return; }
-                    const reader = r.body.getReader();
-                    const dec = new TextDecoder();
-                    let buf = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += dec.decode(value, { stream: true });
-                        const lines = buf.split('\n');
-                        buf = lines.pop();
-                        for (const line of lines) {
-                            const t = line.trim();
-                            if (t.startsWith('data:')) {
-                                try {
-                                    const p = JSON.parse(t.slice(5).trim());
-                                    onProgress(p);
-                                    if (p.finished) { resolve(); return; }
-                                } catch {}
-                            }
-                        }
-                    }
-                    resolve();
-                })
-                .catch(err => { if (err.name !== 'AbortError') reject(err); });
-        });
-    },
-    regenMissingPreviews(id, onProgress, subfolder) {
-        return new Promise((resolve, reject) => {
-            const url = subfolder
-                ? `/api/library/${id}/regen-previews-missing?subfolder=${encodeURIComponent(subfolder)}`
-                : `/api/library/${id}/regen-previews-missing`;
-            fetch(url, { method: 'POST' })
-                .then(async r => {
-                    if (!r.ok) { reject(new Error(await r.text())); return; }
-                    const reader = r.body.getReader();
-                    const dec = new TextDecoder();
-                    let buf = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += dec.decode(value, { stream: true });
-                        const lines = buf.split('\n');
-                        buf = lines.pop();
-                        for (const line of lines) {
-                            const t = line.trim();
-                            if (t.startsWith('data:')) {
-                                try {
-                                    const p = JSON.parse(t.slice(5).trim());
-                                    onProgress(p);
-                                    if (p.finished) { resolve(); return; }
-                                } catch {}
-                            }
-                        }
-                    }
-                    resolve();
-                })
-                .catch(err => { if (err.name !== 'AbortError') reject(err); });
-        });
-    },
-    rebuildAllPreviews(id, onProgress, subfolder) {
-        return new Promise((resolve, reject) => {
-            const url = subfolder
-                ? `/api/library/${id}/regen-previews-all?subfolder=${encodeURIComponent(subfolder)}`
-                : `/api/library/${id}/regen-previews-all`;
-            fetch(url, { method: 'POST' })
-                .then(async r => {
-                    if (!r.ok) { reject(new Error(await r.text())); return; }
-                    const reader = r.body.getReader();
-                    const dec = new TextDecoder();
-                    let buf = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += dec.decode(value, { stream: true });
-                        const lines = buf.split('\n');
-                        buf = lines.pop();
-                        for (const line of lines) {
-                            const t = line.trim();
-                            if (t.startsWith('data:')) {
-                                try {
-                                    const p = JSON.parse(t.slice(5).trim());
-                                    onProgress(p);
-                                    if (p.finished) { resolve(); return; }
-                                } catch {}
-                            }
-                        }
-                    }
-                    resolve();
-                })
-                .catch(err => { if (err.name !== 'AbortError') reject(err); });
-        });
-    },
-    scanNew(id, onProgress, subfolder) {
-        return new Promise((resolve, reject) => {
-            const url = subfolder
-                ? `/api/library/${id}/scan-new?subfolder=${encodeURIComponent(subfolder)}`
-                : `/api/library/${id}/scan-new`;
-            fetch(url, { method: 'POST' })
-                .then(async r => {
-                    if (!r.ok) { reject(new Error(await r.text())); return; }
-                    const reader = r.body.getReader();
-                    const dec = new TextDecoder();
-                    let buf = '';
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        buf += dec.decode(value, { stream: true });
-                        const lines = buf.split('\n');
-                        buf = lines.pop();
-                        for (const line of lines) {
-                            const t = line.trim();
-                            if (t.startsWith('data:')) {
-                                try {
-                                    const p = JSON.parse(t.slice(5).trim());
-                                    onProgress(p);
-                                    if (p.finished) { resolve(); return; }
-                                } catch {}
-                            }
-                        }
-                    }
+                    await readEventStream(r, (p) => {
+                        onProgress(p);
+                        return !!p.finished;
+                    });
                     resolve();
                 })
                 .catch(err => { if (err.name !== 'AbortError') reject(err); });

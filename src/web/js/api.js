@@ -238,6 +238,30 @@ const API = {
     },
 };
 
+// readEventStream reads a server-sent event stream and calls onEvent with
+// each JSON data event, in order, until the stream ends — or until onEvent
+// returns true. An event that is not JSON, or whose handler throws, is
+// skipped.
+async function readEventStream(response, onEvent) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) return;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() ?? '';
+        for (const block of blocks) {
+            const line = block.split('\n').find(l => l.startsWith('data:'));
+            if (!line) continue;
+            try {
+                if (onEvent(JSON.parse(line.slice(5).trim())) === true) return;
+            } catch { /* skip malformed */ }
+        }
+    }
+}
+
 function escapeHtml(s) {
     return String(s)
         .replace(/&/g, '&amp;')

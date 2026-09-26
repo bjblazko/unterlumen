@@ -42,25 +42,9 @@ const PublishedGalleryAPI = {
         });
         if (!r.ok) throw new Error(await r.text());
 
-        const reader = r.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const blocks = buffer.split('\n\n');
-            buffer = blocks.pop() ?? '';
-            for (const block of blocks) {
-                const line = block.split('\n').find(l => l.startsWith('data: '));
-                if (!line) continue;
-                try {
-                    const evt = JSON.parse(line.slice(6));
-                    if (!evt.complete) onResult(evt);
-                } catch { /* skip malformed */ }
-            }
-        }
+        await readEventStream(r, (evt) => {
+            if (!evt.complete) onResult(evt);
+        });
     },
 };
 

@@ -452,33 +452,14 @@ class ExportModal {
                 });
                 if (!resp.ok) throw new Error(await resp.text());
 
-                const reader = resp.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
                 let token = null;
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    buffer += decoder.decode(value, { stream: true });
-
-                    // Parse SSE blocks (separated by blank lines)
-                    const blocks = buffer.split('\n\n');
-                    buffer = blocks.pop() ?? '';
-
-                    for (const block of blocks) {
-                        const dataLine = block.split('\n').find(l => l.startsWith('data: '));
-                        if (!dataLine) continue;
-                        try {
-                            const evt = JSON.parse(dataLine.slice(6));
-                            if (evt.complete) {
-                                token = evt.token;
-                            } else if (this.overlay) {
-                                this._showCount(evt.done, 'files exported', evt.file || '');
-                            }
-                        } catch { /* malformed event, skip */ }
+                await readEventStream(resp, (evt) => {
+                    if (evt.complete) {
+                        token = evt.token;
+                    } else if (this.overlay) {
+                        this._showCount(evt.done, 'files exported', evt.file || '');
                     }
-                }
+                });
 
                 if (!token) throw new Error('Export stream ended without a download token');
 

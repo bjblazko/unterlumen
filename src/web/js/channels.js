@@ -129,26 +129,11 @@ const ChannelAPI = {
         if (!r.headers.get('content-type')?.includes('text/event-stream')) {
             return r.json();
         }
-        const reader = r.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
         let finalEvt = null;
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const blocks = buffer.split('\n\n');
-            buffer = blocks.pop() ?? '';
-            for (const block of blocks) {
-                const line = block.split('\n').find(l => l.startsWith('data: '));
-                if (!line) continue;
-                try {
-                    const evt = JSON.parse(line.slice(6));
-                    if (evt.complete) finalEvt = evt;
-                    else if (onProgress) onProgress(evt);
-                } catch { /* skip malformed */ }
-            }
-        }
+        await readEventStream(r, (evt) => {
+            if (evt.complete) finalEvt = evt;
+            else if (onProgress) onProgress(evt);
+        });
         if (!finalEvt) throw new Error('Generate stream ended without completion event');
         return finalEvt;
     },

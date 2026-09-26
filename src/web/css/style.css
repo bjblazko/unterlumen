@@ -14,7 +14,7 @@
 [hidden] { display: none !important; }
 
 /* ── Tokens — rams-design (ADR-0030) ─────────────────────
- * Values copied verbatim from ~/.claude/skills/rams-design/references/tokens.css.
+ * Values copied verbatim from ~/.claude/skills/huepattl-rams-design/references/tokens.css.
  * Project-specific derived tokens are marked; deviations are recorded in ADR-0030.
  * theme-init.js always sets data-theme, so no prefers-color-scheme block is needed.
  */
