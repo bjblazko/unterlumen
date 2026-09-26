@@ -503,28 +503,3 @@ func dedupePhotos(photos []SitePhoto) []SitePhoto {
 	}
 	return out
 }
-
-// mergePhotoItems is what an album shows after a publish run: the photos it
-// already had, then the ones just exported, each file once. A photo that is
-// added again keeps its place; one that failed to export is left out.
-func mergePhotoItems(existing []SitePhoto, results []buildResult) []GalleryItem {
-	items := buildGalleryItems(existing)
-	have := make(map[string]bool, len(items))
-	for _, it := range items {
-		have[it.Filename] = true
-	}
-	for _, res := range results {
-		if res.Error != "" || res.Filename == "" || have[res.Filename] {
-			continue
-		}
-		have[res.Filename] = true
-		items = append(items, GalleryItem{
-			PhotoID:       res.PhotoID,
-			Filename:      res.Filename,
-			ThumbFilename: res.ThumbFilename,
-			Width:         res.Width,
-			Height:        res.Height,
-		})
-	}
-	return items
-}
