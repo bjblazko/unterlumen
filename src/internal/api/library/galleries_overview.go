@@ -382,7 +382,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		switch {
 		case ch.SiteExport:
-			sites := newSiteStore(chStore, slug)
+			sites := NewSiteStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -410,7 +410,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				return
 			}
 			statePath := filepath.Join(outDir, "gallery.json")
-			gs, err := loadGalleryState(statePath)
+			gs, err := LoadGalleryState(statePath)
 			if err != nil || gs == nil {
 				http.Error(w, "gallery not found", http.StatusNotFound)
 				return
@@ -419,7 +419,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			if body.Unlisted != nil {
 				gs.Unlisted = *body.Unlisted
 			}
-			if err := saveGalleryState(statePath, gs); err != nil {
+			if err := SaveGalleryState(statePath, gs); err != nil {
 				http.Error(w, "save gallery state: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -480,7 +480,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		switch {
 		case ch.SiteExport:
 			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			sites := newSiteStore(chStore, slug)
+			sites := NewSiteStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -491,7 +491,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				http.Error(w, "gallery not found", http.StatusNotFound)
 				return
 			}
-			folder := albumFolderName(albums[idx])
+			folder := AlbumFolderName(albums[idx])
 			safeDir, ok := pathguard.SafePath(siteDir, filepath.Join("albums", folder))
 			if !ok {
 				http.Error(w, "invalid gallery path", http.StatusBadRequest)
@@ -524,7 +524,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			localDir = safeDir
 			remoteSubpath = postID
 			// Take the gallery out of its photos before its state goes.
-			if gs, _ := loadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
+			if gs, _ := LoadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
 				sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, gs.Photos)
 			}
 			os.RemoveAll(localDir) //nolint:errcheck

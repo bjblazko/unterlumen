@@ -21,7 +21,7 @@ func TestSiteDirJoinsChannelDirAndSiteSubdir(t *testing.T) {
 }
 
 func TestComputeSlugListedNoCollision(t *testing.T) {
-	got := computeSlug("Summer 2026", time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), nil, false)
+	got := ComputeSlug("Summer 2026", time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), nil, false)
 	if got != "summer-2026" {
 		t.Errorf("got %q, want %q", got, "summer-2026")
 	}
@@ -30,7 +30,7 @@ func TestComputeSlugListedNoCollision(t *testing.T) {
 func TestComputeSlugListedCollisionFallsBackToMonth(t *testing.T) {
 	existing := []SiteAlbum{{Slug: "summer-2026"}}
 	published := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
-	got := computeSlug("Summer 2026", published, existing, false)
+	got := ComputeSlug("Summer 2026", published, existing, false)
 	want := "summer-2026-2026-07"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -40,7 +40,7 @@ func TestComputeSlugListedCollisionFallsBackToMonth(t *testing.T) {
 func TestComputeSlugListedMonthCollisionFallsBackToDay(t *testing.T) {
 	existing := []SiteAlbum{{Slug: "summer-2026"}, {Slug: "summer-2026-2026-07"}}
 	published := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
-	got := computeSlug("Summer 2026", published, existing, false)
+	got := ComputeSlug("Summer 2026", published, existing, false)
 	want := "summer-2026-2026-07-15"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
@@ -51,7 +51,7 @@ func TestComputeSlugListedMonthCollisionFallsBackToDay(t *testing.T) {
 // random token suffix, even when there is no title collision at all.
 func TestComputeSlugUnlistedAlwaysTokenSuffixed(t *testing.T) {
 	published := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	got := computeSlug("Family Reunion", published, nil, true)
+	got := ComputeSlug("Family Reunion", published, nil, true)
 
 	re := regexp.MustCompile(`^family-reunion-[0-9a-f]{8}$`)
 	if !re.MatchString(got) {
@@ -59,7 +59,7 @@ func TestComputeSlugUnlistedAlwaysTokenSuffixed(t *testing.T) {
 	}
 
 	// Two calls must not collide (crypto/rand-backed).
-	got2 := computeSlug("Family Reunion", published, nil, true)
+	got2 := ComputeSlug("Family Reunion", published, nil, true)
 	if got == got2 {
 		t.Errorf("expected two unlisted slug computations to differ, both were %q", got)
 	}
@@ -70,7 +70,7 @@ func TestComputeSlugUnlistedIgnoresCollisionLogic(t *testing.T) {
 	// unlisted album must still get a token suffix, not a date suffix.
 	existing := []SiteAlbum{{Slug: "family-reunion"}}
 	published := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	got := computeSlug("Family Reunion", published, existing, true)
+	got := ComputeSlug("Family Reunion", published, existing, true)
 	if strings.Contains(got, "2026-07") {
 		t.Errorf("unlisted slug %q should not use the date-collision fallback", got)
 	}
@@ -121,7 +121,7 @@ func TestGenerateSiteIndexExcludesUnlisted(t *testing.T) {
 
 func TestGenerateSitemapExcludesUnlisted(t *testing.T) {
 	dir := t.TempDir()
-	if err := generateSitemap(dir, testAlbums(), "https://example.com"); err != nil {
+	if err := GenerateSitemap(dir, testAlbums(), "https://example.com"); err != nil {
 		t.Fatalf("generateSitemap: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "sitemap.xml"))
@@ -173,7 +173,7 @@ func TestGenerateSiteGalleryNoInlineLightboxScript(t *testing.T) {
 
 func TestWriteSiteAssetsWritesLightboxJS(t *testing.T) {
 	dir := t.TempDir()
-	if err := writeSiteAssets(dir); err != nil {
+	if err := WriteSiteAssets(dir); err != nil {
 		t.Fatalf("writeSiteAssets: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "lightbox.js"))

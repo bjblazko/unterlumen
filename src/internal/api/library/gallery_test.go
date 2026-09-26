@@ -125,7 +125,7 @@ func TestGenerateGalleryNoInlineScript(t *testing.T) {
 
 func TestWriteGalleryAssets(t *testing.T) {
 	dir := t.TempDir()
-	if err := writeGalleryAssets(dir); err != nil {
+	if err := WriteGalleryAssets(dir); err != nil {
 		t.Fatalf("writeGalleryAssets: %v", err)
 	}
 	themeInit, err := os.ReadFile(filepath.Join(dir, "theme-init.js"))
@@ -166,10 +166,10 @@ func TestGenerateGalleryUnlistedRobotsMeta(t *testing.T) {
 func TestGalleryStateRoundTripsUnlisted(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "gallery.json")
 	in := &GalleryState{PostID: "abc123", Title: "Uli", Unlisted: true, PhotoCount: 2}
-	if err := saveGalleryState(path, in); err != nil {
+	if err := SaveGalleryState(path, in); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
-	out, err := loadGalleryState(path)
+	out, err := LoadGalleryState(path)
 	if err != nil || out == nil {
 		t.Fatalf("loadGalleryState: %v", err)
 	}

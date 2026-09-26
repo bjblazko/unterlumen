@@ -62,7 +62,7 @@ type sidecarAlbum struct {
 // album already in the register is left alone: the register is the newer
 // truth (titles are renamed there, not in the sidecars). A slug is never
 // derived — an album whose sidecars carry none is reported, not registered.
-func rebuildAlbumRegister(sites *siteStore, mgr *lib.Manager, ch *channels.Channel) (albumRegisterReport, error) {
+func rebuildAlbumRegister(sites *SiteStore, mgr *lib.Manager, ch *channels.Channel) (albumRegisterReport, error) {
 	report := albumRegisterReport{Added: []rebuiltAlbum{}, Unreadable: []unreadableAlbum{}, Photos: []unreadablePhoto{}}
 	found, unread := collectSidecarAlbums(mgr, ch)
 	report.Photos = append(report.Photos, unread...)
@@ -309,7 +309,7 @@ func rebuildAlbumList(chStore *channels.Store, mgr *lib.Manager) http.HandlerFun
 			http.Error(w, "only a website destination keeps an album list", http.StatusBadRequest)
 			return
 		}
-		report, err := rebuildAlbumRegister(newSiteStore(chStore, slug), mgr, ch)
+		report, err := rebuildAlbumRegister(NewSiteStore(chStore, slug), mgr, ch)
 		if err != nil {
 			http.Error(w, "rebuild album list: "+err.Error(), http.StatusInternalServerError)
 			return

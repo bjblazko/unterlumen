@@ -49,7 +49,7 @@ func TestGenerateDraft_AddingAPhotoAlreadyInTheAlbumDoesNotDuplicateIt(t *testin
 		if rec.Code != 200 {
 			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 		}
-		albums, _ := newSiteStore(chStore, "website").List()
+		albums, _ := NewSiteStore(chStore, "website").List()
 		if len(albums) != 1 {
 			t.Fatalf("albums = %d", len(albums))
 		}
@@ -58,7 +58,7 @@ func TestGenerateDraft_AddingAPhotoAlreadyInTheAlbumDoesNotDuplicateIt(t *testin
 	postID := run(channels.DraftTarget{Title: "Iceland"})
 	run(channels.DraftTarget{PostID: postID}) // the same photo, added again
 
-	albums, _ := newSiteStore(chStore, "website").List()
+	albums, _ := NewSiteStore(chStore, "website").List()
 	if albums[0].PhotoCount != 1 || len(albums[0].Photos) != 1 {
 		t.Errorf("photoCount %d, photos %d; want 1 and 1", albums[0].PhotoCount, len(albums[0].Photos))
 	}

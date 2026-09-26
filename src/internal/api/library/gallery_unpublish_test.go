@@ -59,7 +59,7 @@ func galleryFixture(t *testing.T) (mgr *lib.Manager, chStore *channels.Store, li
 	}
 	gs := &GalleryState{PostID: "g1", Title: "First", PublishedAt: at, PhotoCount: 2,
 		Photos: []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "not-in-any-library", Filename: "b.jpg"}}}
-	if err := saveGalleryState(filepath.Join(g1, "gallery.json"), gs); err != nil {
+	if err := SaveGalleryState(filepath.Join(g1, "gallery.json"), gs); err != nil {
 		t.Fatal(err)
 	}
 	return mgr, chStore, libID, hint

@@ -296,7 +296,7 @@ type albumTarget struct {
 // Unlisted is fixed at album creation: on add-to-existing it comes from the
 // stored album, never from the draft, so appending photos can't silently
 // un-hide an album whose link has already been shared.
-func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *siteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
+func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *SiteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
 	t := albumTarget{outDir: channelDir}
 
 	if draft.Target.PostID == "" {
@@ -307,7 +307,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *siteSto
 			t.outDir = filepath.Join(channelDir, t.postID)
 		case siteMode:
 			existingAlbums, _ := sites.List()
-			t.slug = computeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
+			t.slug = ComputeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
 			t.outDir = filepath.Join(channelDir, "site", "albums", t.slug)
 		}
 		return t, 0, nil
@@ -317,7 +317,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *siteSto
 	switch {
 	case galleryMode:
 		t.outDir = filepath.Join(channelDir, t.postID)
-		gs, err := loadGalleryState(filepath.Join(t.outDir, "gallery.json"))
+		gs, err := LoadGalleryState(filepath.Join(t.outDir, "gallery.json"))
 		if err != nil || gs == nil {
 			return t, http.StatusBadRequest, fmt.Errorf("gallery not found: %s", t.postID)
 		}
@@ -334,7 +334,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *siteSto
 			}
 			t.existingPhotos, t.existingTitle = siteAlbums[i].Photos, siteAlbums[i].Title
 			t.existingPublishedAt, t.unlisted = siteAlbums[i].PublishedAt, siteAlbums[i].Unlisted
-			t.slug = albumFolderName(siteAlbums[i])
+			t.slug = AlbumFolderName(siteAlbums[i])
 			break
 		}
 		if t.existingTitle == "" {

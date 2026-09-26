@@ -32,7 +32,7 @@ type GalleryState struct {
 	Photos      []SitePhoto `json:"photos"`
 }
 
-func loadGalleryState(statePath string) (*GalleryState, error) {
+func LoadGalleryState(statePath string) (*GalleryState, error) {
 	data, err := os.ReadFile(statePath)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -44,7 +44,7 @@ func loadGalleryState(statePath string) (*GalleryState, error) {
 	return &gs, json.Unmarshal(data, &gs)
 }
 
-func saveGalleryState(statePath string, gs *GalleryState) error {
+func SaveGalleryState(statePath string, gs *GalleryState) error {
 	data, err := json.MarshalIndent(gs, "", "  ")
 	if err != nil {
 		return err
@@ -395,11 +395,11 @@ document.querySelectorAll('#gallery figure').forEach(fig => {
 });
 `
 
-// writeGalleryAssets writes theme-init.js and gallery.js into dir (a single
+// WriteGalleryAssets writes theme-init.js and gallery.js into dir (a single
 // gallery's own output folder — GalleryExport mode has no shared site-wide
 // assets directory, so these are duplicated per gallery, matching how e.g.
 // photos.zip already lives inside each gallery folder individually).
-func writeGalleryAssets(dir string) error {
+func WriteGalleryAssets(dir string) error {
 	if err := os.WriteFile(filepath.Join(dir, "theme-init.js"), []byte(galleryThemeInitJS), 0o644); err != nil {
 		return err
 	}
@@ -475,10 +475,10 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 	return buf.Bytes()
 }
 
-// buildGalleryItems reconstructs GalleryItem entries from a SiteAlbum's stored photos.
+// BuildGalleryItems reconstructs GalleryItem entries from a SiteAlbum's stored photos.
 // Dimensions are unavailable for albums predating dimension storage; Width/Height will be 0.
-func buildGalleryItems(photos []SitePhoto) []GalleryItem {
-	photos = dedupePhotos(photos)
+func BuildGalleryItems(photos []SitePhoto) []GalleryItem {
+	photos = DedupePhotos(photos)
 	items := make([]GalleryItem, len(photos))
 	for i, p := range photos {
 		items[i] = GalleryItem{PhotoID: p.PhotoID, Filename: p.Filename, ThumbFilename: p.ThumbFilename}
@@ -486,10 +486,10 @@ func buildGalleryItems(photos []SitePhoto) []GalleryItem {
 	return items
 }
 
-// dedupePhotos keeps the first entry of each exported file. Adding a photo
+// DedupePhotos keeps the first entry of each exported file. Adding a photo
 // that is already in an album used to list it a second time (same file name),
 // on the page, in the register and in the ZIP.
-func dedupePhotos(photos []SitePhoto) []SitePhoto {
+func DedupePhotos(photos []SitePhoto) []SitePhoto {
 	seen := make(map[string]bool, len(photos))
 	out := make([]SitePhoto, 0, len(photos))
 	for _, p := range photos {

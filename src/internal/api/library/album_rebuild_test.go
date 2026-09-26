@@ -37,7 +37,7 @@ func publishedPhoto(t *testing.T, mgr *lib.Manager, photoID string, pub media.Pu
 	return libID
 }
 
-func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *siteStore, *channels.Channel) {
+func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *SiteStore, *channels.Channel) {
 	t.Helper()
 	mgr, err := lib.NewManager(t.TempDir())
 	if err != nil {
@@ -49,7 +49,7 @@ func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *siteStore, *c
 	if err := chStore.Save(ch); err != nil {
 		t.Fatal(err)
 	}
-	return mgr, chStore, newSiteStore(chStore, "website"), ch
+	return mgr, chStore, NewSiteStore(chStore, "website"), ch
 }
 
 func TestRebuildAlbumRegister_RecreatesAlbumFromSidecars(t *testing.T) {

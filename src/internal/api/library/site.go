@@ -60,9 +60,9 @@ type SiteAlbum struct {
 	Unlisted    bool        `json:"unlisted,omitempty"` // excluded from site index/sitemap; noindexed; set at creation and immutable thereafter
 }
 
-// albumFolderName returns the filesystem folder name for an album.
+// AlbumFolderName returns the filesystem folder name for an album.
 // New albums get a slug; albums without one fall back to PostID for backward compatibility.
-func albumFolderName(album SiteAlbum) string {
+func AlbumFolderName(album SiteAlbum) string {
 	if album.Slug != "" {
 		return album.Slug
 	}
@@ -108,20 +108,20 @@ func randomSlugToken() string {
 	return hex.EncodeToString(b)
 }
 
-// computeSlug derives a unique slug for a new album.
+// ComputeSlug derives a unique slug for a new album.
 // If the base slug collides with an existing one, it appends the publish month (and day if needed).
 //
 // When unlisted is true, the returned slug is always the human slug plus a random
 // crypto/rand-generated 8-character token, regardless of collisions — this keeps the
 // listed/public collision-fallback path (date suffixes) completely untouched.
-func computeSlug(title string, publishedAt time.Time, existing []SiteAlbum, unlisted bool) string {
+func ComputeSlug(title string, publishedAt time.Time, existing []SiteAlbum, unlisted bool) string {
 	base := slugify(title)
 	if unlisted {
 		return base + "-" + randomSlugToken()
 	}
 	used := make(map[string]bool, len(existing))
 	for _, a := range existing {
-		used[albumFolderName(a)] = true
+		used[AlbumFolderName(a)] = true
 	}
 	if !used[base] {
 		return base
@@ -133,10 +133,10 @@ func computeSlug(title string, publishedAt time.Time, existing []SiteAlbum, unli
 	return base + "-" + publishedAt.Format("2006-01-02")
 }
 
-// dateRangeStr formats a publish date (and optional updated date) as a human-readable range.
+// DateRangeStr formats a publish date (and optional updated date) as a human-readable range.
 // Same month/year → "January 2026". Different month, same year → "January – March 2026".
 // Different year → "December 2025 – January 2026".
-func dateRangeStr(published, updated time.Time) string {
+func DateRangeStr(published, updated time.Time) string {
 	if updated.IsZero() || (updated.Year() == published.Year() && updated.Month() == published.Month()) {
 		return published.Format("January 2006")
 	}
@@ -146,7 +146,7 @@ func dateRangeStr(published, updated time.Time) string {
 	return published.Format("January 2006") + " – " + updated.Format("January 2006")
 }
 
-func loadSiteState(statePath string) ([]SiteAlbum, error) {
+func LoadSiteState(statePath string) ([]SiteAlbum, error) {
 	data, err := os.ReadFile(statePath)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -158,7 +158,7 @@ func loadSiteState(statePath string) ([]SiteAlbum, error) {
 	return albums, json.Unmarshal(data, &albums)
 }
 
-func saveSiteState(statePath string, albums []SiteAlbum) error {
+func SaveSiteState(statePath string, albums []SiteAlbum) error {
 	data, err := json.MarshalIndent(albums, "", "  ")
 	if err != nil {
 		return err
@@ -192,8 +192,8 @@ func markdownToHTML(src string) template.HTML {
 	return template.HTML(buf.String())
 }
 
-// avatarExistsAt reports whether site/assets/avatar.jpg exists in siteDir.
-func avatarExistsAt(siteDir string) bool {
+// AvatarExistsAt reports whether site/assets/avatar.jpg exists in siteDir.
+func AvatarExistsAt(siteDir string) bool {
 	_, err := os.Stat(filepath.Join(siteDir, "assets", "avatar.jpg"))
 	return err == nil
 }
@@ -204,9 +204,9 @@ func logoExistsAt(siteDir string) bool {
 	return err == nil
 }
 
-// buildSiteNavContext constructs a SiteNavContext from channel config and current site state.
+// BuildSiteNavContext constructs a SiteNavContext from channel config and current site state.
 // rootLevel=true uses "assets/logo.jpg" (root index, about, legal); false uses "../../assets/logo.jpg" (album pages).
-func buildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) SiteNavContext {
+func BuildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) SiteNavContext {
 	logoPath := "assets/logo.jpg"
 	if !rootLevel {
 		logoPath = "../../assets/logo.jpg"
@@ -222,7 +222,7 @@ func buildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) S
 	}
 }
 
-// writeSiteAssets writes style.css, toggle.js, and lightbox.js into assetsDir,
+// WriteSiteAssets writes style.css, toggle.js, and lightbox.js into assetsDir,
 // overwriting if present. toggle.js is fully static — it reads the default
 // theme from data-default-theme on <html>. lightbox.js is also fully
 // static — it reads its per-page photo list from the "ul-photos"
@@ -233,7 +233,7 @@ func buildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) S
 // 'unsafe-inline') — as this project's own deployment docs recommend for a
 // site hosting this generator's output — silently blocks any inline
 // <script> from running at all, with no visible error to the visitor.
-func writeSiteAssets(assetsDir string) error {
+func WriteSiteAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0o700); err != nil {
 		return err
 	}
@@ -246,9 +246,9 @@ func writeSiteAssets(assetsDir string) error {
 	return os.WriteFile(assetsDir+"/lightbox.js", []byte(siteLightboxJS), 0o644)
 }
 
-// generateRobotsTxt writes a robots.txt to the site root.
+// GenerateRobotsTxt writes a robots.txt to the site root.
 // If siteURL is non-empty, a Sitemap line is included.
-func generateRobotsTxt(siteDir, siteURL string) error {
+func GenerateRobotsTxt(siteDir, siteURL string) error {
 	var b strings.Builder
 	b.WriteString("User-agent: *\nAllow: /\n")
 	if siteURL != "" {
@@ -257,9 +257,9 @@ func generateRobotsTxt(siteDir, siteURL string) error {
 	return os.WriteFile(filepath.Join(siteDir, "robots.txt"), []byte(b.String()), 0o644)
 }
 
-// generateSitemap writes a sitemap.xml to the site root.
+// GenerateSitemap writes a sitemap.xml to the site root.
 // Only called when siteURL is non-empty; sitemap requires absolute URLs.
-func generateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
+func GenerateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
 	base := strings.TrimRight(siteURL, "/")
 	var b strings.Builder
 	b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -269,7 +269,7 @@ func generateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
 		if a.Unlisted {
 			continue
 		}
-		fmt.Fprintf(&b, "  <url><loc>%s/albums/%s/</loc></url>\n", base, albumFolderName(a))
+		fmt.Fprintf(&b, "  <url><loc>%s/albums/%s/</loc></url>\n", base, AlbumFolderName(a))
 	}
 	b.WriteString("</urlset>\n")
 	return os.WriteFile(filepath.Join(siteDir, "sitemap.xml"), []byte(b.String()), 0o644)
@@ -791,9 +791,9 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 			loading = "eager"
 		}
 		items[i] = siteAlbumData{
-			FolderName: albumFolderName(a),
+			FolderName: AlbumFolderName(a),
 			Title:      a.Title,
-			DateStr:    dateRangeStr(a.PublishedAt, a.UpdatedAt),
+			DateStr:    DateRangeStr(a.PublishedAt, a.UpdatedAt),
 			PhotoCount: a.PhotoCount,
 			CoverFile:  a.CoverFile,
 			Loading:    loading,
@@ -1075,9 +1075,9 @@ var siteAboutTmpl = template.Must(template.New("siteabout").Parse(`<!DOCTYPE htm
 </html>
 `))
 
-// generateAboutPage produces about.html at the site root.
+// GenerateAboutPage produces about.html at the site root.
 // Does nothing if SiteAbout is empty.
-func generateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, nav SiteNavContext) error {
+func GenerateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, nav SiteNavContext) error {
 	if ch.SiteAbout == "" {
 		return nil
 	}
@@ -1152,9 +1152,9 @@ var siteImprintTmpl = template.Must(template.New("siteimprint").Parse(`<!DOCTYPE
 </html>
 `))
 
-// generateImprintPage produces legal.html at the site root.
+// GenerateImprintPage produces legal.html at the site root.
 // Does nothing if SiteImprint is empty.
-func generateImprintPage(siteDir string, ch *channels.Channel, nav SiteNavContext) error {
+func GenerateImprintPage(siteDir string, ch *channels.Channel, nav SiteNavContext) error {
 	if ch.SiteImprint == "" {
 		return nil
 	}

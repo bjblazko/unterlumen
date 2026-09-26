@@ -172,7 +172,7 @@ func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
 		PhotoCount:  1,
 		Photos:      []SitePhoto{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
 	}
-	if err := saveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 	// A stale index.html from an old template version, to confirm it gets overwritten.
@@ -258,7 +258,7 @@ func TestListGalleriesPerChannelBehaviorPreserved(t *testing.T) {
 	albums := []SiteAlbum{
 		{PostID: "aaa", Slug: "album-one", Title: "Album One", PublishedAt: time.Now(), PhotoCount: 2, Unlisted: true},
 	}
-	if err := saveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -732,7 +732,7 @@ func TestGenerateDraft_MultiLibraryDraft_MergesAllPhotos(t *testing.T) {
 		t.Fatalf("no complete event with galleryPath, body=%s", rec.Body.String())
 	}
 
-	gs, err := loadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	gs, err := LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
 	if err != nil || gs == nil {
 		t.Fatalf("loadGalleryState: %v", err)
 	}
@@ -817,7 +817,7 @@ func TestGenerateDraft_SentinelRegeneratesWithoutDraft(t *testing.T) {
 	// identity — that's unchanged from the pre-refactor buildPhotos behavior.
 	// What must be reused is the *album*, keyed by gallery.json's own PostID.
 	galleryPath, _ := complete["galleryPath"].(string)
-	gs, err := loadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	gs, err := LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
 	if err != nil || gs == nil {
 		t.Fatalf("loadGalleryState after sentinel regenerate: %v", err)
 	}
@@ -1009,7 +1009,7 @@ func TestGenerateDraft_SiteAlbum_RecordsSlugAndUnlistedInSidecar(t *testing.T) {
 	if err != nil || len(pubs) != 1 {
 		t.Fatalf("ReadSidecar: %+v, %v", pubs, err)
 	}
-	albums, _ := newSiteStore(chStore, "website").List()
+	albums, _ := NewSiteStore(chStore, "website").List()
 	if len(albums) != 1 {
 		t.Fatalf("register holds %d albums", len(albums))
 	}

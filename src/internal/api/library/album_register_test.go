@@ -186,7 +186,7 @@ func TestSiteStoreDeleteTombstonesAndRefreshesCache(t *testing.T) {
 	if !s.IsDeleted("pA") {
 		t.Error("pA must be tombstoned")
 	}
-	if cached, _ := loadSiteState(cache); len(cached) != 1 || cached[0].PostID != "pB" {
+	if cached, _ := LoadSiteState(cache); len(cached) != 1 || cached[0].PostID != "pB" {
 		t.Errorf("cache = %+v", cached)
 	}
 }

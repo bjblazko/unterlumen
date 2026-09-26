@@ -9,10 +9,10 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 )
 
-func newTestSiteStore(t *testing.T, shared string, browseRoot string) (*siteStore, string) {
+func newTestSiteStore(t *testing.T, shared string, browseRoot string) (*SiteStore, string) {
 	t.Helper()
 	chStore := channels.NewStore(shared, t.TempDir()).WithBoundary(browseRoot)
-	return newSiteStore(chStore, "website"), filepath.Join(chStore.OutputDir("website"), "site", "site.json")
+	return NewSiteStore(chStore, "website"), filepath.Join(chStore.OutputDir("website"), "site", "site.json")
 }
 
 // Two installations, each with its own output directory and stale cache: an
@@ -34,7 +34,7 @@ func TestSiteStoreListComesFromRegisterNotLocalCache(t *testing.T) {
 	if err != nil || len(got) != 2 {
 		t.Fatalf("mac sees %d albums (%v), want 2", len(got), err)
 	}
-	cached, err := loadSiteState(macCache)
+	cached, err := LoadSiteState(macCache)
 	if err != nil || len(cached) != 2 {
 		t.Errorf("mac cache holds %d albums (%v), want 2", len(cached), err)
 	}
@@ -47,7 +47,7 @@ func TestSiteStoreRemoveRefreshesCacheAndKeepsOthers(t *testing.T) {
 	if err := s.Remove("pA"); err != nil {
 		t.Fatal(err)
 	}
-	cached, _ := loadSiteState(cache)
+	cached, _ := LoadSiteState(cache)
 	if len(cached) != 1 || cached[0].PostID != "pB" {
 		t.Fatalf("cache = %+v, want only pB", cached)
 	}
@@ -60,7 +60,7 @@ func TestSiteStoreAdoptsLegacySiteJSONIntoEmptyRegister(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := saveSiteState(cache, []SiteAlbum{testAlbum("old1", "Old")}); err != nil {
+	if err := SaveSiteState(cache, []SiteAlbum{testAlbum("old1", "Old")}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -82,7 +82,7 @@ func TestSiteStoreDoesNotAdoptWhenRegisterHasAlbums(t *testing.T) {
 
 	second, cache := newTestSiteStore(t, shared, "/Volumes/nas/photos")
 	_ = os.MkdirAll(filepath.Dir(cache), 0o755)
-	_ = saveSiteState(cache, []SiteAlbum{testAlbum("stale", "Stale")})
+	_ = SaveSiteState(cache, []SiteAlbum{testAlbum("stale", "Stale")})
 
 	got, _ := second.List()
 	if len(got) != 1 || got[0].PostID != "pA" {
@@ -105,10 +105,10 @@ func TestRebuildSiteListsAlbumsOfBothInstallations(t *testing.T) {
 	nas := newInstall("/photos")
 	mac := newInstall("/Volumes/nas/photos")
 
-	if err := newSiteStore(nas, "website").Upsert(testAlbum("pA", "Alpha")); err != nil {
+	if err := NewSiteStore(nas, "website").Upsert(testAlbum("pA", "Alpha")); err != nil {
 		t.Fatal(err)
 	}
-	if err := newSiteStore(mac, "website").Upsert(testAlbum("pB", "Beta")); err != nil {
+	if err := NewSiteStore(mac, "website").Upsert(testAlbum("pB", "Beta")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,7 +143,7 @@ func TestSiteStoreDoesNotAdoptAfterTheLastAlbumWasRemoved(t *testing.T) {
 
 	second, cache := newTestSiteStore(t, shared, "/Volumes/nas/photos")
 	_ = os.MkdirAll(filepath.Dir(cache), 0o755)
-	_ = saveSiteState(cache, []SiteAlbum{testAlbum("pA", "Alpha")}) // its cache still has the album
+	_ = SaveSiteState(cache, []SiteAlbum{testAlbum("pA", "Alpha")}) // its cache still has the album
 
 	if err := first.Remove("pA"); err != nil {
 		t.Fatal(err)

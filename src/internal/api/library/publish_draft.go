@@ -100,7 +100,7 @@ func newPublishRun(r *http.Request, mgr *lib.Manager, chStore *channels.Store, d
 	run.galleryMode = ch.GalleryExport && namesAlbum
 	run.siteMode = ch.SiteExport && namesAlbum
 
-	target, status, err := resolveAlbumTarget(draft, run.channelDir, newSiteStore(chStore, slug), publishedAt, run.galleryMode, run.siteMode)
+	target, status, err := resolveAlbumTarget(draft, run.channelDir, NewSiteStore(chStore, slug), publishedAt, run.galleryMode, run.siteMode)
 	if err != nil {
 		run.closeStores()
 		return nil, status, err
@@ -341,7 +341,7 @@ func (p *publishRun) writeZip(items []GalleryItem, emit func(map[string]any)) st
 func (p *publishRun) writeGalleryPage(items []GalleryItem, zipName string, emit func(map[string]any)) error {
 	emit(map[string]any{"step": "html", "done": 0, "total": 1, "file": "Generating gallery…"})
 	publishedAt, updatedAt := p.albumDates()
-	dateStr := dateRangeStr(publishedAt, updatedAt)
+	dateStr := DateRangeStr(publishedAt, updatedAt)
 	var html []byte
 	if p.siteMode {
 		html = GenerateSiteGallery(p.albumTitle(), p.ch.SiteTheme, items, GalleryOptions{
@@ -352,7 +352,7 @@ func (p *publishRun) writeGalleryPage(items []GalleryItem, zipName string, emit 
 			AlbumSlug:   p.target.slug,
 			PublishedAt: publishedAt,
 			Unlisted:    p.target.unlisted,
-			Nav:         buildSiteNavContext(p.ch, filepath.Join(p.channelDir, "site"), false),
+			Nav:         BuildSiteNavContext(p.ch, filepath.Join(p.channelDir, "site"), false),
 		})
 	} else {
 		html = GenerateGallery(p.albumTitle(), items, GalleryOptions{ZipFilename: zipName, DateStr: dateStr, Unlisted: p.target.unlisted})
@@ -361,7 +361,7 @@ func (p *publishRun) writeGalleryPage(items []GalleryItem, zipName string, emit 
 		return errors.New("write gallery: " + err.Error())
 	}
 	if p.galleryMode {
-		if err := writeGalleryAssets(p.target.outDir); err != nil {
+		if err := WriteGalleryAssets(p.target.outDir); err != nil {
 			return errors.New("write gallery assets: " + err.Error())
 		}
 	}
@@ -376,10 +376,10 @@ func (p *publishRun) saveGalleryState(items []GalleryItem, zipName string) {
 	// upload and is carried over, so a rebuild without an upload
 	// leaves the gallery visibly "built, not uploaded" (ADR-0029).
 	var deployedAt time.Time
-	if existing, _ := loadGalleryState(statePath); existing != nil {
+	if existing, _ := LoadGalleryState(statePath); existing != nil {
 		deployedAt = existing.DeployedAt
 	}
-	saveGalleryState(statePath, &GalleryState{ //nolint:errcheck
+	SaveGalleryState(statePath, &GalleryState{ //nolint:errcheck
 		PostID:      p.target.postID,
 		Title:       p.albumTitle(),
 		PublishedAt: publishedAt,
@@ -412,10 +412,10 @@ func (p *publishRun) updateSite(items []GalleryItem, zipName string, emit func(m
 			os.WriteFile(filepath.Join(p.target.outDir, "cover.jpg"), cover, 0o644) //nolint:errcheck
 		}
 	}
-	if err := writeSiteAssets(filepath.Join(siteDir, "assets")); err != nil {
+	if err := WriteSiteAssets(filepath.Join(siteDir, "assets")); err != nil {
 		return "", errors.New("write site assets: " + err.Error())
 	}
-	sites := newSiteStore(p.chStore, p.slug)
+	sites := NewSiteStore(p.chStore, p.slug)
 	if err := p.upsertSiteAlbum(sites, items, zipName); err != nil {
 		return "", err
 	}
@@ -433,7 +433,7 @@ func (p *publishRun) updateSite(items []GalleryItem, zipName string, emit func(m
 
 // upsertSiteAlbum writes only the album this build touched; the others belong
 // to whichever installation published them.
-func (p *publishRun) upsertSiteAlbum(sites *siteStore, items []GalleryItem, zipName string) error {
+func (p *publishRun) upsertSiteAlbum(sites *SiteStore, items []GalleryItem, zipName string) error {
 	siteAlbums, err := sites.List()
 	if err != nil {
 		return errors.New("read site state: " + err.Error())
@@ -484,7 +484,7 @@ func (p *publishRun) touchedSiteAlbum(siteAlbums []SiteAlbum, items []GalleryIte
 // already had, then the ones just exported, each file once. A photo that is
 // added again keeps its place; one that failed to export is left out.
 func mergePhotoItems(existing []SitePhoto, results []buildResult) []GalleryItem {
-	items := buildGalleryItems(existing)
+	items := BuildGalleryItems(existing)
 	have := make(map[string]bool, len(items))
 	for _, it := range items {
 		have[it.Filename] = true
