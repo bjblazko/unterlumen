@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-09-27*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.12.0] - 2026-09-27
 
 ### Added
 - **A status line for long work.** Library scans, ZIP exports, publishing, site, gallery and album-list rebuilds, gallery renames and unpublishing, and deploys appear at the foot of the sidebar with a bar and "x of y photos" where the total is known. They stay in view when you move to another place, link to the place they belong to, and a failure stays until it is clicked. A library scan that starts in the background after a move is now visible too. The collapsed sidebar shows a ring for each running job and a disc for each failed one. New endpoint: `GET /api/jobs/stream` (SSE). See [ADR-0036](doc/architecture/adr/0036-activity-and-progress.md).
