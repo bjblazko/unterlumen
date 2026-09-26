@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -44,8 +45,6 @@ func buildDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
 			return
 		}
-		id := r.PathValue("id")
-
 		var body struct {
 			PhotoIDs  []string `json:"photoIDs"`
 			Channel   string   `json:"channel"`
@@ -59,95 +58,109 @@ func buildDownload(mgr *lib.Manager, chStore *channels.Store) http.HandlerFunc {
 			http.Error(w, "photoIDs and channel required", http.StatusBadRequest)
 			return
 		}
-
 		ch, err := chStore.Get(body.Channel)
 		if err != nil {
 			http.Error(w, "channel not found: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		store, err := mgr.OpenStore(id)
+		store, err := mgr.OpenStore(r.PathValue("id"))
 		if err != nil {
 			http.Error(w, "library not found", http.StatusNotFound)
 			return
 		}
 		defer store.Close()
 
-		tmpFile, err := os.CreateTemp("", "unterlumen-channel-zip-*.zip")
+		tmpPath, err := writeDownloadZip(store, ch, body.PhotoIDs, body.RecordXMP != nil && *body.RecordXMP)
+		if tmpPath != "" {
+			defer os.Remove(tmpPath)
+		}
 		if err != nil {
-			http.Error(w, "create temp file: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		tmpPath := tmpFile.Name()
-		defer os.Remove(tmpPath)
-
-		recordXMP := body.RecordXMP != nil && *body.RecordXMP
-		publishedAt := time.Now().UTC()
-		ts := publishedAt.Format("20060102T150405Z")
-		opts := ch.ExportOptions()
-		ext := "." + ch.Format
-		if ch.Format == "jpeg" {
-			ext = ".jpg"
-		}
-
-		var pub media.Publication
-		if recordXMP {
-			pub = media.Publication{
-				Channel:     body.Channel,
-				PostID:      newPostID(),
-				PublishedAt: publishedAt,
-			}
-		}
-
-		zw := zip.NewWriter(tmpFile)
-		for _, photoID := range body.PhotoIDs {
-			pathHint, pathErr := store.GetPhotoPathHint(photoID)
-			if pathErr != nil || pathHint == "" {
-				continue
-			}
-			if recordXMP {
-				media.AppendPublication(pathHint, pub) //nolint:errcheck
-				chKey := "built:" + pub.Channel
-				qualKey := chKey + ":" + pub.PostID
-				tsVal := publishedAt.Format(time.RFC3339)
-				store.UpsertMeta(photoID, chKey, tsVal)   //nolint:errcheck
-				store.UpsertMeta(photoID, qualKey, tsVal) //nolint:errcheck
-				if pub.PostID != "" {
-					store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
-				}
-				if pub.GalleryTitle != "" {
-					store.UpsertMeta(photoID, chKey+":title", pub.GalleryTitle)   //nolint:errcheck
-					store.UpsertMeta(photoID, qualKey+":title", pub.GalleryTitle) //nolint:errcheck
-				}
-			}
-			data, expErr := media.ExportImage(pathHint, opts)
-			if expErr != nil {
-				continue
-			}
-			base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
-			outName := ch.Slug + "_" + ts + "_" + base + ext
-			if fw, fwErr := zw.Create(outName); fwErr == nil {
-				fw.Write(data) //nolint:errcheck
-			}
-		}
-		zw.Close()
-		tmpFile.Close()
-
-		f, err := os.Open(tmpPath)
-		if err != nil {
-			http.Error(w, "open temp file: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer f.Close()
-
-		if info, statErr := os.Stat(tmpPath); statErr == nil {
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
-		}
-		fname := ch.Slug + "-export.zip"
-		w.Header().Set("Content-Type", "application/zip")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fname))
-		io.Copy(w, f) //nolint:errcheck
+		serveZipFile(w, tmpPath, ch.Slug+"-export.zip")
 	}
+}
+
+// writeDownloadZip exports the photos into a ZIP in a temporary file and
+// returns its path, which the caller removes. Photos that are unknown or
+// cannot be exported are left out.
+func writeDownloadZip(store *lib.Store, ch *channels.Channel, photoIDs []string, recordXMP bool) (string, error) {
+	tmpFile, err := os.CreateTemp("", "unterlumen-channel-zip-*.zip")
+	if err != nil {
+		return "", errors.New("create temp file: " + err.Error())
+	}
+	publishedAt := time.Now().UTC()
+	ex := downloadExport{store: store, ch: ch, opts: ch.ExportOptions(), ts: publishedAt.Format("20060102T150405Z"), ext: "." + ch.Format}
+	if ch.Format == "jpeg" {
+		ex.ext = ".jpg"
+	}
+	if recordXMP {
+		ex.record = &media.Publication{Channel: ch.Slug, PostID: newPostID(), PublishedAt: publishedAt}
+	}
+	zw := zip.NewWriter(tmpFile)
+	for _, photoID := range photoIDs {
+		ex.add(zw, photoID)
+	}
+	zw.Close()
+	tmpFile.Close()
+	return tmpFile.Name(), nil
+}
+
+// downloadExport adds photos, exported with a destination's settings, to a
+// download ZIP.
+type downloadExport struct {
+	store  *lib.Store
+	ch     *channels.Channel
+	opts   media.ExportOptions
+	ts     string             // the export time in file names
+	ext    string             // the exported files' extension
+	record *media.Publication // recorded on each photo, or nil
+}
+
+func (ex downloadExport) add(zw *zip.Writer, photoID string) {
+	pathHint, err := ex.store.GetPhotoPathHint(photoID)
+	if err != nil || pathHint == "" {
+		return
+	}
+	if ex.record != nil {
+		recordDownload(ex.store, photoID, pathHint, *ex.record)
+	}
+	data, err := media.ExportImage(pathHint, ex.opts)
+	if err != nil {
+		return
+	}
+	base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
+	if fw, err := zw.Create(ex.ch.Slug + "_" + ex.ts + "_" + base + ex.ext); err == nil {
+		fw.Write(data) //nolint:errcheck
+	}
+}
+
+// recordDownload records a downloaded photo as published: in its sidecar and
+// as the destination's built: keys.
+func recordDownload(store *lib.Store, photoID, pathHint string, pub media.Publication) {
+	media.AppendPublication(pathHint, pub) //nolint:errcheck
+	chKey := BuildPrefix + pub.Channel
+	tsVal := pub.PublishedAt.Format(time.RFC3339)
+	store.UpsertMeta(photoID, chKey, tsVal)                //nolint:errcheck
+	store.UpsertMeta(photoID, chKey+":"+pub.PostID, tsVal) //nolint:errcheck
+	store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
+}
+
+// serveZipFile sends a ZIP file as an attachment.
+func serveZipFile(w http.ResponseWriter, path, name string) {
+	f, err := os.Open(path)
+	if err != nil {
+		http.Error(w, "open temp file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+	if info, statErr := os.Stat(path); statErr == nil {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, name))
+	io.Copy(w, f) //nolint:errcheck
 }
 
 func createGalleryZip(results []buildResult, outDir, zipName string) error {
