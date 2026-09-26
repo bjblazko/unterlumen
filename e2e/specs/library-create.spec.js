@@ -33,9 +33,11 @@ test.describe('New library dialog', () => {
 
   test('creates the library, indexes it and opens it', async ({ page, request }) => {
     await page.locator('#lib-dlg-name').fill(NAME);
-    await page.locator('#lib-dlg-path').fill('"folder-b"');
+    // A small folder: the dialog waits for the first index, which on a CI
+    // runner took longer than 30 s for the 50 photos of folder-b.
+    await page.locator('#lib-dlg-path').fill('"folder-a/a3"');
     await page.locator('#lib-dlg-create').click();
-    await expect(page.locator('.library-detail')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.library-detail')).toBeVisible({ timeout: 90_000 });
     await expect(page.locator('#lib-dlg-name')).toHaveCount(0);
     const libs = await (await request.get('/api/library/')).json();
     const made = libs.filter(l => l.name === NAME);
