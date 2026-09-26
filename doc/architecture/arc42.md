@@ -176,7 +176,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `status-line.js` | `StatusLine` — the foot of the sidebar: jobs from `/api/jobs/stream` that outlive their page |
 | `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
-| `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
+| `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data; a folder's dashboard comes from `FolderDashboard` |
+| `folder-dashboard.js` | `FolderDashboard` — the info panel's view of a folder: contents, size map (treemap), nesting depth, file types, library EXIF stats |
 | `stats-modal.js` | `StatsModal` — the Statistics place: library filter, snapshot and timeline tabs |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time |
