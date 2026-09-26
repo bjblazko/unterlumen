@@ -42,7 +42,7 @@ const sshConnectTimeoutSeconds = 10
 type Target struct {
 	Host         string
 	User         string
-	Port         int    // 0 means "use ssh's default" (22)
+	Port         int // 0 means "use ssh's default" (22)
 	RemotePath   string
 	IdentityFile string // optional; empty means use the default key/agent
 }

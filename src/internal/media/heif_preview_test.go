@@ -1,8 +1,8 @@
 package media
 
 import (
-	"image/jpeg"
 	"bytes"
+	"image/jpeg"
 	"os/exec"
 	"sync"
 	"testing"

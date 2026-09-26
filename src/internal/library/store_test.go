@@ -138,7 +138,7 @@ func TestPurgeMissingPhotos(t *testing.T) {
 
 	// "gone" must be fully removed — no orphan rows.
 	var count int
-	s.db.QueryRow(`SELECT COUNT(1) FROM photos WHERE id='gone'`).Scan(&count)       //nolint:errcheck
+	s.db.QueryRow(`SELECT COUNT(1) FROM photos WHERE id='gone'`).Scan(&count)           //nolint:errcheck
 	s.db.QueryRow(`SELECT COUNT(1) FROM exif_index WHERE photo_id='gone'`).Scan(&count) //nolint:errcheck
 	if count != 0 {
 		t.Error("orphan exif_index rows remain after purge")

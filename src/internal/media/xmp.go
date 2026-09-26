@@ -16,11 +16,11 @@ const ulNamespace = "https://unterlumen.app/xmp/1.0/"
 // Publication records one publish event for a photo.
 type Publication struct {
 	Channel      string
-	Account      string    // account ID within the channel; empty when channel has no sub-accounts
-	PostID       string    // shared ID for photos published together in one action
-	GalleryTitle string    // title of the gallery/album this publish belongs to; empty for bare exports
-	Slug         string    // site album's folder name and URL; empty for anything that is not a site album. Never derived again once published.
-	Unlisted     bool      // site album is kept out of the index and sitemap; fixed with the slug
+	Account      string // account ID within the channel; empty when channel has no sub-accounts
+	PostID       string // shared ID for photos published together in one action
+	GalleryTitle string // title of the gallery/album this publish belongs to; empty for bare exports
+	Slug         string // site album's folder name and URL; empty for anything that is not a site album. Never derived again once published.
+	Unlisted     bool   // site album is kept out of the index and sitemap; fixed with the slug
 	PublishedAt  time.Time
 }
 

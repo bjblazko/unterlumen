@@ -24,7 +24,7 @@ func TestFolderPreviews(t *testing.T) {
 	add("t5", "/root/trip/t5.jpg", "2023-01-01T10:00:00Z")
 	add("t6", "/root/trip/t6.jpg", "2022-01-01T10:00:00Z")
 	add("a1", "/root/archive/2019/scans/a1.jpg", "2019-03-01T10:00:00Z")
-	add("x1", "/root/direct.jpg", "2025-01-01T10:00:00Z")    // direct photo: no folder
+	add("x1", "/root/direct.jpg", "2025-01-01T10:00:00Z")   // direct photo: no folder
 	add("s1", "/root2/trip/s1.jpg", "2026-01-01T10:00:00Z") // sibling root: not ours
 
 	got, err := s.FolderPreviews("/root")

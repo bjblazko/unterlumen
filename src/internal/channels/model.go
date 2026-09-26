@@ -15,26 +15,26 @@ type Account struct {
 
 // Channel defines a build target with its export settings and optional handler config.
 type Channel struct {
-	Slug          string            `json:"slug"`
-	Name          string            `json:"name"`
-	Handler       string            `json:"handler,omitempty"`       // "" = default (export only); "rsync" = push build output over SSH; future: "mastodon", …
-	HandlerConfig map[string]string `json:"handlerConfig,omitempty"` // free-form config for the handler
-	Accounts      []Account         `json:"accounts,omitempty"`      // named sub-accounts; empty = single anonymous destination
-	Format        string            `json:"format"`                  // "jpeg", "png", "webp"
-	Quality       int               `json:"quality"`                 // 1–100
-	Scale         media.ScaleOptions `json:"scale"`
-	ExifMode      string            `json:"exifMode"`                // "strip", "keep", "keep_no_gps"
-	OutputMode    string            `json:"outputMode,omitempty"`    // "save" (default) or "download"
-	OutputPath    string            `json:"outputPath,omitempty"`    // custom save path; empty = ~/.unterlumen/channels/<slug>/
-	GalleryExport bool              `json:"galleryExport,omitempty"` // generate index.html gallery on build
-	SiteExport    bool              `json:"siteExport,omitempty"`    // generate multi-album static website on build
-	SiteTitle     string            `json:"siteTitle,omitempty"`     // displayed on the root site index.html
-	SiteTheme     string            `json:"siteTheme,omitempty"`     // "light" (default) or "dark"
-	SiteURL          string            `json:"siteURL,omitempty"`          // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap
-	SiteAbout        string            `json:"siteAbout,omitempty"`        // markdown text for about page; generates about.html when non-empty
-	SiteImprint      string            `json:"siteImprint,omitempty"`      // markdown text for legal/imprint page; generates legal.html when non-empty
-	SiteContactEmail string            `json:"siteContactEmail,omitempty"` // shown in footer of every site page
-	SiteContactURL   string            `json:"siteContactURL,omitempty"`   // shown in footer of every site page
+	Slug             string             `json:"slug"`
+	Name             string             `json:"name"`
+	Handler          string             `json:"handler,omitempty"`       // "" = default (export only); "rsync" = push build output over SSH; future: "mastodon", …
+	HandlerConfig    map[string]string  `json:"handlerConfig,omitempty"` // free-form config for the handler
+	Accounts         []Account          `json:"accounts,omitempty"`      // named sub-accounts; empty = single anonymous destination
+	Format           string             `json:"format"`                  // "jpeg", "png", "webp"
+	Quality          int                `json:"quality"`                 // 1–100
+	Scale            media.ScaleOptions `json:"scale"`
+	ExifMode         string             `json:"exifMode"`                   // "strip", "keep", "keep_no_gps"
+	OutputMode       string             `json:"outputMode,omitempty"`       // "save" (default) or "download"
+	OutputPath       string             `json:"outputPath,omitempty"`       // custom save path; empty = ~/.unterlumen/channels/<slug>/
+	GalleryExport    bool               `json:"galleryExport,omitempty"`    // generate index.html gallery on build
+	SiteExport       bool               `json:"siteExport,omitempty"`       // generate multi-album static website on build
+	SiteTitle        string             `json:"siteTitle,omitempty"`        // displayed on the root site index.html
+	SiteTheme        string             `json:"siteTheme,omitempty"`        // "light" (default) or "dark"
+	SiteURL          string             `json:"siteURL,omitempty"`          // optional base URL e.g. "https://example.com"; enables canonical, OG, sitemap
+	SiteAbout        string             `json:"siteAbout,omitempty"`        // markdown text for about page; generates about.html when non-empty
+	SiteImprint      string             `json:"siteImprint,omitempty"`      // markdown text for legal/imprint page; generates legal.html when non-empty
+	SiteContactEmail string             `json:"siteContactEmail,omitempty"` // shown in footer of every site page
+	SiteContactURL   string             `json:"siteContactURL,omitempty"`   // shown in footer of every site page
 
 	// Deploy status, updated after every deploy attempt (success or
 	// failure) so the UI can show "last deployed …" without requiring a

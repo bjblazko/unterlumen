@@ -17,7 +17,7 @@ func TestParseExifDateTag_ValidDate(t *testing.T) {
 
 func TestParseExifDateTag_WithOffset(t *testing.T) {
 	tags := map[string]string{
-		"DateTimeOriginal":  `"2024:03:15 14:07:42"`,
+		"DateTimeOriginal":   `"2024:03:15 14:07:42"`,
 		"OffsetTimeOriginal": `"+02:00"`,
 	}
 	got := parseExifDateTag(tags, "DateTimeOriginal", "OffsetTimeOriginal")

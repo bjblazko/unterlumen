@@ -19,15 +19,15 @@ import (
 // Manager manages the set of libraries rooted at a base directory.
 type Manager struct {
 	root             string
-	indexMu          sync.Map   // map[libraryID]bool — prevents concurrent reindex of same library
-	scans            sync.Map   // map[libraryID]*Broadcaster — active scan progress broadcasters
-	dbMu             sync.Mutex // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
-	openDBs          sync.Map   // map[libraryID]*sql.DB — long-lived per-library connections
-	statsCache       sync.Map   // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
-	timelineCache    sync.Map   // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
-	exifRangesCache  sync.Map   // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
-	exifValuesCache  sync.Map   // map[cacheKey+"|"+field][]string — invalidated on scan start/end
-	folderStatsCache sync.Map   // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
+	indexMu          sync.Map       // map[libraryID]bool — prevents concurrent reindex of same library
+	scans            sync.Map       // map[libraryID]*Broadcaster — active scan progress broadcasters
+	dbMu             sync.Mutex     // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
+	openDBs          sync.Map       // map[libraryID]*sql.DB — long-lived per-library connections
+	statsCache       sync.Map       // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
+	timelineCache    sync.Map       // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
+	exifRangesCache  sync.Map       // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
+	exifValuesCache  sync.Map       // map[cacheKey+"|"+field][]string — invalidated on scan start/end
+	folderStatsCache sync.Map       // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 	jobs             *jobs.Registry // where scans are reported to the status line; nil reports nowhere
 }
 

@@ -12,8 +12,8 @@ import (
 	"github.com/rwcarlsen/goexif/tiff"
 
 	// Register image decoders
-	_ "image/gif"
 	_ "golang.org/x/image/webp"
+	_ "image/gif"
 )
 
 // ExifData holds all extracted EXIF metadata from an image file.

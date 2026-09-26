@@ -529,14 +529,14 @@ type NumericFilter struct {
 
 // ListPhotosOpts holds all filter and pagination options for ListPhotos.
 type ListPhotosOpts struct {
-	Filters        map[string]string       // EXIF text exact-match filters (field → value)
+	Filters        map[string]string        // EXIF text exact-match filters (field → value)
 	NumericFilters map[string]NumericFilter // EXIF numeric range filters
-	DateMin        string                  // YYYY-MM-DD lower bound on date_taken
-	DateMax        string                  // YYYY-MM-DD upper bound on date_taken
-	MetaFilters    map[string]string       // photo_meta key=value exact matches
-	MetaExists     []string                // photo_meta keys that must exist (any value)
-	AlbumTitle     string                  // match photos with any built:*:title = value
-	ExtFilter      string                  // file extension (photos.ext)
+	DateMin        string                   // YYYY-MM-DD lower bound on date_taken
+	DateMax        string                   // YYYY-MM-DD upper bound on date_taken
+	MetaFilters    map[string]string        // photo_meta key=value exact matches
+	MetaExists     []string                 // photo_meta keys that must exist (any value)
+	AlbumTitle     string                   // match photos with any built:*:title = value
+	ExtFilter      string                   // file extension (photos.ext)
 	Offset         int
 	Limit          int
 }

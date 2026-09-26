@@ -36,10 +36,10 @@ type ScaleOptions struct {
 
 // ExportOptions controls how an image should be exported.
 type ExportOptions struct {
-	Format   string      `json:"format"`   // "jpeg", "png", "webp"
-	Quality  int         `json:"quality"`  // 1–100, ignored for PNG
+	Format   string       `json:"format"`  // "jpeg", "png", "webp"
+	Quality  int          `json:"quality"` // 1–100, ignored for PNG
 	Scale    ScaleOptions `json:"scale"`
-	ExifMode string      `json:"exifMode"` // "strip", "keep", "keep_no_gps"
+	ExifMode string       `json:"exifMode"` // "strip", "keep", "keep_no_gps"
 }
 
 // ExportedName returns the output filename for srcName with the given format.

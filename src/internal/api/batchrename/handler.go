@@ -241,7 +241,7 @@ func executeTwoPassRename(pairs []renamePair) []batchRenameResult {
 		finalPath := filepath.Join(p.dir, p.newName)
 		if err := os.Rename(tempPath, finalPath); err != nil {
 			results[i] = batchRenameResult{File: p.relFile, Error: fmt.Sprintf("final rename failed: %v", err)}
-			os.Rename(tempPath, p.absPath) // attempt restore
+			os.Rename(tempPath, p.absPath)                     // attempt restore
 			media.CarrySidecar(os.Rename, tempPath, p.absPath) //nolint:errcheck
 		} else {
 			media.CarrySidecar(os.Rename, tempPath, finalPath) //nolint:errcheck

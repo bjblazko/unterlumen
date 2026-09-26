@@ -4,12 +4,12 @@ import "time"
 
 // Library represents a managed photo collection.
 type Library struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	SourcePath  string     `json:"sourcePath"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	PhotoCount  int        `json:"photoCount"`
+	ID            string     `json:"id"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	SourcePath    string     `json:"sourcePath"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	PhotoCount    int        `json:"photoCount"`
 	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
 	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
 	SortPosition  *int       `json:"sortPosition,omitempty"`
@@ -103,8 +103,8 @@ type LibraryStatistics struct {
 
 // LibraryTimeline holds time-series statistics across one or more libraries.
 type LibraryTimeline struct {
-	Granularity    string            `json:"granularity"`    // "month" or "year"
-	Periods        []string          `json:"periods"`        // sorted period labels
+	Granularity    string            `json:"granularity"` // "month" or "year"
+	Periods        []string          `json:"periods"`     // sorted period labels
 	CameraUsage    []CameraTimeSlice `json:"cameraUsage"`
 	FocalStats     []PeriodStats     `json:"focalStats"`
 	ISOStats       []PeriodStats     `json:"isoStats"`
@@ -136,7 +136,7 @@ type ApertureRow struct {
 
 // AspectSlice holds per-period photo counts for one aspect ratio label, aligned to LibraryTimeline.Periods.
 type AspectSlice struct {
-	Ratio  string `json:"ratio"`  // "1:1", "4:3", "3:2", "16:9+", "other"
+	Ratio  string `json:"ratio"` // "1:1", "4:3", "3:2", "16:9+", "other"
 	Counts []int  `json:"counts"`
 }
 

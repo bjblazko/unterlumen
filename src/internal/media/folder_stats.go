@@ -21,15 +21,15 @@ type SubfolderStats struct {
 
 // FolderStats holds aggregated stats for a directory and its contents.
 type FolderStats struct {
-	Name       string            `json:"name"`
-	Path       string            `json:"path"`
-	Modified   time.Time         `json:"modified"`
-	TotalSize  int64             `json:"totalSize"`
-	FileCount  int               `json:"fileCount"`
-	DirCount   int               `json:"dirCount"`
-	MaxDepth   int               `json:"maxDepth"`
-	Subfolders []SubfolderStats  `json:"subfolders"`
-	FileTypes  map[string]int    `json:"fileTypes"`
+	Name       string           `json:"name"`
+	Path       string           `json:"path"`
+	Modified   time.Time        `json:"modified"`
+	TotalSize  int64            `json:"totalSize"`
+	FileCount  int              `json:"fileCount"`
+	DirCount   int              `json:"dirCount"`
+	MaxDepth   int              `json:"maxDepth"`
+	Subfolders []SubfolderStats `json:"subfolders"`
+	FileTypes  map[string]int   `json:"fileTypes"`
 }
 
 // WalkFolderStats computes aggregated statistics for a directory by walking
