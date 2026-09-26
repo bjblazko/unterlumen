@@ -344,7 +344,7 @@ class BrowsePane {
         const content = [];
         if (!this._loading && this.entries.length > 0) content.push(this._renderFolderTitle());
         if (this._loading) {
-            content.push('<div class="browse-loading"><div class="browse-spinner"></div></div>');
+            content.push('<div class="browse-loading"></div>');
         } else if (this.entries.length === 0) {
             content.push('<div class="empty">No images or folders found</div>');
         } else {
@@ -363,6 +363,8 @@ class BrowsePane {
             `<div class="browse-header">${header.join('')}</div>` +
             `<div class="browse-content">${content.join('')}</div>`;
         this._contentEl = this.container.querySelector('.browse-content');
+        const loadingEl = this._contentEl.querySelector('.browse-loading');
+        if (loadingEl) Activity.in(loadingEl, 'Reading the folder…', { area: true });
         this.attachEvents();
         this._setupObserver();
 
@@ -426,9 +428,9 @@ class BrowsePane {
     _renderControls() {
         const imageCount = this.getImageEntries().length;
         const selectedCount = this.selection.selected.size;
-        const statusText = selectedCount > 0
-            ? `${imageCount} images · ${selectedCount} selected`
-            : `${imageCount} images`;
+        // While the folder is read, the count is not known yet.
+        const statusText = this._loading ? ''
+            : imageCountLabel(imageCount, selectedCount);
 
         const libraryMode = App.mode === 'library';
         return `<div class="controls">

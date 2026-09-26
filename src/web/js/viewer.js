@@ -292,6 +292,7 @@ class Viewer {
         const containerEl = this.container.querySelector('.viewer-image-container');
         this._zoomTool = new ZoomTool(imgEl, containerEl);
         this._zoomTool._onchange = () => this._updateZoomUI();
+        this._watchImageLoad(imgEl, containerEl);
 
         this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
         this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
@@ -347,6 +348,20 @@ class Viewer {
         if (outBtn) outBtn.disabled = this._zoomTool.isAtMin();
         if (inBtn)  inBtn.disabled  = this._zoomTool.isAtMax();
         if (reset)  reset.disabled  = (level === 'fit');
+    }
+
+    // A large HEIC or RAW takes a moment to convert. A quick load shows
+    // nothing; a slow one says what it is doing, a failed one says so.
+    _watchImageLoad(imgEl, containerEl) {
+        if (imgEl.complete && imgEl.naturalWidth) return;
+        const host = document.createElement('div');
+        host.className = 'viewer-activity';
+        containerEl.appendChild(host);
+        const activity = Activity.in(host, 'Preparing the photo…');
+        imgEl.addEventListener('load', () => host.remove(), { once: true });
+        imgEl.addEventListener('error', () => {
+            activity.fail('This photo could not be shown. The file may be damaged or in a format this installation cannot convert.');
+        }, { once: true });
     }
 
     _currentImageURL() {

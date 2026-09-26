@@ -1,6 +1,11 @@
 package library
 
-import "sync"
+import (
+	"errors"
+	"sync"
+
+	"huepattl.de/unterlumen/internal/jobs"
+)
 
 // Broadcaster fans out Progress events to multiple concurrent subscribers.
 // It is safe for concurrent use.
@@ -9,6 +14,7 @@ type Broadcaster struct {
 	subs []chan Progress
 	last Progress
 	done bool
+	job  *jobs.Handle // the same progress, for the status line
 }
 
 func newBroadcaster() *Broadcaster { return &Broadcaster{} }
@@ -36,6 +42,7 @@ func (b *Broadcaster) Send(p Progress) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.last = p
+	b.report(p)
 	for _, ch := range b.subs {
 		select {
 		case ch <- p:
@@ -55,11 +62,30 @@ func (b *Broadcaster) Close() {
 	b.closeAll()
 }
 
+func (b *Broadcaster) report(p Progress) {
+	current := p.Current
+	if current != "" && p.Parent != "" {
+		current = p.Parent + "/" + current
+	}
+	switch {
+	case p.Error != "":
+		b.job.Finish(errors.New(p.Error))
+	case p.Finished:
+		b.job.Progress(p.Done, p.Total, "")
+		b.job.Finish(nil)
+	default:
+		b.job.Progress(p.Done, p.Total, current)
+	}
+}
+
 func (b *Broadcaster) closeAll() {
 	if b.done {
 		return
 	}
 	b.done = true
+	// A scan closed without a last word was interrupted; the status line
+	// must not report it as finished. After a regular end this is a no-op.
+	b.job.Finish(errors.New("it stopped before it finished"))
 	for _, ch := range b.subs {
 		close(ch)
 	}

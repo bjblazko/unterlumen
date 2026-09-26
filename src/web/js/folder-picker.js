@@ -95,7 +95,7 @@ class FolderPicker {
 
     async _loadDir(relPath) {
         const body = this._overlay.querySelector('.fp-body');
-        body.innerHTML = '<div class="fp-msg">Loading…</div>';
+        Activity.in(body, 'Reading the folder…');
 
         let data;
         try {
@@ -158,7 +158,7 @@ class FolderPicker {
 
     async _loadLibraries() {
         const body = this._overlay.querySelector('.fp-body');
-        body.innerHTML = '<div class="fp-msg">Loading…</div>';
+        Activity.in(body, 'Reading the libraries…');
 
         if (!this._libs) {
             try {

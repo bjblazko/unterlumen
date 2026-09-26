@@ -269,7 +269,6 @@ body {
 
 /* Digits that change in place must not shift the layout around them. */
 .status-bar,
-.progress-detail,
 .info-panel-title {
     font-variant-numeric: tabular-nums;
 }
@@ -406,6 +405,88 @@ body {
 
 /* Collapsed: icons only, counts shrink to a mark so nothing is lost. */
 .shell.sidebar-collapsed { grid-template-columns: 60px minmax(0, 1fr); }
+
+/* --- Status line (ADR-0036) --- */
+/* The foot of the sidebar: work that outlives the page that started it. A
+   hairline above it, no surface of its own; nothing is reserved when idle. */
+.status-line {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+}
+
+.status-line[hidden] { display: none; }
+
+.status-job {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--fg);
+    text-decoration: none;
+}
+
+a.status-job:hover { background: var(--hover-overlay); }
+
+.status-job-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+.status-job .activity { font-size: var(--text-xs); }
+
+/* Only the collapsed rail shows the mark; the words say it otherwise. Shape
+   carries the state as well as colour: a ring while it runs, a disc when it
+   failed. A finished job leaves the rail, its sentence is in the tooltip. */
+.status-job-mark {
+    display: none;
+    width: 10px;
+    height: 10px;
+    box-sizing: border-box;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--time);
+}
+
+.status-job[data-state="failed"] .status-job-mark {
+    border-color: var(--warning);
+    background: var(--warning);
+}
+
+.status-more {
+    padding: 0 var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--fg-3);
+}
+
+.sidebar-collapsed .status-job-title,
+.sidebar-collapsed .status-job .activity,
+.sidebar-collapsed .status-more {
+    display: none;
+}
+
+.sidebar-collapsed .status-line { align-items: center; }
+
+.sidebar-collapsed .status-job {
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 34px;
+    padding: 0;
+}
+
+.sidebar-collapsed .status-job-mark { display: block; }
+.sidebar-collapsed .status-job[data-state="done"] { display: none; }
+.sidebar-collapsed .status-line:not(:has(.status-job:not([data-state="done"]))) { display: none; }
 
 .sidebar-collapsed .sidebar {
     align-items: center;
@@ -799,12 +880,6 @@ button.toggle {
     min-width: 260px;
 }
 
-.tools-menu-loading {
-    padding: var(--space-3) var(--space-4);
-    font-size: 12px;
-    color: var(--fg-2);
-}
-
 .tools-menu-message {
     padding: var(--space-3) var(--space-4);
     font-size: 12px;
@@ -1003,49 +1078,98 @@ button.toggle {
     font-size: 12px;
 }
 
-/* —— Progress dialog —— */
-.progress-status {
-    font-size: 13px;
-    color: var(--fg);
-    margin-bottom: var(--space-2);
+/* --- Activity (ADR-0036) --- */
+/* One indicator for everything that takes time: words while busy, a bar when
+   the total is known, a sentence when it ends. No looping animation. */
+.activity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-2);
 }
 
-.progress-bar-track {
+.activity[hidden] { display: none; }
+
+.activity--area {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-16) var(--space-6);
+    text-align: center;
+}
+
+.activity-line {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.activity-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.activity-elapsed {
+    flex-shrink: 0;
+    white-space: pre;
+    color: var(--time-ink);
+}
+
+.activity-bar {
     width: 100%;
     height: 4px;
     background: var(--line);
     border-radius: var(--radius-sm);
     overflow: hidden;
-    margin-bottom: var(--space-2);
 }
 
-.progress-bar-fill {
+.activity-bar[hidden] { display: none; }
+
+.activity--area .activity-bar { max-width: 320px; }
+
+.activity-bar-fill {
     height: 100%;
     width: 0;
     background: var(--time);
-    border-radius: var(--radius-sm);
-    transition: width 0.15s ease;
+    transition: width var(--dur) var(--ease);
 }
 
-.progress-detail {
-    font-size: 11px;
-    color: var(--fg-2);
+.activity-current {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--fg-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-height: 16px;
+    max-width: 100%;
 }
 
-.progress-errors {
-    font-size: 11px;
+.activity-current:empty { display: none; }
+
+.activity[data-state="done"] { color: var(--fg); }
+.activity[data-state="failed"] { color: var(--warning-ink); }
+.activity[data-state="failed"] .activity-text { white-space: normal; }
+
+/* "Reading more photos…" at the end of a result grid. */
+.results-more .activity {
+    padding: var(--space-6);
+    align-items: center;
+}
+
+/* A list of what went wrong, under a finished activity. */
+.activity-errors {
+    font-size: var(--text-xs);
     color: var(--warning-ink);
     margin-top: var(--space-2);
     max-height: 160px;
     overflow-y: auto;
 }
 
-.progress-error-line {
-    padding: 1px 0;
+.activity-error-line {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1740,6 +1864,18 @@ button.toggle {
     image-orientation: from-image;
 }
 
+.viewer-image-container {
+    position: relative;
+}
+
+.viewer-activity {
+    position: absolute;
+    left: var(--space-4);
+    bottom: var(--space-4);
+    max-width: calc(100% - var(--space-8));
+    pointer-events: none;
+}
+
 .viewer-prev, .viewer-next {
     position: absolute;
     top: 0;
@@ -1823,9 +1959,12 @@ button.toggle {
     color: var(--fg);
 }
 
-.viewer .info-empty {
+.viewer .info-empty,
+.viewer .activity {
     color: var(--overlay-fg-3);
 }
+
+.viewer .activity-bar { background: var(--overlay-line); }
 
 .viewer .info-section-title {
     color: var(--overlay-fg-3);
@@ -1957,26 +2096,6 @@ body.ui-hidden .viewer-filmstrip {
     padding: var(--space-8);
     text-align: center;
     font-size: 13px;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.browse-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-16) 0;
-}
-
-.browse-spinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--line);
-    border-top-color: var(--time);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
 }
 
 .empty {
@@ -2150,6 +2269,10 @@ body.ui-hidden .viewer-filmstrip {
     font-size: 12px;
     padding: var(--space-6) var(--space-4);
     text-align: center;
+}
+
+.info-loading {
+    padding: var(--space-6) var(--space-4);
 }
 
 .info-section {
@@ -2494,18 +2617,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .batch-rename-preview-empty,
-.batch-rename-preview-loading {
-    padding: var(--space-4);
-    text-align: center;
-    color: var(--fg-2);
-    font-size: 12px;
-}
-
-.batch-rename-preview-loading {
-    display: flex;
-    justify-content: center;
-}
-
 .batch-rename-row {
     display: flex;
     align-items: baseline;
@@ -2765,53 +2876,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--bg-2);
 }
 
-.export-progress-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+.export-activity .activity {
     margin-bottom: var(--space-2);
-}
-
-.export-progress-text {
-    font-size: 11px;
-    color: var(--fg-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-}
-
-.export-progress-bar {
-    flex: 1;
-    height: 3px;
-    background: var(--line);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.export-progress-fill {
-    height: 100%;
-    background: var(--time);
-    border-radius: var(--radius-sm);
-    transition: width 0.15s ease;
-    width: 0%;
-}
-
-@keyframes export-progress-slide {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(400%); }
-}
-
-.export-progress-indeterminate {
-    width: 25% !important;
-    transition: none !important;
-    animation: export-progress-slide 1.2s ease-in-out infinite;
-}
-
-.export-progress-label {
-    font-size: 11px;
-    color: var(--fg-2);
-    white-space: nowrap;
 }
 
 .export-file-list {
@@ -3082,6 +3148,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     padding: var(--space-4) var(--space-3);
     font-size: var(--text-sm);
     color: var(--fg-2);
+}
+
+.fp-body > .activity {
+    padding: var(--space-4) var(--space-3);
 }
 
 .fp-msg-error {
@@ -3523,11 +3593,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     margin-top: 2px;
 }
 
+/* Wide enough for "1 280 of 12 400 photos" and a file name; the card's
+   actions column is otherwise only as wide as its button. */
 .library-card-progress {
-    font-size: 11px;
-    color: var(--fg-2);
-    flex: 0 0 100%;
-    text-align: right;
+    width: 16rem;
+    max-width: 100%;
 }
 
 .library-card-actions {
@@ -3966,29 +4036,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-color: var(--fg-2);
 }
 
-.lib-filter-loading {
-    padding: 16px;
-    font-size: 11px;
-    color: var(--fg-2);
-}
-
-.lib-results-spinner-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 200px;
-}
-
-.lib-results-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--line);
-    border-top-color: var(--time);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-}
-
 .lib-filter-status {
     font-size: 11px;
     color: var(--fg-2);
@@ -4003,6 +4050,21 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .lib-filter-status strong {
     color: var(--fg);
+}
+
+.lib-filter-status-error {
+    color: var(--warning-ink);
+}
+
+/* Results that a newer filter is replacing. They stay readable and fade only
+   when the answer takes longer than the activity delay. */
+#lib-results-pane {
+    transition: opacity var(--dur) var(--ease);
+}
+
+#lib-results-pane.is-stale {
+    opacity: 0.5;
+    transition-delay: 400ms;
 }
 
 .lib-text-filter-groups {
@@ -4607,12 +4669,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--fg-2);
 }
 .library-dialog-progress {
-    font-size: 11px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    min-height: 16px;
 }
 
-.library-loading,
 .library-empty,
 .library-error {
     padding: var(--space-8);
@@ -4849,7 +4909,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     background: var(--bg-2);
 }
 
-.channel-loading,
 .channel-empty,
 .channel-error {
     padding: var(--space-6);
@@ -5216,7 +5275,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     line-height: 1.5;
 }
 
-.stats-loading,
 .stats-error {
     padding: 32px;
     text-align: center;
@@ -5531,7 +5589,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     padding: var(--space-6);
 }
 
-.gal-loading,
 .gal-empty {
     color: var(--fg-3);
     padding: var(--space-6);

@@ -121,7 +121,8 @@ class DestinationsPane {
     }
 
     async _load() {
-        this.container.innerHTML = '<div class="dest-pane"><div class="gal-loading">Loading…</div></div>';
+        this.container.innerHTML = '<div class="dest-pane"></div>';
+        Activity.in(this.container.firstChild, 'Reading the destinations…', { area: true });
         try {
             [this._channels, this._galleries] = await Promise.all([
                 ChannelAPI.list(),
@@ -404,7 +405,7 @@ class DestinationsPane {
                         <div class="form-field">
                             <span class="form-label">Site logo</span>
                             <div class="ch-avatar-wrap" id="chf-logo-wrap">
-                                <span class="ch-avatar-status" id="chf-logo-status">Loading…</span>
+                                <span class="ch-avatar-status" id="chf-logo-status"></span>
                                 <input type="file" id="chf-logo-file" accept="image/*" style="display:none">
                                 <button class="btn btn-sm" id="chf-logo-upload">Upload logo</button>
                                 <button class="btn btn-sm" id="chf-logo-remove" style="display:none">Remove</button>
@@ -418,7 +419,7 @@ class DestinationsPane {
                         <div class="form-field">
                             <span class="form-label">Author photo</span>
                             <div class="ch-avatar-wrap" id="chf-avatar-wrap">
-                                <span class="ch-avatar-status" id="chf-avatar-status">Loading…</span>
+                                <span class="ch-avatar-status" id="chf-avatar-status"></span>
                                 <input type="file" id="chf-avatar-file" accept="image/*" style="display:none">
                                 <button class="btn btn-sm" id="chf-avatar-upload">Upload photo</button>
                                 <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">Remove</button>
@@ -581,7 +582,8 @@ class DestinationsPane {
             form.querySelector('#chf-avatar-upload').disabled = true;
         }
 
-        root.querySelector('#dest-save').addEventListener('click', async () => {
+        const saveBtn = root.querySelector('#dest-save');
+        saveBtn.addEventListener('click', async () => {
             const errEl = form.querySelector('#chf-error');
             const { payload, error } = _readDestinationForm(form, isNew, ch.slug);
             if (error) {
@@ -589,12 +591,14 @@ class DestinationsPane {
                 errEl.hidden = false;
                 return;
             }
+            const restore = Activity.button(saveBtn, 'Saving…');
             try {
                 if (isNew) await ChannelAPI.create(payload);
                 else await ChannelAPI.update(payload.slug, payload);
                 this._editing = undefined;
                 await this._load();
             } catch (err) {
+                restore();
                 errEl.textContent = err.message;
                 errEl.hidden = false;
             }
@@ -614,9 +618,7 @@ class DestinationsPane {
                 resultEl.className = 'ch-rsync-test-result ch-rsync-test-fail';
                 return;
             }
-            testBtn.disabled = true;
-            const label = testBtn.textContent;
-            testBtn.textContent = 'Testing…';
+            const restore = Activity.button(testBtn, 'Testing…');
             resultEl.textContent = '';
             resultEl.className = 'ch-rsync-test-result';
             try {
@@ -628,8 +630,7 @@ class DestinationsPane {
                 resultEl.textContent = err.message;
                 resultEl.className = 'ch-rsync-test-result ch-rsync-test-fail';
             } finally {
-                testBtn.disabled = false;
-                testBtn.textContent = label;
+                restore();
             }
         });
     }
@@ -638,14 +639,14 @@ class DestinationsPane {
         const btn = root.querySelector('#dest-rebuild-albums');
         const out = root.querySelector('#dest-rebuild-albums-report');
         btn.addEventListener('click', async () => {
-            btn.disabled = true;
-            out.textContent = 'Reading the photos…';
+            const restore = Activity.button(btn, 'Rebuilding…');
+            Activity.in(out, 'Reading the photos…');
             try {
                 out.innerHTML = this._albumReportHTML(await ChannelAPI.rebuildAlbumList(ch.slug));
             } catch (err) {
                 out.innerHTML = `<div class="gal-detail-error">Could not rebuild the album list: ${escapeHtml(err.message)}</div>`;
             } finally {
-                btn.disabled = false;
+                restore();
             }
         });
     }
@@ -705,7 +706,9 @@ class DestinationsPane {
                     <button class="btn btn-sm btn-danger" id="dest-delete-confirm-btn">Delete destination</button>
                 </div>`;
             wrap.querySelector('#dest-delete-cancel').addEventListener('click', () => { wrap.innerHTML = ''; });
-            wrap.querySelector('#dest-delete-confirm-btn').addEventListener('click', async () => {
+            wrap.querySelector('#dest-delete-confirm-btn').addEventListener('click', async (e) => {
+                Activity.button(e.currentTarget, 'Deleting…');
+                wrap.querySelector('#dest-delete-cancel').disabled = true;
                 try {
                     await ChannelAPI.delete(ch.slug);
                     this._editing = undefined;
@@ -736,9 +739,9 @@ class DestinationsPane {
 
         const rebuildIfSite = async () => {
             if (!ch.siteExport) return;
-            statusEl.textContent = 'Rebuilding site…';
+            statusEl.textContent = 'Rebuilding the site…';
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Logo saved, but the site didn\'t rebuild — open the Published tab and click Publish on the affected album to regenerate it.';
+                statusEl.textContent = 'Logo saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.';
             }
         };
 
@@ -795,9 +798,9 @@ class DestinationsPane {
 
         const rebuildIfSite = async () => {
             if (!ch.siteExport) return;
-            statusEl.textContent = 'Rebuilding site…';
+            statusEl.textContent = 'Rebuilding the site…';
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Portrait saved, but the site didn\'t rebuild — open the Published tab and click Publish on the affected album to regenerate it.';
+                statusEl.textContent = 'Portrait saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.';
             }
         };
 

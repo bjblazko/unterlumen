@@ -168,7 +168,7 @@ class InfoPanel {
 
         let body = '';
         if (this.loading) {
-            body = '<div class="info-empty">Loading\u2026</div>';
+            body = '<div class="info-loading"></div>';
         } else if (this.error) {
             body = '<div class="info-empty">Error: ' + this.error + '</div>';
         } else if (this.folderData) {
@@ -190,6 +190,9 @@ class InfoPanel {
 
         this.container.querySelector('.info-collapse-btn')
             .addEventListener('click', () => this.toggle());
+
+        const loadingEl = this.container.querySelector('.info-loading');
+        if (loadingEl) Activity.in(loadingEl, 'Reading the details…');
 
         const allMeta = this.container.querySelector('.info-all-meta');
         if (allMeta) {

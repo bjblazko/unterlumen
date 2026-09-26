@@ -36,7 +36,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
     await expect(page.locator('.info-panel.expanded, .info-panel[data-expanded="true"]')).toBeVisible({ timeout: 5_000 });
     await page.waitForFunction(
       () => document.querySelector('.info-panel') &&
-            !document.querySelector('.info-panel').textContent.includes('Loading'),
+            !document.querySelector('.info-panel .info-loading'),
       { timeout: 10_000 },
     );
     const panelText = await page.locator('.info-panel').textContent();
@@ -49,7 +49,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
     await expect(page.locator('.info-panel.expanded, .info-panel[data-expanded="true"]')).toBeVisible({ timeout: 5_000 });
     await page.waitForFunction(
       () => document.querySelector('.info-panel') &&
-            !document.querySelector('.info-panel').textContent.includes('Loading'),
+            !document.querySelector('.info-panel .info-loading'),
       { timeout: 10_000 },
     );
     const panelText = await page.locator('.info-panel').textContent();

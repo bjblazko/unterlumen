@@ -120,7 +120,8 @@ class SettingsPane {
                 </div>`;
             confirmWrap.querySelector('#settings-cache-cancel').addEventListener('click', () => { confirmWrap.innerHTML = ''; });
             confirmWrap.querySelector('#settings-cache-confirm-btn').addEventListener('click', async (e) => {
-                e.target.disabled = true;
+                confirmWrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
+                Activity.button(e.currentTarget, 'Clearing…');
                 try {
                     await API.cacheClear();
                     confirmWrap.innerHTML = '<p class="form-hint">Cache cleared.</p>';

@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=27">
+    <link rel="stylesheet" href="/css/style.css?v=28">
     <link href="/css/vendor/maplibre-gl.css?v=1" rel="stylesheet" />
     <script src="/js/vendor/maplibre-gl.js?v=1"></script>
 </head>
@@ -90,6 +90,9 @@
                     <span class="nav-text">Settings</span>
                 </a>
             </div>
+
+            <!-- Work the server is doing: scans, exports, publishing (ADR-0036). -->
+            <div class="status-line" id="status-line" role="group" aria-label="Running tasks" hidden></div>
         </nav>
         <main id="app"></main>
         <div class="desk-only-notice">
@@ -125,45 +128,47 @@
     <div id="ui-hint" class="ui-hint"></div>
     <script src="/js/toggle.js?v=5"></script>
     <script src="/js/api.js?v=4"></script>
-    <script src="/js/browse-selection.js?v=5"></script>
+    <script src="/js/activity.js?v=1"></script>
+    <script src="/js/status-line.js?v=1"></script>
+    <script src="/js/browse-selection.js?v=6"></script>
     <script src="/js/selection-bar.js?v=1"></script>
     <script src="/js/browse-keyboard.js?v=4"></script>
     <script src="/js/browse-grid.js?v=5"></script>
     <script src="/js/browse-list.js?v=4"></script>
     <script src="/js/browse-justified.js?v=5"></script>
-    <script src="/js/browse.js?v=8"></script>
+    <script src="/js/browse.js?v=9"></script>
     <script src="/js/crop-tool.js?v=4"></script>
     <script src="/js/zoom-tool.js?v=4"></script>
-    <script src="/js/viewer.js?v=5"></script>
+    <script src="/js/viewer.js?v=6"></script>
     <script src="/js/exif-labels.js?v=1"></script>
-    <script src="/js/infopanel.js?v=7"></script>
+    <script src="/js/infopanel.js?v=8"></script>
     <script src="/js/dialog.js?v=1"></script>
-    <script src="/js/progress-dialog.js?v=4"></script>
-    <script src="/js/organize.js?v=1"></script>
+    <script src="/js/progress-dialog.js?v=5"></script>
+    <script src="/js/organize.js?v=2"></script>
     <script src="/js/location-modal.js?v=5"></script>
-    <script src="/js/batch-rename-modal.js?v=4"></script>
-    <script src="/js/folder-picker.js?v=4"></script>
-    <script src="/js/export-modal.js?v=4"></script>
+    <script src="/js/batch-rename-modal.js?v=5"></script>
+    <script src="/js/folder-picker.js?v=5"></script>
+    <script src="/js/export-modal.js?v=5"></script>
     <script src="/js/deps-modal.js?v=4"></script>
     <script src="/js/about-modal.js?v=4"></script>
     <script src="/js/slideshow-modal.js?v=4"></script>
     <script src="/js/slideshow-player.js?v=4"></script>
     <script src="/js/channels.js?v=11"></script>
-    <script src="/js/destinations.js?v=2"></script>
-    <script src="/js/published-galleries.js?v=7"></script>
-    <script src="/js/collect-dialog.js?v=1"></script>
-    <script src="/js/publish-dialog.js?v=2"></script>
+    <script src="/js/destinations.js?v=3"></script>
+    <script src="/js/published-galleries.js?v=8"></script>
+    <script src="/js/collect-dialog.js?v=2"></script>
+    <script src="/js/publish-dialog.js?v=3"></script>
     <script src="/js/library-pane.js?v=5"></script>
-    <script src="/js/search-result-pane.js?v=4"></script>
+    <script src="/js/search-result-pane.js?v=5"></script>
     <script src="/js/chip-input.js?v=8"></script>
-    <script src="/js/library-filter.js?v=13"></script>
+    <script src="/js/library-filter.js?v=14"></script>
     <script src="/js/vendor/d3.v7.min.js?v=4"></script>
-    <script src="/js/stats-modal.js?v=4"></script>
-    <script src="/js/library.js?v=12"></script>
-    <script src="/js/settings.js?v=1"></script>
+    <script src="/js/stats-modal.js?v=5"></script>
+    <script src="/js/library.js?v=13"></script>
+    <script src="/js/settings.js?v=2"></script>
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=5"></script>
     <script src="/js/app-keyboard.js?v=5"></script>
-    <script src="/js/app.js?v=9"></script>
+    <script src="/js/app.js?v=10"></script>
 </body>
 </html>

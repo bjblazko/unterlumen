@@ -49,7 +49,7 @@ class PublishDialog {
     // one date field. No step the user has to drive by hand.
     async _renderConfirmStep() {
         const body = this._el.querySelector('#pub-body');
-        body.innerHTML = '<div class="channel-loading">Loading the collected photos…</div>';
+        Activity.in(body, 'Reading the collected photos…');
         let draft = null;
         if (this._row.draftID) {
             try {

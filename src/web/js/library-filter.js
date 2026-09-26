@@ -121,7 +121,7 @@ class LibraryFilterPanel {
     // initialLibID — pre-select this library (null = all)
     // options:
     //   onResults(photos, multiLib, {total, fetchPage}) — the host shows them
-    //   onLoading(isLoading), onActiveCount(n), onOpen(), onClose()
+    //   onLoading(isLoading), onError(), onActiveCount(n), onOpen(), onClose()
     constructor(container, toggleBtn, initialLibID = null, options = {}) {
         this._container = container;
         this._toggleBtn = toggleBtn;
@@ -198,7 +198,7 @@ class LibraryFilterPanel {
         if (this._options.onOpen) this._options.onOpen();
 
         if (!this._built) {
-            this._container.innerHTML = '<div class="lib-filter-loading">Loading filters…</div>';
+            Activity.in(this._container, 'Reading the filters…');
             await this._build();
         } else {
             // Clear chip input caches so re-opening the panel picks up newly built albums etc.
@@ -367,16 +367,24 @@ class LibraryFilterPanel {
                 `<option value="${escapeHtml(l.id)}"${l.id === this._initialLibID ? ' selected' : ''}>${escapeHtml(l.name)}</option>`
             ).join('');
         sel.addEventListener('change', async () => {
+            this._setLoading(true);
             this._initialLibID = sel.value || null;
             const ids = this._initialLibID || undefined;
-            const [ranges] = await Promise.all([
-                this._fetchRanges(this._initialLibID),
-                ...EXIF_TEXT_FILTER_FIELDS.map(f =>
-                    LibraryAPI.exifValues(f.field, ids).catch(() => []).then(vals => {
-                        this._textValues[f.field] = vals;
-                    })
-                ),
-            ]);
+            let ranges;
+            try {
+                [ranges] = await Promise.all([
+                    this._fetchRanges(this._initialLibID),
+                    ...EXIF_TEXT_FILTER_FIELDS.map(f =>
+                        LibraryAPI.exifValues(f.field, ids).catch(() => []).then(vals => {
+                            this._textValues[f.field] = vals;
+                        })
+                    ),
+                ]);
+            } catch (err) {
+                this._setLoading(false);
+                this._showQueryError(err);
+                return;
+            }
             this._ranges = ranges;
             this._textActive = {};
             this._rebuildSliders();
@@ -750,15 +758,37 @@ class LibraryFilterPanel {
         this._lastParams = params;
         const gen = ++this._queryGen;
         this._setLoading(true);
+        let failure = null;
         try {
             const result = await LibraryAPI.search({ limit: 100, ...params });
             if (gen === this._queryGen) this._renderResults(result, params);
-        } catch { /* ignore transient errors */ }
-        finally { if (gen === this._queryGen) this._setLoading(false); }
+        } catch (err) {
+            failure = err;
+        } finally { if (gen === this._queryGen) this._setLoading(false); }
+        if (failure && gen === this._queryGen) this._showQueryError(failure);
     }
 
+    // A quick answer replaces the count in place; only a slow one says it is
+    // still searching.
     _setLoading(on) {
+        clearTimeout(this._searchingTimer);
+        if (on) {
+            this._searchingTimer = setTimeout(() => {
+                if (this._statusEl && this._statusEl.style.display !== 'none') {
+                    this._statusEl.textContent = 'Searching…';
+                }
+            }, ACTIVITY_DELAY_MS);
+        }
         this._options.onLoading?.(on);
+    }
+
+    // The results on screen belong to an earlier filter now, so they stay
+    // faded until a search answers.
+    _showQueryError(err) {
+        this._options.onError?.();
+        if (!this._statusEl) return;
+        this._statusEl.style.display = '';
+        this._statusEl.innerHTML = `<span class="lib-filter-status-error">The search did not answer: ${escapeHtml(err.message)}. Change a filter to try again.</span>`;
     }
 
     _renderResults(result, params = this._lastParams || {}) {

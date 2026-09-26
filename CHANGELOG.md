@@ -6,10 +6,23 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A status line for long work.** Library scans, ZIP exports, publishing, site, gallery and album-list rebuilds, gallery renames and unpublishing, and deploys appear at the foot of the sidebar with a bar and "x of y photos" where the total is known. They stay in view when you move to another place, link to the place they belong to, and a failure stays until it is clicked. A library scan that starts in the background after a move is now visible too. The collapsed sidebar shows a ring for each running job and a disc for each failed one. New endpoint: `GET /api/jobs/stream` (SSE). See [ADR-0036](doc/architecture/adr/0036-activity-and-progress.md).
+- **Feedback where there was none.**
+  - A slow photo in the viewer says "Preparing the photo…", and one that cannot be shown says so.
+  - Scrolling to the end of filter results before the next page arrives shows "Reading more photos…".
+  - Collecting the photos of selected folders for a slideshow or a gallery says so when it is slow.
+  - Organize says when it creates a folder or moves photos back.
 - **Library folders show what they hold.** In a library, each subfolder is a tile with a 2×2 mosaic of its four newest photos, its name and "N photos · years". A folder that holds only more folders shows the photos further down. The names appear at once and the photos fill in behind them. New endpoint: `GET /api/library/{id}/folder-previews`. The Folders place keeps its chips.
 - **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
 
 ### Changed
+- **One way to show that something is happening.** Two spinners, two progress bars, a toast and eight "Loading…" styles are replaced by one line:
+  - a sentence while busy, followed after 3 seconds by the elapsed time;
+  - a bar with "412 of 1 280 photos" and the current file when the total is known;
+  - a sentence that says how it ended, with the failures listed.
+
+  Nothing shows for the first 400 ms, so quick answers no longer flicker. No indicator spins. Buttons that start work say what they are doing ("Saving…") and cannot be pressed twice. Filter results that a new filter is replacing stay in view and fade only when the answer is slow. Loading copy says what is read ("Counting the photos…", "Reading the galleries…").
+- **Folder tools report in the status line.** Scanning, re-indexing and rebuilding previews from a folder's tools used a hint that disappeared after 3 seconds while the work went on.
 - **A dropped filter chip disappears at once.** It used to stay until the new search came back from the server. The chips and the count now follow the filter immediately, and only the photos wait. A slower, older answer can no longer overwrite a newer filter. The filter's destination and gallery criteria use the app's vocabulary ("Destination", "Gallery title") instead of "Channel" and "Album".
 - **One filter in the Libraries overview and in a library.** The overview had a "Search…" button that replaced the list of libraries with results as soon as it was clicked. A library had a "Filter" column that changed nothing until a criterion was set. Both were the same panel over the same endpoint, but they looked and closed differently. The overview now has the same filter as a library:
   - The same panel button sits at the left end of the head, with the number of active criteria.
@@ -31,6 +44,12 @@ All notable changes to this project are documented in this file.
   Everything is in sentence case, and hierarchy comes from size, weight and colour. A switch now reads "Details · Shown · Hidden" and defaults to "On"/"Off" instead of "ON"/"OFF". See [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md).
 
 ### Fixed
+- **Batch rename no longer invents progress.** It counted "N of M files" from a timer while the server reported nothing; it now says how many files it is renaming.
+- **A failed library scan no longer reads "Done — 0 photos".** The error arrives with the end of the scan and is now shown as the reason it stopped.
+- **Creating a library whose first index fails no longer invites a second one.** The dialog keeps the reason and offers to open the library that was created.
+- **Saving or deleting a destination, deleting a library and clearing the cache can no longer be sent twice.**
+- **A failed filter search says so** instead of leaving the old results as if they matched.
+- **The folder view no longer shows "0 images" while it is still reading**, and "1 image" is singular.
 - **Organize's source pane touched the sidebar.** It had no side margin, unlike Folders and a library.
 - **The browser's blue focus ring.** Everything without a focus ring of its own now gets the accent ring, the sidebar entries among them.
 - **An ISO chip that could not be dropped.** A log-scale slider that nobody had touched counted as narrowed: its right end came out as 51199.99999999997 instead of 51200. The filter showed "ISO 16 – 51200" as active, and its × brought it straight back. Every result also silently left out photos taken at the highest ISO in the library. The ends of every slider are now exactly the range's own bounds.

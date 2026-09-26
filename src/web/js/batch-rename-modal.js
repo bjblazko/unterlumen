@@ -297,7 +297,7 @@ class BatchRenameModal {
             return;
         }
 
-        list.innerHTML = '<div class="batch-rename-preview-loading"><div class="browse-spinner"></div></div>';
+        Activity.in(list, 'Working out the new names…');
         applyBtn.disabled = true;
 
         try {
@@ -341,44 +341,23 @@ class BatchRenameModal {
         const pattern = input.value.trim();
         const total = this.files.length;
 
-        // The dialog now reports the run it was asked for.
-        const body = this._dialog.setBody(`
-            <div class="progress-status">Renaming 0 of ${total} files…</div>
-            <div class="progress-bar-track"><div class="progress-bar-fill" style="width:0"></div></div>
-            <div class="progress-detail"></div>`);
+        // The server renames in one request and reports nothing until it is
+        // done, so the dialog says what it is doing rather than inventing a count.
+        const body = this._dialog.setBody('<div class="batch-rename-activity"></div>');
         this._dialog.setActions([]);
-
-        const statusEl = body.querySelector('.progress-status');
-        const fillEl = body.querySelector('.progress-bar-fill');
-        const detailEl = body.querySelector('.progress-detail');
-
-        // Animate indeterminate progress while waiting
-        let progress = 0;
-        const tick = setInterval(() => {
-            progress = Math.min(progress + (90 - progress) * 0.08, 90);
-            fillEl.style.width = progress + '%';
-            statusEl.textContent = `Renaming ${Math.round(progress / 100 * total)} of ${total} files...`;
-        }, 200);
+        const host = body.querySelector('.batch-rename-activity');
+        const activity = Activity.in(host, `Renaming ${total} file${total !== 1 ? 's' : ''}…`);
 
         try {
             const result = await API.batchRenameExecute(this.files, pattern);
-            clearInterval(tick);
-            fillEl.style.width = '100%';
-
             const successes = result.results.filter(r => r.success).length;
             const failures = result.results.filter(r => !r.success);
-            statusEl.textContent = `Renamed ${successes} of ${total} file${total !== 1 ? 's' : ''}.`;
-            detailEl.textContent = '';
 
             if (failures.length > 0) {
-                statusEl.textContent += ` ${failures.length} failed.`;
-                const maxShow = 5;
-                const shown = failures.slice(0, maxShow);
-                const lines = shown.map(f => `${f.file.split('/').pop()}: ${f.error}`);
-                if (failures.length > maxShow) lines.push(`...and ${failures.length - maxShow} more`);
-                detailEl.innerHTML = '<div class="progress-errors">' +
-                    lines.map(l => '<div class="progress-error-line">' + this._esc(l) + '</div>').join('') +
-                    '</div>';
+                activity.fail(`Renamed ${successes} of ${total} files. ${failures.length} could not be renamed.`);
+                host.appendChild(Activity.errorList(failures.map(f => `${f.file.split('/').pop()}: ${f.error}`)));
+            } else {
+                activity.done(`Renamed ${successes} of ${total} file${total !== 1 ? 's' : ''}.`);
             }
 
             if (successes > 0 && this._onSuccess) this._onSuccess(result.libraryUpdated);
@@ -389,11 +368,7 @@ class BatchRenameModal {
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            clearInterval(tick);
-            fillEl.style.width = '100%';
-            fillEl.style.background = 'var(--warning)';
-            statusEl.textContent = 'The rename stopped.';
-            detailEl.innerHTML = `<div class="progress-errors"><div class="progress-error-line">${this._esc(err.message)}</div></div>`;
+            activity.fail(`The rename stopped: ${err.message}. Reload the folder to see which files have their new names.`);
             this._dialog.setActions([{ label: 'Close', id: 'batch-rename-done', onClick: () => this.close() }]);
         }
     }

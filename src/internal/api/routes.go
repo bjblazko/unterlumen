@@ -10,10 +10,12 @@ import (
 	apichannels "huepattl.de/unterlumen/internal/api/channels"
 	apicrop "huepattl.de/unterlumen/internal/api/crop"
 	apiexport "huepattl.de/unterlumen/internal/api/export"
+	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	"huepattl.de/unterlumen/internal/api/fileops"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -30,6 +32,11 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 	imageCache := media.NewImageCache(20)
+	jobReg := jobs.NewRegistry()
+	apijobs.Handle(mux, jobReg)
+	if libMgr != nil {
+		libMgr.SetJobs(jobReg)
+	}
 
 	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
@@ -38,14 +45,14 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))
 
 	browse.Handle(mux, boundary, cache, imageCache, libMgr)
-	apiexport.Handle(mux, boundary, serverRole)
+	apiexport.Handle(mux, boundary, serverRole, jobReg)
 	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache, libMgr)
 	location.Handle(mux, boundary, cache)
 	batchrename.Handle(mux, boundary, cache, libMgr)
 
 	if chStore != nil {
-		apichannels.Handle(mux, chStore)
+		apichannels.Handle(mux, chStore, jobReg)
 	}
 	if libMgr != nil {
 		// DraftStore methods dereference channelStore directly (e.g. via

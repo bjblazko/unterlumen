@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-25*
+*Last modified: 2026-09-26*
 
 ## 1. Introduction and Goals
 
@@ -94,6 +94,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `/api/library/{id}/folder-stats` | HTTP GET | JSON (same, resolved against library source path) |
 | `PATCH /api/library/{id}` | HTTP PATCH | JSON — update library name and description |
 | `PUT /api/library-order` | HTTP PUT | JSON `{order:[ids]}` — set `sort_position` on all libraries in bulk |
+| `GET /api/jobs/stream` | HTTP GET, SSE | Every running or recently finished job, then each change ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `GET /api/settings` | HTTP GET | JSON — global app settings (e.g. `librarySortMode`) |
 | `PATCH /api/settings` | HTTP PATCH | JSON — update one or more global settings fields |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
@@ -147,6 +148,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
+| `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
+| `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
@@ -165,6 +168,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
 | `organize.js` | `OrganizePane` class — source browse pane, remembered targets, move/copy with undo |
+| `activity.js` | `Activity` — the one way to say something is happening: busy, counted, ended ([ADR-0036](adr/0036-activity-and-progress.md)) |
+| `status-line.js` | `StatusLine` — the foot of the sidebar: jobs from `/api/jobs/stream` that outlive their page |
 | `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
@@ -268,6 +273,10 @@ This prevents directory traversal attacks regardless of encoding tricks or symli
 - **In-memory image cache** — Full-size HEIF conversions are cached in a thread-safe LRU cache (`ImageCache`, 20 entries) shared by the browse and library handlers. Cache keys are `absPath:mtime_ns` so entries are automatically stale when the source file changes. Avoids re-reading from disk and re-serving large JPEG payloads on repeated access. See [ADR-0022](adr/0022-read-ahead-prefetch.md).
 - **HEIF disk cache** — Converted JPEG data from HEIF/HEIC/HIF files is cached in `$TMPDIR/unterlumen-cache/`. Cache keys include file path, modification time, and purpose (full/preview). Survives restarts but not OS temp cleanup. See [ADR-0004](adr/0004-heif-via-ffmpeg.md).
 
+### 8.4 Activity and Progress
+
+- Every wait goes through `Activity` (`activity.js`): a sentence while busy, a bar and "x of y" when the total is known, a sentence at the end. Nothing shows for the first 400 ms; no looping animation; never an invented count. Work that outlives its page (library jobs, ZIP export, publishing, site rebuilds, deploys) is also registered in `internal/jobs` and shown in the sidebar's status line. See [ADR-0036](adr/0036-activity-and-progress.md).
+
 ## 9. Architecture Decisions
 
 See the [ADR directory](adr/) for all recorded decisions:
@@ -307,6 +316,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0033](adr/0033-dialogs-and-places.md) — Dialogs and places, and one dialog to build them with
 - [ADR-0034](adr/0034-colour-in-charts.md) — Colour in charts
 - [ADR-0035](adr/0035-shared-album-register.md) — The album list of a website lives in the shared channel directory
+- [ADR-0036](adr/0036-activity-and-progress.md) — One way to show activity, and a status line for work that outlives its page
 
 ## 10. Quality Requirements
 

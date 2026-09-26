@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -74,12 +75,12 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
-	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", rebuildSite(chStore, mgr))
-	mux.HandleFunc("POST /api/channels/{slug}/rebuild-album-list", rebuildAlbumList(chStore, mgr))
-	mux.HandleFunc("POST /api/channels/{slug}/rebuild-galleries", rebuildGalleries(chStore))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", trackDestination(mgr, chStore, "Rebuilding the site of", rebuildSite(chStore, mgr)))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-album-list", trackDestination(mgr, chStore, "Rebuilding the album list of", rebuildAlbumList(chStore, mgr)))
+	mux.HandleFunc("POST /api/channels/{slug}/rebuild-galleries", trackDestination(mgr, chStore, "Rebuilding the galleries of", rebuildGalleries(chStore)))
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
-	mux.HandleFunc("PATCH /api/channels/{slug}/galleries/{postID}", renameGallery(chStore, mgr))
-	mux.HandleFunc("DELETE /api/channels/{slug}/galleries/{postID}", deleteGallery(chStore, mgr))
+	mux.HandleFunc("PATCH /api/channels/{slug}/galleries/{postID}", trackDestination(mgr, chStore, "Updating a gallery of", renameGallery(chStore, mgr)))
+	mux.HandleFunc("DELETE /api/channels/{slug}/galleries/{postID}", trackDestination(mgr, chStore, "Unpublishing a gallery of", deleteGallery(chStore, mgr)))
 	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/galleries/reachability", checkGalleryReachability())
 	registerDraftRoutes(mux, mgr, chStore, draftStore)
@@ -289,7 +290,7 @@ func patchSettings(mgr *lib.Manager) http.HandlerFunc {
 func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subfolder := r.URL.Query().Get("subfolder")
-		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		libraryScan(mgr, "Indexing", func(idx *lib.Indexer, ch chan<- lib.Progress) {
 			idx.RunInFolder(context.Background(), ch, subfolder)
 		})(w, r)
 	}
@@ -298,7 +299,7 @@ func reindexLibrary(mgr *lib.Manager) http.HandlerFunc {
 func scanNewLibrary(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subfolder := r.URL.Query().Get("subfolder")
-		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		libraryScan(mgr, "Scanning", func(idx *lib.Indexer, ch chan<- lib.Progress) {
 			idx.RunScanNewInFolder(context.Background(), ch, subfolder)
 		})(w, r)
 	}
@@ -307,7 +308,7 @@ func scanNewLibrary(mgr *lib.Manager) http.HandlerFunc {
 func cleanupLibrary(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subfolder := r.URL.Query().Get("subfolder")
-		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		libraryScan(mgr, "Checking", func(idx *lib.Indexer, ch chan<- lib.Progress) {
 			idx.RunCleanupInFolder(context.Background(), ch, subfolder)
 		})(w, r)
 	}
@@ -316,7 +317,7 @@ func cleanupLibrary(mgr *lib.Manager) http.HandlerFunc {
 func regenMissingPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subfolder := r.URL.Query().Get("subfolder")
-		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		libraryScan(mgr, "Generating previews for", func(idx *lib.Indexer, ch chan<- lib.Progress) {
 			idx.RunRegenerateMissingPreviewsInFolder(context.Background(), ch, subfolder)
 		})(w, r)
 	}
@@ -325,7 +326,7 @@ func regenMissingPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
 func rebuildAllPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subfolder := r.URL.Query().Get("subfolder")
-		libraryScan(mgr, func(idx *lib.Indexer, ch chan<- lib.Progress) {
+		libraryScan(mgr, "Rebuilding previews for", func(idx *lib.Indexer, ch chan<- lib.Progress) {
 			idx.RunRebuildAllPreviewsInFolder(context.Background(), ch, subfolder)
 		})(w, r)
 	}
@@ -335,7 +336,7 @@ func rebuildAllPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
 // If the library is already being scanned the caller connects to the live progress
 // stream instead of receiving a 409. Scans run on context.Background() so they
 // continue even when the originating HTTP connection closes.
-func libraryScan(mgr *lib.Manager, scan func(*lib.Indexer, chan<- lib.Progress)) http.HandlerFunc {
+func libraryScan(mgr *lib.Manager, verb string, scan func(*lib.Indexer, chan<- lib.Progress)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 
@@ -353,7 +354,7 @@ func libraryScan(mgr *lib.Manager, scan func(*lib.Indexer, chan<- lib.Progress))
 
 		var viewerCh <-chan lib.Progress
 
-		b, started := mgr.StartScan(id)
+		b, started := mgr.StartScan(id, verb)
 		if started {
 			store, err := mgr.OpenStore(id)
 			if err != nil {
@@ -1709,10 +1710,18 @@ func generateDraft(mgr *lib.Manager, chStore *channels.Store, draftStore *channe
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 
-		emit := func(v any) {
+		publishTitle := draft.Target.Title
+		if existingTitle != "" {
+			publishTitle = existingTitle
+		}
+		reporter := &publishReporter{job: mgr.Jobs().Start("publish", fmt.Sprintf("Publishing %q", publishTitle), "galleries")}
+		// A run that returns without its last word was cut short.
+		defer reporter.job.Finish(errors.New("it stopped before it finished"))
+		emit := func(v map[string]any) {
 			data, _ := json.Marshal(v)
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
+			reporter.report(v)
 		}
 
 		total := len(draft.Photos)

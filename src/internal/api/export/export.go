@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -82,10 +84,10 @@ type zipStreamEvent struct {
 }
 
 // Handle registers all /api/export/* routes on mux.
-func Handle(mux *http.ServeMux, root string, serverRole bool) {
+func Handle(mux *http.ServeMux, root string, serverRole bool, reg *jobs.Registry) {
 	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root, serverRole))
 	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole))
-	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole))
+	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole, reg))
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
 	mux.HandleFunc("/api/export/save", handleExportSave(root, serverRole))
 	if !serverRole {
@@ -281,7 +283,7 @@ func processExportBatch(root string, files []string, dest, format string, opts m
 	return results
 }
 
-func handleExportZipStream(root string, serverRole bool) http.HandlerFunc {
+func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -305,7 +307,11 @@ func handleExportZipStream(root string, serverRole bool) http.HandlerFunc {
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
 
-		send := sseWriter(w, flusher)
+		n := len(req.Files)
+		job := reg.Start("export", fmt.Sprintf("Exporting %d photo%s as a ZIP", n, plural(n)), "")
+		// Ends as failed if the client goes away before the ZIP is ready.
+		defer job.Finish(errors.New("it stopped before it finished"))
+		send := reportingSSEWriter(sseWriter(w, flusher), job)
 		opts := exportOpts(req)
 
 		tmpPath, err := buildZipFile(r.Context(), effectiveRoot(root, req.SourcePath), serverRole, req.Files, req.Format, opts, send)
@@ -511,6 +517,28 @@ func sseWriter(w http.ResponseWriter, flusher http.Flusher) func(zipStreamEvent)
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
 	}
+}
+
+// reportingSSEWriter mirrors each export event in the status line.
+func reportingSSEWriter(send func(zipStreamEvent), job *jobs.Handle) func(zipStreamEvent) {
+	return func(evt zipStreamEvent) {
+		send(evt)
+		switch {
+		case evt.Error != "":
+			job.Finish(errors.New(evt.Error))
+		case evt.Complete:
+			job.Finish(nil)
+		default:
+			job.Progress(evt.Done, evt.Total, evt.File)
+		}
+	}
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func generateToken() string {

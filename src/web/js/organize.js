@@ -164,6 +164,7 @@ class OrganizePane {
         const name = await promptForName(this.container, 'Name of the new folder');
         if (!name) return;
         const path = parent ? `${parent}/${name}` : name;
+        this._say(`Creating ${path}…`);
         try {
             await API.mkdir(path);
         } catch (err) {
@@ -275,6 +276,7 @@ class OrganizePane {
             this._renderPath();
             return;
         }
+        this._say(`Moving ${countLabel(u.paths.length)} back from ${u.name}…`);
         try {
             await API.move(u.paths, u.back);
             this._sorted = Math.max(0, this._sorted - u.paths.length);

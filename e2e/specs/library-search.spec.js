@@ -386,7 +386,7 @@ test.describe('Library search with indexed fixtures', () => {
             await page.waitForFunction(
                 () => {
                     const panel = document.querySelector('.info-panel.expanded');
-                    return panel && !panel.textContent.includes('Loading');
+                    return panel && !panel.querySelector('.info-loading');
                 },
                 { timeout: 15_000 },
             );

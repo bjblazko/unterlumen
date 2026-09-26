@@ -16,6 +16,19 @@ function _galleryDateRange(g) {
     return fmt(pub, MY) + ' – ' + fmt(upd, MY);
 }
 
+/* --- Library job progress --- */
+
+// Library jobs (scan, index, previews, cleanup) all report
+// {done, total, current, parent, finished, error}. An error also arrives with
+// `finished`, so it is checked first.
+function showLibraryProgress(activity, p, busyText) {
+    if (p.error) return activity.fail(`It stopped: ${p.error}`);
+    if (p.finished) return activity.done(`Finished. ${formatCount(p.total)} photo${p.total !== 1 ? 's' : ''}.`);
+    if (!p.total) return activity.busy(busyText);
+    const current = p.current ? (p.parent ? `${p.parent}/${p.current}` : p.current) : '';
+    return activity.count(p.done, p.total, { noun: 'photos', current });
+}
+
 /* --- Library API helpers --- */
 
 const LibraryAPI = {
@@ -433,9 +446,7 @@ class LibraryTab {
                 </div>
             </div>
             ${this._filterBodyHTML(`
-                <div class="library-list-body" id="lib-list-body">
-                    <div class="library-loading">Loading…</div>
-                </div>`)}`;
+                <div class="library-list-body" id="lib-list-body"></div>`)}`;
         this.container.appendChild(el);
 
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._showCreateDialog());
@@ -478,6 +489,7 @@ class LibraryTab {
     }
 
     async _loadList(body) {
+        if (!body.firstChild) Activity.in(body, 'Reading the libraries…', { area: true });
         try {
             const libs = await LibraryAPI.list();
             this._cachedLibs = libs;
@@ -501,7 +513,7 @@ class LibraryTab {
             const sortSelect = body.closest('.library-list-view')?.querySelector('.lib-sort-select');
             if (sortSelect) sortSelect.value = mode;
         } catch (err) {
-            body.innerHTML = `<div class="library-error">Failed to load libraries: ${err.message}</div>`;
+            body.innerHTML = `<div class="library-error">Could not read the libraries: ${escapeHtml(err.message)}. Reload the page to try again.</div>`;
         }
     }
 
@@ -557,33 +569,24 @@ class LibraryTab {
     }
 
     async _runScanCard(lib, card, scanFn, label) {
-        const progressEl = card.querySelector('.library-card-progress') || (() => {
-            const p = document.createElement('div');
-            p.className = 'library-card-progress';
-            card.querySelector('.library-card-actions').appendChild(p);
-            return p;
-        })();
+        let host = card.querySelector('.library-card-progress');
+        if (!host) {
+            host = document.createElement('div');
+            host.className = 'library-card-progress';
+            card.querySelector('.library-card-actions').appendChild(host);
+        }
+        const activity = Activity.in(host, `${label}…`);
         const scanBtns = card.querySelectorAll('.lib-scan-new');
         scanBtns.forEach(b => { b.disabled = true; });
-        progressEl.textContent = `${label}…`;
         try {
-            await scanFn(lib.id, (p) => {
-                if (p.finished) {
-                    progressEl.textContent = `Done — ${p.total} photos.`;
-                } else {
-                    const loc = p.current
-                        ? p.current + (p.parent ? ` in "${p.parent}"` : '') + ' · '
-                        : '';
-                    progressEl.textContent = `${loc}${p.done}/${p.total}`;
-                }
-            });
+            await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
             const updated = await LibraryAPI.get(lib.id);
             card.querySelector('.library-card-count').textContent =
                 `${updated.photoCount.toLocaleString()} photo${updated.photoCount !== 1 ? 's' : ''}`;
             card.querySelector('.library-card-indexed').textContent =
                 `Indexed ${new Date(updated.lastIndexed).toLocaleDateString()}`;
         } catch (err) {
-            progressEl.textContent = `Error: ${err.message}`;
+            activity.fail(`It stopped: ${err.message}`);
         } finally {
             scanBtns.forEach(b => { b.disabled = false; });
         }
@@ -745,16 +748,12 @@ class LibraryTab {
                 const run = btn.dataset.maint;
                 buttons.forEach(b => { b.disabled = true; });
                 progress.hidden = false;
-                progress.textContent = `${labels[run]}…`;
+                const activity = Activity.in(progress, `${labels[run]}…`);
                 try {
-                    await LibraryAPI[run](lib.id, (p) => {
-                        progress.textContent = p.finished
-                            ? `Done — ${p.total} photos.`
-                            : `${labels[run]} ${p.done}/${p.total}`;
-                    });
+                    await LibraryAPI[run](lib.id, (p) => showLibraryProgress(activity, p, `${labels[run]}…`));
                     this._cachedLibs = null;
                 } catch (err) {
-                    progress.textContent = `It stopped: ${err.message}`;
+                    activity.fail(`It stopped: ${err.message}`);
                 } finally {
                     buttons.forEach(b => { b.disabled = false; });
                 }
@@ -773,7 +772,9 @@ class LibraryTab {
                     <button class="btn btn-sm btn-danger" id="lib-delete-confirm">Delete library</button>
                 </div>`;
             wrap.querySelector('#lib-delete-cancel').addEventListener('click', () => this._renderLibraryDanger(dlg, lib, closeDialog));
-            wrap.querySelector('#lib-delete-confirm').addEventListener('click', async () => {
+            wrap.querySelector('#lib-delete-confirm').addEventListener('click', async (e) => {
+                Activity.button(e.currentTarget, 'Deleting…');
+                wrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
                 try {
                     await LibraryAPI.delete(lib.id);
                     this._cachedLibs = null;
@@ -836,25 +837,32 @@ class LibraryTab {
 
             createBtn.disabled = true;
             progressEl.style.display = '';
-            progressEl.textContent = 'Creating library…';
+            const activity = Activity.in(progressEl, 'Creating the library…');
 
             try {
                 const lib = await LibraryAPI.create(name, descEl.value.trim(), path);
                 this._cachedLibs = null;
-                progressEl.textContent = 'Indexing photos…';
+                activity.busy('Looking for photos…');
+                let failed = false;
                 await LibraryAPI.reindex(lib.id, (p) => {
-                    if (p.finished) {
-                        progressEl.textContent = `Done — ${p.total} photos indexed.`;
-                    } else {
-                        progressEl.textContent = `${p.done} / ${p.total}${p.current ? ' · ' + p.current : ''}`;
-                    }
+                    failed = failed || !!p.error;
+                    showLibraryProgress(activity, p, 'Looking for photos…');
                 });
+                // The library exists even if indexing stopped, so creating it
+                // again would make a second one. The reason stays readable and
+                // the one thing left to do is open what was created.
+                if (failed) {
+                    this._createDialog.setActions([{
+                        label: 'Open the library', kind: 'primary',
+                        onClick: () => { this._createDialog.close(null); App.refreshLibraryVisibility(); this._openLibrary(lib); },
+                    }]);
+                    return;
+                }
                 this._createDialog.close(null);
                 App.refreshLibraryVisibility();
                 this._openLibrary(lib);
             } catch (err) {
-                progressEl.style.color = 'var(--warning-ink)';
-                progressEl.textContent = 'It did not work: ' + err.message;
+                activity.fail(`The library was not created: ${err.message}`);
                 createBtn.disabled = false;
             }
         };
@@ -1018,6 +1026,7 @@ class LibraryTab {
                 onClose: () => this._relayoutPhotos(),
                 onActiveCount: (n) => this._updateFilterCount(n),
                 onLoading: (on) => this._showFilterLoading(on),
+                onError: () => this._resultsEl().classList.add('is-stale'),
             }
         );
     }
@@ -1040,17 +1049,22 @@ class LibraryTab {
         return this._filterEl.querySelector('#lib-results-pane');
     }
 
+    // The first answer fills an empty area, so it says what it is doing. Later
+    // answers replace results that are already there: those stay in view and
+    // fade only if the answer is slow (the delay lives in the CSS).
     _showFilterLoading(isLoading) {
         const resultsEl = this._resultsEl();
         if (isLoading && resultsEl.style.display === 'none') {
             this._filterUnderEl.style.display = 'none';
             if (!this._resultsPane) {
-                resultsEl.innerHTML = '<div class="lib-results-spinner-wrap"><div class="lib-results-spinner"></div></div>';
+                this._resultsActivity = Activity.in(resultsEl, 'Searching…', { area: true });
             }
             resultsEl.style.display = '';
         } else if (!isLoading) {
-            resultsEl.querySelector('.lib-results-spinner-wrap')?.remove();
+            this._resultsActivity?.el.remove();
+            this._resultsActivity = null;
         }
+        resultsEl.classList.toggle('is-stale', isLoading && !!this._resultsPane);
     }
 
     _showFilterResults(photos, multiLib, pagination) {
@@ -1204,7 +1218,9 @@ class LibraryTab {
         // A selected folder means every photo in it, which takes a round trip
         // to resolve — do it before the dialog so its count is the real one.
         if (selectedDirs.length > 0) {
-            const arrays = await Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d)));
+            const n = selectedDirs.length;
+            const arrays = await App.whileSlow(`Collecting the photos of ${n} folder${n !== 1 ? 's' : ''}…`,
+                () => Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d))));
             selectedPaths = selectedPaths.concat(arrays.flat());
         }
 

@@ -24,6 +24,7 @@ class ExportModal {
     close() {
         this._dialog?.close(null);
         this.overlay = null;
+        this._act = null;
         if (this._estimateTimer) {
             clearTimeout(this._estimateTimer);
             this._estimateTimer = null;
@@ -128,11 +129,7 @@ class ExportModal {
                                 <button type="button" class="btn btn-sm export-estimate-abort" style="display:none">Abort</button>
                             </div>
                         </div>
-                        <div class="export-progress-row" style="display:none">
-                            <span class="export-progress-text">Calculating exact sizes…</span>
-                            <div class="export-progress-bar"><div class="export-progress-fill"></div></div>
-                            <span class="export-progress-label"></span>
-                        </div>
+                        <div class="export-activity"></div>
                         <div class="export-file-list"></div>
                         <div class="export-total-row">
                             <span class="export-total-label">Total</span>
@@ -319,7 +316,7 @@ class ExportModal {
         totalOutEl.textContent = '…';
 
         if (method === 'heuristic') {
-            this._setProgress(false, 0, 0, '', false);
+            this._hideProgress();
             try {
                 const resp = await API.exportEstimate({ ...basePayload, files: this._files, method: 'heuristic' });
                 if (!this.overlay) return;
@@ -333,7 +330,7 @@ class ExportModal {
         // Exact mode: encode per file with progress
         const abortCtrl = new AbortController();
         this._estimateAbort = abortCtrl;
-        this._setProgress(true, 0, this._files.length, 'Calculating exact sizes…', true);
+        this._showCount(0, 'files measured', '', true);
 
         let totalIn = 0, totalOut = 0, done = 0;
 
@@ -369,7 +366,7 @@ class ExportModal {
 
             done++;
             if (this.overlay) {
-                this._setProgress(true, done, this._files.length, 'Calculating exact sizes…', true);
+                this._showCount(done, 'files measured', '', true);
                 totalInEl.textContent = totalIn > 0 ? _fmtBytes(totalIn) : '—';
                 totalOutEl.textContent = totalOut > 0 ? _fmtBytes(totalOut) : '—';
             }
@@ -377,7 +374,7 @@ class ExportModal {
 
         if (this.overlay) {
             const aborted = abortCtrl.signal.aborted;
-            this._setProgress(false);
+            this._hideProgress();
             if (aborted) {
                 // Keep partial results already shown; reset totals if nothing completed
                 if (done === 0) { totalInEl.textContent = '—'; totalOutEl.textContent = '—'; }
@@ -406,28 +403,23 @@ class ExportModal {
         totalOutEl.textContent = totalOut > 0 ? '~' + _fmtBytes(totalOut) : '—';
     }
 
-    _setProgress(visible, done = 0, total = 0, label = '', showAbort = false) {
-        const row = this.overlay.querySelector('.export-progress-row');
-        const fill = this.overlay.querySelector('.export-progress-fill');
-        const abortBtn = this.overlay.querySelector('.export-estimate-abort');
-        if (!visible) {
-            row.style.display = 'none';
-            abortBtn.style.display = 'none';
-            fill.classList.remove('export-progress-indeterminate');
-            return;
+    // One activity line above the file list, for measuring and for exporting.
+    _activity() {
+        if (!this._act) {
+            this._act = new Activity();
+            this.overlay.querySelector('.export-activity').appendChild(this._act.el);
         }
-        row.style.display = '';
-        abortBtn.style.display = showAbort ? '' : 'none';
-        this.overlay.querySelector('.export-progress-text').textContent = label;
-        if (total === 0) {
-            fill.classList.add('export-progress-indeterminate');
-            fill.style.width = '';
-            this.overlay.querySelector('.export-progress-label').textContent = '';
-        } else {
-            fill.classList.remove('export-progress-indeterminate');
-            fill.style.width = Math.round(done / total * 100) + '%';
-            this.overlay.querySelector('.export-progress-label').textContent = `${done} of ${total}`;
-        }
+        return this._act;
+    }
+
+    _showCount(done, noun, current = '', showAbort = false) {
+        this._activity().count(done, this._files.length, { noun, current });
+        this.overlay.querySelector('.export-estimate-abort').style.display = showAbort ? '' : 'none';
+    }
+
+    _hideProgress() {
+        this._act?.clear();
+        this.overlay.querySelector('.export-estimate-abort').style.display = 'none';
     }
 
     async _doExport() {
@@ -451,7 +443,7 @@ class ExportModal {
         try {
             if (outputMode === 'zip') {
                 // Stream SSE progress while the server builds the ZIP, then download.
-                this._setProgress(true, 0, this._files.length, 'Exporting…', false);
+                this._showCount(0, 'files exported');
 
                 const resp = await fetch('/api/export/zip-stream', {
                     method: 'POST',
@@ -482,7 +474,7 @@ class ExportModal {
                             if (evt.complete) {
                                 token = evt.token;
                             } else if (this.overlay) {
-                                this._setProgress(true, evt.done, evt.total, evt.file || 'Exporting…', false);
+                                this._showCount(evt.done, 'files exported', evt.file || '');
                             }
                         } catch { /* malformed event, skip */ }
                     }
@@ -490,9 +482,9 @@ class ExportModal {
 
                 if (!token) throw new Error('Export stream ended without a download token');
 
-                if (this.overlay) this._setProgress(true, this._files.length, this._files.length, 'Downloading…', false);
+                if (this.overlay) this._activity().busy('Downloading the ZIP…');
                 const blob = await API.exportZipDownload(token);
-                this._setProgress(false);
+                this._hideProgress();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -513,12 +505,12 @@ class ExportModal {
 
                 // Per-file loop so we can show progress
                 let done = 0, failed = 0;
-                this._setProgress(true, 0, this._files.length, 'Exporting…', false);
+                this._showCount(0, 'files exported');
 
                 for (const file of this._files) {
                     if (!this.overlay) break;
                     const filename = file.split('/').pop();
-                    this._setProgress(true, done, this._files.length, filename, false);
+                    this._showCount(done, 'files exported', filename);
                     const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
                     try {
                         const result = await API.exportSave({ ...basePayload, files: [file], destination });
@@ -535,7 +527,7 @@ class ExportModal {
                 }
 
                 if (!this.overlay) return;
-                this._setProgress(false);
+                this._hideProgress();
                 if (failed === 0) {
                     this.close();
                 } else {
@@ -546,7 +538,7 @@ class ExportModal {
             }
         } catch (err) {
             if (this.overlay) {
-                this._setProgress(false);
+                this._hideProgress();
                 this._dialog.setNote('The export stopped: ' + err.message, 'error');
                 confirmBtn.disabled = false;
                 cancelBtn.disabled = false;

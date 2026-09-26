@@ -26,10 +26,7 @@ class ProgressDialog {
             size: 'sm',
             dismissible: false,
             className: 'progress-dialog',
-            body: `
-                <div class="progress-status">${this._verb} 0 of ${this._items.length} files…</div>
-                <div class="progress-bar-track"><div class="progress-bar-fill"></div></div>
-                <div class="progress-detail"></div>`,
+            body: '<div class="progress-dialog-activity"></div>',
             actions: [{ label: 'Cancel', onClick: () => { this._cancelled = true; } }],
         });
         this.overlay = this._dialog.open();
@@ -37,20 +34,17 @@ class ProgressDialog {
 
     async _run() {
         const total = this._items.length;
-        const statusEl = this.overlay.querySelector('.progress-status');
-        const fillEl = this.overlay.querySelector('.progress-bar-fill');
-        const detailEl = this.overlay.querySelector('.progress-detail');
+        const host = this.overlay.querySelector('.progress-dialog-activity');
+        const activity = Activity.in(host);
         let completed = 0;
-        let errors = [];
+        const errors = [];
 
         for (let i = 0; i < total; i++) {
             if (this._cancelled) break;
 
             const item = this._items[i];
             const displayName = typeof item === 'string' ? item.split('/').pop() : String(item);
-            statusEl.textContent = `${this._verb} ${i + 1} of ${total} files...`;
-            detailEl.textContent = displayName;
-            fillEl.style.width = ((i / total) * 100) + '%';
+            activity.count(i, total, { current: displayName });
 
             try {
                 const result = await this._action(item);
@@ -65,18 +59,19 @@ class ProgressDialog {
             completed++;
         }
 
-        fillEl.style.width = this._cancelled ? ((completed / total) * 100) + '%' : '100%';
-        detailEl.textContent = '';
-
+        activity.count(completed, total);
         const pastTense = this._verb.endsWith('ing') ? this._verb.slice(0, -3) + 'ed' : this._verb + 'd';
 
         if (this._cancelled) {
-            statusEl.textContent = `Cancelled. ${completed} of ${total} files ${pastTense.toLowerCase()}.`;
+            activity.done(`Cancelled. ${completed} of ${total} files ${pastTense.toLowerCase()}.`);
         } else if (errors.length > 0) {
-            statusEl.textContent = `${pastTense} ${completed - errors.length} of ${total} files. ${errors.length} error${errors.length !== 1 ? 's' : ''}.`;
-            this._showErrors(errors);
+            activity.fail(`${pastTense} ${completed - errors.length} of ${total} files. ${errors.length} could not be ${pastTense.toLowerCase()}.`);
+            host.appendChild(Activity.errorList(errors.map(e => {
+                const name = typeof e.file === 'string' ? e.file.split('/').pop() : String(e.file);
+                return `${name}: ${e.error}`;
+            })));
         } else {
-            statusEl.textContent = `${pastTense} ${completed} of ${total} files.`;
+            activity.done(`${pastTense} ${completed} of ${total} files.`);
         }
 
         // The run is over, so the one thing left to do is close the report.
@@ -89,22 +84,6 @@ class ProgressDialog {
                 if (this._onComplete) this._onComplete(this._results);
             },
         }]);
-    }
-
-    _showErrors(errors) {
-        const detailEl = this.overlay.querySelector('.progress-detail');
-        const maxShow = 5;
-        const shown = errors.slice(0, maxShow);
-        const lines = shown.map(e => {
-            const name = typeof e.file === 'string' ? e.file.split('/').pop() : String(e.file);
-            return `${name}: ${e.error}`;
-        });
-        if (errors.length > maxShow) {
-            lines.push(`...and ${errors.length - maxShow} more`);
-        }
-        detailEl.innerHTML = '<div class="progress-errors">' + lines.map(l =>
-            '<div class="progress-error-line">' + l.replace(/</g, '&lt;') + '</div>'
-        ).join('') + '</div>';
     }
 
     _close() {

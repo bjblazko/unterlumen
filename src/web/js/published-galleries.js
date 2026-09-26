@@ -147,7 +147,8 @@ class GalleriesPane {
     }
 
     async _load() {
-        this.container.innerHTML = '<div class="gal-pane"><div class="gal-loading">Loading…</div></div>';
+        this.container.innerHTML = '<div class="gal-pane"></div>';
+        Activity.in(this.container.firstChild, 'Reading the galleries…', { area: true });
         let rows, channels;
         try {
             [rows, channels] = await Promise.all([PublishedGalleryAPI.list(), ChannelAPI.list()]);
@@ -318,7 +319,7 @@ class GalleriesPane {
         const state = galleryState(row, this._channelBySlug(row.channelSlug)).key;
         if (state === 'draft' || state === 'exported' || !row.url) return '';
         const check = this._checks.get(row.rowKey);
-        if (!check) return '<span class="gal-check gal-check--running">Checking the link…</span>';
+        if (!check) return '<span class="gal-check">Checking the link…</span>';
         const at = formatTime(check.at);
         if (check.reachable) return `<span class="gal-check">Link answered at ${escapeHtml(at)}</span>`;
         return `<span class="gal-check gal-check--down" title="${escapeHtml(check.error || '')}">Not reachable · ${escapeHtml(at)}</span>`;
@@ -501,12 +502,13 @@ class GalleriesPane {
         btn.addEventListener('click', async () => {
             const title = input.value.trim();
             if (!title) { this._showDetailError('The title must not be empty.'); return; }
-            btn.disabled = true;
+            // Renaming rebuilds the gallery and its site, which takes a moment.
+            const restore = Activity.button(btn, 'Saving…');
             try {
                 await PublishedGalleryAPI.rename(row.channelSlug, row.postID, title);
                 await this._load();
             } catch (err) {
-                btn.disabled = false;
+                restore();
                 this._showDetailError('Could not save the title: ' + err.message);
             }
         });
@@ -597,7 +599,7 @@ class GalleriesPane {
             wrap.innerHTML = '';
             return;
         }
-        wrap.innerHTML = '<div class="gal-loading">Loading the collected photos…</div>';
+        Activity.in(wrap, 'Reading the collected photos…');
         let draft = null;
         try {
             const drafts = await ChannelAPI.listDrafts(row.channelSlug);

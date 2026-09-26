@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"huepattl.de/unterlumen/internal/jobs"
 )
 
 // Manager manages the set of libraries rooted at a base directory.
@@ -26,7 +28,14 @@ type Manager struct {
 	exifRangesCache  sync.Map   // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
 	exifValuesCache  sync.Map   // map[cacheKey+"|"+field][]string — invalidated on scan start/end
 	folderStatsCache sync.Map   // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
+	jobs             *jobs.Registry // where scans are reported to the status line; nil reports nowhere
 }
+
+// SetJobs wires the job register that scans report to.
+func (m *Manager) SetJobs(r *jobs.Registry) { m.jobs = r }
+
+// Jobs is the register that work on libraries and their galleries reports to.
+func (m *Manager) Jobs() *jobs.Registry { return m.jobs }
 
 func statsCacheKey(ids []string, pathPrefix string) string {
 	sorted := append([]string(nil), ids...)
@@ -438,7 +447,7 @@ func (m *Manager) FindThumbnailForPath(absPath string) (string, bool) {
 // TriggerScanNewBackground starts an incremental scan for the library in a background
 // goroutine. It is a no-op when a scan is already running for that library.
 func (m *Manager) TriggerScanNewBackground(id string) {
-	b, started := m.StartScan(id)
+	b, started := m.StartScan(id, "Scanning")
 	if !started {
 		return
 	}
@@ -497,7 +506,7 @@ func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
 // a single subfolder (relative to the library source path). A no-op if a scan is
 // already running for this library.
 func (m *Manager) TriggerScanNewInFolderBackground(id, subfolder string) {
-	b, started := m.StartScan(id)
+	b, started := m.StartScan(id, "Scanning")
 	if !started {
 		return
 	}
@@ -531,7 +540,7 @@ func (m *Manager) TriggerScanNewInFolderBackground(id, subfolder string) {
 // source files no longer exist. Used after moves to clean up the source library.
 // A no-op if a scan is already running for this library.
 func (m *Manager) TriggerCleanupInFolderBackground(id, subfolder string) {
-	b, started := m.StartScan(id)
+	b, started := m.StartScan(id, "Checking")
 	if !started {
 		return
 	}
@@ -575,14 +584,24 @@ func (m *Manager) UnlockIndex(id string) {
 
 // StartScan acquires the index lock and registers a broadcaster for the library.
 // Returns the broadcaster and true on success, or nil and false if already scanning.
-func (m *Manager) StartScan(id string) (*Broadcaster, bool) {
+// verb says what the scan does ("Scanning", "Indexing"); with the library's
+// name it is the job's title in the status line.
+func (m *Manager) StartScan(id, verb string) (*Broadcaster, bool) {
 	if !m.TryLockIndex(id) {
 		return nil, false
 	}
 	m.InvalidateStatsCache(id)
 	b := newBroadcaster()
+	b.job = m.jobs.Start("library", m.scanTitle(id, verb), "libraries")
 	m.scans.Store(id, b)
 	return b, true
+}
+
+func (m *Manager) scanTitle(id, verb string) string {
+	if l, err := m.readLibrary(id); err == nil && l.Name != "" {
+		return fmt.Sprintf("%s %q", verb, l.Name)
+	}
+	return verb + " a library"
 }
 
 // JoinScan returns the active broadcaster for the library, if any.

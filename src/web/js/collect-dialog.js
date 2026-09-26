@@ -25,9 +25,7 @@ class CollectDialog {
             size: 'md',
             className: 'collect-dialog',
             body: `
-                <div id="collect-body">
-                    <div class="channel-loading">Loading your galleries…</div>
-                </div>
+                <div id="collect-body"></div>
                 <div class="build-error" id="collect-error" hidden></div>`,
             actions: [
                 { label: 'Cancel', id: 'collect-cancel', onClick: () => this.close() },
@@ -36,6 +34,7 @@ class CollectDialog {
             onClose: () => { this._el = null; },
         });
         this._el = this._dialog.open();
+        Activity.in(this._el.querySelector('#collect-body'), 'Reading your galleries…');
 
         try {
             [this._galleries, this._channels] = await Promise.all([

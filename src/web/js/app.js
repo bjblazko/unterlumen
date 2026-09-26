@@ -49,6 +49,7 @@ const App = {
         this.viewer = new Viewer(document.getElementById('app'));
 
         this.initNav();
+        this.statusLine = new StatusLine(document.getElementById('status-line'));
 
         this.keyboard.attach();
         this.theme.init();
@@ -218,6 +219,24 @@ const App = {
         hint.classList.add('visible');
         clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
+    },
+
+    // Work that is usually quick but can take a while (the photos of a folder
+    // of folders) says so in the hint line, only when it is slow, and for as
+    // long as it runs.
+    async whileSlow(text, work) {
+        let shown = false;
+        const timer = setTimeout(() => {
+            shown = true;
+            this.showToast(text);
+            clearTimeout(this._toastTimer);
+        }, ACTIVITY_DELAY_MS);
+        try {
+            return await work();
+        } finally {
+            clearTimeout(timer);
+            if (shown) document.getElementById('ui-hint')?.classList.remove('visible');
+        }
     },
 
 
@@ -466,11 +485,12 @@ const App = {
         const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
         let images;
         if (pane.selectedDirs?.size > 0) {
-            const allPaths = [];
-            for (const dirPath of pane.selectedDirs) {
-                const paths = await pane.fetchRecursivePhotoPaths(dirPath);
-                allPaths.push(...paths);
-            }
+            const n = pane.selectedDirs.size;
+            const allPaths = await this.whileSlow(`Collecting the photos of ${n} folder${n !== 1 ? 's' : ''}…`, async () => {
+                const paths = [];
+                for (const dirPath of pane.selectedDirs) paths.push(...await pane.fetchRecursivePhotoPaths(dirPath));
+                return paths;
+            });
             images = allPaths.map(toURL);
         } else if (pane.selection.selected.size > 0) {
             images = Array.from(pane.selection.selected).map(toURL);
@@ -684,20 +704,14 @@ const App = {
                 'lib-scan-new': 'Scanning',
                 'lib-reindex': 'Indexing',
                 'lib-cleanup': 'Checking',
-                'lib-regen-missing': 'Generating',
-                'lib-rebuild-all': 'Rebuilding',
+                'lib-regen-missing': 'Generating missing previews for',
+                'lib-rebuild-all': 'Rebuilding the previews of',
             };
-            App.showToast(`${labelMap[tool]}…`);
+            // The run can take minutes, so its progress lives in the status
+            // line at the foot of the sidebar, which stays while you move on.
+            App.showToast(`${labelMap[tool]} this folder. Progress shows at the foot of the sidebar.`);
             const onProgress = (p) => {
-                if (p.finished) {
-                    App.showToast(`Done — ${p.done} photo${p.done !== 1 ? 's' : ''}`);
-                    if (onDone) onDone();
-                } else {
-                    const cur = p.current
-                        ? (p.current.split('/').pop() || p.current) + (p.parent ? ` in "${p.parent}"` : '') + ' · '
-                        : '';
-                    App.showToast(`${cur}${p.done}${p.total ? '/' + p.total : ''}`);
-                }
+                if (p.finished && onDone) onDone();
             };
             const subfolder = path || '';
             const apiMap = {
@@ -708,7 +722,7 @@ const App = {
                 'lib-rebuild-all':   () => LibraryAPI.rebuildAllPreviews(lib.id, onProgress, subfolder),
             };
             apiMap[tool]().catch(e => {
-                App.showToast(`Error: ${e.message}`);
+                App.showToast(`It did not start: ${e.message}`);
                 if (onDone) onDone();
             });
         }

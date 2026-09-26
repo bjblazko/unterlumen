@@ -23,9 +23,7 @@ class StatsModal {
             className: 'stats-dialog',
             body: `
                 <div class="stats-lib-filter" id="stats-lib-filter"></div>
-                <div class="stats-body" id="stats-body">
-                    <div class="stats-loading">Loading…</div>
-                </div>`,
+                <div class="stats-body" id="stats-body"></div>`,
             actions: [{ label: 'Close', onClick: () => this.close() }],
         });
         const overlay = this._dialog.open();
@@ -66,7 +64,7 @@ class StatsModal {
     async _load(body) {
         this._body = body;
         this._tlData = null;
-        body.innerHTML = '<div class="stats-loading">Loading…</div>';
+        Activity.in(body, 'Counting the photos…', { area: true });
         try {
             const qs = this._buildQS();
             const r = await fetch(`/api/library/statistics${qs}`);
@@ -147,9 +145,8 @@ class StatsModal {
 
         if (!this._tlData) {
             const loading = document.createElement('div');
-            loading.className = 'stats-loading';
-            loading.textContent = 'Loading timeline…';
             body.appendChild(loading);
+            Activity.in(loading, 'Reading the timeline…', { area: true });
 
             const params = new URLSearchParams();
             if (this._selectedId) params.set('ids', this._selectedId);

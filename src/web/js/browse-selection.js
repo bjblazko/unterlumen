@@ -58,8 +58,12 @@ class SelectionManager {
         const selectedCount = this.selected.size;
         // Clearing the selection belongs to the selection bar, which is where
         // every other action on a selection is; the status bar only counts.
-        statusEl.textContent = selectedCount > 0
-            ? `${imageCount} images · ${selectedCount} selected`
-            : `${imageCount} images`;
+        statusEl.textContent = imageCountLabel(imageCount, selectedCount);
     }
+}
+
+// "12 images", "1 image · 3 selected" — the status bar's count.
+function imageCountLabel(images, selected) {
+    const count = `${images} image${images !== 1 ? 's' : ''}`;
+    return selected > 0 ? `${count} · ${selected} selected` : count;
 }

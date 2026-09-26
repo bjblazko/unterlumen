@@ -3,6 +3,7 @@ package apichannels
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -13,16 +14,18 @@ import (
 	"strings"
 	"time"
 
+	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/deploy"
+	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/media"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$|^[a-z0-9]$`)
 
 // Handle registers all channel API routes on mux.
-func Handle(mux *http.ServeMux, store *channels.Store) {
+func Handle(mux *http.ServeMux, store *channels.Store, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/channels/", listChannels(store))
 	mux.HandleFunc("POST /api/channels/", createChannel(store))
 	mux.HandleFunc("PUT /api/channels/{slug}", updateChannel(store))
@@ -36,7 +39,13 @@ func Handle(mux *http.ServeMux, store *channels.Store) {
 	mux.HandleFunc("POST /api/channels/{slug}/logo", uploadLogo(store))
 	mux.HandleFunc("DELETE /api/channels/{slug}/logo", deleteLogo(store))
 	mux.HandleFunc("POST /api/channels/{slug}/deploy/test", testDeployConnection(store))
-	mux.HandleFunc("POST /api/channels/{slug}/deploy", deployChannel(store))
+	mux.HandleFunc("POST /api/channels/{slug}/deploy", apijobs.Track(reg, "deploy", "destinations", func(r *http.Request) string {
+		name := r.PathValue("slug")
+		if ch, err := store.Get(name); err == nil && ch.Name != "" {
+			name = ch.Name
+		}
+		return fmt.Sprintf("Deploying %q", name)
+	}, deployChannel(store)))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

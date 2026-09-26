@@ -156,6 +156,13 @@ class SearchResultPane extends BrowsePane {
         const gen = this._fetchGeneration;
         const offset = this._serverOffset;
 
+        // The next page is usually fetched before the end is reached; if the
+        // end comes first, it says more is on its way.
+        const more = document.createElement('div');
+        more.className = 'results-more';
+        (this._contentEl || this.container).appendChild(more);
+        Activity.in(more, 'Reading more photos…');
+
         try {
             const photos = await this._serverFetchPage(offset, 100);
             if (this._fetchGeneration !== gen) return; // filter changed, discard
@@ -176,12 +183,11 @@ class SearchResultPane extends BrowsePane {
             if (statusBar) {
                 const imageCount = this.getImageEntries().length;
                 const selectedCount = this.selection.selected.size;
-                statusBar.textContent = selectedCount > 0
-                    ? `${imageCount} images · ${selectedCount} selected`
-                    : `${imageCount} images`;
+                statusBar.textContent = imageCountLabel(imageCount, selectedCount);
             }
         } catch { /* ignore transient errors */ }
         finally {
+            more.remove();
             if (this._fetchGeneration === gen) this._isFetching = false;
         }
     }
