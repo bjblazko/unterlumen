@@ -49,9 +49,7 @@ func TestListPhotosFilters(t *testing.T) {
 		{"35mm focal length", ListPhotosOpts{NumericFilters: map[string]NumericFilter{"FocalLength35": {Min: 30, Max: 40}}}, []string{"p1"}},
 		{"35mm falls back to focal length", ListPhotosOpts{NumericFilters: map[string]NumericFilter{"FocalLength35": {Min: 20, Max: 25}}}, []string{"p2"}},
 		{"date from", ListPhotosOpts{DateMin: "2024-01-01"}, []string{"p2", "p1"}},
-		// An undated photo is stored with date_taken '' and passes any
-		// upper date bound — characterized as it is.
-		{"date until", ListPhotosOpts{DateMax: "2023-12-31"}, []string{"p3", "p5"}},
+		{"date until leaves out undated photos", ListPhotosOpts{DateMax: "2023-12-31"}, []string{"p3"}},
 		{"extension", ListPhotosOpts{ExtFilter: "raf"}, []string{"p2"}},
 		{"meta value", ListPhotosOpts{MetaFilters: map[string]string{"rating": "5"}}, []string{"p3"}},
 		{"meta key", ListPhotosOpts{MetaExists: []string{"rating"}}, []string{"p3"}},

@@ -1,6 +1,8 @@
 package library
 
 import (
+	"database/sql"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
@@ -88,9 +90,8 @@ func TestStatisticsWholeLibrary(t *testing.T) {
 		Apertures:      []ValueCount{{2, 2}, {2.8, 1}},
 		ISOs:           []ValueCount{{200, 2}, {800, 1}},
 		CameraLens:     []CameraLensCount{{"X-T50", "(no lens)", 1}, {"X-T50", "XF23", 1}, {"X100", "Fixed", 1}},
-		// A photo without a date is stored with date_taken '' and counts as
-		// the day "" — characterized as it is.
-		ShootingDays: map[string]int{"2024-05-01": 2, "2023-01-02": 1, "": 1},
+		// The undated photo counts on no day.
+		ShootingDays: map[string]int{"2024-05-01": 2, "2023-01-02": 1},
 	}
 	want.ShootingHours[10] = 2
 	want.ShootingHours[14] = 1
@@ -145,7 +146,7 @@ func TestFolderStats(t *testing.T) {
 		TotalSize:  460,
 		Formats:    []NameCount{{"jpeg", 3}, {"raf", 1}},
 		Subfolders: []LibSubfolder{{"2023", 1, 50}, {"2024", 2, 400}},
-		DateFirst:  "", // the undated photo's '' sorts first
+		DateFirst:  "2023-01-02T10:05:00", // the undated photo has no say
 		DateLast:   "2024-05-01T14:00:00",
 	}
 	if !reflect.DeepEqual(st, want) {
@@ -206,5 +207,62 @@ func TestBrowseFolderOfAnEmptyFolderHasEmptyLists(t *testing.T) {
 	}
 	if r.Photos == nil || r.Subfolders == nil || r.Total != 0 {
 		t.Errorf("result = %#v, want empty lists", r)
+	}
+}
+
+func TestTimelineHasNoPeriodForUndatedPhotos(t *testing.T) {
+	tl, err := statsFixture(t).Timeline("", "month")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range tl.Periods {
+		if p == "" {
+			t.Fatalf("periods = %q, want no empty period", tl.Periods)
+		}
+	}
+	if len(tl.Periods) == 0 {
+		t.Fatal("no periods at all")
+	}
+}
+
+// Libraries indexed before undated photos were stored as NULL hold ” in
+// date_taken; opening one converts it.
+func TestOpenDBConvertsEmptyDatesToNull(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "library.db")
+	db, err := openDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO photos(id,path_hint,filename,file_size,indexed_at,exif_json,thumb_path,status,date_taken,ext)
+		VALUES('old','/lib/x.jpg','x.jpg',1,'2024-01-01T00:00:00Z','{}','','ok','','jpeg')`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	db, err = openDB(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var date sql.NullString
+	if err := db.QueryRow(`SELECT date_taken FROM photos WHERE id='old'`).Scan(&date); err != nil {
+		t.Fatal(err)
+	}
+	if date.Valid {
+		t.Errorf("date_taken = %q, want NULL", date.String)
+	}
+}
+
+func TestUndatedPhotoIsStoredWithoutDate(t *testing.T) {
+	s := statsFixture(t)
+	if err := s.UpdatePhotoExif("p1", "{}", ""); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE date_taken = ''`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("%d photos stored with date_taken '', want none", n)
 	}
 }

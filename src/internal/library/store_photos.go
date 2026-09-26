@@ -19,7 +19,7 @@ func (s *Store) PhotoExists(id string) (bool, error) {
 func (s *Store) UpsertPhoto(id, pathHint, filename string, fileSize int64, indexedAt time.Time, exifJSON, thumbPath, dateTaken, ext string) error {
 	_, err := s.db.Exec(
 		`INSERT INTO photos(id,path_hint,filename,file_size,indexed_at,exif_json,thumb_path,status,date_taken,ext)
-		 VALUES(?,?,?,?,?,?,?,'ok',?,?)
+		 VALUES(?,?,?,?,?,?,?,'ok',NULLIF(?,''),?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   path_hint=excluded.path_hint,
 		   filename=excluded.filename,
@@ -311,7 +311,7 @@ func (s *Store) SetPhotoThumbPath(id, thumbPath string) error {
 // UpdatePhotoExif replaces the stored EXIF JSON and date_taken for a photo.
 // Used by forced re-index to pick up EXIF changes made by external tools.
 func (s *Store) UpdatePhotoExif(id, exifJSON, dateTaken string) error {
-	_, err := s.db.Exec(`UPDATE photos SET exif_json=?, date_taken=? WHERE id=?`, exifJSON, dateTaken, id)
+	_, err := s.db.Exec(`UPDATE photos SET exif_json=?, date_taken=NULLIF(?,'') WHERE id=?`, exifJSON, dateTaken, id)
 	return err
 }
 

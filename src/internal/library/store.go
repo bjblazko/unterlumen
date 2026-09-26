@@ -99,6 +99,9 @@ func openDB(dbPath string) (*sql.DB, error) {
 	// Migration: date_taken column for fast date-based stats and timeline queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN date_taken TEXT`)
 	db.Exec(`UPDATE photos SET date_taken = json_extract(exif_json,'$.dateTaken') WHERE date_taken IS NULL`)
+	// Migration: a photo without a date has no date_taken. Older indexes stored ''
+	// instead, which counted as a day and passed every upper date bound.
+	db.Exec(`UPDATE photos SET date_taken = NULL WHERE date_taken = ''`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_date_taken_idx ON photos(date_taken)`)
 	// Migration: ext column for fast format distribution queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN ext TEXT NOT NULL DEFAULT ''`)

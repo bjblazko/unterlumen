@@ -51,7 +51,7 @@ func TestManagerStatisticsMergesLibraries(t *testing.T) {
 		Apertures:      []ValueCount{{2, 3}, {2.8, 1}},
 		ISOs:           []ValueCount{{200, 3}, {800, 1}},
 		CameraLens:     []CameraLensCount{{"X-T50", "XF23", 2}, {"X-T50", "(no lens)", 1}, {"X100", "Fixed", 1}},
-		ShootingDays:   map[string]int{"2024-05-01": 3, "2023-01-02": 1, "": 1},
+		ShootingDays:   map[string]int{"2024-05-01": 3, "2023-01-02": 1},
 	}
 	want.ShootingHours[10] = 3
 	want.ShootingHours[14] = 1
