@@ -228,7 +228,7 @@ Re-scanning is always safe to run multiple times or to retry after an interrupti
 
 ## 7. The Filter (one search, any scope)
 
-There is one photo filter. The Libraries overview and a library's detail open the same `LibraryFilterPanel` (`web/js/library-filter.js`), hosted the same way by `LibraryTab._mountFilter`. They differ only in the scope it starts with: all libraries in the overview, the open library in the detail. The panel's scope select changes it either way. Both call the same endpoint, `GET /api/library/search`, and send `ids=<libID>` when the scope is a single library. On the Go side, `parseListPhotosOpts` is the single reader of the filter vocabulary. It is shared with `GET /api/library/{id}/photos`.
+There is one photo filter. The Libraries overview and a library's detail open the same `LibraryFilterPanel` (`web/js/library-filter.js`), hosted the same way by `LibraryTab._mountFilter`. They differ only in the scope it starts with: all libraries in the overview, the open library in the detail. The panel's scope select changes it either way. Both call the same endpoint, `GET /api/library/search`, and send `ids=<libID>` when the scope is a single library. On the Go side, `parseListPhotosOpts` is the single reader of the filter vocabulary. It is shared with `GET /api/library/{id}/photos`. A gallery's "Show photos" link filters by membership, `album=<destination>:<postID>`, which becomes `MetaExists: ["built:<destination>:<postID>"]`. It does not filter by title, because a rename does not rewrite the titles recorded on the photos.
 
 The `Manager` runs a search across the libraries in scope in memory:
 
@@ -290,6 +290,7 @@ Go code then partitions results into:
 
 - **Immediate subfolders** — entries whose `path_hint` contains a `/` after the prefix (only the first path component is returned, de-duplicated).
 - **Direct photos** — entries whose `path_hint` contains no `/` after the prefix.
+
 
 ### Path scoping
 

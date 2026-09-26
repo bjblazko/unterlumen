@@ -14,7 +14,7 @@ func TestParseListPhotosOpts(t *testing.T) {
 	q, _ := url.ParseQuery("ids=a,b&offset=200&limit=50" +
 		"&ISOSpeedRatings_min=200&ISOSpeedRatings_max=6400" +
 		"&date_taken_min=2024-01-01&date_taken_max=2024-12-31" +
-		"&Model=X-T50&meta_rating=5&album_title=Spring&ext=jpg&channel=site")
+		"&Model=X-T50&meta_rating=5&album_title=Spring&ext=jpg&channel=site&album=site:a1b2")
 
 	got := parseListPhotosOpts(q)
 	want := lib.ListPhotosOpts{
@@ -23,7 +23,7 @@ func TestParseListPhotosOpts(t *testing.T) {
 		DateMin:        "2024-01-01",
 		DateMax:        "2024-12-31",
 		MetaFilters:    map[string]string{"rating": "5"},
-		MetaExists:     []string{"built:site"},
+		MetaExists:     []string{"built:site", "built:site:a1b2"},
 		AlbumTitle:     "Spring",
 		ExtFilter:      "jpg",
 		Offset:         200,

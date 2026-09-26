@@ -253,6 +253,22 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('.info-panel.expanded')).toHaveCount(0);
         });
 
+        // Dropping a chip is instant; only the photos wait for the server.
+        test('a dropped chip disappears before the search returns', async ({ page }) => {
+            await page.locator('.lib-text-filter-select').first().selectOption({ index: 1 });
+            await expect(page.locator('.lib-filter-chip')).toHaveCount(1, { timeout: 5_000 });
+            await page.waitForLoadState('networkidle');
+
+            await page.route('**/api/library/search**', async route => {
+                await new Promise(r => setTimeout(r, 2_000));
+                await route.continue();
+            });
+            await page.locator('.lib-filter-chip').click();
+            await expect(page.locator('.lib-filter-chip')).toHaveCount(0, { timeout: 500 });
+            await expect(page.locator('.lib-filter-btn-count')).toBeHidden({ timeout: 500 });
+            await page.unrouteAll({ behavior: 'wait' });
+        });
+
         test('date taken filter section renders in the filter panel', async ({ page }) => {
             await expect(page.locator('.lib-filter-group--date')).toBeVisible({ timeout: 5_000 });
             await expect(page.locator('.lib-date-input').first()).toBeVisible();

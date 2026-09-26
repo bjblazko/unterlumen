@@ -8,8 +8,8 @@ const CHIP_NS_FIXED = [
     { ns: 'format',  label: 'Format',         hint: 'File format',     type: 'exif', param: 'ext' },
     { ns: 'flash',   label: 'Flash',          hint: 'Flash mode',      type: 'exif', param: 'Flash' },
     { ns: 'wb',      label: 'White balance',  hint: 'White balance',   type: 'exif', param: 'WhiteBalance' },
-    { ns: 'channel', label: 'Channel',        hint: 'Built to channel', type: 'channel', param: 'channel' },
-    { ns: 'album',   label: 'Album',          hint: 'Gallery / album title', type: 'album', param: 'album_title' },
+    { ns: 'channel', label: 'Destination',    hint: 'Published to this destination', type: 'channel', param: 'channel' },
+    { ns: 'album',   label: 'Gallery title',  hint: 'Any gallery with this title', type: 'album', param: 'album_title' },
 ];
 
 // EXIF fields handled by numeric sliders — exclude from chip namespace list to avoid duplication.
@@ -20,9 +20,15 @@ const SLIDER_FIELDS = new Set([
 
 // Translates a chip {ns, nsInfo, value} to a search param {key, value}.
 // nsInfo is the full namespace descriptor stored by ChipInput when a chip is created.
+// One gallery by its membership (<destination>:<postID>) rather than by
+// title, so a renamed gallery still finds its photos. Only a "Show photos"
+// link sets it; the chip shows the title.
+const GALLERY_CHIP_NS = { ns: 'gallery', label: 'Gallery', hint: 'One gallery', type: 'gallery', param: 'album' };
+
 function chipToParam(chip) {
     const ns = chip.nsInfo || CHIP_NS_FIXED.find(n => n.ns === chip.ns);
     if (ns) {
+        if (ns.type === 'gallery') return { key: 'album', value: chip.value };
         if (ns.type === 'exif') return { key: ns.param, value: chip.value };
         if (ns.type === 'channel') return { key: 'channel', value: chip.value };
         if (ns.type === 'album') return { key: 'album_title', value: chip.value };
@@ -93,6 +99,18 @@ function valueToSlider(val, min, max, log) {
     return (val - min) / (max - min);
 }
 
+// "Show photos" on a gallery or a destination is a link to Libraries; a plain
+// click opens it with the filter set to what that gallery or destination
+// holds, a modified click leaves the browser to open the place itself.
+function showPhotosLink(el, criteria) {
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        App.showPhotos(criteria);
+    });
+}
+
 // The one photo filter of the Libraries place. The overview and a library's
 // detail both open it the same way; they differ only in the scope it starts
 // with — every library, or the one that is open — and the scope select in
@@ -114,6 +132,7 @@ class LibraryFilterPanel {
         this._use35mm = false;
         this._debounceTimer = null;
         this._libraries = [];
+        this._queryGen = 0;
         this._dateMin = '';
         this._dateMax = '';
         this._dateMinInput = null;
@@ -148,6 +167,24 @@ class LibraryFilterPanel {
         this._suppressQuery = false;
         this._renderActiveFilters();
         this.close();
+    }
+
+    // Opens the filter already set, one chip per criterion — { channel: slug }
+    // or { gallery: { id: "<slug>:<postID>", title } } — then one query. This is how a gallery or a destination
+    // shows its photos; the host opens it in the overview, so the scope is
+    // every library.
+    async openWith(criteria) {
+        await this.open();
+        this._suppressQuery = true;
+        this._reset();
+        if (criteria.channel) {
+            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'channel'), criteria.channel);
+        }
+        if (criteria.gallery) {
+            this._chipInput.add(GALLERY_CHIP_NS, criteria.gallery.id, criteria.gallery.title);
+        }
+        this._suppressQuery = false;
+        this._runQuery();
     }
 
     // Nothing is filtered yet when the panel appears, so the libraries or
@@ -286,7 +323,7 @@ class LibraryFilterPanel {
 
         for (const chip of (this._chipInput?.getChips() || [])) {
             out.push({
-                label: `${chip.ns}: ${chip.value}`,
+                label: `${chip.label}: ${chip.displayValue || chip.value}`,
                 clear: () => {
                     this._chipInput.removeChip(chip);
                     this._runQuery();
@@ -675,6 +712,7 @@ class LibraryFilterPanel {
     _scheduleQuery() {
         clearTimeout(this._debounceTimer);
         if (this._suppressQuery) return;
+        this._renderActiveFilters();
         this._debounceTimer = setTimeout(() => this._runQuery(), 300);
     }
 
@@ -701,16 +739,22 @@ class LibraryFilterPanel {
         return params;
     }
 
+    // The chips and the count say what the filter is at once; only the
+    // photos wait for the server. A newer query supersedes an older one, so a
+    // slow answer never overwrites a newer filter.
     async _runQuery() {
         if (this._suppressQuery) return;
+        clearTimeout(this._debounceTimer);
+        this._renderActiveFilters();
         const params = this._buildParams();
         this._lastParams = params;
+        const gen = ++this._queryGen;
         this._setLoading(true);
         try {
             const result = await LibraryAPI.search({ limit: 100, ...params });
-            this._renderResults(result, params);
+            if (gen === this._queryGen) this._renderResults(result, params);
         } catch { /* ignore transient errors */ }
-        finally { this._setLoading(false); }
+        finally { if (gen === this._queryGen) this._setLoading(false); }
     }
 
     _setLoading(on) {
@@ -718,7 +762,6 @@ class LibraryFilterPanel {
     }
 
     _renderResults(result, params = this._lastParams || {}) {
-        this._renderActiveFilters();
         const { results, total } = result;
         const multiLib = !this._initialLibID && this._libraries.length > 1;
 

@@ -875,6 +875,17 @@ class LibraryTab {
         App.refreshLibraryVisibility();
     }
 
+    // The overview with the filter already set — the way from a gallery or a
+    // destination to its photos, across every library.
+    async showFiltered(criteria) {
+        this.currentLibrary = null;
+        this._pane = null;
+        this._infoPanel = null;
+        this.render();
+        App.refreshLibraryVisibility();
+        await this._filterPanel.openWith(criteria);
+    }
+
     // Open a library by id — used by the sidebar's per-library entries.
     async openLibraryById(libraryId) {
         if (String(this.currentLibrary?.id) === String(libraryId)) return;

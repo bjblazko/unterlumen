@@ -282,6 +282,43 @@ test.describe('Published Galleries overview', () => {
 
     // The destinations list links into Galleries: the address opens the public
     // site, and the gallery count opens Galleries filtered to that destination.
+    // A gallery's photos are one link away: Libraries, every library in
+    // scope, filtered to that gallery by its membership — so a rename (the
+    // test above may have run) does not lose them.
+    test('Show photos on a gallery opens Libraries filtered to that gallery', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-published');
+        await page.locator(`.gal-row[data-postid="${galleryPostID}"]`).click();
+
+        const search = page.waitForResponse(res => res.url().includes('/api/library/search')
+            && new URL(res.url()).searchParams.get('album') === `${GALLERY_SLUG}:${galleryPostID}`);
+        await page.locator('#gal-show-photos').click();
+        await search;
+
+        await expect(page.locator('.library-list-view')).toBeVisible();
+        await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.lib-filter-select').first()).toHaveValue('');
+        await expect(page.locator('.lib-filter-chip')).toHaveCount(1);
+        await expect(page.locator('.lib-filter-chip')).toContainText('Gallery:');
+        await expect(page.locator('#lib-results-pane [data-type="image"]')).toHaveCount(1, { timeout: 10_000 });
+    });
+
+    test('Show photos on a destination opens Libraries filtered to it', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-destinations');
+        await page.locator('.dest-row', { hasText: 'E2E Published Site' }).click();
+
+        const search = page.waitForResponse(res => res.url().includes('/api/library/search')
+            && new URL(res.url()).searchParams.get('channel') === SITE_SLUG);
+        await page.locator('#dest-show-photos').click();
+        await search;
+
+        await expect(page.locator('.lib-filter-chip')).toHaveText(`Destination: ${SITE_SLUG}×`);
+        await expect(page.locator('#lib-results-pane [data-type="image"]').first()).toBeVisible({ timeout: 10_000 });
+    });
+
     test('the destinations list links to the public site and into Galleries', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);

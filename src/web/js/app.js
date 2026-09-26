@@ -166,6 +166,12 @@ const App = {
         this._markCurrentLibraryNav();
     },
 
+    // Libraries, filtered to the photos a gallery or destination holds.
+    showPhotos(criteria) {
+        this.setMode('library');
+        if (this._libraryTab) this._libraryTab.showFiltered(criteria);
+    },
+
     openLibrary(libraryId) {
         this.setMode('library');
         if (this._libraryTab) this._libraryTab.openLibraryById(libraryId);

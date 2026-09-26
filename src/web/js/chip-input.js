@@ -247,12 +247,18 @@ class ChipInput {
         this._renderSuggestions(this._filterVals(''));
     }
 
-    _selectValue(value, displayValue) {
+    // Adds a chip without the autocomplete: a link from elsewhere (a gallery,
+    // a destination) arrives with its criteria already chosen.
+    add(nsInfo, value, displayValue) {
         const hue = CHIP_HUES[this._nextHue % CHIP_HUES.length];
         this._nextHue++;
-        this._chips.push({ ns: this._selectedNS.ns, label: this._selectedNS.label, nsInfo: { ...this._selectedNS }, value, displayValue: displayValue || value, hue });
+        this._chips.push({ ns: nsInfo.ns, label: nsInfo.label, nsInfo: { ...nsInfo }, value, displayValue: displayValue || value, hue });
         this._renderChips();
         this._onChange(this._chips);
+    }
+
+    _selectValue(value, displayValue) {
+        this.add(this._selectedNS, value, displayValue);
         this._exitValuePhase();
         this._input.value = '';
         this._dropdown.style.display = 'none';

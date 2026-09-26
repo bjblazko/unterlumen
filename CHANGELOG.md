@@ -5,7 +5,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
+
 ### Changed
+- **A dropped filter chip disappears at once.** It used to stay until the new search came back from the server. The chips and the count now follow the filter immediately, and only the photos wait. A slower, older answer can no longer overwrite a newer filter. The filter's destination and gallery criteria use the app's vocabulary ("Destination", "Gallery title") instead of "Channel" and "Album".
 - **One filter in the Libraries overview and in a library.** The overview had a "Search…" button that replaced the list of libraries with results as soon as it was clicked. A library had a "Filter" column that changed nothing until a criterion was set. Both were the same panel over the same endpoint, but they looked and closed differently. The overview now has the same filter as a library:
   - The same panel button sits at the left end of the head, with the number of active criteria.
   - It opens the same column. The list stays until a criterion is set.

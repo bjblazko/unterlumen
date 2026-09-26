@@ -245,6 +245,7 @@ class DestinationsPane {
                         <span class="gal-crumb-here">${isNew ? 'New destination' : escapeHtml(ch.name)}</span>
                     </nav>
                     <span class="gal-group-spacer"></span>
+                    ${isNew ? '' : '<a class="btn btn-sm" id="dest-show-photos" href="#libraries">Show photos</a>'}
                     <button class="btn btn-sm" id="dest-cancel">Cancel</button>
                     <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? 'Create destination' : 'Save'}</button>
                 </div>
@@ -505,6 +506,7 @@ class DestinationsPane {
         const back = () => { this._editing = undefined; this._load(); };
         root.querySelector('#dest-back').addEventListener('click', back);
         root.querySelector('#dest-cancel').addEventListener('click', back);
+        if (!isNew) showPhotosLink(root.querySelector('#dest-show-photos'), { channel: ch.slug });
 
         // Type drives which sections exist at all.
         for (const radio of form.querySelectorAll('input[name="dest-type"]')) {

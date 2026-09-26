@@ -538,7 +538,8 @@ func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 
 // parseListPhotosOpts reads the photo filter shared by a single library's
 // photo list and the search across libraries: EXIF text, numeric and date
-// ranges, meta, album, format, destination and paging.
+// ranges, meta, album (by title or by membership), format, destination and
+// paging.
 func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 	opts := lib.ListPhotosOpts{
 		Filters:        parseTextFilters(q),
@@ -550,7 +551,12 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		ExtFilter:      q.Get("ext"),
 	}
 	if ch := q.Get("channel"); ch != "" {
-		opts.MetaExists = []string{"built:" + ch}
+		opts.MetaExists = append(opts.MetaExists, "built:"+ch)
+	}
+	// album=<channel>:<postID> is one gallery's membership, which survives a
+	// rename; album_title matches whatever title the photos last recorded.
+	if album := q.Get("album"); album != "" {
+		opts.MetaExists = append(opts.MetaExists, "built:"+album)
 	}
 	opts.Offset, _ = strconv.Atoi(q.Get("offset"))
 	opts.Limit, _ = strconv.Atoi(q.Get("limit"))
@@ -744,7 +750,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
 			continue
 		}
-		if k == "channel" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
+		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

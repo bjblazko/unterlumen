@@ -415,6 +415,7 @@ class GalleriesPane {
                         <span class="gal-crumb-here">${escapeHtml(row.title || '(untitled)')}</span>
                     </nav>
                     <span class="gal-group-spacer"></span>
+                    ${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">Show photos</a>' : ''}
                     ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open in browser</a>` : ''}
                 </div>
                 <div class="gal-detail-body">
@@ -483,6 +484,9 @@ class GalleriesPane {
         });
         const primary = this.container.querySelector('.gal-detail-primary .gal-row-action');
         if (primary) primary.addEventListener('click', () => this._runAction(primary.dataset.act, row.rowKey));
+        showPhotosLink(this.container.querySelector('#gal-show-photos'), {
+            gallery: { id: `${row.channelSlug}:${row.postID}`, title: row.title || '(untitled)' },
+        });
 
         this._wireTitleSave(row);
         this._wireVisibility(row, canEditVisibility);
