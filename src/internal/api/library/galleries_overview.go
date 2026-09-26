@@ -3,7 +3,6 @@ package apilibrary
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/sse"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/deploy"
 	lib "huepattl.de/unterlumen/internal/library"
@@ -275,15 +275,10 @@ func checkGalleryReachability() http.HandlerFunc {
 			return
 		}
 
-		flusher, ok := w.(http.Flusher)
+		flusher, ok := sse.Start(w)
 		if !ok {
-			http.Error(w, "streaming not supported", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("X-Accel-Buffering", "no")
-		w.WriteHeader(http.StatusOK)
 
 		results := make(chan reachabilityResult)
 		sem := make(chan struct{}, reachabilityMaxConcurrency)
@@ -312,12 +307,11 @@ func checkGalleryReachability() http.HandlerFunc {
 			close(results)
 		}()
 
-		enc := json.NewEncoder(w)
 		for res := range results {
-			writeSSEEvent(w, enc, res)
+			sse.Send(w, res) //nolint:errcheck
 			flusher.Flush()
 		}
-		writeSSEEvent(w, enc, reachabilityResult{Complete: true})
+		sse.Send(w, reachabilityResult{Complete: true}) //nolint:errcheck
 		flusher.Flush()
 	}
 }
@@ -343,12 +337,6 @@ func probeReachability(parent context.Context, client *http.Client, t reachabili
 		res.Error = resp.Status
 	}
 	return res
-}
-
-func writeSSEEvent(w http.ResponseWriter, enc *json.Encoder, res reachabilityResult) {
-	fmt.Fprint(w, "data: ")
-	enc.Encode(res) //nolint:errcheck
-	fmt.Fprint(w, "\n")
 }
 
 // renameGallery changes the title of one already-published album/gallery and

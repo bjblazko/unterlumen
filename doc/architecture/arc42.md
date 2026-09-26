@@ -150,6 +150,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
+| `internal/api/sse` | Opens a server-sent event stream and writes JSON data events; used by every streaming handler |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 

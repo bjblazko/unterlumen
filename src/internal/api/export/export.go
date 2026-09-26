@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/sse"
 	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
@@ -296,16 +297,10 @@ func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry) htt
 			return
 		}
 
-		flusher, ok := w.(http.Flusher)
+		flusher, ok := sse.Start(w)
 		if !ok {
-			http.Error(w, "streaming not supported", http.StatusInternalServerError)
 			return
 		}
-
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("X-Accel-Buffering", "no")
-		w.WriteHeader(http.StatusOK)
 
 		n := len(req.Files)
 		job := reg.Start("export", fmt.Sprintf("Exporting %d photo%s as a ZIP", n, plural(n)), "")
@@ -513,8 +508,7 @@ func exportOpts(req exportRequest) media.ExportOptions {
 
 func sseWriter(w http.ResponseWriter, flusher http.Flusher) func(zipStreamEvent) {
 	return func(evt zipStreamEvent) {
-		data, _ := json.Marshal(evt)
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		sse.Send(w, evt) //nolint:errcheck
 		flusher.Flush()
 	}
 }

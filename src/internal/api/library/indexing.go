@@ -2,10 +2,9 @@ package apilibrary
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"huepattl.de/unterlumen/internal/api/sse"
 	lib "huepattl.de/unterlumen/internal/library"
 )
 
@@ -64,12 +63,6 @@ func libraryScan(mgr *lib.Manager, verb string, scan func(*lib.Indexer, chan<- l
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "streaming not supported", http.StatusInternalServerError)
-			return
-		}
-
 		libInfo, err := mgr.GetLibrary(id)
 		if err != nil {
 			http.Error(w, "library not found", http.StatusNotFound)
@@ -111,21 +104,17 @@ func libraryScan(mgr *lib.Manager, verb string, scan func(*lib.Indexer, chan<- l
 			viewerCh = existing.Subscribe()
 		}
 
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("X-Accel-Buffering", "no")
-		w.WriteHeader(http.StatusOK)
-
-		enc := json.NewEncoder(w)
+		flusher, ok := sse.Start(w)
+		if !ok {
+			return
+		}
 		for {
 			select {
 			case p, ok := <-viewerCh:
 				if !ok {
 					return
 				}
-				fmt.Fprintf(w, "data: ")
-				enc.Encode(p) //nolint:errcheck
-				fmt.Fprintf(w, "\n")
+				sse.Send(w, p) //nolint:errcheck
 				flusher.Flush()
 			case <-r.Context().Done():
 				return

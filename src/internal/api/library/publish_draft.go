@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/sse"
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
@@ -273,22 +274,16 @@ func (p *publishRun) publishGallery(w http.ResponseWriter, mgr *lib.Manager) {
 		http.Error(w, "create thumbs dir: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := sse.Start(w)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
 
 	reporter := &publishReporter{job: mgr.Jobs().Start("publish", fmt.Sprintf("Publishing %q", p.albumTitle()), "galleries")}
 	// A run that returns without its last word was cut short.
 	defer reporter.job.Finish(errors.New("it stopped before it finished"))
 	emit := func(v map[string]any) {
-		data, _ := json.Marshal(v)
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		sse.Send(w, v) //nolint:errcheck
 		flusher.Flush()
 		reporter.report(v)
 	}

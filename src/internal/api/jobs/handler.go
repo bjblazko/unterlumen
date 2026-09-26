@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/sse"
 	"huepattl.de/unterlumen/internal/jobs"
 )
 
@@ -27,18 +28,13 @@ func Handle(mux *http.ServeMux, reg *jobs.Registry) {
 // events, until the client goes away.
 func stream(reg *jobs.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "streaming not supported", http.StatusInternalServerError)
-			return
-		}
 		snapshot, sub := reg.Subscribe()
 		defer sub.Close()
 
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("X-Accel-Buffering", "no")
-		w.WriteHeader(http.StatusOK)
+		flusher, ok := sse.Start(w)
+		if !ok {
+			return
+		}
 
 		// A comment first, so the client has an open stream even when no job
 		// is running.
@@ -67,11 +63,7 @@ func stream(reg *jobs.Registry) http.HandlerFunc {
 
 func writeJobs(w http.ResponseWriter, js []jobs.Job) error {
 	for _, j := range js {
-		data, err := json.Marshal(j)
-		if err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+		if err := sse.Send(w, j); err != nil {
 			return err
 		}
 	}
