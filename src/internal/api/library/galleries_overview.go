@@ -343,7 +343,7 @@ func probeReachability(parent context.Context, client *http.Client, t reachabili
 // renameGallery changes the title of one already-published album/gallery and
 // regenerates its HTML (and, for site-export, the site index/sitemap, since
 // those also list every album's title). Only the title can be changed —
-// Unlisted is immutable after creation by design (see site.SiteAlbum.Unlisted):
+// Unlisted is immutable after creation by design (see site.Album.Unlisted):
 // changing it would change the slug/URL and break any link already shared.
 func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -383,7 +383,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		switch {
 		case ch.SiteExport:
-			sites := site.NewSiteStore(chStore, slug)
+			sites := site.NewStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -438,7 +438,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 }
 
 // indexOfAlbum returns the index of the album with the given postID, or -1.
-func indexOfAlbum(albums []site.SiteAlbum, postID string) int {
+func indexOfAlbum(albums []site.Album, postID string) int {
 	for i := range albums {
 		if albums[i].PostID == postID {
 			return i
@@ -481,7 +481,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		switch {
 		case ch.SiteExport:
 			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			sites := site.NewSiteStore(chStore, slug)
+			sites := site.NewStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -562,7 +562,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 // channel marker goes with the photo's last album of that destination. It
 // returns how many photos it could not reach from this installation — not in a
 // library here, not mounted, or an entry without a photo ID.
-func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []site.SitePhoto) (notCleared int) {
+func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []site.Photo) (notCleared int) {
 	pending := map[string]bool{}
 	for _, sp := range photos {
 		if sp.PhotoID == "" {

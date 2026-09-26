@@ -54,7 +54,7 @@ type sidecarAlbum struct {
 	postID, title, slug string
 	unlisted            bool
 	first, last         time.Time
-	photos              []site.SitePhoto
+	photos              []site.Photo
 	unaddressed         []string // photos whose sidecar records this album without an address
 }
 
@@ -63,7 +63,7 @@ type sidecarAlbum struct {
 // album already in the register is left alone: the register is the newer
 // truth (titles are renamed there, not in the sidecars). A slug is never
 // derived — an album whose sidecars carry none is reported, not registered.
-func rebuildAlbumRegister(sites *site.SiteStore, mgr *lib.Manager, ch *channels.Channel) (albumRegisterReport, error) {
+func rebuildAlbumRegister(sites *site.Store, mgr *lib.Manager, ch *channels.Channel) (albumRegisterReport, error) {
 	report := albumRegisterReport{Added: []rebuiltAlbum{}, Unreadable: []unreadableAlbum{}, Photos: []unreadablePhoto{}}
 	found, unread := collectSidecarAlbums(mgr, ch)
 	report.Photos = append(report.Photos, unread...)
@@ -72,7 +72,7 @@ func rebuildAlbumRegister(sites *site.SiteStore, mgr *lib.Manager, ch *channels.
 	if err != nil {
 		return report, err
 	}
-	have := make(map[string]site.SiteAlbum, len(registered))
+	have := make(map[string]site.Album, len(registered))
 	for _, a := range registered {
 		have[a.PostID] = a
 	}
@@ -133,7 +133,7 @@ func photoPathIndex(mgr *lib.Manager) map[string]string {
 // writeMembership records a registered album in the sidecar of each of its
 // members that lacks it, or lacks its address, so the album can be restored
 // from the photos. A sidecar is never created for a photo that is not there.
-func writeMembership(report *albumRegisterReport, ch *channels.Channel, album site.SiteAlbum, paths map[string]string) {
+func writeMembership(report *albumRegisterReport, ch *channels.Channel, album site.Album, paths map[string]string) {
 	if album.Slug == "" {
 		return
 	}
@@ -172,7 +172,7 @@ func writeMembership(report *albumRegisterReport, ch *channels.Channel, album si
 // completeSidecars gives the photos of a registered album the address the
 // register knows and their sidecars lack, so the album can be restored from the
 // photos as well.
-func completeSidecars(report *albumRegisterReport, ch *channels.Channel, album site.SiteAlbum, paths []string) {
+func completeSidecars(report *albumRegisterReport, ch *channels.Channel, album site.Album, paths []string) {
 	if album.Slug == "" {
 		return
 	}
@@ -187,9 +187,9 @@ func completeSidecars(report *albumRegisterReport, ch *channels.Channel, album s
 	}
 }
 
-func (sa *sidecarAlbum) toSiteAlbum() site.SiteAlbum {
+func (sa *sidecarAlbum) toSiteAlbum() site.Album {
 	sort.Slice(sa.photos, func(i, j int) bool { return sa.photos[i].Filename < sa.photos[j].Filename })
-	album := site.SiteAlbum{
+	album := site.Album{
 		PostID: sa.postID, Slug: sa.slug, Title: sa.title, PublishedAt: sa.first,
 		PhotoCount: len(sa.photos), CoverFile: "cover.jpg", Photos: sa.photos, Unlisted: sa.unlisted,
 	}
@@ -277,7 +277,7 @@ func (sa *sidecarAlbum) add(ch *channels.Channel, p lib.Photo, pub media.Publica
 		sa.unaddressed = append(sa.unaddressed, p.PathHint)
 	}
 	name := exportedFilename(ch, pub.PublishedAt, p.PathHint)
-	sa.photos = append(sa.photos, site.SitePhoto{PhotoID: p.ID, Filename: name, ThumbFilename: "thumbs/" + name})
+	sa.photos = append(sa.photos, site.Photo{PhotoID: p.ID, Filename: name, ThumbFilename: "thumbs/" + name})
 }
 
 // exportedFilename is the name a photo gets in an album folder: channel,
@@ -310,7 +310,7 @@ func rebuildAlbumList(chStore *channels.Store, mgr *lib.Manager) http.HandlerFun
 			http.Error(w, "only a website destination keeps an album list", http.StatusBadRequest)
 			return
 		}
-		report, err := rebuildAlbumRegister(site.NewSiteStore(chStore, slug), mgr, ch)
+		report, err := rebuildAlbumRegister(site.NewStore(chStore, slug), mgr, ch)
 		if err != nil {
 			http.Error(w, "rebuild album list: "+err.Error(), http.StatusInternalServerError)
 			return

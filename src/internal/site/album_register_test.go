@@ -18,15 +18,15 @@ func installation(t *testing.T, sharedDir, browseRoot string) *channels.Store {
 	return channels.NewStore(sharedDir, libDir).WithBoundary(browseRoot)
 }
 
-func testAlbum(postID, title string) SiteAlbum {
-	return SiteAlbum{
+func testAlbum(postID, title string) Album {
+	return Album{
 		PostID:      postID,
 		Slug:        slugify(title),
 		Title:       title,
 		PublishedAt: time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC),
 		PhotoCount:  1,
 		CoverFile:   "cover.jpg",
-		Photos:      []SitePhoto{{PhotoID: "abc", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}},
+		Photos:      []Photo{{PhotoID: "abc", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}},
 	}
 }
 
@@ -186,7 +186,7 @@ func TestSiteStoreDeleteTombstonesAndRefreshesCache(t *testing.T) {
 	if !s.IsDeleted("pA") {
 		t.Error("pA must be tombstoned")
 	}
-	if cached, _ := LoadSiteState(cache); len(cached) != 1 || cached[0].PostID != "pB" {
+	if cached, _ := LoadState(cache); len(cached) != 1 || cached[0].PostID != "pB" {
 		t.Errorf("cache = %+v", cached)
 	}
 }

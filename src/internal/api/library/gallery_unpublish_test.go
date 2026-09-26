@@ -59,7 +59,7 @@ func galleryFixture(t *testing.T) (mgr *lib.Manager, chStore *channels.Store, li
 		t.Fatal(err)
 	}
 	gs := &site.GalleryState{PostID: "g1", Title: "First", PublishedAt: at, PhotoCount: 2,
-		Photos: []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "not-in-any-library", Filename: "b.jpg"}}}
+		Photos: []site.Photo{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "not-in-any-library", Filename: "b.jpg"}}}
 	if err := site.SaveGalleryState(filepath.Join(g1, "gallery.json"), gs); err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestDeleteSiteAlbum_AlsoClearsTheLibrarysKeys(t *testing.T) {
 	store.UpsertMeta("photoA", "built:website:p1", "2026-02-01T12:00:00Z")
 	store.Close()
 	album := testAlbum("p1", "Iceland")
-	album.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}}
+	album.Photos = []site.Photo{{PhotoID: "photoA", Filename: "a.jpg"}}
 	if err := sites.Upsert(album); err != nil {
 		t.Fatal(err)
 	}

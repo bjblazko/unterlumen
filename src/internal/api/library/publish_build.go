@@ -284,7 +284,7 @@ type albumTarget struct {
 	postID              string
 	slug                string // human-readable folder name; site mode only
 	outDir              string
-	existingPhotos      []site.SitePhoto
+	existingPhotos      []site.Photo
 	existingTitle       string
 	existingPublishedAt time.Time
 	unlisted            bool
@@ -297,7 +297,7 @@ type albumTarget struct {
 // Unlisted is fixed at album creation: on add-to-existing it comes from the
 // stored album, never from the draft, so appending photos can't silently
 // un-hide an album whose link has already been shared.
-func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *site.SiteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
+func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *site.Store, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
 	t := albumTarget{outDir: channelDir}
 
 	if draft.Target.PostID == "" {

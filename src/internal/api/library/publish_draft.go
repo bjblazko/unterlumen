@@ -101,7 +101,7 @@ func newPublishRun(r *http.Request, mgr *lib.Manager, chStore *channels.Store, d
 	run.galleryMode = ch.GalleryExport && namesAlbum
 	run.siteMode = ch.SiteExport && namesAlbum
 
-	target, status, err := resolveAlbumTarget(draft, run.channelDir, site.NewSiteStore(chStore, slug), publishedAt, run.galleryMode, run.siteMode)
+	target, status, err := resolveAlbumTarget(draft, run.channelDir, site.NewStore(chStore, slug), publishedAt, run.galleryMode, run.siteMode)
 	if err != nil {
 		run.closeStores()
 		return nil, status, err
@@ -345,7 +345,7 @@ func (p *publishRun) writeGalleryPage(items []site.GalleryItem, zipName string, 
 	dateStr := site.DateRangeStr(publishedAt, updatedAt)
 	var html []byte
 	if p.siteMode {
-		html = site.GenerateSiteGallery(p.albumTitle(), p.ch.SiteTheme, items, site.GalleryOptions{
+		html = site.GenerateAlbum(p.albumTitle(), p.ch.SiteTheme, items, site.GalleryOptions{
 			ZipFilename: zipName,
 			SiteTitle:   p.ch.SiteTitle,
 			DateStr:     dateStr,
@@ -353,7 +353,7 @@ func (p *publishRun) writeGalleryPage(items []site.GalleryItem, zipName string, 
 			AlbumSlug:   p.target.slug,
 			PublishedAt: publishedAt,
 			Unlisted:    p.target.unlisted,
-			Nav:         site.BuildSiteNavContext(p.ch, filepath.Join(p.channelDir, "site"), false),
+			Nav:         site.BuildNavContext(p.ch, filepath.Join(p.channelDir, "site"), false),
 		})
 	} else {
 		html = site.GenerateGallery(p.albumTitle(), items, site.GalleryOptions{ZipFilename: zipName, DateStr: dateStr, Unlisted: p.target.unlisted})
@@ -394,10 +394,10 @@ func (p *publishRun) saveGalleryState(items []site.GalleryItem, zipName string) 
 	})
 }
 
-func sitePhotosOf(items []site.GalleryItem) []site.SitePhoto {
-	photos := make([]site.SitePhoto, len(items))
+func sitePhotosOf(items []site.GalleryItem) []site.Photo {
+	photos := make([]site.Photo, len(items))
 	for i, item := range items {
-		photos[i] = site.SitePhoto{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
+		photos[i] = site.Photo{PhotoID: item.PhotoID, Filename: item.Filename, ThumbFilename: item.ThumbFilename}
 	}
 	return photos
 }
@@ -413,10 +413,10 @@ func (p *publishRun) updateSite(items []site.GalleryItem, zipName string, emit f
 			os.WriteFile(filepath.Join(p.target.outDir, "cover.jpg"), cover, 0o644) //nolint:errcheck
 		}
 	}
-	if err := site.WriteSiteAssets(filepath.Join(siteDir, "assets")); err != nil {
+	if err := site.WriteAssets(filepath.Join(siteDir, "assets")); err != nil {
 		return "", errors.New("write site assets: " + err.Error())
 	}
-	sites := site.NewSiteStore(p.chStore, p.slug)
+	sites := site.NewStore(p.chStore, p.slug)
 	if err := p.upsertSiteAlbum(sites, items, zipName); err != nil {
 		return "", err
 	}
@@ -434,7 +434,7 @@ func (p *publishRun) updateSite(items []site.GalleryItem, zipName string, emit f
 
 // upsertSiteAlbum writes only the album this build touched; the others belong
 // to whichever installation published them.
-func (p *publishRun) upsertSiteAlbum(sites *site.SiteStore, items []site.GalleryItem, zipName string) error {
+func (p *publishRun) upsertSiteAlbum(sites *site.Store, items []site.GalleryItem, zipName string) error {
 	siteAlbums, err := sites.List()
 	if err != nil {
 		return errors.New("read site state: " + err.Error())
@@ -453,11 +453,11 @@ func (p *publishRun) upsertSiteAlbum(sites *site.SiteStore, items []site.Gallery
 // entry keeps PublishedAt for sort order and DeployedAt, which describes the
 // last upload; an existing album missing from the register yields a zero
 // entry, which is not written.
-func (p *publishRun) touchedSiteAlbum(siteAlbums []site.SiteAlbum, items []site.GalleryItem, zipName string) site.SiteAlbum {
+func (p *publishRun) touchedSiteAlbum(siteAlbums []site.Album, items []site.GalleryItem, zipName string) site.Album {
 	if p.addToExisting {
 		idx := indexOfAlbum(siteAlbums, p.target.postID)
 		if idx < 0 {
-			return site.SiteAlbum{}
+			return site.Album{}
 		}
 		touched := siteAlbums[idx]
 		touched.Photos = sitePhotosOf(items)
@@ -467,7 +467,7 @@ func (p *publishRun) touchedSiteAlbum(siteAlbums []site.SiteAlbum, items []site.
 		touched.GeneratedAt = time.Now().UTC()
 		return touched
 	}
-	return site.SiteAlbum{
+	return site.Album{
 		PostID:      p.target.postID,
 		Slug:        p.target.slug,
 		Title:       p.albumTitle(),
@@ -484,7 +484,7 @@ func (p *publishRun) touchedSiteAlbum(siteAlbums []site.SiteAlbum, items []site.
 // mergePhotoItems is what an album shows after a publish run: the photos it
 // already had, then the ones just exported, each file once. A photo that is
 // added again keeps its place; one that failed to export is left out.
-func mergePhotoItems(existing []site.SitePhoto, results []buildResult) []site.GalleryItem {
+func mergePhotoItems(existing []site.Photo, results []buildResult) []site.GalleryItem {
 	items := site.BuildGalleryItems(existing)
 	have := make(map[string]bool, len(items))
 	for _, it := range items {

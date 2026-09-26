@@ -20,30 +20,30 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 )
 
-// SiteSubdir is the name of the subdirectory inside a channel's output
+// Subdir is the name of the subdirectory inside a channel's output
 // directory where the generated, servable static site (index.html, albums/,
 // robots.txt, assets/, site.json, etc.) is written. A channel's output
 // directory may also hold unrelated non-site gallery folders (from
 // single-gallery builds on the same channel), so anything that needs to
 // deploy/serve exactly the site — and nothing else — must target this
 // subdirectory rather than the channel's output directory itself.
-const SiteSubdir = "site"
+const Subdir = "site"
 
-// SiteDir returns the full path to a channel's site subdirectory, given the
+// Dir returns the full path to a channel's site subdirectory, given the
 // channel's output directory (channels.Store.OutputDir(slug)).
-func SiteDir(channelDir string) string {
-	return filepath.Join(channelDir, SiteSubdir)
+func Dir(channelDir string) string {
+	return filepath.Join(channelDir, Subdir)
 }
 
-// SitePhoto stores the filenames needed to regenerate an album page without re-exporting.
-type SitePhoto struct {
+// Photo stores the filenames needed to regenerate an album page without re-exporting.
+type Photo struct {
 	PhotoID       string `json:"photoID,omitempty"`
 	Filename      string `json:"filename"`
 	ThumbFilename string `json:"thumbFilename"`
 }
 
-// SiteAlbum records metadata for one published album in the site statefile.
-type SiteAlbum struct {
+// Album records metadata for one published album in the site statefile.
+type Album struct {
 	PostID      string    `json:"postID"`
 	Slug        string    `json:"slug,omitempty"` // human-readable folder name; falls back to PostID when empty
 	Title       string    `json:"title"`
@@ -52,17 +52,17 @@ type SiteAlbum struct {
 	PhotoCount  int       `json:"photoCount"`
 	// GeneratedAt / DeployedAt: see GalleryState. Zero means "not recorded",
 	// which is the case for every album published before ADR-0029.
-	GeneratedAt time.Time   `json:"generatedAt"`
-	DeployedAt  time.Time   `json:"deployedAt"`
-	CoverFile   string      `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
-	HasZip      bool        `json:"hasZip"`
-	Photos      []SitePhoto `json:"photos"`             // stored so album pages can be rebuilt without re-export
-	Unlisted    bool        `json:"unlisted,omitempty"` // excluded from site index/sitemap; noindexed; set at creation and immutable thereafter
+	GeneratedAt time.Time `json:"generatedAt"`
+	DeployedAt  time.Time `json:"deployedAt"`
+	CoverFile   string    `json:"coverFile"` // relative to the album dir, e.g. "cover.jpg"
+	HasZip      bool      `json:"hasZip"`
+	Photos      []Photo   `json:"photos"`             // stored so album pages can be rebuilt without re-export
+	Unlisted    bool      `json:"unlisted,omitempty"` // excluded from site index/sitemap; noindexed; set at creation and immutable thereafter
 }
 
 // AlbumFolderName returns the filesystem folder name for an album.
 // New albums get a slug; albums without one fall back to PostID for backward compatibility.
-func AlbumFolderName(album SiteAlbum) string {
+func AlbumFolderName(album Album) string {
 	if album.Slug != "" {
 		return album.Slug
 	}
@@ -114,7 +114,7 @@ func randomSlugToken() string {
 // When unlisted is true, the returned slug is always the human slug plus a random
 // crypto/rand-generated 8-character token, regardless of collisions — this keeps the
 // listed/public collision-fallback path (date suffixes) completely untouched.
-func ComputeSlug(title string, publishedAt time.Time, existing []SiteAlbum, unlisted bool) string {
+func ComputeSlug(title string, publishedAt time.Time, existing []Album, unlisted bool) string {
 	base := slugify(title)
 	if unlisted {
 		return base + "-" + randomSlugToken()
@@ -146,7 +146,7 @@ func DateRangeStr(published, updated time.Time) string {
 	return published.Format("January 2006") + " – " + updated.Format("January 2006")
 }
 
-func LoadSiteState(statePath string) ([]SiteAlbum, error) {
+func LoadState(statePath string) ([]Album, error) {
 	data, err := os.ReadFile(statePath)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -154,11 +154,11 @@ func LoadSiteState(statePath string) ([]SiteAlbum, error) {
 	if err != nil {
 		return nil, err
 	}
-	var albums []SiteAlbum
+	var albums []Album
 	return albums, json.Unmarshal(data, &albums)
 }
 
-func SaveSiteState(statePath string, albums []SiteAlbum) error {
+func SaveState(statePath string, albums []Album) error {
 	data, err := json.MarshalIndent(albums, "", "  ")
 	if err != nil {
 		return err
@@ -166,8 +166,8 @@ func SaveSiteState(statePath string, albums []SiteAlbum) error {
 	return os.WriteFile(statePath, data, 0o600)
 }
 
-// SiteNavContext carries optional page-link and contact data passed to all site template generators.
-type SiteNavContext struct {
+// NavContext carries optional page-link and contact data passed to all site template generators.
+type NavContext struct {
 	HasAbout     bool
 	HasImprint   bool
 	ContactEmail string
@@ -204,14 +204,14 @@ func logoExistsAt(siteDir string) bool {
 	return err == nil
 }
 
-// BuildSiteNavContext constructs a SiteNavContext from channel config and current site state.
+// BuildNavContext constructs a NavContext from channel config and current site state.
 // rootLevel=true uses "assets/logo.jpg" (root index, about, legal); false uses "../../assets/logo.jpg" (album pages).
-func BuildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) SiteNavContext {
+func BuildNavContext(ch *channels.Channel, siteDir string, rootLevel bool) NavContext {
 	logoPath := "assets/logo.jpg"
 	if !rootLevel {
 		logoPath = "../../assets/logo.jpg"
 	}
-	return SiteNavContext{
+	return NavContext{
 		HasAbout:     ch.SiteAbout != "",
 		HasImprint:   ch.SiteImprint != "",
 		ContactEmail: ch.SiteContactEmail,
@@ -222,7 +222,7 @@ func BuildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) S
 	}
 }
 
-// WriteSiteAssets writes style.css, toggle.js, and lightbox.js into assetsDir,
+// WriteAssets writes style.css, toggle.js, and lightbox.js into assetsDir,
 // overwriting if present. toggle.js is fully static — it reads the default
 // theme from data-default-theme on <html>. lightbox.js is also fully
 // static — it reads its per-page photo list from the "ul-photos"
@@ -233,7 +233,7 @@ func BuildSiteNavContext(ch *channels.Channel, siteDir string, rootLevel bool) S
 // 'unsafe-inline') — as this project's own deployment docs recommend for a
 // site hosting this generator's output — silently blocks any inline
 // <script> from running at all, with no visible error to the visitor.
-func WriteSiteAssets(assetsDir string) error {
+func WriteAssets(assetsDir string) error {
 	if err := os.MkdirAll(assetsDir, 0o700); err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func GenerateRobotsTxt(siteDir, siteURL string) error {
 
 // GenerateSitemap writes a sitemap.xml to the site root.
 // Only called when siteURL is non-empty; sitemap requires absolute URLs.
-func GenerateSitemap(siteDir string, albums []SiteAlbum, siteURL string) error {
+func GenerateSitemap(siteDir string, albums []Album, siteURL string) error {
 	base := strings.TrimRight(siteURL, "/")
 	var b strings.Builder
 	b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
@@ -622,7 +622,7 @@ const siteToggleJS = `(function () {
 // siteLightboxJS is a fully static lightbox/swipe/menu script shared by every
 // album page. It reads its per-page photo list from a sibling
 // application/json <script id="ul-photos"> element instead of a template
-// variable — see writeSiteAssets for why this file has to be external and
+// variable — see WriteAssets for why this file has to be external and
 // content-identical across pages.
 const siteLightboxJS = `const photos = JSON.parse(document.getElementById('ul-photos').textContent);
 let cur = 0;
@@ -765,16 +765,16 @@ var siteTmpl = template.Must(template.New("site").Parse(`<!DOCTYPE html>
 </html>
 `))
 
-// GenerateSiteIndex produces a static root index.html referencing shared assets.
+// GenerateIndex produces a static root index.html referencing shared assets.
 // Albums are ordered newest first by PublishedAt.
-func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlbum, nav SiteNavContext) []byte {
+func GenerateIndex(siteTitle, defaultTheme, siteURL string, albums []Album, nav NavContext) []byte {
 	if siteTitle == "" {
 		siteTitle = "Photo Albums"
 	}
 	if defaultTheme == "" {
 		defaultTheme = "light"
 	}
-	sorted := make([]SiteAlbum, 0, len(albums))
+	sorted := make([]Album, 0, len(albums))
 	for _, a := range albums {
 		if a.Unlisted {
 			continue
@@ -830,7 +830,7 @@ func GenerateSiteIndex(siteTitle, defaultTheme, siteURL string, albums []SiteAlb
 		SiteURL      string
 		LDJSON       template.JS
 		Albums       []siteAlbumData
-		Nav          SiteNavContext
+		Nav          NavContext
 	}{
 		Title:        siteTitle,
 		DefaultTheme: defaultTheme,
@@ -927,9 +927,9 @@ type siteGalleryPhoto struct {
 	Thumb string `json:"thumb"`
 }
 
-// GenerateSiteGallery produces an album index.html for site mode.
+// GenerateAlbum produces an album index.html for site mode.
 // It references shared assets via ../../assets/ instead of embedding CSS.
-func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts GalleryOptions) []byte {
+func GenerateAlbum(title, defaultTheme string, items []GalleryItem, opts GalleryOptions) []byte {
 	if defaultTheme == "" {
 		defaultTheme = "light"
 	}
@@ -1003,7 +1003,7 @@ func GenerateSiteGallery(title, defaultTheme string, items []GalleryItem, opts G
 		AlbumURL     string
 		CoverURL     string
 		Unlisted     bool
-		Nav          SiteNavContext
+		Nav          NavContext
 	}{
 		Title:        title,
 		PageTitle:    pageTitle,
@@ -1077,7 +1077,7 @@ var siteAboutTmpl = template.Must(template.New("siteabout").Parse(`<!DOCTYPE htm
 
 // GenerateAboutPage produces about.html at the site root.
 // Does nothing if SiteAbout is empty.
-func GenerateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, nav SiteNavContext) error {
+func GenerateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, nav NavContext) error {
 	if ch.SiteAbout == "" {
 		return nil
 	}
@@ -1091,7 +1091,7 @@ func GenerateAboutPage(siteDir string, ch *channels.Channel, avatarExists bool, 
 		DefaultTheme string
 		Content      template.HTML
 		AvatarExists bool
-		Nav          SiteNavContext
+		Nav          NavContext
 	}{
 		SiteTitle:    ch.SiteTitle,
 		DefaultTheme: defaultTheme,
@@ -1154,7 +1154,7 @@ var siteImprintTmpl = template.Must(template.New("siteimprint").Parse(`<!DOCTYPE
 
 // GenerateImprintPage produces legal.html at the site root.
 // Does nothing if SiteImprint is empty.
-func GenerateImprintPage(siteDir string, ch *channels.Channel, nav SiteNavContext) error {
+func GenerateImprintPage(siteDir string, ch *channels.Channel, nav NavContext) error {
 	if ch.SiteImprint == "" {
 		return nil
 	}
@@ -1167,7 +1167,7 @@ func GenerateImprintPage(siteDir string, ch *channels.Channel, nav SiteNavContex
 		SiteTitle    string
 		DefaultTheme string
 		Content      template.HTML
-		Nav          SiteNavContext
+		Nav          NavContext
 	}{
 		SiteTitle:    ch.SiteTitle,
 		DefaultTheme: defaultTheme,

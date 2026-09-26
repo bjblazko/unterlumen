@@ -24,7 +24,7 @@ import (
 // saying "built, not uploaded" until the next publish.
 func MarkDeployed(chStore *channels.Store, slug string, siteExport bool, at time.Time) {
 	if siteExport {
-		store := site.NewSiteStore(chStore, slug)
+		store := site.NewStore(chStore, slug)
 		albums, err := store.List()
 		if err != nil {
 			return

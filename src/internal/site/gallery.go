@@ -25,11 +25,11 @@ type GalleryState struct {
 	// uploaded" apart from "online" (ADR-0029). Both are zero for galleries
 	// written before this was recorded; readers must treat that as unknown
 	// rather than as "never".
-	GeneratedAt time.Time   `json:"generatedAt"`
-	DeployedAt  time.Time   `json:"deployedAt"`
-	HasZip      bool        `json:"hasZip"`
-	Unlisted    bool        `json:"unlisted,omitempty"` // emit noindex/nofollow on the gallery page
-	Photos      []SitePhoto `json:"photos"`
+	GeneratedAt time.Time `json:"generatedAt"`
+	DeployedAt  time.Time `json:"deployedAt"`
+	HasZip      bool      `json:"hasZip"`
+	Unlisted    bool      `json:"unlisted,omitempty"` // emit noindex/nofollow on the gallery page
+	Photos      []Photo   `json:"photos"`
 }
 
 func LoadGalleryState(statePath string) (*GalleryState, error) {
@@ -99,7 +99,7 @@ type GalleryOptions struct {
 	AlbumSlug   string    // album folder name; used with SiteURL to build absolute album URL
 	PublishedAt time.Time // used for datePublished in JSON-LD
 	Unlisted    bool      // when true, the gallery page gets a noindex/nofollow robots meta tag
-	Nav         SiteNavContext
+	Nav         NavContext
 }
 
 var galleryTmpl = template.Must(template.New("gallery").Parse(`<!DOCTYPE html>
@@ -475,9 +475,9 @@ func GenerateGallery(title string, items []GalleryItem, opts GalleryOptions) []b
 	return buf.Bytes()
 }
 
-// BuildGalleryItems reconstructs GalleryItem entries from a SiteAlbum's stored photos.
+// BuildGalleryItems reconstructs GalleryItem entries from an Album's stored photos.
 // Dimensions are unavailable for albums predating dimension storage; Width/Height will be 0.
-func BuildGalleryItems(photos []SitePhoto) []GalleryItem {
+func BuildGalleryItems(photos []Photo) []GalleryItem {
 	photos = DedupePhotos(photos)
 	items := make([]GalleryItem, len(photos))
 	for i, p := range photos {
@@ -489,9 +489,9 @@ func BuildGalleryItems(photos []SitePhoto) []GalleryItem {
 // DedupePhotos keeps the first entry of each exported file. Adding a photo
 // that is already in an album used to list it a second time (same file name),
 // on the page, in the register and in the ZIP.
-func DedupePhotos(photos []SitePhoto) []SitePhoto {
+func DedupePhotos(photos []Photo) []Photo {
 	seen := make(map[string]bool, len(photos))
-	out := make([]SitePhoto, 0, len(photos))
+	out := make([]Photo, 0, len(photos))
 	for _, p := range photos {
 		if p.Filename != "" {
 			if seen[p.Filename] {

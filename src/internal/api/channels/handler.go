@@ -352,7 +352,7 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 			// The channel's output dir may also contain unrelated non-site
 			// gallery folders from single-gallery builds; only the site/
 			// subdirectory is the servable, deployable site.
-			localDir = site.SiteDir(localDir)
+			localDir = site.Dir(localDir)
 		}
 		output, deployErr := deploy.Deploy(target, localDir)
 		deployedAt := time.Now().UTC()

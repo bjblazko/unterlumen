@@ -43,7 +43,7 @@ func (r *albumRegister) tombstone(postID string) (string, error) {
 
 // Upsert writes one album, replacing its previous record if any. A deleted
 // album is refused: the tombstone is what keeps it deleted.
-func (r *albumRegister) Upsert(a SiteAlbum) error {
+func (r *albumRegister) Upsert(a Album) error {
 	path, err := r.file(a.PostID)
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func (r *albumRegister) Remove(postID string) error {
 }
 
 // List returns every registered album, oldest first, so callers get a stable order.
-func (r *albumRegister) List() ([]SiteAlbum, error) {
+func (r *albumRegister) List() ([]Album, error) {
 	entries, err := os.ReadDir(r.dir)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -130,7 +130,7 @@ func (r *albumRegister) List() ([]SiteAlbum, error) {
 	if err != nil {
 		return nil, err
 	}
-	var albums []SiteAlbum
+	var albums []Album
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
@@ -139,7 +139,7 @@ func (r *albumRegister) List() ([]SiteAlbum, error) {
 		if err != nil {
 			return nil, err
 		}
-		var a SiteAlbum
+		var a Album
 		if err := json.Unmarshal(data, &a); err != nil {
 			return nil, fmt.Errorf("album register: %s: %w", e.Name(), err)
 		}

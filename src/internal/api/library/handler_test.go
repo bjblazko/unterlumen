@@ -171,7 +171,7 @@ func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
 		Title:       "Old Title Before Rebuild",
 		PublishedAt: time.Now(),
 		PhotoCount:  1,
-		Photos:      []site.SitePhoto{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
+		Photos:      []site.Photo{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
 	}
 	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
@@ -256,10 +256,10 @@ func TestListGalleriesPerChannelBehaviorPreserved(t *testing.T) {
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
 		t.Fatalf("mkdir site dir: %v", err)
 	}
-	albums := []site.SiteAlbum{
+	albums := []site.Album{
 		{PostID: "aaa", Slug: "album-one", Title: "Album One", PublishedAt: time.Now(), PhotoCount: 2, Unlisted: true},
 	}
-	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := site.SaveState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -1010,7 +1010,7 @@ func TestGenerateDraft_SiteAlbum_RecordsSlugAndUnlistedInSidecar(t *testing.T) {
 	if err != nil || len(pubs) != 1 {
 		t.Fatalf("ReadSidecar: %+v, %v", pubs, err)
 	}
-	albums, _ := site.NewSiteStore(chStore, "website").List()
+	albums, _ := site.NewStore(chStore, "website").List()
 	if len(albums) != 1 {
 		t.Fatalf("register holds %d albums", len(albums))
 	}

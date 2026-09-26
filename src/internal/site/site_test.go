@@ -10,13 +10,13 @@ import (
 )
 
 func TestSiteDirJoinsChannelDirAndSiteSubdir(t *testing.T) {
-	got := SiteDir("/data/channels/mychannel")
+	got := Dir("/data/channels/mychannel")
 	want := filepath.Join("/data/channels/mychannel", "site")
 	if got != want {
 		t.Errorf("SiteDir() = %q, want %q", got, want)
 	}
-	if SiteSubdir != "site" {
-		t.Errorf("SiteSubdir = %q, want %q", SiteSubdir, "site")
+	if Subdir != "site" {
+		t.Errorf("SiteSubdir = %q, want %q", Subdir, "site")
 	}
 }
 
@@ -28,7 +28,7 @@ func TestComputeSlugListedNoCollision(t *testing.T) {
 }
 
 func TestComputeSlugListedCollisionFallsBackToMonth(t *testing.T) {
-	existing := []SiteAlbum{{Slug: "summer-2026"}}
+	existing := []Album{{Slug: "summer-2026"}}
 	published := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
 	got := ComputeSlug("Summer 2026", published, existing, false)
 	want := "summer-2026-2026-07"
@@ -38,7 +38,7 @@ func TestComputeSlugListedCollisionFallsBackToMonth(t *testing.T) {
 }
 
 func TestComputeSlugListedMonthCollisionFallsBackToDay(t *testing.T) {
-	existing := []SiteAlbum{{Slug: "summer-2026"}, {Slug: "summer-2026-2026-07"}}
+	existing := []Album{{Slug: "summer-2026"}, {Slug: "summer-2026-2026-07"}}
 	published := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
 	got := ComputeSlug("Summer 2026", published, existing, false)
 	want := "summer-2026-2026-07-15"
@@ -68,7 +68,7 @@ func TestComputeSlugUnlistedAlwaysTokenSuffixed(t *testing.T) {
 func TestComputeSlugUnlistedIgnoresCollisionLogic(t *testing.T) {
 	// Even with existing albums that would normally force a date suffix, an
 	// unlisted album must still get a token suffix, not a date suffix.
-	existing := []SiteAlbum{{Slug: "family-reunion"}}
+	existing := []Album{{Slug: "family-reunion"}}
 	published := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	got := ComputeSlug("Family Reunion", published, existing, true)
 	if strings.Contains(got, "2026-07") {
@@ -80,8 +80,8 @@ func TestComputeSlugUnlistedIgnoresCollisionLogic(t *testing.T) {
 	}
 }
 
-func testAlbums() []SiteAlbum {
-	return []SiteAlbum{
+func testAlbums() []Album {
+	return []Album{
 		{
 			PostID:      "p1",
 			Slug:        "listed-album",
@@ -103,7 +103,7 @@ func testAlbums() []SiteAlbum {
 }
 
 func TestGenerateSiteIndexExcludesUnlisted(t *testing.T) {
-	html := string(GenerateSiteIndex("My Site", "light", "", testAlbums(), SiteNavContext{}))
+	html := string(GenerateIndex("My Site", "light", "", testAlbums(), NavContext{}))
 
 	if !strings.Contains(html, "Listed Album") {
 		t.Error("listed album title missing from generated site index")
@@ -142,12 +142,12 @@ func TestGenerateSiteGalleryNoindexForUnlisted(t *testing.T) {
 	items := []GalleryItem{
 		{Filename: "photo1.jpg", ThumbFilename: "thumbs/photo1.jpg"},
 	}
-	unlistedHTML := string(GenerateSiteGallery("Secret Album", "light", items, GalleryOptions{Unlisted: true}))
+	unlistedHTML := string(GenerateAlbum("Secret Album", "light", items, GalleryOptions{Unlisted: true}))
 	if !strings.Contains(unlistedHTML, `<meta name="robots" content="noindex, nofollow">`) {
 		t.Error("unlisted album page missing noindex robots meta tag")
 	}
 
-	listedHTML := string(GenerateSiteGallery("Listed Album", "light", items, GalleryOptions{Unlisted: false}))
+	listedHTML := string(GenerateAlbum("Listed Album", "light", items, GalleryOptions{Unlisted: false}))
 	if strings.Contains(listedHTML, `noindex`) {
 		t.Error("listed album page unexpectedly contains a noindex meta tag")
 	}
@@ -159,7 +159,7 @@ func TestGenerateSiteGalleryNoindexForUnlisted(t *testing.T) {
 // inline <script> content, which is exactly what broke the deployed site.
 func TestGenerateSiteGalleryNoInlineLightboxScript(t *testing.T) {
 	items := []GalleryItem{{Filename: "photo1.jpg", ThumbFilename: "thumbs/photo1.jpg"}}
-	html := string(GenerateSiteGallery("Album", "light", items, GalleryOptions{}))
+	html := string(GenerateAlbum("Album", "light", items, GalleryOptions{}))
 	if strings.Contains(html, "function openLightbox") {
 		t.Error("album page still inlines lightbox JS instead of referencing assets/lightbox.js")
 	}
@@ -173,7 +173,7 @@ func TestGenerateSiteGalleryNoInlineLightboxScript(t *testing.T) {
 
 func TestWriteSiteAssetsWritesLightboxJS(t *testing.T) {
 	dir := t.TempDir()
-	if err := WriteSiteAssets(dir); err != nil {
+	if err := WriteAssets(dir); err != nil {
 		t.Fatalf("writeSiteAssets: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "lightbox.js"))

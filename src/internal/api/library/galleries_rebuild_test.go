@@ -13,7 +13,7 @@ import (
 
 func TestRebuildAlbumZipSkipsAlbumWithoutZip(t *testing.T) {
 	dir := t.TempDir()
-	album := &site.SiteAlbum{Photos: []site.SitePhoto{{Filename: "a.jpg"}}}
+	album := &site.Album{Photos: []site.Photo{{Filename: "a.jpg"}}}
 	os.WriteFile(filepath.Join(dir, "a.jpg"), []byte("a"), 0o644) //nolint:errcheck
 
 	if name := rebuildAlbumZip(album, dir); name != "" {
@@ -26,7 +26,7 @@ func TestRebuildAlbumZipSkipsAlbumWithoutZip(t *testing.T) {
 
 func TestRebuildAlbumZipRewritesZipFoundOnDisk(t *testing.T) {
 	dir := t.TempDir()
-	album := &site.SiteAlbum{Photos: []site.SitePhoto{{Filename: "a.jpg"}, {Filename: "b.jpg"}}}
+	album := &site.Album{Photos: []site.Photo{{Filename: "a.jpg"}, {Filename: "b.jpg"}}}
 	for _, n := range []string{"a.jpg", "b.jpg", "photos.zip"} {
 		os.WriteFile(filepath.Join(dir, n), []byte(n), 0o644) //nolint:errcheck
 	}
@@ -49,7 +49,7 @@ func TestRebuildAlbumZipRewritesZipFoundOnDisk(t *testing.T) {
 
 func TestRebuildAlbumZipWritesZipTheRegisterRecords(t *testing.T) {
 	dir := t.TempDir()
-	album := &site.SiteAlbum{HasZip: true, Photos: []site.SitePhoto{{Filename: "a.jpg"}}}
+	album := &site.Album{HasZip: true, Photos: []site.Photo{{Filename: "a.jpg"}}}
 	os.WriteFile(filepath.Join(dir, "a.jpg"), []byte("a"), 0o644) //nolint:errcheck
 
 	if name := rebuildAlbumZip(album, dir); name != "photos.zip" {
@@ -72,10 +72,10 @@ func TestRebuildSiteListsAlbumsOfBothInstallations(t *testing.T) {
 	nas := newInstall("/photos")
 	mac := newInstall("/Volumes/nas/photos")
 
-	if err := site.NewSiteStore(nas, "website").Upsert(testAlbum("pA", "Alpha")); err != nil {
+	if err := site.NewStore(nas, "website").Upsert(testAlbum("pA", "Alpha")); err != nil {
 		t.Fatal(err)
 	}
-	if err := site.NewSiteStore(mac, "website").Upsert(testAlbum("pB", "Beta")); err != nil {
+	if err := site.NewStore(mac, "website").Upsert(testAlbum("pB", "Beta")); err != nil {
 		t.Fatal(err)
 	}
 

@@ -151,6 +151,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
 | `internal/api/sse` | Opens a server-sent event stream and writes JSON data events; used by every streaming handler |
+| `internal/site` | Static output of a destination: single-gallery pages and multi-album sites (templates, assets, nav, sitemap), their state files, slugs, and the shared album register ([ADR-0035](adr/0035-shared-album-register.md)); no HTTP |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 

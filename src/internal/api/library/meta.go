@@ -228,7 +228,7 @@ func deleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key str
 // and the site index. Meta key deletion is handled by the caller.
 func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
 	siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-	sites := site.NewSiteStore(chStore, slug)
+	sites := site.NewStore(chStore, slug)
 	albums, err := sites.List()
 	if err != nil {
 		return fmt.Errorf("load site state: %w", err)
@@ -285,9 +285,9 @@ func legacySiteFilePrefix(store *lib.Store, photoID, slug, pathHint string) stri
 // removeFromSiteAlbum deletes the photo's exported file and thumbnail from one
 // album, and takes the album out of the photo's own sidecar so a rebuild
 // cannot find it. It returns the album's other photos.
-func removeFromSiteAlbum(album site.SiteAlbum, siteDir, slug, photoID, legacyPrefix, pathHint string) []site.SitePhoto {
+func removeFromSiteAlbum(album site.Album, siteDir, slug, photoID, legacyPrefix, pathHint string) []site.Photo {
 	albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(album))
-	var kept []site.SitePhoto
+	var kept []site.Photo
 	for _, sp := range album.Photos {
 		match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
 			(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
@@ -309,9 +309,9 @@ func removeFromSiteAlbum(album site.SiteAlbum, siteDir, slug, photoID, legacyPre
 // saveSiteRemoval removes albums that are now empty, saves the ones that lost
 // a photo and regenerates the HTML of every remaining album. It returns the
 // albums that remain.
-func saveSiteRemoval(albums []site.SiteAlbum, touched map[string]bool, sites *site.SiteStore, siteDir string, ch *channels.Channel) ([]site.SiteAlbum, error) {
-	albumNav := site.BuildSiteNavContext(ch, siteDir, false)
-	var remaining []site.SiteAlbum
+func saveSiteRemoval(albums []site.Album, touched map[string]bool, sites *site.Store, siteDir string, ch *channels.Channel) ([]site.Album, error) {
+	albumNav := site.BuildNavContext(ch, siteDir, false)
+	var remaining []site.Album
 	for _, album := range albums {
 		albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(album))
 		if album.PhotoCount == 0 {
