@@ -39,106 +39,109 @@ func WalkFolderStats(absPath, relPath string) (*FolderStats, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	result := &FolderStats{
-		Name:       filepath.Base(absPath),
-		Path:       relPath,
-		Modified:   info.ModTime(),
-		FileTypes:  make(map[string]int),
-		Subfolders: []SubfolderStats{},
-	}
-
-	// Read immediate children to determine subfolder order.
+	// Immediate children determine the subfolder order.
 	dirEntries, err := os.ReadDir(absPath)
 	if err != nil {
 		return nil, err
 	}
-
-	var subDirNames []string
-	for _, de := range dirEntries {
-		if strings.HasPrefix(de.Name(), ".") {
-			continue
-		}
-		if de.IsDir() {
-			subDirNames = append(subDirNames, de.Name())
-		}
+	fw := &folderWalk{
+		root: absPath,
+		result: &FolderStats{
+			Name:       filepath.Base(absPath),
+			Path:       relPath,
+			Modified:   info.ModTime(),
+			FileTypes:  make(map[string]int),
+			Subfolders: []SubfolderStats{},
+		},
+		subs: make(map[string]*SubfolderStats),
 	}
-
-	subStats := make(map[string]*SubfolderStats, len(subDirNames))
+	subDirNames := visibleSubdirs(dirEntries)
 	for _, name := range subDirNames {
-		sub := &SubfolderStats{Name: name}
-		subStats[name] = sub
+		fw.subs[name] = &SubfolderStats{Name: name}
 	}
-
-	sep := string(filepath.Separator)
-
-	err = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if strings.HasPrefix(d.Name(), ".") {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if path == absPath {
-			return nil
-		}
-
-		rel, _ := filepath.Rel(absPath, path)
-		parts := strings.Split(rel, sep)
-		depth := len(parts)
-
-		if depth > maxFolderWalkDepth {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		topName := parts[0]
-		sub := subStats[topName]
-
-		if d.IsDir() {
-			result.DirCount++
-			if sub != nil && len(parts) > 1 {
-				sub.DirCount++
-				subDepth := depth - 1
-				if subDepth > sub.MaxDepth {
-					sub.MaxDepth = subDepth
-				}
-			}
-			if depth > result.MaxDepth {
-				result.MaxDepth = depth
-			}
-		} else {
-			fi, fierr := d.Info()
-			var size int64
-			if fierr == nil {
-				size = fi.Size()
-			}
-			result.FileCount++
-			result.TotalSize += size
-			if ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(d.Name()), ".")); ext != "" {
-				result.FileTypes[ext]++
-			}
-			if sub != nil {
-				sub.FileCount++
-				sub.Size += size
-			}
-		}
-		return nil
-	})
-	if err != nil {
+	if err := filepath.WalkDir(absPath, fw.visit); err != nil {
 		return nil, err
 	}
-
 	for _, name := range subDirNames {
-		if sub, ok := subStats[name]; ok {
-			result.Subfolders = append(result.Subfolders, *sub)
+		fw.result.Subfolders = append(fw.result.Subfolders, *fw.subs[name])
+	}
+	return fw.result, nil
+}
+
+// visibleSubdirs returns the names of the directories among entries that are
+// not hidden, in their order.
+func visibleSubdirs(entries []os.DirEntry) []string {
+	var names []string
+	for _, de := range entries {
+		if de.IsDir() && !strings.HasPrefix(de.Name(), ".") {
+			names = append(names, de.Name())
 		}
 	}
+	return names
+}
 
-	return result, nil
+// folderWalk accumulates FolderStats during one filepath.WalkDir.
+type folderWalk struct {
+	root   string
+	result *FolderStats
+	subs   map[string]*SubfolderStats // immediate subfolders by name
+}
+
+// visit counts one entry below root. Hidden entries and anything deeper than
+// maxFolderWalkDepth are skipped; unreadable entries are ignored.
+func (fw *folderWalk) visit(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return nil
+	}
+	if strings.HasPrefix(d.Name(), ".") {
+		if d.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+	if path == fw.root {
+		return nil
+	}
+	rel, _ := filepath.Rel(fw.root, path)
+	parts := strings.Split(rel, string(filepath.Separator))
+	if len(parts) > maxFolderWalkDepth {
+		if d.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+	if d.IsDir() {
+		fw.addDir(parts)
+	} else {
+		fw.addFile(d, parts)
+	}
+	return nil
+}
+
+// addDir counts a directory at the depth of its path parts.
+func (fw *folderWalk) addDir(parts []string) {
+	depth := len(parts)
+	fw.result.DirCount++
+	fw.result.MaxDepth = max(fw.result.MaxDepth, depth)
+	if sub := fw.subs[parts[0]]; sub != nil && depth > 1 {
+		sub.DirCount++
+		sub.MaxDepth = max(sub.MaxDepth, depth-1)
+	}
+}
+
+// addFile counts a file, its size and its extension.
+func (fw *folderWalk) addFile(d fs.DirEntry, parts []string) {
+	var size int64
+	if fi, err := d.Info(); err == nil {
+		size = fi.Size()
+	}
+	fw.result.FileCount++
+	fw.result.TotalSize += size
+	if ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(d.Name()), ".")); ext != "" {
+		fw.result.FileTypes[ext]++
+	}
+	if sub := fw.subs[parts[0]]; sub != nil {
+		sub.FileCount++
+		sub.Size += size
+	}
 }
