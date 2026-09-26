@@ -252,16 +252,7 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 	if err != nil {
 		return err
 	}
-	rootNav := buildSiteNavContext(ch, siteDir, true)
-	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
-	os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644) //nolint:errcheck
-	generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)    //nolint:errcheck
-	generateImprintPage(siteDir, ch, rootNav)                           //nolint:errcheck
-	generateRobotsTxt(siteDir, ch.SiteURL)                              //nolint:errcheck
-	if ch.SiteURL != "" {
-		generateSitemap(siteDir, remaining, ch.SiteURL) //nolint:errcheck
-	}
-	return nil
+	return writeSitePages(ch, siteDir, remaining)
 }
 
 // legacySiteFilePrefix reconstructs the expected filename prefix as a

@@ -55,6 +55,7 @@ All notable changes to this project are documented in this file.
 - **An ISO chip that could not be dropped.** A log-scale slider that nobody had touched counted as narrowed: its right end came out as 51199.99999999997 instead of 51200. The filter showed "ISO 16 – 51200" as active, and its × brought it straight back. Every result also silently left out photos taken at the highest ISO in the library. The ends of every slider are now exactly the range's own bounds.
 - **Closed filter results came back.** 300 ms after the × on the filter results, every photo appeared again as results. Resetting the "More filters" field had scheduled one last query, and nothing cancelled it.
 - **Keys went to hidden results in the Libraries overview.** After the filter's results were closed, arrow keys, `i` and the selection still acted on the hidden results pane instead of the list.
+- **Taking a photo off a website could leave a stale site index without a word.** If the site's index page could not be written, removing the photo still reported success. The removal now fails with the reason.
 
 ## [0.11.0] - 2026-09-26
 

@@ -403,3 +403,30 @@ func TestRebuildAlbumRegister_CountsMembersItCannotReach(t *testing.T) {
 		t.Error("a sidecar was created for a photo that does not exist")
 	}
 }
+
+// Taking a photo off a site rewrites the site index; when that write fails the
+// caller must hear about it rather than leave a stale index behind unnoticed.
+func TestRemovePhotoFromSite_ReportsAFailedIndexWrite(t *testing.T) {
+	mgr, chStore, sites, ch := rebuildFixture(t)
+	pub := media.Publication{Channel: "website", PostID: "p1", GalleryTitle: "Iceland", Slug: "iceland", PublishedAt: rebuildTime}
+	libID := publishedPhoto(t, mgr, "photoA", pub)
+	store, err := mgr.OpenStore(libID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	album := testAlbum("p1", "Iceland")
+	album.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "photoB", Filename: "b.jpg"}}
+	if err := sites.Upsert(album); err != nil {
+		t.Fatal(err)
+	}
+	// A directory where index.html belongs makes the write fail.
+	if err := os.MkdirAll(filepath.Join(chStore.OutputDir("website"), "site", "index.html"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	err = removePhotoFromSite(store, ch, chStore, "photoA", "website")
+	if err == nil || !strings.Contains(err.Error(), "write site index") {
+		t.Fatalf("err = %v, want a write site index error", err)
+	}
+}
