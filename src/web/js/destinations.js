@@ -52,28 +52,9 @@ function _readDestinationForm(form, isNew, existingSlug) {
     if (!slug) return { error: 'The name must contain at least one letter or digit.' };
 
     const type = form.dataset.type;
-    const isSite = type === 'site';
-    const isOnline = type !== 'files';
-
     const handlerVal = form.querySelector('#chf-handler').value;
-    let handlerConfig;
-    if (handlerVal === 'rsync') {
-        // Keys must match deploy.TargetFromConfig (src/internal/deploy/rsync.go):
-        // host, user, port, remotePath, identityFile.
-        const host = form.querySelector('#chf-rsync-host').value.trim();
-        const port = form.querySelector('#chf-rsync-port').value.trim();
-        const user = form.querySelector('#chf-rsync-user').value.trim();
-        const remotePath = form.querySelector('#chf-rsync-remote-path').value.trim();
-        const identityFile = form.querySelector('#chf-rsync-identity').value.trim();
-        if (!host || !user || !remotePath) {
-            return { error: 'Uploading over SSH needs a host, a user and a remote folder.' };
-        }
-        handlerConfig = { host, user, remotePath };
-        if (port) handlerConfig.port = port;
-        if (identityFile) handlerConfig.identityFile = identityFile;
-    } else {
-        handlerConfig = _readKVEditor(form.querySelector('#chf-hconfig')) || undefined;
-    }
+    const handler = _readHandlerConfig(form, handlerVal);
+    if (handler.error) return { error: handler.error };
 
     return {
         payload: {
@@ -84,21 +65,318 @@ function _readDestinationForm(form, isNew, existingSlug) {
             exifMode:         form.querySelector('#chf-exif').value,
             scale:            _readScaleOpts(form),
             galleryExport:    type === 'share' ? true : undefined,
-            siteExport:       isSite ? true : undefined,
-            siteTitle:        isSite ? (form.querySelector('#chf-site-title').value.trim() || undefined) : undefined,
-            siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
-            siteURL:          isOnline ? (form.querySelector('#chf-site-url').value.trim() || undefined) : undefined,
-            siteAbout:        isSite ? (form.querySelector('#chf-site-about').value.trim() || undefined) : undefined,
-            siteImprint:      isSite ? (form.querySelector('#chf-site-imprint').value.trim() || undefined) : undefined,
-            siteContactEmail: isSite ? (form.querySelector('#chf-site-contact-email').value.trim() || undefined) : undefined,
-            siteContactURL:   isSite ? (form.querySelector('#chf-site-contact-url').value.trim() || undefined) : undefined,
+            ..._readSiteFields(form, type),
             handler:          handlerVal || undefined,
-            handlerConfig,
+            handlerConfig:    handler.config,
             accounts:         _readAccountsEditor(form.querySelector('#chf-accounts')),
             outputMode:       form.querySelector('#chf-output-mode').value === 'download' ? 'download' : undefined,
             outputPath:       form.querySelector('#chf-output-path')?.value.trim() || undefined,
         },
     };
+}
+
+// The handler's settings: the SSH fields for rsync, the key/value editor for
+// any other handler.
+function _readHandlerConfig(form, handlerVal) {
+    if (handlerVal !== 'rsync') {
+        return { config: _readKVEditor(form.querySelector('#chf-hconfig')) || undefined };
+    }
+    // Keys must match deploy.TargetFromConfig (src/internal/deploy/rsync.go):
+    // host, user, port, remotePath, identityFile.
+    const field = (id) => form.querySelector(id).value.trim();
+    const host = field('#chf-rsync-host');
+    const port = field('#chf-rsync-port');
+    const user = field('#chf-rsync-user');
+    const remotePath = field('#chf-rsync-remote-path');
+    const identityFile = field('#chf-rsync-identity');
+    if (!host || !user || !remotePath) {
+        return { error: 'Uploading over SSH needs a host, a user and a remote folder.' };
+    }
+    const config = { host, user, remotePath };
+    if (port) config.port = port;
+    if (identityFile) config.identityFile = identityFile;
+    return { config };
+}
+
+// The website fields — only a site has them, only an online destination has
+// a public address. Empty fields are left out.
+function _readSiteFields(form, type) {
+    const isSite = type === 'site';
+    const isOnline = type !== 'files';
+    const text = (id) => form.querySelector(id).value.trim() || undefined;
+    return {
+        siteExport:       isSite ? true : undefined,
+        siteTitle:        isSite ? text('#chf-site-title') : undefined,
+        siteTheme:        isSite ? (form.querySelector('#chf-site-theme').value || undefined) : undefined,
+        siteURL:          isOnline ? text('#chf-site-url') : undefined,
+        siteAbout:        isSite ? text('#chf-site-about') : undefined,
+        siteImprint:      isSite ? text('#chf-site-imprint') : undefined,
+        siteContactEmail: isSite ? text('#chf-site-contact-email') : undefined,
+        siteContactURL:   isSite ? text('#chf-site-contact-url') : undefined,
+    };
+}
+
+// The type: fixed once the destination exists.
+function _destTypeFieldsetHTML(isNew, type) {
+    return `                    <fieldset class="dest-fieldset">
+                        <legend>Type</legend>
+                        <div class="dest-choices">
+                            ${DESTINATION_TYPES.map(t => `
+                                <label class="dest-choice">
+                                    <input type="radio" name="dest-type" value="${t.id}" ${t.id === type ? 'checked' : ''} ${isNew ? '' : 'disabled'}>
+                                    <span><strong>${escapeHtml(t.label)}</strong><span>${escapeHtml(t.hint)}</span></span>
+                                </label>`).join('')}
+                        </div>
+                        ${isNew ? '' : '<p class="form-hint">The type is fixed after the first publish: it decides how the files are laid out and what the links look like.</p>'}
+                    </fieldset>`;
+}
+
+// Name, folder name and public address.
+function _destNameFieldsetHTML(ch) {
+    return `                    <fieldset class="dest-fieldset">
+                        <legend>Name and address</legend>
+                        <div class="dest-grid">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-name">Name</label>
+                                <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="e.g. Family share links">
+                                <span class="form-hint">Folder name: <span class="dest-mono" id="chf-slug-preview">${escapeHtml(ch.slug || slugify(ch.name) || '—')}</span></span>
+                                <input type="hidden" id="chf-slug" value="${escapeHtml(ch.slug)}">
+                            </div>
+                            <div class="form-field dest-when-online">
+                                <label class="form-label" for="chf-site-url">Public address</label>
+                                <input class="form-input dest-mono" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
+                                <span class="form-hint">Used for the links you share and for the reachability check.</span>
+                            </div>
+                        </div>
+                    </fieldset>`;
+}
+
+// How an online destination gets its files onto the server.
+function _destUploadFieldsetHTML(ch, isNew) {
+    return `                    <fieldset class="dest-fieldset dest-when-online">
+                        <legend>Upload</legend>
+                        <div class="dest-choices">
+                            <label class="dest-choice">
+                                <input type="radio" name="dest-upload" value="rsync" ${ch.handler === 'rsync' ? 'checked' : ''}>
+                                <span><strong>Upload over SSH</strong><span>Unterlumen copies changes to your server with rsync when you publish.</span></span>
+                            </label>
+                            <label class="dest-choice">
+                                <input type="radio" name="dest-upload" value="" ${ch.handler === 'rsync' ? '' : 'checked'}>
+                                <span><strong>Keep in a local folder</strong><span>You upload the folder yourself. Unterlumen cannot tell when it is online.</span></span>
+                            </label>
+                        </div>
+                        <div id="chf-rsync-wrap" ${ch.handler === 'rsync' ? '' : 'hidden'}>
+                            <div class="dest-grid">
+                                <div class="form-field">
+                                    <label class="form-label" for="chf-rsync-host">Host</label>
+                                    <input class="form-input dest-mono" id="chf-rsync-host" value="${escapeHtml(ch.handlerConfig?.host || '')}" placeholder="example.com">
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label" for="chf-rsync-user">User</label>
+                                    <input class="form-input dest-mono" id="chf-rsync-user" value="${escapeHtml(ch.handlerConfig?.user || '')}" placeholder="deploy">
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label" for="chf-rsync-remote-path">Remote folder</label>
+                                    <input class="form-input dest-mono" id="chf-rsync-remote-path" value="${escapeHtml(ch.handlerConfig?.remotePath || '')}" placeholder="/var/www/photos">
+                                </div>
+                                <div class="form-field">
+                                    <label class="form-label" for="chf-rsync-identity">SSH key</label>
+                                    <input class="form-input dest-mono" id="chf-rsync-identity" value="${escapeHtml(ch.handlerConfig?.identityFile || '')}" placeholder="~/.ssh/id_ed25519">
+                                    <span class="form-hint">Optional. Leave empty to use your default key or agent; the port lives under Advanced.</span>
+                                </div>
+                            </div>
+                            <div class="ch-rsync-test-row">
+                                <button type="button" class="btn btn-sm" id="chf-rsync-test"${isNew ? ' disabled' : ''}>Test connection</button>
+                                <span class="ch-rsync-test-result" id="chf-rsync-test-result">${isNew ? 'Create the destination first, then test the connection.' : ''}</span>
+                            </div>
+                            <div class="form-hint ch-rsync-help">
+                                Deploy uses your system <code>ssh</code>/<code>rsync</code>, authenticated by key — no passwords are stored.
+                                <ol>
+                                    <li>No key yet? <code>ssh-keygen -t ed25519</code>.</li>
+                                    <li>Copy it to the server: <code>ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host</code>.</li>
+                                    <li>Connect once by hand — <code>ssh user@host</code> — so the host key is trusted.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </fieldset>`;
+}
+
+// Format, quality, size and metadata of the exported files.
+function _destImageFieldsetHTML(ch) {
+    return `                    <fieldset class="dest-fieldset">
+                        <legend>Image files</legend>
+                        <div class="dest-grid">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-format">Format</label>
+                                <select class="form-select" id="chf-format">
+                                    <option value="jpeg" ${ch.format === 'jpeg' ? 'selected' : ''}>JPEG</option>
+                                    <option value="png" ${ch.format === 'png' ? 'selected' : ''}>PNG</option>
+                                    <option value="webp" ${ch.format === 'webp' ? 'selected' : ''}>WebP</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-quality">Quality</label>
+                                <input class="form-input" id="chf-quality" type="number" min="1" max="100" value="${ch.quality}">
+                                <span class="form-hint">1–100.</span>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-scale-mode">Size</label>
+                                <select class="form-select" id="chf-scale-mode">
+                                    <option value="none" ${ch.scale?.mode === 'none' ? 'selected' : ''}>Original size</option>
+                                    <option value="max_dim" ${ch.scale?.mode === 'max_dim' ? 'selected' : ''}>Max dimension</option>
+                                    <option value="percent" ${ch.scale?.mode === 'percent' ? 'selected' : ''}>Percent</option>
+                                </select>
+                                <div id="chf-scale-opts" class="form-scale-opts">${_scaleOptsHTML(ch.scale)}</div>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-exif">Metadata</label>
+                                <select class="form-select" id="chf-exif">
+                                    <option value="keep_no_gps" ${ch.exifMode === 'keep_no_gps' ? 'selected' : ''}>Keep, without GPS</option>
+                                    <option value="keep" ${ch.exifMode === 'keep' ? 'selected' : ''}>Keep all</option>
+                                    <option value="strip" ${ch.exifMode === 'strip' ? 'selected' : ''}>Remove all</option>
+                                </select>
+                            </div>
+                        </div>
+                    </fieldset>`;
+}
+
+// Where a files destination puts its files.
+function _destOutputFieldsetHTML(ch) {
+    return `                    <fieldset class="dest-fieldset dest-when-files">
+                        <legend>Output</legend>
+                        <div class="dest-grid">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-output-mode">Where the files go</label>
+                                <select class="form-select" id="chf-output-mode">
+                                    <option value="save" ${(ch.outputMode || 'save') === 'save' ? 'selected' : ''}>Into a folder</option>
+                                    <option value="download" ${ch.outputMode === 'download' ? 'selected' : ''}>Download as a ZIP</option>
+                                </select>
+                            </div>
+                            <div class="form-field" id="chf-output-path-wrap" ${ch.outputMode === 'download' ? 'hidden' : ''}>
+                                <label class="form-label" for="chf-output-path">Folder</label>
+                                <div class="export-destination-wrap">
+                                    <input class="form-input export-destination-input dest-mono" id="chf-output-path"
+                                           value="${escapeHtml(ch.outputPath ? (ch.outputDir || ch.outputPath) : '')}"
+                                           placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<name>')}/">
+                                    <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>`;
+}
+
+// Title, theme, logo and pages of a website.
+function _destSiteFieldsetHTML(ch) {
+    return `                    <fieldset class="dest-fieldset dest-when-site">
+                        <legend>Website</legend>
+                        <div class="dest-grid">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-site-title">Site title</label>
+                                <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
+                                <span class="form-hint">Shown in the header on every page.</span>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-site-theme">Default theme</label>
+                                <select class="form-select" id="chf-site-theme">
+                                    <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
+                                    <option value="dark" ${ch.siteTheme === 'dark' ? 'selected' : ''}>Dark</option>
+                                </select>
+                                <span class="form-hint">Visitors can switch.</span>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <span class="form-label">Site logo</span>
+                            <div class="ch-avatar-wrap" id="chf-logo-wrap">
+                                <span class="ch-avatar-status" id="chf-logo-status"></span>
+                                <input type="file" id="chf-logo-file" accept="image/*" style="display:none">
+                                <button class="btn btn-sm" id="chf-logo-upload">Upload logo</button>
+                                <button class="btn btn-sm" id="chf-logo-remove" style="display:none">Remove</button>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label" for="chf-site-about">About page</label>
+                            <textarea class="form-input dest-textarea" id="chf-site-about" rows="6" placeholder="Write a short introduction about yourself and your photography…">${escapeHtml(ch.siteAbout || '')}</textarea>
+                            <span class="form-hint">Markdown. Becomes about.html.</span>
+                        </div>
+                        <div class="form-field">
+                            <span class="form-label">Author photo</span>
+                            <div class="ch-avatar-wrap" id="chf-avatar-wrap">
+                                <span class="ch-avatar-status" id="chf-avatar-status"></span>
+                                <input type="file" id="chf-avatar-file" accept="image/*" style="display:none">
+                                <button class="btn btn-sm" id="chf-avatar-upload">Upload photo</button>
+                                <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">Remove</button>
+                            </div>
+                            <span class="form-hint">Shown on the About page.</span>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label" for="chf-site-imprint">Legal / imprint</label>
+                            <textarea class="form-input dest-textarea" id="chf-site-imprint" rows="6" placeholder="Responsible for this website:&#10;Your Name&#10;Your Address…">${escapeHtml(ch.siteImprint || '')}</textarea>
+                            <span class="form-hint">Markdown. Becomes legal.html.</span>
+                        </div>
+                        <div class="dest-grid">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-site-contact-email">Contact email</label>
+                                <input class="form-input" id="chf-site-contact-email" type="email" value="${escapeHtml(ch.siteContactEmail || '')}" placeholder="you@example.com">
+                                <span class="form-hint">Shown in the footer of every page.</span>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-site-contact-url">Website or social address</label>
+                                <input class="form-input" id="chf-site-contact-url" type="url" value="${escapeHtml(ch.siteContactURL || '')}" placeholder="https://yoursite.com">
+                            </div>
+                        </div>
+                    </fieldset>`;
+}
+
+// Handler settings, accounts and maintenance.
+function _destAdvancedHTML(ch, isNew) {
+    return `                    <details class="dest-advanced">
+                        <summary>Advanced: accounts, custom handler settings, rebuild</summary>
+                        <div class="dest-advanced-body">
+                            <div class="form-field">
+                                <label class="form-label" for="chf-handler">Handler</label>
+                                <select class="form-select" id="chf-handler">
+                                    <option value="" ${!ch.handler ? 'selected' : ''}>None</option>
+                                    <option value="rsync" ${ch.handler === 'rsync' ? 'selected' : ''}>rsync (deploy over SSH)</option>
+                                    ${(ch.handler && ch.handler !== 'rsync') ? `<option value="${escapeHtml(ch.handler)}" selected>${escapeHtml(ch.handler)} (existing)</option>` : ''}
+                                </select>
+                                <span class="form-hint">Set by the Upload section above; change it here only for a handler Unterlumen has no form for.</span>
+                            </div>
+                            <div class="form-field">
+                                <label class="form-label" for="chf-rsync-port">Port</label>
+                                <input class="form-input" id="chf-rsync-port" type="number" min="1" max="65535" value="${escapeHtml(ch.handlerConfig?.port || '')}" placeholder="22">
+                            </div>
+                            <div class="form-field" id="chf-generic-hconfig-wrap" ${ch.handler === 'rsync' ? 'hidden' : ''}>
+                                <span class="form-label">Handler config</span>
+                                <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handler === 'rsync' ? {} : (ch.handlerConfig || {}))}</div>
+                                <button class="btn btn-sm" id="chf-hconfig-add">+ Add config entry</button>
+                            </div>
+                            <div class="form-field">
+                                <span class="form-label">Accounts</span>
+                                <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
+                                <button class="btn btn-sm" id="chf-account-add">+ Add account</button>
+                                <span class="form-hint">Named sub-accounts, e.g. two Mastodon logins.</span>
+                            </div>
+                            ${(isNew || !ch.siteExport) ? '' : `
+                            <div class="form-field">
+                                <span class="form-label">Album list</span>
+                                <div class="dest-maintenance">
+                                    <button class="btn btn-sm" id="dest-rebuild-albums">Rebuild album list</button>
+                                </div>
+                                <span class="form-hint">Adds albums that are missing from the list shared by your installations, from what the photos themselves record. Albums already listed stay as they are. Only photos in a library that has been scanned are looked at.</span>
+                                <div id="dest-rebuild-albums-report" class="dest-report" role="status" aria-live="polite"></div>
+                            </div>`}
+                            ${isNew ? '' : `
+                            <div class="form-field">
+                                <span class="form-label">Maintenance</span>
+                                <div class="dest-maintenance">
+                                    <button class="btn btn-sm" id="dest-reveal">Show output in Finder/Explorer</button>
+                                    <button class="btn btn-sm btn-danger" id="dest-delete">Delete destination…</button>
+                                </div>
+                                <span class="form-hint">Deleting removes the destination from your configuration. Galleries already published to it stay where they are.</span>
+                                <div id="dest-delete-confirm"></div>
+                            </div>`}
+                        </div>
+                    </details>`;
 }
 
 class DestinationsPane {
@@ -251,247 +529,19 @@ class DestinationsPane {
                     <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? 'Create destination' : 'Save'}</button>
                 </div>
                 <div class="gal-body dest-form" id="dest-form" data-type="${type}">
-                    <fieldset class="dest-fieldset">
-                        <legend>Type</legend>
-                        <div class="dest-choices">
-                            ${DESTINATION_TYPES.map(t => `
-                                <label class="dest-choice">
-                                    <input type="radio" name="dest-type" value="${t.id}" ${t.id === type ? 'checked' : ''} ${isNew ? '' : 'disabled'}>
-                                    <span><strong>${escapeHtml(t.label)}</strong><span>${escapeHtml(t.hint)}</span></span>
-                                </label>`).join('')}
-                        </div>
-                        ${isNew ? '' : '<p class="form-hint">The type is fixed after the first publish: it decides how the files are laid out and what the links look like.</p>'}
-                    </fieldset>
+${_destTypeFieldsetHTML(isNew, type)}
 
-                    <fieldset class="dest-fieldset">
-                        <legend>Name and address</legend>
-                        <div class="dest-grid">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-name">Name</label>
-                                <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="e.g. Family share links">
-                                <span class="form-hint">Folder name: <span class="dest-mono" id="chf-slug-preview">${escapeHtml(ch.slug || slugify(ch.name) || '—')}</span></span>
-                                <input type="hidden" id="chf-slug" value="${escapeHtml(ch.slug)}">
-                            </div>
-                            <div class="form-field dest-when-online">
-                                <label class="form-label" for="chf-site-url">Public address</label>
-                                <input class="form-input dest-mono" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
-                                <span class="form-hint">Used for the links you share and for the reachability check.</span>
-                            </div>
-                        </div>
-                    </fieldset>
+${_destNameFieldsetHTML(ch)}
 
-                    <fieldset class="dest-fieldset dest-when-online">
-                        <legend>Upload</legend>
-                        <div class="dest-choices">
-                            <label class="dest-choice">
-                                <input type="radio" name="dest-upload" value="rsync" ${ch.handler === 'rsync' ? 'checked' : ''}>
-                                <span><strong>Upload over SSH</strong><span>Unterlumen copies changes to your server with rsync when you publish.</span></span>
-                            </label>
-                            <label class="dest-choice">
-                                <input type="radio" name="dest-upload" value="" ${ch.handler === 'rsync' ? '' : 'checked'}>
-                                <span><strong>Keep in a local folder</strong><span>You upload the folder yourself. Unterlumen cannot tell when it is online.</span></span>
-                            </label>
-                        </div>
-                        <div id="chf-rsync-wrap" ${ch.handler === 'rsync' ? '' : 'hidden'}>
-                            <div class="dest-grid">
-                                <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-host">Host</label>
-                                    <input class="form-input dest-mono" id="chf-rsync-host" value="${escapeHtml(ch.handlerConfig?.host || '')}" placeholder="example.com">
-                                </div>
-                                <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-user">User</label>
-                                    <input class="form-input dest-mono" id="chf-rsync-user" value="${escapeHtml(ch.handlerConfig?.user || '')}" placeholder="deploy">
-                                </div>
-                                <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-remote-path">Remote folder</label>
-                                    <input class="form-input dest-mono" id="chf-rsync-remote-path" value="${escapeHtml(ch.handlerConfig?.remotePath || '')}" placeholder="/var/www/photos">
-                                </div>
-                                <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-identity">SSH key</label>
-                                    <input class="form-input dest-mono" id="chf-rsync-identity" value="${escapeHtml(ch.handlerConfig?.identityFile || '')}" placeholder="~/.ssh/id_ed25519">
-                                    <span class="form-hint">Optional. Leave empty to use your default key or agent; the port lives under Advanced.</span>
-                                </div>
-                            </div>
-                            <div class="ch-rsync-test-row">
-                                <button type="button" class="btn btn-sm" id="chf-rsync-test"${isNew ? ' disabled' : ''}>Test connection</button>
-                                <span class="ch-rsync-test-result" id="chf-rsync-test-result">${isNew ? 'Create the destination first, then test the connection.' : ''}</span>
-                            </div>
-                            <div class="form-hint ch-rsync-help">
-                                Deploy uses your system <code>ssh</code>/<code>rsync</code>, authenticated by key — no passwords are stored.
-                                <ol>
-                                    <li>No key yet? <code>ssh-keygen -t ed25519</code>.</li>
-                                    <li>Copy it to the server: <code>ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host</code>.</li>
-                                    <li>Connect once by hand — <code>ssh user@host</code> — so the host key is trusted.</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </fieldset>
+${_destUploadFieldsetHTML(ch, isNew)}
 
-                    <fieldset class="dest-fieldset">
-                        <legend>Image files</legend>
-                        <div class="dest-grid">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-format">Format</label>
-                                <select class="form-select" id="chf-format">
-                                    <option value="jpeg" ${ch.format === 'jpeg' ? 'selected' : ''}>JPEG</option>
-                                    <option value="png" ${ch.format === 'png' ? 'selected' : ''}>PNG</option>
-                                    <option value="webp" ${ch.format === 'webp' ? 'selected' : ''}>WebP</option>
-                                </select>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-quality">Quality</label>
-                                <input class="form-input" id="chf-quality" type="number" min="1" max="100" value="${ch.quality}">
-                                <span class="form-hint">1–100.</span>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-scale-mode">Size</label>
-                                <select class="form-select" id="chf-scale-mode">
-                                    <option value="none" ${ch.scale?.mode === 'none' ? 'selected' : ''}>Original size</option>
-                                    <option value="max_dim" ${ch.scale?.mode === 'max_dim' ? 'selected' : ''}>Max dimension</option>
-                                    <option value="percent" ${ch.scale?.mode === 'percent' ? 'selected' : ''}>Percent</option>
-                                </select>
-                                <div id="chf-scale-opts" class="form-scale-opts">${_scaleOptsHTML(ch.scale)}</div>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-exif">Metadata</label>
-                                <select class="form-select" id="chf-exif">
-                                    <option value="keep_no_gps" ${ch.exifMode === 'keep_no_gps' ? 'selected' : ''}>Keep, without GPS</option>
-                                    <option value="keep" ${ch.exifMode === 'keep' ? 'selected' : ''}>Keep all</option>
-                                    <option value="strip" ${ch.exifMode === 'strip' ? 'selected' : ''}>Remove all</option>
-                                </select>
-                            </div>
-                        </div>
-                    </fieldset>
+${_destImageFieldsetHTML(ch)}
 
-                    <fieldset class="dest-fieldset dest-when-files">
-                        <legend>Output</legend>
-                        <div class="dest-grid">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-output-mode">Where the files go</label>
-                                <select class="form-select" id="chf-output-mode">
-                                    <option value="save" ${(ch.outputMode || 'save') === 'save' ? 'selected' : ''}>Into a folder</option>
-                                    <option value="download" ${ch.outputMode === 'download' ? 'selected' : ''}>Download as a ZIP</option>
-                                </select>
-                            </div>
-                            <div class="form-field" id="chf-output-path-wrap" ${ch.outputMode === 'download' ? 'hidden' : ''}>
-                                <label class="form-label" for="chf-output-path">Folder</label>
-                                <div class="export-destination-wrap">
-                                    <input class="form-input export-destination-input dest-mono" id="chf-output-path"
-                                           value="${escapeHtml(ch.outputPath ? (ch.outputDir || ch.outputPath) : '')}"
-                                           placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<name>')}/">
-                                    <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
-                                </div>
-                            </div>
-                        </div>
-                    </fieldset>
+${_destOutputFieldsetHTML(ch)}
 
-                    <fieldset class="dest-fieldset dest-when-site">
-                        <legend>Website</legend>
-                        <div class="dest-grid">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-site-title">Site title</label>
-                                <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
-                                <span class="form-hint">Shown in the header on every page.</span>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-site-theme">Default theme</label>
-                                <select class="form-select" id="chf-site-theme">
-                                    <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
-                                    <option value="dark" ${ch.siteTheme === 'dark' ? 'selected' : ''}>Dark</option>
-                                </select>
-                                <span class="form-hint">Visitors can switch.</span>
-                            </div>
-                        </div>
-                        <div class="form-field">
-                            <span class="form-label">Site logo</span>
-                            <div class="ch-avatar-wrap" id="chf-logo-wrap">
-                                <span class="ch-avatar-status" id="chf-logo-status"></span>
-                                <input type="file" id="chf-logo-file" accept="image/*" style="display:none">
-                                <button class="btn btn-sm" id="chf-logo-upload">Upload logo</button>
-                                <button class="btn btn-sm" id="chf-logo-remove" style="display:none">Remove</button>
-                            </div>
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label" for="chf-site-about">About page</label>
-                            <textarea class="form-input dest-textarea" id="chf-site-about" rows="6" placeholder="Write a short introduction about yourself and your photography…">${escapeHtml(ch.siteAbout || '')}</textarea>
-                            <span class="form-hint">Markdown. Becomes about.html.</span>
-                        </div>
-                        <div class="form-field">
-                            <span class="form-label">Author photo</span>
-                            <div class="ch-avatar-wrap" id="chf-avatar-wrap">
-                                <span class="ch-avatar-status" id="chf-avatar-status"></span>
-                                <input type="file" id="chf-avatar-file" accept="image/*" style="display:none">
-                                <button class="btn btn-sm" id="chf-avatar-upload">Upload photo</button>
-                                <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">Remove</button>
-                            </div>
-                            <span class="form-hint">Shown on the About page.</span>
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label" for="chf-site-imprint">Legal / imprint</label>
-                            <textarea class="form-input dest-textarea" id="chf-site-imprint" rows="6" placeholder="Responsible for this website:&#10;Your Name&#10;Your Address…">${escapeHtml(ch.siteImprint || '')}</textarea>
-                            <span class="form-hint">Markdown. Becomes legal.html.</span>
-                        </div>
-                        <div class="dest-grid">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-site-contact-email">Contact email</label>
-                                <input class="form-input" id="chf-site-contact-email" type="email" value="${escapeHtml(ch.siteContactEmail || '')}" placeholder="you@example.com">
-                                <span class="form-hint">Shown in the footer of every page.</span>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-site-contact-url">Website or social address</label>
-                                <input class="form-input" id="chf-site-contact-url" type="url" value="${escapeHtml(ch.siteContactURL || '')}" placeholder="https://yoursite.com">
-                            </div>
-                        </div>
-                    </fieldset>
+${_destSiteFieldsetHTML(ch)}
 
-                    <details class="dest-advanced">
-                        <summary>Advanced: accounts, custom handler settings, rebuild</summary>
-                        <div class="dest-advanced-body">
-                            <div class="form-field">
-                                <label class="form-label" for="chf-handler">Handler</label>
-                                <select class="form-select" id="chf-handler">
-                                    <option value="" ${!ch.handler ? 'selected' : ''}>None</option>
-                                    <option value="rsync" ${ch.handler === 'rsync' ? 'selected' : ''}>rsync (deploy over SSH)</option>
-                                    ${(ch.handler && ch.handler !== 'rsync') ? `<option value="${escapeHtml(ch.handler)}" selected>${escapeHtml(ch.handler)} (existing)</option>` : ''}
-                                </select>
-                                <span class="form-hint">Set by the Upload section above; change it here only for a handler Unterlumen has no form for.</span>
-                            </div>
-                            <div class="form-field">
-                                <label class="form-label" for="chf-rsync-port">Port</label>
-                                <input class="form-input" id="chf-rsync-port" type="number" min="1" max="65535" value="${escapeHtml(ch.handlerConfig?.port || '')}" placeholder="22">
-                            </div>
-                            <div class="form-field" id="chf-generic-hconfig-wrap" ${ch.handler === 'rsync' ? 'hidden' : ''}>
-                                <span class="form-label">Handler config</span>
-                                <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handler === 'rsync' ? {} : (ch.handlerConfig || {}))}</div>
-                                <button class="btn btn-sm" id="chf-hconfig-add">+ Add config entry</button>
-                            </div>
-                            <div class="form-field">
-                                <span class="form-label">Accounts</span>
-                                <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
-                                <button class="btn btn-sm" id="chf-account-add">+ Add account</button>
-                                <span class="form-hint">Named sub-accounts, e.g. two Mastodon logins.</span>
-                            </div>
-                            ${(isNew || !ch.siteExport) ? '' : `
-                            <div class="form-field">
-                                <span class="form-label">Album list</span>
-                                <div class="dest-maintenance">
-                                    <button class="btn btn-sm" id="dest-rebuild-albums">Rebuild album list</button>
-                                </div>
-                                <span class="form-hint">Adds albums that are missing from the list shared by your installations, from what the photos themselves record. Albums already listed stay as they are. Only photos in a library that has been scanned are looked at.</span>
-                                <div id="dest-rebuild-albums-report" class="dest-report" role="status" aria-live="polite"></div>
-                            </div>`}
-                            ${isNew ? '' : `
-                            <div class="form-field">
-                                <span class="form-label">Maintenance</span>
-                                <div class="dest-maintenance">
-                                    <button class="btn btn-sm" id="dest-reveal">Show output in Finder/Explorer</button>
-                                    <button class="btn btn-sm btn-danger" id="dest-delete">Delete destination…</button>
-                                </div>
-                                <span class="form-hint">Deleting removes the destination from your configuration. Galleries already published to it stay where they are.</span>
-                                <div id="dest-delete-confirm"></div>
-                            </div>`}
-                        </div>
-                    </details>
+${_destAdvancedHTML(ch, isNew)}
 
                     <div class="gal-detail-error" id="chf-error" hidden></div>
                 </div>
