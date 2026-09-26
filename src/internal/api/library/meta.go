@@ -114,75 +114,20 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		}
 		defer store.Close()
 
-		// For pending:{slug} keys, the meta row is a derived signal that this
-		// photo sits in an unfinished draft for that channel — removing it must
-		// also remove the photo from the draft itself (drafts.json), not just
-		// delete the meta row and leave the draft still holding a reference the
-		// UI no longer shows.
-		const pendingPrefix = "pending:"
 		if strings.HasPrefix(key, pendingPrefix) && draftStore != nil {
-			// Two key shapes: "pending:<slug>" names the draft in its value,
-			// "pending:<slug>:<draftID>" names it in the key itself (its value
-			// is the album title).
-			slug, draftID, qualified := strings.Cut(strings.TrimPrefix(key, pendingPrefix), ":")
-			if !qualified {
-				if entries, metaErr := store.GetMeta(photoID); metaErr == nil {
-					for _, e := range entries {
-						if e.Key == key {
-							draftID = e.Value
-							break
-						}
-					}
-				}
-			}
-			if draftID != "" {
-				draftStore.RemovePhoto(slug, draftID, id, photoID) //nolint:errcheck
-			}
-			store.DeleteMeta(photoID, key) //nolint:errcheck
-			if qualified {
-				clearPendingMarkers(store, photoID, slug, draftID)
-			} else {
-				store.DeleteMeta(photoID, pendingPrefix+slug+":"+draftID) //nolint:errcheck
-			}
+			deletePendingMeta(store, draftStore, id, photoID, key)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-
-		// For built:{slug} keys on site-export channels, remove the photo from
-		// the site (site.json + physical files) and delete all related keys. The
-		// frontend only ever sends the normalized built: prefix (see getMeta), but a
-		// photo may still carry legacy published:{slug} entries from before this
-		// channel-membership key was renamed, so both prefixes are cleaned up here.
 		if strings.HasPrefix(key, buildPrefix) && chStore != nil {
-			rest := strings.TrimPrefix(key, buildPrefix)
-			slug, albumPostID, _ := strings.Cut(rest, ":")
-			if ch, chErr := chStore.Get(slug); chErr == nil {
-				switch {
-				// Removing a publication from a site-export photo means taking
-				// it off the site entirely — there is no per-album removal —
-				// so both the channel marker and one album's key land here.
-				case ch.SiteExport && !reservedMetaSuffix(albumPostID):
-					if rmErr := removePhotoFromSite(store, ch, chStore, photoID, slug); rmErr != nil {
-						http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
-						return
-					}
-					deleteChannelPublicationKeys(store, photoID, slug)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				// A gallery channel's albums are independent: drop just this
-				// album, and the channel marker only if it was the last one.
-				case albumPostID != "" && !reservedMetaSuffix(albumPostID):
-					deleteAlbumKeys(store, photoID, slug, albumPostID)
-					if entries, metaErr := store.GetMeta(photoID); metaErr == nil && len(albumPostIDsForChannel(entries, slug)) == 0 {
-						deleteChannelPublicationKeys(store, photoID, slug)
-					}
-					w.WriteHeader(http.StatusNoContent)
-					return
-				case albumPostID == "":
-					deleteChannelPublicationKeys(store, photoID, slug)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
+			handled, rmErr := deleteBuiltMeta(store, chStore, photoID, key)
+			if rmErr != nil {
+				http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			if handled {
+				w.WriteHeader(http.StatusNoContent)
+				return
 			}
 		}
 
@@ -199,119 +144,115 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 	}
 }
 
+const pendingPrefix = "pending:"
+
+// deletePendingMeta removes a pending:{slug} key. The meta row is a derived
+// signal that this photo sits in an unfinished draft for that channel —
+// removing it must also remove the photo from the draft itself (drafts.json),
+// not just delete the meta row and leave the draft still holding a reference
+// the UI no longer shows.
+func deletePendingMeta(store *lib.Store, draftStore *channels.DraftStore, libraryID, photoID, key string) {
+	// Two key shapes: "pending:<slug>" names the draft in its value,
+	// "pending:<slug>:<draftID>" names it in the key itself (its value
+	// is the album title).
+	slug, draftID, qualified := strings.Cut(strings.TrimPrefix(key, pendingPrefix), ":")
+	if !qualified {
+		draftID = metaValue(store, photoID, key)
+	}
+	if draftID != "" {
+		draftStore.RemovePhoto(slug, draftID, libraryID, photoID) //nolint:errcheck
+	}
+	store.DeleteMeta(photoID, key) //nolint:errcheck
+	if qualified {
+		clearPendingMarkers(store, photoID, slug, draftID)
+	} else {
+		store.DeleteMeta(photoID, pendingPrefix+slug+":"+draftID) //nolint:errcheck
+	}
+}
+
+// metaValue returns the value of a photo's meta key, or "" when it has none.
+func metaValue(store *lib.Store, photoID, key string) string {
+	entries, err := store.GetMeta(photoID)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if e.Key == key {
+			return e.Value
+		}
+	}
+	return ""
+}
+
+// deleteBuiltMeta handles built:{slug} keys; handled is false when the key
+// is a plain meta row the caller deletes itself. On site-export channels it
+// removes the photo from the site (site.json + physical files) and deletes all
+// related keys. The frontend only ever sends the normalized built: prefix (see
+// getMeta), but a photo may still carry legacy published:{slug} entries from
+// before this channel-membership key was renamed, so both prefixes are cleaned
+// up here.
+func deleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key string) (handled bool, err error) {
+	slug, albumPostID, _ := strings.Cut(strings.TrimPrefix(key, buildPrefix), ":")
+	ch, chErr := chStore.Get(slug)
+	if chErr != nil {
+		return false, nil
+	}
+	switch {
+	// Removing a publication from a site-export photo means taking
+	// it off the site entirely — there is no per-album removal —
+	// so both the channel marker and one album's key land here.
+	case ch.SiteExport && !reservedMetaSuffix(albumPostID):
+		if err := removePhotoFromSite(store, ch, chStore, photoID, slug); err != nil {
+			return false, err
+		}
+		deleteChannelPublicationKeys(store, photoID, slug)
+		return true, nil
+	// A gallery channel's albums are independent: drop just this
+	// album, and the channel marker only if it was the last one.
+	case albumPostID != "" && !reservedMetaSuffix(albumPostID):
+		deleteAlbumKeys(store, photoID, slug, albumPostID)
+		if entries, metaErr := store.GetMeta(photoID); metaErr == nil && len(albumPostIDsForChannel(entries, slug)) == 0 {
+			deleteChannelPublicationKeys(store, photoID, slug)
+		}
+		return true, nil
+	case albumPostID == "":
+		deleteChannelPublicationKeys(store, photoID, slug)
+		return true, nil
+	}
+	return false, nil
+}
+
 // removePhotoFromSite removes a photo from every album in a site-export channel:
 // updates site.json, deletes the exported file and thumbnail, regenerates album HTML
 // and the site index. Meta key deletion is handled by the caller.
 func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
-	channelDir := chStore.OutputDir(slug)
-	siteDir := filepath.Join(channelDir, "site")
+	siteDir := filepath.Join(chStore.OutputDir(slug), "site")
 	sites := newSiteStore(chStore, slug)
-
 	albums, err := sites.List()
 	if err != nil {
 		return fmt.Errorf("load site state: %w", err)
 	}
 
-	// Reconstruct the expected filename prefix as a fallback for pre-photoID entries.
 	pathHint, _ := store.GetPhotoPathHint(photoID)
-	var legacyPrefix string
-	if pathHint != "" {
-		if metaEntries, metaErr := store.GetMeta(photoID); metaErr == nil {
-			buildKey := "built:" + slug
-			legacyKey := "published:" + slug
-			for _, e := range metaEntries {
-				if e.Key == buildKey || e.Key == legacyKey {
-					if t, tErr := time.Parse(time.RFC3339, e.Value); tErr == nil {
-						ts := t.UTC().Format("20060102T150405Z")
-						base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
-						legacyPrefix = slug + "_" + ts + "_" + base
-					}
-					break
-				}
-			}
-		}
-	}
-
-	modified := false
+	legacyPrefix := legacySiteFilePrefix(store, photoID, slug, pathHint)
 	touched := map[string]bool{} // postIDs of albums that lost photos
 	for i := range albums {
-		var kept []SitePhoto
-		albumDir := filepath.Join(siteDir, "albums", albumFolderName(albums[i]))
-		for _, sp := range albums[i].Photos {
-			match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
-				(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
-			if match {
-				// Delete exported file and thumbnail, and take the album
-				// out of the photo's own sidecar so a rebuild cannot find it.
-				if pathHint != "" {
-					media.RemovePublication(pathHint, slug, albums[i].PostID) //nolint:errcheck
-				}
-				os.Remove(filepath.Join(albumDir, sp.Filename)) //nolint:errcheck
-				if sp.ThumbFilename != "" {
-					os.Remove(filepath.Join(albumDir, sp.ThumbFilename)) //nolint:errcheck
-				}
-				modified = true
-			} else {
-				kept = append(kept, sp)
-			}
-		}
+		kept := removeFromSiteAlbum(albums[i], siteDir, slug, photoID, legacyPrefix, pathHint)
 		if len(kept) != len(albums[i].Photos) {
 			albums[i].Photos = kept
 			albums[i].PhotoCount = len(kept)
 			touched[albums[i].PostID] = true
 		}
 	}
-
-	if !modified {
+	if len(touched) == 0 {
 		return nil
 	}
 
-	// Remove albums that are now empty and regenerate HTML for those that remain.
-	rootNav := buildSiteNavContext(ch, siteDir, true)
-	albumNav := buildSiteNavContext(ch, siteDir, false)
-	var remaining []SiteAlbum
-	for _, album := range albums {
-		if album.PhotoCount == 0 {
-			os.RemoveAll(filepath.Join(siteDir, "albums", albumFolderName(album))) //nolint:errcheck
-			if err := sites.Delete(album.PostID); err != nil {                     // its last photo was taken off the site on purpose
-				return fmt.Errorf("save site state: %w", err)
-			}
-			continue
-		}
-		remaining = append(remaining, album)
-		if touched[album.PostID] {
-			if err := sites.Upsert(album); err != nil {
-				return fmt.Errorf("save site state: %w", err)
-			}
-		}
-		albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
-		items := buildGalleryItems(album.Photos)
-		zipName := ""
-		zipPath := filepath.Join(albumDir, "photos.zip")
-		if album.HasZip || func() bool { _, e := os.Stat(zipPath); return e == nil }() {
-			// Rebuild ZIP without the removed photo.
-			zipResults := make([]buildResult, len(album.Photos))
-			for i, sp := range album.Photos {
-				zipResults[i] = buildResult{Filename: sp.Filename}
-			}
-			if zipErr := createGalleryZip(zipResults, albumDir, "photos.zip"); zipErr == nil {
-				zipName = "photos.zip"
-			}
-		}
-		dateStr := dateRangeStr(album.PublishedAt, album.UpdatedAt)
-		albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
-			ZipFilename: zipName,
-			SiteTitle:   ch.SiteTitle,
-			DateStr:     dateStr,
-			SiteURL:     ch.SiteURL,
-			AlbumSlug:   albumFolderName(album),
-			PublishedAt: album.PublishedAt,
-			Unlisted:    album.Unlisted,
-			Nav:         albumNav,
-		})
-		os.WriteFile(filepath.Join(albumDir, "index.html"), albumHTML, 0o644) //nolint:errcheck
+	remaining, err := saveSiteRemoval(albums, touched, sites, siteDir, ch)
+	if err != nil {
+		return err
 	}
-
+	rootNav := buildSiteNavContext(ch, siteDir, true)
 	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, remaining, rootNav)
 	os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644) //nolint:errcheck
 	generateAboutPage(siteDir, ch, avatarExistsAt(siteDir), rootNav)    //nolint:errcheck
@@ -321,4 +262,80 @@ func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channe
 		generateSitemap(siteDir, remaining, ch.SiteURL) //nolint:errcheck
 	}
 	return nil
+}
+
+// legacySiteFilePrefix reconstructs the expected filename prefix as a
+// fallback for pre-photoID entries, or "" when it cannot.
+func legacySiteFilePrefix(store *lib.Store, photoID, slug, pathHint string) string {
+	if pathHint == "" {
+		return ""
+	}
+	metaEntries, err := store.GetMeta(photoID)
+	if err != nil {
+		return ""
+	}
+	buildKey := "built:" + slug
+	legacyKey := "published:" + slug
+	for _, e := range metaEntries {
+		if e.Key != buildKey && e.Key != legacyKey {
+			continue
+		}
+		t, tErr := time.Parse(time.RFC3339, e.Value)
+		if tErr != nil {
+			return ""
+		}
+		base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
+		return slug + "_" + t.UTC().Format("20060102T150405Z") + "_" + base
+	}
+	return ""
+}
+
+// removeFromSiteAlbum deletes the photo's exported file and thumbnail from one
+// album, and takes the album out of the photo's own sidecar so a rebuild
+// cannot find it. It returns the album's other photos.
+func removeFromSiteAlbum(album SiteAlbum, siteDir, slug, photoID, legacyPrefix, pathHint string) []SitePhoto {
+	albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
+	var kept []SitePhoto
+	for _, sp := range album.Photos {
+		match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
+			(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
+		if !match {
+			kept = append(kept, sp)
+			continue
+		}
+		if pathHint != "" {
+			media.RemovePublication(pathHint, slug, album.PostID) //nolint:errcheck
+		}
+		os.Remove(filepath.Join(albumDir, sp.Filename)) //nolint:errcheck
+		if sp.ThumbFilename != "" {
+			os.Remove(filepath.Join(albumDir, sp.ThumbFilename)) //nolint:errcheck
+		}
+	}
+	return kept
+}
+
+// saveSiteRemoval removes albums that are now empty, saves the ones that lost
+// a photo and regenerates the HTML of every remaining album. It returns the
+// albums that remain.
+func saveSiteRemoval(albums []SiteAlbum, touched map[string]bool, sites *siteStore, siteDir string, ch *channels.Channel) ([]SiteAlbum, error) {
+	albumNav := buildSiteNavContext(ch, siteDir, false)
+	var remaining []SiteAlbum
+	for _, album := range albums {
+		albumDir := filepath.Join(siteDir, "albums", albumFolderName(album))
+		if album.PhotoCount == 0 {
+			os.RemoveAll(albumDir)                             //nolint:errcheck
+			if err := sites.Delete(album.PostID); err != nil { // its last photo was taken off the site on purpose
+				return nil, fmt.Errorf("save site state: %w", err)
+			}
+			continue
+		}
+		remaining = append(remaining, album)
+		if touched[album.PostID] {
+			if err := sites.Upsert(album); err != nil {
+				return nil, fmt.Errorf("save site state: %w", err)
+			}
+		}
+		writeSiteAlbumPage(&album, albumDir, buildGalleryItems(album.Photos), ch, albumNav)
+	}
+	return remaining, nil
 }

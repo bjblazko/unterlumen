@@ -305,6 +305,12 @@ func regenerateSiteAlbum(album *SiteAlbum, siteDir string, ch *channels.Channel,
 	if len(items) == 0 {
 		return
 	}
+	writeSiteAlbumPage(album, albumDir, items, ch, albumNav)
+}
+
+// writeSiteAlbumPage rebuilds an album's ZIP, if it has one, and writes its
+// page.
+func writeSiteAlbumPage(album *SiteAlbum, albumDir string, items []GalleryItem, ch *channels.Channel, albumNav SiteNavContext) {
 	zipName := rebuildAlbumZip(album, albumDir)
 	albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
 		ZipFilename: zipName,
