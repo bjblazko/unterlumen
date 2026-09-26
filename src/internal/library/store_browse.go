@@ -18,11 +18,23 @@ type FolderBrowseResult struct {
 // in Subfolders. No filesystem reads are performed; all data comes from the DB.
 func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 	prefix := folderAbs + "/"
+	photos, err := s.directPhotos(prefix)
+	if err != nil {
+		return FolderBrowseResult{}, err
+	}
+	subfolders, err := s.subfolderNames(prefix)
+	if err != nil {
+		return FolderBrowseResult{}, err
+	}
+	return FolderBrowseResult{Subfolders: subfolders, Photos: photos, Total: len(photos)}, nil
+}
 
-	// Direct photos only — GLOB rules out any nested path (extra slash).
-	// DateTaken is joined from exif_index for client-side sorting support.
-	// GPS, film simulation, and image dimensions are fetched for overlay badges.
-	photoRows, err := s.db.Query(
+// directPhotos returns the photos directly inside prefix, never nil — GLOB
+// rules out any nested path (extra slash). DateTaken is joined from
+// exif_index for client-side sorting support. GPS, film simulation, and image
+// dimensions are fetched for overlay badges.
+func (s *Store) directPhotos(prefix string) ([]Photo, error) {
+	rows, err := s.db.Query(
 		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at,
 		        COALESCE(e.value, '') AS date_taken,
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
@@ -35,79 +47,47 @@ func (s *Store) BrowseFolder(folderAbs string) (FolderBrowseResult, error) {
 		prefix+"*", prefix+"*/*",
 	)
 	if err != nil {
-		return FolderBrowseResult{}, err
+		return nil, err
 	}
-	defer photoRows.Close()
-
-	var directPhotos []Photo
-	for photoRows.Next() {
+	photos := []Photo{}
+	err = scanRows(rows, func() error {
 		var p Photo
 		var indexedAt string
 		var gpsLat, filmSim *string
 		var imgWidth, imgHeight *int
-		if err := photoRows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight); err != nil {
-			return FolderBrowseResult{}, err
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight); err != nil {
+			return err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
-		if gpsLat != nil || filmSim != nil || (imgWidth != nil && imgHeight != nil) {
-			p.Exif = make(map[string]string)
-			if gpsLat != nil {
-				p.Exif["GPSLatitude"] = *gpsLat
-			}
-			if filmSim != nil {
-				p.Exif["FilmSimulation"] = *filmSim
-			}
-			if imgWidth != nil && imgHeight != nil && *imgWidth > 0 && *imgHeight > 0 {
-				if ar := media.AspectRatioLabel(*imgWidth, *imgHeight); ar != "" {
-					p.Exif["AspectRatio"] = ar
-				}
-			}
-		}
-		directPhotos = append(directPhotos, p)
-	}
-	if err := photoRows.Err(); err != nil {
-		return FolderBrowseResult{}, err
-	}
-
-	// Subfolders: extract the first path segment below prefix for all nested photos.
-	// SUBSTR/INSTR in SQL avoids returning full rows; DISTINCT collapses duplicates.
-	sfRows, err := s.db.Query(
-		`SELECT DISTINCT SUBSTR(path_hint, length(?)+1, INSTR(SUBSTR(path_hint, length(?)+1), '/')-1)
-		 FROM photos
-		 WHERE status='ok' AND path_hint GLOB ?`,
-		prefix, prefix, prefix+"*/*",
-	)
+		p.Exif = overlayExif(gpsLat, filmSim, imgWidth, imgHeight)
+		photos = append(photos, p)
+		return nil
+	})
 	if err != nil {
-		return FolderBrowseResult{}, err
+		return nil, err
 	}
-	defer sfRows.Close()
+	return photos, nil
+}
 
-	var subfolders []string
-	for sfRows.Next() {
-		var name string
-		if err := sfRows.Scan(&name); err != nil {
-			return FolderBrowseResult{}, err
+// overlayExif is the EXIF a thumbnail's overlay badges need, or nil when the
+// photo has none of it.
+func overlayExif(gpsLat, filmSim *string, width, height *int) map[string]string {
+	if gpsLat == nil && filmSim == nil && (width == nil || height == nil) {
+		return nil
+	}
+	exif := make(map[string]string)
+	if gpsLat != nil {
+		exif["GPSLatitude"] = *gpsLat
+	}
+	if filmSim != nil {
+		exif["FilmSimulation"] = *filmSim
+	}
+	if width != nil && height != nil && *width > 0 && *height > 0 {
+		if ar := media.AspectRatioLabel(*width, *height); ar != "" {
+			exif["AspectRatio"] = ar
 		}
-		if name != "" {
-			subfolders = append(subfolders, name)
-		}
 	}
-	if err := sfRows.Err(); err != nil {
-		return FolderBrowseResult{}, err
-	}
-	sortStrings(subfolders)
-
-	if directPhotos == nil {
-		directPhotos = []Photo{}
-	}
-	if subfolders == nil {
-		subfolders = []string{}
-	}
-	return FolderBrowseResult{
-		Subfolders: subfolders,
-		Photos:     directPhotos,
-		Total:      len(directPhotos),
-	}, nil
+	return exif
 }
 
 // BrowseFolderRecursive returns all photos nested anywhere under folderAbs (including subdirectories).
