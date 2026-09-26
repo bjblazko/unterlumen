@@ -126,6 +126,29 @@ function formatTime(date) {
 
 /* --- GalleriesPane --- */
 
+// galleryStateLine is the sentence under a gallery's title that says where
+// it stands.
+function galleryStateLine(row, ch, state, check) {
+    const published = new Date(row.publishedAt).toLocaleDateString();
+    const built = recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : '';
+    switch (state.key) {
+        case 'draft':
+            return 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.';
+        case 'pending':
+            return `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`;
+        case 'exported':
+            return `Exported ${published} as ${row.photoCount} file${row.photoCount !== 1 ? 's' : ''}. This destination has no upload configured, so putting them anywhere is up to you.`;
+        case 'built':
+            return ch?.handler
+                ? `Built${built}, and not uploaded since. Publishing again uploads it.`
+                : `Built${built}. This destination has no upload configured, so the files only exist in the local output folder.`;
+    }
+    if (check && check.reachable === false) {
+        return `Published ${published}. The address did not answer at ${formatTime(check.at)}.`;
+    }
+    return `Published ${published}.`;
+}
+
 class GalleriesPane {
     constructor(container) {
         this.container = container;
@@ -392,20 +415,7 @@ class GalleriesPane {
         const action = galleryAction(row, check, ch);
         const canEditVisibility = !!row.galleryExport;
 
-        const published = new Date(row.publishedAt).toLocaleDateString();
-        const stateLine = state.key === 'draft'
-            ? 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.'
-            : state.key === 'pending'
-                ? `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`
-                : state.key === 'exported'
-                    ? `Exported ${published} as ${row.photoCount} file${row.photoCount !== 1 ? 's' : ''}. This destination has no upload configured, so putting them anywhere is up to you.`
-                    : state.key === 'built'
-                        ? (ch?.handler
-                            ? `Built${recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : ''}, and not uploaded since. Publishing again uploads it.`
-                            : `Built${recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : ''}. This destination has no upload configured, so the files only exist in the local output folder.`)
-                        : check && check.reachable === false
-                            ? `Published ${published}. The address did not answer at ${formatTime(check.at)}.`
-                            : `Published ${published}.`;
+        const stateLine = galleryStateLine(row, ch, state, check);
 
         this.container.innerHTML = `
             <div class="gal-pane gal-detail">
@@ -426,7 +436,33 @@ class GalleriesPane {
                             ${this._stateHTML(row, state)}
                         </div>
                         <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
-                        ${action && action.act === 'recheck'
+                        ${this._detailActionHTML(row, action)}
+                        <section class="gal-pending" id="gal-pending"></section>
+                    </div>
+${this._detailPanelHTML(row, ch, state, canEditVisibility)}
+                </div>
+            </div>`;
+
+        this.container.querySelector('.gal-back').addEventListener('click', () => {
+            this._openRowKey = null;
+            this._renderList();
+        });
+        const primary = this.container.querySelector('.gal-detail-primary .gal-row-action');
+        if (primary) primary.addEventListener('click', () => this._runAction(primary.dataset.act, row.rowKey));
+        showPhotosLink(this.container.querySelector('#gal-show-photos'), {
+            gallery: { id: `${row.channelSlug}:${row.postID}`, title: row.title || '(untitled)' },
+        });
+
+        this._wireTitleSave(row);
+        this._wireVisibility(row, canEditVisibility);
+        this._renderDangerZone(row, state);
+        this._renderPendingPhotos(row);
+    }
+
+    // The main action under the status line: recheck (with Publish again next
+    // to it), the one action a gallery asks for, or a quiet Publish again.
+    _detailActionHTML(row, action) {
+        return action && action.act === 'recheck'
                             // An address that does not answer may just never have been
                             // uploaded, and checking again would only repeat the news.
                             ? `<div class="gal-detail-primary">
@@ -441,10 +477,13 @@ class GalleriesPane {
                             : `<div class="gal-detail-primary">
                                    <button class="btn btn-sm gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>
                                    <span class="form-hint">Nothing is waiting. Publishing again rebuilds this gallery — needed only after a theme or format change.</span>
-                               </div>`}
-                        <section class="gal-pending" id="gal-pending"></section>
-                    </div>
-                    <aside class="gal-detail-panel" aria-label="Gallery settings">
+                               </div>`;
+    }
+
+    // The settings beside the gallery: title, date, visibility, address and
+    // destination.
+    _detailPanelHTML(row, ch, state, canEditVisibility) {
+        return `                    <aside class="gal-detail-panel" aria-label="Gallery settings">
                         <div class="form-field">
                             <label class="form-label" for="gal-title-input">Title</label>
                             <div class="gal-title-edit">
@@ -475,24 +514,7 @@ class GalleriesPane {
                             <dt>Type</dt><dd>${escapeHtml(this._destinationType(ch))}</dd>
                         </dl>
                         <div class="gal-detail-danger" id="gal-danger"></div>
-                    </aside>
-                </div>
-            </div>`;
-
-        this.container.querySelector('.gal-back').addEventListener('click', () => {
-            this._openRowKey = null;
-            this._renderList();
-        });
-        const primary = this.container.querySelector('.gal-detail-primary .gal-row-action');
-        if (primary) primary.addEventListener('click', () => this._runAction(primary.dataset.act, row.rowKey));
-        showPhotosLink(this.container.querySelector('#gal-show-photos'), {
-            gallery: { id: `${row.channelSlug}:${row.postID}`, title: row.title || '(untitled)' },
-        });
-
-        this._wireTitleSave(row);
-        this._wireVisibility(row, canEditVisibility);
-        this._renderDangerZone(row, state);
-        this._renderPendingPhotos(row);
+                    </aside>`;
     }
 
     _wireTitleSave(row) {
