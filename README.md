@@ -217,7 +217,7 @@ Pre-built images for `linux/amd64` and `linux/arm64` are on the GitHub Container
 
 ### Build from source
 
-Requires Go 1.25+.
+Requires Go 1.27+. Binaries built with it run on macOS 13 Ventura or later.
 
 ```
 cd src && go build -o ../unterlumen .
