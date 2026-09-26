@@ -3,6 +3,7 @@ package publish
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -358,86 +359,95 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, "channel not found: "+err.Error(), http.StatusNotFound)
 			return
 		}
-
-		var body struct {
-			Title    string `json:"title"`
-			Unlisted *bool  `json:"unlisted"`
+		title, unlisted, status, err := readRenameBody(r, ch)
+		if err == nil {
+			switch {
+			case ch.SiteExport:
+				status, err = renameSiteAlbum(chStore, mgr, ch, postID, title)
+			case ch.GalleryExport:
+				status, err = renameGalleryFolder(chStore, slug, postID, title, unlisted)
+			default:
+				status, err = http.StatusBadRequest, errors.New("channel is not configured for gallery or site export")
+			}
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+		if err != nil {
+			http.Error(w, err.Error(), status)
 			return
 		}
-		title := strings.TrimSpace(body.Title)
-		if title == "" {
-			http.Error(w, "title must not be empty", http.StatusBadRequest)
-			return
-		}
-		// A site album's listedness is baked into its slug, so flipping it
-		// would change the URL of a link that may already be shared. A
-		// gallery-export album's folder is the random PostID either way, so
-		// there the flag is just a meta tag and safe to change.
-		if body.Unlisted != nil && !ch.GalleryExport {
-			http.Error(w, "unlisted cannot be changed after publish for site albums", http.StatusBadRequest)
-			return
-		}
-
-		switch {
-		case ch.SiteExport:
-			sites := site.NewStore(chStore, slug)
-			albums, err := sites.List()
-			if err != nil {
-				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			idx := indexOfAlbum(albums, postID)
-			if idx == -1 {
-				http.Error(w, "gallery not found", http.StatusNotFound)
-				return
-			}
-			renamed := albums[idx]
-			renamed.Title = title
-			if err := sites.Upsert(renamed); err != nil {
-				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			if _, _, err := rebuildSiteChannel(chStore, mgr, ch); err != nil {
-				http.Error(w, "regenerate site: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-		case ch.GalleryExport:
-			outDir, ok := pathguard.SafePath(chStore.OutputDir(slug), postID)
-			if !ok {
-				http.Error(w, "invalid gallery id", http.StatusBadRequest)
-				return
-			}
-			statePath := filepath.Join(outDir, "gallery.json")
-			gs, err := site.LoadGalleryState(statePath)
-			if err != nil || gs == nil {
-				http.Error(w, "gallery not found", http.StatusNotFound)
-				return
-			}
-			gs.Title = title
-			if body.Unlisted != nil {
-				gs.Unlisted = *body.Unlisted
-			}
-			if err := site.SaveGalleryState(statePath, gs); err != nil {
-				http.Error(w, "save gallery state: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			if err := regenerateGalleryFolder(outDir, gs); err != nil {
-				http.Error(w, "regenerate gallery: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-		default:
-			http.Error(w, "channel is not configured for gallery or site export", http.StatusBadRequest)
-			return
-		}
-
 		writeJSON(w, map[string]any{"success": true, "title": title})
 	}
 }
 
-// indexOfAlbum returns the index of the album with the given postID, or -1.
+// readRenameBody reads the new title and, optionally, the new listedness.
+func readRenameBody(r *http.Request, ch *channels.Channel) (title string, unlisted *bool, status int, err error) {
+	var body struct {
+		Title    string `json:"title"`
+		Unlisted *bool  `json:"unlisted"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return "", nil, http.StatusBadRequest, errors.New("invalid JSON")
+	}
+	title = strings.TrimSpace(body.Title)
+	if title == "" {
+		return "", nil, http.StatusBadRequest, errors.New("title must not be empty")
+	}
+	// A site album's listedness is baked into its slug, so flipping it
+	// would change the URL of a link that may already be shared. A
+	// gallery-export album's folder is the random PostID either way, so
+	// there the flag is just a meta tag and safe to change.
+	if body.Unlisted != nil && !ch.GalleryExport {
+		return "", nil, http.StatusBadRequest, errors.New("unlisted cannot be changed after publish for site albums")
+	}
+	return title, body.Unlisted, 0, nil
+}
+
+// renameSiteAlbum retitles a site album in the register and regenerates the site.
+func renameSiteAlbum(chStore *channels.Store, mgr *lib.Manager, ch *channels.Channel, postID, title string) (int, error) {
+	sites := site.NewStore(chStore, ch.Slug)
+	albums, err := sites.List()
+	if err != nil {
+		return http.StatusInternalServerError, errors.New("read site state: " + err.Error())
+	}
+	idx := indexOfAlbum(albums, postID)
+	if idx == -1 {
+		return http.StatusNotFound, errors.New("gallery not found")
+	}
+	renamed := albums[idx]
+	renamed.Title = title
+	if err := sites.Upsert(renamed); err != nil {
+		return http.StatusInternalServerError, errors.New("save site state: " + err.Error())
+	}
+	if _, _, err := rebuildSiteChannel(chStore, mgr, ch); err != nil {
+		return http.StatusInternalServerError, errors.New("regenerate site: " + err.Error())
+	}
+	return 0, nil
+}
+
+// renameGalleryFolder retitles a single gallery, sets its listedness when
+// given, and regenerates its page.
+func renameGalleryFolder(chStore *channels.Store, slug, postID, title string, unlisted *bool) (int, error) {
+	outDir, ok := pathguard.SafePath(chStore.OutputDir(slug), postID)
+	if !ok {
+		return http.StatusBadRequest, errors.New("invalid gallery id")
+	}
+	statePath := filepath.Join(outDir, "gallery.json")
+	gs, err := site.LoadGalleryState(statePath)
+	if err != nil || gs == nil {
+		return http.StatusNotFound, errors.New("gallery not found")
+	}
+	gs.Title = title
+	if unlisted != nil {
+		gs.Unlisted = *unlisted
+	}
+	if err := site.SaveGalleryState(statePath, gs); err != nil {
+		return http.StatusInternalServerError, errors.New("save gallery state: " + err.Error())
+	}
+	if err := regenerateGalleryFolder(outDir, gs); err != nil {
+		return http.StatusInternalServerError, errors.New("regenerate gallery: " + err.Error())
+	}
+	return 0, nil
+}
+
 func indexOfAlbum(albums []site.Album, postID string) int {
 	for i := range albums {
 		if albums[i].PostID == postID {
@@ -474,86 +484,111 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck // absent/empty body just means deleteRemote=false
 		}
 
-		var localDir, remoteSubpath string
-		var regenErr error
-		var sidecarsNotCleared int
-
+		var removed galleryRemoval
+		var status int
 		switch {
 		case ch.SiteExport:
-			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			sites := site.NewStore(chStore, slug)
-			albums, err := sites.List()
-			if err != nil {
-				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			idx := indexOfAlbum(albums, postID)
-			if idx == -1 {
-				http.Error(w, "gallery not found", http.StatusNotFound)
-				return
-			}
-			folder := site.AlbumFolderName(albums[idx])
-			safeDir, ok := pathguard.SafePath(siteDir, filepath.Join("albums", folder))
-			if !ok {
-				http.Error(w, "invalid gallery path", http.StatusBadRequest)
-				return
-			}
-			localDir = safeDir
-			remoteSubpath = "albums/" + folder
-
-			// Take the album out of its photos first, then leave the tombstone
-			// for the photos this installation cannot reach.
-			sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, albums[idx].Photos)
-			if err := sites.Delete(postID); err != nil {
-				http.Error(w, "save site state: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-			os.RemoveAll(localDir) //nolint:errcheck
-			if _, _, err := rebuildSiteChannel(chStore, mgr, ch); err != nil {
-				regenErr = err
-			}
+			removed, status, err = removeSiteAlbum(chStore, mgr, ch, postID)
 		case ch.GalleryExport:
-			safeDir, ok := pathguard.SafePath(chStore.OutputDir(slug), postID)
-			if !ok {
-				http.Error(w, "invalid gallery id", http.StatusBadRequest)
-				return
-			}
-			if _, err := os.Stat(filepath.Join(safeDir, "gallery.json")); err != nil {
-				http.Error(w, "gallery not found", http.StatusNotFound)
-				return
-			}
-			localDir = safeDir
-			remoteSubpath = postID
-			// Take the gallery out of its photos before its state goes.
-			if gs, _ := site.LoadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
-				sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, gs.Photos)
-			}
-			os.RemoveAll(localDir) //nolint:errcheck
+			removed, status, err = removeGalleryFolder(chStore, mgr, slug, postID)
 		default:
-			http.Error(w, "channel is not configured for gallery or site export", http.StatusBadRequest)
+			status, err = http.StatusBadRequest, errors.New("channel is not configured for gallery or site export")
+		}
+		if err != nil {
+			http.Error(w, err.Error(), status)
 			return
 		}
 
 		result := map[string]any{"success": true}
-		if regenErr != nil {
-			result["regenerateError"] = regenErr.Error()
+		if removed.regenErr != nil {
+			result["regenerateError"] = removed.regenErr.Error()
 		}
-		if sidecarsNotCleared > 0 {
-			result["sidecarsNotCleared"] = sidecarsNotCleared
+		if removed.sidecarsNotCleared > 0 {
+			result["sidecarsNotCleared"] = removed.sidecarsNotCleared
 		}
 		if body.DeleteRemote {
-			if ch.Handler != "rsync" {
-				result["remoteDeleteError"] = "channel does not use the rsync handler"
-			} else if target, err := deploy.TargetFromConfig(ch.HandlerConfig); err != nil {
-				result["remoteDeleteError"] = err.Error()
-			} else if out, err := deploy.DeleteRemote(target, remoteSubpath); err != nil {
-				result["remoteDeleteError"] = err.Error() + "\n" + out
-			} else {
-				result["remoteDeleted"] = true
-			}
+			deleteRemoteCopy(ch, removed.remoteSubpath, result)
 		}
 		writeJSON(w, result)
 	}
+}
+
+// galleryRemoval is what removing one album or gallery left to report.
+type galleryRemoval struct {
+	remoteSubpath      string // its folder below the destination's remote root
+	regenErr           error  // the site could not be regenerated afterwards
+	sidecarsNotCleared int    // photos this installation could not reach
+}
+
+// removeSiteAlbum takes an album off a site: out of its photos, into the
+// register as deleted, its folder gone, the site regenerated.
+func removeSiteAlbum(chStore *channels.Store, mgr *lib.Manager, ch *channels.Channel, postID string) (galleryRemoval, int, error) {
+	siteDir := filepath.Join(chStore.OutputDir(ch.Slug), "site")
+	sites := site.NewStore(chStore, ch.Slug)
+	albums, err := sites.List()
+	if err != nil {
+		return galleryRemoval{}, http.StatusInternalServerError, errors.New("read site state: " + err.Error())
+	}
+	idx := indexOfAlbum(albums, postID)
+	if idx == -1 {
+		return galleryRemoval{}, http.StatusNotFound, errors.New("gallery not found")
+	}
+	folder := site.AlbumFolderName(albums[idx])
+	localDir, ok := pathguard.SafePath(siteDir, filepath.Join("albums", folder))
+	if !ok {
+		return galleryRemoval{}, http.StatusBadRequest, errors.New("invalid gallery path")
+	}
+	removed := galleryRemoval{remoteSubpath: "albums/" + folder}
+
+	// Take the album out of its photos first, then leave the tombstone
+	// for the photos this installation cannot reach.
+	removed.sidecarsNotCleared = forgetAlbumInPhotos(mgr, ch.Slug, postID, albums[idx].Photos)
+	if err := sites.Delete(postID); err != nil {
+		return galleryRemoval{}, http.StatusInternalServerError, errors.New("save site state: " + err.Error())
+	}
+	os.RemoveAll(localDir) //nolint:errcheck
+	if _, _, err := rebuildSiteChannel(chStore, mgr, ch); err != nil {
+		removed.regenErr = err
+	}
+	return removed, 0, nil
+}
+
+// removeGalleryFolder takes a single gallery out of its photos and removes
+// its folder.
+func removeGalleryFolder(chStore *channels.Store, mgr *lib.Manager, slug, postID string) (galleryRemoval, int, error) {
+	localDir, ok := pathguard.SafePath(chStore.OutputDir(slug), postID)
+	if !ok {
+		return galleryRemoval{}, http.StatusBadRequest, errors.New("invalid gallery id")
+	}
+	if _, err := os.Stat(filepath.Join(localDir, "gallery.json")); err != nil {
+		return galleryRemoval{}, http.StatusNotFound, errors.New("gallery not found")
+	}
+	removed := galleryRemoval{remoteSubpath: postID}
+	// Take the gallery out of its photos before its state goes.
+	if gs, _ := site.LoadGalleryState(filepath.Join(localDir, "gallery.json")); gs != nil {
+		removed.sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, gs.Photos)
+	}
+	os.RemoveAll(localDir) //nolint:errcheck
+	return removed, 0, nil
+}
+
+// deleteRemoteCopy removes the gallery from an rsync destination's remote,
+// best-effort, and records the outcome in result.
+func deleteRemoteCopy(ch *channels.Channel, remoteSubpath string, result map[string]any) {
+	if ch.Handler != "rsync" {
+		result["remoteDeleteError"] = "channel does not use the rsync handler"
+		return
+	}
+	target, err := deploy.TargetFromConfig(ch.HandlerConfig)
+	if err != nil {
+		result["remoteDeleteError"] = err.Error()
+		return
+	}
+	if out, err := deploy.DeleteRemote(target, remoteSubpath); err != nil {
+		result["remoteDeleteError"] = err.Error() + "\n" + out
+		return
+	}
+	result["remoteDeleted"] = true
 }
 
 // forgetAlbumInPhotos takes one album out of its photos: its record leaves the
