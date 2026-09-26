@@ -245,16 +245,34 @@ const App = {
             this.viewer.close();
             this.viewer = null;
         }
-
-        const prevMode = this.mode;
-
-        if (prevMode === 'organize' && this.organize) {
+        if (this.mode === 'organize' && this.organize) {
             this.currentBrowsePath = this.organize.pane.path;
         }
-
         this.mode = mode;
+        this._markPlace(mode);
 
-        // Mark where we are. There is no "done" or "next" — these are places.
+        const hash = '#' + this.NAV[mode].hash;
+        if (!fromHistory && location.hash !== hash) {
+            if (replaceHistory) history.replaceState(null, '', hash);
+            else history.pushState(null, '', hash);
+        }
+
+        this._openPlace(mode);
+        for (const [elKey, place] of this.PLACE_ELEMENTS) {
+            if (this[elKey]) this[elKey].style.display = mode === place ? '' : 'none';
+        }
+        this._markCurrentLibraryNav();
+    },
+
+    // Each place's element, in the order they are shown or hidden.
+    PLACE_ELEMENTS: [
+        ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
+        ['_libraryEl', 'library'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_settingsEl', 'settings'],
+    ],
+
+    // Mark where we are. There is no "done" or "next" — these are places.
+    _markPlace(mode) {
         for (const [navMode, place] of Object.entries(this.NAV)) {
             const el = document.getElementById(place.id);
             if (!el) continue;
@@ -268,135 +286,97 @@ const App = {
         // A phone browses; it does not cull, organise or configure. Those
         // places say so rather than showing controls that cannot work there.
         document.body.classList.toggle('desk-only-place', !PHONE_PLACES.has(mode));
+    },
 
-        const hash = '#' + this.NAV[mode].hash;
-        if (!fromHistory && location.hash !== hash) {
-            if (replaceHistory) history.replaceState(null, '', hash);
-            else history.pushState(null, '', hash);
+    // _openPlace builds a place the first time it is visited and brings it
+    // up to date.
+    _openPlace(mode) {
+        switch (mode) {
+            case 'browse': if (!this._browseEl) this._buildBrowse(); break;
+            case 'organize': if (!this._organizeEl) this._buildOrganize(); break;
+            case 'wastebin':
+                if (!this._wastebinEl) this._wastebinEl = this._placeElement();
+                this.wastebin.selected.clear();
+                this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
+                break;
+            case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
+            case 'settings': this._openPane('_settingsEl', '_settingsPane', SettingsPane); break;
+            case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
+            case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
         }
+    },
 
-        const appEl = document.getElementById('app');
+    // _placeElement adds an empty full-height element for a place to #app.
+    _placeElement() {
+        const el = document.createElement('div');
+        el.style.height = '100%';
+        document.getElementById('app').appendChild(el);
+        return el;
+    },
 
-        if (mode === 'browse') {
-            if (!this._browseEl) {
-                this._browseEl = document.createElement('div');
-                this._browseEl.className = 'browse-layout';
-                this._browseEl.innerHTML =
-                    '<div id="browse-container" class="browse-container"></div>' +
-                    '<div id="info-panel-container"></div>';
-                appEl.appendChild(this._browseEl);
-                this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
-                    onNavigate: (path) => { this.currentBrowsePath = path; },
-                    onImageClick: (path) => this.openViewer(path, this.browsePane),
-                    onSelectionChange: (selected) => this.handleSelectionChange(selected),
-                    onFocusChange: (path, type) => this.handleFocusChange(path, type),
-                    onToolInvoke: (params) => this.handleToolInvoke(params),
-                    onSlideshowInvoke: () => this.handleSlideshowInvoke(),
-                });
-                this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
-                this.infoPanel.onToggle = () => {
-                    if (this.browsePane && this.browsePane.view === 'justified') {
-                        this.browsePane._justifiedRenderer.scheduleRelayout();
-                    }
-                    if (this.infoPanel.expanded) {
-                        const filePath = this.browsePane ? this.browsePane.getFocusedFile() : null;
-                        const dirPath = this.browsePane ? this.browsePane.getFocusedDir() : null;
-                        if (filePath) this.infoPanel.loadInfo(filePath);
-                        else if (dirPath) this.infoPanel.loadFolderInfo(dirPath);
-                        else this.infoPanel.clear();
-                    }
-                };
-                this.infoPanel.onDirNavigate = (path) => {
-                    if (this.browsePane) {
-                        this.browsePane.load(path);
-                        this.currentBrowsePath = path;
-                    }
-                };
-                // One bar for every action on a selection. "Add to gallery"
-                // is missing on purpose: collecting needs library photos, and
-                // a folder is not a library.
-                this._browseSelectionBar = new SelectionBar(this._browseEl, {
-                    actions: ['export', 'rename', 'location', 'mark'],
-                    onAction: (action) => this.runSelectionAction(action, this.browsePane),
-                });
-                this.browsePane.load(this.currentBrowsePath);
+    // _openPane builds a place that is one pane in one element, once, and
+    // renders it.
+    _openPane(elKey, paneKey, PaneClass) {
+        if (!this[elKey]) {
+            this[elKey] = this._placeElement();
+            this[paneKey] = new PaneClass(this[elKey]);
+        }
+        this[paneKey].render();
+    },
+
+    _buildBrowse() {
+        this._browseEl = document.createElement('div');
+        this._browseEl.className = 'browse-layout';
+        this._browseEl.innerHTML =
+            '<div id="browse-container" class="browse-container"></div>' +
+            '<div id="info-panel-container"></div>';
+        document.getElementById('app').appendChild(this._browseEl);
+        this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
+            onNavigate: (path) => { this.currentBrowsePath = path; },
+            onImageClick: (path) => this.openViewer(path, this.browsePane),
+            onSelectionChange: (selected) => this.handleSelectionChange(selected),
+            onFocusChange: (path, type) => this.handleFocusChange(path, type),
+            onToolInvoke: (params) => this.handleToolInvoke(params),
+            onSlideshowInvoke: () => this.handleSlideshowInvoke(),
+        });
+        this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
+        this.infoPanel.onToggle = () => {
+            if (this.browsePane && this.browsePane.view === 'justified') {
+                this.browsePane._justifiedRenderer.scheduleRelayout();
             }
-        }
-
-        if (mode === 'organize') {
-            if (!this._organizeEl) {
-                this._organizeEl = document.createElement('div');
-                this._organizeEl.style.height = '100%';
-                appEl.appendChild(this._organizeEl);
-                this.organize = new OrganizePane(this._organizeEl, this.currentBrowsePath, {
-                    preselectFiles: this._organizePreselect,
-                    onImageClick: (path, pane) => this.openViewer(path, pane),
-                    onToolInvoke: (params) => this.handleToolInvoke(params),
-                });
-                this._organizePreselect = null;
-                this.organize.init();
+            if (this.infoPanel.expanded) {
+                const filePath = this.browsePane ? this.browsePane.getFocusedFile() : null;
+                const dirPath = this.browsePane ? this.browsePane.getFocusedDir() : null;
+                if (filePath) this.infoPanel.loadInfo(filePath);
+                else if (dirPath) this.infoPanel.loadFolderInfo(dirPath);
+                else this.infoPanel.clear();
             }
-        }
-
-        if (mode === 'wastebin') {
-            if (!this._wastebinEl) {
-                this._wastebinEl = document.createElement('div');
-                this._wastebinEl.style.height = '100%';
-                appEl.appendChild(this._wastebinEl);
+        };
+        this.infoPanel.onDirNavigate = (path) => {
+            if (this.browsePane) {
+                this.browsePane.load(path);
+                this.currentBrowsePath = path;
             }
-            this.wastebin.selected.clear();
-            this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
-        }
+        };
+        // One bar for every action on a selection. "Add to gallery"
+        // is missing on purpose: collecting needs library photos, and
+        // a folder is not a library.
+        this._browseSelectionBar = new SelectionBar(this._browseEl, {
+            actions: ['export', 'rename', 'location', 'mark'],
+            onAction: (action) => this.runSelectionAction(action, this.browsePane),
+        });
+        this.browsePane.load(this.currentBrowsePath);
+    },
 
-        if (mode === 'library') {
-            if (!this._libraryEl) {
-                this._libraryEl = document.createElement('div');
-                this._libraryEl.style.height = '100%';
-                appEl.appendChild(this._libraryEl);
-                this._libraryTab = new LibraryTab(this._libraryEl);
-            }
-            this._libraryTab.render();
-        }
-
-        if (mode === 'settings') {
-            if (!this._settingsEl) {
-                this._settingsEl = document.createElement('div');
-                this._settingsEl.style.height = '100%';
-                appEl.appendChild(this._settingsEl);
-                this._settingsPane = new SettingsPane(this._settingsEl);
-            }
-            this._settingsPane.render();
-        }
-
-        if (mode === 'destinations') {
-            if (!this._destinationsEl) {
-                this._destinationsEl = document.createElement('div');
-                this._destinationsEl.style.height = '100%';
-                appEl.appendChild(this._destinationsEl);
-                this._destinationsPane = new DestinationsPane(this._destinationsEl);
-            }
-            this._destinationsPane.render();
-        }
-
-        if (mode === 'published') {
-            if (!this._galleriesEl) {
-                this._galleriesEl = document.createElement('div');
-                this._galleriesEl.style.height = '100%';
-                appEl.appendChild(this._galleriesEl);
-                this._galleriesPane = new GalleriesPane(this._galleriesEl);
-            }
-            this._galleriesPane.render();
-        }
-
-        if (this._browseEl) this._browseEl.style.display = mode === 'browse' ? '' : 'none';
-        if (this._organizeEl) this._organizeEl.style.display = mode === 'organize' ? '' : 'none';
-        if (this._wastebinEl) this._wastebinEl.style.display = mode === 'wastebin' ? '' : 'none';
-        if (this._libraryEl) this._libraryEl.style.display = mode === 'library' ? '' : 'none';
-        if (this._galleriesEl) this._galleriesEl.style.display = mode === 'published' ? '' : 'none';
-        if (this._destinationsEl) this._destinationsEl.style.display = mode === 'destinations' ? '' : 'none';
-        if (this._settingsEl) this._settingsEl.style.display = mode === 'settings' ? '' : 'none';
-
-        this._markCurrentLibraryNav();
+    _buildOrganize() {
+        this._organizeEl = this._placeElement();
+        this.organize = new OrganizePane(this._organizeEl, this.currentBrowsePath, {
+            preselectFiles: this._organizePreselect,
+            onImageClick: (path, pane) => this.openViewer(path, pane),
+            onToolInvoke: (params) => this.handleToolInvoke(params),
+        });
+        this._organizePreselect = null;
+        this.organize.init();
     },
 
     _refreshPanes() {
@@ -631,102 +611,117 @@ const App = {
         if (!this.locationModal) this.locationModal = new LocationModal();
         if (!this.batchRenameModal) this.batchRenameModal = new BatchRenameModal();
         const pane = this.getActiveBrowsePane();
-        const onSuccess = (changedFiles) => {
-            if (pane) pane.notifyFilesChanged(changedFiles);
-            if (this.infoPanel && this.infoPanel.expanded && pane) {
-                const focused = pane.getFocusedFile();
-                if (focused && changedFiles.includes(focused)) {
-                    this.infoPanel.loadInfo(focused);
-                }
-            }
-        };
-        if (tool === 'make-library') {
-            // Ensure LibraryTab exists so it can open the dialog.
-            if (!this._libraryEl) {
-                this._libraryEl = document.createElement('div');
-                this._libraryEl.style.height = '100%';
-                document.getElementById('app').appendChild(this._libraryEl);
-                this._libraryTab = new LibraryTab(this._libraryEl);
-                this._libraryEl.style.display = 'none';
-            }
-            const absPath = path && !path.startsWith('/') ? '/' + path : (path || '');
-            this._libraryTab.openCreateDialogForPath(absPath);
+        if (LIBRARY_TOOLS[tool]) {
+            this._runLibraryTool(tool, path, onDone);
             return;
-        } else if (tool === 'set-location') {
-            this.locationModal.open(files, onSuccess);
-                } else if (tool === 'batch-rename') {
-            // Files from SearchResultPane are absolute pathHints; files from
-            // LibraryPane are relative to the library source dir. The batch rename
-            // API validates against the server's browse boundary, so an absolute
-            // sourcePath must be made relative to that boundary specifically —
-            // not to filesystem root "/" (only coincidentally the same when the
-            // server has no navigation restriction, e.g. desktop installs).
-            let srcPrefix = '';
-            if (sourcePath) {
-                srcPrefix = absPathRelativeToBoundary(sourcePath, this.config?.boundary);
-                if (srcPrefix === null) {
-                    this.showToast('This library\'s folder is outside the server\'s browse root, so batch rename cannot reach it.');
-                    if (onDone) onDone();
-                    return;
-                }
-            }
-            const resolvedFiles = files.map(f =>
-                f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
-            );
-            this.batchRenameModal.open(resolvedFiles, (libraryUpdated) => {
-                if (pane) pane.load(pane.path);
-                if (libraryUpdated) this.reloadLibraryPane();
-            });
-        } else if (tool === 'export') {
-            if (!this.exportModal) this.exportModal = new ExportModal();
-            this.exportModal.open(files, {
-                serverRole: this.config?.serverRole ?? false,
-                exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
-                webpSupport: this.toolsStatus?.webpAvailable ?? false,
-                sourcePath: sourcePath || null,
-            });
-        } else if (tool === 'clear-cache') {
-            const prefix = sourcePath || '';
-            const toPath = f => prefix ? `${prefix}/${f}` : f;
-            const evictPaths = files.length > 0
-                ? files.map(toPath)
-                : path ? [toPath(path)] : [];
-            if (evictPaths.length === 0) { if (onDone) onDone(); return; }
-            App.showToast('Clearing cache…');
-            API.cacheEvict(evictPaths)
-                .then(r => App.showToast(`Cache cleared for ${r.evicted} file${r.evicted !== 1 ? 's' : ''}`))
-                .catch(e => App.showToast(`Cache clear failed: ${e.message}`))
-                .finally(() => { if (onDone) onDone(); });
-        } else if (['lib-scan-new', 'lib-reindex', 'lib-cleanup', 'lib-regen-missing', 'lib-rebuild-all'].includes(tool)) {
-            const lib = this._libraryTab?.currentLibrary;
-            if (!lib) { if (onDone) onDone(); return; }
-            const labelMap = {
-                'lib-scan-new': 'Scanning',
-                'lib-reindex': 'Indexing',
-                'lib-cleanup': 'Checking',
-                'lib-regen-missing': 'Generating missing previews for',
-                'lib-rebuild-all': 'Rebuilding the previews of',
-            };
-            // The run can take minutes, so its progress lives in the status
-            // line at the foot of the sidebar, which stays while you move on.
-            App.showToast(`${labelMap[tool]} this folder. Progress shows at the foot of the sidebar.`);
-            const onProgress = (p) => {
-                if (p.finished && onDone) onDone();
-            };
-            const subfolder = path || '';
-            const apiMap = {
-                'lib-scan-new':      () => LibraryAPI.scanNew(lib.id, onProgress, subfolder),
-                'lib-reindex':       () => LibraryAPI.reindex(lib.id, onProgress, subfolder),
-                'lib-cleanup':       () => LibraryAPI.cleanup(lib.id, onProgress, subfolder),
-                'lib-regen-missing': () => LibraryAPI.regenMissingPreviews(lib.id, onProgress, subfolder),
-                'lib-rebuild-all':   () => LibraryAPI.rebuildAllPreviews(lib.id, onProgress, subfolder),
-            };
-            apiMap[tool]().catch(e => {
-                App.showToast(`It did not start: ${e.message}`);
-                if (onDone) onDone();
-            });
+        }
+        switch (tool) {
+            case 'make-library': this._makeLibraryAt(path); break;
+            case 'set-location': this.locationModal.open(files, (changed) => this._filesChanged(pane, changed)); break;
+            case 'batch-rename': this._batchRename(files, sourcePath, onDone, pane); break;
+            case 'export': this._openExport(files, sourcePath); break;
+            case 'clear-cache': this._clearCache(files, path, sourcePath, onDone); break;
         }
     },
+
+    // _filesChanged refreshes a pane, and the info panel when it shows one of
+    // the changed files.
+    _filesChanged(pane, changedFiles) {
+        if (pane) pane.notifyFilesChanged(changedFiles);
+        if (this.infoPanel && this.infoPanel.expanded && pane) {
+            const focused = pane.getFocusedFile();
+            if (focused && changedFiles.includes(focused)) {
+                this.infoPanel.loadInfo(focused);
+            }
+        }
+    },
+
+    _makeLibraryAt(path) {
+        // Ensure LibraryTab exists so it can open the dialog.
+        if (!this._libraryEl) {
+            this._libraryEl = this._placeElement();
+            this._libraryTab = new LibraryTab(this._libraryEl);
+            this._libraryEl.style.display = 'none';
+        }
+        const absPath = path && !path.startsWith('/') ? '/' + path : (path || '');
+        this._libraryTab.openCreateDialogForPath(absPath);
+    },
+
+    _batchRename(files, sourcePath, onDone, pane) {
+        // Files from SearchResultPane are absolute pathHints; files from
+        // LibraryPane are relative to the library source dir. The batch rename
+        // API validates against the server's browse boundary, so an absolute
+        // sourcePath must be made relative to that boundary specifically —
+        // not to filesystem root "/" (only coincidentally the same when the
+        // server has no navigation restriction, e.g. desktop installs).
+        let srcPrefix = '';
+        if (sourcePath) {
+            srcPrefix = absPathRelativeToBoundary(sourcePath, this.config?.boundary);
+            if (srcPrefix === null) {
+                this.showToast('This library\'s folder is outside the server\'s browse root, so batch rename cannot reach it.');
+                if (onDone) onDone();
+                return;
+            }
+        }
+        const resolvedFiles = files.map(f =>
+            f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
+        );
+        this.batchRenameModal.open(resolvedFiles, (libraryUpdated) => {
+            if (pane) pane.load(pane.path);
+            if (libraryUpdated) this.reloadLibraryPane();
+        });
+    },
+
+    _openExport(files, sourcePath) {
+        if (!this.exportModal) this.exportModal = new ExportModal();
+        this.exportModal.open(files, {
+            serverRole: this.config?.serverRole ?? false,
+            exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
+            webpSupport: this.toolsStatus?.webpAvailable ?? false,
+            sourcePath: sourcePath || null,
+        });
+    },
+
+    _clearCache(files, path, sourcePath, onDone) {
+        const prefix = sourcePath || '';
+        const toPath = f => prefix ? `${prefix}/${f}` : f;
+        const evictPaths = files.length > 0
+            ? files.map(toPath)
+            : path ? [toPath(path)] : [];
+        if (evictPaths.length === 0) { if (onDone) onDone(); return; }
+        App.showToast('Clearing cache…');
+        API.cacheEvict(evictPaths)
+            .then(r => App.showToast(`Cache cleared for ${r.evicted} file${r.evicted !== 1 ? 's' : ''}`))
+            .catch(e => App.showToast(`Cache clear failed: ${e.message}`))
+            .finally(() => { if (onDone) onDone(); });
+    },
+
+    // _runLibraryTool starts a scan-like job on a folder of the open library.
+    _runLibraryTool(tool, path, onDone) {
+        const lib = this._libraryTab?.currentLibrary;
+        if (!lib) { if (onDone) onDone(); return; }
+        const { label, run } = LIBRARY_TOOLS[tool];
+        // The run can take minutes, so its progress lives in the status
+        // line at the foot of the sidebar, which stays while you move on.
+        App.showToast(`${label} this folder. Progress shows at the foot of the sidebar.`);
+        const onProgress = (p) => {
+            if (p.finished && onDone) onDone();
+        };
+        LibraryAPI[run](lib.id, onProgress, path || '').catch(e => {
+            App.showToast(`It did not start: ${e.message}`);
+            if (onDone) onDone();
+        });
+    },
+};
+
+// The library jobs a folder's menu can start: what the toast calls them and
+// the LibraryAPI method that runs them.
+const LIBRARY_TOOLS = {
+    'lib-scan-new':      { label: 'Scanning', run: 'scanNew' },
+    'lib-reindex':       { label: 'Indexing', run: 'reindex' },
+    'lib-cleanup':       { label: 'Checking', run: 'cleanup' },
+    'lib-regen-missing': { label: 'Generating missing previews for', run: 'regenMissingPreviews' },
+    'lib-rebuild-all':   { label: 'Rebuilding the previews of', run: 'rebuildAllPreviews' },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());
