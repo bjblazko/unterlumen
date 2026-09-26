@@ -682,56 +682,19 @@ func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibra
 		return CrossLibraryResult{}, err
 	}
 
-	type libResult struct {
-		photos []LibraryPhoto
-		total  int
-		err    error
-	}
-
-	type job struct {
-		lib    *Library
-		result libResult
-	}
-
-	results := make([]job, len(libs))
-	for i, l := range libs {
-		results[i].lib = l
-	}
-
 	// Query each library (sequentially; stores are single-connection SQLite).
-	for i, j := range results {
-		store, err := m.OpenStore(j.lib.ID)
-		if err != nil {
-			continue
-		}
-		perLibLimit := opts.Offset + opts.Limit
-		perLibOpts := opts
-		perLibOpts.Offset = 0
-		perLibOpts.Limit = perLibLimit
-		page, err := store.ListPhotos(perLibOpts)
-		store.Close()
-		if err != nil {
-			results[i].result.err = err
-			continue
-		}
-		photos := make([]LibraryPhoto, len(page.Photos))
-		for k, p := range page.Photos {
-			photos[k] = LibraryPhoto{
-				LibraryID:   j.lib.ID,
-				LibraryName: j.lib.Name,
-				Photo:       p,
-			}
-		}
-		results[i].result = libResult{photos: photos, total: page.Total}
-	}
-
-	// Merge and sort by date taken, newest first, undated last.
+	// At most Offset+Limit photos per library can land on the requested page.
+	perLibOpts := opts
+	perLibOpts.Offset = 0
+	perLibOpts.Limit = opts.Offset + opts.Limit
 	var all []LibraryPhoto
 	total := 0
-	for _, j := range results {
-		all = append(all, j.result.photos...)
-		total += j.result.total
+	for _, l := range libs {
+		photos, n := m.searchLibrary(l, perLibOpts)
+		all = append(all, photos...)
+		total += n
 	}
+	// Merge and sort by date taken, newest first, undated last.
 	sortLibraryPhotos(all)
 
 	// Apply offset/limit.
@@ -743,6 +706,25 @@ func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibra
 		end = len(all)
 	}
 	return CrossLibraryResult{Results: all[opts.Offset:end], Total: total}, nil
+}
+
+// searchLibrary returns one library's matching photos and their total. A
+// library that cannot be opened or queried contributes nothing.
+func (m *Manager) searchLibrary(l *Library, opts ListPhotosOpts) ([]LibraryPhoto, int) {
+	store, err := m.OpenStore(l.ID)
+	if err != nil {
+		return nil, 0
+	}
+	page, err := store.ListPhotos(opts)
+	store.Close()
+	if err != nil {
+		return nil, 0
+	}
+	photos := make([]LibraryPhoto, len(page.Photos))
+	for k, p := range page.Photos {
+		photos[k] = LibraryPhoto{LibraryID: l.ID, LibraryName: l.Name, Photo: p}
+	}
+	return photos, page.Total
 }
 
 func takenOrZero(p LibraryPhoto) time.Time {
@@ -1107,11 +1089,7 @@ func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*Libra
 		return nil, err
 	}
 
-	tlLibIDs := make([]string, len(libs))
-	for i, l := range libs {
-		tlLibIDs[i] = l.ID
-	}
-	tlCacheKey := timelineCacheKey(tlLibIDs, pathPrefix, granularity)
+	tlCacheKey := timelineCacheKey(libraryIDs(libs), pathPrefix, granularity)
 	if v, ok := m.timelineCache.Load(tlCacheKey); ok {
 		return v.(*LibraryTimeline), nil
 	}
@@ -1159,16 +1137,31 @@ func coalesceGranularity(g string) string {
 }
 
 func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
-	// Determine granularity: prefer "year" if any lib returned it.
-	granularity := "month"
+	periods := unionPeriods(results)
+	return &LibraryTimeline{
+		Granularity:    mergedGranularity(results),
+		Periods:        periods,
+		CameraUsage:    mergeCameraUsage(results, periods),
+		FocalStats:     mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.FocalStats }),
+		ISOStats:       mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.ISOStats }),
+		ApertureHeat:   mergeApertureHeat(results, periods),
+		AspectRatios:   mergeAspectRatios(results, periods),
+		MegapixelStats: mergeMegapixels(results, periods),
+	}
+}
+
+// mergedGranularity prefers "year" if any library returned it.
+func mergedGranularity(results []*LibraryTimeline) string {
 	for _, r := range results {
 		if r.Granularity == "year" {
-			granularity = "year"
-			break
+			return "year"
 		}
 	}
+	return "month"
+}
 
-	// Build global period set.
+// unionPeriods returns every period of any result, sorted.
+func unionPeriods(results []*LibraryTimeline) []string {
 	periodSet := make(map[string]bool)
 	for _, r := range results {
 		for _, p := range r.Periods {
@@ -1180,60 +1173,74 @@ func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
 		periods = append(periods, p)
 	}
 	sortStrings(periods)
-	periodIdx := make(map[string]int, len(periods))
-	for i, p := range periods {
-		periodIdx[p] = i
-	}
+	return periods
+}
 
-	// Merge camera usage: sum per (camera, period), then re-apply top-5.
-	camTotals := make(map[string]int)
-	camGrid := make(map[string][]int)
+// periodGrid sums per-key count rows, each aligned to its own library's
+// periods, onto the merged periods.
+type periodGrid struct {
+	idx  map[string]int
+	rows map[string][]int
+}
+
+func newPeriodGrid(periods []string) *periodGrid {
+	idx := make(map[string]int, len(periods))
+	for i, p := range periods {
+		idx[p] = i
+	}
+	return &periodGrid{idx: idx, rows: make(map[string][]int)}
+}
+
+// add sums counts, aligned to srcPeriods, into key's row. It returns their
+// total and whether any count lined up with a period.
+func (g *periodGrid) add(key string, srcPeriods []string, counts []int) (total int, overlapped bool) {
+	if g.rows[key] == nil {
+		g.rows[key] = make([]int, len(g.idx))
+	}
+	srcIdx := make(map[string]int, len(srcPeriods))
+	for i, p := range srcPeriods {
+		srcIdx[p] = i
+	}
+	for p, si := range srcIdx {
+		if si < len(counts) {
+			g.rows[key][g.idx[p]] += counts[si]
+			total += counts[si]
+			overlapped = true
+		}
+	}
+	return total, overlapped
+}
+
+// mergeCameraUsage sums usage per (camera, period), then keeps the five most
+// used cameras and adds up the rest as "Other".
+func mergeCameraUsage(results []*LibraryTimeline, periods []string) []CameraTimeSlice {
+	grid := newPeriodGrid(periods)
+	totals := make(map[string]int)
 	for _, r := range results {
-		srcIdx := make(map[string]int, len(r.Periods))
-		for i, p := range r.Periods {
-			srcIdx[p] = i
-		}
 		for _, cs := range r.CameraUsage {
-			if camGrid[cs.Camera] == nil {
-				camGrid[cs.Camera] = make([]int, len(periods))
-			}
-			for p, pi := range periodIdx {
-				if si, ok := srcIdx[p]; ok && si < len(cs.Counts) {
-					camGrid[cs.Camera][pi] += cs.Counts[si]
-					camTotals[cs.Camera] += cs.Counts[si]
-				}
+			// A camera is ranked only once one of its counts lines up with a period.
+			if n, overlapped := grid.add(cs.Camera, r.Periods, cs.Counts); overlapped {
+				totals[cs.Camera] += n
 			}
 		}
 	}
-	type kv struct {
-		k string
-		v int
+	ranked := make([]string, 0, len(totals))
+	for camera := range totals {
+		ranked = append(ranked, camera)
 	}
-	ranked := make([]kv, 0, len(camTotals))
-	for k, v := range camTotals {
-		ranked = append(ranked, kv{k, v})
-	}
-	for i := 1; i < len(ranked); i++ {
-		for j := i; j > 0 && ranked[j].v > ranked[j-1].v; j-- {
-			ranked[j], ranked[j-1] = ranked[j-1], ranked[j]
-		}
-	}
-	top := 5
-	if len(ranked) < top {
-		top = len(ranked)
-	}
-	topSet := make(map[string]bool, top)
-	for _, kv := range ranked[:top] {
-		topSet[kv.k] = true
-	}
+	sort.SliceStable(ranked, func(i, j int) bool { return totals[ranked[i]] > totals[ranked[j]] })
+	top := min(5, len(ranked))
+
 	cameras := make([]CameraTimeSlice, 0, top+1)
-	for _, kv := range ranked[:top] {
-		cameras = append(cameras, CameraTimeSlice{Camera: kv.k, Counts: camGrid[kv.k]})
+	topSet := make(map[string]bool, top)
+	for _, camera := range ranked[:top] {
+		topSet[camera] = true
+		cameras = append(cameras, CameraTimeSlice{Camera: camera, Counts: grid.rows[camera]})
 	}
 	other := make([]int, len(periods))
 	hasOther := false
-	for cam, counts := range camGrid {
-		if topSet[cam] {
+	for camera, counts := range grid.rows {
+		if topSet[camera] {
 			continue
 		}
 		hasOther = true
@@ -1244,12 +1251,11 @@ func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
 	if hasOther {
 		cameras = append(cameras, CameraTimeSlice{Camera: "Other", Counts: other})
 	}
+	return cameras
+}
 
-	// Merge focal and ISO stats: weighted average for median/P25/P75.
-	focalStats := mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.FocalStats })
-	isoStats := mergePercentileStats(results, periods, func(r *LibraryTimeline) []PeriodStats { return r.ISOStats })
-
-	// Merge aperture heatmap: sum bucket counts.
+// mergeApertureHeat sums the aperture bucket counts per period.
+func mergeApertureHeat(results []*LibraryTimeline, periods []string) []ApertureRow {
 	aperMap := make(map[string]map[string]int)
 	for _, r := range results {
 		for _, row := range r.ApertureHeat {
@@ -1261,56 +1267,51 @@ func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
 			}
 		}
 	}
-	aperRows := make([]ApertureRow, 0, len(periods))
+	rows := make([]ApertureRow, 0, len(periods))
 	for _, p := range periods {
 		if buckets := aperMap[p]; len(buckets) > 0 {
-			cp := make(map[string]int, len(buckets))
-			for k, v := range buckets {
-				cp[k] = v
-			}
-			aperRows = append(aperRows, ApertureRow{Period: p, Buckets: cp})
+			rows = append(rows, ApertureRow{Period: p, Buckets: buckets})
 		}
 	}
+	return rows
+}
 
-	// Merge aspect ratios: sum counts per (ratio, period).
-	aspectGrid := make(map[string][]int)
+// mergeAspectRatios sums counts per (ratio, period), in the fixed ratio order,
+// leaving out ratios no photo has.
+func mergeAspectRatios(results []*LibraryTimeline, periods []string) []AspectSlice {
+	grid := newPeriodGrid(periods)
 	for _, r := range results {
-		srcIdx := make(map[string]int, len(r.Periods))
-		for i, p := range r.Periods {
-			srcIdx[p] = i
-		}
 		for _, as := range r.AspectRatios {
-			if aspectGrid[as.Ratio] == nil {
-				aspectGrid[as.Ratio] = make([]int, len(periods))
-			}
-			for p, pi := range periodIdx {
-				if si, ok := srcIdx[p]; ok && si < len(as.Counts) {
-					aspectGrid[as.Ratio][pi] += as.Counts[si]
-				}
-			}
+			grid.add(as.Ratio, r.Periods, as.Counts)
 		}
 	}
-	aspectSlices := make([]AspectSlice, 0, len(tlAspectOrder))
+	slices := make([]AspectSlice, 0, len(tlAspectOrder))
 	for _, ratio := range tlAspectOrder {
-		counts := aspectGrid[ratio]
-		for _, c := range counts {
-			if c > 0 {
-				cp := make([]int, len(counts))
-				copy(cp, counts)
-				aspectSlices = append(aspectSlices, AspectSlice{Ratio: ratio, Counts: cp})
-				break
-			}
+		counts := grid.rows[ratio]
+		if anyPositive(counts) {
+			slices = append(slices, AspectSlice{Ratio: ratio, Counts: counts})
 		}
 	}
+	return slices
+}
 
-	// Merge megapixels: max of maxes, weighted avg.
+func anyPositive(counts []int) bool {
+	for _, c := range counts {
+		if c > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeMegapixels takes the max of the maxes and the count-weighted average
+// per period.
+func mergeMegapixels(results []*LibraryTimeline, periods []string) []MegapixelStat {
 	mpMap := make(map[string]MegapixelStat)
 	for _, r := range results {
 		for _, ms := range r.MegapixelStats {
 			cur := mpMap[ms.Period]
-			if ms.Max > cur.Max {
-				cur.Max = ms.Max
-			}
+			cur.Max = max(cur.Max, ms.Max)
 			// Weighted average: (cur.Avg*cur.Count + ms.Avg*ms.Count) / (cur.Count + ms.Count)
 			total := cur.Count + ms.Count
 			if total > 0 {
@@ -1321,23 +1322,13 @@ func mergeTLs(results []*LibraryTimeline) *LibraryTimeline {
 			mpMap[ms.Period] = cur
 		}
 	}
-	mpStats := make([]MegapixelStat, 0, len(periods))
+	stats := make([]MegapixelStat, 0, len(periods))
 	for _, p := range periods {
 		if ms, ok := mpMap[p]; ok {
-			mpStats = append(mpStats, ms)
+			stats = append(stats, ms)
 		}
 	}
-
-	return &LibraryTimeline{
-		Granularity:    granularity,
-		Periods:        periods,
-		CameraUsage:    cameras,
-		FocalStats:     focalStats,
-		ISOStats:       isoStats,
-		ApertureHeat:   aperRows,
-		AspectRatios:   aspectSlices,
-		MegapixelStats: mpStats,
-	}
+	return stats
 }
 
 func mergePercentileStats(results []*LibraryTimeline, periods []string, getter func(*LibraryTimeline) []PeriodStats) []PeriodStats {

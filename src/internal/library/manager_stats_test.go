@@ -177,3 +177,15 @@ func TestMergeTLsFewCamerasHasNoOther(t *testing.T) {
 		t.Errorf("cameras = %v, granularity %q; want A, B and month", names, got.Granularity)
 	}
 }
+
+// A camera whose counts line up with no period is not ranked; it still adds
+// an all-zero "Other" row. Characterized as it is.
+func TestMergeTLsCameraWithoutCountsLandsInOther(t *testing.T) {
+	a := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{{"A", []int{2}}}}
+	b := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{{"Z", []int{}}}}
+	got := mergeTLs([]*LibraryTimeline{a, b}).CameraUsage
+	want := []CameraTimeSlice{{"A", []int{2}}, {"Other", []int{0}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("cameras = %+v, want %+v", got, want)
+	}
+}
