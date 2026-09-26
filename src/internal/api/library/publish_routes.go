@@ -7,9 +7,9 @@ import (
 	lib "huepattl.de/unterlumen/internal/library"
 )
 
-// registerPublishRoutes registers publishing: drafts, generating galleries
+// HandlePublish registers publishing: drafts, generating galleries
 // and sites, rebuilding them and managing published galleries.
-func registerPublishRoutes(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) {
+func HandlePublish(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) {
 	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", trackDestination(mgr, chStore, "Rebuilding the site of", rebuildSite(chStore, mgr)))

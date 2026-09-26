@@ -18,7 +18,7 @@ func newPostID() string {
 // (one album), and either of those plus a reserved suffix. The legacy
 // "published:" prefix predates the rename and is still cleaned up alongside.
 const (
-	buildPrefix     = "built:"
+	BuildPrefix     = "built:"
 	legacyPubPrefix = "published:"
 )
 
@@ -36,7 +36,7 @@ func albumPostIDsForChannel(entries []lib.MetaEntry, slug string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, e := range entries {
-		for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+		for _, prefix := range []string{BuildPrefix, legacyPubPrefix} {
 			rest, ok := strings.CutPrefix(e.Key, prefix+slug+":")
 			if !ok || strings.Contains(rest, ":") || reservedMetaSuffix(rest) || seen[rest] {
 				continue
@@ -50,7 +50,7 @@ func albumPostIDsForChannel(entries []lib.MetaEntry, slug string) []string {
 
 // deleteAlbumKeys removes one album's membership keys under both prefixes.
 func deleteAlbumKeys(s *lib.Store, photoID, slug, albumPostID string) {
-	for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+	for _, prefix := range []string{BuildPrefix, legacyPubPrefix} {
 		for _, suffix := range []string{"", ":account", ":title"} {
 			s.DeleteMeta(photoID, prefix+slug+":"+albumPostID+suffix) //nolint:errcheck
 		}
@@ -65,7 +65,7 @@ func deleteChannelPublicationKeys(s *lib.Store, photoID, slug string) {
 			deleteAlbumKeys(s, photoID, slug, albumPostID)
 		}
 	}
-	for _, prefix := range []string{buildPrefix, legacyPubPrefix} {
+	for _, prefix := range []string{BuildPrefix, legacyPubPrefix} {
 		for _, suffix := range []string{"", ":account", ":title", ":postid"} {
 			s.DeleteMeta(photoID, prefix+slug+suffix) //nolint:errcheck
 		}

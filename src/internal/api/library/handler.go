@@ -55,7 +55,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore, draftStore))
-	registerPublishRoutes(mux, mgr, chStore, draftStore)
+	HandlePublish(mux, mgr, chStore, draftStore)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

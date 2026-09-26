@@ -110,13 +110,13 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		}
 		defer store.Close()
 
-		if strings.HasPrefix(key, pendingPrefix) && draftStore != nil {
-			deletePendingMeta(store, draftStore, id, photoID, key)
+		if strings.HasPrefix(key, PendingPrefix) && draftStore != nil {
+			DeletePendingMeta(store, draftStore, id, photoID, key)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		if strings.HasPrefix(key, buildPrefix) && chStore != nil {
-			handled, rmErr := deleteBuiltMeta(store, chStore, photoID, key)
+		if strings.HasPrefix(key, BuildPrefix) && chStore != nil {
+			handled, rmErr := DeleteBuiltMeta(store, chStore, photoID, key)
 			if rmErr != nil {
 				http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
 				return

@@ -13,18 +13,18 @@ import (
 	"huepattl.de/unterlumen/internal/site"
 )
 
-const pendingPrefix = "pending:"
+const PendingPrefix = "pending:"
 
-// deletePendingMeta removes a pending:{slug} key. The meta row is a derived
+// DeletePendingMeta removes a pending:{slug} key. The meta row is a derived
 // signal that this photo sits in an unfinished draft for that channel —
 // removing it must also remove the photo from the draft itself (drafts.json),
 // not just delete the meta row and leave the draft still holding a reference
 // the UI no longer shows.
-func deletePendingMeta(store *lib.Store, draftStore *channels.DraftStore, libraryID, photoID, key string) {
+func DeletePendingMeta(store *lib.Store, draftStore *channels.DraftStore, libraryID, photoID, key string) {
 	// Two key shapes: "pending:<slug>" names the draft in its value,
 	// "pending:<slug>:<draftID>" names it in the key itself (its value
 	// is the album title).
-	slug, draftID, qualified := strings.Cut(strings.TrimPrefix(key, pendingPrefix), ":")
+	slug, draftID, qualified := strings.Cut(strings.TrimPrefix(key, PendingPrefix), ":")
 	if !qualified {
 		draftID = metaValue(store, photoID, key)
 	}
@@ -35,7 +35,7 @@ func deletePendingMeta(store *lib.Store, draftStore *channels.DraftStore, librar
 	if qualified {
 		clearPendingMarkers(store, photoID, slug, draftID)
 	} else {
-		store.DeleteMeta(photoID, pendingPrefix+slug+":"+draftID) //nolint:errcheck
+		store.DeleteMeta(photoID, PendingPrefix+slug+":"+draftID) //nolint:errcheck
 	}
 }
 
@@ -53,15 +53,15 @@ func metaValue(store *lib.Store, photoID, key string) string {
 	return ""
 }
 
-// deleteBuiltMeta handles built:{slug} keys; handled is false when the key
+// DeleteBuiltMeta handles built:{slug} keys; handled is false when the key
 // is a plain meta row the caller deletes itself. On site-export channels it
 // removes the photo from the site (site.json + physical files) and deletes all
 // related keys. The frontend only ever sends the normalized built: prefix (see
 // getMeta), but a photo may still carry legacy published:{slug} entries from
 // before this channel-membership key was renamed, so both prefixes are cleaned
 // up here.
-func deleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key string) (handled bool, err error) {
-	slug, albumPostID, _ := strings.Cut(strings.TrimPrefix(key, buildPrefix), ":")
+func DeleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key string) (handled bool, err error) {
+	slug, albumPostID, _ := strings.Cut(strings.TrimPrefix(key, BuildPrefix), ":")
 	ch, chErr := chStore.Get(slug)
 	if chErr != nil {
 		return false, nil
