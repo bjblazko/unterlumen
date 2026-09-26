@@ -308,26 +308,32 @@ class ExportModal {
             scale: this._getScaleOptions(),
             ...(this._sourcePath ? { sourcePath: this._sourcePath } : {}),
         };
-        const method = this._getEstimateMethod();
-        const totalInEl = this.overlay.querySelector('.export-total-in');
-        const totalOutEl = this.overlay.querySelector('.export-total-out');
+        const totals = {
+            inEl: this.overlay.querySelector('.export-total-in'),
+            outEl: this.overlay.querySelector('.export-total-out'),
+        };
+        totals.inEl.textContent = '…';
+        totals.outEl.textContent = '…';
 
-        totalInEl.textContent = '…';
-        totalOutEl.textContent = '…';
+        if (this._getEstimateMethod() === 'heuristic') await this._quickEstimates(basePayload, totals);
+        else await this._exactEstimates(basePayload, totals);
+    }
 
-        if (method === 'heuristic') {
-            this._hideProgress();
-            try {
-                const resp = await API.exportEstimate({ ...basePayload, files: this._files, method: 'heuristic' });
-                if (!this.overlay) return;
-                this._applyEstimates(resp.estimates, totalInEl, totalOutEl);
-            } catch {
-                if (this.overlay) { totalInEl.textContent = '—'; totalOutEl.textContent = '—'; }
-            }
-            return;
+    // _quickEstimates asks for all files at once, from file sizes and pixels.
+    async _quickEstimates(basePayload, totals) {
+        this._hideProgress();
+        try {
+            const resp = await API.exportEstimate({ ...basePayload, files: this._files, method: 'heuristic' });
+            if (!this.overlay) return;
+            this._applyEstimates(resp.estimates, totals.inEl, totals.outEl);
+        } catch {
+            if (this.overlay) { totals.inEl.textContent = '—'; totals.outEl.textContent = '—'; }
         }
+    }
 
-        // Exact mode: encode per file with progress
+    // _exactEstimates encodes one file at a time and counts them as it goes;
+    // a newer estimate aborts it.
+    async _exactEstimates(basePayload, totals) {
         const abortCtrl = new AbortController();
         this._estimateAbort = abortCtrl;
         this._showCount(0, 'files measured', '', true);
@@ -346,16 +352,7 @@ class ExportModal {
 
                 const est = resp.estimates[0];
                 if (est) {
-                    const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
-                    if (row) {
-                        if (est.error) {
-                            _applyRowError(row, est);
-                        } else {
-                            row.querySelector('.export-file-orig').textContent = est.inputBytes ? _fmtBytes(est.inputBytes) : '—';
-                            row.querySelector('.export-file-out').textContent = est.outputBytes ? _fmtBytes(est.outputBytes) : '—';
-                            _applyDims(row, est);
-                        }
-                    }
+                    this._showRowEstimate(file, est);
                     if (est.inputBytes) totalIn += est.inputBytes;
                     if (est.outputBytes) totalOut += est.outputBytes;
                 }
@@ -367,8 +364,8 @@ class ExportModal {
             done++;
             if (this.overlay) {
                 this._showCount(done, 'files measured', '', true);
-                totalInEl.textContent = totalIn > 0 ? _fmtBytes(totalIn) : '—';
-                totalOutEl.textContent = totalOut > 0 ? _fmtBytes(totalOut) : '—';
+                totals.inEl.textContent = totalIn > 0 ? _fmtBytes(totalIn) : '—';
+                totals.outEl.textContent = totalOut > 0 ? _fmtBytes(totalOut) : '—';
             }
         }
 
@@ -377,11 +374,24 @@ class ExportModal {
             this._hideProgress();
             if (aborted) {
                 // Keep partial results already shown; reset totals if nothing completed
-                if (done === 0) { totalInEl.textContent = '—'; totalOutEl.textContent = '—'; }
+                if (done === 0) { totals.inEl.textContent = '—'; totals.outEl.textContent = '—'; }
             }
         }
 
         if (this._estimateAbort === abortCtrl) this._estimateAbort = null;
+    }
+
+    // _showRowEstimate puts one file's measured sizes, or its error, in its row.
+    _showRowEstimate(file, est) {
+        const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
+        if (!row) return;
+        if (est.error) {
+            _applyRowError(row, est);
+            return;
+        }
+        row.querySelector('.export-file-orig').textContent = est.inputBytes ? _fmtBytes(est.inputBytes) : '—';
+        row.querySelector('.export-file-out').textContent = est.outputBytes ? _fmtBytes(est.outputBytes) : '—';
+        _applyDims(row, est);
     }
 
     _applyEstimates(estimates, totalInEl, totalOutEl) {
@@ -425,6 +435,10 @@ class ExportModal {
     async _doExport() {
         const confirmBtn = this.overlay.querySelector('#export-confirm-btn');
         const cancelBtn = this.overlay.querySelector('#export-cancel-btn');
+        const enableButtons = () => {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+        };
 
         confirmBtn.disabled = true;
         cancelBtn.disabled = true;
@@ -441,89 +455,94 @@ class ExportModal {
         const outputMode = this._getOutputMode();
 
         try {
-            if (outputMode === 'zip') {
-                // Stream SSE progress while the server builds the ZIP, then download.
-                this._showCount(0, 'files exported');
-
-                const resp = await fetch('/api/export/zip-stream', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...basePayload, files: this._files }),
-                });
-                if (!resp.ok) throw new Error(await resp.text());
-
-                let token = null;
-                await readEventStream(resp, (evt) => {
-                    if (evt.complete) {
-                        token = evt.token;
-                    } else if (this.overlay) {
-                        this._showCount(evt.done, 'files exported', evt.file || '');
-                    }
-                });
-
-                if (!token) throw new Error('Export stream ended without a download token');
-
-                if (this.overlay) this._activity().busy('Downloading the ZIP…');
-                const blob = await API.exportZipDownload(token);
-                this._hideProgress();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'unterlumen-export.zip';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                this.close();
-            } else {
-                const destination = this._getDestination();
-                if (!destination) {
-                    this._dialog.setNote('Name a folder to export into, or choose one with "…".', 'error');
-                    confirmBtn.disabled = false;
-                    cancelBtn.disabled = false;
-                    return;
-                }
-
-                // Per-file loop so we can show progress
-                let done = 0, failed = 0;
-                this._showCount(0, 'files exported');
-
-                for (const file of this._files) {
-                    if (!this.overlay) break;
-                    const filename = file.split('/').pop();
-                    this._showCount(done, 'files exported', filename);
-                    const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
-                    try {
-                        const result = await API.exportSave({ ...basePayload, files: [file], destination });
-                        const r = result.results?.[0];
-                        if (!r?.success) {
-                            failed++;
-                            if (row && r?.error) _applyRowError(row, { error: r.error });
-                        }
-                    } catch (err) {
-                        failed++;
-                        if (row) _applyRowError(row, { error: err.message });
-                    }
-                    done++;
-                }
-
-                if (!this.overlay) return;
-                this._hideProgress();
-                if (failed === 0) {
-                    this.close();
-                } else {
-                    this._dialog.setNote(`${failed} file${failed !== 1 ? 's' : ''} did not export.`, 'error');
-                    confirmBtn.disabled = false;
-                    cancelBtn.disabled = false;
-                }
-            }
+            if (outputMode === 'zip') await this._exportZip(basePayload);
+            else await this._exportToFolder(basePayload, enableButtons);
         } catch (err) {
             if (this.overlay) {
                 this._hideProgress();
                 this._dialog.setNote('The export stopped: ' + err.message, 'error');
-                confirmBtn.disabled = false;
-                cancelBtn.disabled = false;
+                enableButtons();
             }
+        }
+    }
+
+    // _exportZip streams progress while the server builds the ZIP, then
+    // downloads it.
+    async _exportZip(basePayload) {
+        this._showCount(0, 'files exported');
+
+        const resp = await fetch('/api/export/zip-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...basePayload, files: this._files }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+
+        let token = null;
+        await readEventStream(resp, (evt) => {
+            if (evt.complete) {
+                token = evt.token;
+            } else if (this.overlay) {
+                this._showCount(evt.done, 'files exported', evt.file || '');
+            }
+        });
+
+        if (!token) throw new Error('Export stream ended without a download token');
+
+        if (this.overlay) this._activity().busy('Downloading the ZIP…');
+        const blob = await API.exportZipDownload(token);
+        this._hideProgress();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'unterlumen-export.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.close();
+    }
+
+    // _exportToFolder saves one file at a time into the destination folder,
+    // showing progress; failed files are marked in their rows.
+    async _exportToFolder(basePayload, enableButtons) {
+        const destination = this._getDestination();
+        if (!destination) {
+            this._dialog.setNote('Name a folder to export into, or choose one with "…".', 'error');
+            enableButtons();
+            return;
+        }
+
+        // Per-file loop so we can show progress
+        let done = 0, failed = 0;
+        this._showCount(0, 'files exported');
+
+        for (const file of this._files) {
+            if (!this.overlay) break;
+            const filename = file.split('/').pop();
+            this._showCount(done, 'files exported', filename);
+            const row = this.overlay.querySelector(`[data-file="${CSS.escape(file)}"]`);
+            try {
+                const result = await API.exportSave({ ...basePayload, files: [file], destination });
+                const r = result.results?.[0];
+                if (!r?.success) {
+                    failed++;
+                    if (row && r?.error) _applyRowError(row, { error: r.error });
+                }
+            } catch (err) {
+                failed++;
+                if (row) _applyRowError(row, { error: err.message });
+            }
+            done++;
+        }
+
+        if (!this.overlay) return;
+        this._hideProgress();
+        if (failed === 0) {
+            this.close();
+        } else {
+            this._dialog.setNote(`${failed} file${failed !== 1 ? 's' : ''} did not export.`, 'error');
+            enableButtons();
         }
     }
 }
