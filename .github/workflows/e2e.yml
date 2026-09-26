@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Run by hand to check a fix to this workflow without cutting a release.
+  workflow_dispatch:
 
 jobs:
   e2e:
@@ -11,8 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Refresh the index first: a stale one points at package versions the
+      # mirror no longer has (404). On Ubuntu 24.04 libheif's HEVC decoder is a
+      # plugin of its own; without it heif-convert reports "Unsupported codec"
+      # and every HEIF test fails (Debian bookworm, the Docker base, still
+      # links it into libheif1).
       - name: Install system dependencies
-        run: sudo apt-get install -y ffmpeg libheif-examples libimage-exiftool-perl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libheif-examples libheif-plugin-libde265 libimage-exiftool-perl
 
       - uses: actions/setup-go@v6
         with:
@@ -44,8 +53,10 @@ jobs:
           heif-convert --version || true
           exiftool -ver || true
           HIF=e2e/fixtures/photos/folder-a/a1/2026-04-24_X-T50-XF23mmF2-R-WR-DSCF6850.hif
-          heif-convert "$HIF" /tmp/heic-test.jpg && echo "heif-convert OK" || echo "heif-convert FAILED"
           ffmpeg -i "$HIF" 2>&1 | grep -i "Stream\|heif\|error" | head -5 || true
+          # heif-convert is the HEIF decoder on Linux; without it the HEIF
+          # tests can only fail, half an hour later.
+          heif-convert "$HIF" /tmp/heic-test.jpg && echo "heif-convert OK"
 
       - name: Run E2E tests
         run: cd e2e && npm test
