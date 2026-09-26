@@ -16,6 +16,9 @@ All notable changes to this project are documented in this file.
 - **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
 
 ### Changed
+- **Go 1.27 and current dependencies.** Unterlumen builds with Go 1.27 (1.25 no longer gets security fixes), which needs macOS 13 Ventura or later. SQLite driver 1.59 (faster on Linux), goldmark 1.8.6 (a link no longer swallows a closing parenthesis), golang.org/x/image 0.46. govulncheck finds no known vulnerabilities.
+- **The Docker image runs on Debian 13 (trixie).** It brings ffmpeg 7.1 and libheif's HEVC decoder as its own package, which HEIC decoding needs from this release on.
+- **MapLibre 6 for location maps.** The map library moves from 5.24 to 6.11 and is loaded as an ES module; it still comes from the app itself, not from a CDN (ADR-0038).
 - **A photo's gallery entry leads to the gallery.** In a library photo's info panel, a published gallery's title now opens its page under Galleries. The × next to it is gone: for a share-link gallery it only made the library forget (the photo stayed in the gallery and came back with the next scan), and for a website it took the photo off every album without asking. Pending entries keep their ×.
 - **One way to show that something is happening.** Two spinners, two progress bars, a toast and eight "Loading…" styles are replaced by one line:
   - a sentence while busy, followed after 3 seconds by the elapsed time;
