@@ -49,7 +49,7 @@ test.describe('View menu — library folder view', () => {
     const errors = [];
     page.on('pageerror', (err) => errors.push(err.message));
 
-    await page.waitForSelector('#lib-pane .folder-chip.dir-item[data-name="folder-a"]', { timeout: 10_000 });
+    await page.waitForSelector('#lib-pane .folder-tile.dir-item[data-name="folder-a"]', { timeout: 10_000 });
 
     await page.locator('#lib-pane button[data-view="list"]').click();
 
@@ -62,9 +62,18 @@ test.describe('View menu — library folder view', () => {
     expect(errors, `console/page errors switching to list view at library root: ${errors.join('\n')}`).toEqual([]);
   });
 
+  // A library knows what its folders hold, so a folder is a tile with its
+  // newest photos and "N photos · years" rather than a bare chip.
+  test('library folders are tiles that show what they hold', async ({ page }) => {
+    const tile = page.locator('#lib-pane .folder-tile[data-name="folder-a"]');
+    await expect(tile).toBeVisible({ timeout: 10_000 });
+    await expect(tile.locator('.folder-tile-meta')).toContainText(/\d+ photos?/, { timeout: 10_000 });
+    await expect(tile.locator('.folder-tile-mosaic img').first()).toBeVisible();
+  });
+
   test.describe('inside folder-b', () => {
     test.beforeEach(async ({ page }) => {
-      const folderB = page.locator('#lib-pane .folder-chip.dir-item[data-name="folder-b"]');
+      const folderB = page.locator('#lib-pane .folder-tile.dir-item[data-name="folder-b"]');
       await folderB.waitFor({ state: 'visible', timeout: 10_000 });
       await folderB.click();
       await waitForThumbnailsLoaded(page, 1);

@@ -71,7 +71,7 @@ class BrowsePane {
                 // modifier selects it instead, which is also how you read a
                 // folder's info without leaving where you are. Folder tiles in
                 // the list view keep the old select-then-open behaviour.
-                if (item.classList.contains('folder-chip') && !(e.ctrlKey || e.metaKey)) {
+                if ((item.classList.contains('folder-chip') || item.classList.contains('folder-tile')) && !(e.ctrlKey || e.metaKey)) {
                     this.load(fp);
                     if (this.onNavigate) this.onNavigate(fp);
                     return;
@@ -709,6 +709,17 @@ class BrowsePane {
     }
 
     // --- Focus change notification ---
+
+    // A folder is a place you go to, not a photo you look at: a row of chips
+    // above the photos rather than large empty tiles among them. A library
+    // knows what its folders hold and draws them as tiles instead.
+    _folderItemHTML(idx, name, focusedClass) {
+        const markedClass = this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : '';
+        return `<button class="folder-chip dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
+            <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg>
+            <span class="item-name">${escapeHtml(name)}</span>
+        </button>`;
+    }
 
     _notifyFocusChange() {
         this._updateFolderToolButtons();

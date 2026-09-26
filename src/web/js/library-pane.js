@@ -1,12 +1,23 @@
 // LibraryPane — BrowsePane subclass that reads folder contents from the library DB.
 // No browse API calls are made, so no background EXIF extraction runs over NAS.
 
+// "412 photos · 2021–2026": how much a folder holds and the years it spans.
+function folderTileMeta(preview) {
+    const n = preview.photoCount;
+    const parts = [`${n} photo${n === 1 ? '' : 's'}`];
+    const first = (preview.firstTaken || '').slice(0, 4);
+    const last = (preview.lastTaken || '').slice(0, 4);
+    if (first && last) parts.push(first === last ? first : `${first}–${last}`);
+    return parts.join(' · ');
+}
+
 class LibraryPane extends BrowsePane {
     constructor(container, libID, options = {}) {
         super(container, options);
         this._libID = libID;
         this._sourcePath = options.sourcePath || '';
         this._photoMap = new Map(); // relPath → { photoID }
+        this._folderPreviews = new Map(); // subfolder name → preview
         this.sort = 'taken';
         this.order = 'desc';
     }
@@ -26,6 +37,7 @@ class LibraryPane extends BrowsePane {
         this._entryMeta = {};
         this._aspectRatios = {};
         this._photoMap = new Map();
+        this._folderPreviews = new Map();
         this.render();
 
         let data;
@@ -72,6 +84,43 @@ class LibraryPane extends BrowsePane {
         this._notifyFocusChange();
         this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
+        if (folderEntries.length) this._loadFolderPreviews(this.path);
+    }
+
+    // The tiles appear with the folder names at once; what each folder holds
+    // follows from the index and fills them in place.
+    async _loadFolderPreviews(path) {
+        let previews;
+        try {
+            const r = await fetch(`/api/library/${this._libID}/folder-previews?path=${encodeURIComponent(path)}`);
+            if (!r.ok) return;
+            previews = await r.json();
+        } catch { return; }
+        if (path !== this.path) return;
+        for (const p of previews) this._folderPreviews.set(p.name, p);
+        for (const el of this.container.querySelectorAll('.folder-tile[data-name]')) {
+            const p = this._folderPreviews.get(el.dataset.name);
+            if (p) el.querySelector('.folder-tile-body').innerHTML = this._folderTileBody(el.dataset.name, p);
+        }
+    }
+
+    // A library knows what a folder holds, so the folder shows it: its four
+    // newest photos, how many there are and the years they span.
+    _folderItemHTML(idx, name, focusedClass) {
+        const markedClass = this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : '';
+        return `<button class="folder-tile dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
+            <span class="folder-tile-body">${this._folderTileBody(name, this._folderPreviews.get(name))}</span>
+        </button>`;
+    }
+
+    _folderTileBody(name, preview) {
+        const ids = preview?.photoIds || [];
+        const cells = [0, 1, 2, 3].map(i => ids[i]
+            ? `<img src="${LibraryAPI.thumbURL(this._libID, ids[i])}" alt="" loading="lazy">`
+            : '<span></span>').join('');
+        return `<span class="folder-tile-mosaic${ids.length === 1 ? ' folder-tile-mosaic--one' : ''}" aria-hidden="true">${cells}</span>
+            <span class="item-name">${escapeHtml(name)}</span>
+            <span class="folder-tile-meta">${preview ? escapeHtml(folderTileMeta(preview)) : '&nbsp;'}</span>`;
     }
 
     // Organize sorts one folder, so a selection has to name one. Photos in a

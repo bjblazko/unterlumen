@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Library folders show what they hold.** In a library, each subfolder is a tile with a 2×2 mosaic of its four newest photos, its name and "N photos · years". A folder that holds only more folders shows the photos further down. The names appear at once and the photos fill in behind them. New endpoint: `GET /api/library/{id}/folder-previews`. The Folders place keeps its chips.
 - **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
 
 ### Changed
@@ -30,6 +31,8 @@ All notable changes to this project are documented in this file.
   Everything is in sentence case, and hierarchy comes from size, weight and colour. A switch now reads "Details · Shown · Hidden" and defaults to "On"/"Off" instead of "ON"/"OFF". See [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md).
 
 ### Fixed
+- **Organize's source pane touched the sidebar.** It had no side margin, unlike Folders and a library.
+- **The browser's blue focus ring.** Everything without a focus ring of its own now gets the accent ring, the sidebar entries among them.
 - **An ISO chip that could not be dropped.** A log-scale slider that nobody had touched counted as narrowed: its right end came out as 51199.99999999997 instead of 51200. The filter showed "ISO 16 – 51200" as active, and its × brought it straight back. Every result also silently left out photos taken at the highest ISO in the library. The ends of every slider are now exactly the range's own bounds.
 - **Closed filter results came back.** 300 ms after the × on the filter results, every photo appeared again as results. Resetting the "More filters" field had scheduled one last query, and nothing cancelled it.
 - **Keys went to hidden results in the Libraries overview.** After the filter's results were closed, arrow keys, `i` and the selection still acted on the hidden results pane instead of the list.

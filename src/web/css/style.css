@@ -230,6 +230,13 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* The focus ring is always the accent, on everything that has no ring of its
+   own — never the browser's blue (ADR-0030). */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 /* —— Type: sans is the UI voice, mono is the data voice (ADR-0030) ——
  * Mono is only for file names, paths, EXIF values, coordinates, counters
  * and IDs. Everything a person reads as language stays in Plex Sans.
@@ -1350,6 +1357,7 @@ button.toggle {
 /* A marked folder is dimmed like a marked photo, so Organize's "Mark for
    deletion" target reads the same on folders as on photos. */
 .folder-chip.marked-for-deletion,
+.folder-tile.marked-for-deletion,
 .dir-row.marked-for-deletion {
     opacity: 0.45;
     text-decoration: line-through;
@@ -1528,6 +1536,7 @@ button.toggle {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    padding: 0 var(--space-6); /* the same margin as Folders and a library */
 }
 
 .organize-source .folder-tool,
@@ -6341,6 +6350,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     }
 
     .browse-container { padding: 0 var(--space-4); }
+    .folder-tile { width: calc(50% - var(--space-1)); }
     .browse-header { padding-top: var(--space-3); }
 
     /* One column of content; the info panel becomes a sheet (see viewer). */
@@ -6567,6 +6577,85 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
    colour, so say it again where the chip is filled. */
 .folder-chip.focused .item-name,
 .folder-chip.selected .item-name {
+    color: inherit;
+}
+
+/* --- Folder tile (library) ------------------------------------------------
+   In a library a folder shows what it holds: its four newest photos, then its
+   name and "N photos · years" as data. The photos are content, so they carry
+   no frame of their own; the tile is a hairline box like a photo's. */
+
+.folder-tile {
+    display: flex;
+    flex-direction: column;
+    width: 176px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.folder-tile:hover { background: var(--bg-2); }
+
+.folder-tile.focused,
+.folder-tile.selected {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+}
+
+.folder-tile-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Empty cells stay a flat surface: a folder with two photos shows two. */
+.folder-tile-mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    aspect-ratio: 1;
+    background: var(--line);
+}
+
+.folder-tile-mosaic > * {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+    background: var(--bg-2);
+}
+
+.folder-tile-mosaic--one > :first-child { grid-area: 1 / 1 / 3 / 3; }
+.folder-tile-mosaic--one > span { display: none; }
+
+.folder-tile .item-name {
+    padding: var(--space-2) var(--space-3) 0;
+    font: 500 var(--text-sm)/1.4 var(--font-sans);
+    color: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-tile-meta {
+    padding: 0 var(--space-3) var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-3);
+}
+
+.folder-tile.focused .folder-tile-meta,
+.folder-tile.selected .folder-tile-meta {
     color: inherit;
 }
 

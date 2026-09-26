@@ -105,7 +105,7 @@ test.describe('Overlays — library folder view', () => {
     await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
     // Navigate into folder-b
-    const folderB = page.locator('#lib-pane .folder-chip.dir-item[data-name="folder-b"]');
+    const folderB = page.locator('#lib-pane .folder-tile.dir-item[data-name="folder-b"]');
     await folderB.waitFor({ state: 'visible', timeout: 10_000 });
     await folderB.click();
     await waitForThumbnailsLoaded(page, 1);

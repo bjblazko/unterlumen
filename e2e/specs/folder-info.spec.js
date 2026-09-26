@@ -161,7 +161,7 @@ test.describe('Folder info panel — library mode', () => {
     test('selecting a folder in library mode shows folder sections in info panel', async ({ page }) => {
         // Library source = folder-a; its subdirs a1, a2, a3 appear as dir items at root.
         // Scope to #lib-pane to avoid strict-mode collision with the hidden browse pane.
-        const a1 = page.locator('#lib-pane .folder-chip.dir-item[data-name="a1"]');
+        const a1 = page.locator('#lib-pane .folder-tile.dir-item[data-name="a1"]');
         await a1.waitFor({ state: 'visible', timeout: 8_000 });
         await a1.click({ modifiers: ['ControlOrMeta'] });
 
@@ -175,7 +175,7 @@ test.describe('Folder info panel — library mode', () => {
 
     test('library folder info shows EXIF stats sections for indexed photos', async ({ page }) => {
         // a1 has 7 indexed photos; library stats should show Photos and Formats sections
-        const a1 = page.locator('#lib-pane .folder-chip.dir-item[data-name="a1"]');
+        const a1 = page.locator('#lib-pane .folder-tile.dir-item[data-name="a1"]');
         await a1.waitFor({ state: 'visible', timeout: 8_000 });
         await a1.click({ modifiers: ['ControlOrMeta'] });
 

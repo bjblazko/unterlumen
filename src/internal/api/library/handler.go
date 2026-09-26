@@ -62,6 +62,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/folder-stats", libraryFolderStats(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photos", listPhotos(mgr))
 	mux.HandleFunc("GET /api/library/{id}/exif-ranges", exifRanges(mgr))
+	mux.HandleFunc("GET /api/library/{id}/folder-previews", folderPreviews(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb/{photoID}", serveThumb(mgr))
 	mux.HandleFunc("GET /api/library/{id}/thumb-by-path", thumbByPath(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr))

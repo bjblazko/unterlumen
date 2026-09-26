@@ -291,6 +291,12 @@ Go code then partitions results into:
 - **Immediate subfolders** — entries whose `path_hint` contains a `/` after the prefix (only the first path component is returned, de-duplicated).
 - **Direct photos** — entries whose `path_hint` contains no `/` after the prefix.
 
+The subfolders are drawn as tiles that show what each one holds. A second request, `GET /api/library/{id}/folder-previews?path=<relPath>` (`Store.FolderPreviews`), returns the following per direct subfolder, counting its whole branch at any depth:
+- the photo count;
+- the first and last date taken;
+- the four newest photos by date taken, with undated photos last by indexed time.
+
+It uses one grouped query and one `ROW_NUMBER()` window over the nested photos. It is separate from the browse call, so the folder names appear at once and the tiles fill in behind them. A folder that holds only more folders still shows the photos further down.
 
 ### Path scoping
 
@@ -314,6 +320,7 @@ No filesystem reads occur. Thumbnail URLs resolve to `/api/library/{id}/thumb/{p
 | `DELETE` | `/api/library/{id}` | Delete library (original files untouched) |
 | `POST` | `/api/library/{id}/reindex` | Start re-index; streams `Progress` JSON |
 | `GET` | `/api/library/{id}/browse` | Folder-level browse: subfolders + direct photos from DB |
+| `GET` | `/api/library/{id}/folder-previews` | Per subfolder: photo count, years, four newest photo IDs (whole branch) |
 | `GET` | `/api/library/{id}/photos` | Flat filtered/paginated photo list |
 | `GET` | `/api/library/{id}/exif-ranges` | Min/max for each numeric EXIF field |
 | `GET` | `/api/library/{id}/thumb/{photoID}` | Serve thumbnail by photo ID |

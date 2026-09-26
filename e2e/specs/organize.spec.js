@@ -203,9 +203,9 @@ test.describe('Show in Organize — from a library', () => {
 
     test('one folder opens Organize on that folder', async ({ page }) => {
         await openLibrary(page);
-        await page.waitForSelector('#lib-pane .folder-chip', { timeout: 20_000 });
+        await page.waitForSelector('#lib-pane .folder-tile', { timeout: 20_000 });
 
-        await page.locator('#lib-pane .folder-chip[data-name="a-subfolder"]')
+        await page.locator('#lib-pane .folder-tile[data-name="a-subfolder"]')
             .click({ modifiers: ['ControlOrMeta'] });
         await page.locator('.selection-bar [data-action="organize"]').click();
 
@@ -214,10 +214,10 @@ test.describe('Show in Organize — from a library', () => {
 
     test('two folders cannot name one source, and the button says so', async ({ page }) => {
         await openLibrary(page);
-        await page.waitForSelector('#lib-pane .folder-chip', { timeout: 20_000 });
+        await page.waitForSelector('#lib-pane .folder-tile', { timeout: 20_000 });
 
         for (const name of ['a-subfolder', 'b-subfolder']) {
-            await page.locator(`#lib-pane .folder-chip[data-name="${name}"]`)
+            await page.locator(`#lib-pane .folder-tile[data-name="${name}"]`)
                 .click({ modifiers: ['ControlOrMeta'] });
         }
 

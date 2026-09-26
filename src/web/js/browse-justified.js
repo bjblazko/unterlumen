@@ -31,14 +31,8 @@ class JustifiedRenderer {
         return imageItems.join('');
     }
 
-    // A folder is a place you go to, not a photo you look at: a row of chips
-    // above the photos rather than large empty tiles among them.
     _renderDirItem(idx, name, focusedClass) {
-        const markedClass = this._pane.isMarkedForDeletion(this._pane.fullPath(name)) ? ' marked-for-deletion' : '';
-        return `<button class="folder-chip dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
-            <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg>
-            <span class="item-name">${escapeHtml(name)}</span>
-        </button>`;
+        return this._pane._folderItemHTML(idx, name, focusedClass);
     }
 
     _renderImageItem(idx, entry, focusedClass, thumbSize, selection, showNames, entryMeta, aspectRatios, targetHeight) {
