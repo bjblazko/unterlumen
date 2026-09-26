@@ -27,6 +27,59 @@ const BATCH_RENAME_TOKENS = [
 // Token pattern for matching in input text — matches {word} and {seq:N}
 const TOKEN_REGEX = /\{(?:YYYY|MM|DD|hh|mm|ss|make|model|lens|filmsim|iso|aperture|focal|shutter|original|title|seq(?::\d+)?)\}/g;
 
+// renameSegments cuts a rename pattern into plain text and tokens, in order.
+// A token carries its category; plain text has none.
+function renameSegments(text) {
+    const catMap = {};
+    for (const t of BATCH_RENAME_TOKENS) catMap[t.token] = t.category;
+    const segments = [];
+    let lastIndex = 0;
+    let match;
+    TOKEN_REGEX.lastIndex = 0;
+    while ((match = TOKEN_REGEX.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            segments.push({ start: lastIndex, end: match.index, cat: null });
+        }
+        const tok = match[0];
+        const baseTok = tok.startsWith('{seq') ? '{seq}' : tok;
+        segments.push({ start: match.index, end: match.index + tok.length, cat: catMap[baseTok] || 'file' });
+        lastIndex = match.index + tok.length;
+    }
+    if (lastIndex < text.length) {
+        segments.push({ start: lastIndex, end: text.length, cat: null });
+    }
+    return segments;
+}
+
+// highlightedPatternHTML colours each token of a rename pattern by its
+// category and, while a token is dragged over it, marks where it would drop
+// (insertPos, or -1 for none).
+function highlightedPatternHTML(text, insertPos, esc) {
+    const CARET = '<span class="batch-rename-drop-marker"></span>';
+    const wrap = (cat, part) => cat ? `<span class="batch-rename-hl-${cat}">${esc(part)}</span>` : esc(part);
+    let html = '';
+    let caretInserted = false;
+    for (const seg of renameSegments(text)) {
+        // Caret before this segment
+        if (insertPos >= 0 && !caretInserted && insertPos <= seg.start) {
+            html += CARET;
+            caretInserted = true;
+        }
+        // Caret within this segment
+        if (insertPos >= 0 && !caretInserted && insertPos > seg.start && insertPos < seg.end) {
+            html += wrap(seg.cat, text.slice(seg.start, insertPos)) + CARET + wrap(seg.cat, text.slice(insertPos, seg.end));
+            caretInserted = true;
+            continue;
+        }
+        html += wrap(seg.cat, text.slice(seg.start, seg.end));
+    }
+    // Caret at end of text
+    if (insertPos >= 0 && !caretInserted) {
+        html += CARET;
+    }
+    return html;
+}
+
 class BatchRenameModal {
     constructor() {
         this.overlay = null;
@@ -198,75 +251,8 @@ class BatchRenameModal {
         const input = this.overlay.querySelector('.batch-rename-input');
         const highlight = this.overlay.querySelector('.batch-rename-highlight');
         if (!input || !highlight) return;
-
-        const text = input.value;
-        const insertPos = this._dragInsertPos;
-
-        // Build category lookup
-        const catMap = {};
-        for (const t of BATCH_RENAME_TOKENS) catMap[t.token] = t.category;
-
-        // Build an array of segments: { start, end, category | null }
-        const segments = [];
-        let lastIndex = 0;
-        let match;
-        TOKEN_REGEX.lastIndex = 0;
-        while ((match = TOKEN_REGEX.exec(text)) !== null) {
-            if (match.index > lastIndex) {
-                segments.push({ start: lastIndex, end: match.index, cat: null });
-            }
-            const tok = match[0];
-            const baseTok = tok.startsWith('{seq') ? '{seq}' : tok;
-            const cat = catMap[baseTok] || 'file';
-            segments.push({ start: match.index, end: match.index + tok.length, cat });
-            lastIndex = match.index + tok.length;
-        }
-        if (lastIndex < text.length) {
-            segments.push({ start: lastIndex, end: text.length, cat: null });
-        }
-
-        const CARET = '<span class="batch-rename-drop-marker"></span>';
-
-        let html = '';
-        let caretInserted = false;
-        for (const seg of segments) {
-            // Insert caret marker if it falls before this segment
-            if (insertPos >= 0 && !caretInserted && insertPos <= seg.start) {
-                html += CARET;
-                caretInserted = true;
-            }
-
-            const segText = text.slice(seg.start, seg.end);
-
-            // Check if caret falls within this segment
-            if (insertPos >= 0 && !caretInserted && insertPos > seg.start && insertPos < seg.end) {
-                const before = text.slice(seg.start, insertPos);
-                const after = text.slice(insertPos, seg.end);
-                if (seg.cat) {
-                    html += `<span class="batch-rename-hl-${seg.cat}">${this._esc(before)}</span>`;
-                    html += CARET;
-                    html += `<span class="batch-rename-hl-${seg.cat}">${this._esc(after)}</span>`;
-                } else {
-                    html += this._esc(before) + CARET + this._esc(after);
-                }
-                caretInserted = true;
-                continue;
-            }
-
-            if (seg.cat) {
-                html += `<span class="batch-rename-hl-${seg.cat}">${this._esc(segText)}</span>`;
-            } else {
-                html += this._esc(segText);
-            }
-        }
-
-        // Caret at end of text
-        if (insertPos >= 0 && !caretInserted) {
-            html += CARET;
-        }
-
         // Trailing space to keep height consistent
-        highlight.innerHTML = html + '\u00a0';
+        highlight.innerHTML = highlightedPatternHTML(input.value, this._dragInsertPos, (t) => this._esc(t)) + '\u00a0';
         this._syncScroll();
     }
 
