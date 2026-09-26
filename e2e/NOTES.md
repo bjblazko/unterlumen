@@ -1,5 +1,7 @@
 # E2E Test Notes
 
+*Last modified: 2026-09-26*
+
 Non-obvious patterns and traps discovered during test development.
 
 ## Server configuration
@@ -55,7 +57,7 @@ Since ADR-0029 there is no Tools-menu entry for export, rename or location: a sp
 
 Use `{ modifiers: ['Meta'] }` (Cmd/Meta), not `['Control']`. On macOS headless Chrome, `Ctrl+click` fires `contextmenu`, not `click`.
 
-`devices['Desktop Chrome']` sets `navigator.platform = 'Win32'` → `isMac = false` → `modKey = e.ctrlKey`. Ctrl+A in commander/browse tests must use `Control+a`, not `Meta+a`. Multi-select clicks still work with `{ modifiers: ['Meta'] }` since the click handler checks `e.ctrlKey || e.metaKey`.
+The app picks Cmd or Ctrl from `navigator.platform`, and headless Chrome reports the host's: `MacIntel` on a Mac (Cmd), `Win32`/`Linux` elsewhere (Ctrl). Press shortcuts as `ControlOrMeta+a`, which Playwright maps to the host the same way; a hard-coded `Control+a` does nothing on a Mac. Multi-select clicks still work with `{ modifiers: ['Meta'] }` since the click handler checks `e.ctrlKey || e.metaKey`.
 
 `page.keyboard.press('Control+a')` only fires if a non-button element had focus. Always click a relevant item (e.g. an image) before pressing Ctrl+A, otherwise the keydown event may not reach the app handler.
 
