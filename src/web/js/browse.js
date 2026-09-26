@@ -46,62 +46,72 @@ class BrowsePane {
         this._attachDelegatedEvents();
     }
 
+    // _clearAllSelection deselects every photo and folder, if any is selected.
+    _clearAllSelection() {
+        if (this.selection.selected.size === 0 && this.selectedDirs.size === 0) return;
+        this.selection.clear();
+        this.selection.updateClasses(this.container);
+        this.selectedDirs.clear();
+        this._updateDirSelectionClasses();
+        if (this.onSelectionChange) this.onSelectionChange([]);
+    }
+
+    _onDirClick(e, item, idx) {
+        this.keyboard.focusedIndex = idx;
+        this.keyboard.updateFocusClass();
+        const fp = this.fullPath(item.dataset.name);
+        // A folder chip is a button: one click goes there. Holding the
+        // modifier selects it instead, which is also how you read a
+        // folder's info without leaving where you are. Folder tiles in
+        // the list view keep the old select-then-open behaviour.
+        if ((item.classList.contains('folder-chip') || item.classList.contains('folder-tile')) && !(e.ctrlKey || e.metaKey)) {
+            this.load(fp);
+            if (this.onNavigate) this.onNavigate(fp);
+            return;
+        }
+        this._notifyFocusChange();
+        if (e.ctrlKey || e.metaKey) {
+            if (this.selectedDirs.has(fp)) this.selectedDirs.delete(fp);
+            else this.selectedDirs.add(fp);
+        } else {
+            this.selectedDirs.clear();
+            this.selectedDirs.add(fp);
+        }
+        // Dir and photo selection are mutually exclusive
+        this.selection.clear();
+        this.selection.updateClasses(this.container);
+        this._updateDirSelectionClasses();
+        if (this.onSelectionChange) this.onSelectionChange([]);
+    }
+
+    _onImageClick(e, item, idx) {
+        const fp = item.dataset.path;
+        this.keyboard.focusedIndex = idx;
+        this.keyboard.updateFocusClass();
+        this._notifyFocusChange();
+        // Clear dir selection when switching to photo selection
+        if (this.selectedDirs.size > 0) {
+            this.selectedDirs.clear();
+            this._updateDirSelectionClasses();
+        }
+        this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
+        this.selection.updateClasses(this.container);
+    }
+
     _attachDelegatedEvents() {
         this.container.addEventListener('click', (e) => {
             // Background click on the grid/list/justified container deselects all
             if (e.target.classList.contains('grid') ||
                 e.target.classList.contains('justified') ||
                 e.target.classList.contains('list-view')) {
-                if (this.selection.selected.size === 0 && this.selectedDirs.size === 0) return;
-                this.selection.clear();
-                this.selection.updateClasses(this.container);
-                this.selectedDirs.clear();
-                this._updateDirSelectionClasses();
-                if (this.onSelectionChange) this.onSelectionChange([]);
+                this._clearAllSelection();
                 return;
             }
             const item = e.target.closest('[data-index]');
             if (!item) return;
             const idx = parseInt(item.dataset.index);
-            if (item.dataset.type === 'dir') {
-                this.keyboard.focusedIndex = idx;
-                this.keyboard.updateFocusClass();
-                const fp = this.fullPath(item.dataset.name);
-                // A folder chip is a button: one click goes there. Holding the
-                // modifier selects it instead, which is also how you read a
-                // folder's info without leaving where you are. Folder tiles in
-                // the list view keep the old select-then-open behaviour.
-                if ((item.classList.contains('folder-chip') || item.classList.contains('folder-tile')) && !(e.ctrlKey || e.metaKey)) {
-                    this.load(fp);
-                    if (this.onNavigate) this.onNavigate(fp);
-                    return;
-                }
-                this._notifyFocusChange();
-                if (e.ctrlKey || e.metaKey) {
-                    if (this.selectedDirs.has(fp)) this.selectedDirs.delete(fp);
-                    else this.selectedDirs.add(fp);
-                } else {
-                    this.selectedDirs.clear();
-                    this.selectedDirs.add(fp);
-                }
-                // Dir and photo selection are mutually exclusive
-                this.selection.clear();
-                this.selection.updateClasses(this.container);
-                this._updateDirSelectionClasses();
-                if (this.onSelectionChange) this.onSelectionChange([]);
-            } else if (item.dataset.type === 'image') {
-                const fp = item.dataset.path;
-                this.keyboard.focusedIndex = idx;
-                this.keyboard.updateFocusClass();
-                this._notifyFocusChange();
-                // Clear dir selection when switching to photo selection
-                if (this.selectedDirs.size > 0) {
-                    this.selectedDirs.clear();
-                    this._updateDirSelectionClasses();
-                }
-                this.selection.handleImageClick(e, idx, fp, this.entries, n => this.fullPath(n));
-                this.selection.updateClasses(this.container);
-            }
+            if (item.dataset.type === 'dir') this._onDirClick(e, item, idx);
+            else if (item.dataset.type === 'image') this._onImageClick(e, item, idx);
         });
 
         this.container.addEventListener('dblclick', (e) => {
