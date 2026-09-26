@@ -13,6 +13,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 var rebuildTime = time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
@@ -37,7 +38,7 @@ func publishedPhoto(t *testing.T, mgr *lib.Manager, photoID string, pub media.Pu
 	return libID
 }
 
-func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *SiteStore, *channels.Channel) {
+func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *site.SiteStore, *channels.Channel) {
 	t.Helper()
 	mgr, err := lib.NewManager(t.TempDir())
 	if err != nil {
@@ -49,7 +50,7 @@ func rebuildFixture(t *testing.T) (*lib.Manager, *channels.Store, *SiteStore, *c
 	if err := chStore.Save(ch); err != nil {
 		t.Fatal(err)
 	}
-	return mgr, chStore, NewSiteStore(chStore, "website"), ch
+	return mgr, chStore, site.NewSiteStore(chStore, "website"), ch
 }
 
 func TestRebuildAlbumRegister_RecreatesAlbumFromSidecars(t *testing.T) {
@@ -238,7 +239,7 @@ func TestDeleteGallery_ClearsSidecarsAndLeavesATombstone(t *testing.T) {
 		t.Fatal(err)
 	}
 	album := testAlbum("p1", "Iceland")
-	album.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
+	album.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
 	if err := sites.Upsert(album); err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +273,7 @@ func TestRemovePhotoFromSite_ClearsItsSidecarEntry(t *testing.T) {
 	defer store.Close()
 	hint, _ := store.GetPhotoPathHint("photoA")
 	album := testAlbum("p1", "Iceland")
-	album.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
+	album.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
 	if err := sites.Upsert(album); err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +342,7 @@ func TestRebuildAlbumRegister_WritesMembershipOfRegisteredAlbumsIntoSidecars(t *
 	registered := testAlbum("p1", "Photos 2019")
 	registered.Slug, registered.Unlisted = "photos-2019", false
 	registered.PublishedAt = time.Date(2019, 12, 31, 12, 0, 0, 0, time.UTC)
-	registered.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
+	registered.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg", ThumbFilename: "thumbs/a.jpg"}}
 	if err := sites.Upsert(registered); err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +384,7 @@ func TestRebuildAlbumRegister_CountsMembersItCannotReach(t *testing.T) {
 	}
 	registered := testAlbum("p1", "Photos 2019")
 	registered.Slug = "photos-2019"
-	registered.Photos = []SitePhoto{
+	registered.Photos = []site.SitePhoto{
 		{PhotoID: "gone", Filename: "a.jpg"},    // file no longer there
 		{PhotoID: "unknown", Filename: "b.jpg"}, // not in any library here
 		{Filename: "c.jpg"},                     // legacy entry without a photo ID
@@ -416,7 +417,7 @@ func TestRemovePhotoFromSite_ReportsAFailedIndexWrite(t *testing.T) {
 	}
 	defer store.Close()
 	album := testAlbum("p1", "Iceland")
-	album.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "photoB", Filename: "b.jpg"}}
+	album.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "photoB", Filename: "b.jpg"}}
 	if err := sites.Upsert(album); err != nil {
 		t.Fatal(err)
 	}

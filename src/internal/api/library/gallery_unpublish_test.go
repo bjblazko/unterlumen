@@ -11,6 +11,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // galleryFixture: a share-links destination with one published gallery "g1"
@@ -57,9 +58,9 @@ func galleryFixture(t *testing.T) (mgr *lib.Manager, chStore *channels.Store, li
 	if err := os.MkdirAll(g1, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	gs := &GalleryState{PostID: "g1", Title: "First", PublishedAt: at, PhotoCount: 2,
-		Photos: []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "not-in-any-library", Filename: "b.jpg"}}}
-	if err := SaveGalleryState(filepath.Join(g1, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "g1", Title: "First", PublishedAt: at, PhotoCount: 2,
+		Photos: []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}, {PhotoID: "not-in-any-library", Filename: "b.jpg"}}}
+	if err := site.SaveGalleryState(filepath.Join(g1, "gallery.json"), gs); err != nil {
 		t.Fatal(err)
 	}
 	return mgr, chStore, libID, hint
@@ -143,7 +144,7 @@ func TestDeleteSiteAlbum_AlsoClearsTheLibrarysKeys(t *testing.T) {
 	store.UpsertMeta("photoA", "built:website:p1", "2026-02-01T12:00:00Z")
 	store.Close()
 	album := testAlbum("p1", "Iceland")
-	album.Photos = []SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}}
+	album.Photos = []site.SitePhoto{{PhotoID: "photoA", Filename: "a.jpg"}}
 	if err := sites.Upsert(album); err != nil {
 		t.Fatal(err)
 	}

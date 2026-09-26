@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // MarkDeployed records that a channel's generated galleries were uploaded at
@@ -23,7 +24,7 @@ import (
 // saying "built, not uploaded" until the next publish.
 func MarkDeployed(chStore *channels.Store, slug string, siteExport bool, at time.Time) {
 	if siteExport {
-		store := NewSiteStore(chStore, slug)
+		store := site.NewSiteStore(chStore, slug)
 		albums, err := store.List()
 		if err != nil {
 			return
@@ -45,11 +46,11 @@ func MarkDeployed(chStore *channels.Store, slug string, siteExport bool, at time
 			continue
 		}
 		statePath := filepath.Join(channelDir, e.Name(), "gallery.json")
-		gs, gsErr := LoadGalleryState(statePath)
+		gs, gsErr := site.LoadGalleryState(statePath)
 		if gsErr != nil || gs == nil {
 			continue
 		}
 		gs.DeployedAt = at
-		SaveGalleryState(statePath, gs) //nolint:errcheck
+		site.SaveGalleryState(statePath, gs) //nolint:errcheck
 	}
 }

@@ -17,6 +17,7 @@ import (
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // PublishedGallery is one published album/gallery merged across every
@@ -342,7 +343,7 @@ func probeReachability(parent context.Context, client *http.Client, t reachabili
 // renameGallery changes the title of one already-published album/gallery and
 // regenerates its HTML (and, for site-export, the site index/sitemap, since
 // those also list every album's title). Only the title can be changed —
-// Unlisted is immutable after creation by design (see SiteAlbum.Unlisted):
+// Unlisted is immutable after creation by design (see site.SiteAlbum.Unlisted):
 // changing it would change the slug/URL and break any link already shared.
 func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -382,7 +383,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 
 		switch {
 		case ch.SiteExport:
-			sites := NewSiteStore(chStore, slug)
+			sites := site.NewSiteStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -410,7 +411,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				return
 			}
 			statePath := filepath.Join(outDir, "gallery.json")
-			gs, err := LoadGalleryState(statePath)
+			gs, err := site.LoadGalleryState(statePath)
 			if err != nil || gs == nil {
 				http.Error(w, "gallery not found", http.StatusNotFound)
 				return
@@ -419,7 +420,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			if body.Unlisted != nil {
 				gs.Unlisted = *body.Unlisted
 			}
-			if err := SaveGalleryState(statePath, gs); err != nil {
+			if err := site.SaveGalleryState(statePath, gs); err != nil {
 				http.Error(w, "save gallery state: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -437,7 +438,7 @@ func renameGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 }
 
 // indexOfAlbum returns the index of the album with the given postID, or -1.
-func indexOfAlbum(albums []SiteAlbum, postID string) int {
+func indexOfAlbum(albums []site.SiteAlbum, postID string) int {
 	for i := range albums {
 		if albums[i].PostID == postID {
 			return i
@@ -480,7 +481,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 		switch {
 		case ch.SiteExport:
 			siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-			sites := NewSiteStore(chStore, slug)
+			sites := site.NewSiteStore(chStore, slug)
 			albums, err := sites.List()
 			if err != nil {
 				http.Error(w, "read site state: "+err.Error(), http.StatusInternalServerError)
@@ -491,7 +492,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 				http.Error(w, "gallery not found", http.StatusNotFound)
 				return
 			}
-			folder := AlbumFolderName(albums[idx])
+			folder := site.AlbumFolderName(albums[idx])
 			safeDir, ok := pathguard.SafePath(siteDir, filepath.Join("albums", folder))
 			if !ok {
 				http.Error(w, "invalid gallery path", http.StatusBadRequest)
@@ -524,7 +525,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 			localDir = safeDir
 			remoteSubpath = postID
 			// Take the gallery out of its photos before its state goes.
-			if gs, _ := LoadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
+			if gs, _ := site.LoadGalleryState(filepath.Join(safeDir, "gallery.json")); gs != nil {
 				sidecarsNotCleared = forgetAlbumInPhotos(mgr, slug, postID, gs.Photos)
 			}
 			os.RemoveAll(localDir) //nolint:errcheck
@@ -561,7 +562,7 @@ func deleteGallery(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 // channel marker goes with the photo's last album of that destination. It
 // returns how many photos it could not reach from this installation — not in a
 // library here, not mounted, or an entry without a photo ID.
-func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []SitePhoto) (notCleared int) {
+func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []site.SitePhoto) (notCleared int) {
 	pending := map[string]bool{}
 	for _, sp := range photos {
 		if sp.PhotoID == "" {

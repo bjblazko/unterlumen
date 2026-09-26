@@ -17,6 +17,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 func newTestManager(t *testing.T) *lib.Manager {
@@ -165,14 +166,14 @@ func TestRebuildGalleriesRegeneratesFromStateWithoutDuplicating(t *testing.T) {
 	}
 	writeTestJPEG(t, filepath.Join(outDir, "photo1.jpg"), 120, 80)
 
-	gs := &GalleryState{
+	gs := &site.GalleryState{
 		PostID:      "post123",
 		Title:       "Old Title Before Rebuild",
 		PublishedAt: time.Now(),
 		PhotoCount:  1,
-		Photos:      []SitePhoto{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
+		Photos:      []site.SitePhoto{{Filename: "photo1.jpg", ThumbFilename: "photo1.jpg"}},
 	}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 	// A stale index.html from an old template version, to confirm it gets overwritten.
@@ -255,10 +256,10 @@ func TestListGalleriesPerChannelBehaviorPreserved(t *testing.T) {
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
 		t.Fatalf("mkdir site dir: %v", err)
 	}
-	albums := []SiteAlbum{
+	albums := []site.SiteAlbum{
 		{PostID: "aaa", Slug: "album-one", Title: "Album One", PublishedAt: time.Now(), PhotoCount: 2, Unlisted: true},
 	}
-	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -732,7 +733,7 @@ func TestGenerateDraft_MultiLibraryDraft_MergesAllPhotos(t *testing.T) {
 		t.Fatalf("no complete event with galleryPath, body=%s", rec.Body.String())
 	}
 
-	gs, err := LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	gs, err := site.LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
 	if err != nil || gs == nil {
 		t.Fatalf("loadGalleryState: %v", err)
 	}
@@ -817,7 +818,7 @@ func TestGenerateDraft_SentinelRegeneratesWithoutDraft(t *testing.T) {
 	// identity — that's unchanged from the pre-refactor buildPhotos behavior.
 	// What must be reused is the *album*, keyed by gallery.json's own PostID.
 	galleryPath, _ := complete["galleryPath"].(string)
-	gs, err := LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
+	gs, err := site.LoadGalleryState(filepath.Join(galleryPath, "gallery.json"))
 	if err != nil || gs == nil {
 		t.Fatalf("loadGalleryState after sentinel regenerate: %v", err)
 	}
@@ -1009,7 +1010,7 @@ func TestGenerateDraft_SiteAlbum_RecordsSlugAndUnlistedInSidecar(t *testing.T) {
 	if err != nil || len(pubs) != 1 {
 		t.Fatalf("ReadSidecar: %+v, %v", pubs, err)
 	}
-	albums, _ := NewSiteStore(chStore, "website").List()
+	albums, _ := site.NewSiteStore(chStore, "website").List()
 	if len(albums) != 1 {
 		t.Fatalf("register holds %d albums", len(albums))
 	}

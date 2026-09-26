@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"huepattl.de/unterlumen/internal/channels"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 func TestListAllGalleriesGeneratedOnlyHasGeneratedStatus(t *testing.T) {
@@ -28,8 +29,8 @@ func TestListAllGalleriesGeneratedOnlyHasGeneratedStatus(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	gs := &GalleryState{PostID: "post1", Title: "Generated Gallery", PublishedAt: time.Now(), PhotoCount: 4}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "post1", Title: "Generated Gallery", PublishedAt: time.Now(), PhotoCount: 4}
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -199,8 +200,8 @@ func TestListAllGalleriesGeneratedPlusDraftOnSamePostIDMergesIntoOneRow(t *testi
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	gs := &GalleryState{PostID: "post1", Title: "Existing Gallery", PublishedAt: time.Now(), PhotoCount: 4}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "post1", Title: "Existing Gallery", PublishedAt: time.Now(), PhotoCount: 4}
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 	draft, err := draftStore.Create("gal-ch", channels.DraftTarget{PostID: "post1"}, []channels.DraftPhoto{
@@ -253,11 +254,11 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
 		t.Fatalf("mkdir site dir: %v", err)
 	}
-	albums := []SiteAlbum{
+	albums := []site.SiteAlbum{
 		{PostID: "aaa", Slug: "album-one", Title: "Album One", PublishedAt: time.Now().Add(-time.Hour), PhotoCount: 3},
 		{PostID: "bbb", Slug: "album-two", Title: "Album Two", PublishedAt: time.Now(), PhotoCount: 5, Unlisted: true},
 	}
-	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -270,8 +271,8 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 	if err := os.MkdirAll(galAlbumDir, 0o755); err != nil {
 		t.Fatalf("mkdir gallery album dir: %v", err)
 	}
-	gs := &GalleryState{PostID: "ccc", Title: "Solo Gallery", PublishedAt: time.Now().Add(-2 * time.Hour), PhotoCount: 1}
-	if err := SaveGalleryState(filepath.Join(galAlbumDir, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "ccc", Title: "Solo Gallery", PublishedAt: time.Now().Add(-2 * time.Hour), PhotoCount: 1}
+	if err := site.SaveGalleryState(filepath.Join(galAlbumDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -369,8 +370,8 @@ func TestListAllGalleriesToleratesOneBrokenChannel(t *testing.T) {
 	if err := os.MkdirAll(goodSiteDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	albums := []SiteAlbum{{PostID: "ok1", Slug: "ok-album", Title: "OK Album", PublishedAt: time.Now(), PhotoCount: 1}}
-	if err := SaveSiteState(filepath.Join(goodSiteDir, "site.json"), albums); err != nil {
+	albums := []site.SiteAlbum{{PostID: "ok1", Slug: "ok-album", Title: "OK Album", PublishedAt: time.Now(), PhotoCount: 1}}
+	if err := site.SaveSiteState(filepath.Join(goodSiteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -514,8 +515,8 @@ func TestRenameGalleryGalleryExport(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	gs := &GalleryState{PostID: "post123", Title: "Old Title", PublishedAt: time.Now(), PhotoCount: 0}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "post123", Title: "Old Title", PublishedAt: time.Now(), PhotoCount: 0}
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -528,7 +529,7 @@ func TestRenameGalleryGalleryExport(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
 	}
-	got, err := LoadGalleryState(filepath.Join(outDir, "gallery.json"))
+	got, err := site.LoadGalleryState(filepath.Join(outDir, "gallery.json"))
 	if err != nil || got == nil {
 		t.Fatalf("loadGalleryState: %v", err)
 	}
@@ -553,11 +554,11 @@ func TestRenameGallerySiteExport(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	writeTestJPEG(t, filepath.Join(albumDir, "p1.jpg"), 10, 10)
-	albums := []SiteAlbum{{
+	albums := []site.SiteAlbum{{
 		PostID: "abc", Slug: "old-slug", Title: "Old Album Title", PublishedAt: time.Now(), PhotoCount: 1,
-		Photos: []SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}},
+		Photos: []site.SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}},
 	}}
-	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -570,7 +571,7 @@ func TestRenameGallerySiteExport(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
 	}
-	got, err := LoadSiteState(filepath.Join(siteDir, "site.json"))
+	got, err := site.LoadSiteState(filepath.Join(siteDir, "site.json"))
 	if err != nil || len(got) != 1 || got[0].Title != "New Album Title" {
 		t.Fatalf("site state not updated: %+v, err=%v", got, err)
 	}
@@ -620,7 +621,7 @@ func TestRenameGalleryRejectsEmptyTitle(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), &GalleryState{PostID: "post123", Title: "Keep Me"}); err != nil {
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), &site.GalleryState{PostID: "post123", Title: "Keep Me"}); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -633,7 +634,7 @@ func TestRenameGalleryRejectsEmptyTitle(t *testing.T) {
 	if rec.Code != 400 {
 		t.Errorf("status = %d, want 400 for blank title", rec.Code)
 	}
-	got, _ := LoadGalleryState(filepath.Join(outDir, "gallery.json"))
+	got, _ := site.LoadGalleryState(filepath.Join(outDir, "gallery.json"))
 	if got == nil || got.Title != "Keep Me" {
 		t.Errorf("title was changed despite rejected request: %+v", got)
 	}
@@ -649,7 +650,7 @@ func TestDeleteGalleryGalleryExportRemovesLocalFolder(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), &GalleryState{PostID: "post123", Title: "Bye"}); err != nil {
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), &site.GalleryState{PostID: "post123", Title: "Bye"}); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -682,13 +683,13 @@ func TestDeleteGallerySiteExportRemovesAlbumAndRegeneratesIndex(t *testing.T) {
 		}
 		writeTestJPEG(t, filepath.Join(d, "p1.jpg"), 10, 10)
 	}
-	albums := []SiteAlbum{
+	albums := []site.SiteAlbum{
 		{PostID: "keep", Slug: "keep-me", Title: "Keep Album", PublishedAt: time.Now(), PhotoCount: 1,
-			Photos: []SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}}},
+			Photos: []site.SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}}},
 		{PostID: "gone", Slug: "delete-me", Title: "Delete Album", PublishedAt: time.Now(), PhotoCount: 1,
-			Photos: []SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}}},
+			Photos: []site.SitePhoto{{Filename: "p1.jpg", ThumbFilename: "p1.jpg"}}},
 	}
-	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
+	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), albums); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 
@@ -707,7 +708,7 @@ func TestDeleteGallerySiteExportRemovesAlbumAndRegeneratesIndex(t *testing.T) {
 	if _, err := os.Stat(keepDir); err != nil {
 		t.Errorf("unrelated album's folder was removed: err=%v", err)
 	}
-	remaining, err := LoadSiteState(filepath.Join(siteDir, "site.json"))
+	remaining, err := site.LoadSiteState(filepath.Join(siteDir, "site.json"))
 	if err != nil || len(remaining) != 1 || remaining[0].PostID != "keep" {
 		t.Fatalf("site state after delete = %+v, err=%v", remaining, err)
 	}
@@ -754,7 +755,7 @@ func TestDeleteGalleryRemoteOptInOnNonRsyncChannelReportsError(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), &GalleryState{PostID: "post123", Title: "Bye"}); err != nil {
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), &site.GalleryState{PostID: "post123", Title: "Bye"}); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -853,8 +854,8 @@ func TestListAllGalleriesSecondDraftOnSamePostIDGetsItsOwnRow(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o700); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	gs := &GalleryState{PostID: "abc123", Title: "Uli", PublishedAt: time.Now().UTC(), PhotoCount: 1}
-	if err := SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
+	gs := &site.GalleryState{PostID: "abc123", Title: "Uli", PublishedAt: time.Now().UTC(), PhotoCount: 1}
+	if err := site.SaveGalleryState(filepath.Join(outDir, "gallery.json"), gs); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 	for i := 0; i < 2; i++ {
@@ -902,7 +903,7 @@ func TestRenameGalleryTogglesUnlistedForGalleryExportOnly(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	statePath := filepath.Join(outDir, "gallery.json")
-	if err := SaveGalleryState(statePath, &GalleryState{PostID: "abc123", Title: "Uli"}); err != nil {
+	if err := site.SaveGalleryState(statePath, &site.GalleryState{PostID: "abc123", Title: "Uli"}); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
@@ -914,7 +915,7 @@ func TestRenameGalleryTogglesUnlistedForGalleryExportOnly(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
-	gs, err := LoadGalleryState(statePath)
+	gs, err := site.LoadGalleryState(statePath)
 	if err != nil || gs == nil || !gs.Unlisted {
 		t.Fatalf("Unlisted was not persisted: %+v (err %v)", gs, err)
 	}
@@ -951,8 +952,8 @@ func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("MkdirAll: %v", err)
 		}
-		gs := &GalleryState{PostID: id, Title: id, GeneratedAt: time.Now().Add(-time.Hour).UTC()}
-		if err := SaveGalleryState(filepath.Join(dir, "gallery.json"), gs); err != nil {
+		gs := &site.GalleryState{PostID: id, Title: id, GeneratedAt: time.Now().Add(-time.Hour).UTC()}
+		if err := site.SaveGalleryState(filepath.Join(dir, "gallery.json"), gs); err != nil {
 			t.Fatalf("saveGalleryState: %v", err)
 		}
 	}
@@ -961,7 +962,7 @@ func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
 	MarkDeployed(chStore, "gal", false, at)
 
 	for _, id := range []string{"aaa111", "bbb222"} {
-		gs, err := LoadGalleryState(filepath.Join(channelDir, id, "gallery.json"))
+		gs, err := site.LoadGalleryState(filepath.Join(channelDir, id, "gallery.json"))
 		if err != nil || gs == nil {
 			t.Fatalf("loadGalleryState(%s): %v", id, err)
 		}
@@ -980,31 +981,31 @@ func TestMarkDeployed_StampsEveryGalleryOfTheChannel(t *testing.T) {
 func TestMarkDeployed_SiteChannelLeavesGalleryFoldersAlone(t *testing.T) {
 	chStore := channels.NewStore(t.TempDir(), t.TempDir())
 	channelDir := chStore.OutputDir("web")
-	siteDir := SiteDir(channelDir)
+	siteDir := site.SiteDir(channelDir)
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := SaveSiteState(filepath.Join(siteDir, "site.json"), []SiteAlbum{{PostID: "album1", Title: "Album"}}); err != nil {
+	if err := site.SaveSiteState(filepath.Join(siteDir, "site.json"), []site.SiteAlbum{{PostID: "album1", Title: "Album"}}); err != nil {
 		t.Fatalf("saveSiteState: %v", err)
 	}
 	galDir := filepath.Join(channelDir, "ccc333")
 	if err := os.MkdirAll(galDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	if err := SaveGalleryState(filepath.Join(galDir, "gallery.json"), &GalleryState{PostID: "ccc333"}); err != nil {
+	if err := site.SaveGalleryState(filepath.Join(galDir, "gallery.json"), &site.GalleryState{PostID: "ccc333"}); err != nil {
 		t.Fatalf("saveGalleryState: %v", err)
 	}
 
 	MarkDeployed(chStore, "web", true, time.Now().UTC())
 
-	albums, err := NewSiteStore(chStore, "web").List()
+	albums, err := site.NewSiteStore(chStore, "web").List()
 	if err != nil || len(albums) != 1 {
 		t.Fatalf("List: %v (%d albums)", err, len(albums))
 	}
 	if albums[0].DeployedAt.IsZero() {
 		t.Error("the site album was not stamped as deployed")
 	}
-	gs, err := LoadGalleryState(filepath.Join(galDir, "gallery.json"))
+	gs, err := site.LoadGalleryState(filepath.Join(galDir, "gallery.json"))
 	if err != nil || gs == nil {
 		t.Fatalf("loadGalleryState: %v", err)
 	}

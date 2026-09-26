@@ -20,6 +20,7 @@ import (
 	"huepattl.de/unterlumen/internal/deploy"
 	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$|^[a-z0-9]$`)
@@ -332,7 +333,7 @@ func testDeployConnection(store *channels.Store) http.HandlerFunc {
 // deployChannel pushes a channel's generated static site to its configured
 // rsync target. Cross-repo note: the webservers infra repo's deploy script
 // already assumes the local rsync source path ends in ".../site/" — keep
-// this deploying apilibrary.SiteDir(...), not the channel's raw output dir,
+// this deploying site.SiteDir(...), not the channel's raw output dir,
 // to stay aligned with that assumption.
 func deployChannel(store *channels.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -351,7 +352,7 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 			// The channel's output dir may also contain unrelated non-site
 			// gallery folders from single-gallery builds; only the site/
 			// subdirectory is the servable, deployable site.
-			localDir = apilibrary.SiteDir(localDir)
+			localDir = site.SiteDir(localDir)
 		}
 		output, deployErr := deploy.Deploy(target, localDir)
 		deployedAt := time.Now().UTC()

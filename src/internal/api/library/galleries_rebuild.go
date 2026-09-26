@@ -13,6 +13,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // galleryListItem is the JSON shape returned by GET /api/channels/{slug}/galleries.
@@ -31,7 +32,7 @@ type galleryListItem struct {
 	// random token. Empty for GalleryExport (non-site) channels, which have
 	// no per-album folder distinct from PostID.
 	FolderName string `json:"folderName,omitempty"`
-	// Unlisted mirrors SiteAlbum.Unlisted / GalleryState.Unlisted — true if
+	// Unlisted mirrors site.SiteAlbum.Unlisted / site.GalleryState.Unlisted — true if
 	// this album carries a noindex tag and is only reachable via direct link
 	// (site channels additionally exclude it from their index and sitemap).
 	Unlisted bool `json:"unlisted,omitempty"`
@@ -47,7 +48,7 @@ func collectGalleryItems(ch *channels.Channel, chStore *channels.Store) ([]galle
 
 	switch {
 	case ch.SiteExport:
-		albums, err := NewSiteStore(chStore, ch.Slug).List()
+		albums, err := site.NewSiteStore(chStore, ch.Slug).List()
 		if err != nil {
 			return nil, fmt.Errorf("read site state: %w", err)
 		}
@@ -60,7 +61,7 @@ func collectGalleryItems(ch *channels.Channel, chStore *channels.Store) ([]galle
 				PhotoCount:  a.PhotoCount,
 				GeneratedAt: a.GeneratedAt,
 				DeployedAt:  a.DeployedAt,
-				FolderName:  AlbumFolderName(a),
+				FolderName:  site.AlbumFolderName(a),
 				Unlisted:    a.Unlisted,
 			})
 		}
@@ -77,7 +78,7 @@ func collectGalleryItems(ch *channels.Channel, chStore *channels.Store) ([]galle
 			if !e.IsDir() {
 				continue
 			}
-			gs, gsErr := LoadGalleryState(filepath.Join(channelDir, e.Name(), "gallery.json"))
+			gs, gsErr := site.LoadGalleryState(filepath.Join(channelDir, e.Name(), "gallery.json"))
 			if gsErr != nil || gs == nil {
 				continue
 			}
@@ -167,12 +168,12 @@ func rebuildSite(chStore *channels.Store, mgr *lib.Manager) http.HandlerFunc {
 // same full regeneration after editing site.json directly.
 func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.Channel) (siteDir string, albumCount int, err error) {
 	siteDir = filepath.Join(chStore.OutputDir(ch.Slug), "site")
-	sites := NewSiteStore(chStore, ch.Slug)
+	sites := site.NewSiteStore(chStore, ch.Slug)
 	albums, err := sites.List()
 	if err != nil {
 		return "", 0, fmt.Errorf("read site state: %w", err)
 	}
-	if err := WriteSiteAssets(filepath.Join(siteDir, "assets")); err != nil {
+	if err := site.WriteSiteAssets(filepath.Join(siteDir, "assets")); err != nil {
 		return "", 0, fmt.Errorf("write site assets: %w", err)
 	}
 
@@ -181,7 +182,7 @@ func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.
 	pruneSitePhotos(albums, modified, siteDir, ch.Slug, mgr)
 	remaining := saveSitePruning(albums, modified, sites, siteDir)
 
-	albumNav := BuildSiteNavContext(ch, siteDir, false)
+	albumNav := site.BuildSiteNavContext(ch, siteDir, false)
 	for i := range remaining {
 		regenerateSiteAlbum(&remaining[i], siteDir, ch, mgr, albumNav)
 	}
@@ -193,13 +194,13 @@ func rebuildSiteChannel(chStore *channels.Store, mgr *lib.Manager, ch *channels.
 
 // assignMissingSlugs gives albums without a slug one (migration for pre-slug
 // albums).
-func assignMissingSlugs(albums []SiteAlbum) {
+func assignMissingSlugs(albums []site.SiteAlbum) {
 	for i := range albums {
 		if albums[i].Slug == "" {
-			others := make([]SiteAlbum, 0, len(albums)-1)
+			others := make([]site.SiteAlbum, 0, len(albums)-1)
 			others = append(others, albums[:i]...)
 			others = append(others, albums[i+1:]...)
-			albums[i].Slug = ComputeSlug(albums[i].Title, albums[i].PublishedAt, others, albums[i].Unlisted)
+			albums[i].Slug = site.ComputeSlug(albums[i].Title, albums[i].PublishedAt, others, albums[i].Unlisted)
 		}
 	}
 }
@@ -207,10 +208,10 @@ func assignMissingSlugs(albums []SiteAlbum) {
 // dedupeSitePhotos repairs repeats left by older runs (a photo added to an
 // album it was already in was listed twice). It returns the indexes of the
 // albums it changed.
-func dedupeSitePhotos(albums []SiteAlbum) map[int]bool {
+func dedupeSitePhotos(albums []site.SiteAlbum) map[int]bool {
 	modified := make(map[int]bool)
 	for i := range albums {
-		if unique := DedupePhotos(albums[i].Photos); len(unique) != len(albums[i].Photos) {
+		if unique := site.DedupePhotos(albums[i].Photos); len(unique) != len(albums[i].Photos) {
 			albums[i].Photos, albums[i].PhotoCount = unique, len(unique)
 			modified[i] = true
 		}
@@ -224,7 +225,7 @@ func dedupeSitePhotos(albums []SiteAlbum) map[int]bool {
 // their exported file is missing, so we only remove them on a metadata failure.
 // Legacy entries without a PhotoID cannot be re-exported; they are also pruned
 // when their exported file is absent from disk.
-func pruneSitePhotos(albums []SiteAlbum, modified map[int]bool, siteDir, channelSlug string, mgr *lib.Manager) {
+func pruneSitePhotos(albums []site.SiteAlbum, modified map[int]bool, siteDir, channelSlug string, mgr *lib.Manager) {
 	// A reverse index (base name → photoID) from all library stores, built
 	// once, so we avoid scanning every library for every photo in the album.
 	baseToPhotoID := buildBasePhotoIndex(mgr)
@@ -242,8 +243,8 @@ func pruneSitePhotos(albums []SiteAlbum, modified map[int]bool, siteDir, channel
 
 // keptSitePhotos returns the album's photos that survive pruning and whether
 // any did not.
-func keptSitePhotos(album SiteAlbum, siteDir, channelSlug string, mgr *lib.Manager, baseToPhotoID map[string]string) (kept []SitePhoto, pruned bool) {
-	albumDir := filepath.Join(siteDir, "albums", AlbumFolderName(album))
+func keptSitePhotos(album site.SiteAlbum, siteDir, channelSlug string, mgr *lib.Manager, baseToPhotoID map[string]string) (kept []site.SitePhoto, pruned bool) {
+	albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(album))
 	_, albumDirErr := os.Stat(albumDir)
 	albumDirPresent := albumDirErr == nil
 	for _, sp := range album.Photos {
@@ -272,15 +273,15 @@ func keptSitePhotos(album SiteAlbum, siteDir, channelSlug string, mgr *lib.Manag
 // saveSitePruning writes only what pruning changed: albums that lost photos
 // are upserted, albums that became empty are removed. Untouched albums stay as
 // they are in the shared register. It returns the albums that remain.
-func saveSitePruning(albums []SiteAlbum, modified map[int]bool, sites *SiteStore, siteDir string) []SiteAlbum {
-	var remaining []SiteAlbum
+func saveSitePruning(albums []site.SiteAlbum, modified map[int]bool, sites *site.SiteStore, siteDir string) []site.SiteAlbum {
+	var remaining []site.SiteAlbum
 	for i, album := range albums {
 		switch {
 		case !modified[i]:
 			remaining = append(remaining, album)
 		case album.PhotoCount == 0:
-			os.RemoveAll(filepath.Join(siteDir, "albums", AlbumFolderName(album))) //nolint:errcheck
-			sites.Remove(album.PostID)                                             //nolint:errcheck
+			os.RemoveAll(filepath.Join(siteDir, "albums", site.AlbumFolderName(album))) //nolint:errcheck
+			sites.Remove(album.PostID)                                                  //nolint:errcheck
 		default:
 			remaining = append(remaining, album)
 			sites.Upsert(album) //nolint:errcheck
@@ -291,14 +292,14 @@ func saveSitePruning(albums []SiteAlbum, modified map[int]bool, sites *SiteStore
 
 // regenerateSiteAlbum regenerates one album page and rebuilds its ZIP if one
 // exists.
-func regenerateSiteAlbum(album *SiteAlbum, siteDir string, ch *channels.Channel, mgr *lib.Manager, albumNav SiteNavContext) {
-	albumDir := filepath.Join(siteDir, "albums", AlbumFolderName(*album))
+func regenerateSiteAlbum(album *site.SiteAlbum, siteDir string, ch *channels.Channel, mgr *lib.Manager, albumNav site.SiteNavContext) {
+	albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(*album))
 	os.MkdirAll(filepath.Join(albumDir, "thumbs"), 0o700) //nolint:errcheck
 	if mgr != nil {
 		restoreMissingExports(album.Photos, albumDir, ch, mgr)
 	}
 
-	items := BuildGalleryItems(album.Photos)
+	items := site.BuildGalleryItems(album.Photos)
 	if len(items) == 0 {
 		items = scanAlbumPhotos(albumDir)
 	}
@@ -310,14 +311,14 @@ func regenerateSiteAlbum(album *SiteAlbum, siteDir string, ch *channels.Channel,
 
 // writeSiteAlbumPage rebuilds an album's ZIP, if it has one, and writes its
 // page.
-func writeSiteAlbumPage(album *SiteAlbum, albumDir string, items []GalleryItem, ch *channels.Channel, albumNav SiteNavContext) {
+func writeSiteAlbumPage(album *site.SiteAlbum, albumDir string, items []site.GalleryItem, ch *channels.Channel, albumNav site.SiteNavContext) {
 	zipName := rebuildAlbumZip(album, albumDir)
-	albumHTML := GenerateSiteGallery(album.Title, ch.SiteTheme, items, GalleryOptions{
+	albumHTML := site.GenerateSiteGallery(album.Title, ch.SiteTheme, items, site.GalleryOptions{
 		ZipFilename: zipName,
 		SiteTitle:   ch.SiteTitle,
-		DateStr:     DateRangeStr(album.PublishedAt, album.UpdatedAt),
+		DateStr:     site.DateRangeStr(album.PublishedAt, album.UpdatedAt),
 		SiteURL:     ch.SiteURL,
-		AlbumSlug:   AlbumFolderName(*album),
+		AlbumSlug:   site.AlbumFolderName(*album),
 		PublishedAt: album.PublishedAt,
 		Unlisted:    album.Unlisted,
 		Nav:         albumNav,
@@ -328,7 +329,7 @@ func writeSiteAlbumPage(album *SiteAlbum, albumDir string, items []GalleryItem, 
 // restoreMissingExports re-exports any photos whose exported file is missing
 // from disk. This restores the full album after the output folder has been
 // wiped, using the original source files in the library.
-func restoreMissingExports(photos []SitePhoto, albumDir string, ch *channels.Channel, mgr *lib.Manager) {
+func restoreMissingExports(photos []site.SitePhoto, albumDir string, ch *channels.Channel, mgr *lib.Manager) {
 	for _, sp := range photos {
 		if sp.PhotoID == "" {
 			continue // legacy entry — no source link, cannot re-export
@@ -357,7 +358,7 @@ func restoreMissingExports(photos []SitePhoto, albumDir string, ch *channels.Cha
 
 // rebuildAlbumZip rewrites an album's ZIP when it has or had one, returning
 // its name, or "" when there is none.
-func rebuildAlbumZip(album *SiteAlbum, albumDir string) string {
+func rebuildAlbumZip(album *site.SiteAlbum, albumDir string) string {
 	_, statErr := os.Stat(filepath.Join(albumDir, "photos.zip"))
 	if !album.HasZip && statErr != nil {
 		return ""
@@ -375,17 +376,17 @@ func rebuildAlbumZip(album *SiteAlbum, albumDir string) string {
 
 // writeSitePages regenerates the site index, about, imprint, robots.txt and,
 // with a site URL, the sitemap from the whole album register.
-func writeSitePages(ch *channels.Channel, siteDir string, albums []SiteAlbum) error {
-	rootNav := BuildSiteNavContext(ch, siteDir, true)
-	siteHTML := GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums, rootNav)
+func writeSitePages(ch *channels.Channel, siteDir string, albums []site.SiteAlbum) error {
+	rootNav := site.BuildSiteNavContext(ch, siteDir, true)
+	siteHTML := site.GenerateSiteIndex(ch.SiteTitle, ch.SiteTheme, ch.SiteURL, albums, rootNav)
 	if err := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); err != nil {
 		return fmt.Errorf("write site index: %w", err)
 	}
-	GenerateAboutPage(siteDir, ch, AvatarExistsAt(siteDir), rootNav) //nolint:errcheck
-	GenerateImprintPage(siteDir, ch, rootNav)                        //nolint:errcheck
-	GenerateRobotsTxt(siteDir, ch.SiteURL)                           //nolint:errcheck
+	site.GenerateAboutPage(siteDir, ch, site.AvatarExistsAt(siteDir), rootNav) //nolint:errcheck
+	site.GenerateImprintPage(siteDir, ch, rootNav)                             //nolint:errcheck
+	site.GenerateRobotsTxt(siteDir, ch.SiteURL)                                //nolint:errcheck
 	if ch.SiteURL != "" {
-		GenerateSitemap(siteDir, albums, ch.SiteURL) //nolint:errcheck
+		site.GenerateSitemap(siteDir, albums, ch.SiteURL) //nolint:errcheck
 	}
 	return nil
 }
@@ -393,7 +394,7 @@ func writeSitePages(ch *channels.Channel, siteDir string, albums []SiteAlbum) er
 // rebuildGalleries regenerates index.html for every existing single-gallery
 // build on a GalleryExport channel, from each build's gallery.json state and
 // its already-exported photo files on disk. It re-runs the current
-// GenerateGallery template (picking up template fixes/changes) without
+// site.GenerateGallery template (picking up template fixes/changes) without
 // re-exporting or duplicating any photos — the counterpart to rebuildSite
 // for channels that use single-gallery export instead of a multi-album site.
 func rebuildGalleries(chStore *channels.Store) http.HandlerFunc {
@@ -431,7 +432,7 @@ func rebuildGalleries(chStore *channels.Store) http.HandlerFunc {
 				continue
 			}
 			outDir := filepath.Join(channelDir, e.Name())
-			gs, gsErr := LoadGalleryState(filepath.Join(outDir, "gallery.json"))
+			gs, gsErr := site.LoadGalleryState(filepath.Join(outDir, "gallery.json"))
 			if gsErr != nil || gs == nil {
 				continue // not a gallery folder (or unreadable state) — skip, not an error
 			}
@@ -455,11 +456,11 @@ func rebuildGalleries(chStore *channels.Store) http.HandlerFunc {
 // photo files already on disk in outDir. Shared by rebuildGalleries (which
 // loops every folder in a channel) and renameGallery/deleteGallery (which
 // only need to touch the one affected folder after editing gallery.json).
-func regenerateGalleryFolder(outDir string, gs *GalleryState) error {
-	items := make([]GalleryItem, 0, len(gs.Photos))
+func regenerateGalleryFolder(outDir string, gs *site.GalleryState) error {
+	items := make([]site.GalleryItem, 0, len(gs.Photos))
 	for _, sp := range gs.Photos {
 		w, h := readImageDimensions(filepath.Join(outDir, sp.Filename))
-		items = append(items, GalleryItem{
+		items = append(items, site.GalleryItem{
 			PhotoID:       sp.PhotoID,
 			Filename:      sp.Filename,
 			ThumbFilename: sp.ThumbFilename,
@@ -472,22 +473,22 @@ func regenerateGalleryFolder(outDir string, gs *GalleryState) error {
 	if gs.HasZip {
 		zipName = "photos.zip"
 	}
-	html := GenerateGallery(gs.Title, items, GalleryOptions{
+	html := site.GenerateGallery(gs.Title, items, site.GalleryOptions{
 		ZipFilename: zipName,
-		DateStr:     DateRangeStr(gs.PublishedAt, gs.UpdatedAt),
+		DateStr:     site.DateRangeStr(gs.PublishedAt, gs.UpdatedAt),
 		Unlisted:    gs.Unlisted,
 	})
 	if err := os.WriteFile(filepath.Join(outDir, "index.html"), html, 0o644); err != nil {
 		return err
 	}
-	return WriteGalleryAssets(outDir)
+	return site.WriteGalleryAssets(outDir)
 }
 
 // readImageDimensions decodes just enough of the image at path to report its
 // pixel dimensions, without loading the full image into memory. Used by
-// rebuildGalleries to recover width/height for GalleryItem, since
-// GalleryState/SitePhoto don't persist them (they're only known at export
-// time) — returns 0, 0 (which GalleryItem/thumbDimensions treats as "omit
+// rebuildGalleries to recover width/height for site.GalleryItem, since
+// site.GalleryState/site.SitePhoto don't persist them (they're only known at export
+// time) — returns 0, 0 (which site.GalleryItem/thumbDimensions treats as "omit
 // width/height attributes") if the file is missing or undecodable.
 func readImageDimensions(path string) (int, int) {
 	f, err := os.Open(path)
@@ -502,8 +503,8 @@ func readImageDimensions(path string) (int, int) {
 	return cfg.Width, cfg.Height
 }
 
-// sitePhotoBase extracts the original source-file base name from a SitePhoto filename.
-// SitePhoto filenames follow the pattern "{slug}_{ts}_{base}{ext}".
+// sitePhotoBase extracts the original source-file base name from a site.SitePhoto filename.
+// site.SitePhoto filenames follow the pattern "{slug}_{ts}_{base}{ext}".
 func sitePhotoBase(filename, slug string) string {
 	name := strings.TrimSuffix(filename, filepath.Ext(filename))
 	prefix := slug + "_"
@@ -519,7 +520,7 @@ func sitePhotoBase(filename, slug string) string {
 }
 
 // buildBasePhotoIndex scans all library stores and returns a map from
-// lower-cased path_hint base name → photo ID. Used to resolve legacy SitePhoto
+// lower-cased path_hint base name → photo ID. Used to resolve legacy site.SitePhoto
 // entries that don't have a stored photoID.
 func buildBasePhotoIndex(mgr *lib.Manager) map[string]string {
 	m := make(map[string]string)

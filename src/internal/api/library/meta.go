@@ -12,6 +12,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // --- Metadata ---
@@ -227,7 +228,7 @@ func deleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key str
 // and the site index. Meta key deletion is handled by the caller.
 func removePhotoFromSite(store *lib.Store, ch *channels.Channel, chStore *channels.Store, photoID, slug string) error {
 	siteDir := filepath.Join(chStore.OutputDir(slug), "site")
-	sites := NewSiteStore(chStore, slug)
+	sites := site.NewSiteStore(chStore, slug)
 	albums, err := sites.List()
 	if err != nil {
 		return fmt.Errorf("load site state: %w", err)
@@ -284,9 +285,9 @@ func legacySiteFilePrefix(store *lib.Store, photoID, slug, pathHint string) stri
 // removeFromSiteAlbum deletes the photo's exported file and thumbnail from one
 // album, and takes the album out of the photo's own sidecar so a rebuild
 // cannot find it. It returns the album's other photos.
-func removeFromSiteAlbum(album SiteAlbum, siteDir, slug, photoID, legacyPrefix, pathHint string) []SitePhoto {
-	albumDir := filepath.Join(siteDir, "albums", AlbumFolderName(album))
-	var kept []SitePhoto
+func removeFromSiteAlbum(album site.SiteAlbum, siteDir, slug, photoID, legacyPrefix, pathHint string) []site.SitePhoto {
+	albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(album))
+	var kept []site.SitePhoto
 	for _, sp := range album.Photos {
 		match := (sp.PhotoID != "" && sp.PhotoID == photoID) ||
 			(legacyPrefix != "" && strings.HasPrefix(sp.Filename, legacyPrefix))
@@ -308,11 +309,11 @@ func removeFromSiteAlbum(album SiteAlbum, siteDir, slug, photoID, legacyPrefix, 
 // saveSiteRemoval removes albums that are now empty, saves the ones that lost
 // a photo and regenerates the HTML of every remaining album. It returns the
 // albums that remain.
-func saveSiteRemoval(albums []SiteAlbum, touched map[string]bool, sites *SiteStore, siteDir string, ch *channels.Channel) ([]SiteAlbum, error) {
-	albumNav := BuildSiteNavContext(ch, siteDir, false)
-	var remaining []SiteAlbum
+func saveSiteRemoval(albums []site.SiteAlbum, touched map[string]bool, sites *site.SiteStore, siteDir string, ch *channels.Channel) ([]site.SiteAlbum, error) {
+	albumNav := site.BuildSiteNavContext(ch, siteDir, false)
+	var remaining []site.SiteAlbum
 	for _, album := range albums {
-		albumDir := filepath.Join(siteDir, "albums", AlbumFolderName(album))
+		albumDir := filepath.Join(siteDir, "albums", site.AlbumFolderName(album))
 		if album.PhotoCount == 0 {
 			os.RemoveAll(albumDir)                             //nolint:errcheck
 			if err := sites.Delete(album.PostID); err != nil { // its last photo was taken off the site on purpose
@@ -326,7 +327,7 @@ func saveSiteRemoval(albums []SiteAlbum, touched map[string]bool, sites *SiteSto
 				return nil, fmt.Errorf("save site state: %w", err)
 			}
 		}
-		writeSiteAlbumPage(&album, albumDir, BuildGalleryItems(album.Photos), ch, albumNav)
+		writeSiteAlbumPage(&album, albumDir, site.BuildGalleryItems(album.Photos), ch, albumNav)
 	}
 	return remaining, nil
 }

@@ -16,6 +16,7 @@ import (
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/site"
 )
 
 // --- Build ---
@@ -250,15 +251,15 @@ func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts,
 	return res
 }
 
-// scanAlbumPhotos reconstructs a GalleryItem list from the files on disk.
+// scanAlbumPhotos reconstructs a site.GalleryItem list from the files on disk.
 // Used when rebuilding albums that were built before photo metadata was stored in site.json.
-func scanAlbumPhotos(albumDir string) []GalleryItem {
+func scanAlbumPhotos(albumDir string) []site.GalleryItem {
 	entries, err := os.ReadDir(albumDir)
 	if err != nil {
 		return nil
 	}
 	skip := map[string]bool{"index.html": true, "photos.zip": true, "cover.jpg": true}
-	var items []GalleryItem
+	var items []site.GalleryItem
 	for _, e := range entries {
 		if e.IsDir() || skip[e.Name()] {
 			continue
@@ -271,7 +272,7 @@ func scanAlbumPhotos(albumDir string) []GalleryItem {
 		if _, statErr := os.Stat(filepath.Join(albumDir, thumbName)); statErr != nil {
 			thumbName = e.Name() // no thumb — fall back to full-res
 		}
-		items = append(items, GalleryItem{Filename: e.Name(), ThumbFilename: thumbName})
+		items = append(items, site.GalleryItem{Filename: e.Name(), ThumbFilename: thumbName})
 	}
 	return items
 }
@@ -283,7 +284,7 @@ type albumTarget struct {
 	postID              string
 	slug                string // human-readable folder name; site mode only
 	outDir              string
-	existingPhotos      []SitePhoto
+	existingPhotos      []site.SitePhoto
 	existingTitle       string
 	existingPublishedAt time.Time
 	unlisted            bool
@@ -296,7 +297,7 @@ type albumTarget struct {
 // Unlisted is fixed at album creation: on add-to-existing it comes from the
 // stored album, never from the draft, so appending photos can't silently
 // un-hide an album whose link has already been shared.
-func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *SiteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
+func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *site.SiteStore, publishedAt time.Time, galleryMode, siteMode bool) (albumTarget, int, error) {
 	t := albumTarget{outDir: channelDir}
 
 	if draft.Target.PostID == "" {
@@ -307,7 +308,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *SiteSto
 			t.outDir = filepath.Join(channelDir, t.postID)
 		case siteMode:
 			existingAlbums, _ := sites.List()
-			t.slug = ComputeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
+			t.slug = site.ComputeSlug(draft.Target.Title, publishedAt, existingAlbums, draft.Target.Unlisted)
 			t.outDir = filepath.Join(channelDir, "site", "albums", t.slug)
 		}
 		return t, 0, nil
@@ -317,7 +318,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *SiteSto
 	switch {
 	case galleryMode:
 		t.outDir = filepath.Join(channelDir, t.postID)
-		gs, err := LoadGalleryState(filepath.Join(t.outDir, "gallery.json"))
+		gs, err := site.LoadGalleryState(filepath.Join(t.outDir, "gallery.json"))
 		if err != nil || gs == nil {
 			return t, http.StatusBadRequest, fmt.Errorf("gallery not found: %s", t.postID)
 		}
@@ -334,7 +335,7 @@ func resolveAlbumTarget(draft *channels.Draft, channelDir string, sites *SiteSto
 			}
 			t.existingPhotos, t.existingTitle = siteAlbums[i].Photos, siteAlbums[i].Title
 			t.existingPublishedAt, t.unlisted = siteAlbums[i].PublishedAt, siteAlbums[i].Unlisted
-			t.slug = AlbumFolderName(siteAlbums[i])
+			t.slug = site.AlbumFolderName(siteAlbums[i])
 			break
 		}
 		if t.existingTitle == "" {

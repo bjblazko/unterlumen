@@ -1,9 +1,8 @@
-package apilibrary
+package site
 
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"huepattl.de/unterlumen/internal/channels"
@@ -87,50 +86,6 @@ func TestSiteStoreDoesNotAdoptWhenRegisterHasAlbums(t *testing.T) {
 	got, _ := second.List()
 	if len(got) != 1 || got[0].PostID != "pA" {
 		t.Fatalf("List = %+v, want only pA", got)
-	}
-}
-
-// The reported problem: album A published from one installation and B from the
-// other. Whichever machine builds last must write an index and a sitemap that
-// list both.
-func TestRebuildSiteListsAlbumsOfBothInstallations(t *testing.T) {
-	shared := t.TempDir()
-	newInstall := func(root string) *channels.Store {
-		st := channels.NewStore(shared, t.TempDir()).WithBoundary(root)
-		if err := st.Save(&channels.Channel{Slug: "website", Name: "Website", SiteExport: true, SiteTitle: "Site", SiteURL: "https://example.org"}); err != nil {
-			t.Fatal(err)
-		}
-		return st
-	}
-	nas := newInstall("/photos")
-	mac := newInstall("/Volumes/nas/photos")
-
-	if err := NewSiteStore(nas, "website").Upsert(testAlbum("pA", "Alpha")); err != nil {
-		t.Fatal(err)
-	}
-	if err := NewSiteStore(mac, "website").Upsert(testAlbum("pB", "Beta")); err != nil {
-		t.Fatal(err)
-	}
-
-	ch, err := mac.Get("website")
-	if err != nil {
-		t.Fatal(err)
-	}
-	siteDir, count, err := rebuildSiteChannel(mac, nil, ch)
-	if err != nil || count != 2 {
-		t.Fatalf("rebuild: count=%d err=%v", count, err)
-	}
-	index, _ := os.ReadFile(filepath.Join(siteDir, "index.html"))
-	sitemap, _ := os.ReadFile(filepath.Join(siteDir, "sitemap.xml"))
-	for _, want := range []string{"Alpha", "Beta"} {
-		if !strings.Contains(string(index), want) {
-			t.Errorf("index.html lacks %q", want)
-		}
-	}
-	for _, want := range []string{"/alpha", "/beta"} {
-		if !strings.Contains(string(sitemap), want) {
-			t.Errorf("sitemap.xml lacks %q", want)
-		}
 	}
 }
 
