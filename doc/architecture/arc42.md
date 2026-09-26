@@ -177,6 +177,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata, EXIF data, and folder dashboard (treemap, depth histogram, file-type chart, library EXIF stats) |
+| `stats-modal.js` | `StatsModal` — the Statistics place: library filter, snapshot and timeline tabs |
+| `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
+| `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
 | `js/vendor/maplibre-gl.js` | Vendored MapLibre GL JS 5.24.0 for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
