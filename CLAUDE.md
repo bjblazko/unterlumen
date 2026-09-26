@@ -46,7 +46,7 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0036)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0037)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 

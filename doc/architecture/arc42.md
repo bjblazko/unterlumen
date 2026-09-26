@@ -321,6 +321,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0034](adr/0034-colour-in-charts.md) — Colour in charts
 - [ADR-0035](adr/0035-shared-album-register.md) — The album list of a website lives in the shared channel directory
 - [ADR-0036](adr/0036-activity-and-progress.md) — One way to show activity, and a status line for work that outlives its page
+- [ADR-0037](adr/0037-backend-packages-by-domain.md) — Backend packages by domain: library, publish, site
 
 ## 10. Quality Requirements
 
