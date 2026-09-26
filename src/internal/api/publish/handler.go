@@ -1,15 +1,16 @@
-package apilibrary
+package publish
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 )
 
-// HandlePublish registers publishing: drafts, generating galleries
+// Handle registers publishing: drafts, generating galleries
 // and sites, rebuilding them and managing published galleries.
-func HandlePublish(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) {
+func Handle(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) {
 	mux.HandleFunc("POST /api/channels/{slug}/drafts/{draftID}/generate", generateDraft(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/library/{id}/build-download", buildDownload(mgr, chStore))
 	mux.HandleFunc("POST /api/channels/{slug}/rebuild-site", trackDestination(mgr, chStore, "Rebuilding the site of", rebuildSite(chStore, mgr)))
@@ -21,4 +22,9 @@ func HandlePublish(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store
 	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/galleries/reachability", checkGalleryReachability())
 	registerDraftRoutes(mux, mgr, chStore, draftStore)
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
 }

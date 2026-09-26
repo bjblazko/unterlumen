@@ -15,7 +15,10 @@ import (
 // through the handler and returns the photo's remaining keys.
 func deleteBuiltKey(t *testing.T, seed []string, key string) []string {
 	t.Helper()
-	mux, mgr, chStore, _ := setupGenerateTestMux(t)
+	mgr := newTestManager(t)
+	dir := t.TempDir()
+	chStore := channels.NewStore(dir, dir)
+	mux := http.NewServeMux()
 	if err := chStore.Save(&channels.Channel{Slug: "gal", Name: "Gallery", Format: "jpeg", Quality: 85, GalleryExport: true}); err != nil {
 		t.Fatalf("Save channel: %v", err)
 	}

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
-	apilibrary "huepattl.de/unterlumen/internal/api/library"
+	"huepattl.de/unterlumen/internal/api/publish"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/deploy"
 	"huepattl.de/unterlumen/internal/jobs"
@@ -359,7 +359,7 @@ func deployChannel(store *channels.Store) http.HandlerFunc {
 		if deployErr == nil {
 			// Per-gallery, so a gallery built after the last upload can say so
 			// instead of the channel-level flag implying everything is online.
-			apilibrary.MarkDeployed(store, slug, ch.SiteExport, deployedAt)
+			publish.MarkDeployed(store, slug, ch.SiteExport, deployedAt)
 		}
 		ch.LastDeployedAt = deployedAt
 		ch.LastDeployOK = deployErr == nil

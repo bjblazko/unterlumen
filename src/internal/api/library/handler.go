@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	_ "golang.org/x/image/webp"
-
+	"huepattl.de/unterlumen/internal/api/publish"
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
@@ -55,7 +55,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/meta", deleteMeta(mgr, chStore, draftStore))
-	HandlePublish(mux, mgr, chStore, draftStore)
+	publish.Handle(mux, mgr, chStore, draftStore)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

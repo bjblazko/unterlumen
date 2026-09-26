@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"huepattl.de/unterlumen/internal/api/publish"
 	"huepattl.de/unterlumen/internal/channels"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
@@ -110,13 +111,13 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		}
 		defer store.Close()
 
-		if strings.HasPrefix(key, PendingPrefix) && draftStore != nil {
-			DeletePendingMeta(store, draftStore, id, photoID, key)
+		if strings.HasPrefix(key, publish.PendingPrefix) && draftStore != nil {
+			publish.DeletePendingMeta(store, draftStore, id, photoID, key)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		if strings.HasPrefix(key, BuildPrefix) && chStore != nil {
-			handled, rmErr := DeleteBuiltMeta(store, chStore, photoID, key)
+		if strings.HasPrefix(key, publish.BuildPrefix) && chStore != nil {
+			handled, rmErr := publish.DeleteBuiltMeta(store, chStore, photoID, key)
 			if rmErr != nil {
 				http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
 				return

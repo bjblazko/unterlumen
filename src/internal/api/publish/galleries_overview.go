@@ -1,4 +1,4 @@
-package apilibrary
+package publish
 
 import (
 	"context"
