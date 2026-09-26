@@ -430,7 +430,7 @@ func (p *publishRun) updateSite(items []GalleryItem, zipName string, emit func(m
 	if err != nil {
 		return "", errors.New("read site state: " + err.Error())
 	}
-	if err := p.writeSitePages(siteDir, siteAlbums); err != nil {
+	if err := writeSitePages(p.ch, siteDir, siteAlbums); err != nil {
 		return "", err
 	}
 	return siteDir, nil
@@ -483,21 +483,4 @@ func (p *publishRun) touchedSiteAlbum(siteAlbums []SiteAlbum, items []GalleryIte
 		Photos:      sitePhotosOf(items),
 		Unlisted:    p.target.unlisted,
 	}
-}
-
-// writeSitePages regenerates the site index, about, imprint, robots.txt and,
-// with a site URL, the sitemap.
-func (p *publishRun) writeSitePages(siteDir string, siteAlbums []SiteAlbum) error {
-	rootNav := buildSiteNavContext(p.ch, siteDir, true)
-	siteHTML := GenerateSiteIndex(p.ch.SiteTitle, p.ch.SiteTheme, p.ch.SiteURL, siteAlbums, rootNav)
-	if err := os.WriteFile(filepath.Join(siteDir, "index.html"), siteHTML, 0o644); err != nil {
-		return errors.New("write site index: " + err.Error())
-	}
-	generateAboutPage(siteDir, p.ch, avatarExistsAt(siteDir), rootNav) //nolint:errcheck
-	generateImprintPage(siteDir, p.ch, rootNav)                        //nolint:errcheck
-	generateRobotsTxt(siteDir, p.ch.SiteURL)                           //nolint:errcheck
-	if p.ch.SiteURL != "" {
-		generateSitemap(siteDir, siteAlbums, p.ch.SiteURL) //nolint:errcheck
-	}
-	return nil
 }
