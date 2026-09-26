@@ -63,6 +63,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			}
 			st.Formats = append(st.Formats, nc)
 		}
+		if err := frows.Err(); err != nil {
+			return nil, err
+		}
 		frows.Close()
 	}
 
@@ -83,6 +86,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 				return nil, err
 			}
 			st.FilmSims = append(st.FilmSims, nc)
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
 		}
 		rows.Close()
 	}
@@ -115,6 +121,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			}
 			st.FocalLengths = append(st.FocalLengths, vc)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -142,6 +151,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			}
 			st.FocalLengths35 = append(st.FocalLengths35, vc)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -163,6 +175,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			}
 			st.Apertures = append(st.Apertures, vc)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -183,6 +198,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 				return nil, err
 			}
 			st.ISOs = append(st.ISOs, vc)
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
 		}
 		rows.Close()
 	}
@@ -213,6 +231,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			}
 			st.CameraLens = append(st.CameraLens, clc)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -238,6 +259,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 				st.ShootingHours[hr] = n
 			}
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -259,6 +283,9 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 				return nil, err
 			}
 			st.ShootingDays[day] = n
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
 		}
 		rows.Close()
 	}
@@ -324,6 +351,9 @@ func (s *Store) FolderStats(folderAbs string) (*LibraryFolderStats, error) {
 			}
 			st.Formats = append(st.Formats, nc)
 		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
 		rows.Close()
 	}
 
@@ -348,6 +378,9 @@ func (s *Store) FolderStats(folderAbs string) (*LibraryFolderStats, error) {
 			if name != "" {
 				names = append(names, name)
 			}
+		}
+		if err := sfRows.Err(); err != nil {
+			return nil, err
 		}
 		sfRows.Close()
 		sortStrings(names)
