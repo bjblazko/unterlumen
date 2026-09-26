@@ -630,22 +630,9 @@ func (m *Manager) IsScanning(id string) bool {
 // AggregateExifFieldValues returns the merged, deduplicated distinct string values
 // for a given EXIF field across the requested libraries (or all if ids is nil).
 func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string, error) {
-	libs, err := m.ListLibraries()
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
-	}
-	if len(ids) > 0 {
-		set := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			set[id] = true
-		}
-		filtered := libs[:0]
-		for _, l := range libs {
-			if set[l.ID] {
-				filtered = append(filtered, l)
-			}
-		}
-		libs = filtered
 	}
 
 	libIDs := make([]string, len(libs))
@@ -690,24 +677,9 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 // returns a merged, date-taken-sorted result. Pass nil ids to search all libraries.
 // At most (Offset + Limit) photos are fetched per library; the total reflects the true match count.
 func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibraryResult, error) {
-	libs, err := m.ListLibraries()
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return CrossLibraryResult{}, err
-	}
-
-	// Filter to requested libraries when ids is specified.
-	if len(ids) > 0 {
-		set := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			set[id] = true
-		}
-		filtered := libs[:0]
-		for _, l := range libs {
-			if set[l.ID] {
-				filtered = append(filtered, l)
-			}
-		}
-		libs = filtered
 	}
 
 	type libResult struct {
@@ -808,22 +780,9 @@ func sortLibraryPhotos(photos []LibraryPhoto) {
 // AggregateExifRanges returns the combined min/max numeric EXIF ranges across
 // the given libraries. Pass nil ids to aggregate all libraries.
 func (m *Manager) AggregateExifRanges(ids []string) (map[string]ExifRange, error) {
-	libs, err := m.ListLibraries()
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
-	}
-	if len(ids) > 0 {
-		set := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			set[id] = true
-		}
-		filtered := libs[:0]
-		for _, l := range libs {
-			if set[l.ID] {
-				filtered = append(filtered, l)
-			}
-		}
-		libs = filtered
 	}
 
 	libIDs := make([]string, len(libs))
@@ -1007,145 +966,145 @@ func (m *Manager) filterLibraries(ids []string) ([]*Library, error) {
 // Statistics returns aggregated statistics across the requested libraries (or all if ids is nil).
 // pathPrefix, when non-empty, restricts each library's results to photos whose path starts with that prefix.
 func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistics, error) {
-	libs, err := m.ListLibraries()
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
-	if len(ids) > 0 {
-		set := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			set[id] = true
-		}
-		filtered := libs[:0]
-		for _, l := range libs {
-			if set[l.ID] {
-				filtered = append(filtered, l)
-			}
-		}
-		libs = filtered
-	}
-
-	libIDs := make([]string, len(libs))
-	for i, l := range libs {
-		libIDs[i] = l.ID
-	}
-	cacheKey := statsCacheKey(libIDs, pathPrefix)
+	cacheKey := statsCacheKey(libraryIDs(libs), pathPrefix)
 	if v, ok := m.statsCache.Load(cacheKey); ok {
 		return v.(*LibraryStatistics), nil
 	}
 
-	merged := &LibraryStatistics{
-		Formats:        []NameCount{},
-		FilmSims:       []NameCount{},
-		FocalLengths:   []ValueCount{},
-		FocalLengths35: []ValueCount{},
-		Apertures:      []ValueCount{},
-		ISOs:           []ValueCount{},
-		CameraLens:     []CameraLensCount{},
-		ShootingDays:   make(map[string]int),
-	}
-	fmtMap := make(map[string]int)
-	filmMap := make(map[string]int)
-	clMap := make(map[[2]string]int)
-	focalMap := make(map[float64]int)
-	focal35Map := make(map[float64]int)
-	aperMap := make(map[float64]int)
-	isoMap := make(map[float64]int)
-
+	sm := newStatsMerger()
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
-		if err != nil {
-			merged.Warnings = append(merged.Warnings, fmt.Sprintf("library %q could not be read", l.Name))
+		st, warning := m.libraryStatistics(l, pathPrefix)
+		if warning != "" {
+			sm.merged.Warnings = append(sm.merged.Warnings, warning)
 			continue
 		}
-		st, err := store.Statistics(pathPrefix)
-		store.Close()
-		if err != nil {
-			merged.Warnings = append(merged.Warnings, fmt.Sprintf("library %q statistics unavailable", l.Name))
-			continue
-		}
-
-		merged.TotalPhotos += st.TotalPhotos
-		merged.IndexingPhotos += st.IndexingPhotos
-		for _, nc := range st.Formats {
-			fmtMap[nc.Name] += nc.Count
-		}
-		for _, nc := range st.FilmSims {
-			filmMap[nc.Name] += nc.Count
-		}
-		for _, vc := range st.FocalLengths {
-			focalMap[vc.Value] += vc.Count
-		}
-		for _, vc := range st.FocalLengths35 {
-			focal35Map[vc.Value] += vc.Count
-		}
-		for _, vc := range st.Apertures {
-			aperMap[vc.Value] += vc.Count
-		}
-		for _, vc := range st.ISOs {
-			isoMap[vc.Value] += vc.Count
-		}
-		for _, clc := range st.CameraLens {
-			clMap[[2]string{clc.Camera, clc.Lens}] += clc.Count
-		}
-		for h, n := range st.ShootingHours {
-			merged.ShootingHours[h] += n
-		}
-		for day, n := range st.ShootingDays {
-			merged.ShootingDays[day] += n
-		}
+		sm.add(st)
 	}
-
-	for name, count := range fmtMap {
-		merged.Formats = append(merged.Formats, NameCount{Name: name, Count: count})
-	}
-	sortNameCounts(merged.Formats)
-
-	for name, count := range filmMap {
-		merged.FilmSims = append(merged.FilmSims, NameCount{Name: name, Count: count})
-	}
-	sortNameCounts(merged.FilmSims)
-
-	merged.FocalLengths = mapToValueCounts(focalMap)
-	merged.FocalLengths35 = mapToValueCounts(focal35Map)
-	merged.Apertures = mapToValueCounts(aperMap)
-	merged.ISOs = mapToValueCounts(isoMap)
-
-	for key, count := range clMap {
-		merged.CameraLens = append(merged.CameraLens, CameraLensCount{Camera: key[0], Lens: key[1], Count: count})
-	}
-	// Sort camera×lens by count descending, cap at 100.
-	for i := 1; i < len(merged.CameraLens); i++ {
-		for j := i; j > 0 && merged.CameraLens[j].Count > merged.CameraLens[j-1].Count; j-- {
-			merged.CameraLens[j], merged.CameraLens[j-1] = merged.CameraLens[j-1], merged.CameraLens[j]
-		}
-	}
-	if len(merged.CameraLens) > 100 {
-		merged.CameraLens = merged.CameraLens[:100]
-	}
-
+	merged := sm.result()
 	m.statsCache.Store(cacheKey, merged)
 	return merged, nil
 }
 
+func libraryIDs(libs []*Library) []string {
+	ids := make([]string, len(libs))
+	for i, l := range libs {
+		ids[i] = l.ID
+	}
+	return ids
+}
+
+// libraryStatistics returns one library's statistics, or the warning to show
+// when they cannot be read.
+func (m *Manager) libraryStatistics(l *Library, pathPrefix string) (*LibraryStatistics, string) {
+	store, err := m.OpenStore(l.ID)
+	if err != nil {
+		return nil, fmt.Sprintf("library %q could not be read", l.Name)
+	}
+	st, err := store.Statistics(pathPrefix)
+	store.Close()
+	if err != nil {
+		return nil, fmt.Sprintf("library %q statistics unavailable", l.Name)
+	}
+	return st, ""
+}
+
+// statsMerger sums the statistics of several libraries.
+type statsMerger struct {
+	merged     *LibraryStatistics
+	formats    map[string]int
+	filmSims   map[string]int
+	cameraLens map[[2]string]int
+	focal      map[float64]int
+	focal35    map[float64]int
+	apertures  map[float64]int
+	isos       map[float64]int
+}
+
+func newStatsMerger() *statsMerger {
+	return &statsMerger{
+		merged:     &LibraryStatistics{ShootingDays: make(map[string]int)},
+		formats:    make(map[string]int),
+		filmSims:   make(map[string]int),
+		cameraLens: make(map[[2]string]int),
+		focal:      make(map[float64]int),
+		focal35:    make(map[float64]int),
+		apertures:  make(map[float64]int),
+		isos:       make(map[float64]int),
+	}
+}
+
+func (sm *statsMerger) add(st *LibraryStatistics) {
+	sm.merged.TotalPhotos += st.TotalPhotos
+	sm.merged.IndexingPhotos += st.IndexingPhotos
+	addNameCounts(sm.formats, st.Formats)
+	addNameCounts(sm.filmSims, st.FilmSims)
+	addValueCounts(sm.focal, st.FocalLengths)
+	addValueCounts(sm.focal35, st.FocalLengths35)
+	addValueCounts(sm.apertures, st.Apertures)
+	addValueCounts(sm.isos, st.ISOs)
+	for _, clc := range st.CameraLens {
+		sm.cameraLens[[2]string{clc.Camera, clc.Lens}] += clc.Count
+	}
+	for h, n := range st.ShootingHours {
+		sm.merged.ShootingHours[h] += n
+	}
+	for day, n := range st.ShootingDays {
+		sm.merged.ShootingDays[day] += n
+	}
+}
+
+// result sorts the sums: names by count, values by value, and camera × lens
+// by count, capped at 100.
+func (sm *statsMerger) result() *LibraryStatistics {
+	merged := sm.merged
+	merged.Formats = mapToNameCounts(sm.formats)
+	merged.FilmSims = mapToNameCounts(sm.filmSims)
+	merged.FocalLengths = mapToValueCounts(sm.focal)
+	merged.FocalLengths35 = mapToValueCounts(sm.focal35)
+	merged.Apertures = mapToValueCounts(sm.apertures)
+	merged.ISOs = mapToValueCounts(sm.isos)
+	merged.CameraLens = make([]CameraLensCount, 0, len(sm.cameraLens))
+	for key, count := range sm.cameraLens {
+		merged.CameraLens = append(merged.CameraLens, CameraLensCount{Camera: key[0], Lens: key[1], Count: count})
+	}
+	sort.SliceStable(merged.CameraLens, func(i, j int) bool { return merged.CameraLens[i].Count > merged.CameraLens[j].Count })
+	if len(merged.CameraLens) > 100 {
+		merged.CameraLens = merged.CameraLens[:100]
+	}
+	return merged
+}
+
+func addNameCounts(sums map[string]int, ncs []NameCount) {
+	for _, nc := range ncs {
+		sums[nc.Name] += nc.Count
+	}
+}
+
+func addValueCounts(sums map[float64]int, vcs []ValueCount) {
+	for _, vc := range vcs {
+		sums[vc.Value] += vc.Count
+	}
+}
+
+// mapToNameCounts converts a name→count map to a []NameCount sorted by count descending.
+func mapToNameCounts(m map[string]int) []NameCount {
+	out := make([]NameCount, 0, len(m))
+	for name, count := range m {
+		out = append(out, NameCount{Name: name, Count: count})
+	}
+	sortNameCounts(out)
+	return out
+}
+
 // Timeline returns time-series statistics across the requested libraries (or all if ids is nil).
 func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*LibraryTimeline, error) {
-	libs, err := m.ListLibraries()
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
-	}
-	if len(ids) > 0 {
-		set := make(map[string]bool, len(ids))
-		for _, id := range ids {
-			set[id] = true
-		}
-		filtered := libs[:0]
-		for _, l := range libs {
-			if set[l.ID] {
-				filtered = append(filtered, l)
-			}
-		}
-		libs = filtered
 	}
 
 	tlLibIDs := make([]string, len(libs))
@@ -1420,10 +1379,6 @@ func mapToValueCounts(m map[float64]int) []ValueCount {
 	for v, n := range m {
 		out = append(out, ValueCount{Value: v, Count: n})
 	}
-	for i := 1; i < len(out); i++ {
-		for j := i; j > 0 && out[j].Value < out[j-1].Value; j-- {
-			out[j], out[j-1] = out[j-1], out[j]
-		}
-	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
 	return out
 }
