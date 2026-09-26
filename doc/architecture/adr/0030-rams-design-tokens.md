@@ -13,7 +13,7 @@ Accepted. Supersedes [ADR-0018](0018-design-system-tokens.md).
 - **Mono as the UI voice makes everything equally loud.** With every label, button and heading in IBM Plex Mono, hierarchy can only come from size. Mono also costs readability in running text and in the long German labels this UI is full of.
 - **The radius scale (6 px … 14 px) reads as soft product styling**, not as the Braun-derived vocabulary ADR-0008 describes.
 
-Meanwhile the `rams-design` skill (`~/.claude/skills/rams-design/`) is now the project's normative UI guidance per the global instructions, and it ships a complete, contrast-verified token file (`references/tokens.css`) built from the same principles ADR-0008 adopted. Maintaining a second, diverging token vocabulary for the same philosophy is duplicated work with no benefit: there is no second product in the "Hüpattl! family" that the shared vocabulary was meant to serve.
+Meanwhile the `huepattl-rams-design` skill (`~/.claude/skills/huepattl-rams-design/`) is now the project's normative UI guidance per the global instructions, and it ships a complete, contrast-verified token file (`references/tokens.css`) built from the same principles ADR-0008 adopted. Maintaining a second, diverging token vocabulary for the same philosophy is duplicated work with no benefit: there is no second product in the "Hüpattl! family" that the shared vocabulary was meant to serve.
 
 ## Decision
 
@@ -28,7 +28,7 @@ Replace the `:root` token block in `src/web/css/style.css` with the rams-design 
 - **Motion** — `--dur-quick` 120 ms, `--dur` 160 ms, `--dur-slow` 240 ms with `--ease: cubic-bezier(.2,0,0,1)`; all durations collapse to 0 under `prefers-reduced-motion: reduce`. Motion explains a state change or does not happen.
 - **Fonts are self-hosted**, subsetted WOFF2 for Plex Sans and Plex Mono, replacing the Google Fonts CDN link introduced by ADR-0018 (principle 9, and the app is meant to work offline on a NAS).
 
-### Deviations from rams-design
+### Deviations from huepattl-rams-design
 
 Recorded here as the skill requires; anything not listed follows the skill.
 

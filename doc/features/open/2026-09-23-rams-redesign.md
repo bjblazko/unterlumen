@@ -1,11 +1,11 @@
 # Rams redesign: places, galleries and one publish action
 
-*Last modified: 2026-09-23*
+*Last modified: 2026-09-26*
 
 ## Summary
 
 A full UX and visual redesign of Unterlumen, based on the global
-`rams-design` skill (Dieter Rams' ten principles plus a neutral visual
+`huepattl-rams-design` skill (Dieter Rams' ten principles plus a neutral visual
 system). The biggest change is publishing. "Channel" is split into
 **Destination** and **Gallery**. States (adjectives) are kept apart from
 actions (verbs). Publishing becomes a single action. Navigation becomes a
@@ -109,7 +109,7 @@ Read the note for a screen before building it.
   - Statistics as a full page with responsive charts.
   - No actions, no slideshow, no Organize/Destinations/Settings.
 - **Tokens.** Replace the Hüpattl! tokens (ADR-0018) with the rams-design
-  tokens (`~/.claude/skills/rams-design/references/tokens.css`). IBM Plex
+  tokens (`~/.claude/skills/huepattl-rams-design/references/tokens.css`). IBM Plex
   Sans is the UI voice, IBM Plex Mono only for data.
 - **Existing albums.** They and their metadata stay untouched. A website
   showing "Not reachable" needs no action as part of this redesign.

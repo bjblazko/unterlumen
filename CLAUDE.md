@@ -52,7 +52,7 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 
 ## Design Philosophy
 
-The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md)), inspired by Braun products (1961–1995). Use the global `rams-design` skill for all UI work; the tokens come from its `references/tokens.css`. Key rules:
+The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/architecture/adr/0008-dieter-rams-design-principles.md)), inspired by Braun products (1961–1995). Use the global `huepattl-rams-design` skill for all UI work; the tokens come from its `references/tokens.css`. Key rules:
 
 - **Tokens**: rams-design tokens — see [ADR-0030](doc/architecture/adr/0030-rams-design-tokens.md), which supersedes ADR-0018. Neutral ramp `--bg`/`--bg-2`/`--bg-3`/`--line`/`--line-strong`/`--fg-3`/`--fg-2`/`--fg`; signal colours `--accent` (#E85D04 light / #F07A2A dark), `--confirm`, `--time`, `--warning` with their `*-ink` variants. One meaning per signal colour, ~90 % neutral / 9 % structure / 1 % signal, and every screen must still read in grayscale.
 - **Typography**: IBM Plex Sans (`--font-sans`) is the UI voice for all labels, buttons, headings and body text. IBM Plex Mono (`--font-mono`) **only for data** — file names, paths, EXIF values, coordinates, counters, IDs, keyboard keys — with tabular numerals. Weights 400/500/600. No small caps (`text-transform: uppercase`) anywhere: labels, section titles, table headers and switch states are in sentence case, and hierarchy comes from size, weight and colour (ADR-0030).
@@ -66,7 +66,7 @@ The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/archit
 - **Copy**: Sentence case, plain declarative sentences, specifics over superlatives, no exclamation marks or emoji. Errors say what happened, why, and what to do next — inline, never `alert()`/`confirm()`.
 - **Vocabulary** ([ADR-0029](doc/architecture/adr/0029-destinations-galleries-one-publish-action.md)): in the UI a channel is a **Destination** and an album is a **Gallery**; publishing is one action called **Publish**. Backend names (`channel`, `galleryExport`, `siteExport`, `drafts.json`) are unchanged.
 - **Charts** ([ADR-0034](doc/architecture/adr/0034-colour-in-charts.md)): colour in a chart encodes data, so charts have their own ramp — `--chart-1 … --chart-8` (categorical, fixed order, designed per theme), `--chart-seq-1 … 5` (magnitude), `--chart-grid`, `--chart-axis`. The signal colours stay with the interface and appear in a chart only with their own meaning. One series takes slot 1 and no legend; several take slots in order, never cycled. Never colour alone — always a label or a legend. Film simulations keep their own `--film-*` tokens as a recorded exception. Validate any new step with `dataviz/scripts/validate_palette.js` in both modes.
-- **Deviations** from rams-design are recorded in ADR-0030 under "Deviations from rams-design". An unrecorded deviation is a defect.
+- **Deviations** from rams-design are recorded in ADR-0030 under "Deviations from huepattl-rams-design". An unrecorded deviation is a defect.
 - **Principle**: "Remove until it breaks." Every element must justify its existence.
 - Apply these principles to all future UI changes.
 
