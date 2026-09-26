@@ -185,7 +185,6 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err != nil {
 		return err
 	}
-
 	mtimeNs := info.ModTime().UnixNano()
 	fileSize := info.Size()
 
@@ -195,20 +194,12 @@ func (idx *Indexer) indexFile(absPath string) error {
 		return err
 	}
 	if found && cachedMtime == mtimeNs && cachedSize == fileSize {
-		canonicalPath := idx.resolveCanonicalPath(cachedID, absPath)
-		if err := idx.store.MarkPhotoPresent(cachedID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
+		if err := idx.markPresent(cachedID, absPath); err != nil {
 			return err
 		}
 		idx.indexSidecar(absPath, cachedID)
-		// For HEIF files, attempt to generate a thumbnail if one was not produced during
-		// initial indexing (e.g. because heif-convert failed on the first scan).
-		if media.IsHEIF(absPath) {
-			if currentThumb, _ := idx.store.GetPhotoThumbPath(cachedID); currentThumb == "" {
-				if thumbRel, err := idx.ensureThumbnail(absPath, cachedID); err == nil {
-					idx.store.SetPhotoThumbPath(cachedID, thumbRel) //nolint:errcheck
-				}
-			}
-		}
+		// A HEIF thumbnail may have failed on the first scan (e.g. heif-convert).
+		idx.ensureHEIFThumbnail(absPath, cachedID)
 		return nil
 	}
 
@@ -217,64 +208,36 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err != nil {
 		return err
 	}
-
 	// Photo already indexed (rename case, or path-cache was cleared for forced re-index).
 	exists, err := idx.store.PhotoExists(photoID)
 	if err != nil {
 		return err
 	}
-	if exists {
-		canonicalPath := idx.resolveCanonicalPath(photoID, absPath)
-		if err := idx.store.MarkPhotoPresent(photoID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
-			return err
-		}
-		if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
-			return err
-		}
-		idx.indexSidecar(absPath, photoID)
-		// Regenerate missing thumbnail (e.g. after a forced re-index of a folder).
-		if media.IsHEIF(absPath) {
-			if currentThumb, _ := idx.store.GetPhotoThumbPath(photoID); currentThumb == "" {
-				if thumbRel, err := idx.ensureThumbnail(absPath, photoID); err == nil {
-					idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
-				}
-			}
-		}
-		return nil
+	if !exists {
+		return idx.addPhoto(absPath, photoID, mtimeNs, fileSize)
 	}
-
-	// New photo: extract EXIF.
-	exifJSON := "{}"
-	exifFields := make(map[string]string)
-	dateTaken := ""
-	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
-		for k, v := range exifData.Tags {
-			exifFields[k] = v
-		}
-		if exifData.DateTaken != nil {
-			dateTaken = *exifData.DateTaken
-			exifFields["DateTaken"] = dateTaken
-		}
-		if b, err := json.Marshal(exifData); err == nil {
-			exifJSON = string(b)
-		}
+	if err := idx.markPresent(photoID, absPath); err != nil {
+		return err
 	}
-
-	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
-	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
-	if n, ok := extNorm[ext]; ok {
-		ext = n
+	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+		return err
 	}
+	idx.indexSidecar(absPath, photoID)
+	// Regenerate a missing thumbnail (e.g. after a forced re-index of a folder).
+	idx.ensureHEIFThumbnail(absPath, photoID)
+	return nil
+}
 
-	// Generate and store HQ thumbnail.
+// addPhoto indexes a photo the library does not have yet: EXIF, thumbnail,
+// row, EXIF index, path cache and sidecar.
+func (idx *Indexer) addPhoto(absPath, photoID string, mtimeNs, fileSize int64) error {
+	ex := readPhotoExif(absPath)
 	thumbRel, _ := idx.ensureThumbnail(absPath, photoID) // non-fatal on error
-
-	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
+	if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), ex.json, thumbRel, ex.dateTaken, normalizedExt(absPath)); err != nil {
 		return err
 	}
 	idx.newPhotos++
-	numericValues := media.NormalizeExifNumbers(exifFields)
-	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
+	if err := idx.store.UpsertExifIndex(photoID, ex.fields, media.NormalizeExifNumbers(ex.fields)); err != nil {
 		return err
 	}
 	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
@@ -282,6 +245,63 @@ func (idx *Indexer) indexFile(absPath string) error {
 	}
 	idx.indexSidecar(absPath, photoID)
 	return nil
+}
+
+// markPresent marks a known photo as present at the path it should be known
+// by — absPath, unless a copy at its previous path still exists.
+func (idx *Indexer) markPresent(photoID, absPath string) error {
+	canonicalPath := idx.resolveCanonicalPath(photoID, absPath)
+	return idx.store.MarkPhotoPresent(photoID, canonicalPath, filepath.Base(canonicalPath))
+}
+
+// ensureHEIFThumbnail generates a HEIF photo's thumbnail when it has none.
+func (idx *Indexer) ensureHEIFThumbnail(absPath, photoID string) {
+	if !media.IsHEIF(absPath) {
+		return
+	}
+	if currentThumb, _ := idx.store.GetPhotoThumbPath(photoID); currentThumb != "" {
+		return
+	}
+	if thumbRel, err := idx.ensureThumbnail(absPath, photoID); err == nil {
+		idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+	}
+}
+
+// photoExif is what indexing stores of a photo's EXIF.
+type photoExif struct {
+	json      string            // the full extraction, "{}" when there is none
+	fields    map[string]string // the tags, plus DateTaken when known
+	dateTaken string
+}
+
+func readPhotoExif(absPath string) photoExif {
+	ex := photoExif{json: "{}", fields: make(map[string]string)}
+	exifData, err := media.ExtractAllEXIF(absPath)
+	if err != nil {
+		return ex
+	}
+	for k, v := range exifData.Tags {
+		ex.fields[k] = v
+	}
+	if exifData.DateTaken != nil {
+		ex.dateTaken = *exifData.DateTaken
+		ex.fields["DateTaken"] = ex.dateTaken
+	}
+	if b, err := json.Marshal(exifData); err == nil {
+		ex.json = string(b)
+	}
+	return ex
+}
+
+// normalizedExt is the file's extension in lower case, with jpg as jpeg and
+// hif/heic as heif.
+func normalizedExt(absPath string) string {
+	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
+	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
+	if n, ok := extNorm[ext]; ok {
+		return n
+	}
+	return ext
 }
 
 // forceReindexFile re-extracts EXIF, deletes any existing thumbnail from disk,
@@ -292,40 +312,15 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 	if err != nil {
 		return err
 	}
-	mtimeNs := info.ModTime().UnixNano()
-	fileSize := info.Size()
-
 	photoID, err := hashFile(absPath)
 	if err != nil {
 		return err
 	}
-
-	exifJSON := "{}"
-	exifFields := make(map[string]string)
-	dateTaken := ""
-	if exifData, err := media.ExtractAllEXIF(absPath); err == nil {
-		for k, v := range exifData.Tags {
-			exifFields[k] = v
-		}
-		if exifData.DateTaken != nil {
-			dateTaken = *exifData.DateTaken
-			exifFields["DateTaken"] = dateTaken
-		}
-		if b, err := json.Marshal(exifData); err == nil {
-			exifJSON = string(b)
-		}
-	}
-
-	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
-	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
-	if n, ok := extNorm[ext]; ok {
-		ext = n
-	}
+	ex := readPhotoExif(absPath)
 
 	// Delete existing thumbnail from disk so ensureThumbnail rebuilds it from scratch.
 	absThumb := filepath.Join(idx.libDir, "thumbs", photoID[:2], photoID+".jpg")
 	os.Remove(absThumb) //nolint:errcheck
-
 	thumbRel, _ := idx.ensureThumbnail(absPath, photoID)
 
 	exists, err := idx.store.PhotoExists(photoID)
@@ -333,31 +328,32 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 		return err
 	}
 	if !exists {
-		if err := idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), fileSize, time.Now().UTC(), exifJSON, thumbRel, dateTaken, ext); err != nil {
-			return err
-		}
+		err = idx.store.UpsertPhoto(photoID, absPath, filepath.Base(absPath), info.Size(), time.Now().UTC(), ex.json, thumbRel, ex.dateTaken, normalizedExt(absPath))
 	} else {
-		if err := idx.store.UpdatePhotoExif(photoID, exifJSON, dateTaken); err != nil {
-			return err
-		}
-		if err := idx.store.SetPhotoThumbPath(photoID, thumbRel); err != nil {
-			return err
-		}
-		canonicalPath := idx.resolveCanonicalPath(photoID, absPath)
-		if err := idx.store.MarkPhotoPresent(photoID, canonicalPath, filepath.Base(canonicalPath)); err != nil {
-			return err
-		}
+		err = idx.refreshPhoto(photoID, absPath, ex, thumbRel)
 	}
-
-	numericValues := media.NormalizeExifNumbers(exifFields)
-	if err := idx.store.UpsertExifIndex(photoID, exifFields, numericValues); err != nil {
+	if err != nil {
 		return err
 	}
-	if err := idx.store.UpsertPathCache(absPath, photoID, mtimeNs, fileSize); err != nil {
+	if err := idx.store.UpsertExifIndex(photoID, ex.fields, media.NormalizeExifNumbers(ex.fields)); err != nil {
+		return err
+	}
+	if err := idx.store.UpsertPathCache(absPath, photoID, info.ModTime().UnixNano(), info.Size()); err != nil {
 		return err
 	}
 	idx.indexSidecar(absPath, photoID)
 	return nil
+}
+
+// refreshPhoto replaces a known photo's EXIF and thumbnail and marks it present.
+func (idx *Indexer) refreshPhoto(photoID, absPath string, ex photoExif, thumbRel string) error {
+	if err := idx.store.UpdatePhotoExif(photoID, ex.json, ex.dateTaken); err != nil {
+		return err
+	}
+	if err := idx.store.SetPhotoThumbPath(photoID, thumbRel); err != nil {
+		return err
+	}
+	return idx.markPresent(photoID, absPath)
 }
 
 const thumbMaxDim = 1200
