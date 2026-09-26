@@ -28,6 +28,7 @@ const App = {
     _destinationsPane: null,
     _settingsEl: null,
     _settingsPane: null,
+    _placeBeforeSettings: null,
     uiHidden: false,
     wastebin: null,
     theme: null,
@@ -248,6 +249,10 @@ const App = {
         if (this.mode === 'organize' && this.organize) {
             this.currentBrowsePath = this.organize.pane.path;
         }
+        // Settings is a place you step into and back out of: Done returns here.
+        if (mode === 'settings' && this.mode !== 'settings') {
+            this._placeBeforeSettings = this.mode || null;
+        }
         this.mode = mode;
         this._markPlace(mode);
 
@@ -262,6 +267,12 @@ const App = {
             if (this[elKey]) this[elKey].style.display = mode === place ? '' : 'none';
         }
         this._markCurrentLibraryNav();
+    },
+
+    // leaveSettings goes back to the place Settings was opened from, or to
+    // Folders when it was opened directly.
+    leaveSettings() {
+        this.setMode(this._placeBeforeSettings || 'browse');
     },
 
     // Each place's element, in the order they are shown or hidden.

@@ -12,7 +12,11 @@ class SettingsPane {
     render() {
         this.container.innerHTML = `
             <div class="settings-pane">
-                <div class="gal-head"><h1 class="gal-title">Settings</h1></div>
+                <div class="gal-head">
+                    <h1 class="gal-title">Settings</h1>
+                    <span class="gal-group-spacer"></span>
+                    <button class="btn btn-sm" id="settings-done">Done</button>
+                </div>
                 <div class="gal-body settings-body">
                     <div class="form-field">
                         <span class="form-label">Theme</span>
@@ -55,6 +59,7 @@ class SettingsPane {
         this._wireToggles();
         this._wireCache();
         this._wireTools();
+        this.container.querySelector('#settings-done').addEventListener('click', () => App.leaveSettings());
     }
 
     _wireTheme() {

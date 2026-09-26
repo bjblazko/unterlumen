@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 - **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
 
 ### Changed
+- **Settings has a way back.** A Done button in its head, and Escape, return to the place you opened Settings from — before, you had to find it again in the sidebar.
 - **Go 1.27 and current dependencies.** Unterlumen builds with Go 1.27 (1.25 no longer gets security fixes), which needs macOS 13 Ventura or later. SQLite driver 1.59 (faster on Linux), goldmark 1.8.6 (a link no longer swallows a closing parenthesis), golang.org/x/image 0.46. govulncheck finds no known vulnerabilities.
 - **The Docker image runs on Debian 13 (trixie).** It brings ffmpeg 7.1 and libheif's HEVC decoder as its own package, which HEIC decoding needs from this release on.
 - **MapLibre 6 for location maps.** The map library moves from 5.24 to 6.11 and is loaded as an ES module; it still comes from the app itself, not from a CDN (ADR-0038).

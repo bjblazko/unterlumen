@@ -84,7 +84,8 @@ class GlobalKeyboard {
         return !!document.querySelector('.viewer');
     }
 
-    // Escape clears the selection, or else goes up one folder.
+    // Escape clears the selection, or else goes up one folder; in Settings it
+    // goes back to the place before.
     _escape(e) {
         const app = this._app;
         if (app.mode === 'browse' && app.browsePane) {
@@ -108,6 +109,10 @@ class GlobalKeyboard {
             const pane = app.organize.pane;
             if (this._clearSelection(pane)) return;
             pane.load(parentFolder(pane.path));
+        } else if (app.mode === 'settings') {
+            // Escape is Done: back to where Settings was opened from.
+            e.preventDefault();
+            app.leaveSettings();
         }
     }
 
