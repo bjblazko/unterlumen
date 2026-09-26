@@ -251,13 +251,19 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         });
         expect(albums.length).toBeGreaterThanOrEqual(2);
 
-        const cards = page.locator(`.info-pub-card:not(.info-pub-card--pending):has(.info-meta-del[data-key^="built:${SLUG}"])`);
+        const cards = page.locator(`.info-pub-card:not(.info-pub-card--pending)[data-key^="built:${SLUG}"]`);
         await expect(cards).toHaveCount(albums.length, { timeout: 10_000 });
         // Match the album ids rather than the titles: a retried run republishes
         // "Card A", and two albums may then legitimately share that title.
         for (const albumID of [albumA, albumB]) {
-            await expect(page.locator(`.info-pub-card .info-meta-del[data-key="built:${SLUG}:${albumID}"]`)).toHaveCount(1);
+            await expect(page.locator(`.info-pub-card[data-key="built:${SLUG}:${albumID}"]`)).toHaveCount(1);
         }
+        // A published gallery has no × — the info panel cannot take a photo
+        // out of a gallery — and its title leads to the gallery's page.
+        await expect(page.locator('.info-pub-card:not(.info-pub-card--pending) .info-meta-del')).toHaveCount(0);
+        await page.locator(`.info-pub-card[data-key="built:${SLUG}:${albumA}"] .info-pub-link`).click();
+        await expect(page.locator('#mode-published')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.gal-detail')).toBeVisible({ timeout: 10_000 });
     });
 
     test('two pending albums render as two separate rows under their destination', async ({ request, page }) => {

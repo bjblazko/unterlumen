@@ -392,6 +392,12 @@ const App = {
 
     // Opens Galleries filtered to one destination — used by the channels
     // list's status link.
+    // Opens one published gallery's page under Galleries.
+    showGallery(channelSlug, postID) {
+        this.setMode('published');
+        if (this._galleriesPane) this._galleriesPane.openGallery(channelSlug, postID);
+    },
+
     showGalleriesForChannel(channelSlug) {
         this.setMode('published');
         if (this._galleriesPane) {

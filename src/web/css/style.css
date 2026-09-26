@@ -4401,6 +4401,14 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     margin-top: 1px;
 }
 
+/* A gallery's title leads to its page under Galleries. */
+.info-pub-link {
+    display: block;
+    color: var(--fg);
+    font-style: normal;
+    text-decoration: underline;
+}
+
 /* --- Folder Info --- */
 
 .folder-treemap {

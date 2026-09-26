@@ -445,15 +445,21 @@ class InfoPanel {
         const ctx = this._metaContext;
         if (!ctx || !ctx.entries) return '';
 
+        // A published gallery is a place, so its entry leads there. Taking a
+        // photo out of a gallery is not something the info panel can do: here
+        // it only ever made the library forget, while the photo stayed in the
+        // gallery and came back with the next scan.
         const publishedCards = this._publishedAlbums(ctx.entries).map(a => {
             const galleryTitle = a.title ? escapeHtml(a.title) : '';
-            return `<div class="info-pub-card">` +
+            const titleHTML = a.postID
+                ? `<a class="info-pub-title info-pub-link" href="#galleries" data-slug="${escapeHtml(a.slug)}" data-post="${escapeHtml(a.postID)}">${galleryTitle || 'Open the gallery'}</a>`
+                : (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '');
+            return `<div class="info-pub-card" data-key="${escapeHtml(a.key)}">` +
                 `<div class="info-pub-card-header">` +
                     `<span class="info-pub-channel">${escapeHtml(a.channelName)}</span>` +
-                    `<button class="info-meta-del" title="Remove publication" data-key="${escapeHtml(a.key)}">×</button>` +
                 `</div>` +
                 `<div class="info-pub-date">${escapeHtml(this.formatDate(a.date))}</div>` +
-                (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '') +
+                titleHTML +
             `</div>`;
         });
 
@@ -494,6 +500,8 @@ class InfoPanel {
             const titleEntry = entries.find(t => t.key === `built:${slug}:${postID}:title`);
             out.push({
                 key: e.key,
+                slug,
+                postID,
                 channelName: this._humanizeChannelSlug(slug),
                 date: e.value,
                 title: titleEntry ? titleEntry.value : '',
@@ -506,6 +514,8 @@ class InfoPanel {
             const titleEntry = entries.find(t => t.key === `built:${slug}:title`);
             out.push({
                 key: e.key,
+                slug,
+                postID: '',
                 channelName: this._humanizeChannelSlug(slug),
                 date: e.value,
                 title: titleEntry ? titleEntry.value : '',
@@ -748,6 +758,14 @@ class InfoPanel {
                 } catch (err) {
                     App.showToast('Could not delete it: ' + err.message);
                 }
+            });
+        });
+
+        this.container.querySelectorAll('.info-pub-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                App.showGallery(link.dataset.slug, link.dataset.post);
             });
         });
 

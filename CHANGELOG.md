@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 - **Show photos from a gallery or a destination.** A published gallery's detail and a destination's detail have a "Show photos" link. It opens Libraries across every library with the filter already set: "Gallery: <title>" or "Destination: <slug>". A gallery is found by its membership, not its title, so a renamed gallery still finds its photos. New search parameter: `album=<destination>:<postID>` on `GET /api/library/search`.
 
 ### Changed
+- **A photo's gallery entry leads to the gallery.** In a library photo's info panel, a published gallery's title now opens its page under Galleries. The × next to it is gone: for a share-link gallery it only made the library forget (the photo stayed in the gallery and came back with the next scan), and for a website it took the photo off every album without asking. Pending entries keep their ×.
 - **One way to show that something is happening.** Two spinners, two progress bars, a toast and eight "Loading…" styles are replaced by one line:
   - a sentence while busy, followed after 3 seconds by the elapsed time;
   - a bar with "412 of 1 280 photos" and the current file when the total is known;

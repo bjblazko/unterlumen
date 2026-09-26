@@ -199,7 +199,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // permanently write their own built:<slug> XMP sidecars to the shared
         // folder-b fixture, so asserting "zero published cards of any kind" here
         // can be defeated by unrelated leftover state from earlier spec files.
-        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key="built:${channelSlug}"]`)).toHaveCount(0);
+        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending)[data-key="built:${channelSlug}"]`)).toHaveCount(0);
 
         // ── 2. Published tab shows the Draft badge ──────────────────────────
         await reopenPublishedTab(page);
@@ -255,10 +255,10 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // above: other channels/specs may have already published this same
         // shared photo, so an unscoped locator can match multiple cards and
         // trip Playwright's strict-mode violation on toBeVisible().
-        // The card is per album, so its delete key is the qualified
+        // The card is per album, so its key is the qualified
         // built:<slug>:<postID> once the photo belongs to one (a plain-export
         // channel has no album and keeps the bare channel key).
-        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending) .info-meta-del[data-key^="built:${channelSlug}"]`).first()).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator(`.info-pub-card:not(.info-pub-card--pending)[data-key^="built:${channelSlug}"]`).first()).toBeVisible({ timeout: 5_000 });
         await expect(page.locator(`.info-pub-card--pending .info-meta-del[data-key^="pending:${channelSlug}"]`)).toHaveCount(0);
     }
 

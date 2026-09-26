@@ -148,6 +148,13 @@ class GalleriesPane {
         this._filterChannel = channelSlug || null;
     }
 
+    // Opens one gallery's page once the galleries are read; the list, if the
+    // gallery is gone.
+    openGallery(channelSlug, postID) {
+        this._openPost = { channelSlug, postID };
+        this._load();
+    }
+
     render() {
         this._rendered = true;
         this._load();
@@ -165,6 +172,11 @@ class GalleriesPane {
         }
         this._rows = rows;
         this._channels = channels;
+        if (this._openPost) {
+            const { channelSlug, postID } = this._openPost;
+            this._openPost = null;
+            this._openRowKey = rows.find(r => r.channelSlug === channelSlug && r.postID === postID)?.rowKey || null;
+        }
         if (this._openRowKey && this._findRow(this._openRowKey)) this._renderDetail();
         else { this._openRowKey = null; this._renderList(); }
     }
