@@ -43,14 +43,38 @@ func (b *Broadcaster) Send(p Progress) {
 	defer b.mu.Unlock()
 	b.last = p
 	b.report(p)
+	last := p.Finished || p.Error != ""
 	for _, ch := range b.subs {
+		if last {
+			deliverLast(ch, p)
+			continue
+		}
 		select {
 		case ch <- p:
 		default: // slow subscriber; drop rather than block the scan
 		}
 	}
-	if p.Finished || p.Error != "" {
+	if last {
 		b.closeAll()
+	}
+}
+
+// deliverLast puts a scan's last word into ch even when a slow subscriber has
+// filled it: the oldest progress waiting there makes room. Progress in between
+// may be lost, the end may not — without it the stream ends as if the scan had
+// been cut short. Send is the only sender and holds the lock, so a place freed
+// here stays free.
+func deliverLast(ch chan Progress, p Progress) {
+	for {
+		select {
+		case ch <- p:
+			return
+		default:
+			select {
+			case <-ch:
+			default:
+			}
+		}
 	}
 }
 

@@ -57,6 +57,7 @@ All notable changes to this project are documented in this file.
 - **Keys went to hidden results in the Libraries overview.** After the filter's results were closed, arrow keys, `i` and the selection still acted on the hidden results pane instead of the list.
 - **Taking a photo off a website could leave a stale site index without a word.** If the site's index page could not be written, removing the photo still reported success. The removal now fails with the reason.
 - **Photos without a date turned up where a date was asked for.** A filter by end date ("taken until") also listed every undated photo, the statistics calendar counted them on a day without a name, and a folder holding one showed an empty start date. They were stored with an empty date instead of none; libraries convert when they are next opened.
+- **A quick library job could end without its last word.** When a job ran faster than its progress reached the page — regenerating previews that already exist, for instance — the final "finished" message could be dropped along with the progress in between, and the job looked cut short. Progress in between may still be skipped; the end now always arrives.
 
 ## [0.11.0] - 2026-09-26
 
