@@ -123,13 +123,19 @@ test.describe('Info panel', () => {
     test('the map library is served by the app itself, and the map renders', async ({ page }) => {
         expect(await page.evaluate(() => typeof maplibregl)).toBe('object');
 
-        const scriptSources = await page.evaluate(() =>
-            [...document.querySelectorAll('script[src]')].map(s => s.getAttribute('src')));
-        expect(scriptSources.some(src => src.includes('maplibre'))).toBe(true);
-        expect(scriptSources.some(src => src.startsWith('http'))).toBe(false);
+        // MapLibre 6 arrives through a module import (ADR-0038), so check what
+        // the browser actually fetched: every MapLibre file, from this app.
+        const maplibreFiles = await page.evaluate(() => performance.getEntriesByType('resource')
+            .map(e => e.name).filter(n => n.includes('maplibre')));
+        expect(maplibreFiles.some(n => n.endsWith('/maplibre-gl.mjs'))).toBe(true);
+        const origin = await page.evaluate(() => location.origin);
+        expect(maplibreFiles.every(n => n.startsWith(origin + '/'))).toBe(true);
 
         await expect(page.locator('#info-map canvas')).toBeVisible({ timeout: 15_000 });
         await expect(page.locator('#info-map')).not.toHaveClass(/info-map-unavailable/);
+        // Tiles are drawn in a worker, which the entry module loads from next to itself.
+        await expect.poll(() => page.evaluate(() => performance.getEntriesByType('resource')
+            .some(e => e.name.endsWith('/maplibre-gl-worker.mjs'))), { timeout: 10_000 }).toBe(true);
     });
 
     test('the short list carries what you cull by', async ({ page }) => {

@@ -182,7 +182,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
-| `js/vendor/maplibre-gl.js` | Vendored MapLibre GL JS 5.24.0 for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
+| `js/vendor/maplibre-6.11.2/` | Vendored MapLibre GL JS 6.11.2 as ES modules, loaded as the global `maplibregl` ([ADR-0038](adr/0038-maplibre-6-as-es-module.md)) for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
 
 ## 6. Runtime View
@@ -326,6 +326,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0035](adr/0035-shared-album-register.md) — The album list of a website lives in the shared channel directory
 - [ADR-0036](adr/0036-activity-and-progress.md) — One way to show activity, and a status line for work that outlives its page
 - [ADR-0037](adr/0037-backend-packages-by-domain.md) — Backend packages by domain: library, publish, site
+- [ADR-0038](adr/0038-maplibre-6-as-es-module.md) — MapLibre 6 as an ES module, without a bundler (supersedes ADR-0031's version pin)
 
 ## 10. Quality Requirements
 

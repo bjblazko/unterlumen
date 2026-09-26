@@ -9,8 +9,14 @@
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css?v=29">
-    <link href="/css/vendor/maplibre-gl.css?v=1" rel="stylesheet" />
-    <script src="/js/vendor/maplibre-gl.js?v=1"></script>
+    <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
+    <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
+         as the global maplibregl. Module scripts run before DOMContentLoaded,
+         so it is there before the app starts. -->
+    <script type="module">
+        import * as maplibregl from '/js/vendor/maplibre-6.11.2/maplibre-gl.mjs';
+        window.maplibregl = maplibregl;
+    </script>
 </head>
 <body>
     <div class="shell">
