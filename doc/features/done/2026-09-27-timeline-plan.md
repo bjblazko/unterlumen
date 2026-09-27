@@ -10,7 +10,7 @@
 
 **Tech Stack:** Go 1.27 (stdlib, SQLite through the existing `library.Store`), vanilla JS (global classes, no build step), Canvas 2D, Playwright e2e.
 
-**Spec:** `doc/features/open/2026-09-27-timeline.md` and `doc/architecture/adr/0040-timeline-place.md`. Clickdummy: https://claude.ai/artifact/N2RjBab31exPDAy4A2Xxh5 (tabs B and Mobile 1). Its source is the model for the layout and drawing code below.
+**Spec:** `doc/features/done/2026-09-27-timeline.md` and `doc/architecture/adr/0040-timeline-place.md`. Clickdummy: https://claude.ai/artifact/N2RjBab31exPDAy4A2Xxh5 (tabs B and Mobile 1). Its source is the model for the layout and drawing code below.
 
 ## Global Constraints
 
