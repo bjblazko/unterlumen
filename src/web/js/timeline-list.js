@@ -27,8 +27,18 @@ class TimelineList {
         this.startDay = Math.max(0, stream.span - 1);
         this.scroller.addEventListener('scroll', () => this.schedule(), { passive: true });
         this.scroller.addEventListener('click', e => { const t = e.target.closest('.timeline-tile'); if (t) this.onOpen(+t.dataset.i); });
-        new ResizeObserver(() => this.relayout()).observe(this.scroller);
+        this._resize = new ResizeObserver(() => this.relayout());
+        this._resize.observe(this.scroller);
     }
+
+    dispose() {
+        cancelAnimationFrame(this.raf);
+        this._resize.disconnect();
+        this.tiles.clear();
+    }
+
+    // The day at the top: where the list is, for a rebuild to come back to.
+    shownDay() { return this.topDay(); }
 
     relayout() {
         if (!this.scroller.clientWidth) return;

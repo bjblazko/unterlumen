@@ -22,8 +22,18 @@ class TimelineBand {
         this.lo = 0; this.hi = stream.count; this.n = 0; this.raf = 0; this.selected = -1;
         this.startDay = Math.max(0, stream.span - 1);
         this._listen();
-        new ResizeObserver(() => this.relayout()).observe(this.el);
+        this._resize = new ResizeObserver(() => this.relayout());
+        this._resize.observe(this.el);
     }
+
+    dispose() {
+        cancelAnimationFrame(this.raf);
+        this._resize.disconnect();
+        this.tiles.clear();
+    }
+
+    // The day at the left edge: where the band is, for a rebuild to come back to.
+    shownDay() { return this.leftDay(); }
 
     _listen() {
         this.el.addEventListener('scroll', () => this.schedule(), { passive: true });
@@ -144,7 +154,8 @@ class TimelineBand {
     }
 
     _key(e) {
-        if (this.selected < 0) return;
+        // The viewer takes the keys while it is open; focus stays on the band.
+        if (this.selected < 0 || document.querySelector('.viewer')) return;
         if (e.key === 'Enter') { e.preventDefault(); this.onOpen(this.selected); return; }
         const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
         if (!step) return;

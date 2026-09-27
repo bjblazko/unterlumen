@@ -72,6 +72,36 @@ test.describe('Timeline', () => {
         await expect(page.locator('#viewer-container')).toBeVisible();
     });
 
+    test('switches between desk and phone when the window narrows', async ({ page }) => {
+        await openTimeline(page);
+        await expect(page.locator('.timeline-band')).toBeVisible();
+        await page.setViewportSize({ width: 390, height: 800 });
+        await expect(page.locator('.timeline-scrubber')).toBeVisible();
+        await page.setViewportSize({ width: 800, height: 640 });
+        await expect(page.locator('.timeline-band')).toBeVisible();
+    });
+
+    test('the band leaves the arrow keys to an open viewer', async ({ page }) => {
+        await openTimeline(page);
+        const selected = () => page.evaluate(() => App._timelinePane._lane.selected);
+        await page.locator('.timeline-tile').first().dblclick();
+        await expect(page.locator('#viewer-container')).toBeVisible();
+        const before = await selected();
+        await page.keyboard.press('ArrowRight');
+        expect(await selected()).toBe(before);
+    });
+
+    test('coming back does not keep the old components alive', async ({ page }) => {
+        await openTimeline(page);
+        const once = await page.evaluate(() => TimelineChart._redraws.size);
+        for (let i = 0; i < 3; i++) {
+            await page.locator('#mode-map').click();
+            await page.locator('#mode-timeline').click();
+            await page.waitForSelector('.timeline-tile img');
+        }
+        expect(await page.evaluate(() => TimelineChart._redraws.size)).toBe(once);
+    });
+
     test('keeps the number of tiles bounded while scrolling everything', async ({ page }) => {
         await openTimeline(page);
         const band = page.locator('.timeline-band');

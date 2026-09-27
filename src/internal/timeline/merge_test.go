@@ -64,3 +64,13 @@ func TestAssignDaysCountsFromTheFirstPhoto(t *testing.T) {
 		t.Errorf("days = %v, want [0 2 366] (2020 is a leap year)", days)
 	}
 }
+
+func TestMergeTreatsFutureDatesAsUndated(t *testing.T) {
+	photos, undated := merge([]LibraryPhotos{{LibraryID: "L", Dated: []library.DatedPhoto{
+		{ID: "ok", Taken: "2019-08-14T12:00:00"},
+		{ID: "clock", Taken: "2099-01-01T00:00:00"},
+	}}})
+	if got := ids(photos); !reflect.DeepEqual(got, []string{"ok"}) || undated != 1 {
+		t.Fatalf("dated = %v, undated = %d; want only ok and 1 undated", got, undated)
+	}
+}

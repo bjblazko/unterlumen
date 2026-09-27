@@ -28,8 +28,15 @@ class TimelineRange {
         this.el.addEventListener('pointerdown', e => this._down(e));
         this.hA.addEventListener('keydown', e => this._key(e, 'a'));
         this.hB.addEventListener('keydown', e => this._key(e, 'b'));
-        new ResizeObserver(() => this.redraw()).observe(this.el);
-        TimelineChart.onRedraw(() => this.redraw());
+        this._resize = new ResizeObserver(() => this.redraw());
+        this._resize.observe(this.el);
+        this._unredraw = TimelineChart.onRedraw(() => this.redraw());
+    }
+
+    dispose() {
+        clearTimeout(this._timer);
+        this._resize.disconnect();
+        this._unredraw();
     }
 
     _part(cls) {

@@ -16,7 +16,8 @@ type LibraryPhotos struct {
 }
 
 // firstPhotographYear rejects dates no photo can have, such as the 0001-01-01
-// of a camera without a clock.
+// of a camera without a clock. A date after next year is a wrong clock too,
+// and one such photo would squeeze every real one into a sliver of the axis.
 const firstPhotographYear = 1826
 
 // merge joins the libraries into one list, oldest first. A photo in several
@@ -62,7 +63,7 @@ func parseDay(taken string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	t, err := time.Parse("2006-01-02", taken[:10])
-	if err != nil || t.Year() < firstPhotographYear {
+	if err != nil || t.Year() < firstPhotographYear || t.Year() > time.Now().Year()+1 {
 		return time.Time{}, false
 	}
 	return t, true

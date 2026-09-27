@@ -158,4 +158,16 @@ test.describe('Timeline units', () => {
         expect(r.order).toBe(true);
         expect(r.top).toBe(41);
     });
+
+    test('a changed stream is reported once, however many pages hear it', async ({ page }) => {
+        await page.route('**/api/timeline/photos?*', route => route.fulfill({ status: 409, body: 'changed' }));
+        const stale = await page.evaluate(async () => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v1', start: '2024-01-01', days: new Array(1200).fill(0), ratios: new Array(1200).fill(1.5), undated: 0 });
+            let n = 0; s.onStale = () => n++;
+            await s.ensure(0, 1200);
+            return n;
+        });
+        expect(stale).toBe(1);
+    });
 });

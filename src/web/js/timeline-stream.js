@@ -13,10 +13,17 @@ class TimelineStream {
         this.adopt({ version: '', start: '', days: [], ratios: [], undated: 0 });
     }
 
+    // load reads the skeleton and says whether it differs from the one held.
     async load() {
         const r = await fetch('/api/timeline');
         if (!r.ok) throw new Error(await r.text());
-        this.adopt(await r.json());
+        const sk = await r.json();
+        if (sk.version === this.version && this.count) {
+            this._staleReported = null; // a page that heard otherwise may ask again
+            return false;
+        }
+        this.adopt(sk);
+        return true;
     }
 
     adopt(sk) {
@@ -73,7 +80,11 @@ class TimelineStream {
         const url = `/api/timeline/photos?v=${encodeURIComponent(version)}&from=${p * TIMELINE_PAGE}&count=${TIMELINE_PAGE}`;
         const r = await fetch(url);
         if (r.status === 409) {
-            if (version === this.version) this.onStale?.();
+            // Every page in flight hears it; the place needs to hear it once.
+            if (version === this.version && this._staleReported !== version) {
+                this._staleReported = version;
+                this.onStale?.();
+            }
             return;
         }
         if (!r.ok) throw new Error(await r.text());

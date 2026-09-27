@@ -88,8 +88,10 @@ const TimelineChart = {
     },
 
     // Canvases do not follow CSS: they draw again when the theme or the fonts change.
+    // It returns the function that stops it, for a component being thrown away.
     onRedraw(fn) {
         this._redraws.add(fn);
+        return () => this._redraws.delete(fn);
     },
 };
 

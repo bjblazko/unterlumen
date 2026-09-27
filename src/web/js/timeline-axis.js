@@ -31,8 +31,14 @@ class TimelineAxis {
         this.dragging = false;
         this.el.addEventListener('pointerdown', e => this._down(e));
         this.frame.addEventListener('keydown', e => this._key(e));
-        new ResizeObserver(() => this.redraw()).observe(this.el);
-        TimelineChart.onRedraw(() => this.redraw());
+        this._resize = new ResizeObserver(() => this.redraw());
+        this._resize.observe(this.el);
+        this._unredraw = TimelineChart.onRedraw(() => this.redraw());
+    }
+
+    dispose() {
+        this._resize.disconnect();
+        this._unredraw();
     }
 
     setDomain(a, b) { this.a = a; this.b = b; this.redraw(); }

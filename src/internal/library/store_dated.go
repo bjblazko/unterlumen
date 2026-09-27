@@ -63,12 +63,16 @@ func (s *Store) UndatedPhotoIDs() ([]string, error) {
 	return ids, rows.Err()
 }
 
-// ContentStamp changes whenever the library's photos do: it is the number of
-// photos that are not missing and the latest time one was indexed.
+// ContentStamp changes whenever the timeline's view of the library does: the
+// number of photos that are not missing, the latest time one was indexed,
+// and the sum of their dates taken, which moves when a re-index changes a
+// date without adding a photo.
 func (s *Store) ContentStamp() (string, error) {
 	var n int
 	var latest string
-	err := s.db.QueryRow(`SELECT COUNT(*), COALESCE(CAST(MAX(indexed_at) AS TEXT), '')
-		FROM photos WHERE status='ok'`).Scan(&n, &latest)
-	return strconv.Itoa(n) + "|" + latest, err
+	var dates float64
+	err := s.db.QueryRow(`SELECT COUNT(*), COALESCE(CAST(MAX(indexed_at) AS TEXT), ''),
+		TOTAL(julianday(date_taken))
+		FROM photos WHERE status='ok'`).Scan(&n, &latest, &dates)
+	return strconv.Itoa(n) + "|" + latest + "|" + strconv.FormatFloat(dates, 'f', 6, 64), err
 }

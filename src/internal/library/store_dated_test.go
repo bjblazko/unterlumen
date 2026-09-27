@@ -66,3 +66,15 @@ func TestContentStampChangesWithPhotos(t *testing.T) {
 		t.Fatalf("stamp did not change after marking missing: %q", gone)
 	}
 }
+
+func TestContentStampChangesWhenADateChanges(t *testing.T) {
+	s := newTestStore(t)
+	seedStatsPhotos(t, s, []statsPhoto{{id: "p", path: "/l/p.jpg", date: "2024-01-01T00:00:00"}})
+	before, _ := s.ContentStamp()
+	if _, err := s.db.Exec(`UPDATE photos SET date_taken='2019-06-01T00:00:00' WHERE id='p'`); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := s.ContentStamp(); after == before {
+		t.Fatalf("stamp %q did not change with the date taken", after)
+	}
+}

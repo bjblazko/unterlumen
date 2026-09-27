@@ -35,8 +35,14 @@ func (b *Builder) Current() (*Stream, error) {
 	if b.cur != nil && b.cur.Version == version {
 		return b.cur, nil
 	}
-	b.cur = b.build(libs, version)
-	return b.cur, nil
+	s := b.build(libs, version)
+	// A scan that ran while the photos were read may have left them half
+	// done; such a stream is served once but not kept under a version it
+	// does not match.
+	if b.version(libs) == version {
+		b.cur = s
+	}
+	return s, nil
 }
 
 // orderedLibraries lists the libraries in the sidebar's order: by the

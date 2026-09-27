@@ -5,15 +5,22 @@
 
 const TIMELINE_PHONE = '(max-width: 700px)';
 const TIMELINE_VIEWER_REACH = 500;
+// While a scan runs the stream changes with every photo; wait this long after
+// hearing so before reading it again, so a scan is not answered with a reload
+// per photo.
+const TIMELINE_RELOAD_DELAY_MS = 1000;
 
 class TimelinePane {
     constructor(container) {
         this.container = container;
         this.stream = new TimelineStream();
         this.stream.onDetails = () => this._lane?.tiles.fill();
-        this.stream.onStale = () => this._reload();
+        this.stream.onStale = () => this._reloadSoon();
         this.infoPanel = null;
         this._lane = null;
+        this._parts = [];
+        this._reloading = null;
+        this._reloadTimer = 0;
         this._rows = readTimelineRows();
         this._phone = matchMedia(TIMELINE_PHONE);
         this._phone.addEventListener('change', () => {
@@ -59,29 +66,43 @@ class TimelinePane {
         }));
     }
 
-    async _reload() {
+    _reloadSoon() {
+        clearTimeout(this._reloadTimer);
+        this._reloadTimer = setTimeout(() => this._reload(), TIMELINE_RELOAD_DELAY_MS);
+    }
+
+    // One reload at a time: a second caller waits for the one under way.
+    _reload() {
+        this._reloading ??= this._readStream().finally(() => { this._reloading = null; });
+        return this._reloading;
+    }
+
+    async _readStream() {
         const at = this._currentMs();
         if (!this._lane) {
             this._noteEl.hidden = false;
             Activity.in(this._noteEl, 'Reading the timeline…', { area: true });
         }
+        let changed;
         try {
-            await this.stream.load();
+            changed = await this.stream.load();
         } catch (err) {
             this._noteEl.hidden = false;
             Activity.in(this._noteEl, '', { area: true })
                 .fail(`The timeline could not be read: ${err.message}. Reload the page to try again.`);
             return;
         }
+        this._noteEl.innerHTML = '';
         this._noteEl.hidden = true;
-        this._build(at);
+        if (changed || !this._lane) this._build(at);
+        else this._lane.render(); // asks again for the pages a 409 turned away
     }
 
     // The date shown now, as UTC milliseconds, so it survives a new skeleton.
     _currentMs() {
         const cal = this.stream.calendar;
         if (!cal || !this._lane) return null;
-        return cal.msOf(this._phone.matches ? this._lane.topDay() : this._lane.leftDay());
+        return cal.msOf(this._lane.shownDay());
     }
 
     _head() {
@@ -94,7 +115,8 @@ class TimelinePane {
     }
 
     _build(atMs) {
-        this._lane?.tiles.clear();
+        this._parts.forEach(part => part.dispose());
+        this._parts = [];
         this._lane = null;
         this.infoPanel = null;
         this._body.innerHTML = '';
@@ -127,6 +149,7 @@ class TimelinePane {
             onOpen: (i) => this._open(i),
         });
         band.startDay = day;
+        this.infoPanel.onToggle = () => { if (band.selected >= 0) this._showInfo(band.selected); };
         const axis = new TimelineAxis(this.stream, {
             height: 92,
             onSeek: (d) => band.scrollToDay(d),
@@ -135,6 +158,7 @@ class TimelinePane {
         grid.querySelector('.timeline-band-wrap').appendChild(band.el);
         grid.querySelector('.timeline-bar').append(...this._barRows(band, axis), axis.el);
         this._lane = band;
+        this._parts.push(band, axis);
     }
 
     _barRows(band, axis) {
@@ -151,6 +175,7 @@ class TimelinePane {
         all.className = 'btn btn-sm';
         all.textContent = 'Show all';
         all.addEventListener('click', () => range.set(0, this.stream.span - 1));
+        this._parts.push(range);
         const label = document.createElement('span');
         label.className = 'timeline-bar-label';
         label.textContent = 'Shown';
@@ -175,12 +200,15 @@ class TimelinePane {
         });
         wrap.append(list.el, scrub.el);
         this._lane = list;
+        this._parts.push(list, scrub);
     }
 
+    // The panel shows the selected photo while it is open; it does not open
+    // by itself, since opening narrows the band and moves the tiles away from
+    // under a double click.
     _showInfo(i) {
         const p = this.stream.detail(i);
-        if (!p || !this.infoPanel) return;
-        if (!this.infoPanel.expanded) this.infoPanel.toggle();
+        if (!p || !this.infoPanel?.expanded) return;
         this.infoPanel.loadFromURL(`/api/library/${p.lib}/photo/${p.id}/info`, `lib:${p.lib}:${p.id}`);
     }
 

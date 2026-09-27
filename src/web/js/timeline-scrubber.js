@@ -25,8 +25,14 @@ class TimelineScrubber {
         this.dragging = false;
         this.el.addEventListener('pointerdown', e => this._down(e));
         this.el.addEventListener('keydown', e => this._key(e));
-        new ResizeObserver(() => this.redraw()).observe(this.el);
-        TimelineChart.onRedraw(() => this.redraw());
+        this._resize = new ResizeObserver(() => this.redraw());
+        this._resize.observe(this.el);
+        this._unredraw = TimelineChart.onRedraw(() => this.redraw());
+    }
+
+    dispose() {
+        this._resize.disconnect();
+        this._unredraw();
     }
 
     y(d) { return SCRUB_PAD + (this.stream.span - d) / this.stream.span * (this.h - SCRUB_PAD * 2); }
