@@ -182,6 +182,29 @@ test.describe('Map', () => {
         await page.waitForSelector('.map-marker', { timeout: 20_000 });
         await expect(page.locator('.map-photos')).toBeVisible();
     });
+
+    // Grey by default; the switch brings colour and is remembered.
+    test('switches between grey and colour tiles', async ({ page }) => {
+        const styles = [];
+        page.on('request', (r) => {
+            const m = /\/styles\/([a-z]+)/.exec(r.url());
+            if (m) styles.push(m[1]);
+        });
+        await openMap(page);
+        expect(styles).toEqual(['positron']);
+
+        const toggle = page.locator('.map-style .toggle');
+        await expect(toggle).toHaveAttribute('aria-checked', 'false');
+        await expect(page.locator('.map-style')).toContainText('Style');
+        await toggle.click();
+        await expect.poll(() => styles).toContain('liberty');
+        await expect(page.locator('.map-marker').first()).toBeVisible();
+
+        await page.reload();
+        await page.waitForSelector('.map-marker', { timeout: 20_000 });
+        await expect(page.locator('.map-style .toggle')).toHaveAttribute('aria-checked', 'true');
+        expect(styles.at(-1)).toBe('liberty');
+    });
 });
 
 test.describe('Map on a phone', () => {

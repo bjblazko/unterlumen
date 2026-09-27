@@ -1,14 +1,17 @@
 // map-place.js — the Map place: every located photo of every library on one
 // map, grouped by place, the newest photo of each group on top (ADR-0039).
 
-// Grey tiles, light or dark with the theme: the map is ground for the
-// photos, not a picture of its own.
+// Grey tiles by default, light or dark with the theme: the map is ground
+// for the photos, not a picture of its own. Colour is the info panel's
+// style; OpenFreeMap has no dark version of it.
 const MAP_STYLE_URLS = {
     light: 'https://tiles.openfreemap.org/styles/positron',
     dark: 'https://tiles.openfreemap.org/styles/dark',
+    colour: 'https://tiles.openfreemap.org/styles/liberty',
 };
 
-function mapStyleURL() {
+function mapStyleURL(colour) {
+    if (colour) return MAP_STYLE_URLS.colour;
     return MAP_STYLE_URLS[document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'];
 }
 
@@ -20,7 +23,8 @@ class MapPane {
         this._points = [];
         this._shown = [];
         this._range = null;
-        this._photosOpen = readPhotosOpen();
+        this._photosOpen = readFlag('map-photos-open');
+        this._colour = readFlag('map-colour');
     }
 
     // Reads the locations again on every visit — a scan may have added some —
@@ -45,6 +49,7 @@ class MapPane {
                     <h1 class="map-title">Map</h1>
                     <span class="map-count"></span>
                     <span class="map-head-spacer"></span>
+                    <span class="map-style" hidden><span class="map-style-label">Style</span></span>
                     <button class="btn btn-sm lib-filter-toggle map-photos-toggle" aria-expanded="false" aria-controls="map-photos" data-state="off" hidden>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                             <rect x="1.5" y="2.5" width="13" height="11"/><path d="M10.5 2.5v11"/>
@@ -63,6 +68,13 @@ class MapPane {
             </div>`;
         this._head = this.container.querySelector('.map-head');
         this._photosBtn = this.container.querySelector('.map-photos-toggle');
+        this._styleEl = this.container.querySelector('.map-style');
+        Toggle.create(this._styleEl, {
+            initial: this._colour,
+            labelOn: 'Colour',
+            labelOff: 'Grey',
+            onChange: (on) => this._setColour(on),
+        });
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
         this._photos = new MapPhotos({
             onOpen: (photos, index) => this._openPhotos(photos, index),
@@ -106,6 +118,7 @@ class MapPane {
         this._canvas.hidden = true;
         this._countEl.textContent = '';
         this._photosBtn.hidden = true;
+        this._styleEl.hidden = true;
         this._photos.el.hidden = true;
         return true;
     }
@@ -120,6 +133,7 @@ class MapPane {
         this._canvas.hidden = false;
         this._noteEl.hidden = true;
         this._photosBtn.hidden = false;
+        this._styleEl.hidden = false;
         this._buildTimeRange();
         this._drawPhotosOpen();
         if (!this._map) {
@@ -137,7 +151,7 @@ class MapPane {
         }
         this._map = new maplibregl.Map({
             container: this._canvas,
-            style: mapStyleURL(),
+            style: mapStyleURL(this._colour),
             bounds: pointBounds(this._points),
             fitBoundsOptions: { padding: 72, maxZoom: 12 },
             attributionControl: false,
@@ -154,7 +168,7 @@ class MapPane {
             this._applyRange();
         });
         this._map.on('moveend', () => this._updateInView());
-        new MutationObserver(() => this._map.setStyle(mapStyleURL()))
+        new MutationObserver(() => this._map.setStyle(mapStyleURL(this._colour)))
             .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         // Before the style has loaded, an error means there is no map at
         // all; after it, a missing tile only leaves a blank patch.
@@ -178,7 +192,7 @@ class MapPane {
             first, last,
             onChange: (range) => { this._range = range; this._applyRange(); },
         });
-        this._head.insertBefore(time.el, this._photosBtn);
+        this._head.insertBefore(time.el, this._styleEl);
     }
 
     // Undated photos belong to every period only when none is chosen.
@@ -194,6 +208,12 @@ class MapPane {
         this._updateInView();
     }
 
+    _setColour(on) {
+        this._colour = on;
+        writeFlag('map-colour', on);
+        this._map?.setStyle(mapStyleURL(on));
+    }
+
     /* --- The photos column --- */
 
     // Escape closes the column; returns whether there was one to close.
@@ -205,7 +225,7 @@ class MapPane {
 
     _setPhotosOpen(open) {
         this._photosOpen = open;
-        try { localStorage.setItem('map-photos-open', open ? '1' : '0'); } catch { /* per viewer only */ }
+        writeFlag('map-photos-open', open);
         this._drawPhotosOpen();
         this._updateInView();
     }
@@ -249,8 +269,14 @@ class MapPane {
     }
 }
 
-function readPhotosOpen() {
-    try { return localStorage.getItem('map-photos-open') === '1'; } catch { return false; }
+// The column and the colours are remembered per browser; without storage
+// they start closed and grey.
+function readFlag(key) {
+    try { return localStorage.getItem(key) === '1'; } catch { return false; }
+}
+
+function writeFlag(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* per browser only */ }
 }
 
 // mapPoints flattens the server's answer into one list, oldest first, and

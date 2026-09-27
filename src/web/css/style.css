@@ -7093,6 +7093,19 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     font-variant-numeric: tabular-nums;
 }
 
+/* Colour or grey tiles: a purpose word, then the switch with its two. */
+.map-style {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    height: var(--control-h);
+    font-size: var(--text-sm);
+}
+
+.map-style[hidden] { display: none; }
+
+.map-style-label { color: var(--fg-2); }
+
 .map-body {
     flex: 1;
     min-height: 0;
