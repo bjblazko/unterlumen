@@ -225,6 +225,9 @@ body {
     color: var(--fg);
     overflow: hidden;
     height: 100vh;
+    /* The height actually visible: on a phone 100vh counts the browser bar
+       that slides in and out, dvh does not. */
+    height: 100dvh;
     font-size: var(--text-base);
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
@@ -6285,6 +6288,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .tabbar { display: none; }
 
 @media (max-width: 700px) {
+    :root {
+        /* The tab bar: its padding, a 44px row of places and its hairline,
+           plus the system's bottom inset where there is one. */
+        --tabbar-h: calc(var(--space-1) + 44px + 1px + max(var(--space-1), env(safe-area-inset-bottom, 0px)));
+    }
+
     .sidebar { display: none; }
 
     .shell,
@@ -6293,7 +6302,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     }
 
     #app {
-        height: calc(100vh - 60px - env(safe-area-inset-bottom, 0px));
+        height: calc(100vh - var(--tabbar-h));
+        height: calc(100dvh - var(--tabbar-h));
     }
 
     .tabbar {
@@ -6304,7 +6314,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         bottom: 0;
         z-index: 50;
         justify-content: space-around;
-        padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+        /* The system's bottom inset replaces the padding rather than adding
+           to it: Firefox on Android reports one for the gesture bar. */
+        padding: var(--space-1) var(--space-2) max(var(--space-1), env(safe-area-inset-bottom, 0px));
         background: var(--bg);
         border-top: 1px solid var(--line-strong);
     }
@@ -6316,7 +6328,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         align-items: center;
         justify-content: center;
         gap: 2px;
-        min-height: 48px;
+        min-height: 44px;
         border-radius: var(--radius-md);
         color: var(--fg-3);
         font-size: var(--text-xs);
@@ -6334,8 +6346,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     .tabbar-item svg {
         width: 40px;
-        height: 26px;
-        padding: 5px 12px;
+        height: 24px;
+        padding: var(--space-1) var(--space-3);
     }
 
     /* Anything that changes files or settings is desktop work. */
@@ -6383,7 +6395,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         min-height: var(--space-12);
         flex-wrap: wrap;
         gap: var(--space-2) var(--space-3);
-        padding: var(--space-2) var(--space-4);
+        padding: var(--space-2) var(--space-3);
     }
 
     .library-detail-path {
@@ -6404,7 +6416,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         height: auto;
         flex-wrap: wrap;
         gap: var(--space-2);
-        padding: var(--space-3) var(--space-4);
+        padding: var(--space-3);
     }
 
     /* Statistics fills the phone: a chart in a corner shows nothing. */
@@ -6414,7 +6426,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         border-radius: 0;
     }
 
-    .browse-container { padding: 0 var(--space-4); }
+    /* Photos take the width: a thin margin, not a frame. */
+    .browse-container { padding: 0 var(--space-2); }
     .folder-tile { width: calc(50% - var(--space-1)); }
     .browse-header { padding-top: var(--space-3); }
 
@@ -6429,7 +6442,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     .gal-head,
     .gal-body,
-    .dest-pane .gal-body { padding-inline: var(--space-4); }
+    .dest-pane .gal-body { padding-inline: var(--space-3); }
 
     .gal-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
     .gal-row-state { align-items: flex-start; }
@@ -6460,7 +6473,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         align-items: flex-start;
         padding: var(--space-8) var(--space-4);
         /* Clear of the tab bar, so the way out stays tappable. */
-        padding-bottom: calc(var(--space-8) + 60px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(var(--space-8) + var(--tabbar-h));
         max-width: 32rem;
     }
 

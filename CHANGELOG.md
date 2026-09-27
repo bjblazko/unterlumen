@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **A denser phone layout.** Two photos share a row on a phone instead of one filling the screen, the margins are thinner, and the tab bar is lower: its places are 44px high, and the system's bottom inset (which Firefox on Android reports for the gesture bar) no longer adds to its padding. The layout follows the height actually visible (`100dvh`).
+
 ## [0.12.0] - 2026-09-27
 
 ### Added

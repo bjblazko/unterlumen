@@ -35,6 +35,24 @@ test.describe('Phone', () => {
         await expect(page.locator('#tab-published')).toHaveAttribute('aria-current', 'page');
     });
 
+    // The row height shrinks with the width, so two landscape photos share a
+    // row instead of one photo filling the screen; the margins stay thin.
+    test('two photos share a row, with thin margins', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await navigateToFolder(page, 'folder-b');
+        await waitForThumbnailsLoaded(page, 4);
+        await page.waitForFunction(() => {
+            const tops = [...document.querySelectorAll('.justified-item')].slice(0, 2)
+                .map(e => Math.round(e.getBoundingClientRect().top));
+            return tops.length === 2 && tops[0] === tops[1];
+        }, null, { timeout: 10_000 });
+        const pad = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.browse-container')).paddingLeft));
+        expect(pad).toBeLessThanOrEqual(8);
+        const bar = await page.locator('.tabbar').boundingBox();
+        expect(bar.height).toBeLessThanOrEqual(56);
+    });
+
     test('a desktop-only place says so instead of showing empty chrome', async ({ page }) => {
         await page.goto('/#organize');
         await waitForAppReady(page);

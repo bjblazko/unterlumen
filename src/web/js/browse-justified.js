@@ -61,6 +61,7 @@ class JustifiedRenderer {
         if (items.length === 0) return;
 
         const gap = 1;
+        const targetHeight = justifiedRowHeight(pane._justifiedTargetHeight, containerWidth, gap);
         let rowStart = 0;
         let rowAspectSum = 0;
 
@@ -69,7 +70,7 @@ class JustifiedRenderer {
                 const idx = parseInt(items[i].dataset.index);
                 const ar = pane._aspectRatios[idx] || 1.5;
                 const rowGaps = (i - rowStart) * gap;
-                if (rowAspectSum > 0 && rowAspectSum * pane._justifiedTargetHeight + ar * pane._justifiedTargetHeight + rowGaps + gap > containerWidth) {
+                if (rowAspectSum > 0 && rowAspectSum * targetHeight + ar * targetHeight + rowGaps + gap > containerWidth) {
                     this._setRow(items, rowStart, i, containerWidth, rowAspectSum, gap);
                     rowStart = i;
                     rowAspectSum = ar;
@@ -80,8 +81,8 @@ class JustifiedRenderer {
                 for (let j = rowStart; j < i; j++) {
                     const jIdx = parseInt(items[j].dataset.index);
                     const ar = pane._aspectRatios[jIdx] || 1.5;
-                    items[j].style.width = Math.round(pane._justifiedTargetHeight * ar) + 'px';
-                    items[j].style.height = pane._justifiedTargetHeight + 'px';
+                    items[j].style.width = Math.round(targetHeight * ar) + 'px';
+                    items[j].style.height = targetHeight + 'px';
                 }
             }
         }
@@ -114,4 +115,12 @@ class JustifiedRenderer {
             this.layout();
         });
     }
+}
+
+// justifiedRowHeight is the row height the layout aims for. On a narrow screen
+// — a phone — it shrinks with the width so that two landscape (3:2) photos
+// share a row; it never grows past the configured height.
+function justifiedRowHeight(configured, containerWidth, gap) {
+    if (containerWidth >= 700) return configured;
+    return Math.min(configured, Math.floor((containerWidth - gap) / 3) - 1);
 }
