@@ -120,7 +120,7 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('range sliders render when EXIF data exists', async ({ page }) => {
-            await expect(page.locator('.lib-range-slider').first()).toBeVisible();
+            await expect(page.locator('.range-slider').first()).toBeVisible();
         });
 
         test('range sliders show formatted range labels', async ({ page }) => {
@@ -342,10 +342,10 @@ test.describe('Library search with indexed fixtures', () => {
         test('filter panel shows sliders', async ({ page }) => {
             await page.locator('#lib-filter-btn').click();
             await page.waitForFunction(
-                () => document.querySelector('.lib-range-slider') !== null,
+                () => document.querySelector('.range-slider') !== null,
                 { timeout: 8_000 },
             );
-            await expect(page.locator('.lib-range-slider').first()).toBeVisible();
+            await expect(page.locator('.range-slider').first()).toBeVisible();
         });
 
         // Regression: exp(log(51200)) is 51199.99999999997, so an untouched
@@ -359,7 +359,7 @@ test.describe('Library search with indexed fixtures', () => {
             expect(ends).toEqual([16, 51200]);
 
             await page.locator('#lib-filter-btn').click();
-            await page.waitForSelector('.lib-range-slider', { timeout: 8_000 });
+            await page.waitForSelector('.range-slider', { timeout: 8_000 });
             await expect(page.locator('.lib-filter-chip')).toHaveCount(0);
             await expect(page.locator('.lib-filter-count')).toBeHidden();
         });

@@ -472,68 +472,21 @@ class LibraryFilterPanel {
     }
 
     _buildRangeSlider(spec, activeField, range, displaySpan) {
-        const wrap = document.createElement('div');
-        wrap.className = 'lib-range-slider';
-
-        const track = document.createElement('div');
-        track.className = 'lib-range-track';
-        const fill = document.createElement('div');
-        fill.className = 'lib-range-fill';
-        track.appendChild(fill);
-        wrap.appendChild(track);
-
-        const minHandle = document.createElement('div');
-        minHandle.className = 'lib-range-handle lib-range-handle--min';
-        const maxHandle = document.createElement('div');
-        maxHandle.className = 'lib-range-handle lib-range-handle--max';
-        wrap.appendChild(minHandle);
-        wrap.appendChild(maxHandle);
-
-        let minPos = 0;
-        let maxPos = 1;
-
-        const updateUI = () => {
-            minHandle.style.left = `${minPos * 100}%`;
-            maxHandle.style.left = `${maxPos * 100}%`;
-            fill.style.left = `${minPos * 100}%`;
-            fill.style.width = `${(maxPos - minPos) * 100}%`;
-            const minVal = sliderToValue(minPos, range.min, range.max, spec.log);
-            const maxVal = sliderToValue(maxPos, range.min, range.max, spec.log);
+        const valueAt = (pos) => sliderToValue(pos, range.min, range.max, spec.log);
+        const show = (minVal, maxVal) => {
             this._active[activeField] = { min: minVal, max: maxVal };
             displaySpan.textContent = spec.format(minVal) + ' – ' + spec.format(maxVal);
         };
-
-        const attachDrag = (handle, isMin) => {
-            handle.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                e.preventDefault();
-                document.body.style.userSelect = 'none';
-
-                const onMove = (e) => {
-                    const rect = wrap.getBoundingClientRect();
-                    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                    if (isMin) minPos = Math.min(pos, maxPos);
-                    else maxPos = Math.max(pos, minPos);
-                    updateUI();
-                    this._scheduleQuery();
-                };
-
-                const onUp = () => {
-                    document.body.style.userSelect = '';
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                };
-
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-            });
-        };
-
-        attachDrag(minHandle, true);
-        attachDrag(maxHandle, false);
-
-        updateUI();
-        return wrap;
+        const slider = new RangeSlider({
+            label: spec.label,
+            valueText: (pos) => spec.format(valueAt(pos)),
+            onInput: (minPos, maxPos) => {
+                show(valueAt(minPos), valueAt(maxPos));
+                this._scheduleQuery();
+            },
+        });
+        show(range.min, range.max);
+        return slider.el;
     }
 
     _buildTextFilters() {

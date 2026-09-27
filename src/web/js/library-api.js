@@ -125,6 +125,13 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    // Every located photo of every library: { libraries: [{ id, points:
+    // [[photoID, lat, lon, taken, filename], …] }] } (ADR-0039).
+    async geo() {
+        const r = await fetch('/api/library/geo');
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     thumbURL(libID, photoID) {
         return `/api/library/${libID}/thumb/${photoID}`;
     },

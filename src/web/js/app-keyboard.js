@@ -109,6 +109,9 @@ class GlobalKeyboard {
             const pane = app.organize.pane;
             if (this._clearSelection(pane)) return;
             pane.load(parentFolder(pane.path));
+        } else if (app.mode === 'map' && app._mapPane) {
+            if (this._viewerOpen()) return;
+            if (app._mapPane.closePhotos()) e.preventDefault();
         } else if (app.mode === 'settings') {
             // Escape is Done: back to where Settings was opened from.
             e.preventDefault();
@@ -264,7 +267,7 @@ GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 
 // The number keys switch places; comma opens Settings.
 GlobalKeyboard.PLACE_KEYS = {
     '1': 'browse', '2': 'wastebin', '3': 'organize', '4': 'library',
-    '5': 'published', '6': 'destinations', ',': 'settings',
+    '5': 'published', '6': 'destinations', '7': 'map', ',': 'settings',
 };
 
 // parentFolder is the path one folder up; "" above the top.

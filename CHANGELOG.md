@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A map of your photos.** A new place, Map, under Explore in the sidebar (key 7, `#map`, and a tab on a phone), shows every photo with a location from every library. Photos close together form a group: a round thumbnail of the newest one and how many there are. Zooming in splits the groups; clicking a group zooms in until it does, and a group whose photos share one spot opens in the viewer, as does a single photo. The viewer opens read-only there. A slider narrows the map to the months the photos were taken in. The Photos button opens a column with the photos in the part of the map on screen, newest first; it follows the map as you move and zoom, opens a photo in the viewer, and closes again with Done or Escape. The tiles are grey and follow the light or dark theme.
+
+### Changed
+- **Range sliders take the keyboard and a finger.** The two-handle sliders of the library filter could only be dragged with a mouse. Each handle is now a slider for screen readers, moves with the arrow, Page and Home/End keys, and follows a finger; the handle being moved turns orange.
+
+### Fixed
+- **Text in the viewer's dark bar and info panel is readable in the light theme.** The word for a switch's current state (Film strip, the info map's 2D/3D), "All metadata" and the hover state of the panel's headings were drawn in the page's dark text colour on the viewer's dark background, so "On" all but vanished and the dim "Off" looked like the state. They take the viewer's light text now.
+
 ## [0.12.2] - 2026-09-27
 
 ### Fixed

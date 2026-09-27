@@ -16,6 +16,9 @@ class Viewer {
         this._imageURLFn = options.imageURLFn || ((p) => API.imageURL(p));
         this._thumbURLFn = options.thumbURLFn || ((p) => API.thumbnailURL(p, 80));
         this._infoLoadFn = options.infoLoadFn || ((p, ip) => ip.loadInfo(p));
+        // Read-only: photos seen from somewhere that is not their folder (the
+        // map) can be looked at, not cropped or marked for deletion.
+        this._readOnly = !!options.readOnly;
         this._cacheBust = null;
         this._cropTool = null;
         this._cropKeyHandler = null;
@@ -215,6 +218,7 @@ class Viewer {
                 break;
             case 'Backspace':
             case 'Delete':
+                if (this._readOnly) break;
                 e.preventDefault();
                 this.markCurrentForDeletion();
                 break;
@@ -276,10 +280,10 @@ class Viewer {
                         <button class="btn viewer-zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                         <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
                     </div>
-                    <div class="viewer-action-group desk-only">
+                    ${this._readOnly ? '' : `<div class="viewer-action-group desk-only">
                         <button class="btn viewer-crop-btn" title="Crop">Crop</button>
                         <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
-                    </div>
+                    </div>`}
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
@@ -313,8 +317,8 @@ class Viewer {
             this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
         });
 
-        this.container.querySelector('.viewer-crop-btn').addEventListener('click', () => this._enterCropMode());
-        this.container.querySelector('.viewer-delete').addEventListener('click', () => this.markCurrentForDeletion());
+        this.container.querySelector('.viewer-crop-btn')?.addEventListener('click', () => this._enterCropMode());
+        this.container.querySelector('.viewer-delete')?.addEventListener('click', () => this.markCurrentForDeletion());
         const prevBtn = this.container.querySelector('.viewer-prev');
         const nextBtn = this.container.querySelector('.viewer-next');
         if (hasPrev) prevBtn.addEventListener('click', () => this.navigate(-1));

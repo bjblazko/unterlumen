@@ -1,6 +1,6 @@
 # E2E Test Notes
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-09-27*
 
 Non-obvious patterns and traps discovered during test development.
 
@@ -81,3 +81,7 @@ Downloaded via `e2e/fixtures/setup.sh`, gitignored. Sources: ianare/exif-samples
 ## Two installations in one spec
 
 `site-album-register.spec.js` starts a second server on port 8083 from `beforeAll`, with its own `UNTERLUMEN_LIB_DIR` (a temp dir) and `UNTERLUMEN_CHANNELS_DIR` pointing at the main server's `fixtures/.unterlumen-test`. That is exactly what two real installations share. Create the `APIRequestContext`s yourself in `beforeAll`: the `{ request }` fixture of a hook cannot be reused inside a test. A channel's output directory differs per installation; read it from `GET /api/channels/` (`outputDir`), not from `GET /api/channels/{slug}`. Index the second installation's library only after album A was published, so it reads A's XMP sidecar.
+
+## Map tiles
+
+`map.spec.js` routes `https://tiles.openfreemap.org/**` to an empty MapLibre style (one background layer) before opening `#map`. The markers come from the app's own GeoJSON source, so the tests need no tiles and run offline; waiting for real tiles made the spec depend on the network. Assert on `.map-marker` and `.map-count`, never on the canvas.

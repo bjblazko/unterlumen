@@ -148,7 +148,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
-| `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata |
+| `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
 | `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
@@ -177,7 +177,12 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
 | `fullscreen.js` | `Fullscreen` — the browser's own full screen for the slideshow and the viewer; a caller leaves only the full screen it entered |
 | `menu.js` | `Menu` class — the ⋯ menu of a place: actions and Toggle switches that need not be on screen, keyboard-owning while open |
-| `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
+| `viewer.js` | `Viewer` class — full-image display, prev/next navigation; `readOnly` leaves out crop and marking for deletion |
+| `range-slider.js` | `RangeSlider` — two handles on one track, for pointer and keyboard; the library filter's ranges and the Map's time |
+| `map-place.js` | `MapPane` — the Map place: loads `/api/library/geo`, says why nothing is shown, the grey map in the theme's shade, opens photos read-only ([ADR-0039](adr/0039-map-place.md)) |
+| `map-markers.js` | `MapMarkers` — clustered GeoJSON source and the round HTML markers; zooms into a group or opens it |
+| `map-photos.js` | `MapPhotos` — the column beside the map: the photos in view as square tiles, rendered in chunks |
+| `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data; a folder's dashboard comes from `FolderDashboard` |
 | `folder-dashboard.js` | `FolderDashboard` — the info panel's view of a folder: contents, size map (treemap), nesting depth, file types, library EXIF stats |
 | `stats-modal.js` | `StatsModal` — the Statistics place: library filter, snapshot and timeline tabs |
@@ -329,6 +334,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0036](adr/0036-activity-and-progress.md) — One way to show activity, and a status line for work that outlives its page
 - [ADR-0037](adr/0037-backend-packages-by-domain.md) — Backend packages by domain: library, publish, site
 - [ADR-0038](adr/0038-maplibre-6-as-es-module.md) — MapLibre 6 as an ES module, without a bundler (supersedes ADR-0031's version pin)
+- [ADR-0039](adr/0039-map-place.md) — The Map is a place, clustered in the browser
 
 ## 10. Quality Requirements
 

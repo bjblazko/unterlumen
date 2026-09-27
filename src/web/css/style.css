@@ -662,6 +662,17 @@ button.toggle {
     color: var(--overlay-fg-3);
 }
 
+/* On the viewer's dark bar and panel the true word is light, not --fg: dark
+   on dark made "On" vanish and the dim "Off" read as the current state. */
+.viewer .toggle-label {
+    color: var(--overlay-fg-3);
+}
+
+.viewer .toggle[data-state="on"] .toggle-label-on,
+.viewer .toggle[data-state="off"] .toggle-label-off {
+    color: var(--overlay-fg);
+}
+
 .viewer-filmstrip-label {
     font-size: 12px;
     color: var(--overlay-fg-3);
@@ -1947,7 +1958,7 @@ button.toggle {
 }
 
 .viewer .info-toggle-btn:hover {
-    color: var(--fg);
+    color: var(--overlay-fg);
 }
 
 .viewer .info-panel.expanded {
@@ -1968,7 +1979,7 @@ button.toggle {
 }
 
 .viewer .info-collapse-btn:hover {
-    color: var(--fg);
+    color: var(--overlay-fg);
 }
 
 .viewer .info-empty,
@@ -1984,8 +1995,17 @@ button.toggle {
 }
 
 .viewer .info-section-title:hover {
-    color: var(--fg);
+    color: var(--overlay-fg);
 }
+
+/* The panel's own --fg is dark in the light theme: on the viewer's dark
+   panel everything that would take it takes the overlay's light instead. */
+.viewer .info-all-meta {
+    color: var(--overlay-fg);
+    border-top-color: var(--overlay-line-soft);
+}
+
+.viewer .info-meta-group-title { color: var(--overlay-fg-3); }
 
 .viewer .info-label {
     color: var(--overlay-fg-3);
@@ -3996,15 +4016,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
-/* --- Combined range slider --- */
-.lib-range-slider {
+/* --- Range slider (range-slider.js) --- */
+.range-slider {
     position: relative;
     height: 20px;
     display: flex;
     align-items: center;
+    touch-action: none;
 }
 
-.lib-range-track {
+.range-track {
     position: absolute;
     left: 0;
     right: 0;
@@ -4014,15 +4035,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 /* The chosen range is state, not the screen's primary action: four orange
-   sliders in one panel would spend the accent on furniture. */
-.lib-range-fill {
+   sliders in one panel would spend the accent on furniture. Only the handle
+   being moved right now is orange. */
+.range-fill {
     position: absolute;
     height: 100%;
     background: var(--fg-2);
     border-radius: var(--radius-sm);
 }
 
-.lib-range-handle {
+.range-handle {
     position: absolute;
     width: 7px;
     height: 17px;
@@ -4034,18 +4056,30 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     transform: translate(-50%, -50%);
     user-select: none;
     -webkit-user-select: none;
+    touch-action: none;
 }
 
-.lib-range-handle--min {
+/* A finger needs more than the drawn bracket. */
+.range-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px -16px;
+}
+
+.range-handle--min {
     border-right: none;
 }
 
-.lib-range-handle--max {
+.range-handle--max {
     border-left: none;
 }
 
-.lib-range-handle:hover {
+.range-handle:hover {
     border-color: var(--fg-2);
+}
+
+.range-handle.is-adjusting {
+    border-color: var(--accent);
 }
 
 .lib-filter-status {
@@ -7006,3 +7040,226 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .settings-body .toggle { align-self: flex-start; }
 
 /* Organize says what happened where it happened. */
+
+/* --- Map (ADR-0039) --- */
+
+.map-pane {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.map-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-6);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--line);
+}
+
+.map-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+}
+
+.map-count {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.map-head-spacer { flex: 1; }
+
+/* The one filter: when the photos were taken. */
+.map-time {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    height: var(--control-h);
+    font-size: var(--text-sm);
+}
+
+.map-time-label { color: var(--fg-2); }
+
+.map-time .range-slider {
+    width: 16rem;
+    flex: none;
+}
+
+.map-time-value {
+    min-width: 11rem;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.map-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.map-view {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+}
+
+/* MapLibre makes its container position: relative, so the canvas fills the
+   body as a flex item rather than by insets. */
+.map-canvas {
+    flex: 1;
+    min-width: 0;
+}
+
+.map-canvas[hidden] { display: none; }
+
+/* Loading, nothing to show, or a failure: a sentence where the map would be. */
+.map-note {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    color: var(--fg-2);
+    text-align: center;
+    pointer-events: none;
+}
+
+.map-note[hidden] { display: none; }
+
+.map-note p {
+    max-width: 32rem;
+    padding: var(--space-4) var(--space-6);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    pointer-events: auto;
+}
+
+.map-note a { color: var(--fg); }
+
+.map-note-error p { color: var(--warning-ink); }
+
+/* A group of photos: the newest one, round, and how many there are. On the
+   map, not above it — no shadow; a light ring keeps it off busy tiles. */
+.map-marker {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 2px solid var(--bg);
+    border-radius: var(--radius-full);
+    box-shadow: 0 0 0 1px var(--line-strong);
+    background: var(--bg-3);
+    cursor: pointer;
+    transition: box-shadow var(--dur) var(--ease);
+}
+
+.map-marker:hover { box-shadow: 0 0 0 1px var(--fg); }
+
+.map-marker img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+}
+
+.map-marker-count {
+    position: absolute;
+    top: calc(-1 * var(--space-2));
+    right: calc(-1 * var(--space-2));
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--space-1);
+    box-sizing: border-box;
+    border: 1px solid var(--bg);
+    border-radius: var(--radius-full);
+    background: var(--fg);
+    color: var(--bg);
+    font: 500 var(--text-xs)/18px var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* The photos in view: a column beside the map, like the library filter's,
+   taking its width from the map rather than lying over it. */
+.map-photos {
+    display: flex;
+    flex-direction: column;
+    width: 22rem;
+    flex-shrink: 0;
+    border-left: 1px solid var(--line);
+    background: var(--bg);
+}
+
+.map-photos[hidden] { display: none; }
+
+.map-photos-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+}
+
+.map-photos-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.map-photos-close { margin-left: auto; }
+
+.map-photos-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-2);
+}
+
+.map-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-1);
+}
+
+.map-photo {
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-3);
+    cursor: pointer;
+}
+
+.map-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.map-photos-empty {
+    padding: var(--space-4) var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.map-photos-sentinel { height: 1px; }
+
+@media (max-width: 700px) {
+    .map-head { padding: var(--space-3) var(--space-2); }
+    /* On a phone the column is the lower half, the map stays above it. */
+    .map-body { flex-direction: column; }
+    .map-photos { width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
+    .map-photos-grid { grid-template-columns: repeat(4, 1fr); }
+    .map-head-spacer { display: none; }
+    .map-time { width: 100%; }
+    .map-time .range-slider { flex: 1; width: auto; }
+    .map-time-value { min-width: 0; }
+}

@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'published']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'published']);
 
 const App = {
     mode: 'browse',
@@ -82,6 +82,7 @@ const App = {
         wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
         organize: { hash: 'organize', id: 'mode-organize', key: '3' },
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
+        map: { hash: 'map', id: 'mode-map', key: '7' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
@@ -278,7 +279,7 @@ const App = {
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
-        ['_libraryEl', 'library'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'],
     ],
 
@@ -311,6 +312,7 @@ const App = {
                 this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
                 break;
             case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
+            case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'settings': this._openPane('_settingsEl', '_settingsPane', SettingsPane); break;
             case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
@@ -440,6 +442,23 @@ const App = {
         if (pane.selection.selected.size >= 2) {
             images = images.filter(path => pane.selection.selected.has(path));
         }
+        const viewer = this.showViewer(imagePath, images, {
+            imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
+            thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
+            infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
+        }, () => {
+            if (pane.updateMarkedForDeletion) pane.updateMarkedForDeletion();
+        });
+        viewer.onDelete = (path) => {
+            const libMeta = pane.getLibraryMeta?.(path);
+            const photoMeta = libMeta ? { [path]: libMeta } : null;
+            this.wastebin.mark([path], pane.entries || [], pane.path || '', photoMeta);
+        };
+    },
+
+    // showViewer puts the viewer over the current place and brings the place
+    // back, scrolled where it was, when the viewer closes.
+    showViewer(imagePath, images, options, onClosed) {
         const appEl = document.getElementById('app');
         const existingChildren = Array.from(appEl.children);
         const savedDisplay = new Map();
@@ -455,23 +474,15 @@ const App = {
         viewerEl.style.height = '100%';
         appEl.appendChild(viewerEl);
 
-        this.viewer = new Viewer(viewerEl, {
-            imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
-            thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
-            infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
-        });
+        this.viewer = new Viewer(viewerEl, options);
         this.viewer.onClose = () => {
             viewerEl.remove();
             savedDisplay.forEach((display, el) => { el.style.display = display; });
             scrollPositions.forEach((top, el) => { el.scrollTop = top; });
-            if (pane.updateMarkedForDeletion) pane.updateMarkedForDeletion();
-        };
-        this.viewer.onDelete = (path) => {
-            const libMeta = pane.getLibraryMeta?.(path);
-            const photoMeta = libMeta ? { [path]: libMeta } : null;
-            this.wastebin.mark([path], pane.entries || [], pane.path || '', photoMeta);
+            onClosed?.();
         };
         this.viewer.open(imagePath, images);
+        return this.viewer;
     },
 
     async handleSlideshowInvoke(pane) {

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	lib "huepattl.de/unterlumen/internal/library"
@@ -98,8 +97,8 @@ func buildPhotoInfoResp(p *lib.PhotoInfo) photoInfoResp {
 		out.Latitude = stored.Latitude
 		out.Longitude = stored.Longitude
 	} else if stored.Tags != nil {
-		if lat, ok := parseGPSCoord(stored.Tags["GPSLatitude"], stored.Tags["GPSLatitudeRef"]); ok {
-			if lon, ok := parseGPSCoord(stored.Tags["GPSLongitude"], stored.Tags["GPSLongitudeRef"]); ok {
+		if lat, ok := lib.ParseGPSCoord(stored.Tags["GPSLatitude"], stored.Tags["GPSLatitudeRef"]); ok {
+			if lon, ok := lib.ParseGPSCoord(stored.Tags["GPSLongitude"], stored.Tags["GPSLongitudeRef"]); ok {
 				out.Latitude = &lat
 				out.Longitude = &lon
 			}
@@ -108,52 +107,4 @@ func buildPhotoInfoResp(p *lib.PhotoInfo) photoInfoResp {
 
 	resp.Exif = out
 	return resp
-}
-
-// parseGPSCoord converts a goexif GPS tag string to decimal degrees.
-// Handles rational DMS format "[48/1, 52/1, 4746/100]" and plain decimals.
-func parseGPSCoord(coord, ref string) (float64, bool) {
-	coord = strings.TrimSpace(coord)
-	if coord == "" {
-		return 0, false
-	}
-	// Plain decimal (e.g. "48.879850").
-	if v, err := strconv.ParseFloat(coord, 64); err == nil {
-		if strings.EqualFold(strings.TrimSpace(ref), "S") || strings.EqualFold(strings.TrimSpace(ref), "W") {
-			v = -v
-		}
-		return v, true
-	}
-	// Rational DMS: "[d/1, m/1, s/100]".
-	coord = strings.Trim(coord, "[] ")
-	parts := strings.SplitN(coord, ",", 3)
-	if len(parts) != 3 {
-		return 0, false
-	}
-	vals := make([]float64, 3)
-	for i, p := range parts {
-		n, d, ok := parseRat(strings.TrimSpace(p))
-		if !ok || d == 0 {
-			return 0, false
-		}
-		vals[i] = n / d
-	}
-	deg := vals[0] + vals[1]/60 + vals[2]/3600
-	if strings.EqualFold(strings.TrimSpace(ref), "S") || strings.EqualFold(strings.TrimSpace(ref), "W") {
-		deg = -deg
-	}
-	return deg, true
-}
-
-func parseRat(s string) (float64, float64, bool) {
-	idx := strings.IndexByte(s, '/')
-	if idx < 0 {
-		return 0, 0, false
-	}
-	n, err1 := strconv.ParseFloat(s[:idx], 64)
-	d, err2 := strconv.ParseFloat(s[idx+1:], 64)
-	if err1 != nil || err2 != nil {
-		return 0, 0, false
-	}
-	return n, d, true
 }

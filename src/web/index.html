@@ -13,7 +13,7 @@
     <meta name="theme-color" content="#161718" media="(prefers-color-scheme: dark)">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=39">
+    <link rel="stylesheet" href="/css/style.css?v=43">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
     <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
          as the global maplibregl. Module scripts run before DOMContentLoaded,
@@ -78,6 +78,16 @@
             </div>
 
             <div class="nav-group">
+                <div class="nav-label">Explore</div>
+                <a class="nav-item" id="mode-map" href="#map" data-mode="map">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M8 14.5s-4.5-4.6-4.5-8a4.5 4.5 0 0 1 9 0c0 3.4-4.5 8-4.5 8z"/><circle cx="8" cy="6.5" r="1.5"/>
+                    </svg>
+                    <span class="nav-text">Map</span>
+                </a>
+            </div>
+
+            <div class="nav-group">
                 <div class="nav-label">Publish</div>
                 <a class="nav-item" id="mode-published" href="#galleries" data-mode="published">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
@@ -127,6 +137,12 @@
                 </svg>
                 <span>Folders</span>
             </a>
+            <a class="tabbar-item" id="tab-map" href="#map" data-mode="map">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M8 14.5s-4.5-4.6-4.5-8a4.5 4.5 0 0 1 9 0c0 3.4-4.5 8-4.5 8z"/><circle cx="8" cy="6.5" r="1.5"/>
+                </svg>
+                <span>Map</span>
+            </a>
             <a class="tabbar-item" id="tab-published" href="#galleries" data-mode="published">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
                     <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 11l4-4 3 3 2-2 4 4"/>
@@ -139,7 +155,7 @@
     <div id="ui-hint" class="ui-hint"></div>
     <script src="/js/toggle.js?v=5"></script>
     <script src="/js/api.js?v=5"></script>
-    <script src="/js/library-api.js?v=1"></script>
+    <script src="/js/library-api.js?v=2"></script>
     <script src="/js/activity.js?v=1"></script>
     <script src="/js/status-line.js?v=1"></script>
     <script src="/js/browse-selection.js?v=6"></script>
@@ -153,7 +169,7 @@
     <script src="/js/crop-tool.js?v=4"></script>
     <script src="/js/zoom-tool.js?v=4"></script>
     <script src="/js/fullscreen.js?v=1"></script>
-    <script src="/js/viewer.js?v=7"></script>
+    <script src="/js/viewer.js?v=8"></script>
     <script src="/js/exif-labels.js?v=1"></script>
     <script src="/js/folder-dashboard.js?v=1"></script>
     <script src="/js/infopanel.js?v=10"></script>
@@ -176,17 +192,22 @@
     <script src="/js/library-pane.js?v=6"></script>
     <script src="/js/search-result-pane.js?v=5"></script>
     <script src="/js/chip-input.js?v=8"></script>
-    <script src="/js/library-filter.js?v=14"></script>
+    <script src="/js/range-slider.js?v=1"></script>
+    <script src="/js/library-filter.js?v=15"></script>
     <script src="/js/vendor/d3.v7.min.js?v=4"></script>
     <script src="/js/stats-charts.js?v=2"></script>
     <script src="/js/stats-timeline-charts.js?v=1"></script>
     <script src="/js/stats-modal.js?v=6"></script>
     <script src="/js/library-dialogs.js?v=1"></script>
     <script src="/js/library.js?v=17"></script>
+    <script src="/js/map-time-range.js?v=1"></script>
+    <script src="/js/map-markers.js?v=1"></script>
+    <script src="/js/map-photos.js?v=1"></script>
+    <script src="/js/map-place.js?v=2"></script>
     <script src="/js/settings.js?v=3"></script>
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=5"></script>
-    <script src="/js/app-keyboard.js?v=8"></script>
-    <script src="/js/app.js?v=14"></script>
+    <script src="/js/app-keyboard.js?v=10"></script>
+    <script src="/js/app.js?v=15"></script>
 </body>
 </html>
