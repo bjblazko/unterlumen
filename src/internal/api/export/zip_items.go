@@ -17,6 +17,9 @@ import (
 type photoRef struct {
 	Library string `json:"library"`
 	ID      string `json:"id"`
+	// Key is what the page calls this photo (its path); an estimate
+	// answers under it, so the page can find the row.
+	Key string `json:"key,omitempty"`
 }
 
 // zipItem is one file for the ZIP: where it is, and its name inside the ZIP

@@ -54,6 +54,7 @@ type estimateRequest struct {
 	Scale      media.ScaleOptions `json:"scale"`
 	Method     string             `json:"method"` // "heuristic" or "encode"
 	SourcePath string             `json:"sourcePath,omitempty"`
+	Photos     []photoRef         `json:"photos,omitempty"` // library photos by ID, answered under their key
 }
 
 type estimateEntry struct {
@@ -93,7 +94,7 @@ type zipStreamEvent struct {
 // Handle registers all /api/export/* routes on mux.
 // libs may be nil when library support is off.
 func Handle(mux *http.ServeMux, root string, serverRole bool, reg *jobs.Registry, libs *lib.Manager) {
-	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root, serverRole))
+	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root, serverRole, libs))
 	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole, libs))
 	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole, reg, libs))
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
@@ -103,7 +104,7 @@ func Handle(mux *http.ServeMux, root string, serverRole bool, reg *jobs.Registry
 	}
 }
 
-func handleExportEstimate(root string, serverRole bool) http.HandlerFunc {
+func handleExportEstimate(root string, serverRole bool, libs *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -118,6 +119,12 @@ func handleExportEstimate(root string, serverRole bool) http.HandlerFunc {
 
 		opts := media.ExportOptions{Format: req.Format, Quality: req.Quality, Scale: req.Scale}
 		eRoot := effectiveRoot(root, req.SourcePath, serverRole)
+		estimate := func(key, absPath string) estimateEntry {
+			if req.Method == "encode" {
+				return estimateEncode(key, absPath, opts)
+			}
+			return estimateHeuristic(key, absPath, opts)
+		}
 		var estimates []estimateEntry
 		for _, relPath := range req.Files {
 			absPath, ok := resolveFilePath(eRoot, serverRole, relPath)
@@ -125,13 +132,16 @@ func handleExportEstimate(root string, serverRole bool) http.HandlerFunc {
 				estimates = append(estimates, estimateEntry{File: relPath})
 				continue
 			}
-			var entry estimateEntry
-			if req.Method == "encode" {
-				entry = estimateEncode(relPath, absPath, opts)
-			} else {
-				entry = estimateHeuristic(relPath, absPath, opts)
+			estimates = append(estimates, estimate(relPath, absPath))
+		}
+		sources := zipSources{libs: libs}
+		for _, ref := range req.Photos {
+			absPath, ok := sources.libraryPhoto(ref)
+			if !ok {
+				estimates = append(estimates, estimateEntry{File: ref.Key})
+				continue
 			}
-			estimates = append(estimates, entry)
+			estimates = append(estimates, estimate(ref.Key, absPath))
 		}
 
 		w.Header().Set("Content-Type", "application/json")

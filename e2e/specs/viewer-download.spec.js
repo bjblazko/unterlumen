@@ -148,7 +148,16 @@ test.describe('Download the original from the viewer', () => {
             await results.nth(1).waitFor();
             await results.nth(0).click();
             await results.nth(1).click({ modifiers: ['ControlOrMeta'] });
-            await page.locator('.selection-bar [data-action="export"]').click();
+            const [estimate] = await Promise.all([
+                page.waitForRequest('**/api/export/estimate'),
+                page.locator('.selection-bar [data-action="export"]').click(),
+            ]);
+            // The size estimates find them by ID too, answered under their path.
+            const est = estimate.postDataJSON();
+            expect(est.files).toEqual([]);
+            expect(est.photos).toHaveLength(2);
+            expect(est.photos.every(p => p.key && p.id && p.library)).toBe(true);
+            await expect(page.locator('.export-total-in')).not.toHaveText(/…|—/);
             await page.locator('.export-dialog input[name="output-mode"][value="zip"]').check();
             const [request] = await Promise.all([
                 page.waitForRequest('**/api/export/zip-stream'),

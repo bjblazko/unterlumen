@@ -3,12 +3,14 @@ package export
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,4 +186,30 @@ func mustEval(t *testing.T, p string) string {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func TestEstimateFindsLibraryPhotosByIDAndAnswersUnderTheirKey(t *testing.T) {
+	root := t.TempDir()
+	photo := filepath.Join(root, "IMG_9.jpg")
+	write(t, photo)
+	mgr, err := lib.NewManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, _ := mgr.CreateLibrary("L", "", root)
+	store, _ := mgr.OpenStore(l.ID)
+	store.UpsertPhoto("p9", photo, "IMG_9.jpg", 1, time.Now(), "{}", "", "", "jpeg")
+	store.Close()
+
+	body := `{"format":"jpeg","quality":80,"method":"heuristic","photos":[{"library":"` + l.ID + `","id":"p9","key":"/abs/IMG_9.jpg"}]}`
+	rec := httptest.NewRecorder()
+	handleExportEstimate(t.TempDir(), true, mgr)(rec, httptest.NewRequest("POST", "/api/export/estimate", strings.NewReader(body)))
+
+	var resp estimateResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode %q: %v", rec.Body.String(), err)
+	}
+	if len(resp.Estimates) != 1 || resp.Estimates[0].File != "/abs/IMG_9.jpg" || resp.Estimates[0].InputBytes != 1 {
+		t.Errorf("estimates = %+v", resp.Estimates)
+	}
 }

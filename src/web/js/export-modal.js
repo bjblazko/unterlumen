@@ -326,7 +326,7 @@ class ExportModal {
     async _quickEstimates(basePayload, totals) {
         this._hideProgress();
         try {
-            const resp = await API.exportEstimate({ ...basePayload, files: this._files, method: 'heuristic' });
+            const resp = await API.exportEstimate({ ...basePayload, ...this._byPathOrID(this._files), method: 'heuristic' });
             if (!this.overlay) return;
             this._applyEstimates(resp.estimates, totals.inEl, totals.outEl);
         } catch {
@@ -348,7 +348,7 @@ class ExportModal {
 
             try {
                 const resp = await API.exportEstimate(
-                    { ...basePayload, files: [file], method: 'encode' },
+                    { ...basePayload, ...this._byPathOrID([file]), method: 'encode' },
                     abortCtrl.signal,
                 );
                 if (!this.overlay) break;
@@ -469,6 +469,17 @@ class ExportModal {
         }
     }
 
+    // _byPathOrID splits files into plain paths and library photos by ID.
+    // A server refuses the absolute paths of filter results; the ID it finds
+    // in the index. The path goes along as the key an estimate answers under.
+    _byPathOrID(files) {
+        const refs = this._photoRefs || new Map();
+        return {
+            files: files.filter(f => !refs.has(f)),
+            photos: files.filter(f => refs.has(f)).map(f => ({ ...refs.get(f), key: f })),
+        };
+    }
+
     // _exportZip streams progress while the server builds the ZIP, then
     // downloads it.
     async _exportZip(basePayload) {
@@ -477,11 +488,7 @@ class ExportModal {
         const resp = await fetch('/api/export/zip-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...basePayload,
-                files: this._files.filter(f => !this._photoRefs.has(f)),
-                photos: this._files.filter(f => this._photoRefs.has(f)).map(f => this._photoRefs.get(f)),
-            }),
+            body: JSON.stringify({ ...basePayload, ...this._byPathOrID(this._files) }),
         });
         if (!resp.ok) throw new Error(await resp.text());
 
