@@ -1,0 +1,92 @@
+/* Timeline place (ADR-0040). Its own file: style.css is past 7 000 lines. */
+
+/* --- Place --- */
+.timeline-place { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.timeline-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--line);
+}
+.timeline-title { margin: 0; font-size: var(--text-lg); font-weight: 600; }
+.timeline-count { font: 400 var(--text-xs)/1.4 var(--font-mono); color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.timeline-undated { font-size: var(--text-xs); color: var(--fg-3); }
+.timeline-head-spacer { flex: 1; }
+.timeline-body { flex: 1; min-height: 0; display: flex; }
+.timeline-note { padding: var(--space-6); color: var(--fg-2); font-size: var(--text-sm); max-width: 60ch; }
+
+/* --- Desk --- */
+.timeline-desk { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.timeline-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.timeline-band-wrap { flex: 1; position: relative; min-height: 0; }
+.timeline-bar { background: var(--bg-2); padding: var(--space-3) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.timeline-bar-row { display: flex; align-items: center; gap: var(--space-3); }
+.timeline-bar-label { font-size: var(--text-sm); font-weight: 500; color: var(--fg-2); }
+.timeline-range-text { font: 400 var(--text-xs)/1.4 var(--font-mono); color: var(--fg-2); min-width: 150px; font-variant-numeric: tabular-nums; }
+
+/* --- Band --- */
+.timeline-band { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain; }
+.timeline-band:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); outline: none; }
+.timeline-band-sizer { position: relative; height: 100%; }
+.timeline-band-label {
+    position: absolute; height: 22px; display: flex; align-items: center; padding-left: var(--space-2);
+    border-left: 1px solid var(--line-strong); font: 500 var(--text-xs)/1 var(--font-mono); color: var(--fg-2); white-space: nowrap;
+}
+
+/* --- Tiles --- */
+.timeline-tile { position: absolute; background: var(--bg-3); cursor: pointer; overflow: hidden; }
+.timeline-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.timeline-tile.is-selected { outline: 2px solid var(--fg); outline-offset: 1px; z-index: 1; }
+
+/* --- Axis and frame --- */
+.timeline-axis, .timeline-range, .timeline-scrubber { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+.timeline-axis { cursor: pointer; }
+.timeline-axis canvas, .timeline-range canvas, .timeline-scrubber canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.timeline-frame {
+    position: absolute; top: 0; box-sizing: border-box; border: 2px solid var(--fg); border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--fg) 7%, transparent); cursor: grab;
+}
+.timeline-frame.is-adjusting { border-color: var(--accent); cursor: grabbing; }
+.timeline-tip {
+    position: absolute; top: -26px; transform: translateX(-50%); padding: 2px var(--space-2);
+    background: var(--fg); color: var(--bg); border-radius: var(--radius-sm);
+    font: 500 var(--text-xs)/1.4 var(--font-mono); white-space: nowrap; pointer-events: none;
+}
+
+/* --- Range --- */
+.timeline-range-out { position: absolute; top: 0; background: color-mix(in srgb, var(--bg-2) 72%, transparent); pointer-events: none; }
+.timeline-range-sel { position: absolute; top: 0; box-sizing: border-box; border-block: 1px solid var(--line-strong); cursor: grab; }
+.timeline-range-h { position: absolute; top: 0; width: 7px; padding: 0; box-sizing: border-box; border: 2px solid var(--fg); background: none; cursor: ew-resize; }
+.timeline-range-h::before { content: ''; position: absolute; inset: -6px -12px; }
+.timeline-range-h.min { border-right: none; }
+.timeline-range-h.max { border-left: none; }
+.timeline-range-h:hover { border-color: var(--fg-2); }
+.timeline-range-h.is-adjusting { border-color: var(--accent); }
+
+/* --- Phone --- */
+.timeline-phone { flex: 1; min-width: 0; display: flex; }
+.timeline-list-wrap { flex: 1; position: relative; min-width: 0; }
+.timeline-list { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; }
+.timeline-list-sizer { position: relative; }
+.timeline-list-head, .timeline-list-sticky {
+    display: flex; align-items: flex-end; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; white-space: nowrap;
+}
+.timeline-list-head { position: absolute; height: 38px; padding-bottom: var(--space-2); box-sizing: border-box; }
+.timeline-list-sticky {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 2; height: 32px; align-items: center; padding: 0 var(--space-2);
+    background: var(--bg); border-bottom: 1px solid var(--line); pointer-events: none;
+}
+.timeline-list-count { font: 400 var(--text-xs)/1 var(--font-mono); color: var(--fg-3); }
+
+/* --- Scrubber --- */
+.timeline-scrubber { width: 60px; flex-shrink: 0; border-left: 1px solid var(--line); cursor: pointer; }
+.timeline-scrubber-thumb { position: absolute; left: 0; right: 0; height: 2px; margin-top: -1px; background: var(--fg); pointer-events: none; }
+.timeline-scrubber-thumb::after {
+    content: ''; position: absolute; right: var(--space-1); top: -7px; width: 8px; height: 16px;
+    border-radius: var(--radius-full); background: var(--fg);
+}
+.timeline-scrubber.is-adjusting .timeline-scrubber-thumb,
+.timeline-scrubber.is-adjusting .timeline-scrubber-thumb::after { background: var(--accent); }
+.timeline-scrubber-bubble {
+    position: absolute; right: calc(60px + var(--space-2)); transform: translateY(-50%); z-index: 3; padding: var(--space-2) var(--space-3);
+    background: var(--fg); color: var(--bg); border-radius: var(--radius-md); box-shadow: var(--shadow-float);
+    font: 500 var(--text-sm)/1.2 var(--font-mono); white-space: nowrap; pointer-events: none;
+}

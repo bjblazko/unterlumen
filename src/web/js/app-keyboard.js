@@ -194,6 +194,10 @@ class GlobalKeyboard {
             e.preventDefault();
             ip.toggle();
             if (ip.expanded) app._libraryTab.getActivePaneForKeyboard()?._notifyFocusChange();
+        } else if (app.mode === 'timeline' && app._timelinePane?.infoPanel) {
+            if (this._viewerOpen()) return;
+            e.preventDefault();
+            app._timelinePane.infoPanel.toggle();
         }
     }
 
@@ -267,7 +271,7 @@ GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 
 // The number keys switch places; comma opens Settings.
 GlobalKeyboard.PLACE_KEYS = {
     '1': 'browse', '2': 'wastebin', '3': 'organize', '4': 'library',
-    '5': 'published', '6': 'destinations', '7': 'map', ',': 'settings',
+    '5': 'published', '6': 'destinations', '7': 'map', '8': 'timeline', ',': 'settings',
 };
 
 // parentFolder is the path one folder up; "" above the top.

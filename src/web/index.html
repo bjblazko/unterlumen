@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css?v=46">
+    <link rel="stylesheet" href="/css/timeline.css?v=1">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
     <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
          as the global maplibregl. Module scripts run before DOMContentLoaded,
@@ -85,6 +86,12 @@
                     </svg>
                     <span class="nav-text">Map</span>
                 </a>
+                <a class="nav-item" id="mode-timeline" href="#timeline" data-mode="timeline">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                        <path d="M1.5 12.5h13M4 12.5V9M7 12.5V5M10 12.5V7.5M13 12.5V10"/>
+                    </svg>
+                    <span class="nav-text">Timeline</span>
+                </a>
             </div>
 
             <div class="nav-group">
@@ -142,6 +149,12 @@
                     <path d="M8 14.5s-4.5-4.6-4.5-8a4.5 4.5 0 0 1 9 0c0 3.4-4.5 8-4.5 8z"/><circle cx="8" cy="6.5" r="1.5"/>
                 </svg>
                 <span>Map</span>
+            </a>
+            <a class="tabbar-item" id="tab-timeline" href="#timeline" data-mode="timeline">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                    <path d="M1.5 12.5h13M4 12.5V9M7 12.5V5M10 12.5V7.5M13 12.5V10"/>
+                </svg>
+                <span>Timeline</span>
             </a>
             <a class="tabbar-item" id="tab-published" href="#galleries" data-mode="published">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
@@ -214,10 +227,11 @@
     <script src="/js/timeline-band.js?v=1"></script>
     <script src="/js/timeline-list.js?v=1"></script>
     <script src="/js/timeline-scrubber.js?v=1"></script>
+    <script src="/js/timeline-place.js?v=1"></script>
     <script src="/js/settings.js?v=3"></script>
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=5"></script>
-    <script src="/js/app-keyboard.js?v=10"></script>
-    <script src="/js/app.js?v=19"></script>
+    <script src="/js/app-keyboard.js?v=11"></script>
+    <script src="/js/app.js?v=20"></script>
 </body>
 </html>
