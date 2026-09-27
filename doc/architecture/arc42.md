@@ -150,6 +150,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`) |
+| `internal/timeline` | Every dated photo of every library as one stream, oldest first, each photo once; display aspect ratios, versioned by the libraries' content stamps and cached ([ADR-0040](adr/0040-timeline-place.md)) |
+| `internal/api/timeline` | `/api/timeline` (skeleton: a day and an aspect ratio per photo) and `/api/timeline/photos` (details by index range, 409 when the stream changed) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
 | `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
@@ -184,6 +186,16 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `map-markers.js` | `MapMarkers` — clustered GeoJSON source and the round HTML markers; zooms into a group or opens it |
 | `map-photos.js` | `MapPhotos` — the column beside the map: the photos in view as square tiles, rendered in chunks |
 | `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
+| `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
+| `timeline-stream.js` | `TimelineStream` — the skeleton in typed arrays and the details in pages of 500, at most 40 kept |
+| `timeline-calendar.js` | `TimelineCalendar` — days and months in UTC from the first photo's day, date labels |
+| `timeline-chart.js` | `TimelineChart` — the step graph and the calendar labels on a canvas; redraws on theme change |
+| `timeline-axis.js` | `TimelineAxis` — the desk's axis with the frame for what the band shows |
+| `timeline-range.js` | `TimelineRange` — the desk's overview with bracket handles that limit the range to whole months |
+| `timeline-band.js` | `TimelineBand` — the desk's photos in 2–4 rows, time left to right, a column per month |
+| `timeline-list.js` | `TimelineList` — the phone's photos, newest first, a heading per month |
+| `timeline-scrubber.js` | `TimelineScrubber` — the phone's vertical time axis with a month bubble |
+| `timeline-tiles.js` | `TimelineTiles` — tiles only near the screen; a tile that leaves releases its image |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data; a folder's dashboard comes from `FolderDashboard` |
 | `folder-dashboard.js` | `FolderDashboard` — the info panel's view of a folder: contents, size map (treemap), nesting depth, file types, library EXIF stats |
 | `stats-modal.js` | `StatsModal` — the Statistics place: library filter, snapshot and timeline tabs |
@@ -336,6 +348,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0037](adr/0037-backend-packages-by-domain.md) — Backend packages by domain: library, publish, site
 - [ADR-0038](adr/0038-maplibre-6-as-es-module.md) — MapLibre 6 as an ES module, without a bundler (supersedes ADR-0031's version pin)
 - [ADR-0039](adr/0039-map-place.md) — The Map is a place, clustered in the browser
+- [ADR-0040](adr/0040-timeline-place.md) — The Timeline is a place, laid out in the browser from a skeleton
 
 ## 10. Quality Requirements
 

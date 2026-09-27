@@ -16,6 +16,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - Geolocation: set or remove GPS coordinates via interactive map
 - **Publish your own website:** turn collected photos into a complete, multi-album website with navigation and a sitemap, or into a single gallery behind a private share link for family and friends — no photo platform in between. You need your own webspace reachable over SSH; Unterlumen uploads with rsync. Without it, the result is a folder you can put online any way you like.
 - Map: every photo with a location on one map, grouped by place
+- Timeline: every dated library photo on one time axis, with a graph of when they were taken
 - **Optional — Digital Asset Management (DAM):** build a persistent, searchable catalog of your photos. Search by aperture, focal length, camera, lens, or Fujifilm film simulation across multiple libraries. Track where and when photos were published, with platform presets (Instagram 1080 px, Mastodon 1920 px, …).
 
 **What it is not:**
@@ -82,6 +83,12 @@ Every photo with a location on one map. Photos close together form a group showi
 
 ![Map with the photos column](doc/screenshots/map.webp)
 
+#### Timeline
+
+Every dated photo of every library on one time axis, oldest on the left. The graph below shows when the photos were taken; the frame marks what the rows above show, and the overview limits both to a span of months.
+
+![Timeline with the time bar and a photo in the info panel](doc/screenshots/timeline.webp)
+
 #### Rename, export, location
 
 Tools for a selection: rename from EXIF tokens with a live preview, export to JPEG, PNG or WebP with size and metadata options, and set or remove the location of several photos at once.
@@ -110,11 +117,11 @@ What Publish builds — a website with its albums, one album of it, and a galler
 
 #### On a phone
 
-On a phone Unterlumen is for looking: libraries, folders, photos, the map and your galleries, with a tab bar at the bottom.
+On a phone Unterlumen is for looking: libraries, folders, photos, the map, the timeline and your galleries, with a tab bar at the bottom.
 
-| Folders | Map |
-|---|---|
-| <img src="doc/screenshots/phone-folders.webp" alt="Folders on a phone" width="320"> | <img src="doc/screenshots/phone-map.webp" alt="Map on a phone" width="320"> |
+| Folders | Map | Timeline |
+|---|---|---|
+| <img src="doc/screenshots/phone-folders.webp" alt="Folders on a phone" width="320"> | <img src="doc/screenshots/phone-map.webp" alt="Map on a phone" width="320"> | <img src="doc/screenshots/phone-timeline.webp" alt="Timeline on a phone, newest first, with the scrubber" width="320"> |
 
 ## Contents
 
@@ -141,8 +148,9 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map and yo
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search, key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
 - **Publish to your own website** — Needs your own webspace reachable over SSH; the upload uses rsync (without it, the build stays in a local folder). A two-phase collect-then-publish workflow. From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and use the selection bar's "Add to gallery…" to add them to a gallery's pending draft — a new or existing gallery/album. Nothing is exported yet, so a gallery can be built up incrementally across sessions. When ready, open Galleries and press Publish: one action exports the photos, builds the HTML (writing an XMP sidecar per photo using a custom `xmlns:ul` namespace — non-destructive and portable), uploads the result where an upload is configured (rsync channels), and checks the link, showing each step as it runs. A failed upload keeps the build, so the gallery reads "Built, not uploaded" and the retry only uploads. Afterwards you can open the gallery in a browser, copy the local path, reveal it in Finder/Explorer, or preview it locally. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Two publishing modes: a **multi-album site** (a real, growing website whose albums are navigable and indexable) and **single gallery** (one host holding many unrelated albums, each under its own unguessable 24-hex URL — for sharing one album by link with a specific group, marked Unlisted by default so it carries a `noindex` tag). A single-gallery channel holds as many albums as you like; each is published, renamed and deleted on its own. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json` (overridable with `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR`, e.g. to share channel config between multiple installations — see [Sharing channel config across installations](#sharing-channel-config-across-installations))
-- **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Map, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
+- **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Map, Timeline, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
 - **Map** — Every photo with a location, from every library, on one large map. Photos taken close together form a group, shown as a round thumbnail of the newest one with the number of photos beside it; zooming in splits the groups until each photo stands at its own place. Clicking a group zooms in; a group whose photos share one spot, or a single photo, opens in the viewer (read-only: no crop, no marking for deletion). A time slider narrows the map to the months the photos were taken in. The Photos button opens a column with the photos in the part of the map on screen, newest first, following the map as you move and zoom; Done or Escape closes it again. The map is grey by default, light or dark with the theme; the Style switch shows it in colour. Its tiles come from OpenFreeMap and need an internet connection. Only photos in a library appear. See [ADR-0039](doc/architecture/adr/0039-map-place.md)
+- **Timeline** — Every dated photo of every library on one time axis, each photo once even when it sits in several libraries. On a desk the photos run left (oldest) to right (newest) in two to four rows (⋯ menu) above a time bar: an overview with bracket handles that limits the view to a span of months, and an axis with a graph of how many photos were taken when, years and month names, and a frame marking what the rows show. Drag the frame or click the axis to go somewhere; scroll the photos and the frame follows. A click shows a photo in the info panel (I toggles it), a double click or Enter opens it read-only. On a phone the newest come first, grouped by month, with a scrubber down the right edge. Only the photos near the screen are loaded. Photos without a date taken are left out and counted. See [ADR-0040](doc/architecture/adr/0040-timeline-place.md)
 - **Galleries** — A dedicated "Galleries" place lists every gallery across every destination (the UI name for a channel), grouped by destination and showing its state in words: Not online yet, Changes not online, Online, or Built. An action appears only where there is something to do — "Publish", "Publish N changes", "Check again". Link reachability is checked once when the screen opens and after each publish, and is reported next to the state with the time of the check rather than as a state of its own. Opening a gallery shows the photos waiting to go online (removable individually), its title, date, visibility toggle (single-gallery destinations), address, and Unpublish — with a scoped remote delete over SSH for rsync destinations. The channels list links to a destination's public site and to its galleries
 - **Image viewer** — Full-screen image view with keyboard navigation, and a button that downloads the original file (a HEIF stays HEIF)
 - **Download originals** — Download in the selection bar saves the selected photos as they are: one as its file, several as a ZIP of the originals
@@ -412,7 +420,7 @@ Notes:
 | `\` | Collapse or expand the sidebar |
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
-| 1 / 2 / 3 / 4 / 5 / 6 / 7 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map |
+| 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map / Timeline |
 | Tab | Switch panes in File Manager mode |
 | F5 | Copy selected files (File Manager) |
 | F6 | Move selected files (File Manager) |

@@ -151,6 +151,17 @@ export const shots = [
         },
     },
     {
+        name: 'timeline',
+        take: async (page, { base }) => {
+            await ready(page, base, 'timeline');
+            await page.waitForSelector('.timeline-tile img');
+            // A photo selected, so the info panel shows what a click gives.
+            await page.locator('.timeline-tile').nth(3).click();
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 2000);
+        },
+    },
+    {
         name: 'rename',
         take: (page, { base }) => selectionDialog(page, base, 'rename'),
     },
@@ -217,6 +228,15 @@ export const shots = [
             await ready(page, base, 'map');
             await page.waitForSelector('.map-photo img');
             await settle(page, 4000);
+        },
+    },
+    {
+        name: 'phone-timeline',
+        ...PHONE,
+        take: async (page, { base }) => {
+            await ready(page, base, 'timeline');
+            await page.waitForSelector('.timeline-tile img');
+            await settle(page, 2000);
         },
     },
 ];
