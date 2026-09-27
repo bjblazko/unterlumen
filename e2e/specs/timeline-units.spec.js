@@ -63,4 +63,39 @@ test.describe('Timeline units', () => {
         });
         expect(r).toEqual({ first: { lib: 'L', id: 'id0', name: 'f0.jpg', taken: '2024-01-01T00:00:00' }, missing: null, details: 1, stale: 1 });
     });
+
+    test('the axis maps days to pixels and back, also for a one-day domain', async ({ page }) => {
+        const r = await page.evaluate(() => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v', start: '2024-01-01', days: [0, 10, 99], ratios: [1.5, 1.5, 1.5], undated: 0 });
+            const axis = new TimelineAxis(s, { height: 92, onSeek() {} });
+            axis.el.style.width = '1000px';
+            document.body.appendChild(axis.el);
+            axis.redraw();
+            const wide = { x10: axis.x(10), back: axis.dayAt(axis.x(10) + 1) };
+            axis.setDomain(10, 10);
+            const one = { x: axis.x(10), end: axis.x(11), back: axis.dayAt(500) };
+            axis.el.remove();
+            return { wide, one };
+        });
+        expect(r.wide).toEqual({ x10: 100, back: 10 });
+        expect(r.one).toEqual({ x: 0, end: 1000, back: 10 });
+    });
+
+    test('the range snaps to whole months', async ({ page }) => {
+        const r = await page.evaluate(() => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v', start: '2024-01-01', days: [0, 400], ratios: [1.5, 1.5], undated: 0 });
+            let limit = null;
+            const range = new TimelineRange(s, { height: 40, onLimit: (a, b) => { limit = [a, b]; } });
+            range.el.style.width = '800px';
+            document.body.appendChild(range.el);
+            range.redraw();
+            range.set(40, 70);
+            range.el.remove();
+            return { limit, from: s.calendar.formatDay(limit[0]), until: s.calendar.formatDay(limit[1]) };
+        });
+        expect(r.from).toBe('Thu 1 Feb 2024');
+        expect(r.until).toBe('Sun 31 Mar 2024');
+    });
 });
