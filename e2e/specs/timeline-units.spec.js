@@ -98,4 +98,41 @@ test.describe('Timeline units', () => {
         expect(r.from).toBe('Thu 1 Feb 2024');
         expect(r.until).toBe('Sun 31 Mar 2024');
     });
+
+    test('tiles are created near the screen and released when they leave', async ({ page }) => {
+        const r = await page.evaluate(() => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v', start: '2024-01-01', days: [0, 0, 1], ratios: [1.5, 1.5, 1.5], undated: 0 });
+            const layer = document.createElement('div');
+            const tiles = new TimelineTiles(layer, s);
+            tiles.show([{ i: 0, x: 0, y: 0, w: 10, h: 10 }, { i: 1, x: 12, y: 0, w: 10, h: 10 }]);
+            const two = layer.children.length;
+            tiles.select(1);
+            tiles.show([{ i: 1, x: 0, y: 0, w: 10, h: 10 }, { i: 2, x: 12, y: 0, w: 10, h: 10 }]);
+            return { two, after: [...layer.children].map(c => c.dataset.i), selected: layer.querySelector('.is-selected')?.dataset.i, size: tiles.size };
+        });
+        expect(r).toEqual({ two: 2, after: ['1', '2'], selected: '1', size: 2 });
+    });
+
+    test('the band puts each photo in the row that ends furthest left, a month per column', async ({ page }) => {
+        const r = await page.evaluate(() => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v', start: '2024-01-30', days: [0, 0, 0, 3], ratios: [1, 2, 1, 1], undated: 0 });
+            s.ensure = () => Promise.resolve();
+            const band = new TimelineBand(s, { rows: 2, onView() {}, onSelect() {}, onOpen() {}, onCount() {} });
+            Object.assign(band.el.style, { width: '600px', height: '314px', position: 'absolute' });
+            document.body.appendChild(band.el);
+            band.setRange(0, s.span - 1);
+            const out = { rows: [...band.rows_], xs: [...band.xs], labels: band.labels.map(l => l.x) };
+            band.el.remove();
+            return out;
+        });
+        // row height = (314 - 14 scrollbar - 16 pad - 28 labels - 4 gap) / 2 = 126
+        expect(r.rows).toEqual([0, 1, 0, 0]);
+        expect(r.xs[0]).toBe(16);
+        expect(r.xs[1]).toBe(16);
+        expect(r.xs[2]).toBe(16 + 126 + 4);
+        expect(r.labels.length).toBe(2);
+        expect(r.xs[3]).toBe(r.labels[1]);
+    });
 });
