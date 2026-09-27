@@ -98,8 +98,11 @@ async function seed() {
     const collect = (slug, title, ids) => api('POST', `/api/library/${lib.id}/channels/${slug}/drafts`, { photoIDs: ids, title });
     const rhodes = await collect('website', 'Rhodes', near(36.4, 28.2));
     await api('POST', `/api/channels/website/drafts/${rhodes.id}/generate`, { publishedAt: '2025-06-01T12:00:00Z' });
+    const rome = await collect('website', 'Rome and the Vatican', near(41.9, 12.47));
+    await api('POST', `/api/channels/website/drafts/${rome.id}/generate`, { publishedAt: '2025-09-14T12:00:00Z' });
     await collect('website', 'Hamburg harbour', near(53.5, 9.95));
-    await collect('friends', 'Rome, 2009', near(41.9, 12.45));
+    const share = await collect('friends', 'Mallorca, for the family', near(39.5, 3.3));
+    await api('POST', `/api/channels/friends/drafts/${share.id}/generate`, { publishedAt: '2025-07-20T12:00:00Z' });
     await collect('instagram', 'Summer', near(36.4, 28.2).slice(0, 3));
     return lib;
 }
@@ -129,6 +132,7 @@ async function main() {
     const browser = await chromium.launch();
     try {
         const lib = await seed();
+        const site = path.join(tmp, 'lib', 'channels');
         mkdirSync(OUT, { recursive: true });
         const only = process.argv.slice(2);
         for (const shot of shots) {
@@ -146,7 +150,7 @@ async function main() {
                 for (const [k, v] of Object.entries(extra)) localStorage.setItem(k, v);
             }, [shot.dark ? 'dark' : 'light', shot.storage || {}]);
             const page = await context.newPage();
-            await shot.take(page, { base: BASE, lib });
+            await shot.take(page, { base: BASE, lib, site });
             await showHomePath(page, root);
             const png = path.join(tmp, `${shot.name}.png`);
             await page.screenshot({ path: png });

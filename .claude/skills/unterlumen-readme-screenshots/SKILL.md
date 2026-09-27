@@ -9,6 +9,7 @@ allowed-tools: Bash, Read, Edit, Write
 The README's `## Screenshots` section shows one picture per important feature. The pictures are WebP files in `doc/screenshots/`, made by a script — never by hand, never from the real installation.
 
 - `e2e/screenshots/take.mjs` — starts a throwaway server (port 8097) on a copy of `src/examples` with the folders renamed (Travel, 2017, 2025, Odds and ends), seeds a library "Pictures", destinations and galleries through the API, captures, converts with `cwebp`, deletes everything temporary.
+- The seed also publishes two albums to the Website destination and one share-link gallery (build only, no upload); `website`, `website-album` and `share-link` open that output from disk (`file://…/lib/channels/…`). A change to the generated site's templates (`internal/site`) means retaking those three.
 - `e2e/screenshots/shots.mjs` — the list of shots, in README order. Each has a `name` (the file name), optional `dark`, `storage` (localStorage before load), phone settings (`...PHONE`), and a `take(page, { base, lib })` that opens a place and puts it into the state worth showing.
 
 ## When a feature is finished

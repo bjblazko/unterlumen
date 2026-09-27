@@ -168,6 +168,30 @@ export const shots = [
         },
     },
     {
+        name: 'website',
+        take: async (page, { site }) => {
+            await page.goto(`file://${site}/website/site/index.html`);
+            await settle(page, 1500);
+        },
+    },
+    {
+        name: 'website-album',
+        take: async (page, { site }) => {
+            await page.goto(`file://${site}/website/site/index.html`);
+            await page.locator('a[href*="rhodes"]').first().click();
+            await settle(page, 1500);
+        },
+    },
+    {
+        name: 'share-link',
+        take: async (page, { site }) => {
+            const { readdirSync } = await import('node:fs');
+            const id = readdirSync(`${site}/friends`).find(d => /^[0-9a-f]{24}$/.test(d));
+            await page.goto(`file://${site}/friends/${id}/index.html`);
+            await settle(page, 1500);
+        },
+    },
+    {
         name: 'phone-folders',
         ...PHONE,
         take: async (page, { base }) => {
