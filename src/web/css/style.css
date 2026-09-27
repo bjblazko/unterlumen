@@ -1602,7 +1602,7 @@ button.toggle {
 
     .dialog-head { padding: var(--space-4) var(--space-4) var(--space-2); }
     .dialog-body { padding: 0 var(--space-4) var(--space-4); }
-    .dialog-foot { padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px)); }
+    .dialog-foot { padding: var(--space-3) var(--space-4); }
 }
 
 /* —— Organize: one source, many targets (ADR-0032) —— */
@@ -6289,9 +6289,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 @media (max-width: 700px) {
     :root {
-        /* The tab bar: its padding, a 44px row of places and its hairline,
-           plus the system's bottom inset where there is one. */
-        --tabbar-h: calc(var(--space-1) + 44px + 1px + max(var(--space-1), env(safe-area-inset-bottom, 0px)));
+        /* The tab bar: its padding, a 44px row of places and its hairline.
+           No safe-area inset anywhere: without viewport-fit=cover the browser
+           keeps the page clear of the system bars itself, yet Firefox on
+           Android still reports an inset for the gesture bar, and adding it
+           left an empty band under the places. */
+        --tabbar-h: calc(var(--space-1) * 2 + 44px + 1px);
     }
 
     .sidebar { display: none; }
@@ -6314,9 +6317,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         bottom: 0;
         z-index: 50;
         justify-content: space-around;
-        /* The system's bottom inset replaces the padding rather than adding
-           to it: Firefox on Android reports one for the gesture bar. */
-        padding: var(--space-1) var(--space-2) max(var(--space-1), env(safe-area-inset-bottom, 0px));
+        padding: var(--space-1) var(--space-2);
         background: var(--bg);
         border-top: 1px solid var(--line-strong);
     }
@@ -6381,6 +6382,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         display: none;
     }
 
+    /* With the layout and sort controls gone there is nothing to keep apart
+       from, so the switches start at the margin like everything else. */
+    .view-switches { margin-left: 0; }
+
     /* Filter and Statistics stay: they only look at photos. Edit library is
        settings work and hides with the other desk-only controls; the path
        under the name goes too, so the name itself stays readable. */
@@ -6395,7 +6400,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         min-height: var(--space-12);
         flex-wrap: wrap;
         gap: var(--space-2) var(--space-3);
-        padding: var(--space-2) var(--space-3);
+        padding: var(--space-2);
     }
 
     .library-detail-path {
@@ -6416,7 +6421,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         height: auto;
         flex-wrap: wrap;
         gap: var(--space-2);
-        padding: var(--space-3);
+        padding: var(--space-2);
     }
 
     /* Statistics fills the phone: a chart in a corner shows nothing. */
@@ -6428,7 +6433,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* Photos take the width: a thin margin, not a frame. */
     .browse-container { padding: 0 var(--space-2); }
-    .folder-tile { width: calc(50% - var(--space-1)); }
+    .library-pane-wrap { padding: 0 var(--space-2); }
+    .library-list-body { padding: var(--space-3) var(--space-2); gap: var(--space-6); }
+    /* The rows are divided by hairlines, so their content can start at the
+       list's own margin instead of a second one inside each row. */
+    .library-card-top { padding: var(--space-3) 0; }
+    .library-card-filmstrip { margin: 0 0 var(--space-3); }
     .browse-header { padding-top: var(--space-3); }
 
     /* One column of content; the info panel becomes a sheet (see viewer). */
@@ -6440,9 +6450,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .split,
     .split.panel-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
 
+    /* Every place keeps the same thin margin as the photos. */
     .gal-head,
     .gal-body,
-    .dest-pane .gal-body { padding-inline: var(--space-3); }
+    .dest-pane .gal-body { padding-inline: var(--space-2); }
+    .gal-empty { padding: var(--space-6) 0; }
 
     .gal-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
     .gal-row-state { align-items: flex-start; }
@@ -6471,7 +6483,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         flex-direction: column;
         gap: var(--space-3);
         align-items: flex-start;
-        padding: var(--space-8) var(--space-4);
+        padding: var(--space-8) var(--space-2);
         /* Clear of the tab bar, so the way out stays tappable. */
         padding-bottom: calc(var(--space-8) + var(--tabbar-h));
         max-width: 32rem;
@@ -6516,7 +6528,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         width: 100%;
         max-width: none;
         border-left: 0;
-        padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: var(--space-6);
     }
 
     /* Collapsed, the sheet has nothing to show: the Info button reopens it. */
@@ -6679,6 +6691,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .folder-tile:hover { background: var(--bg-2); }
+
+/* Two tiles to a row on a phone. After the base rule, so it wins: the same
+   rule above the base rule lost and left one tile per row. */
+@media (max-width: 700px) {
+    .folder-tile { width: calc(50% - var(--space-1)); }
+}
 
 .folder-tile.focused,
 .folder-tile.selected {

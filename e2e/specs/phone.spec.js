@@ -53,6 +53,34 @@ test.describe('Phone', () => {
         expect(bar.height).toBeLessThanOrEqual(56);
     });
 
+    // In a library, folders are tiles; two share a row. The phone width rule
+    // once sat above the base rule and lost to its fixed 176px.
+    test('a library shows two folder tiles to a row, and no inset under the tab bar', async ({ page, request }) => {
+        const NAME = 'E2E Phone Tiles';
+        const clean = async () => {
+            const libs = await (await request.get('/api/library/')).json();
+            await Promise.all(libs.filter(l => l.name === NAME).map(l => request.delete(`/api/library/${l.id}`)));
+        };
+        await clean();
+        const lib = await (await request.post('/api/library/', { data: { name: NAME, description: '', sourcePath: 'folder-a' } })).json();
+        await request.post(`/api/library/${lib.id}/reindex`, { timeout: 120_000 });
+        try {
+            await page.goto('/#libraries');
+            await waitForAppReady(page);
+            await page.locator('.library-card', { hasText: NAME }).locator('.lib-open').tap();
+            await page.waitForSelector('.folder-tile', { timeout: 15_000 });
+            const tiles = await page.locator('.folder-tile').evaluateAll(els => els.slice(0, 2).map(e => {
+                const r = e.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) };
+            }));
+            expect(tiles[0].top).toBe(tiles[1].top);
+            expect(tiles[0].left).toBeLessThanOrEqual(8);
+            const barPadding = await page.locator('.tabbar').evaluate(e => getComputedStyle(e).paddingBottom);
+            expect(barPadding).toBe('4px');
+        } finally {
+            await clean();
+        }
+    });
+
     test('a desktop-only place says so instead of showing empty chrome', async ({ page }) => {
         await page.goto('/#organize');
         await waitForAppReady(page);
