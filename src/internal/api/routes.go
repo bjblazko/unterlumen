@@ -14,10 +14,12 @@ import (
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	apitimeline "huepattl.de/unterlumen/internal/api/timeline"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/jobs"
 	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/timeline"
 )
 
 // NewRouter sets up the HTTP routes for the application.
@@ -64,6 +66,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 			draftStore = channels.NewDraftStore(chStore)
 		}
 		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore, draftStore)
+		apitimeline.Handle(mux, timeline.NewBuilder(libMgr))
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))
