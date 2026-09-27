@@ -23,6 +23,12 @@ test.beforeAll(async ({ request }) => {
     await reindexLibrary(request, (await res.json()).id);
 });
 
+// It covers every fixture, so later specs would find each photo in one library more.
+test.afterAll(async ({ request }) => {
+    const existing = await (await request.get('/api/library/')).json();
+    await Promise.all(existing.filter(l => l.name === LIB_NAME).map(l => request.delete(`/api/library/${l.id}`)));
+});
+
 test.describe('Timeline', () => {
     // Narrow enough that the fixtures' photos overflow the band, so it scrolls.
     test.use({ viewport: { width: 800, height: 640 } });
