@@ -22,57 +22,79 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 
 ## Screenshots
 
-#### Browse mode
+The pictures below are made by `npm run screenshots` in `e2e/` from the example photos in `src/examples`, so they always show the current interface. Click one for the full size.
 
-- Theme switching, justified/list/grid view, EXIF metadata panel
-- Full-screen viewer with toggleable header, metadata, and filmstrip
+#### Folders
 
-![Browsing](doc/01-browsing.gif)
+Your photo folders as a justified grid, with the metadata and the place a photo was taken beside it. The bar at the bottom holds everything you can do with a selection.
 
-#### Slideshow
+![Folders with the info panel](doc/screenshots/folders.webp)
 
-![Slideshow](doc/02-slideshow.gif)
+#### Light and dark
 
-#### Review (culling)
+Unterlumen follows the system's light or dark setting; Settings can fix one.
 
-- Grid or full-screen review; mark rejects with Del/Backspace
-- Dedicated waste-bin view — restore keepers or permanently delete
+| Light | Dark |
+|---|---|
+| ![Light theme](doc/screenshots/folders.webp) | ![Dark theme](doc/screenshots/folders-dark.webp) |
 
-![Review](doc/03-review.gif)
+#### Viewer
+
+One photo at a time, with the film strip below and its metadata and location beside it. The arrow keys step through the folder; Crop and Delete are one click away.
+
+![Viewer with film strip and info panel](doc/screenshots/viewer.webp)
 
 #### Organize
 
-- The folder you are sorting on the left, your target folders on the right
-- Targets are picked from the filesystem or straight from a library, in one dialog
-- A number key moves the selection into that target; ⌥ copies, `U` takes the last move back
-- Targets are remembered; "Mark for deletion" is one of them, and takes folders too
+The folder you are sorting on the left, your target folders on the right with a number key each: select, press the key, done. ⌥ copies instead, `U` takes the last move back, and "Mark for deletion" is a target like any other.
 
-![Organize files](doc/04-organize.gif)
+![Organize](doc/screenshots/organize.webp)
 
-#### Tools
+#### Marked for deletion
 
-- Set or remove geolocation
+Marked photos disappear from Folders and libraries but stay on disk until you delete them here, or restore them.
 
-  ![Set or remove geolocation](doc/05-tools-geolocation.gif)
+![Marked for deletion](doc/screenshots/marked.webp)
 
-- Batch rename with EXIF token pills and live preview
+#### Libraries and the filter
 
-  ![Batch renaming](doc/06-tools-batchrename.gif)
+A library indexes a folder tree once, so it can be filtered across all of it: date, shutter speed, aperture, focal length, ISO, camera, lens, film simulation. The results replace the folders beside the filter.
 
-- Export/convert with resize, format, and GPS options; ZIP download
+![Library filter](doc/screenshots/library-filter.webp)
 
-  ![Export](doc/07-tools-export.gif)
+#### Statistics
 
-#### Digital Asset Management (DAM, optional)
+What you shoot with and when: formats, film simulations, lenses, exposure, time of day and a calendar, and on the Timeline tab how cameras, focal lengths and apertures change over the years.
 
-- Persistent multi-library catalog; search/filter by aperture, focal length, camera, lens, film simulation
-- EXIF statistics, folder dashboards, squarified treemap
+![Statistics](doc/screenshots/statistics.webp)
 
-  ![Filter/search](doc/08-dam-filter.gif)
+#### Map
 
-- Statistics over time and shooting-activity charts
+Every photo with a location on one map. Photos close together form a group showing the newest one; zooming in splits the groups. The Photos column lists what is in view, and the slider narrows it to a period.
 
-  ![Statistics](doc/09-dam-stats.gif)
+![Map with the photos column](doc/screenshots/map.webp)
+
+#### Rename, export, location
+
+Tools for a selection: rename from EXIF tokens with a live preview, export to JPEG, PNG or WebP with size and metadata options, and set or remove the location of several photos at once.
+
+| Rename | Export | Location |
+|---|---|---|
+| ![Batch rename](doc/screenshots/rename.webp) | ![Export](doc/screenshots/export.webp) | ![Set location](doc/screenshots/location.webp) |
+
+#### Galleries
+
+Photos collected for a destination — a website, share links, a folder for Instagram — become galleries. Each says in words where it stands, and Publish is the one action that builds, uploads and checks it.
+
+![Galleries](doc/screenshots/galleries.webp)
+
+#### On a phone
+
+On a phone Unterlumen is for looking: libraries, folders, photos, the map and your galleries, with a tab bar at the bottom.
+
+| Folders | Map |
+|---|---|
+| <img src="doc/screenshots/phone-folders.webp" alt="Folders on a phone" width="320"> | <img src="doc/screenshots/phone-map.webp" alt="Map on a phone" width="320"> |
 
 ## Contents
 
@@ -99,7 +121,8 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search, key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
 - **Publish to Channels** — A two-phase collect-then-publish workflow. From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and use the selection bar's "Add to gallery…" to add them to a gallery's pending draft — a new or existing gallery/album. Nothing is exported yet, so a gallery can be built up incrementally across sessions. When ready, open Galleries and press Publish: one action exports the photos, builds the HTML (writing an XMP sidecar per photo using a custom `xmlns:ul` namespace — non-destructive and portable), uploads the result where an upload is configured (rsync channels), and checks the link, showing each step as it runs. A failed upload keeps the build, so the gallery reads "Built, not uploaded" and the retry only uploads. Afterwards you can open the gallery in a browser, copy the local path, reveal it in Finder/Explorer, or preview it locally. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Two publishing modes: a **multi-album site** (a real, growing website whose albums are navigable and indexable) and **single gallery** (one host holding many unrelated albums, each under its own unguessable 24-hex URL — for sharing one album by link with a specific group, marked Unlisted by default so it carries a `noindex` tag). A single-gallery channel holds as many albums as you like; each is published, renamed and deleted on its own. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json` (overridable with `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR`, e.g. to share channel config between multiple installations — see [Sharing channel config across installations](#sharing-channel-config-across-installations))
-- **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
+- **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Map, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
+- **Map** — Every photo with a location, from every library, on one large map. Photos taken close together form a group, shown as a round thumbnail of the newest one with the number of photos beside it; zooming in splits the groups until each photo stands at its own place. Clicking a group zooms in; a group whose photos share one spot, or a single photo, opens in the viewer (read-only: no crop, no marking for deletion). A time slider narrows the map to the months the photos were taken in. The Photos button opens a column with the photos in the part of the map on screen, newest first, following the map as you move and zoom; Done or Escape closes it again. The map is grey, light or dark with the theme; its tiles come from OpenFreeMap and need an internet connection. Only photos in a library appear. See [ADR-0039](doc/architecture/adr/0039-map-place.md)
 - **Galleries** — A dedicated "Galleries" place lists every gallery across every destination (the UI name for a channel), grouped by destination and showing its state in words: Not online yet, Changes not online, Online, or Built. An action appears only where there is something to do — "Publish", "Publish N changes", "Check again". Link reachability is checked once when the screen opens and after each publish, and is reported next to the state with the time of the check rather than as a state of its own. Opening a gallery shows the photos waiting to go online (removable individually), its title, date, visibility toggle (single-gallery destinations), address, and Unpublish — with a scoped remote delete over SSH for rsync destinations. The channels list links to a destination's public site and to its galleries
 - **Image viewer** — Full-screen image view with keyboard navigation
 - **Crop tool** — Interactive crop in the fullscreen viewer. Draw a rectangle, pick an aspect ratio (free, standard, or cinema formats), and save in-place. All metadata including Fujifilm film simulation is preserved via exiftool
@@ -363,12 +386,12 @@ Notes:
 | Arrow keys | Navigate grid/list in browse view; prev/next in image viewer |
 | Enter | Open focused folder or image |
 | Space | Toggle selection of focused item |
-| Escape | Close viewer / go up a directory |
+| Escape | Close viewer / go up a directory / close the Map's photos column |
 | `I` | Collapse or expand the info panel |
 | `\` | Collapse or expand the sidebar |
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
-| 1 / 2 / 3 / 4 / 5 / 6 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations |
+| 1 / 2 / 3 / 4 / 5 / 6 / 7 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map |
 | Tab | Switch panes in File Manager mode |
 | F5 | Copy selected files (File Manager) |
 | F6 | Move selected files (File Manager) |
@@ -403,6 +426,18 @@ cd e2e && npx playwright test --ui
 This opens a browser-based test runner at a local port. Select any spec or individual test in the sidebar and click the play button to run it with a live preview pane.
 
 Test reports and failure screenshots/videos are saved to `e2e/playwright-report/` and `e2e/test-results/`.
+
+### Screenshots
+
+The pictures in [Screenshots](#screenshots) come from a script, not by hand:
+
+```
+cd src && go build -o ../unterlumen .
+cd e2e && npm run screenshots            # all of them
+npm run screenshots -- map viewer        # only these
+```
+
+It starts a throwaway server on port 8097 with a copy of `src/examples` and its own library directory, sets up a library, destinations and galleries through the API, and writes WebP files to `doc/screenshots/` (light theme; `folders-dark` is the dark twin). It needs `cwebp` (`brew install webp`) and a network connection for the map tiles. The shots themselves are in `e2e/screenshots/shots.mjs`.
 
 ## Notes
 

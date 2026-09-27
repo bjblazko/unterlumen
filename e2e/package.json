@@ -6,7 +6,8 @@
     "setup": "bash fixtures/setup.sh",
     "test": "bash fixtures/setup.sh && playwright test",
     "test:headed": "bash fixtures/setup.sh && playwright test --headed",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "screenshots": "node screenshots/take.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"
