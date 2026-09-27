@@ -76,6 +76,12 @@ test.describe('Phone', () => {
             expect(tiles[0].left).toBeLessThanOrEqual(8);
             const barPadding = await page.locator('.tabbar').evaluate(e => getComputedStyle(e).paddingBottom);
             expect(barPadding).toBe('4px');
+
+            // Statistics has no room in the head; it is in the pane's ⋯.
+            await expect(page.locator('#lib-detail-stats-btn')).toBeHidden();
+            await page.locator('#lib-pane .menu-btn').tap();
+            await page.locator('.menu [data-id="statistics"]').tap();
+            await expect(page.locator('.stats-dialog')).toBeVisible({ timeout: 15_000 });
         } finally {
             await clean();
         }
@@ -101,9 +107,18 @@ test.describe('Phone', () => {
 
         await page.locator('[data-type="image"]').first().tap();
         await expect(page.locator('.selection-bar')).toBeHidden();
-        // Making a library or clearing a cache changes things: desktop work.
-        await expect(page.locator('.folder-tool').first()).toBeHidden();
-        await expect(page.locator('.slideshow-btn')).toBeHidden();
+        // The controls row is gone; the ⋯ offers what only looks. Making a
+        // library or clearing a cache changes things: desktop work.
+        await expect(page.locator('.controls')).toBeHidden();
+        // Without the toolbar row, the header still keeps a gap above the photos.
+        const gap = await page.locator('.browse-header').evaluate(e => getComputedStyle(e).paddingBottom);
+        expect(gap).toBe('8px');
+        await page.locator('.browse-more .menu-btn').tap();
+        await expect(page.locator('.menu .menu-item')).toHaveCount(3);
+        const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
+        expect(ids).toEqual(['names', 'details', 'slideshow']);
+        const itemHeight = await page.locator('.menu .menu-item').first().evaluate(e => e.getBoundingClientRect().height);
+        expect(itemHeight).toBeGreaterThanOrEqual(44);
     });
 
     test('the viewer fills the screen, swipes and shows info from below', async ({ page }) => {
@@ -142,6 +157,31 @@ test.describe('Phone', () => {
         const sheetBox = await sheet.boundingBox();
         const viewport = page.viewportSize();
         expect(sheetBox.y).toBeGreaterThan(viewport.height * 0.2);
+    });
+
+    test('the slideshow covers the tab bar and its controls fit the width', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await navigateToFolder(page, 'folder-b');
+        await waitForThumbnailsLoaded(page, 1);
+        await page.locator('.browse-more .menu-btn').tap();
+        await page.locator('.menu [data-id="slideshow"]').tap();
+        await page.locator('.dialog .btn-accent').tap();
+        await expect(page.locator('.ss-hud')).toBeVisible();
+
+        const width = page.viewportSize().width;
+        const boxes = await page.locator('.ss-hud .ss-btn').evaluateAll(els => els.map(e => e.getBoundingClientRect().toJSON()));
+        expect(boxes).toHaveLength(4);
+        for (const b of boxes) {
+            expect(b.left).toBeGreaterThanOrEqual(0);
+            expect(b.right).toBeLessThanOrEqual(width);
+            expect(b.height).toBeGreaterThanOrEqual(44);
+        }
+        // What is on top at the Close button is the button, not the tab bar.
+        const close = boxes[3];
+        const onTop = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.ss-btn-close') !== null,
+            [close.left + close.width / 2, close.top + close.height / 2]);
+        expect(onTop).toBe(true);
     });
 
     test('statistics fill the screen', async ({ page }) => {

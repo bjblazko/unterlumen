@@ -70,7 +70,7 @@ test.describe('Theme', () => {
 
     const dirItem = page.locator('.folder-chip.dir-item').first();
     if (await dirItem.isVisible()) {
-      await dirItem.click();
+      await dirItem.dblclick();
       await page.waitForSelector('[data-type="image"]', { timeout: 5_000 }).catch(() => {});
     }
     const imageItem = page.locator('[data-type="image"]').first();

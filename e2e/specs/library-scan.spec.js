@@ -112,7 +112,7 @@ test.describe('Library scan operations', () => {
 
     // ── Scanning the folder you have open ────────────────────────────────────
 
-    test('library page head keeps Scan for new photos, without a menu', async ({ page }) => {
+    test('a library folder offers Scan for new photos in its ⋯ menu', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -122,8 +122,9 @@ test.describe('Library scan operations', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
-        const libPane = page.locator('#lib-pane');
-        await expect(libPane.locator('[data-tool="lib-scan-new"]')).toContainText('Scan for new photos');
-        await expect(libPane.locator('.lib-scan-tools-menu')).toHaveCount(0);
+        await page.locator('#lib-pane .menu-btn').click();
+        await expect(page.locator('.menu [data-id="scan"]')).toHaveText('Scan for new photos');
+        // A library is already a library.
+        await expect(page.locator('.menu [data-id="make-library"]')).toHaveCount(0);
     });
 });

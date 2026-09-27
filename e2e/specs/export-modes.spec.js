@@ -187,7 +187,7 @@ test.describe('Export modes', () => {
 
         // Navigate into folder-b inside the library pane.
         await page.waitForSelector('#lib-pane [data-type="dir"]', { timeout: 15_000 });
-        await page.locator('#lib-pane [data-name="folder-b"]').first().click();
+        await page.locator('#lib-pane [data-name="folder-b"]').first().dblclick();
         await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 15_000 });
 
         const images = page.locator('#lib-pane [data-type="image"]');

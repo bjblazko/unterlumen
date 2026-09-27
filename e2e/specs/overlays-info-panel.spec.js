@@ -34,20 +34,21 @@ test.describe('Thumbnail overlays', () => {
         expect(new Set(styles.map(s => s.background)).size).toBe(1);
     });
 
-    test('the switches for names and details sit in the toolbar', async ({ page }) => {
-        const switches = page.locator('.view-switches');
-        await expect(switches).toBeVisible();
-        await expect(switches).toContainText('Names');
-        await expect(switches).toContainText('Details');
+    test('the switches for names and details sit in the ⋯ menu', async ({ page }) => {
+        await page.locator('.browse-more .menu-btn').click();
+        const details = page.locator('.menu [data-id="details"]');
+        await expect(page.locator('.menu [data-id="names"] .menu-label')).toHaveText('Names');
+        await expect(details.locator('.menu-label')).toHaveText('Details');
 
         // Three visible labels per switch (ADR-0019): purpose and both states.
-        const details = switches.locator('.view-switch', { hasText: 'Details' });
         await expect(details.locator('.toggle-label-on')).toHaveText('Shown');
         await expect(details.locator('.toggle-label-off')).toHaveText('Hidden');
+        await expect(details).toHaveAttribute('aria-checked', 'true');
 
-        await details.locator('.toggle').click();
+        await details.click();
         await expect(page.locator('.overlay-badge')).toHaveCount(0);
-        await details.locator('.toggle').click();
+        await expect(details).toHaveAttribute('aria-checked', 'false');
+        await details.click();
         await expect(page.locator('.overlay-badge').first()).toBeVisible();
     });
 

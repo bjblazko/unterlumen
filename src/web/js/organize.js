@@ -47,7 +47,6 @@ class OrganizePane {
             onSelectionChange: () => this._updateSelectionBar(),
             onFocusChange: () => this._updateSelectionBar(),
             onNavigate: () => this._renderPath(),
-            onToolInvoke: (params) => { if (this.onToolInvoke) this.onToolInvoke(params); },
         });
         this.pane.view = 'justified';
 

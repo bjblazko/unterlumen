@@ -228,6 +228,9 @@ class GlobalKeyboard {
     // Arrow keys move the focus, Enter opens, Space selects.
     _navigate(e) {
         if (this._viewerOpen()) return;
+        // Enter and Space on a focused button or link are that control's own:
+        // taking them for the grid left keyboard users unable to press it.
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button, a[href]')) return;
         const pane = this._app.getActiveBrowsePane();
         if (!pane) return;
         e.preventDefault();

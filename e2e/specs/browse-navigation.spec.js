@@ -84,7 +84,7 @@ test.describe('Folder navigation', () => {
 
     // Level 2: folder-a → a1
     const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
-    await a1.click();
+    await a1.dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     const a1Images = await page.locator('[data-type="image"]').count();
@@ -105,7 +105,7 @@ test.describe('Folder navigation', () => {
   test('folder-a/a1 has correct image count', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
     const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
-    await a1.click();
+    await a1.dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     await expect(page.locator('[data-type="image"]')).toHaveCount(FOLDER_A_A1_IMAGE_COUNT);
@@ -114,7 +114,7 @@ test.describe('Folder navigation', () => {
 
   test('breadcrumb path reflects each navigation level', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    await page.locator('.folder-chip.dir-item[data-name="a1"]').click();
+    await page.locator('.folder-chip.dir-item[data-name="a1"]').dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
 
     // All three crumbs should be visible: root, folder-a, folder-a/a1
@@ -130,7 +130,7 @@ test.describe('Home button', () => {
     test('in a folder it returns to the start folder', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
-        await page.locator('.folder-chip[data-name="folder-a"]').click();
+        await page.locator('.folder-chip[data-name="folder-a"]').dblclick();
         await expect(page.locator('.crumb-current')).toHaveText('folder-a');
 
         await page.locator('.home-btn').click();

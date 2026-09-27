@@ -516,8 +516,11 @@ const App = {
         slideshowEl.style.height = '100%';
         appEl.appendChild(slideshowEl);
 
+        // Starting is the tap the browser needs to allow full screen.
+        const enteredFullscreen = Fullscreen.enter();
         const player = new SlideshowPlayer(slideshowEl);
         player.onClose = () => {
+            enteredFullscreen.then(entered => { if (entered) Fullscreen.exit(); });
             slideshowEl.remove();
             document.body.classList.remove('slideshow-active');
             savedDisplay.forEach((display, el) => { el.style.display = display; });

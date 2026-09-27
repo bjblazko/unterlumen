@@ -60,11 +60,11 @@ class BrowsePane {
         this.keyboard.focusedIndex = idx;
         this.keyboard.updateFocusClass();
         const fp = this.fullPath(item.dataset.name);
-        // A folder chip is a button: one click goes there. Holding the
-        // modifier selects it instead, which is also how you read a
-        // folder's info without leaving where you are. Folder tiles in
-        // the list view keep the old select-then-open behaviour.
-        if ((item.classList.contains('folder-chip') || item.classList.contains('folder-tile')) && !(e.ctrlKey || e.metaKey)) {
+        // On a touch screen a tap on a folder goes there: there is no double
+        // tap to wait for and nothing to read beside it. With a mouse a
+        // click selects the folder, so the info panel can show what it
+        // holds, and a double click (or Enter) goes in.
+        if (window.matchMedia('(hover: none)').matches && !(e.ctrlKey || e.metaKey)) {
             this.load(fp);
             if (this.onNavigate) this.onNavigate(fp);
             return;
@@ -277,12 +277,6 @@ class BrowsePane {
         this.container.querySelectorAll('[data-type="dir"]').forEach(el => {
             el.classList.toggle('selected', this.selectedDirs.has(this.fullPath(el.dataset.name)));
         });
-        this._updateSlideshowButton();
-    }
-
-    _updateSlideshowButton() {
-        const btn = this.container.querySelector('.slideshow-btn');
-        if (btn) btn.disabled = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
     }
 
     async fetchRecursivePhotoPaths(dirPath) {
@@ -307,7 +301,6 @@ class BrowsePane {
 
     updateSelectionClasses() {
         this.selection.updateClasses(this.container);
-        this._updateFolderToolButtons();
     }
 
     async notifyFilesChanged() {
@@ -432,7 +425,7 @@ class BrowsePane {
             const isCurrent = i === parts.length - 1;
             crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
-        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span></div>`;
+        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span><span class="browse-more"></span></div>`;
     }
 
     _renderControls() {
@@ -442,7 +435,6 @@ class BrowsePane {
         const statusText = this._loading ? ''
             : imageCountLabel(imageCount, selectedCount);
 
-        const libraryMode = App.mode === 'library';
         return `<div class="controls">
             <div class="controls-left">
             <!-- The layout is a view you switch while looking at photos, so
@@ -456,25 +448,6 @@ class BrowsePane {
                     <option value="${v}" ${this.sort === v ? 'selected' : ''}>${label}</option>`).join('')}
             </select>
             <button class="btn btn-sm sort-order" title="${this.order === 'asc' ? 'Sorting oldest first' : 'Sorting newest first'}" aria-label="Reverse the order">${this.order === 'asc' ? '↑' : '↓'}</button>
-            <div class="view-switches">
-                <span class="view-switch view-switch--names">
-                    <span class="view-switch-label">Names</span>
-                    <span class="toggle-names-wrap"></span>
-                </span>
-                <span class="view-switch view-switch--details">
-                    <span class="view-switch-label">Details</span>
-                    <span class="toggle-overlays-wrap"></span>
-                </span>
-            </div>
-            <button class="btn btn-sm slideshow-btn"${imageCount === 0 ? ' disabled title="This folder holds no photos"' : ' title="Slideshow"'}>Slideshow</button>
-            <!-- What used to be the Tools dropdown: each entry acts on the
-                 folder or the library, and says so on its own button. -->
-            <button class="btn btn-sm folder-tool make-library-btn" data-tool="make-library" style="display:none">Make library…</button>
-            <button class="btn btn-sm folder-tool clear-cache-btn" data-tool="clear-cache">Clear cache</button>
-            <!-- Scanning acts on the folders you have open, so it stays here;
-                 the rarer maintenance runs live in "Edit library…". -->
-            ${libraryMode ? `
-            <button class="btn btn-sm folder-tool lib-scan-tools-wrap" data-tool="lib-scan-new">Scan for new photos</button>` : ''}
             </div>
             <span class="status-bar">${statusText}</span>
         </div>`;
@@ -599,68 +572,16 @@ class BrowsePane {
             el.addEventListener('click', () => this.setView(el.dataset.view));
         });
 
-        this.container.querySelectorAll('.folder-tool').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tool = btn.dataset.tool;
-                if (tool === 'make-library') {
-                    const dir = this.getFocusedDir();
-                    if (!dir) return;
-                    if (this.onToolInvoke) this.onToolInvoke({ tool, path: dir });
-                    return;
-                }
-                if (tool === 'clear-cache') {
-                    const files = this.getActionableFiles();
-                    const dir = this.getFocusedDir();
-                    if (files.length === 0 && !dir) return;
-                    btn.disabled = true;
-                    if (this.onToolInvoke) this.onToolInvoke({
-                        tool, files,
-                        path: dir || this.path,
-                        onDone: () => { btn.disabled = false; },
-                    });
-                    return;
-                }
-                if (tool === 'lib-scan-new') {
-                    btn.disabled = true;
-                    const scanPaths = this.selectedDirs.size > 0
-                        ? Array.from(this.selectedDirs)
-                        : [this.path];
-                    const doNext = (i) => {
-                        if (i >= scanPaths.length) { btn.disabled = false; return; }
-                        if (this.onToolInvoke) this.onToolInvoke({
-                            tool, files: [],
-                            path: scanPaths[i],
-                            onDone: () => doNext(i + 1),
-                        });
-                    };
-                    doNext(0);
-                }
-            });
-        });
+        const moreSlot = this.container.querySelector('.browse-more');
+        if (moreSlot) {
+            // One menu per pane, moved into each render, so a menu left open
+            // by a switch keeps its button.
+            this._menu ??= new Menu({ items: () => this._menuItems() });
+            moreSlot.appendChild(this._menu.button);
+        }
 
         const sortSelect = this.container.querySelector('.sort-field');
         if (sortSelect) sortSelect.addEventListener('change', () => this.setSort(sortSelect.value, this.order));
-
-        const slideshowBtn = this.container.querySelector('.slideshow-btn');
-        if (slideshowBtn) {
-            slideshowBtn.addEventListener('click', () => {
-                if (this.onSlideshowInvoke) this.onSlideshowInvoke();
-            });
-        }
-
-        const namesWrap = this.container.querySelector('.toggle-names-wrap');
-        if (namesWrap) Toggle.create(namesWrap, {
-            initial: this.showNames,
-            labelOn: 'Shown', labelOff: 'Hidden',
-            onChange: (on) => { this.showNames = on; this.render(); }
-        });
-
-        const overlaysWrap = this.container.querySelector('.toggle-overlays-wrap');
-        if (overlaysWrap) Toggle.create(overlaysWrap, {
-            initial: this.showOverlays,
-            labelOn: 'Shown', labelOff: 'Hidden',
-            onChange: (on) => { this.showOverlays = on; this.render(); }
-        });
 
         const sortOrder = this.container.querySelector('.sort-order');
         if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
@@ -693,30 +614,75 @@ class BrowsePane {
     // The two folder-level buttons say what they would act on, and are hidden
     // or disabled only when there is genuinely nothing for them to do.
 
-    _updateFolderToolButtons() {
-        const makeBtn = this.container.querySelector('.make-library-btn');
-        if (makeBtn) {
-            const dir = this.getFocusedDir();
-            makeBtn.style.display = (dir && App.mode !== 'library') ? '' : 'none';
+    // _menuItems is what the ⋯ menu offers now: how photos are shown, the
+    // slideshow, and on a desk the rarer folder work. A phone looks; it does
+    // not scan, index or clear caches. A pane offers only what its host wired
+    // up — Organize's source pane has neither slideshow nor folder tools.
+    _menuItems() {
+        const noPhotos = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
+        const items = [
+            {
+                id: 'names', label: 'Names', switch: { on: this.showNames, labelOn: 'Shown', labelOff: 'Hidden' },
+                onChange: (on) => { this.showNames = on; this.render(); },
+            },
+            {
+                id: 'details', label: 'Details', switch: { on: this.showOverlays, labelOn: 'Shown', labelOff: 'Hidden' },
+                onChange: (on) => { this.showOverlays = on; this.render(); },
+            },
+        ];
+        if (this.onSlideshowInvoke) {
+            items.push('separator', {
+                id: 'slideshow', label: 'Slideshow', disabled: noPhotos,
+                title: noPhotos ? 'This folder holds no photos' : '',
+                onSelect: () => this.onSlideshowInvoke(),
+            });
         }
+        if (!this.onToolInvoke || window.matchMedia('(max-width: 700px)').matches) return items;
+        items.push('separator');
+        const dir = this.getFocusedDir();
+        if (dir && App.mode !== 'library') {
+            items.push({ id: 'make-library', label: 'Make library…', onSelect: () => this._runFolderTool('make-library') });
+        }
+        if (App.mode === 'library') {
+            items.push({ id: 'scan', label: 'Scan for new photos', onSelect: () => this._runFolderTool('lib-scan-new') });
+        }
+        items.push({ id: 'clear-cache', ...this._clearCacheLabel(), onSelect: () => this._runFolderTool('clear-cache') });
+        return items;
+    }
 
-        const cacheBtn = this.container.querySelector('.clear-cache-btn');
-        if (cacheBtn) {
+    // _clearCacheLabel says what Clear cache would clear, or why it cannot.
+    _clearCacheLabel() {
+        const files = this.getActionableFiles();
+        if (files.length > 0) {
+            return { label: `Clear cache · ${files.length} file${files.length !== 1 ? 's' : ''}`, title: 'Clear the cached previews of the selected files' };
+        }
+        if (this.getFocusedDir()) {
+            return { label: 'Clear cache · folder', title: 'Clear the cached previews of the focused folder' };
+        }
+        return { label: 'Clear cache', disabled: true, title: 'Select photos or a folder whose cached previews to clear' };
+    }
+
+    // _runFolderTool runs one of the folder tools of the ⋯ menu.
+    _runFolderTool(tool) {
+        if (tool === 'make-library') {
+            const dir = this.getFocusedDir();
+            if (dir) this.onToolInvoke({ tool, path: dir });
+            return;
+        }
+        if (tool === 'clear-cache') {
             const files = this.getActionableFiles();
             const dir = this.getFocusedDir();
-            if (files.length > 0) {
-                cacheBtn.textContent = `Clear cache · ${files.length} file${files.length !== 1 ? 's' : ''}`;
-                cacheBtn.disabled = false;
-                cacheBtn.title = 'Clear the cached previews of the selected files';
-            } else if (dir) {
-                cacheBtn.textContent = 'Clear cache · folder';
-                cacheBtn.disabled = false;
-                cacheBtn.title = 'Clear the cached previews of the focused folder';
-            } else {
-                cacheBtn.textContent = 'Clear cache';
-                cacheBtn.disabled = true;
-                cacheBtn.title = 'Select photos or a folder whose cached previews to clear';
-            }
+            if (files.length === 0 && !dir) return;
+            this.onToolInvoke({ tool, files, path: dir || this.path, onDone: () => {} });
+            return;
+        }
+        if (tool === 'lib-scan-new') {
+            const scanPaths = this.selectedDirs.size > 0 ? Array.from(this.selectedDirs) : [this.path];
+            const doNext = (i) => {
+                if (i >= scanPaths.length) return;
+                this.onToolInvoke({ tool, files: [], path: scanPaths[i], onDone: () => doNext(i + 1) });
+            };
+            doNext(0);
         }
     }
 
@@ -734,7 +700,6 @@ class BrowsePane {
     }
 
     _notifyFocusChange() {
-        this._updateFolderToolButtons();
         if (!this.onFocusChange) return;
         const idx = this.keyboard.focusedIndex;
         if (idx < 0 || idx >= this.entries.length) { this.onFocusChange(null, null); return; }

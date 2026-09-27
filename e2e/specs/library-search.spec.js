@@ -378,7 +378,7 @@ test.describe('Library search with indexed fixtures', () => {
         test('info panel loads EXIF data for a library photo without path errors', async ({ page }) => {
             // Library root only has subdirs; navigate into folder-b to reach images
             await page.waitForSelector('#lib-pane [data-type="dir"]', { timeout: 15_000 });
-            await page.locator('#lib-pane [data-name="folder-b"]').first().click();
+            await page.locator('#lib-pane [data-name="folder-b"]').first().dblclick();
             await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 15_000 });
             await page.locator('#lib-pane [data-type="image"]').first().click();
             await page.keyboard.press('i');

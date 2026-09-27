@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-09-27*
 
 ## Project
 
@@ -81,6 +81,7 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 - **Testing** — new Go packages or complex functions get a `_test.go`. New user-visible features get an e2e spec in `e2e/specs/`. When fixing a bug, add a test that would have caught it.
 - **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
 - **Dialogs** — one component builds all of them: `new Dialog({ title, subtitle, size, body, actions })` from `src/web/js/dialog.js` ([ADR-0033](doc/architecture/adr/0033-dialogs-and-places.md)). It owns the scrim, the header, the scrolling body, the footer, Escape, the scrim click and the focus trap, so a dialog file only writes its own body and actions. No closing cross — Cancel does that. At most one `btn-accent` action, and it comes last. `app-keyboard.js` defers to anything with `.dialog-scrim` or `.keyboard-owner` (the crop tool), which is the only guard left.
+- **Menus** — one component builds the ⋯ menu of a place: `new Menu({ items })` from `src/web/js/menu.js`. `items` is a function read on every open; an item is an action (`onSelect`, closes the menu), a switch (`switch: { on, labelOn, labelOff }` + `onChange`, drawn by `Toggle`, leaves the menu open) or `'separator'`. Rare actions go there rather than into a toolbar; the one primary action of a screen never does.
 - **Dialog or place?** A dialog is one decision about what is on the screen, fits on one screen, and ends in an action or a cancel. Anything you read, compare or work in for a while is a place with an address. Something that blocks without needing the context goes inline on the screen that raised it. The rule and the verdict for each of today's dialogs are in ADR-0033.
 - **Input focus guard** — `GlobalKeyboard._isInputFocused(e)` in `app-keyboard.js` is the single place that blocks all non-Escape shortcuts when any `INPUT`, `TEXTAREA`, `SELECT`, or `contenteditable` is active. It uses three complementary mechanisms: a `_inputActive` flag maintained by `focusin`/`focusout` listeners, plus `e.composedPath()` to detect events that bubble from inside shadow DOMs (e.g. `input[type="date"]`'s year segment in Safari bubbles keydown to the document while month/day don't). **Do not add per-shortcut `e.target.tagName` checks** — they don't survive shadow DOM retargeting and will silently fail. New form fields anywhere in the app are automatically covered; no extra work is needed.
 

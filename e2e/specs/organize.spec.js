@@ -24,7 +24,7 @@ async function openOrganize(page, targets = [{ path: DST }]) {
 
 // The source folder is reached the way a person reaches it: by clicking it.
 async function loadSource(page) {
-    await page.locator(`.organize-source .folder-chip[data-name="${SRC}"]`).click();
+    await page.locator(`.organize-source .folder-chip[data-name="${SRC}"]`).dblclick();
     await page.waitForSelector('.organize-source [data-type="image"]', { timeout: 10_000 });
 }
 

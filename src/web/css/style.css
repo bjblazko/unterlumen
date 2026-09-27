@@ -1666,8 +1666,6 @@ button.toggle {
     padding: 0 var(--space-6); /* the same margin as Folders and a library */
 }
 
-.organize-source .folder-tool,
-.organize-source .slideshow-btn,
 .organize-source .status-bar {
     display: none;
 }
@@ -1841,6 +1839,17 @@ button.toggle {
     font-size: 12px;
     color: var(--overlay-fg-3);
     white-space: nowrap;
+}
+
+.viewer-toolbar .viewer-fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: var(--control-h-sm);
+    height: var(--control-h-sm);
+    padding: 0;
+    line-height: 0;
 }
 
 .viewer-body {
@@ -5236,6 +5245,14 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     margin-bottom: var(--space-3);
 }
 
+.stats-filmsim-toggle-label {
+    font-size: var(--text-sm);
+    line-height: 1;
+    font-weight: 500;
+    color: var(--fg);
+    white-space: nowrap;
+}
+
 /* Focal length toggle */
 .stats-focal-toggle {
     margin-bottom: var(--space-2);
@@ -6212,31 +6229,85 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     font-variant-numeric: tabular-nums;
 }
 
-/* --- View switches: names and details, visible in the toolbar --- */
+/* --- Menu: the "⋯" of a place, for what need not be on screen --- */
 
-.view-switches {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-6);
-    margin-left: var(--space-4);
-    height: var(--control-h-sm);
+/* The button closes the breadcrumb row; the path takes the room before it. */
+.browse-more {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
-/* One line, one baseline. The name is a label in the UI voice, the two
-   states are small caps in the data voice — so "Names shown" cannot be read
-   as a sentence: they are visibly two different things. */
-.view-switch {
+/* The same square as the Home and Up buttons at the start of the row. */
+.menu-btn {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-3);
+    justify-content: center;
+    padding: var(--space-2);
+    line-height: 0;
 }
 
-.view-switch-label {
+.menu-btn[aria-expanded="true"] {
+    background: var(--bg-3);
+}
+
+.menu {
+    position: fixed;  /* escapes overflow clipping; top/right set by JS */
+    z-index: 9000;
+    min-width: 14rem;
+    max-width: calc(100vw - var(--space-4));
+    padding: var(--space-1) 0;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-float);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    width: 100%;
+    height: var(--control-h);
+    padding: 0 var(--space-3);
+    background: none;
+    border: none;
+    font: inherit;
     font-size: var(--text-sm);
-    line-height: 1;
-    font-weight: 500;
     color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+    transition: background 120ms ease-out;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+    background: var(--bg-2);
+}
+
+.menu-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.menu-item:disabled {
+    color: var(--fg-3);
+    cursor: default;
+}
+
+.menu-label {
     white-space: nowrap;
+}
+
+/* The row is the switch; the Toggle only shows the state. */
+.menu-item--switch .toggle {
+    pointer-events: none;
+}
+
+.menu-sep {
+    height: 1px;
+    margin: var(--space-1) 0;
+    background: var(--line);
 }
 
 /* --- Info panel: short list, map, then everything else folded away --- */
@@ -6353,11 +6424,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* Anything that changes files or settings is desktop work. */
     .selection-bar,
-    .view-switch--names,
     .tools-menu-btn,
-    .folder-tool,
-    .lib-scan-tools-wrap,
-    .slideshow-btn,
     .gal-row-actions,
     .gal-detail-primary,
     .gal-detail-danger,
@@ -6373,22 +6440,20 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     }
 
     /* A phone browses what is there: one layout, one order, no counting bar
-       (the folder title line already says how much there is). The Details
-       switch stays — it decides what you can read on a thumbnail. */
-    .controls .seg,
-    .controls .sort-field,
-    .controls .sort-order,
-    .controls .status-bar {
+       (the folder title line already says how much there is), so the whole
+       controls row goes. Names and Details live in the ⋯ menu. */
+    .controls {
         display: none;
     }
 
-    /* With the layout and sort controls gone there is nothing to keep apart
-       from, so the switches start at the margin like everything else. */
-    .view-switches { margin-left: 0; }
+    .menu-item {
+        height: 44px;
+    }
 
-    /* Filter and Statistics stay: they only look at photos. Edit library is
-       settings work and hides with the other desk-only controls; the path
-       under the name goes too, so the name itself stays readable. */
+    /* Filter stays: it only looks at photos. Statistics moves into the
+       pane's ⋯ menu; Edit library is settings work and hides with the other
+       desk-only controls; the path under the name goes too, so the name
+       itself stays readable. */
     .library-detail-controls,
     .library-list-header-actions {
         flex-wrap: wrap;
@@ -6439,7 +6504,17 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
        list's own margin instead of a second one inside each row. */
     .library-card-top { padding: var(--space-3) 0; }
     .library-card-filmstrip { margin: 0 0 var(--space-3); }
-    .browse-header { padding-top: var(--space-3); }
+    /* The slideshow fills the screen, over the tab bar, and its controls
+       close up so all four and the counter fit the width. */
+    .ss-overlay { z-index: 60; }
+    .ss-hud { gap: var(--space-2); padding: var(--space-2); }
+    .ss-btn { height: 44px; }
+    .ss-counter { min-width: 0; }
+
+    /* The toolbar row that used to sit under the path is gone, so the
+       header keeps its own gap: scrolled photos pass under an edge, not
+       against the path. */
+    .browse-header { padding: var(--space-3) 0 var(--space-2); }
 
     /* One column of content; the info panel becomes a sheet (see viewer). */
     .browse-layout > #info-panel-container,

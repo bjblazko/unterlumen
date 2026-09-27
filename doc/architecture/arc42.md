@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-09-27*
 
 ## 1. Introduction and Goals
 
@@ -175,6 +175,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `activity.js` | `Activity` — the one way to say something is happening: busy, counted, ended ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `status-line.js` | `StatusLine` — the foot of the sidebar: jobs from `/api/jobs/stream` that outlive their page |
 | `dialog.js` | `Dialog` class — the frame and behaviour of every dialog ([ADR-0033](adr/0033-dialogs-and-places.md)) |
+| `fullscreen.js` | `Fullscreen` — the browser's own full screen for the slideshow and the viewer; a caller leaves only the full screen it entered |
+| `menu.js` | `Menu` class — the ⋯ menu of a place: actions and Toggle switches that need not be on screen, keyboard-owning while open |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data; a folder's dashboard comes from `FolderDashboard` |
 | `folder-dashboard.js` | `FolderDashboard` — the info panel's view of a folder: contents, size map (treemap), nesting depth, file types, library EXIF stats |

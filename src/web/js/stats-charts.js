@@ -151,9 +151,8 @@ function renderFilmSimBar(el, filmSims) {
 
     const toggleRow = document.createElement('div');
     toggleRow.className = 'stats-filmsim-toggle-row';
-    // Name above, states beside the switch — the same shape as the toolbar's.
     toggleRow.innerHTML =
-        '<span class="view-switch-label">Untagged photos</span>' +
+        '<span class="stats-filmsim-toggle-label">Untagged photos</span>' +
         '<button class="toggle" role="switch" aria-checked="false" data-state="off">' +
         '<span class="toggle-label toggle-label-on">Counted</span>' +
         '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +

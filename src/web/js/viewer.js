@@ -20,6 +20,8 @@ class Viewer {
         this._cropTool = null;
         this._cropKeyHandler = null;
         this._zoomTool = null;
+        this._enteredFullscreen = false;
+        this._onFullscreenChange = () => this._updateFullscreenButton();
     }
 
     open(imagePath, imageList) {
@@ -32,6 +34,7 @@ class Viewer {
         this.buildFilmStrip();
 
         document.addEventListener('keydown', this.keyHandler);
+        document.addEventListener('fullscreenchange', this._onFullscreenChange);
         this.render();
         this._prefetch(2);
     }
@@ -48,6 +51,11 @@ class Viewer {
         }
         if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
         document.removeEventListener('keydown', this.keyHandler);
+        document.removeEventListener('fullscreenchange', this._onFullscreenChange);
+        // Full screen entered here was for the photo; one the person chose
+        // elsewhere stays.
+        if (this._enteredFullscreen) Fullscreen.exit();
+        this._enteredFullscreen = false;
         this.infoPanel = null;
         this.filmStripEl = null;
         this._filmstripLoaded = false;
@@ -247,6 +255,7 @@ class Viewer {
                     <span class="viewer-filmstrip-label desk-only">Film strip</span>
                     <div class="viewer-filmstrip-toggle-wrap desk-only" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
+                    ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn"></button>' : ''}
                     <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
                     <div class="viewer-zoom-group desk-only">
                         <button class="btn viewer-zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
@@ -287,6 +296,8 @@ class Viewer {
 
         this.container.querySelector('.viewer-back').addEventListener('click', () => this.close());
         this.container.querySelector('.viewer-info-btn')?.addEventListener('click', () => this.toggleInfo());
+        this.container.querySelector('.viewer-fullscreen-btn')?.addEventListener('click', () => this._toggleFullscreen());
+        this._updateFullscreenButton();
 
         const imgEl       = this.container.querySelector('.viewer-image-container img');
         const containerEl = this.container.querySelector('.viewer-image-container');
@@ -378,6 +389,27 @@ class Viewer {
             img.src = this._imageURLFn(this.images[idx]);
             this._prefetchCache.push(img);
         }
+    }
+
+    async _toggleFullscreen() {
+        if (Fullscreen.active()) {
+            Fullscreen.exit();
+            this._enteredFullscreen = false;
+        } else {
+            this._enteredFullscreen = await Fullscreen.enter();
+        }
+    }
+
+    // One button, two states: the icon and the name say what a press does.
+    _updateFullscreenButton() {
+        const btn = this.container.querySelector('.viewer-fullscreen-btn');
+        if (!btn) return;
+        const on = Fullscreen.active();
+        const label = on ? 'Leave full screen' : 'Full screen';
+        btn.setAttribute('aria-pressed', String(on));
+        btn.setAttribute('aria-label', label);
+        btn.title = label;
+        btn.innerHTML = on ? Viewer.FULLSCREEN_OFF_ICON : Viewer.FULLSCREEN_ON_ICON;
     }
 
     _enterCropMode() {
@@ -488,3 +520,6 @@ class Viewer {
         }
     }
 }
+
+Viewer.FULLSCREEN_ON_ICON = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.5 5 1.5 1.5 5 1.5"/><polyline points="9 1.5 12.5 1.5 12.5 5"/><polyline points="12.5 9 12.5 12.5 9 12.5"/><polyline points="5 12.5 1.5 12.5 1.5 9"/></svg>';
+Viewer.FULLSCREEN_OFF_ICON = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 1.5 5 5 1.5 5"/><polyline points="12.5 5 9 5 9 1.5"/><polyline points="9 12.5 9 9 12.5 9"/><polyline points="1.5 9 5 9 5 12.5"/></svg>';

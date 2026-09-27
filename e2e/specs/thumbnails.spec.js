@@ -75,7 +75,7 @@ test.describe('Thumbnails', () => {
       await page.goto('/');
       await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
       await navigateToFolder(page, 'folder-a');
-      await page.locator('.folder-chip.dir-item[data-name="a1"]').click();
+      await page.locator('.folder-chip.dir-item[data-name="a1"]').dblclick();
       await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
       await waitForThumbnailsLoaded(page, 1);
 

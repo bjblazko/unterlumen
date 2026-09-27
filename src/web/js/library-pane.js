@@ -16,10 +16,20 @@ class LibraryPane extends BrowsePane {
         super(container, options);
         this._libID = libID;
         this._sourcePath = options.sourcePath || '';
+        this._onStatistics = options.onStatistics || null;
         this._photoMap = new Map(); // relPath → { photoID }
         this._folderPreviews = new Map(); // subfolder name → preview
         this.sort = 'taken';
         this.order = 'desc';
+    }
+
+    // A phone's library head has no room for Statistics, so it joins the ⋯.
+    _menuItems() {
+        const items = super._menuItems();
+        if (this._onStatistics && window.matchMedia('(max-width: 700px)').matches) {
+            items.push({ id: 'statistics', label: 'Statistics', onSelect: this._onStatistics });
+        }
+        return items;
     }
 
     async load(path) {

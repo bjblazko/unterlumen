@@ -32,14 +32,11 @@ export const FOLDER_A_A1_IMAGE_COUNT = 7; // includes HIF
 // and one click opens them; the list view keeps rows that open on double
 // click.
 export async function navigateToFolder(page, dirName) {
-    const chip = page.locator(`.folder-chip[data-name="${dirName}"]`);
-    const row = page.locator(`.dir-item[data-name="${dirName}"]`);
-    if (await chip.count()) {
-        await chip.first().click();
-    } else {
-        await row.first().waitFor({ state: 'visible', timeout: 15_000 });
-        await row.first().dblclick();
-    }
+    // A tap goes into a folder on a touch screen; a mouse needs a double click.
+    const item = page.locator(`.dir-item[data-name="${dirName}"]`).first();
+    await item.waitFor({ state: 'visible', timeout: 15_000 });
+    if (await page.evaluate(() => matchMedia('(hover: none)').matches)) await item.tap();
+    else await item.dblclick();
     await page.waitForSelector(`.crumb[data-path="${dirName}"]`, { timeout: 10_000 });
 }
 

@@ -19,7 +19,10 @@ test.describe('Folder info panel — browse mode', () => {
     test('selecting a folder shows folder name, contents, and size map sections', async ({ page }) => {
         const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
-        await folderA.click({ modifiers: ['ControlOrMeta'] });
+        // With a mouse, one click selects the folder and stays here, so its
+        // info can be read; a double click goes in.
+        await folderA.click();
+        await expect(page.locator('.crumb-current')).toHaveText('Root');
 
         await page.waitForSelector('.info-panel .info-section', { timeout: 8_000 });
 
@@ -71,7 +74,7 @@ test.describe('Folder info panel — browse mode', () => {
         await page.waitForSelector('.folder-treemap-cell', { timeout: 8_000 });
 
         // Now enter folder-a (contains folder-a-sample.jpeg at its root)
-        await folderA.click();
+        await folderA.dblclick();
         await page.waitForSelector('.crumb[data-path="folder-a"]', { timeout: 5_000 });
 
         const photo = page.locator('[data-type="image"]').first();
@@ -94,7 +97,7 @@ test.describe('Folder info panel — browse mode', () => {
     test('clicking a sibling photo after a selected sibling folder (no navigation in between) shows photo info', async ({ page }) => {
         const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
-        await folderA.click();
+        await folderA.dblclick();
         await page.waitForSelector('.crumb[data-path="folder-a"]', { timeout: 5_000 });
 
         // folder-a directly contains subfolders a1/a2/a3 and folder-a-sample.jpeg.

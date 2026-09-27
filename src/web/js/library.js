@@ -366,7 +366,7 @@ class LibraryTab {
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
                 </div>
                 <div class="library-detail-controls">
-                    <button class="btn btn-sm" id="lib-detail-stats-btn">Statistics</button>
+                    <button class="btn btn-sm desk-only" id="lib-detail-stats-btn">Statistics</button>
                     <button class="btn btn-sm desk-only" id="lib-edit-btn">Edit library…</button>
                 </div>
             </div>
@@ -409,6 +409,7 @@ class LibraryTab {
             },
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
+            onStatistics: () => this._openStats(),
             onSelectionChange: () => {
                 this._updateSelectionBar();
             },

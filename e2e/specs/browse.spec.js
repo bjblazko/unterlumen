@@ -53,7 +53,7 @@ test.describe('Browse', () => {
     await navigateToFolder(page, 'folder-a');
     const a1 = page.locator('.folder-chip[data-name="a1"]');
     await expect(a1).toBeVisible({ timeout: 5_000 });
-    await a1.click();
+    await a1.dblclick();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).toBeVisible({ timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     // Navigate back to folder-a via breadcrumb
@@ -106,7 +106,9 @@ test.describe('Browse', () => {
     const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
     await expect(item.locator('.item-name')).toHaveCount(0);
 
-    const namesToggle = page.locator('.toggle-names-wrap .toggle');
+    // The switch lives in the ⋯ menu and leaves it open when flipped.
+    await page.locator('.browse-more .menu-btn').click();
+    const namesToggle = page.locator('.menu [data-id="names"]');
     await namesToggle.click();
 
     await expect(item.locator('.item-name')).toBeVisible({ timeout: 5_000 });
@@ -124,7 +126,8 @@ test.describe('Browse', () => {
     const item = page.locator(`[data-name="${GPS_IMAGE}"]`);
     await expect(item.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
 
-    const overlaysToggle = page.locator('.toggle-overlays-wrap .toggle');
+    await page.locator('.browse-more .menu-btn').click();
+    const overlaysToggle = page.locator('.menu [data-id="details"]');
     await overlaysToggle.click();
 
     await expect(item.locator('.overlay-badges')).toHaveCount(0);

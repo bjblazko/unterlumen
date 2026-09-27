@@ -75,7 +75,7 @@ test.describe('View menu — library folder view', () => {
     test.beforeEach(async ({ page }) => {
       const folderB = page.locator('#lib-pane .folder-tile.dir-item[data-name="folder-b"]');
       await folderB.waitFor({ state: 'visible', timeout: 10_000 });
-      await folderB.click();
+      await folderB.dblclick();
       await waitForThumbnailsLoaded(page, 1);
     });
 
@@ -103,7 +103,8 @@ test.describe('View menu — library folder view', () => {
       const item = page.locator(`#lib-pane [data-name*="${GPS_IMAGE}"], #lib-pane .grid-item.image-item`).first();
       await expect(item.locator('.item-name')).toHaveCount(0);
 
-      const namesToggle = page.locator('#lib-pane .toggle-names-wrap .toggle');
+      await page.locator('#lib-pane .menu-btn').click();
+      const namesToggle = page.locator('.menu [data-id="names"]');
       await namesToggle.click();
 
       await expect(item.locator('.item-name')).toBeVisible({ timeout: 5_000 });
@@ -116,7 +117,8 @@ test.describe('View menu — library folder view', () => {
       const gpsItem = page.locator(`#lib-pane [data-name="${GPS_IMAGE}"]`);
       await expect(gpsItem.locator('.overlay-badges')).toBeVisible({ timeout: 5_000 });
 
-      const overlaysToggle = page.locator('#lib-pane .toggle-overlays-wrap .toggle');
+      await page.locator('#lib-pane .menu-btn').click();
+      const overlaysToggle = page.locator('.menu [data-id="details"]');
       await overlaysToggle.click();
 
       await expect(gpsItem.locator('.overlay-badges')).toHaveCount(0);
