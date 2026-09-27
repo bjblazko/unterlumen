@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-09-27
+
+### Fixed
+- **A Files destination can take photos again.** "Add to gallery" listed only share-link and website destinations, so a Files destination such as an Instagram folder could not be chosen, neither under "New gallery…" nor with its pending batches. It is back; the search engine switch is left out for it, since nothing of it is online, and its batch reads "Not exported yet" instead of "Not online yet".
+- **Folder tiles in Safari.** The four photos of a library folder's tile ran out of the tile and over its name and counts. Each photo cell is now square by itself.
+
 ## [0.12.1] - 2026-09-27
 
 ### Added
