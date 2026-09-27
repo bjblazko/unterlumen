@@ -285,8 +285,14 @@ function writeFlag(key, on) {
 // Undated photos count as the oldest.
 function mapPoints(geo) {
     const points = [];
+    // A photo in several libraries (one ID, its content hash) is one point,
+    // as on the Timeline: two points on one spot are a group that never
+    // splits and opens the same photo twice.
+    const seen = new Set();
     for (const lib of geo.libraries || []) {
         for (const [id, lat, lon, taken, name] of lib.points) {
+            if (seen.has(id)) continue;
+            seen.add(id);
             points.push({ lib: lib.id, id, lat, lon, taken, name, month: monthOf(taken) });
         }
     }

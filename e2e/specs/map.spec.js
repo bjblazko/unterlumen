@@ -65,6 +65,16 @@ test.describe('Map', () => {
         expect(filename).toMatch(/\.(jpe?g|hif|heic)$/i);
     });
 
+    test('a photo in two libraries is one point on the map', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        const ids = await page.evaluate(() => mapPoints({ libraries: [
+            { id: 'A', points: [['same', 48.1, 11.5, '2024-05-01T10:30:00', 'a.jpg'], ['own', 1, 1, '', 'b.jpg']] },
+            { id: 'B', points: [['same', 48.1, 11.5, '2024-05-01T10:30:00', 'a.jpg']] },
+        ] }).map(p => `${p.lib}/${p.id}`));
+        expect(ids.sort()).toEqual(['A/own', 'A/same']);
+    });
+
     test('is a place in the sidebar, at #map and on key 7', async ({ page }) => {
         await stubTiles(page);
         await page.goto('/');

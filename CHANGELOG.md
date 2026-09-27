@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A photo in two libraries is one point on the map.** The Map drew it twice at the same spot, so its group never split and clicking it opened the viewer on the same photo twice ("1 / 2"). Photos are now told apart by their content, as on the Timeline.
+
 ## [0.13.0] - 2026-09-27
 
 ### Added
