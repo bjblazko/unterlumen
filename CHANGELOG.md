@@ -5,8 +5,20 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-09-27
+
+### Added
+- **A ⋯ menu for what need not be on screen.** At the end of the path row of Folders, a library and Organize. It holds the Names and Details switches (still with their "Shown"/"Hidden" labels), the slideshow and, on a desk, Make library…, Scan for new photos and Clear cache, which says what it would clear. The toolbar keeps the layout and the sort order. On a phone the toolbar row is gone entirely, the switches and the slideshow are in the menu, and a library's Statistics moves there too. A switch flips in place and leaves the menu open; the arrow keys move through it and Escape closes it.
+- **Full screen for photos.** A slideshow starts in the browser's own full screen, without address bar or system bars, and Close leaves it. The viewer has a full screen button beside the counter. Each leaves only the full screen it entered. Browsers that offer no full screen for a page (Safari on an iPhone) show no button and start the slideshow in the window as before.
+- **Unterlumen on the home screen.** A web app manifest and app icons: added to a phone's home screen, Unterlumen opens as an app, without the browser's address bar. The browser bar takes the theme's background colour.
+
 ### Changed
 - **A denser phone layout.** Two photos and two folder tiles share a row on a phone instead of one each, every place keeps a thin 8px margin, and the tab bar sits on the bottom edge: Firefox on Android reported a safe-area inset for its gesture bar that the app added under the tab bar as an empty band, and the app no longer uses that inset. The layout follows the height actually visible (`100dvh`).
+- **With a mouse, a click selects a folder.** The info panel then shows what the folder holds; a double click or Enter goes in. On a touch screen a tap still goes straight in.
+
+### Fixed
+- **The slideshow on a phone.** It lay under the tab bar, which covered its controls, and the controls ran off both edges of the screen. It now covers the tab bar, and the controls close up to fit, 44px high.
+- **Enter and Space press a focused button in a place.** The Home, Up and ⋯ buttons could not be pressed from the keyboard: the grid took Enter to open the focused photo.
 
 ## [0.12.0] - 2026-09-27
 
