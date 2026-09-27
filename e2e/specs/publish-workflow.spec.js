@@ -19,6 +19,7 @@ import { waitForAppReady } from '../helpers/wait.js';
 const LIB_NAME = 'E2E Publish Workflow Library';
 const GALLERY_SLUG = 'e2e-publish-workflow-gallery';
 const SITE_SLUG = 'e2e-publish-workflow-site';
+const FILES_SLUG = 'e2e-publish-workflow-files';
 
 // ─── Shared setup helpers ────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         );
         await request.delete(`/api/channels/${GALLERY_SLUG}`).catch(() => {});
         await request.delete(`/api/channels/${SITE_SLUG}`).catch(() => {});
+        await request.delete(`/api/channels/${FILES_SLUG}`).catch(() => {});
 
         const libRes = await request.post('/api/library/', {
             data: { name: LIB_NAME, description: '', sourcePath: 'folder-b' },
@@ -169,12 +171,28 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         });
         expect(siteRes.status()).toBe(201);
         await resetChannelOutputState(request, SITE_SLUG);
+
+        // Files channel — image files in a folder, posted by hand (Instagram).
+        const filesRes = await request.post('/api/channels/', {
+            data: {
+                slug: FILES_SLUG,
+                name: 'E2E Publish Workflow Files',
+                format: 'jpeg',
+                quality: 75,
+                exifMode: 'strip',
+                scale: { mode: 'max_dim', maxDimension: 'width', maxValue: 800 },
+                outputMode: 'save',
+            },
+        });
+        expect(filesRes.status()).toBe(201);
+        await resetChannelOutputState(request, FILES_SLUG);
     });
 
     test.afterAll(async ({ request }) => {
         if (libID) await request.delete(`/api/library/${libID}`);
         await request.delete(`/api/channels/${GALLERY_SLUG}`).catch(() => {});
         await request.delete(`/api/channels/${SITE_SLUG}`).catch(() => {});
+        await request.delete(`/api/channels/${FILES_SLUG}`).catch(() => {});
     });
 
     // Shared body for both channel-type scenarios: collect -> Draft badge ->
@@ -278,6 +296,44 @@ test.describe('Publish workflow — collect, draft, generate', () => {
             isSite: true,
             photoOffset: 2,
         });
+    });
+
+    // A Files destination (an Instagram folder) takes photos like any other.
+    // The redesigned dialog once listed only share-link and website
+    // destinations, so a Files destination could not be reached at all.
+    test('Files channel: collect into it from the dialog, then export the files', async ({ page }) => {
+        const title = 'E2E Publish Workflow Files Batch';
+        await page.goto('/');
+        await waitForAppReady(page);
+        await openLibraryDetail(page);
+        await selectTwoPhotosAt(page, 4);
+
+        await page.locator('.selection-bar [data-action="collect"]').click();
+        const dlg = page.locator('.collect-dialog');
+        await dlg.locator('.collect-item--new').click();
+        await dlg.locator('#collect-new-dest').selectOption(FILES_SLUG);
+        // Nothing of a Files destination is online, so search engines do not apply.
+        await expect(dlg.locator('#collect-new-visibility-wrap')).toBeHidden();
+        await dlg.locator('#collect-new-title').fill(title);
+        await dlg.locator('#collect-confirm').click();
+        await expect(page.locator('#ui-hint.visible')).toContainText('Added 2 photos', { timeout: 5_000 });
+
+        // The draft is offered again the next time, to add more.
+        await selectTwoPhotosAt(page, 6);
+        await page.locator('.selection-bar [data-action="collect"]').click();
+        await expect(dlg.locator('.collect-item', { hasText: title })).toContainText('Not exported yet');
+        await dlg.locator('#collect-cancel').click();
+
+        await reopenPublishedTab(page);
+        const row = page.locator('.gal-row', { hasText: title });
+        await expect(row.locator('.gal-state')).toHaveText('Not exported yet');
+        await row.click();
+        await page.locator('.gal-detail-primary .gal-row-action').click();
+        const publishDlg = page.locator('.publish-dialog');
+        await expect(publishDlg.locator('.publish-plan')).toContainText('Export 2 photos');
+        await publishDlg.locator('#pub-run').click();
+        await expect(publishDlg.locator('#pub-done')).toBeVisible({ timeout: 30_000 });
+        await expect(publishDlg).toContainText('Exported to the local output folder');
     });
 
     // The date belongs to the gallery, not to the publish run. The dialog used

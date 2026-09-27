@@ -74,6 +74,15 @@ test.describe('Phone', () => {
             }));
             expect(tiles[0].top).toBe(tiles[1].top);
             expect(tiles[0].left).toBeLessThanOrEqual(8);
+            // The mosaic is square and ends above the name. Safari once let
+            // the photos run over the name and the counts.
+            const tile = await page.locator('.folder-tile').first().evaluate(t => {
+                const m = t.querySelector('.folder-tile-mosaic').getBoundingClientRect();
+                const n = t.querySelector('.item-name').getBoundingClientRect();
+                return { w: Math.round(m.width), h: Math.round(m.height), gap: Math.round(n.top - m.bottom) };
+            });
+            expect(Math.abs(tile.w - tile.h)).toBeLessThanOrEqual(1);
+            expect(tile.gap).toBeGreaterThanOrEqual(0);
             const barPadding = await page.locator('.tabbar').evaluate(e => getComputedStyle(e).paddingBottom);
             expect(barPadding).toBe('4px');
 

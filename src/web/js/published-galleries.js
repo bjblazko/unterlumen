@@ -71,7 +71,11 @@ function recordedTime(value) {
 }
 
 function galleryState(row, channel) {
-    if (row.status === 'draft') return { key: 'draft', label: 'Not online yet' };
+    // A Files destination puts image files in a folder; nothing of it is
+    // ever online, so its draft is "not exported" rather than "not online".
+    if (row.status === 'draft') {
+        return { key: 'draft', label: channel && !channel.galleryExport && !channel.siteExport ? 'Not exported yet' : 'Not online yet' };
+    }
     if (row.status === 'live-pending') return { key: 'pending', label: 'Changes not online' };
 
     // A files destination builds no pages and has nowhere to upload to: the
@@ -117,7 +121,9 @@ function galleryStateLine(row, ch, state, check) {
     const built = recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : '';
     switch (state.key) {
         case 'draft':
-            return 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.';
+            return ch && !ch.galleryExport && !ch.siteExport
+                ? 'Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.'
+                : 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.';
         case 'pending':
             return `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`;
         case 'exported':

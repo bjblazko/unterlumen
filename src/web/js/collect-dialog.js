@@ -63,13 +63,11 @@ class CollectDialog {
         return this._channels.find(c => c.slug === slug);
     }
 
-    // Only galleries you can still add to: a generated album or a pending
-    // draft. Newest first, which is the order the API already returns.
+    // Galleries you can still add to: a generated album or a pending draft,
+    // at any destination — a Files destination (an Instagram folder) has only
+    // drafts. Newest first, which is the order the API already returns.
     _candidates() {
-        return this._galleries.filter(g => {
-            const ch = this._channelBySlug(g.channelSlug);
-            return !!(ch && (ch.galleryExport || ch.siteExport));
-        });
+        return this._galleries.filter(g => !!this._channelBySlug(g.channelSlug));
     }
 
     _renderPicker() {
@@ -142,7 +140,6 @@ class CollectDialog {
 
     _renderNewForm(wrap) {
         if (wrap.dataset.rendered) { this._updateNewDefaults(); return; }
-        const destinations = this._channels.filter(c => c.galleryExport || c.siteExport);
         wrap.dataset.rendered = '1';
         wrap.innerHTML = `
             <div class="form-field">
@@ -152,14 +149,14 @@ class CollectDialog {
             <div class="form-field">
                 <label class="form-label" for="collect-new-dest">Destination</label>
                 <select class="form-select" id="collect-new-dest">
-                    ${destinations.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
+                    ${this._channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-field" id="collect-new-account-wrap" hidden>
                 <label class="form-label" for="collect-new-account">Account</label>
                 <select class="form-select" id="collect-new-account"></select>
             </div>
-            <div class="form-field">
+            <div class="form-field" id="collect-new-visibility-wrap">
                 <span class="form-label">Search engines</span>
                 <div id="collect-new-visibility"></div>
                 <span class="form-hint" id="collect-new-visibility-hint"></span>
@@ -175,11 +172,15 @@ class CollectDialog {
     }
 
     // A share-link gallery is meant for one group of people, so it starts
-    // hidden from search engines; a site album is part of a public site.
+    // hidden from search engines; a site album is part of a public site. A
+    // Files destination puts image files in a folder: nothing is online, so
+    // there is nothing for a search engine to find.
     _updateNewDefaults() {
         const wrap = this._el.querySelector('#collect-new');
         const ch = this._channelBySlug(wrap.querySelector('#collect-new-dest').value);
         if (!ch) return;
+        const online = !!(ch.galleryExport || ch.siteExport);
+        wrap.querySelector('#collect-new-visibility-wrap').hidden = !online;
         this._visibilityToggle.setState(!!ch.galleryExport);
         wrap.querySelector('#collect-new-visibility-hint').textContent = ch.siteExport
             ? 'Hidden keeps the album off the site index and sitemap, and adds a noindex tag.'
@@ -211,7 +212,7 @@ class CollectDialog {
             ? {
                 slug: wrap.querySelector('#collect-new-dest').value,
                 title: wrap.querySelector('#collect-new-title').value.trim(),
-                unlisted: this._visibilityToggle.state(),
+                unlisted: wrap.querySelector('#collect-new-visibility-wrap').hidden ? false : this._visibilityToggle.state(),
                 account: wrap.querySelector('#collect-new-account-wrap').hidden
                     ? undefined
                     : wrap.querySelector('#collect-new-account').value || undefined,
