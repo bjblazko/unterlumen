@@ -24,7 +24,7 @@ async function openOrganize(page, targets = [{ path: DST }]) {
 
 // The source folder is reached the way a person reaches it: by clicking it.
 async function loadSource(page) {
-    await page.locator(`.organize-source .folder-chip[data-name="${SRC}"]`).dblclick();
+    await page.locator(`.organize-source .folder-tile[data-name="${SRC}"]`).dblclick();
     await page.waitForSelector('.organize-source [data-type="image"]', { timeout: 10_000 });
 }
 
@@ -102,13 +102,13 @@ test.describe('Organize — one source, many targets', () => {
         await openOrganize(page);
         await loadSource(page);
 
-        const chip = page.locator('.organize-source .folder-chip[data-name="a-subfolder"]');
+        const chip = page.locator('.organize-source .folder-tile[data-name="a-subfolder"]');
         await chip.click({ modifiers: ['ControlOrMeta'] });
         // "Mark for deletion" is the last target; with one folder target it is key 2.
         await page.keyboard.press('2');
 
         await expect(page.locator('#wastebin-count')).toHaveText('1', { timeout: 5_000 });
-        await expect(page.locator('.organize-source .folder-chip[data-name="a-subfolder"]'))
+        await expect(page.locator('.organize-source .folder-tile[data-name="a-subfolder"]'))
             .toHaveClass(/marked-for-deletion/);
 
         await page.locator('#mode-wastebin').click();
@@ -120,7 +120,7 @@ test.describe('Organize — one source, many targets', () => {
         await openOrganize(page);
         await loadSource(page);
 
-        await page.locator('.organize-source .folder-chip[data-name="a-subfolder"]')
+        await page.locator('.organize-source .folder-tile[data-name="a-subfolder"]')
             .click({ modifiers: ['ControlOrMeta'] });
         await page.keyboard.press('1');
         await expect(page.locator('#org-result')).toContainText('Mark for deletion');

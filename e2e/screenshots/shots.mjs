@@ -111,6 +111,15 @@ export const shots = [
         },
     },
     {
+        name: 'library',
+        take: async (page, { base }) => {
+            await openLibrary(page, base);
+            // The previews follow the folder names; wait for all four tiles.
+            await page.waitForFunction(() => document.querySelectorAll('.folder-tile-mosaic img').length >= 13);
+            await settle(page, 2000);
+        },
+    },
+    {
         name: 'library-filter',
         take: async (page, { base }) => {
             await openLibrary(page, base);

@@ -38,7 +38,10 @@ class LibraryPane extends BrowsePane {
         const isReload = (path || '') === this.path;
         const savedScroll = isReload ? (this._contentEl || this.container).scrollTop : 0;
         this.path = path || '';
+        const hadSelection = this.selection.selected.size + this.selectedDirs.size > 0;
         this.selection.clear();
+        this.selectedDirs.clear();
+        if (hadSelection && this.onSelectionChange) this.onSelectionChange([]);
         this.keyboard.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];

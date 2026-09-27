@@ -137,7 +137,7 @@ class LibraryTab {
         });
 
         this._listSelectionBar = new SelectionBar(el, {
-            actions: ['collect', 'export', 'rename', 'location', 'organize', 'mark'],
+            actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
 
@@ -375,7 +375,7 @@ class LibraryTab {
         // Actions on a selection live in the bar, not in the header, so they
         // are never shown greyed out with no reason given.
         this._detailSelectionBar = new SelectionBar(el, {
-            actions: ['collect', 'export', 'rename', 'location', 'organize', 'mark'],
+            actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
 
@@ -586,7 +586,9 @@ class LibraryTab {
     // every selection has, so it says why when it cannot be used.
     _updateSelectionBar() {
         const pane = this.getActivePaneForKeyboard();
-        const count = (pane?.getSelectedFiles().length ?? 0) + (pane?.selectedDirs?.size ?? 0);
+        const files = pane?.getSelectedFiles().length ?? 0;
+        const dirs = pane?.selectedDirs?.size ?? 0;
+        const count = files + dirs;
         // The list view and an opened library each have their own bar; only
         // the one belonging to the visible screen may show anything.
         const active = this.currentLibrary ? this._detailSelectionBar : this._listSelectionBar;
@@ -594,6 +596,7 @@ class LibraryTab {
         other?.update(0);
         const target = pane ? pane.getOpenInCommanderTarget() : null;
         active?.update(count, {
+            onlyFolders: files === 0 && dirs > 0,
             disabled: {
                 organize: target ? '' : (pane ? pane.organizeBtnHint() : 'Select photos to show them in Organize'),
             },
@@ -617,6 +620,14 @@ class LibraryTab {
             return;
         }
         const files = pane.getSelectedFiles();
+        // Folders count for Download: they come with everything in them.
+        if (action === 'download') {
+            Originals.download(files, pane, {
+                dirs: [...(pane.selectedDirs || [])],
+                sourcePath: this.currentLibrary?.sourcePath ?? null,
+            });
+            return;
+        }
         if (!files.length) return;
         if (action === 'mark') {
             App.markForDeletion(files, pane.entries, pane.path);

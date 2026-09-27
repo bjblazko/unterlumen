@@ -9,9 +9,12 @@ class ExportModal {
         this._estimateAbort = null; // AbortController for exact estimation
     }
 
-    open(files, { serverRole = false, exiftoolAvailable = false, webpSupport = true, sourcePath = null } = {}) {
+    // photoRefs: path → { library, id } for library photos, which the ZIP
+    // export finds by ID (see _exportZip).
+    open(files, { serverRole = false, exiftoolAvailable = false, webpSupport = true, sourcePath = null, photoRefs = new Map() } = {}) {
         if (this.overlay) this.close();
         this._files = files;
+        this._photoRefs = photoRefs;
         this._serverRole = serverRole;
         this._exiftoolAvailable = exiftoolAvailable;
         this._webpSupport = webpSupport;
@@ -474,7 +477,11 @@ class ExportModal {
         const resp = await fetch('/api/export/zip-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...basePayload, files: this._files }),
+            body: JSON.stringify({
+                ...basePayload,
+                files: this._files.filter(f => !this._photoRefs.has(f)),
+                photos: this._files.filter(f => this._photoRefs.has(f)).map(f => this._photoRefs.get(f)),
+            }),
         });
         if (!resp.ok) throw new Error(await resp.text());
 

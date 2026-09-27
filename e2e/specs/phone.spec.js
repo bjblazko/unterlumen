@@ -159,6 +159,12 @@ test.describe('Phone', () => {
         await expect(page.locator('.viewer-delete')).toBeHidden();
         await expect(page.locator('.viewer-zoom-group')).toBeHidden();
 
+        // Saving the original is looking, not editing: it stays, on screen.
+        const download = page.locator('.viewer-download-btn');
+        await expect(download).toBeVisible();
+        const dl = await download.boundingBox();
+        expect(dl.x + dl.width).toBeLessThanOrEqual(390);
+
         await page.locator('.viewer-info-btn').tap();
         const sheet = page.locator('.viewer-info-container .info-panel.expanded');
         await expect(sheet).toBeVisible({ timeout: 8_000 });

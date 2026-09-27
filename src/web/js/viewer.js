@@ -260,6 +260,7 @@ class Viewer {
                     <div class="viewer-filmstrip-toggle-wrap desk-only" title="Film strip (F)"></div>
                     <span class="viewer-counter">${counter}</span>
                     ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn"></button>' : ''}
+                    <a class="btn viewer-download-btn" href="${escapeHtml(this._downloadURL())}" download title="Download the original file" aria-label="Download the original file"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
                     <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
                     <div class="viewer-zoom-group desk-only">
                         <button class="btn viewer-zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
@@ -405,6 +406,13 @@ class Viewer {
     }
 
     // One button, two states: the icon and the name say what a press does.
+    // The file as it is on disk, under its own name: the image routes serve
+    // it untouched with ?download=1, even a HEIF shown here as JPEG.
+    _downloadURL() {
+        const url = this._imageURLFn(this.currentPath);
+        return url + (url.includes('?') ? '&' : '?') + 'download=1';
+    }
+
     _updateFullscreenButton() {
         const btn = this.container.querySelector('.viewer-fullscreen-btn');
         if (!btn) return;

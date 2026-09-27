@@ -9,9 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -20,6 +22,7 @@ import (
 
 	"huepattl.de/unterlumen/internal/api/sse"
 	"huepattl.de/unterlumen/internal/jobs"
+	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -39,6 +42,9 @@ type exportRequest struct {
 	ExifMode    string             `json:"exifMode"`
 	Destination string             `json:"destination"`
 	SourcePath  string             `json:"sourcePath,omitempty"`
+	// ZIP only: whole folders, and library photos by ID (filter results).
+	Dirs   []string   `json:"dirs,omitempty"`
+	Photos []photoRef `json:"photos,omitempty"`
 }
 
 type estimateRequest struct {
@@ -85,10 +91,11 @@ type zipStreamEvent struct {
 }
 
 // Handle registers all /api/export/* routes on mux.
-func Handle(mux *http.ServeMux, root string, serverRole bool, reg *jobs.Registry) {
+// libs may be nil when library support is off.
+func Handle(mux *http.ServeMux, root string, serverRole bool, reg *jobs.Registry, libs *lib.Manager) {
 	mux.HandleFunc("/api/export/estimate", handleExportEstimate(root, serverRole))
-	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole))
-	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole, reg))
+	mux.HandleFunc("/api/export/zip", handleExportZip(root, serverRole, libs))
+	mux.HandleFunc("/api/export/zip-stream", handleExportZipStream(root, serverRole, reg, libs))
 	mux.HandleFunc("/api/export/zip-download", handleExportZipDownload())
 	mux.HandleFunc("/api/export/save", handleExportSave(root, serverRole))
 	if !serverRole {
@@ -110,7 +117,7 @@ func handleExportEstimate(root string, serverRole bool) http.HandlerFunc {
 		}
 
 		opts := media.ExportOptions{Format: req.Format, Quality: req.Quality, Scale: req.Scale}
-		eRoot := effectiveRoot(root, req.SourcePath)
+		eRoot := effectiveRoot(root, req.SourcePath, serverRole)
 		var estimates []estimateEntry
 		for _, relPath := range req.Files {
 			absPath, ok := resolveFilePath(eRoot, serverRole, relPath)
@@ -171,7 +178,7 @@ func estimateHeuristic(relPath, absPath string, opts media.ExportOptions) estima
 	}
 }
 
-func handleExportZip(root string, serverRole bool) http.HandlerFunc {
+func handleExportZip(root string, serverRole bool, libs *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -185,26 +192,17 @@ func handleExportZip(root string, serverRole bool) http.HandlerFunc {
 		}
 
 		opts := exportOpts(req)
-		eRoot := effectiveRoot(root, req.SourcePath)
+		sources := zipSources{root: effectiveRoot(root, req.SourcePath, serverRole), serverRole: serverRole, libs: libs}
+		items, _ := sources.collect(req)
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", `attachment; filename="export.zip"`)
 
 		zw := zip.NewWriter(w)
 		defer zw.Close()
 
-		for _, relPath := range req.Files {
-			absPath, ok := resolveFilePath(eRoot, serverRole, relPath)
-			if !ok {
-				continue
-			}
-			data, err := media.ExportImage(absPath, opts)
-			if err != nil {
-				continue
-			}
-			outName := media.ExportedName(filepath.Base(relPath), req.Format)
-			if fw, err := zw.Create(outName); err == nil {
-				fw.Write(data)
-			}
+		names := map[string]int{}
+		for _, item := range items {
+			addZipEntry(zw, item, req.Format, opts, names)
 		}
 	}
 }
@@ -254,7 +252,7 @@ func handleExportSave(root string, serverRole bool) http.HandlerFunc {
 		}
 
 		opts := exportOpts(req)
-		results := processExportBatch(effectiveRoot(root, req.SourcePath), req.Files, destAbs, req.Format, opts, serverRole)
+		results := processExportBatch(effectiveRoot(root, req.SourcePath, serverRole), req.Files, destAbs, req.Format, opts, serverRole)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(exportSaveResponse{Results: results})
@@ -284,7 +282,7 @@ func processExportBatch(root string, files []string, dest, format string, opts m
 	return results
 }
 
-func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry) http.HandlerFunc {
+func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry, libs *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -302,14 +300,23 @@ func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry) htt
 			return
 		}
 
-		n := len(req.Files)
-		job := reg.Start("export", fmt.Sprintf("Exporting %d photo%s as a ZIP", n, plural(n)), "")
+		sources := zipSources{root: effectiveRoot(root, req.SourcePath, serverRole), serverRole: serverRole, libs: libs}
+		items, refused := sources.collect(req)
+		n := len(items)
+		label := fmt.Sprintf("Exporting %d photo%s as a ZIP", n, plural(n))
+		if req.Format == FormatOriginal {
+			label = fmt.Sprintf("Packing %d original%s into a ZIP", n, plural(n))
+		}
+		job := reg.Start("export", label, "")
 		// Ends as failed if the client goes away before the ZIP is ready.
 		defer job.Finish(errors.New("it stopped before it finished"))
 		send := reportingSSEWriter(sseWriter(w, flusher), job)
 		opts := exportOpts(req)
 
-		tmpPath, err := buildZipFile(r.Context(), effectiveRoot(root, req.SourcePath), serverRole, req.Files, req.Format, opts, send)
+		for _, name := range refused {
+			send(zipStreamEvent{File: name, Total: n, Error: "not in a folder Unterlumen may read"})
+		}
+		tmpPath, err := buildZipFile(r.Context(), items, req.Format, opts, send)
 		if err != nil {
 			return // buildZipFile already sent the error event or client disconnected
 		}
@@ -320,11 +327,17 @@ func handleExportZipStream(root string, serverRole bool, reg *jobs.Registry) htt
 		zipJobsMu.Unlock()
 
 		scheduleZipExpiry(token, tmpPath)
-		send(zipStreamEvent{Done: len(req.Files), Total: len(req.Files), Complete: true, Token: token})
+		send(zipStreamEvent{Done: n, Total: n, Complete: true, Token: token})
 	}
 }
 
-func buildZipFile(ctx context.Context, root string, serverRole bool, files []string, format string, opts media.ExportOptions, send func(zipStreamEvent)) (string, error) {
+func buildZipFile(ctx context.Context, items []zipItem, format string, opts media.ExportOptions, send func(zipStreamEvent)) (string, error) {
+	// An empty ZIP would look like success; say what happened instead.
+	if len(items) == 0 {
+		err := errors.New("none of the photos could be read")
+		send(zipStreamEvent{Error: err.Error()})
+		return "", err
+	}
 	tmpFile, err := os.CreateTemp("", "unterlumen-zip-*.zip")
 	if err != nil {
 		send(zipStreamEvent{Error: err.Error()})
@@ -333,9 +346,10 @@ func buildZipFile(ctx context.Context, root string, serverRole bool, files []str
 	tmpPath := tmpFile.Name()
 
 	zw := zip.NewWriter(tmpFile)
-	total := len(files)
+	total := len(items)
+	names := map[string]int{}
 
-	for i, relPath := range files {
+	for i, item := range items {
 		select {
 		case <-ctx.Done():
 			zw.Close()
@@ -345,26 +359,69 @@ func buildZipFile(ctx context.Context, root string, serverRole bool, files []str
 		default:
 		}
 
-		send(zipStreamEvent{File: filepath.Base(relPath), Done: i, Total: total})
-
-		absPath, ok := resolveFilePath(root, serverRole, relPath)
-		if !ok {
-			continue
-		}
-		data, err := media.ExportImage(absPath, opts)
-		if err != nil {
-			send(zipStreamEvent{File: filepath.Base(relPath), Done: i + 1, Total: total, Error: err.Error()})
-			continue
-		}
-		outName := media.ExportedName(filepath.Base(relPath), format)
-		if fw, err := zw.Create(outName); err == nil {
-			fw.Write(data)
+		send(zipStreamEvent{File: path.Base(item.name), Done: i, Total: total})
+		if err := addZipEntry(zw, item, format, opts, names); err != nil {
+			send(zipStreamEvent{File: path.Base(item.name), Done: i + 1, Total: total, Error: err.Error()})
 		}
 	}
 
 	zw.Close()
 	tmpFile.Close()
 	return tmpPath, nil
+}
+
+// FormatOriginal packs the files as they are: no conversion, no scaling,
+// every byte of metadata kept.
+const FormatOriginal = "original"
+
+// addZipEntry writes one photo into the ZIP: converted by the export
+// options, or unchanged for FormatOriginal. names keeps entry names unique,
+// since a selection from several folders can hold two IMG_0001.JPG.
+func addZipEntry(zw *zip.Writer, item zipItem, format string, opts media.ExportOptions, names map[string]int) error {
+	if format == FormatOriginal {
+		return addOriginal(zw, item.abs, uniqueEntryName(names, item.name))
+	}
+	data, err := media.ExportImage(item.abs, opts)
+	if err != nil {
+		return err
+	}
+	fw, err := zw.Create(uniqueEntryName(names, media.ExportedName(item.name, format)))
+	if err != nil {
+		return err
+	}
+	_, err = fw.Write(data)
+	return err
+}
+
+// addOriginal stores the file without compressing it again: photos are
+// compressed already, and storing is fast.
+func addOriginal(zw *zip.Writer, absPath, name string) error {
+	f, err := os.Open(absPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	fw, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store, Modified: info.ModTime()})
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(fw, f)
+	return err
+}
+
+// uniqueEntryName returns name, or "name (2).ext" and so on when it is taken.
+func uniqueEntryName(names map[string]int, name string) string {
+	names[name]++
+	n := names[name]
+	if n == 1 {
+		return name
+	}
+	ext := filepath.Ext(name)
+	return uniqueEntryName(names, fmt.Sprintf("%s (%d)%s", strings.TrimSuffix(name, ext), n, ext))
 }
 
 func scheduleZipExpiry(token, path string) {
@@ -411,9 +468,19 @@ func handleExportZipDownload() http.HandlerFunc {
 			w.Header().Set("Content-Length", fmt.Sprintf("%d", info.Size()))
 		}
 		w.Header().Set("Content-Type", "application/zip")
-		w.Header().Set("Content-Disposition", `attachment; filename="export.zip"`)
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": zipDownloadName(r)}))
 		io.Copy(w, f)
 	}
+}
+
+// zipDownloadName is the ?name= the page asked for — a plain file name
+// ending in .zip — or export.zip.
+func zipDownloadName(r *http.Request) string {
+	name := filepath.Base(r.URL.Query().Get("name"))
+	if name == "." || name == "/" || !strings.HasSuffix(strings.ToLower(name), ".zip") {
+		return "export.zip"
+	}
+	return name
 }
 
 func handleFolderPicker() http.HandlerFunc {
@@ -470,12 +537,22 @@ func openFolderPicker() (string, error) {
 // falling back to browseRoot otherwise. This allows library-mode exports whose
 // file paths are relative to the library source (which may differ from the
 // browse root) to resolve correctly.
-func effectiveRoot(browseRoot, sourcePath string) string {
+// effectiveRoot is the folder the request's relative paths start from: a
+// library's source folder when one is named, else the browse root. In
+// server mode the source folder must lie inside the browse root — the page
+// sends it, and any folder it named would otherwise be readable.
+func effectiveRoot(browseRoot, sourcePath string, serverRole bool) string {
 	if sourcePath == "" {
 		return browseRoot
 	}
 	info, err := os.Stat(sourcePath)
 	if err != nil || !info.IsDir() {
+		return browseRoot
+	}
+	if serverRole {
+		if inside, ok := pathguard.Inside(browseRoot, sourcePath); ok {
+			return inside
+		}
 		return browseRoot
 	}
 	return sourcePath

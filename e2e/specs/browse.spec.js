@@ -17,7 +17,7 @@ test.describe('Browse', () => {
 
   test('root shows folder-a and folder-b directories', async ({ page }) => {
     // Folders are chips above the photos now (phase 9).
-    const items = page.locator('.folder-chip');
+    const items = page.locator('.folder-tile');
     await expect(items.filter({ hasText: 'folder-a' })).toBeVisible({ timeout: 5_000 });
     await expect(items.filter({ hasText: 'folder-b' })).toBeVisible({ timeout: 5_000 });
     // No images at root
@@ -51,7 +51,7 @@ test.describe('Browse', () => {
 
   test('navigate folder-a → a1 → back via breadcrumb', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    const a1 = page.locator('.folder-chip[data-name="a1"]');
+    const a1 = page.locator('.folder-tile[data-name="a1"]');
     await expect(a1).toBeVisible({ timeout: 5_000 });
     await a1.dblclick();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).toBeVisible({ timeout: 5_000 });
@@ -59,12 +59,12 @@ test.describe('Browse', () => {
     // Navigate back to folder-a via breadcrumb
     await page.locator('.crumb[data-path="folder-a"]').click();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).not.toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('.folder-chip[data-name="a1"]')).toBeVisible();
+    await expect(page.locator('.folder-tile[data-name="a1"]')).toBeVisible();
   });
 
   test('switch to grid view', async ({ page }) => {
     await page.locator('button[data-view="grid"]').click();
-    await expect(page.locator('.grid-item.image-item, .folder-chip').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.grid-item.image-item, .folder-tile').first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('switch to list view', async ({ page }) => {

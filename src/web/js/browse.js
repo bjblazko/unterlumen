@@ -146,8 +146,12 @@ class BrowsePane {
         const scrollEl = this._contentEl || this.container;
         const savedScroll = isReload ? scrollEl.scrollTop : 0;
         this.path = path || '';
+        const hadSelection = this.selection.selected.size + this.selectedDirs.size > 0;
         this.selection.clear();
         this.selectedDirs.clear();
+        // The bar counts folders too: going into the one selected by the
+        // first click of a double click must take the bar away with it.
+        if (hadSelection && this.onSelectionChange) this.onSelectionChange([]);
         this.keyboard.focusedIndex = 0;
         this.warnings = [];
         this.entries = [];
@@ -688,14 +692,16 @@ class BrowsePane {
 
     // --- Focus change notification ---
 
-    // A folder is a place you go to, not a photo you look at: a row of chips
-    // above the photos rather than large empty tiles among them. A library
-    // knows what its folders hold and draws them as tiles instead.
+    // A folder is a tile in the row above the photos, the same tile a
+    // library draws. A plain folder has no index to say what it holds, so it
+    // shows the folder sign where a library shows four photos.
     _folderItemHTML(idx, name, focusedClass) {
         const markedClass = this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : '';
-        return `<button class="folder-chip dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
-            <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg>
-            <span class="item-name">${escapeHtml(name)}</span>
+        return `<button class="folder-tile dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
+            <span class="folder-tile-body">
+                <span class="folder-tile-icon" aria-hidden="true"><svg width="40" height="32" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg></span>
+                <span class="item-name">${escapeHtml(name)}</span>
+            </span>
         </button>`;
     }
 

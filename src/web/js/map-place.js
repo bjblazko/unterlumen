@@ -2,11 +2,12 @@
 // map, grouped by place, the newest photo of each group on top (ADR-0039).
 
 // Grey tiles by default, light or dark with the theme: the map is ground
-// for the photos, not a picture of its own. Colour is the info panel's
-// style; OpenFreeMap has no dark version of it.
+// for the photos, not a picture of its own. The dark one is fiord, a
+// blue-grey: OpenFreeMap's "dark" was too dark to read. Colour is the info
+// panel's style; OpenFreeMap has no dark version of it.
 const MAP_STYLE_URLS = {
     light: 'https://tiles.openfreemap.org/styles/positron',
-    dark: 'https://tiles.openfreemap.org/styles/dark',
+    dark: 'https://tiles.openfreemap.org/styles/fiord',
     colour: 'https://tiles.openfreemap.org/styles/liberty',
 };
 

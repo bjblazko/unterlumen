@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/download"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -177,6 +178,11 @@ func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 		pathHint, err := store.GetPhotoPathHint(photoID)
 		if err != nil || pathHint == "" {
 			http.Error(w, "photo not found", http.StatusNotFound)
+			return
+		}
+
+		if download.Requested(r) {
+			download.Original(w, r, pathHint)
 			return
 		}
 

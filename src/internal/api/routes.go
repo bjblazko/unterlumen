@@ -45,7 +45,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))
 
 	browse.Handle(mux, boundary, cache, imageCache, libMgr)
-	apiexport.Handle(mux, boundary, serverRole, jobReg)
+	apiexport.Handle(mux, boundary, serverRole, jobReg, libMgr)
 	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache, libMgr)
 	location.Handle(mux, boundary, cache)

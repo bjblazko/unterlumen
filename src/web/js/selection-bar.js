@@ -9,14 +9,19 @@
 // context, because the contexts genuinely differ: "Add to gallery" needs
 // library photos, so it exists in a library and not in a plain folder.
 
+// `folders`: the action also works on selected folders. The others work on
+// photos only and say so when only folders are selected.
 const SELECTION_ACTIONS = {
     collect: { label: 'Add to gallery…', primary: true },
     export: { label: 'Export…' },
+    download: { label: 'Download', folders: true },
     rename: { label: 'Rename…' },
     location: { label: 'Set location…' },
-    organize: { label: 'Show in Organize' },
+    organize: { label: 'Show in Organize', folders: true },
     mark: { label: 'Mark for deletion' },
 };
+
+const PHOTOS_ONLY = 'Works on photos. Select photos to use it.';
 
 class SelectionBar {
     // container: the element the bar is appended to (it renders nothing until
@@ -33,7 +38,14 @@ class SelectionBar {
     }
 
     // count: how many items are selected. Zero removes the bar.
-    update(count, { disabled = {} } = {}) {
+    // onlyFolders: nothing but folders is selected.
+    update(count, { disabled = {}, onlyFolders = false } = {}) {
+        if (onlyFolders) {
+            disabled = { ...disabled };
+            for (const key of this.actions) {
+                if (!SELECTION_ACTIONS[key].folders) disabled[key] ??= PHOTOS_ONLY;
+            }
+        }
         this._count = count;
         if (!count) {
             this._el?.remove();

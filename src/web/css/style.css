@@ -1494,7 +1494,6 @@ button.toggle {
 
 /* A marked folder is dimmed like a marked photo, so Organize's "Mark for
    deletion" target reads the same on folders as on photos. */
-.folder-chip.marked-for-deletion,
 .folder-tile.marked-for-deletion,
 .dir-row.marked-for-deletion {
     opacity: 0.45;
@@ -1852,7 +1851,8 @@ button.toggle {
     white-space: nowrap;
 }
 
-.viewer-toolbar .viewer-fullscreen-btn {
+.viewer-toolbar .viewer-fullscreen-btn,
+.viewer-toolbar .viewer-download-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -6741,48 +6741,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     margin-bottom: var(--space-5);
 }
 
-.folder-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    height: var(--control-h-sm);
-    box-sizing: border-box;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-md);
-    background: var(--bg);
-    color: var(--fg);
-    font: 400 var(--text-sm)/1 var(--font-sans);
-    cursor: pointer;
-    max-width: 18rem;
-}
-
-.folder-chip:hover { background: var(--hover-overlay); }
-
-.folder-chip.focused,
-.folder-chip.selected {
-    background: var(--fg);
-    border-color: var(--fg);
-    color: var(--bg);
-}
-
-.folder-chip .item-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* The folder-name rule for tiles is more specific than the chip's own
-   colour, so say it again where the chip is filled. */
-.folder-chip.focused .item-name,
-.folder-chip.selected .item-name {
-    color: inherit;
-}
-
-/* --- Folder tile (library) ------------------------------------------------
+/* --- Folder tile -----------------------------------------------------------
    In a library a folder shows what it holds: its four newest photos, then its
    name and "N photos · years" as data. The photos are content, so they carry
-   no frame of their own; the tile is a hairline box like a photo's. */
+   no frame of their own; the tile is a hairline box like a photo's. A plain
+   folder in Folders or Organize has no index, so the same tile carries the
+   folder sign on a quiet surface instead, and only its name. */
 
 .folder-tile {
     display: flex;
@@ -6853,6 +6817,25 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* A plain folder: the sign where a library shows photos, 4:3 so a row of
+   folders stays lower than a row of photos. */
+.folder-tile-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4 / 3;
+    background: var(--bg-2);
+    color: var(--fg-3);
+}
+
+.folder-tile.focused .folder-tile-icon,
+.folder-tile.selected .folder-tile-icon {
+    background: transparent;
+    color: inherit;
+}
+
+.folder-tile-icon + .item-name { padding-bottom: var(--space-2); }
 
 .folder-tile-meta {
     padding: 0 var(--space-3) var(--space-2);

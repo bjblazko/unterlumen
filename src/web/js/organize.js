@@ -53,7 +53,7 @@ class OrganizePane {
         // Actions on a selection live in the bar, as they do everywhere else;
         // "Mark for deletion" is a target here, so it is not repeated in it.
         this._selectionBar = new SelectionBar(this.container.querySelector('.organize'), {
-            actions: ['export', 'rename', 'location'],
+            actions: ['export', 'download', 'rename', 'location'],
             onAction: (action) => this._runSelectionAction(action),
         });
 
@@ -308,8 +308,9 @@ class OrganizePane {
     /* --- Selection --- */
 
     _updateSelectionBar() {
-        const count = this.pane.selection.selected.size + this.pane.selectedDirs.size;
-        this._selectionBar.update(count);
+        const files = this.pane.selection.selected.size;
+        const dirs = this.pane.selectedDirs.size;
+        this._selectionBar.update(files + dirs, { onlyFolders: files === 0 && dirs > 0 });
     }
 
     _runSelectionAction(action) {
@@ -318,6 +319,10 @@ class OrganizePane {
             this.pane.selectedDirs.clear();
             this.pane.render();
             this._updateSelectionBar();
+            return;
+        }
+        if (action === 'download') {
+            Originals.download(this.pane.getSelectedFiles(), this.pane, { dirs: [...this.pane.selectedDirs] });
             return;
         }
         const files = this.pane.getActionableFiles();

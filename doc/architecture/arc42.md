@@ -148,6 +148,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
+| `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
 | `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |

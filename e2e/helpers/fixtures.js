@@ -28,7 +28,7 @@ export const FOLDER_A_A1_IMAGE_COUNT = 7; // includes HIF
  * Navigate the page into a named directory from the current browse view.
  * Waits for the breadcrumb to update before returning.
  */
-// Folders are chips above the photos in grid and justified view (phase 9),
+// Folders are tiles above the photos in grid and justified view,
 // and one click opens them; the list view keeps rows that open on double
 // click.
 export async function navigateToFolder(page, dirName) {

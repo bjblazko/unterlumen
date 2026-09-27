@@ -17,7 +17,7 @@ test.describe('Folder info panel — browse mode', () => {
     });
 
     test('selecting a folder shows folder name, contents, and size map sections', async ({ page }) => {
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         // With a mouse, one click selects the folder and stays here, so its
         // info can be read; a double click goes in.
@@ -34,7 +34,7 @@ test.describe('Folder info panel — browse mode', () => {
     });
 
     test('treemap renders one cell per immediate subfolder of folder-a', async ({ page }) => {
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         await folderA.click({ modifiers: ['ControlOrMeta'] });
 
@@ -43,7 +43,7 @@ test.describe('Folder info panel — browse mode', () => {
     });
 
     test('clicking a treemap cell navigates into that subfolder', async ({ page }) => {
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         await folderA.click({ modifiers: ['ControlOrMeta'] });
 
@@ -56,7 +56,7 @@ test.describe('Folder info panel — browse mode', () => {
     });
 
     test('file types chart shows extension breakdown for folder-a', async ({ page }) => {
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         await folderA.click({ modifiers: ['ControlOrMeta'] });
 
@@ -68,7 +68,7 @@ test.describe('Folder info panel — browse mode', () => {
 
     test('clicking a photo after a folder replaces folder info with photo info', async ({ page }) => {
         // Select a folder first: its info appears without entering it
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         await folderA.click({ modifiers: ['ControlOrMeta'] });
         await page.waitForSelector('.folder-treemap-cell', { timeout: 8_000 });
@@ -95,13 +95,13 @@ test.describe('Folder info panel — browse mode', () => {
     // info forever after the first folder was focused, even though the
     // correct file data had already loaded successfully in the background.
     test('clicking a sibling photo after a selected sibling folder (no navigation in between) shows photo info', async ({ page }) => {
-        const folderA = page.locator('.folder-chip.dir-item[data-name="folder-a"]');
+        const folderA = page.locator('.folder-tile.dir-item[data-name="folder-a"]');
         await folderA.waitFor({ state: 'visible', timeout: 5_000 });
         await folderA.dblclick();
         await page.waitForSelector('.crumb[data-path="folder-a"]', { timeout: 5_000 });
 
         // folder-a directly contains subfolders a1/a2/a3 and folder-a-sample.jpeg.
-        const subfolder = page.locator('.folder-chip.dir-item[data-name="a1"]');
+        const subfolder = page.locator('.folder-tile.dir-item[data-name="a1"]');
         await subfolder.waitFor({ state: 'visible', timeout: 5_000 });
         await subfolder.click({ modifiers: ['ControlOrMeta'] });
         await page.waitForSelector('.info-panel .info-section', { timeout: 8_000 });

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"huepattl.de/unterlumen/internal/api/download"
 	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
@@ -31,6 +32,11 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 		absPath, ok := pathguard.SafePath(root, relPath)
 		if !ok {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+
+		if download.Requested(r) {
+			download.Original(w, r, absPath)
 			return
 		}
 

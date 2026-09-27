@@ -80,3 +80,24 @@ func SafePathLogical(root, relative string) (string, bool) {
 
 	return full, true
 }
+
+// Inside reports whether the absolute path abs lies within root, following
+// symlinks on both, and returns its resolved form. Use it for absolute paths
+// that come from a request, such as a library's source folder.
+func Inside(root, abs string) (string, bool) {
+	if !filepath.IsAbs(abs) {
+		return "", false
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		resolvedRoot = root
+	}
+	resolved, err := filepath.EvalSymlinks(filepath.Clean(abs))
+	if err != nil {
+		return "", false
+	}
+	if resolved != resolvedRoot && !strings.HasPrefix(resolved, withTrailingSeparator(resolvedRoot)) {
+		return "", false
+	}
+	return resolved, true
+}

@@ -58,9 +58,15 @@ Marked photos disappear from Folders and libraries but stay on disk until you de
 
 ![Marked for deletion](doc/screenshots/marked.webp)
 
+#### Libraries
+
+A library indexes a folder tree once. Its folders then show what they hold: the four newest photos, how many there are and the years they span.
+
+![A library with its folders as tiles of four photos](doc/screenshots/library.webp)
+
 #### Libraries and the filter
 
-A library indexes a folder tree once, so it can be filtered across all of it: date, shutter speed, aperture, focal length, ISO, camera, lens, film simulation. The results replace the folders beside the filter.
+Because it is indexed, a library can be filtered across all of it: date, shutter speed, aperture, focal length, ISO, camera, lens, film simulation. The results replace the folders beside the filter.
 
 ![Library filter](doc/screenshots/library-filter.webp)
 
@@ -138,7 +144,8 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map and yo
 - **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Map, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
 - **Map** — Every photo with a location, from every library, on one large map. Photos taken close together form a group, shown as a round thumbnail of the newest one with the number of photos beside it; zooming in splits the groups until each photo stands at its own place. Clicking a group zooms in; a group whose photos share one spot, or a single photo, opens in the viewer (read-only: no crop, no marking for deletion). A time slider narrows the map to the months the photos were taken in. The Photos button opens a column with the photos in the part of the map on screen, newest first, following the map as you move and zoom; Done or Escape closes it again. The map is grey by default, light or dark with the theme; the Style switch shows it in colour. Its tiles come from OpenFreeMap and need an internet connection. Only photos in a library appear. See [ADR-0039](doc/architecture/adr/0039-map-place.md)
 - **Galleries** — A dedicated "Galleries" place lists every gallery across every destination (the UI name for a channel), grouped by destination and showing its state in words: Not online yet, Changes not online, Online, or Built. An action appears only where there is something to do — "Publish", "Publish N changes", "Check again". Link reachability is checked once when the screen opens and after each publish, and is reported next to the state with the time of the check rather than as a state of its own. Opening a gallery shows the photos waiting to go online (removable individually), its title, date, visibility toggle (single-gallery destinations), address, and Unpublish — with a scoped remote delete over SSH for rsync destinations. The channels list links to a destination's public site and to its galleries
-- **Image viewer** — Full-screen image view with keyboard navigation
+- **Image viewer** — Full-screen image view with keyboard navigation, and a button that downloads the original file (a HEIF stays HEIF)
+- **Download originals** — Download in the selection bar saves the selected photos as they are: one as its file, several as a ZIP of the originals
 - **Crop tool** — Interactive crop in the fullscreen viewer. Draw a rectangle, pick an aspect ratio (free, standard, or cinema formats), and save in-place. All metadata including Fujifilm film simulation is preserved via exiftool
 - **Info panel** — Collapsible sidebar showing file metadata, EXIF data, and location map for GPS-tagged photos. In library mode: editable title field (stored as `dc:title` in XMP sidecar, interoperable with Lightroom/Capture One) and a Publications section showing compact cards for each channel a photo was published to. Clicking a folder shows a folder dashboard: total size, file count, nesting depth, a squarified treemap of subfolder sizes (click to navigate), and a file-type breakdown. In library mode the folder dashboard also shows EXIF-based photo statistics (shooting date range, format breakdown, camera × lens usage, hourly activity chart). Available in browse, library, and fullscreen viewer
 - **Convert & Export** — Export selected images to JPEG, PNG, or WebP with quality control, flexible scaling (original, percentage, max dimension), and EXIF metadata options (strip, keep, or keep without GPS). Shows per-file estimated output size and pixel dimensions. Saves to a local folder or downloads as a ZIP; server mode (`UNTERLUMEN_ROOT_PATH`) is ZIP-only

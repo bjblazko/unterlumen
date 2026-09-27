@@ -11,7 +11,7 @@ test.describe('Folder navigation', () => {
   // ── Root level ───────────────────────────────────────────────────────────
 
   test('root shows exactly two directory entries and no images', async ({ page }) => {
-    const dirs = page.locator('.folder-chip.dir-item');
+    const dirs = page.locator('.folder-tile.dir-item');
     await expect(dirs).toHaveCount(2, { timeout: 5_000 });
     await expect(dirs.filter({ hasText: 'folder-a' })).toHaveCount(1);
     await expect(dirs.filter({ hasText: 'folder-b' })).toHaveCount(1);
@@ -19,7 +19,7 @@ test.describe('Folder navigation', () => {
   });
 
   test('status bar at root reflects zero images', async ({ page }) => {
-    await page.waitForSelector('.folder-chip.dir-item', { timeout: 5_000 });
+    await page.waitForSelector('.folder-tile.dir-item', { timeout: 5_000 });
     const statusText = await page.locator('.status-bar').textContent();
     // Either shows "0 images" or only shows directories
     expect(statusText).toMatch(/0\s*(image|photo)|director/i);
@@ -30,7 +30,7 @@ test.describe('Folder navigation', () => {
   test('folder-b contains images only, no subdirectories', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    await expect(page.locator('.folder-chip.dir-item')).toHaveCount(0);
+    await expect(page.locator('.folder-tile.dir-item')).toHaveCount(0);
     const imageCount = await page.locator('[data-type="image"]').count();
     expect(imageCount).toBe(FOLDER_B_IMAGE_COUNT);
   });
@@ -45,7 +45,7 @@ test.describe('Folder navigation', () => {
     await navigateToFolder(page, 'folder-b');
     await page.locator('.crumb[data-path=""]').click();
     await expect(page.locator('.crumb[data-path="folder-b"]')).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.locator('.folder-chip.dir-item[data-name="folder-a"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="folder-a"]')).toBeVisible();
   });
 
   test('status bar inside folder-b shows 50 images', async ({ page }) => {
@@ -59,10 +59,10 @@ test.describe('Folder navigation', () => {
 
   test('folder-a shows three subdirs plus the sample image', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    await expect(page.locator('.folder-chip.dir-item')).toHaveCount(3, { timeout: 5_000 }); // a1, a2, a3
-    await expect(page.locator('.folder-chip.dir-item[data-name="a1"]')).toBeVisible();
-    await expect(page.locator('.folder-chip.dir-item[data-name="a2"]')).toBeVisible();
-    await expect(page.locator('.folder-chip.dir-item[data-name="a3"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item')).toHaveCount(3, { timeout: 5_000 }); // a1, a2, a3
+    await expect(page.locator('.folder-tile.dir-item[data-name="a1"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="a2"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="a3"]')).toBeVisible();
     await expect(page.locator('[data-type="image"]')).toHaveCount(1); // folder-a-sample.jpeg
   });
 
@@ -72,7 +72,7 @@ test.describe('Folder navigation', () => {
     await navigateToFolder(page, 'folder-a');
     // folder-a-sample.jpeg was added by setup.sh to test mixed dir+image rendering
     await expect(page.locator('[data-name="folder-a-sample.jpeg"]')).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator('.folder-chip.dir-item[data-name="a1"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="a1"]')).toBeVisible();
   });
 
   // ── Three-level deep navigation ──────────────────────────────────────────
@@ -83,7 +83,7 @@ test.describe('Folder navigation', () => {
     await expect(page.locator('.crumb[data-path="folder-a"]')).toBeVisible();
 
     // Level 2: folder-a → a1
-    const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
+    const a1 = page.locator('.folder-tile.dir-item[data-name="a1"]');
     await a1.dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
@@ -93,28 +93,28 @@ test.describe('Folder navigation', () => {
     // Back to folder-a via breadcrumb
     await page.locator('.crumb[data-path="folder-a"]').click();
     await expect(page.locator('.crumb[data-path="folder-a/a1"]')).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.locator('.folder-chip.dir-item[data-name="a1"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="a1"]')).toBeVisible();
 
     // Back to root via breadcrumb
     await page.locator('.crumb[data-path=""]').click();
     await expect(page.locator('.crumb[data-path="folder-a"]')).not.toBeVisible({ timeout: 3_000 });
-    await expect(page.locator('.folder-chip.dir-item[data-name="folder-a"]')).toBeVisible();
-    await expect(page.locator('.folder-chip.dir-item[data-name="folder-b"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="folder-a"]')).toBeVisible();
+    await expect(page.locator('.folder-tile.dir-item[data-name="folder-b"]')).toBeVisible();
   });
 
   test('folder-a/a1 has correct image count', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    const a1 = page.locator('.folder-chip.dir-item[data-name="a1"]');
+    const a1 = page.locator('.folder-tile.dir-item[data-name="a1"]');
     await a1.dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
     await waitForThumbnailsLoaded(page, 1);
     await expect(page.locator('[data-type="image"]')).toHaveCount(FOLDER_A_A1_IMAGE_COUNT);
-    await expect(page.locator('.folder-chip.dir-item')).toHaveCount(0);
+    await expect(page.locator('.folder-tile.dir-item')).toHaveCount(0);
   });
 
   test('breadcrumb path reflects each navigation level', async ({ page }) => {
     await navigateToFolder(page, 'folder-a');
-    await page.locator('.folder-chip.dir-item[data-name="a1"]').dblclick();
+    await page.locator('.folder-tile.dir-item[data-name="a1"]').dblclick();
     await page.waitForSelector('.crumb[data-path="folder-a/a1"]', { timeout: 5_000 });
 
     // All three crumbs should be visible: root, folder-a, folder-a/a1
@@ -130,7 +130,7 @@ test.describe('Home button', () => {
     test('in a folder it returns to the start folder', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
-        await page.locator('.folder-chip[data-name="folder-a"]').dblclick();
+        await page.locator('.folder-tile[data-name="folder-a"]').dblclick();
         await expect(page.locator('.crumb-current')).toHaveText('folder-a');
 
         await page.locator('.home-btn').click();

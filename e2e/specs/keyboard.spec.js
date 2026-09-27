@@ -36,7 +36,7 @@ test.describe('Keyboard shortcuts', () => {
     // With nothing selected, Escape goes up one folder.
     await expect(page.locator('.crumb[data-path="folder-b"]')).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.locator('.folder-chip[data-name="folder-b"]')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.folder-tile[data-name="folder-b"]')).toBeVisible({ timeout: 5_000 });
   });
 
   test('Cmd/Ctrl+D marks the selection for deletion', async ({ page }) => {

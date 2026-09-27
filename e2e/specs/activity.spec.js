@@ -52,7 +52,7 @@ test.describe('Activity and the status line', () => {
     test('a quick load shows no activity at all', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
-        await page.waitForSelector('.folder-chip.dir-item', { timeout: 5_000 });
+        await page.waitForSelector('.folder-tile.dir-item', { timeout: 5_000 });
         await expect(page.locator('.browse-content .activity:visible')).toHaveCount(0);
     });
 

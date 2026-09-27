@@ -68,7 +68,7 @@ test.describe('Theme', () => {
     await openSettings(page);
     await page.locator('[data-theme-set="light"]').click();
 
-    const dirItem = page.locator('.folder-chip.dir-item').first();
+    const dirItem = page.locator('.folder-tile.dir-item').first();
     if (await dirItem.isVisible()) {
       await dirItem.dblclick();
       await page.waitForSelector('[data-type="image"]', { timeout: 5_000 }).catch(() => {});

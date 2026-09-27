@@ -375,7 +375,7 @@ const App = {
         // is missing on purpose: collecting needs library photos, and
         // a folder is not a library.
         this._browseSelectionBar = new SelectionBar(this._browseEl, {
-            actions: ['export', 'rename', 'location', 'mark'],
+            actions: ['export', 'download', 'rename', 'location', 'mark'],
             onAction: (action) => this.runSelectionAction(action, this.browsePane),
         });
         this.browsePane.load(this.currentBrowsePath);
@@ -543,11 +543,10 @@ const App = {
     handleSelectionChange(selected) {
         // Selection changes don't drive the info panel; focus does. They do
         // drive the selection bar, which is the only place a selection's
-        // actions live.
-        this._browseSelectionBar?.update(selected.length, {
-            // Renaming one file at a time is a different dialog than renaming
-            // by metadata, but both are reachable — nothing is disabled here
-            // without a reason the tooltip can state.
+        // actions live. Folders count: Download takes them.
+        const dirs = this.browsePane?.selectedDirs?.size ?? 0;
+        this._browseSelectionBar?.update(selected.length + dirs, {
+            onlyFolders: selected.length === 0 && dirs > 0,
         });
     },
 
@@ -560,6 +559,11 @@ const App = {
             pane.selection.clear();
             pane.updateSelectionClasses();
             pane.onSelectionChange?.([]);
+            return;
+        }
+        // Folders count for Download: they come with everything in them.
+        if (action === 'download') {
+            Originals.download(files, pane, { dirs: [...(pane.selectedDirs || [])] });
             return;
         }
         if (!files.length) return;
@@ -650,7 +654,7 @@ const App = {
             case 'make-library': this._makeLibraryAt(path); break;
             case 'set-location': this.locationModal.open(files, (changed) => this._filesChanged(pane, changed)); break;
             case 'batch-rename': this._batchRename(files, sourcePath, onDone, pane); break;
-            case 'export': this._openExport(files, sourcePath); break;
+            case 'export': this._openExport(files, sourcePath, pane); break;
             case 'clear-cache': this._clearCache(files, path, sourcePath, onDone); break;
         }
     },
@@ -703,13 +707,21 @@ const App = {
         });
     },
 
-    _openExport(files, sourcePath) {
+    _openExport(files, sourcePath, pane) {
         if (!this.exportModal) this.exportModal = new ExportModal();
+        // Library photos go by library and ID for the ZIP: filter results
+        // carry absolute paths, which a server refuses.
+        const photoRefs = new Map();
+        for (const f of files) {
+            const meta = pane?.getLibraryMeta?.(f);
+            if (meta) photoRefs.set(f, { library: meta.libID, id: meta.photoID });
+        }
         this.exportModal.open(files, {
             serverRole: this.config?.serverRole ?? false,
             exiftoolAvailable: this.toolsStatus?.exiftool ?? false,
             webpSupport: this.toolsStatus?.webpAvailable ?? false,
             sourcePath: sourcePath || null,
+            photoRefs,
         });
     },
 
