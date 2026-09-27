@@ -135,4 +135,27 @@ test.describe('Timeline units', () => {
         expect(r.labels.length).toBe(2);
         expect(r.xs[3]).toBe(r.labels[1]);
     });
+
+    test('the phone list starts with the newest month and the scrubber has it on top', async ({ page }) => {
+        const r = await page.evaluate(() => {
+            const s = new TimelineStream();
+            s.adopt({ version: 'v', start: '2023-12-30', days: [0, 1, 40, 41], ratios: [1.5, 1.5, 1.5, 0.667], undated: 0 });
+            s.ensure = () => Promise.resolve();
+            const list = new TimelineList(s, { onView() {}, onOpen() {}, onCount() {} });
+            Object.assign(list.el.style, { width: '390px', height: '700px', position: 'absolute' });
+            document.body.appendChild(list.el);
+            list.relayout();
+            const heads = list.blocks.filter(b => b.t === 'h').map(b => b.label);
+            const scrub = new TimelineScrubber(s, { onSeek() {} });
+            Object.assign(scrub.el.style, { height: '700px', position: 'absolute' });
+            document.body.appendChild(scrub.el);
+            scrub.redraw();
+            const order = scrub.y(41) < scrub.y(0);
+            list.el.remove(); scrub.el.remove();
+            return { heads, order, top: list.blocks[0].d };
+        });
+        expect(r.heads).toEqual(['February 2024', 'December 2023']);
+        expect(r.order).toBe(true);
+        expect(r.top).toBe(41);
+    });
 });
