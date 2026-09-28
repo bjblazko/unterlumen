@@ -31,6 +31,8 @@ function showLibraryProgress(activity, p, busyText) {
 
 /* --- LibraryTab --- */
 
+const LIBRARY_LEDE = placeLede(`A library catalogs a folder and every folder inside it — say Projects, with one subfolder per project — so you can search its photos, see them on the ${placeLink('map', 'map', 'map')} and the ${placeLink('timeline', 'timeline', 'timeline')}, and collect them into galleries. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder.`);
+
 class LibraryTab {
     constructor(container) {
         this.container = container;
@@ -153,9 +155,9 @@ class LibraryTab {
             this._cachedLibs = libs;
             const prevLastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
             localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
-            body.innerHTML = '';
+            body.innerHTML = LIBRARY_LEDE;
             if (libs.length === 0) {
-                body.innerHTML = '<div class="library-empty">No libraries yet. Create one to get started.</div>';
+                body.insertAdjacentHTML('beforeend', '<div class="library-empty">No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.</div>');
                 return;
             }
             const sorted = this._sortLibs(libs);
@@ -349,6 +351,14 @@ class LibraryTab {
         if (lib) this._openLibrary(lib);
     }
 
+    // Where the library's folder is in Folders — or why it is not there.
+    _folderLinkHTML(lib) {
+        const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
+        return rel === null
+            ? '<span class="library-detail-folder">Outside the photo folder, so Folders cannot show it</span>'
+            : `<span class="library-detail-folder">${folderLink(rel, 'Open in Folders')}</span>`;
+    }
+
     _renderDetail() {
         const lib = this.currentLibrary;
 
@@ -364,6 +374,7 @@ class LibraryTab {
                 <div class="library-detail-title">
                     <span class="library-detail-name">${escapeHtml(lib.name)}</span>
                     <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
+                    ${this._folderLinkHTML(lib)}
                 </div>
                 <div class="library-detail-controls">
                     <button class="btn btn-sm desk-only" id="lib-detail-stats-btn">Statistics</button>

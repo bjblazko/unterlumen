@@ -288,6 +288,28 @@ func (m *Manager) ThumbDir(id string) string {
 	return filepath.Join(m.LibDir(id), "thumbs")
 }
 
+// LibrariesForPath returns every library whose source path covers absPath
+// (the folder itself or one above it). Libraries may overlap, so a folder can
+// be in several.
+func (m *Manager) LibrariesForPath(absPath string) []*Library {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil
+	}
+	var covering []*Library
+	for _, l := range libs {
+		if covers(l.SourcePath, absPath) {
+			covering = append(covering, l)
+		}
+	}
+	return covering
+}
+
+func covers(sourcePath, absPath string) bool {
+	sp := strings.TrimSuffix(sourcePath, "/")
+	return sp != "" && (absPath == sp || strings.HasPrefix(absPath, sp+"/"))
+}
+
 // FindLibraryForPath returns the Library whose source_path covers absPath
 // (exact match or a path within it). Returns nil, false if no library matches.
 func (m *Manager) FindLibraryForPath(absPath string) (*Library, bool) {
@@ -296,11 +318,7 @@ func (m *Manager) FindLibraryForPath(absPath string) (*Library, bool) {
 		return nil, false
 	}
 	for _, l := range libs {
-		sp := strings.TrimSuffix(l.SourcePath, "/")
-		if sp == "" {
-			continue
-		}
-		if absPath == sp || strings.HasPrefix(absPath, sp+"/") {
+		if covers(l.SourcePath, absPath) {
 			return l, true
 		}
 	}

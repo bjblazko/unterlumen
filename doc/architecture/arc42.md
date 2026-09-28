@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-27*
+*Last modified: 2026-09-28*
 
 ## 1. Introduction and Goals
 
@@ -187,6 +187,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `map-photos.js` | `MapPhotos` — the column beside the map: the photos in view as square tiles, rendered in chunks |
 | `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
+| `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
+| `guide-place.js` | `GuidePane` — "How Unterlumen works": the model as a diagram and a paragraph per term ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `timeline-stream.js` | `TimelineStream` — the skeleton in typed arrays and the details in pages of 500, at most 40 kept |
 | `timeline-calendar.js` | `TimelineCalendar` — days and months in UTC from the first photo's day, date labels |
 | `timeline-chart.js` | `TimelineChart` — the step graph and the calendar labels on a canvas; redraws on theme change |
@@ -349,6 +351,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0038](adr/0038-maplibre-6-as-es-module.md) — MapLibre 6 as an ES module, without a bundler (supersedes ADR-0031's version pin)
 - [ADR-0039](adr/0039-map-place.md) — The Map is a place, clustered in the browser
 - [ADR-0040](adr/0040-timeline-place.md) — The Timeline is a place, laid out in the browser from a skeleton
+- [ADR-0041](adr/0041-explaining-the-model-in-the-app.md) — The app explains its model where it is used
 
 ## 10. Quality Requirements
 

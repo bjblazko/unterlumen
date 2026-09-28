@@ -460,11 +460,11 @@ class DestinationsPane {
                     <h1 class="gal-title">Destinations</h1>
                     <span class="gal-group-spacer"></span>
                     <button class="btn btn-sm" id="dest-new">New destination…</button>
+                    ${placeLede(`A destination is where ${placeLink('published', 'galleries', 'galleries')} go — a website, share links for family and friends, or plain files you post yourself — and how their files are made.`)}
                 </div>
                 <div class="gal-body">
-                    <p class="dest-intro">A destination is where galleries go and how their files are made. Galleries are created when you add photos to them.</p>
                     ${(this._channels || []).length === 0
-                        ? '<p class="gal-empty">No destinations yet. Add one to publish your first gallery.</p>'
+                        ? '<p class="gal-empty">No destinations yet. Choose New destination… to say where your first gallery should go.</p>'
                         : `<table class="dest-table">
                             <thead>
                                 <tr>

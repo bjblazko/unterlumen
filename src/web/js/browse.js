@@ -15,6 +15,8 @@ class BrowsePane {
         this.onSelectionChange = options.onSelectionChange || null;
         this.onFocusChange = options.onFocusChange || null;
         this.onLoad = options.onLoad || null;
+        // What the place is, shown at the top folder only (placeLede HTML).
+        this.lede = options.lede || '';
         this.showNames = false;
         this.showOverlays = true;
         this.onToolInvoke = options.onToolInvoke || null;
@@ -33,7 +35,7 @@ class BrowsePane {
         this._contentEl = null;
         this.selectedDirs = new Set();
         this._pendingPreselect = null;
-        this._libraryInfo = null;
+        this._libraries = [];
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
@@ -315,12 +317,12 @@ class BrowsePane {
     }
 
     async _detectLibrary(path) {
-        this._libraryInfo = null;
+        this._libraries = [];
         this._updateLibraryBadge();
         try {
             const data = await API.detectLibrary(path);
-            if (this.path === path && data && data.id) {
-                this._libraryInfo = data;
+            if (this.path === path && data?.libraries?.length) {
+                this._libraries = data.libraries;
                 this._updateLibraryBadge();
             }
         } catch { /* ignore */ }
@@ -329,8 +331,10 @@ class BrowsePane {
     _updateLibraryBadge() {
         const badge = this.container.querySelector('.browse-library-badge');
         if (!badge) return;
-        if (this._libraryInfo) {
-            badge.textContent = this._libraryInfo.name;
+        // Says which libraries catalog this folder, and goes there.
+        const libs = this._libraries;
+        if (libs.length) {
+            badge.innerHTML = `In ${libs.length === 1 ? 'library' : 'libraries'} ${libs.map(libraryLink).join(', ')}`;
             badge.style.display = '';
         } else {
             badge.style.display = 'none';
@@ -397,6 +401,7 @@ class BrowsePane {
         return `<div class="folder-title">
             <h1>${escapeHtml(name)}</h1>
             <span class="folder-title-meta">${parts.join(' · ')}</span>
+            ${this.path ? '' : this.lede}
         </div>`;
     }
 

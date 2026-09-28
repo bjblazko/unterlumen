@@ -59,6 +59,7 @@ class MapPane {
                         Photos
                         <span class="lib-filter-btn-count"></span>
                     </button>
+                    ${placeLede(`Every photo with a location, from all ${placeLink('library', 'libraries', 'libraries')}. A folder no library catalogs does not appear.`)}
                 </div>
                 <div class="map-body">
                     <div class="map-view">

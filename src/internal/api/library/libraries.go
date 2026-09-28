@@ -47,25 +47,26 @@ func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
 	}
 }
 
-// detectLibrary returns the library (id + name) whose source path covers the
-// requested path, or an empty object when no library matches.
+// libraryRef names a library for a link to it.
+type libraryRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// detectLibrary returns every library (id + name) whose source path covers
+// the requested path — libraries may overlap — as {"libraries": [...]}, empty
+// when none does.
 func detectLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		relPath := r.URL.Query().Get("path")
-		absPath, ok := pathguard.SafePath(root, relPath)
-		if !ok {
-			writeJSON(w, struct{}{})
-			return
-		}
-		l, ok := mgr.FindLibraryForPath(absPath)
-		if !ok {
-			writeJSON(w, struct{}{})
-			return
+		refs := []libraryRef{}
+		if absPath, ok := pathguard.SafePath(root, r.URL.Query().Get("path")); ok {
+			for _, l := range mgr.LibrariesForPath(absPath) {
+				refs = append(refs, libraryRef{ID: l.ID, Name: l.Name})
+			}
 		}
 		writeJSON(w, struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		}{ID: l.ID, Name: l.Name})
+			Libraries []libraryRef `json:"libraries"`
+		}{refs})
 	}
 }
 

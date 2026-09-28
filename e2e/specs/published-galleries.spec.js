@@ -191,6 +191,18 @@ test.describe('Published Galleries overview', () => {
         await expect(galRow.locator('.gal-row-action')).toHaveCount(0);
     });
 
+    test('the detail view names its destination and leads there', async ({ page }) => {
+        await page.goto('/');
+        await waitForAppReady(page);
+        await page.click('#mode-published');
+
+        await page.locator(`.gal-row[data-postid="${galleryPostID}"]`).click();
+        const link = page.locator('.gal-dest-link');
+        await expect(link).toHaveAttribute('data-slug', GALLERY_SLUG);
+        await link.click();
+        await expect(page.locator('#mode-destinations')).toHaveAttribute('aria-current', 'page');
+    });
+
     test('the detail view renames a gallery and toggles its visibility', async ({ page, request }) => {
         await page.goto('/');
         await waitForAppReady(page);

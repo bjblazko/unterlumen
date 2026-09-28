@@ -27,6 +27,9 @@ class AboutModal {
                         </a>
                     </div>
                     <div class="about-section">
+                        <a class="about-link" href="#guide" id="about-guide">How Unterlumen works</a>
+                    </div>
+                    <div class="about-section">
                         <div class="about-label">Author</div>
                         <div class="about-value">Timo Böwing</div>
                         <a class="about-link about-link-sm" href="https://huepattl.de" target="_blank" rel="noopener noreferrer">huepattl.de</a>
@@ -39,6 +42,13 @@ class AboutModal {
             actions: [{ label: 'Close', value: null }],
         });
         this._dialog.open();
+        // A place, so the dialog gives way to it.
+        document.getElementById('about-guide').addEventListener('click', (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+            e.preventDefault();
+            this.close();
+            App.setMode('guide');
+        });
     }
 
     close() {

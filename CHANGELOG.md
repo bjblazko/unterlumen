@@ -1,11 +1,17 @@
 # Changelog
 
-*Last modified: 2026-09-27*
+*Last modified: 2026-09-28*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Each place says what it is.** Under the title of Folders, Organize, Libraries, Map, Timeline, Galleries and Destinations one sentence says what the place is for and what it does to your files — that a library catalogs a folder without moving its photos, that Map and Timeline show only photos in a library, that a gallery is published to a destination. The places it names are links. Empty states say what to do next, with a link where they name a place.
+- **How Unterlumen works.** A page at `#guide`, linked from the sentence under every place, from Settings and from About, shows the model in one diagram — your photo folder, Folders, libraries, Map and Timeline, galleries, destinations — and explains each in a paragraph: why there are both Folders and libraries, what a library writes and where, what happens when you publish, what Unterlumen does not do, and which older names the configuration files use. The boxes in the diagram lead to their places. It reads on a phone too.
+- **A folder and its library point at each other.** In Folders, a folder a library catalogs says "In library …" beside the path, and the name opens the library. A folder in several libraries names all of them; it used to show one, whichever came first. `GET /api/library/detect` answers `{"libraries": [{id, name}, …]}`. A library names its folder with Open in Folders beside the path, or says that its folder lies outside the photo folder. A gallery's detail names its destination and its kind, and the name opens it.
+
 ### Fixed
+- **The Galleries empty state used the old word.** It told you to choose "Add to channel…"; the action is called Add to gallery….
 - **A photo in two libraries is one point on the map.** The Map drew it twice at the same spot, so its group never split and clicking it opened the viewer on the same photo twice ("1 / 2"). Photos are now told apart by their content, as on the Timeline.
 
 ## [0.13.0] - 2026-09-27

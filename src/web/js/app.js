@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'published']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'published', 'guide']);
 
 const App = {
     mode: 'browse',
@@ -89,6 +89,8 @@ const App = {
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
+        // Reached from the sentence under each place, not from the sidebar.
+        guide: { hash: 'guide' },
     },
 
     initNav() {
@@ -114,6 +116,17 @@ const App = {
                 this.setMode(el.dataset.mode);
             });
         }
+
+        // Links to a place in running text (placeLink) are built after this
+        // runs, so they are routed from the document.
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a.place-link[data-mode], a.library-link, a.folder-link');
+            if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            if (link.classList.contains('library-link')) this.openLibrary(link.dataset.libraryId);
+            else if (link.classList.contains('folder-link')) this.openFolder(link.dataset.path);
+            else this.setMode(link.dataset.mode);
+        });
 
         window.addEventListener('popstate', () => this.setMode(this._modeFromHash(), { fromHistory: true }));
 
@@ -176,6 +189,14 @@ const App = {
     showPhotos(criteria) {
         this.setMode('library');
         if (this._libraryTab) this._libraryTab.showFiltered(criteria);
+    },
+
+    // Folders at a folder, given relative to the photo folder.
+    // A first visit builds Folders at currentBrowsePath, so it is already there.
+    openFolder(relPath) {
+        this.currentBrowsePath = relPath;
+        this.setMode('browse');
+        if (this.browsePane.path !== relPath) this.browsePane.load(relPath);
     },
 
     openLibrary(libraryId) {
@@ -283,7 +304,7 @@ const App = {
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
         ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
-        ['_settingsEl', 'settings'],
+        ['_settingsEl', 'settings'], ['_guideEl', 'guide'],
     ],
 
     // Mark where we are. There is no "done" or "next" — these are places.
@@ -320,6 +341,7 @@ const App = {
             case 'settings': this._openPane('_settingsEl', '_settingsPane', SettingsPane); break;
             case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
+            case 'guide': this._openPane('_guideEl', '_guidePane', GuidePane); break;
         }
     },
 
@@ -355,6 +377,7 @@ const App = {
             onFocusChange: (path, type) => this.handleFocusChange(path, type),
             onToolInvoke: (params) => this.handleToolInvoke(params),
             onSlideshowInvoke: () => this.handleSlideshowInvoke(),
+            lede: placeLede(`Your photo folder as it is on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a ${placeLink('library', 'libraries', 'library')}.`),
         });
         this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
         this.infoPanel.onToggle = () => {

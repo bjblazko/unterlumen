@@ -258,12 +258,13 @@ class GalleriesPane {
                         ? `<span class="gal-filter" id="gal-filter">Showing ${escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel)}</span>
                            <button class="btn btn-sm gal-clear-filter">Show all destinations</button>`
                         : ''}
+                    ${placeLede(`A gallery is a set of photos collected from libraries and published together to a ${placeLink('destinations', 'destinations', 'destination')}.`)}
                 </div>
                 <div class="gal-body">
                     ${filtered.length === 0
                         ? `<p class="gal-empty">${this._filterChannel
                             ? 'Nothing has been collected for this destination yet.'
-                            : 'No galleries yet. Select photos in a library and choose "Add to channel…" to collect the first one.'}</p>`
+                            : `No galleries yet. Select photos in a ${placeLink('library', 'libraries', 'library')} and choose Add to gallery… to collect the first one.`}</p>`
                         : groups}
                 </div>
             </div>`;
@@ -455,6 +456,11 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
             gallery: { id: `${row.channelSlug}:${row.postID}`, title: row.title || '(untitled)' },
         });
 
+        this.container.querySelector('.gal-dest-link').addEventListener('click', (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+            e.preventDefault();
+            App.showDestination(row.channelSlug);
+        });
         this._wireTitleSave(row);
         this._wireVisibility(row, canEditVisibility);
         this._renderDangerZone(row, state);
@@ -486,6 +492,11 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
     // destination.
     _detailPanelHTML(row, ch, state, canEditVisibility) {
         return `                    <aside class="gal-detail-panel" aria-label="Gallery settings">
+                        <div class="form-field">
+                            <span class="form-label">Destination</span>
+                            <span class="gal-detail-value"><a class="gal-dest-link" href="#destinations" data-slug="${escapeHtml(row.channelSlug)}">${escapeHtml(ch?.name || row.channelName)}</a>${ch ? ` · ${escapeHtml(this._destinationType(ch))}` : ''}</span>
+                            <span class="form-hint">Where this gallery goes when you publish it, and how its files are made.</span>
+                        </div>
                         <div class="form-field">
                             <label class="form-label" for="gal-title-input">Title</label>
                             <div class="gal-title-edit">

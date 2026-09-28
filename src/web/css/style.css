@@ -836,14 +836,10 @@ button.toggle {
 }
 
 /* --- Browse library badge --- */
+/* "In library X": a sentence with a link, not a chip — the name is a place. */
 .browse-library-badge {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--fg-3);
-    background: var(--bg-3);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 1px var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--fg-2);
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -4727,7 +4723,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--fg-2);
 }
 
-.library-empty,
+/* It follows the lede in the list's own margin, so it needs none of its own. */
+.library-empty {
+    color: var(--fg);
+}
+
 .library-error {
     padding: var(--space-8);
     color: var(--fg-2);
@@ -5615,6 +5615,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .gal-head {
+    flex-wrap: wrap;
     display: flex;
     align-items: baseline;
     gap: var(--space-3);
@@ -6101,11 +6102,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     overflow: auto;
     display: flex;
     flex-direction: column;
-}
-
-.dest-intro {
-    color: var(--fg-2);
-    max-width: 42rem;
 }
 
 .dest-table {
@@ -7258,4 +7254,152 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .map-time { width: 100%; }
     .map-time .range-slider { flex: 1; width: auto; }
     .map-time-value { min-width: 0; }
+}
+
+/* --- Place lede --- */
+
+/* The sentence under a place's title. It comes last in the head and takes a
+   line of its own there; the text inside keeps a readable measure. */
+.place-lede {
+    width: 100%;
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.place-lede-text {
+    display: block;
+    max-width: 64ch;
+}
+
+.place-link,
+.library-link,
+.folder-link,
+.gal-dest-link { color: var(--fg); }
+
+.library-detail-folder {
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.settings-guide { color: var(--fg-2); }
+
+/* --- Guide (How Unterlumen works) --- */
+
+.guide-pane {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The picture beside the text on a desk, above it on a phone. */
+.guide-body {
+    display: grid;
+    grid-template-columns: minmax(0, 440px) minmax(0, 64ch);
+    align-items: start;
+    gap: var(--space-10);
+    padding: var(--space-6);
+}
+
+.guide-diagram {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: var(--space-6);
+}
+
+/* A place is framed by a hairline; what is not a place sits on a surface. */
+.guide-box {
+    fill: var(--bg-2);
+    stroke: none;
+}
+
+a.guide-node .guide-box {
+    fill: var(--bg);
+    stroke: var(--line-strong);
+    transition: stroke var(--dur-quick) var(--ease);
+}
+
+a.guide-node:hover .guide-box { stroke: var(--fg); }
+
+a.guide-node:focus { outline: none; }
+
+a.guide-node:focus-visible .guide-box {
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+.guide-box-title {
+    fill: var(--fg);
+    font: 500 13px var(--font-sans);
+}
+
+.guide-box-sub {
+    fill: var(--fg-2);
+    font: 400 11px var(--font-sans);
+}
+
+.guide-edge {
+    fill: none;
+    stroke: var(--fg-3);
+}
+
+.guide-arrow { fill: var(--fg-3); }
+
+.guide-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.guide-section h2 {
+    font-size: var(--text-md);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+}
+
+.guide-words {
+    margin-top: var(--space-3);
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.guide-words th,
+.guide-words td {
+    text-align: left;
+    padding: var(--space-2) var(--space-4) var(--space-2) 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.guide-words th {
+    font-weight: 500;
+    color: var(--fg-2);
+}
+
+@media (max-width: 900px) {
+    .guide-body { grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+    .guide-diagram { position: static; max-width: 440px; }
+}
+
+@media (max-width: 700px) {
+    .guide-body { padding: var(--space-4); }
+}
+
+/* An example folder tree: paths are data, so mono. */
+.guide-tree {
+    margin: var(--space-3) 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-2);
+    border-radius: var(--radius-md);
+    font: 400 var(--text-sm)/1.6 var(--font-mono);
+    color: var(--fg);
+    overflow-x: auto;
+}
+
+.guide-tree-note {
+    font-family: var(--font-sans);
+    color: var(--fg-3);
 }

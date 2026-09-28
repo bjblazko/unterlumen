@@ -43,6 +43,7 @@ class TimelinePane {
                     <span class="timeline-count"></span>
                     <span class="timeline-undated"></span>
                     <span class="timeline-head-spacer"></span>
+                    ${placeLede(`Every dated photo from all ${placeLink('library', 'libraries', 'libraries')} on one time axis. A folder no library catalogs does not appear.`)}
                 </div>
                 <div class="timeline-body"></div>
                 <div class="timeline-note" hidden></div>
@@ -129,9 +130,9 @@ class TimelinePane {
 
     _explainEmpty() {
         this._noteEl.hidden = false;
-        this._noteEl.textContent = this.stream.undated
+        this._noteEl.innerHTML = this.stream.undated
             ? 'None of the photos in the libraries has a date taken, so there is nothing to place on the timeline.'
-            : 'There are no photos in any library yet. Make a library in Libraries, and its dated photos appear here.';
+            : `There are no photos in any library yet. Make a library in ${placeLink('library', 'libraries', 'Libraries')}, and its dated photos appear here.`;
     }
 
     _buildDesk(day) {

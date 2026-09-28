@@ -34,6 +34,7 @@ class OrganizePane {
                     <span class="organize-spacer"></span>
                     <button class="btn btn-sm" id="org-change">Change folder…</button>
                     <span class="organize-keys"><span class="key">Space</span> select · <span class="key">1</span>–<span class="key">9</span> send to target · <span class="key">Enter</span> current target · <span class="key">U</span> undo</span>
+                    ${placeLede('Sort one folder into others: select photos and press a target’s number to move them there. The files move on disk.')}
                 </div>
                 <div class="organize-body">
                     <div class="organize-source" id="org-source"></div>

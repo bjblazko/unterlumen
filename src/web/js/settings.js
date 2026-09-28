@@ -18,6 +18,7 @@ class SettingsPane {
                     <button class="btn btn-sm" id="settings-done">Done</button>
                 </div>
                 <div class="gal-body settings-body">
+                    <p class="settings-guide">New to Unterlumen, or not sure what a library or a destination is? ${placeLink('guide', 'guide', 'How Unterlumen works')} explains it on one page.</p>
                     <div class="form-field">
                         <span class="form-label">Theme</span>
                         <div class="seg" role="group" aria-label="Theme" id="settings-theme">
