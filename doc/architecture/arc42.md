@@ -149,6 +149,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
+| `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
 | `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`) |
 | `internal/timeline` | Every dated photo of every library as one stream, oldest first, each photo once; display aspect ratios, versioned by the libraries' content stamps and cached ([ADR-0040](adr/0040-timeline-place.md)) |
 | `internal/api/timeline` | `/api/timeline` (skeleton: a day and an aspect ratio per photo) and `/api/timeline/photos` (details by index range, 409 when the stream changed) |

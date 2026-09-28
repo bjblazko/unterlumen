@@ -14,13 +14,15 @@ class ZoomTool {
         if (imgEl.complete && imgEl.naturalWidth) {
             this._naturalW = imgEl.naturalWidth;
             this._naturalH = imgEl.naturalHeight;
-        } else {
-            imgEl.addEventListener('load', () => {
-                this._naturalW = imgEl.naturalWidth;
-                this._naturalH = imgEl.naturalHeight;
-                if (this._idx !== 0) this._apply();
-            }, { once: true });
         }
+        // Every load, not only the first: the viewer shows a preview and then
+        // puts the full-size photo in the same element.
+        this._onLoad = () => {
+            this._naturalW = imgEl.naturalWidth;
+            this._naturalH = imgEl.naturalHeight;
+            if (this._idx !== 0) this._apply();
+        };
+        imgEl.addEventListener('load', this._onLoad);
 
         this._onMouseDown = this._onMouseDown.bind(this);
         this._onMouseMove = this._onMouseMove.bind(this);
@@ -163,6 +165,7 @@ class ZoomTool {
     destroy() {
         this._idx = 0;
         this._resetStyles();
+        this._img.removeEventListener('load', this._onLoad);
         this._container.removeEventListener('mousedown', this._onMouseDown);
         this._container.removeEventListener('wheel',     this._onWheel);
         document.removeEventListener('mousemove', this._onMouseMove);

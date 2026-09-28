@@ -1,16 +1,12 @@
 package apilibrary
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"huepattl.de/unterlumen/internal/api/download"
+	"huepattl.de/unterlumen/internal/api/heifjpeg"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -187,52 +183,7 @@ func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 		}
 
 		if media.IsHEIF(pathHint) {
-			var key string
-			var info os.FileInfo
-			info, err = os.Stat(pathHint)
-			if err == nil {
-				key = pathHint + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10)
-			}
-
-			serveHEIF := func(data []byte) {
-				h := sha256.Sum256([]byte(pathHint))
-				etag := fmt.Sprintf(`"%x-%d"`, h[:4], info.ModTime().Unix())
-				w.Header().Set("Cache-Control", "private, max-age=3600")
-				w.Header().Set("ETag", etag)
-				if r.Header.Get("If-None-Match") == etag {
-					w.WriteHeader(http.StatusNotModified)
-					return
-				}
-				w.Header().Set("Content-Type", "image/jpeg")
-				http.ServeContent(w, r, "image.jpg", info.ModTime(), bytes.NewReader(data))
-			}
-
-			if key != "" {
-				if cached := imgCache.Get(key); cached != nil {
-					serveHEIF(cached)
-					return
-				}
-			}
-
-			jpegData, convErr := media.ConvertHEIFToJPEG(r.Context(), pathHint)
-			if convErr != nil {
-				if _, statErr := os.Stat(pathHint); os.IsNotExist(statErr) {
-					http.Error(w, "photo not found on disk", http.StatusNotFound)
-				} else {
-					http.Error(w, "Failed to convert HEIF: "+convErr.Error(), http.StatusInternalServerError)
-				}
-				return
-			}
-
-			if key != "" {
-				imgCache.Set(key, jpegData)
-				serveHEIF(jpegData)
-				return
-			}
-
-			w.Header().Set("Content-Type", "image/jpeg")
-			w.Header().Set("Cache-Control", "no-cache")
-			http.ServeContent(w, r, "image.jpg", time.Time{}, bytes.NewReader(jpegData))
+			heifjpeg.Serve(w, r, pathHint, imgCache)
 			return
 		}
 

@@ -261,7 +261,7 @@ func EvictFile(srcPath string) {
 // and finally to HEVC decoding for simple HEIF files without previews.
 // Results are cached to disk.
 func ConvertHEIFToJPEG(ctx context.Context, path string) ([]byte, error) {
-	key := cacheKey(path, "full-v5")
+	key := cacheKey(path, fullJPEGPurpose)
 	if cached := readCache(key); cached != nil {
 		return cached, nil
 	}
@@ -326,13 +326,7 @@ func extractBestJPEG(path string) ([]byte, error) {
 
 	// Fallback: decode HEVC to JPEG (for simple HEIF/HEIC without embedded
 	// previews). ffmpeg bakes nothing, so orientation must be applied explicitly.
-	data, err := ffmpegRun(path,
-		"-f", "image2pipe",
-		"-vcodec", "mjpeg",
-		"-q:v", "2",
-		"-frames:v", "1",
-		"pipe:1",
-	)
+	data, err := ffmpegDecodeJPEG(path)
 	if err != nil {
 		return nil, err
 	}
@@ -406,13 +400,7 @@ func extractPreviewFallbackJPEG(path string) ([]byte, error) {
 		return data, nil
 	}
 
-	data, err := ffmpegRun(path,
-		"-f", "image2pipe",
-		"-vcodec", "mjpeg",
-		"-q:v", "2",
-		"-frames:v", "1",
-		"pipe:1",
-	)
+	data, err := ffmpegDecodeJPEG(path)
 	if err != nil {
 		return nil, err
 	}
@@ -442,13 +430,7 @@ func convertHEIFExport(path string) ([]byte, error) {
 	}
 	// Fallback: ffmpeg HEVC decode. ffmpeg may not honour the HEIF irot box,
 	// so we apply the full orientation (irot + embedded EXIF fallback) explicitly.
-	data, err := ffmpegRun(path,
-		"-f", "image2pipe",
-		"-vcodec", "mjpeg",
-		"-q:v", "2",
-		"-frames:v", "1",
-		"pipe:1",
-	)
+	data, err := ffmpegDecodeJPEG(path)
 	if err != nil {
 		return nil, err
 	}
@@ -483,6 +465,10 @@ func sipsConvert(path string) ([]byte, error) {
 // Uses a temp directory because multi-image HEIC files produce numbered output
 // files (e.g. out-1.jpg, out-2.jpg) rather than the exact destination path.
 func heifConvert(path string) ([]byte, error) {
+	return oneFullDecode(func() ([]byte, error) { return runHeifConvert(path) })
+}
+
+func runHeifConvert(path string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "unterlumen-heif-*")
 	if err != nil {
 		return nil, err

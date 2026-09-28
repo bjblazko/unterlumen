@@ -15,6 +15,11 @@ class Viewer {
         this._filmstripLoaded = false;
         this._imageURLFn = options.imageURLFn || ((p) => API.imageURL(p));
         this._thumbURLFn = options.thumbURLFn || ((p) => API.thumbnailURL(p, 80));
+        // A library photo's stored preview (1200 px), shown at once while the
+        // full-size photo is prepared — a HEIF takes seconds to convert on a
+        // NAS. Returns null where there is none (Folders).
+        this._previewURLFn = options.previewURLFn || (() => null);
+        this._fullLoader = null;
         this._infoLoadFn = options.infoLoadFn || ((p, ip) => ip.loadInfo(p));
         // Read-only: photos seen from somewhere that is not their folder (the
         // map) can be looked at, not cropped or marked for deletion.
@@ -53,6 +58,7 @@ class Viewer {
             this._cropTool = null;
         }
         if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
+        this._stopFullLoad();
         document.removeEventListener('keydown', this.keyHandler);
         document.removeEventListener('fullscreenchange', this._onFullscreenChange);
         // Full screen entered here was for the photo; one the person chose
@@ -244,12 +250,15 @@ class Viewer {
 
     render() {
         if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
+        this._stopFullLoad();
 
         const filename = this.currentPath.split('/').pop();
         const counter = `${this.currentIndex + 1} / ${this.images.length}`;
         const hasPrev = this.currentIndex > 0;
         const hasNext = this.currentIndex < this.images.length - 1;
         const infoActive = this.infoPanel && this.infoPanel.expanded;
+        // After a crop the stored preview is stale; go straight to the photo.
+        const preview = this._cacheBust ? null : this._previewURLFn(this.currentPath);
 
         this.container.innerHTML = `
             <div class="viewer">
@@ -282,7 +291,7 @@ class Viewer {
                         <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
                     </div>
                     ${this._readOnly ? '' : `<div class="viewer-action-group desk-only">
-                        <button class="btn viewer-crop-btn" title="Crop">Crop</button>
+                        <button class="btn viewer-crop-btn" title="${preview ? 'Crop works on the full-size photo, which is still being prepared' : 'Crop'}" ${preview ? 'disabled' : ''}>Crop</button>
                         <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
                     </div>`}
                 </div>
@@ -290,7 +299,7 @@ class Viewer {
                     <div class="viewer-body">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
-                            <img src="${this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
+                            <img src="${preview || this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
                         </div>
                         <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
                     </div>
@@ -308,7 +317,8 @@ class Viewer {
         const containerEl = this.container.querySelector('.viewer-image-container');
         this._zoomTool = new ZoomTool(imgEl, containerEl);
         this._zoomTool._onchange = () => this._updateZoomUI();
-        this._watchImageLoad(imgEl, containerEl);
+        if (preview) this._swapInFullImage(imgEl, containerEl);
+        else this._watchImageLoad(imgEl, containerEl);
 
         this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
         this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
@@ -368,16 +378,43 @@ class Viewer {
 
     // A large HEIC or RAW takes a moment to convert. A quick load shows
     // nothing; a slow one says what it is doing, a failed one says so.
-    _watchImageLoad(imgEl, containerEl) {
+    _watchImageLoad(imgEl, containerEl, words = {
+        busy: 'Preparing the photo…',
+        failed: 'This photo could not be shown. The file may be damaged or in a format this installation cannot convert.',
+    }) {
         if (imgEl.complete && imgEl.naturalWidth) return;
         const host = document.createElement('div');
         host.className = 'viewer-activity';
         containerEl.appendChild(host);
-        const activity = Activity.in(host, 'Preparing the photo…');
+        const activity = Activity.in(host, words.busy);
         imgEl.addEventListener('load', () => host.remove(), { once: true });
-        imgEl.addEventListener('error', () => {
-            activity.fail('This photo could not be shown. The file may be damaged or in a format this installation cannot convert.');
+        imgEl.addEventListener('error', () => activity.fail(words.failed), { once: true });
+    }
+
+    // The preview is on screen; the full-size photo replaces it once it has
+    // arrived, unless the viewer has moved on. Moving on cancels the request.
+    _swapInFullImage(imgEl, containerEl) {
+        this._stopFullLoad();
+        const path = this.currentPath;
+        const full = new Image();
+        this._fullLoader = full;
+        this._watchImageLoad(full, containerEl, {
+            busy: 'Preparing the full-size photo…',
+            failed: 'The full-size photo could not be prepared; this is its preview. The file may be damaged or in a format this installation cannot convert.',
+        });
+        full.addEventListener('load', () => {
+            if (this._fullLoader !== full || this.currentPath !== path) return;
+            this._fullLoader = null;
+            imgEl.src = full.src;
+            const crop = this.container.querySelector('.viewer-crop-btn');
+            if (crop) { crop.disabled = false; crop.title = 'Crop'; }
         }, { once: true });
+        full.src = this._currentImageURL();
+    }
+
+    _stopFullLoad() {
+        if (this._fullLoader) this._fullLoader.src = '';
+        this._fullLoader = null;
     }
 
     _currentImageURL() {
@@ -385,14 +422,24 @@ class Viewer {
         return this._cacheBust ? `${url}&t=${this._cacheBust}` : url;
     }
 
+    // The next photos, ahead of time (ADR-0022): their previews, and the
+    // full-size photo only where the server has it ready. X-Prefetch tells it
+    // not to convert a HEIF for a photo that may be skipped — two conversions
+    // at once pushed the NAS into swap.
     _prefetch(ahead = 2) {
         this._prefetchCache = [];
         for (let i = 1; i <= ahead; i++) {
             const idx = this.currentIndex + i;
             if (idx >= this.images.length) break;
-            const img = new Image();
-            img.src = this._imageURLFn(this.images[idx]);
-            this._prefetchCache.push(img);
+            const path = this.images[idx];
+            const preview = this._previewURLFn(path);
+            if (preview) {
+                const img = new Image();
+                img.src = preview;
+                this._prefetchCache.push(img);
+            }
+            fetch(this._imageURLFn(path), { headers: { 'X-Prefetch': '1' } })
+                .then(r => r.blob()).catch(() => {});
         }
     }
 

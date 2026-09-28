@@ -104,6 +104,12 @@ class SearchResultPane extends BrowsePane {
         return info ? LibraryAPI.photoURL(info.libID, info.photoID) : API.imageURL(path);
     }
 
+    // The library's stored preview, shown while the full-size photo loads.
+    viewerPreviewURL(path) {
+        const info = this._photoMap.get(path);
+        return info ? LibraryAPI.thumbURL(info.libID, info.photoID) : null;
+    }
+
     viewerThumbURL(path) {
         const info = this._photoMap.get(path);
         return info ? LibraryAPI.thumbURL(info.libID, info.photoID) : API.thumbnailURL(path, 80);

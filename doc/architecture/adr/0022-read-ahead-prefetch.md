@@ -1,6 +1,6 @@
 # ADR-0022: Read-Ahead Prefetch and In-Memory Image Cache
 
-*Last modified: 2026-06-28*
+*Last modified: 2026-09-28*
 
 ## Status
 
@@ -64,3 +64,26 @@ NAS → HEIF disk cache (~/Library/Caches/unterlumen/) → in-memory ImageCache 
   a cache-miss in both the in-memory cache (different key) and the browser cache.
 - The 20-entry LRU cap was chosen to cover a typical forward-browsing window
   (current + 2 prefetched + ~17 recently seen) without unbounded memory growth.
+
+## Amendment 2026-09-28: a prefetch never converts, and full decodes run one at a time
+
+On the NAS (Raspberry Pi 5, 8 GB, shared with other services) the viewer stalled
+the machine for about three minutes. Each step in the viewer asked for the next
+two photos, and for a HEIF not seen before each such request started a full
+decode with `heif-convert` — about 640 MB and five seconds apiece. The thumbnail
+work limit counts cores, so two ran at once, and the machine went into swap;
+everything else, stored thumbnails on the Map and Timeline included, waited.
+
+- **A prefetch takes only what is ready.** The viewer sends its read-ahead with
+  the header `X-Prefetch: 1` (a header, not a parameter, so the URL is the one it
+  later shows and the browser reuses the answer). `heifjpeg.Serve`
+  (`internal/api/heifjpeg`, now the one place Folders and the libraries serve a
+  HEIF as JPEG) answers such a request from memory or the disk cache, and
+  otherwise with an empty `204` and `Cache-Control: no-store`.
+- **A library photo opens on its stored preview** (the 1200 px thumbnail made at
+  scan time) and the full-size photo replaces it when it arrives. Moving on
+  cancels that request. Crop waits for the full-size photo.
+- **Full decodes run one at a time** (`media.oneFullDecode`), whatever the number
+  of cores: `heif-convert` and ffmpeg's HEVC decode, for the viewer, exports and
+  the thumbnail fallback alike.
+

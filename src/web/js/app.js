@@ -472,6 +472,7 @@ const App = {
         const viewer = this.showViewer(imagePath, images, {
             imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
             thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
+            previewURLFn: pane.viewerPreviewURL ? (p) => pane.viewerPreviewURL(p) : undefined,
             infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
         }, () => {
             if (pane.updateMarkedForDeletion) pane.updateMarkedForDeletion();
