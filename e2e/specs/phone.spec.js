@@ -56,6 +56,9 @@ test.describe('Phone', () => {
     // In a library, folders are tiles; two share a row. The phone width rule
     // once sat above the base rule and lost to its fixed 176px.
     test('a library shows two folder tiles to a row, and no inset under the tab bar', async ({ page, request }) => {
+        // Indexing folder-a decodes its HEIFs one at a time (media.oneFullDecode),
+        // which on a two-core CI runner took longer than the default minute.
+        test.setTimeout(180_000);
         const NAME = 'E2E Phone Tiles';
         const clean = async () => {
             const libs = await (await request.get('/api/library/')).json();
