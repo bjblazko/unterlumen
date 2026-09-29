@@ -3,6 +3,7 @@ package desktop
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"huepattl.de/unterlumen/internal/installation"
@@ -52,5 +53,22 @@ func TestKeepSettingsLeavesAConfigAlone(t *testing.T) {
 	}
 	if got, _, _ := installation.Load(); got.PhotosDir != "/mine" {
 		t.Errorf("config.json overwritten: %+v", got)
+	}
+}
+
+func TestLaunchedAsMacApp(t *testing.T) {
+	inApp := LaunchedAsMacApp("/Applications/Unterlumen.app/Contents/MacOS/unterlumen")
+	if runtime.GOOS == "darwin" && !inApp {
+		t.Error("the program in an app bundle was not taken as the app")
+	}
+	if LaunchedAsMacApp("/usr/local/bin/unterlumen") {
+		t.Error("a program outside a bundle was taken as the app")
+	}
+}
+
+func TestWithoutProcessSerial(t *testing.T) {
+	got := WithoutProcessSerial([]string{"-psn_0_12345", "-port", "8090"})
+	if len(got) != 2 || got[0] != "-port" || got[1] != "8090" {
+		t.Errorf("args = %v", got)
 	}
 }

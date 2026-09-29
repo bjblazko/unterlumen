@@ -30,8 +30,11 @@ var webFS embed.FS
 var Version = "dev"
 
 func main() {
-	cfg := parseConfig(flag.CommandLine, os.Args[1:])
+	cfg := parseConfig(flag.CommandLine, desktop.WithoutProcessSerial(os.Args[1:]))
 	installation.AddToolsToPath()
+	if execPath, err := os.Executable(); err == nil && desktop.LaunchedAsMacApp(execPath) && !cfg.desktopInstall && cfg.macBundle == "" {
+		cfg.desktop = true
+	}
 
 	if packaged(cfg) {
 		return

@@ -119,6 +119,11 @@ then:
    shows the command, since it needs root. `.github/workflows/packages.yml`
    builds both and the release workflow attaches them under fixed names, so
    `releases/latest/download/Unterlumen.dmg` always is the newest.
+   The bundle's executable is the program itself (`CFBundleExecutable`
+   `unterlumen`), which opens its window when it runs inside a bundle
+   (`desktop.LaunchedAsMacApp`). A launch script in between made macOS check
+   the quarantined program a second time after "Open Anyway" and offer only
+   "Move to Trash".
 3. NAS and containers (2026-09-29): the image sets `UNTERLUMEN_LIB_DIR=/data`
    with `/data` and `/cache` writable for any user, so a container run as the
    photos' owner can use named volumes. In server mode Settings shares

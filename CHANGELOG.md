@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Unterlumen.dmg can be opened after "Open Anyway".** The app bundle started a shell script, which then started the program; macOS checked the program a second time, quarantined as it was, and offered only "Move to Trash". The program is now the app's executable itself: started from the Finder, the Dock or Spotlight it opens its window and finds Homebrew's programs on its own. `-desktop-install` writes the same bundle.
+
 ### Added
 - **A Portainer template.** Enter `https://huepattl.de/unterlumen/portainer.json` under Settings → App Templates in Portainer, and Unterlumen is one of its App Templates: it asks for the photo folder, the owner of the photos and the port, and deploys `packaging/portainer/compose.yml` from this repository with the libraries in a volume. The NAS page on huepattl.de names it among the Portainer steps.
 

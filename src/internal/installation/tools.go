@@ -3,6 +3,7 @@ package installation
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -19,14 +20,24 @@ func ToolsDir() (string, error) {
 
 // AddToolsToPath puts ToolsDir in front of PATH when it exists, so the
 // helper programs are found however the app was started. exiftool comes as a
-// folder with its library beside it, so its own folder is added as well.
+// folder with its library beside it, so its own folder is added as well. On
+// macOS Homebrew's folders are added too: an app started from the Finder
+// gets a PATH without them.
 func AddToolsToPath() {
 	dir, err := ToolsDir()
 	if err != nil {
 		return
 	}
+	candidates := []string{filepath.Join(dir, "exiftool"), dir}
+	if runtime.GOOS == "darwin" {
+		candidates = append(candidates, "/opt/homebrew/bin", "/usr/local/bin")
+	}
+	path := string(os.PathListSeparator) + os.Getenv("PATH") + string(os.PathListSeparator)
 	var dirs []string
-	for _, d := range []string{filepath.Join(dir, "exiftool"), dir} {
+	for _, d := range candidates {
+		if strings.Contains(path, string(os.PathListSeparator)+d+string(os.PathListSeparator)) {
+			continue
+		}
 		if info, err := os.Stat(d); err == nil && info.IsDir() {
 			dirs = append(dirs, d)
 		}

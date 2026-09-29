@@ -8,7 +8,10 @@ import (
 	"strconv"
 )
 
-// launcherPath is where the launcher of an installed app is.
+// launcherPath is where an older app bundle kept its launch
+// script, whose flags keepSettings reads. The bundle now starts the program
+// itself (LaunchedAsMacApp): Gatekeeper checked a script and then, again,
+// the quarantined program it started, and "Open Anyway" did not reach it.
 func launcherPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, "Applications", "Unterlumen.app", "Contents", "MacOS", "launch")
@@ -61,9 +64,6 @@ func writeMacBundle(appDir, execPath string, iconPNG []byte, version string) err
 	}
 	if err := generateDarwinIcon(iconPNG, resourcesDir); err != nil {
 		fmt.Printf("Warning: icon generation failed (%v); bundle will have no icon\n", err)
-	}
-	if err := writeDarwinLaunchScript(filepath.Join(macOSDir, "launch")); err != nil {
-		return fmt.Errorf("writing launch script: %w", err)
 	}
 	if err := writeDarwinPlist(filepath.Join(appDir, "Contents", "Info.plist"), version); err != nil {
 		return fmt.Errorf("writing Info.plist: %w", err)
@@ -120,16 +120,6 @@ func generateDarwinIcon(iconPNG []byte, resourcesDir string) error {
 	return exec.Command("iconutil", "-c", "icns", iconsetDir, "-o", icnsPath).Run()
 }
 
-// writeDarwinLaunchScript writes the launcher. It passes no settings; those
-// are in config.json. It prepends common Homebrew and system tool locations:
-// apps launched from Spotlight or Launchpad receive a minimal PATH that
-// excludes these dirs, causing tools like ffmpeg and exiftool to appear
-// unavailable.
-func writeDarwinLaunchScript(path string) error {
-	const script = "#!/bin/bash\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop\n"
-	return os.WriteFile(path, []byte(script), 0755)
-}
-
 func writeDarwinPlist(path, version string) error {
 	content := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -140,7 +130,7 @@ func writeDarwinPlist(path, version string) error {
 	<key>CFBundleDisplayName</key>
 	<string>Unterlumen</string>
 	<key>CFBundleExecutable</key>
-	<string>launch</string>
+	<string>unterlumen</string>
 	<key>CFBundleIconFile</key>
 	<string>icon</string>
 	<key>CFBundleIdentifier</key>

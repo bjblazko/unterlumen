@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
+	"strings"
 
 	"huepattl.de/unterlumen/internal/installation"
 )
@@ -32,6 +34,25 @@ func keepSettings(path string) error {
 		}
 	}
 	return installation.Save(cfg)
+}
+
+// LaunchedAsMacApp says the program runs as the main executable of a macOS
+// app bundle, started from the Finder, the Dock or Spotlight: it then opens
+// its own window (-desktop) without being told.
+func LaunchedAsMacApp(execPath string) bool {
+	return runtime.GOOS == "darwin" && strings.Contains(execPath, ".app/Contents/MacOS/")
+}
+
+// WithoutProcessSerial drops the -psn_ argument older macOS versions pass to
+// an app started from the Finder; the flag parser would stop at it.
+func WithoutProcessSerial(args []string) []string {
+	out := args[:0:0]
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-psn_") {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func copyFile(src, dst string) error {
