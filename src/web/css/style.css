@@ -243,10 +243,12 @@ body {
 /* —— Type: sans is the UI voice, mono is the data voice (ADR-0030) ——
  * Mono is only for file names, paths, EXIF values, coordinates, counters
  * and IDs. Everything a person reads as language stays in Plex Sans.
+ * .mono marks such data in running text.
  */
 
 .grid-item .item-name,
 .justified-item .item-name,
+.mono,
 .list-name,
 .list-date,
 .list-size,
