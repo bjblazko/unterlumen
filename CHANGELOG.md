@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-29
+
 ### Added
 - **Download and double-click.** Every release carries `Unterlumen.dmg` — one app for Apple Silicon and Intel Macs, to drag onto Applications — and `Unterlumen-Setup.exe` for Windows, which installs for the current user without administrator rights, with a Start menu entry and an uninstaller. Neither is signed: macOS asks once to "Open Anyway" (System Settings → Privacy & Security), Windows once to "Run anyway" (More info). `-macos-bundle <path>` makes the app bundle; `packaging/` holds the scripts, `.github/workflows/packages.yml` builds both.
 - **Install the helper programs from the app.** Settings and the setup page list which of ffmpeg, exiftool and cwebp are missing and offer "Install the missing ones": with Homebrew or winget where they are, otherwise from the makers' downloads into Unterlumen's own tools folder. It runs as a job in the status line and needs no restart. On Linux, which needs root for it, the page shows the command to run instead. Only in the installed app.
