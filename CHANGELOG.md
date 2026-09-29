@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-09-29
+
 ### Added
 - **Share from the NAS.** In server mode — the container on a NAS — Settings has a Sharing section: "Share with another installation" makes `.unterlumen-shared` in the photo folder with the server's destinations and starts using it at once. An installation on a Mac that then chooses the same photo folder finds it and joins. Where destinations are shared already, the section says through which folder.
 - **A page that sets Unterlumen up on a NAS.** huepattl.de/products/unterlumen-nas.html asks which NAS, where the photos are, who owns them and which port, and writes the `compose.yml` and the steps for Synology, QNAP, TrueNAS, Unraid, Portainer or plain Docker, with the steps for a Mac beside it.
