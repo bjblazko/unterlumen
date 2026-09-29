@@ -190,7 +190,7 @@ curl -fsSL https://huepattl.de/unterlumen/install | sh
 irm https://huepattl.de/unterlumen/install.ps1 | iex
 ```
 
-Unterlumen then opens on its setup page: choose the folder that holds your photos, and press *Set up Unterlumen*. If another Unterlumen installation already works in that folder — on a NAS, say — the page offers to share its destinations and galleries (see [Sharing channel config across installations](#sharing-channel-config-across-installations)). Settings links back to the setup to change the folder later.
+Unterlumen then opens on its setup page: choose the folder that holds your photos, and press *Set up Unterlumen*. If another Unterlumen installation already works in that folder — on a NAS, say — the page offers to share its destinations and galleries (see [Sharing channel config across installations](#sharing-channel-config-across-installations)). Settings links back to the setup to change the folder later. Wherever the installed app asks for a folder, it opens your system's own folder dialog, which shows your NAS and external disks.
 
 Where the helper programs come from: Homebrew when it is installed, otherwise, on a Mac, the makers' own downloads (ffmpeg by martin-riedl.de, exiftool from exiftool.org's SourceForge, cwebp from Google) into Unterlumen's own `tools` folder; apt, dnf or pacman on Linux (sudo asks for your password); winget on Windows. The scripts are [install/install.sh](install/install.sh) and [install/install.ps1](install/install.ps1) — read them before you run them if you like. `UNTERLUMEN_SKIP_TOOLS=1` leaves the helper programs alone, `UNTERLUMEN_VERSION=0.13.0` installs that version.
 

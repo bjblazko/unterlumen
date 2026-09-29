@@ -143,6 +143,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 |---------|---------------|
 | `main` | CLI flag parsing, HTTP server startup; `server.go` swaps the whole app when the setup saves a new configuration ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/installation` | `config.json` of the installed app (photo folder, data folder, destinations folder, port), reading an older launcher's flags, the `.unterlumen-shared` convention, the tools folder put in front of `PATH` ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
+| `internal/api/folderdialog` | `/api/folder-dialog` — the system's own folder dialog for the installed app, for requests from the same computer only ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/api/setup` | `/api/setup`, `/api/setup/shared`, `/api/setup/dirs` — the setup place; registered only when the app is configured by config.json |
 | `internal/api` | HTTP route registration; delegates to domain subpackages |
 | `internal/api/browse` | `/api/browse`, `/api/browse/dates`, `/api/browse/meta`, `/api/browse/folder-stats`, `/api/thumbnail`, `/api/image`, `/api/info` handlers |

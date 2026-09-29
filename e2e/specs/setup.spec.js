@@ -55,6 +55,15 @@ test.describe('Setup in the browser', () => {
         await waitForServer();
     });
 
+    // The installed app opens the system's folder dialog where it can, which
+    // a test cannot click; these tests use the dialog in the page.
+    test.beforeEach(async ({ page }) => {
+        await page.route('**/api/config', async (route) => {
+            const response = await route.fetch();
+            await route.fulfill({ response, json: { ...(await response.json()), folderDialog: false } });
+        });
+    });
+
     test.afterAll(() => {
         app?.kill();
         fs.rmSync(home, { recursive: true, force: true });

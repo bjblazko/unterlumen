@@ -11,6 +11,7 @@ import (
 	apicrop "huepattl.de/unterlumen/internal/api/crop"
 	apiexport "huepattl.de/unterlumen/internal/api/export"
 	"huepattl.de/unterlumen/internal/api/fileops"
+	apifolderdialog "huepattl.de/unterlumen/internal/api/folderdialog"
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
@@ -49,7 +50,11 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		apisetup.Handle(mux, setup)
 		needsSetup = setup().Saved.PhotosDir == ""
 	}
-	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, needsSetup))
+	folderDialog := setup != nil && apifolderdialog.Available()
+	if folderDialog {
+		apifolderdialog.Handle(mux)
+	}
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, needsSetup, folderDialog))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())

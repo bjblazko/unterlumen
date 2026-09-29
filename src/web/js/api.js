@@ -114,6 +114,20 @@ const API = {
         if (!resp.ok) throw new Error(await resp.text());
     },
 
+    // Opens the system's folder dialog on the computer Unterlumen runs on
+    // and waits for it: the chosen folder's absolute path, or null when it
+    // was cancelled.
+    async folderDialog(prompt) {
+        const resp = await fetch('/api/folder-dialog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const result = await resp.json();
+        return result.cancelled ? null : result.path;
+    },
+
     async toolsCheck() {
         const resp = await fetch('/api/tools/check');
         if (!resp.ok) throw new Error(await resp.text());

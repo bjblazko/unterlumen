@@ -31,6 +31,17 @@ test.describe('New library dialog', () => {
     await expect(page.locator('#lib-dlg-name')).toHaveCount(0);
   });
 
+  test('the folder is chosen with the folder picker, and names the library', async ({ page }) => {
+    await page.locator('#lib-dlg-choose').click();
+    await page.locator('.fp-row', { hasText: 'folder-a' }).click();
+    await page.locator('.fp-row', { hasText: 'a3' }).click();
+    await expect(page.locator('.fp-crumb-here')).toHaveText('a3');
+    await page.locator('#fp-select').click();
+    await expect(page.locator('#lib-dlg-path')).toHaveValue('/folder-a/a3');
+    await expect(page.locator('#lib-dlg-name')).toHaveValue('a3');
+    await page.locator('#lib-dlg-cancel').click();
+  });
+
   test('creates the library, indexes it and opens it', async ({ page, request }) => {
     await page.locator('#lib-dlg-name').fill(NAME);
     // A small folder: the dialog waits for the first index, which on a CI
@@ -44,5 +55,46 @@ test.describe('New library dialog', () => {
     expect(made).toHaveLength(1);
     // Quotes pasted around a path are stripped.
     expect(made[0].sourcePath).not.toContain('"');
+  });
+});
+
+// The installed app asks the system's folder dialog first. Its answer is
+// stubbed here: a test cannot click a dialog outside the page.
+test.describe('New library dialog with the system folder dialog', () => {
+  let boundary;
+
+  async function openWithSystemDialog(page, chosen) {
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const cfg = await response.json();
+      boundary = cfg.boundary;
+      await route.fulfill({ response, json: { ...cfg, folderDialog: true } });
+    });
+    await page.route('**/api/folder-dialog', (route) => route.fulfill({ json: chosen(boundary) }));
+    await page.goto('/');
+    await waitForAppReady(page);
+    await page.locator('#mode-library').click();
+    await page.locator('#lib-new-btn').click();
+    await page.locator('#lib-dlg-choose').click();
+  }
+
+  test('a folder inside the photo folder is taken as chosen', async ({ page }) => {
+    await openWithSystemDialog(page, (root) => ({ path: `${root}/folder-a/a3/`, cancelled: false }));
+    await expect(page.locator('#lib-dlg-path')).toHaveValue('/folder-a/a3');
+    await expect(page.locator('#lib-dlg-name')).toHaveValue('a3');
+    await expect(page.locator('.fp-dialog')).toHaveCount(0);
+  });
+
+  test('a folder outside it opens the picker, which says why', async ({ page }) => {
+    await openWithSystemDialog(page, () => ({ path: '/Volumes/elsewhere', cancelled: false }));
+    await expect(page.locator('.fp-notice')).toContainText('/Volumes/elsewhere is outside the photo folder');
+    await page.locator('#fp-cancel').click();
+    await expect(page.locator('#lib-dlg-path')).toHaveValue('');
+  });
+
+  test('cancelling the system dialog changes nothing', async ({ page }) => {
+    await openWithSystemDialog(page, () => ({ path: '', cancelled: true }));
+    await expect(page.locator('.fp-dialog')).toHaveCount(0);
+    await expect(page.locator('#lib-dlg-path')).toHaveValue('');
   });
 });

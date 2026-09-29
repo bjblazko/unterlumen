@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **The system's folder dialog.** In the installed app, wherever Unterlumen asks for a folder — New library…, the setup, Organize's targets, a destination's output folder, the export folder — the Finder's or Explorer's own dialog opens (on Linux zenity or kdialog), with the NAS shares, external disks and favourites it knows. A folder outside the photo folder is not taken: Unterlumen's own folder list opens instead and says why. On a phone, on the NAS and in the container Unterlumen's own folder list stays the one.
+- **New library… has a Choose… button** beside the source folder, so the folder is picked rather than typed; the library is named after it when no name is given yet.
+
 ## [0.14.0] - 2026-09-29
 
 ### Added

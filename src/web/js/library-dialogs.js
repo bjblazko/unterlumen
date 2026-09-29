@@ -147,7 +147,10 @@ class LibraryDialogs {
                 <label class="library-dialog-label" for="lib-dlg-name">Name</label>
                 <input class="library-dialog-input" id="lib-dlg-name" type="text" placeholder="My Photos" autocomplete="off">
                 <label class="library-dialog-label" for="lib-dlg-path">Source folder</label>
-                <input class="library-dialog-input" id="lib-dlg-path" type="text" placeholder="/Fotos/2024">
+                <div class="library-dialog-path-row">
+                    <input class="library-dialog-input" id="lib-dlg-path" type="text" placeholder="/Fotos/2024">
+                    <button class="btn btn-sm" id="lib-dlg-choose" type="button">Choose…</button>
+                </div>
                 <label class="library-dialog-label" for="lib-dlg-desc">Description (optional)</label>
                 <input class="library-dialog-input" id="lib-dlg-desc" type="text" placeholder="">
                 <div class="library-dialog-note">The folder is scanned when you press Create. A large folder takes a few minutes.</div>
@@ -164,6 +167,16 @@ class LibraryDialogs {
         const descEl = dlg.querySelector('#lib-dlg-desc');
         const progressEl = dlg.querySelector('#lib-dlg-progress');
         const createBtn = dlg.querySelector('#lib-dlg-create');
+
+        // The folder is chosen, not typed; the field stays for pasting a path.
+        dlg.querySelector('#lib-dlg-choose').addEventListener('click', async () => {
+            const current = stripQuotes(pathEl.value.trim()).replace(/^\//, '');
+            const picked = await new FolderPicker().open(current, { title: 'Folder for the new library' });
+            if (picked === null) return;
+            pathEl.value = '/' + picked;
+            if (!nameEl.value.trim()) nameEl.value = picked.split('/').filter(Boolean).pop() || '';
+            nameEl.focus();
+        });
 
         if (prefillPath) {
             pathEl.value = prefillPath;

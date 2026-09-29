@@ -79,6 +79,17 @@ then:
    forwards `/unterlumen/install` and `/unterlumen/install.ps1` to
    `releases/latest/download/`.
 
+6. **The system's folder dialog.** In the installed app (configured by
+   config.json, so never in server mode, dev runs or the e2e tests)
+   `FolderPicker.open` first asks `/api/folder-dialog`, which opens the
+   system's own dialog — `osascript choose folder`, the Windows
+   `FolderBrowserDialog`, zenity or kdialog — and returns the absolute path.
+   Only a request from the same computer (loopback) may open it; a phone
+   that reaches the app over the network gets the dialog in the page. A
+   folder outside the photo folder opens the dialog in the page with a
+   sentence saying why, instead of being dropped. Added on 2026-09-29 after the
+   owner found that New library… wanted a typed path.
+
 ## Consequences
 
 - Nobody needs a terminal on Windows; on macOS and Linux one pasted line.

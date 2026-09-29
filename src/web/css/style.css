@@ -3188,6 +3188,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--warning-ink);
 }
 
+/* Why the system's dialog was not enough, above the path. */
+.fp-notice {
+    padding: 0 0 var(--space-3);
+}
+
 
 /* —— Scroll sentinel for chunked rendering —— */
 
@@ -4714,6 +4719,21 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .library-dialog-input:focus {
     border-color: var(--accent);
+}
+
+/* The source folder is chosen with a button beside the field. */
+.library-dialog-path-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.library-dialog-path-row .library-dialog-input,
+.library-dialog-path-row .btn {
+    height: var(--control-h-sm);
+}
+
+.library-dialog-path-row .btn {
+    flex: none;
 }
 
 .library-dialog-note {

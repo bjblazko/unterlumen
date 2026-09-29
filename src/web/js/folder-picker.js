@@ -11,6 +11,12 @@
 // The setup chooses the browse root itself, so it walks the whole disk
 // instead: { disk: true } lists folders through /api/setup/dirs, whose paths
 // are absolute without the leading slash, and has no Libraries source.
+//
+// In the installed app on its own computer the system's folder dialog opens
+// first (/api/folder-dialog), because it knows the NAS shares and external
+// disks. A folder outside the photo folder is not taken: the dialog here
+// opens instead and says why. Anywhere else — a phone, the container — or
+// when the system dialog fails, this dialog is the one.
 
 const FOLDER_PICKER_SOURCE_KEY = 'folderPicker.source';
 
@@ -24,8 +30,28 @@ class FolderPicker {
         this._onKeyDown = this._onKeyDown.bind(this);
     }
 
-    open(startPath = '', { title = 'Choose folder', disk = false, home = null } = {}) {
+    async open(startPath = '', options = {}) {
+        if (!App.config?.folderDialog) return this._openHere(startPath, options);
+        let abs;
+        try {
+            abs = await API.folderDialog(options.title || 'Choose folder');
+        } catch {
+            return this._openHere(startPath, options);
+        }
+        if (abs === null) return null;
+        const path = abs.replace(/\\/g, '/');
+        if (options.disk) return path.replace(/^\//, '');
+        const rel = absPathRelativeToBoundary(path, App.config.boundary);
+        if (rel !== null) return rel;
+        return this._openHere(startPath, {
+            ...options,
+            notice: `${path} is outside the photo folder ${App.config.boundary}, and Unterlumen works only inside it. Choose a folder in it here, or change the photo folder in Settings.`,
+        });
+    }
+
+    _openHere(startPath, { title = 'Choose folder', disk = false, home = null, notice = '' } = {}) {
         return new Promise((resolve) => {
+            this._notice = notice;
             this._resolve = resolve;
             this._currentPath = startPath;
             this._disk = disk;
@@ -71,6 +97,7 @@ class FolderPicker {
                     <button data-source="fs">Filesystem</button>
                     <button data-source="libs">Libraries</button>
                 </div>
+                ${this._notice ? `<p class="fp-msg fp-msg-error fp-notice">${escapeHtml(this._notice)}</p>` : ''}
                 <div class="fp-crumbs" aria-label="Path"></div>
                 <div class="fp-body"></div>`,
             actions: [
