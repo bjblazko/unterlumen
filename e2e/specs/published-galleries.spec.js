@@ -247,10 +247,16 @@ test.describe('Published Galleries overview', () => {
         await expect(page.locator('.gal-danger-question')).toContainText('E2E Disposable Gallery');
         await page.locator('#gal-remove-confirm').click();
 
+        // The open gallery's detail replaces the list, so the row is absent
+        // from the start; wait for the list to come back before looking.
+        await expect(page.locator('#gal-remove-confirm')).toHaveCount(0);
+        await expect(page.locator('.gal-row').first()).toBeVisible();
         await expect(page.locator(`.gal-row[data-postid="${disposablePostID}"]`)).toHaveCount(0);
 
-        const rows = await (await request.get('/api/channels/galleries')).json();
-        expect(rows.find(r => r.postID === disposablePostID)).toBeFalsy();
+        await expect.poll(async () => {
+            const rows = await (await request.get('/api/channels/galleries')).json();
+            return rows.some(r => r.postID === disposablePostID);
+        }).toBe(false);
     });
 
     // Unpublishing takes a moment (the sidecars of every photo are cleaned), so
