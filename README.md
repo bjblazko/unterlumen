@@ -128,6 +128,7 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map, the t
 - [Features](#features)
 - [Install](#install)
   - [One line (recommended)](#one-line-recommended)
+  - [Download and double-click](#download-and-double-click)
   - [macOS](#macos)
   - [Windows](#windows)
   - [Linux](#linux)
@@ -194,7 +195,14 @@ Unterlumen then opens on its setup page: choose the folder that holds your photo
 
 Where the helper programs come from: Homebrew when it is installed, otherwise, on a Mac, the makers' own downloads (ffmpeg by martin-riedl.de, exiftool from exiftool.org's SourceForge, cwebp from Google) into Unterlumen's own `tools` folder; apt, dnf or pacman on Linux (sudo asks for your password); winget on Windows. The scripts are [install/install.sh](install/install.sh) and [install/install.ps1](install/install.ps1) — read them before you run them if you like. `UNTERLUMEN_SKIP_TOOLS=1` leaves the helper programs alone, `UNTERLUMEN_VERSION=0.13.0` installs that version.
 
-### Download and install by hand
+### Download and double-click
+
+- **macOS:** [Unterlumen.dmg](https://github.com/bjblazko/unterlumen/releases/latest/download/Unterlumen.dmg) — for Apple Silicon and Intel. Open it and drag Unterlumen onto Applications. The first time you open it macOS says it cannot check the app, because it is not signed by an Apple developer account: open **System Settings → Privacy & Security**, scroll down to the note about Unterlumen and click **Open Anyway**.
+- **Windows:** [Unterlumen-Setup.exe](https://github.com/bjblazko/unterlumen/releases/latest/download/Unterlumen-Setup.exe) — installs for your user without administrator rights. If Windows shows "Windows protected your PC", click **More info**, then **Run anyway**.
+
+A package cannot install ffmpeg and exiftool for you; the setup page (and Settings) offers **Install the missing ones** instead.
+
+### Install by hand with the terminal
 
 Download the latest release for your platform from the [Releases page](https://github.com/bjblazko/unterlumen/releases) and extract the archive — you will get a single file called `unterlumen` (or `unterlumen.exe` on Windows).
 

@@ -13,7 +13,7 @@ func launcherPath() string {
 	return filepath.Join(home, ".local", "share", "unterlumen", "launch.sh")
 }
 
-func platformInstall(execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte, _ string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot find home directory: %w", err)

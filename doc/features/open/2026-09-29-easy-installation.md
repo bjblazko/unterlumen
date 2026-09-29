@@ -40,15 +40,17 @@ Stage 1:
 - [x] Settings links to the setup
 - [x] Helper programs in the tools folder are found by the app
 - [x] `install.sh` installs on macOS (with and without Homebrew) and on Debian
-- [ ] `install.ps1` tested on Windows (CI job `Installers`)
-- [ ] huepattl.de forwards `/unterlumen/install` and `/unterlumen/install.ps1`
-- [ ] The install scripts are attached to a release
+- [x] `install.ps1` tested on Windows (CI job `Installers`)
+- [x] huepattl.de forwards `/unterlumen/install` and `/unterlumen/install.ps1`
+- [x] The install scripts are attached to a release (0.14.0)
 
 Stage 1b — download packages:
 
-- [ ] `.dmg` with `Unterlumen.app`, built in CI with free tools
-- [ ] Windows setup (Inno Setup or NSIS) with Start menu entry and uninstaller
-- [ ] huepattl.de explains the one click through Gatekeeper/SmartScreen
+- [x] `.dmg` with a universal `Unterlumen.app`, built in CI with free tools (`packaging/macos/build-dmg.sh`)
+- [x] Windows setup (Inno Setup) with Start menu entry and uninstaller, per user without admin rights
+- [x] "Install the missing ones" in Settings and the setup (macOS, Windows; the command on Linux)
+- [ ] Both packages attached to a release
+- [ ] huepattl.de: installation note at the top, a guide to which way fits which setup at the bottom, the one click through Gatekeeper/SmartScreen
 
 Stage 2 — NAS and containers:
 

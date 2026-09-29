@@ -118,8 +118,11 @@ func (s *server) installation() apisetup.Installation {
 // environment decides: flag > environment > config.json > default.
 func withInstallation(cfg config, set map[string]bool, saved installation.Config, defaultLibDir string) config {
 	unset := func(flagName, env string) bool { return !set[flagName] && os.Getenv(env) == "" }
-	if unset("port", "UNTERLUMEN_PORT") && saved.Port != 0 {
-		cfg.port = saved.Port
+	if unset("port", "UNTERLUMEN_PORT") {
+		cfg.port = installation.DesktopPort
+		if saved.Port != 0 {
+			cfg.port = saved.Port
+		}
 	}
 	if unset("lib-dir", "UNTERLUMEN_LIB_DIR") {
 		cfg.libDir = defaultLibDir

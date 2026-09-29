@@ -108,9 +108,17 @@ then:
 ## Stages
 
 1. This ADR: one-line installers, setup in the browser, sharing by convention.
-2. Unsigned download packages built with free tools: a `.dmg` with a ready
-   `Unterlumen.app`, a Windows setup made with Inno Setup or NSIS. One click
-   through Gatekeeper's or SmartScreen's warning remains.
+2. Unsigned download packages built with free tools (decided 2026-09-29):
+   one universal `Unterlumen.dmg` (lipo, ad-hoc signed — unsigned arm64 code
+   reads as damaged — made by `-macos-bundle`, the same bundle
+   `-desktop-install` writes) and `Unterlumen-Setup.exe` made with Inno Setup,
+   per user without admin rights. One click through Gatekeeper's or
+   SmartScreen's warning remains. A package cannot run the helper-program
+   installation, so `internal/toolinstall` does it from the app ("Install
+   the missing ones"), with the same sources as `install.sh`; on Linux it
+   shows the command, since it needs root. `.github/workflows/packages.yml`
+   builds both and the release workflow attaches them under fixed names, so
+   `releases/latest/download/Unterlumen.dmg` always is the newest.
 3. A wizard on huepattl.de that writes a `compose.yml`, a Synology Container
    Manager project or a Portainer stack; the image gets `UNTERLUMEN_LIB_DIR`
    and a volume for it; the setup in server mode (sharing only).

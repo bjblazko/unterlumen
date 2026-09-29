@@ -33,12 +33,7 @@ func main() {
 	cfg := parseConfig(flag.CommandLine, os.Args[1:])
 	installation.AddToolsToPath()
 
-	if cfg.desktopInstall {
-		iconData, _ := webFS.ReadFile("web/logo.png")
-		execPath, _ := os.Executable()
-		if err := desktop.Install(execPath, iconData); err != nil {
-			log.Fatalf("Install failed: %v", err)
-		}
+	if packaged(cfg) {
 		return
 	}
 	if cfg.cacheDir != "" {
@@ -65,6 +60,26 @@ func main() {
 		return
 	}
 	serveDesktop(addr, srv)
+}
+
+// packaged runs the packaging commands, which exit instead of serving:
+// -desktop-install and -macos-bundle. It says whether one ran.
+func packaged(cfg config) bool {
+	if !cfg.desktopInstall && cfg.macBundle == "" {
+		return false
+	}
+	iconData, _ := webFS.ReadFile("web/logo.png")
+	execPath, _ := os.Executable()
+	if cfg.desktopInstall {
+		if err := desktop.Install(execPath, iconData, Version); err != nil {
+			log.Fatalf("Install failed: %v", err)
+		}
+		return true
+	}
+	if err := desktop.WriteMacBundle(cfg.macBundle, execPath, iconData, Version); err != nil {
+		log.Fatalf("Making the app bundle failed: %v", err)
+	}
+	return true
 }
 
 // app is what one configuration serves: the browse root, the folder to start
@@ -111,6 +126,7 @@ type config struct {
 	channelsDir    string
 	desktop        bool
 	desktopInstall bool
+	macBundle      string   // where to make Unterlumen.app, for the release's .dmg
 	args           []string // the folder to browse, if given
 }
 
@@ -144,6 +160,7 @@ func parseConfig(fs *flag.FlagSet, args []string) config {
 	fs.StringVar(&cfg.channelsDir, "channels-dir", os.Getenv("UNTERLUMEN_CHANNELS_DIR"), "Directory for channels.json; override to share channel config across installations (defaults to lib-dir; env: UNTERLUMEN_CHANNELS_DIR)")
 	fs.BoolVar(&cfg.desktop, "desktop", false, "Open in a Chrome app window (no URL bar); server shuts down when the window is closed")
 	fs.BoolVar(&cfg.desktopInstall, "desktop-install", false, "Install as a native app launcher (macOS .app, Linux .desktop, Windows Start Menu)")
+	fs.StringVar(&cfg.macBundle, "macos-bundle", "", "Make Unterlumen.app at this path around this binary and exit (used to build the .dmg; macOS only)")
 	fs.Parse(args) //nolint:errcheck // flag.CommandLine exits on error
 	cfg.args = fs.Args()
 	return cfg

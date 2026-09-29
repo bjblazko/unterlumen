@@ -12,11 +12,11 @@ import (
 // os.Executable), with iconPNG as its icon. It asks nothing: the photo folder
 // is chosen in the app on its first start (#setup), and the settings an older
 // launcher carried as flags are kept in config.json first.
-func Install(execPath string, iconPNG []byte) error {
+func Install(execPath string, iconPNG []byte, version string) error {
 	if err := keepSettings(launcherPath()); err != nil {
 		return fmt.Errorf("keeping the settings of the installed version: %w", err)
 	}
-	return platformInstall(execPath, iconPNG)
+	return platformInstall(execPath, iconPNG, version)
 }
 
 // keepSettings writes config.json when there is none yet: from the flags of
@@ -25,7 +25,7 @@ func keepSettings(path string) error {
 	if _, found, err := installation.Load(); found || err != nil {
 		return err
 	}
-	cfg := installation.Config{Port: desktopPort}
+	cfg := installation.Config{Port: installation.DesktopPort}
 	if script, err := os.ReadFile(path); err == nil {
 		if old, ok := installation.FromLauncher(string(script)); ok {
 			cfg = old
@@ -33,10 +33,6 @@ func keepSettings(path string) error {
 	}
 	return installation.Save(cfg)
 }
-
-// desktopPort is the installed app's port, apart from the 8080 a server or a
-// development build uses.
-const desktopPort = 8090
 
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)

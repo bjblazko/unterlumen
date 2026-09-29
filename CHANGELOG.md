@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Download and double-click.** Every release carries `Unterlumen.dmg` — one app for Apple Silicon and Intel Macs, to drag onto Applications — and `Unterlumen-Setup.exe` for Windows, which installs for the current user without administrator rights, with a Start menu entry and an uninstaller. Neither is signed: macOS asks once to "Open Anyway" (System Settings → Privacy & Security), Windows once to "Run anyway" (More info). `-macos-bundle <path>` makes the app bundle; `packaging/` holds the scripts, `.github/workflows/packages.yml` builds both.
+- **Install the helper programs from the app.** Settings and the setup page list which of ffmpeg, exiftool and cwebp are missing and offer "Install the missing ones": with Homebrew or winget where they are, otherwise from the makers' downloads into Unterlumen's own tools folder. It runs as a job in the status line and needs no restart. On Linux, which needs root for it, the page shows the command to run instead. Only in the installed app.
 - **The system's folder dialog.** In the installed app, wherever Unterlumen asks for a folder — New library…, the setup, Organize's targets, a destination's output folder, the export folder — the Finder's or Explorer's own dialog opens (on Linux zenity or kdialog), with the NAS shares, external disks and favourites it knows. A folder outside the photo folder is not taken: Unterlumen's own folder list opens instead and says why. On a phone, on the NAS and in the container Unterlumen's own folder list stays the one.
 - **New library… has a Choose… button** beside the source folder, so the folder is picked rather than typed; the library is named after it when no name is given yet.
 

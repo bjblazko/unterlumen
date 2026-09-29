@@ -18,7 +18,7 @@ func launcherPath() string {
 	return filepath.Join(localAppData, "Unterlumen", "launch.bat")
 }
 
-func platformInstall(execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte, _ string) error {
 	localAppData := os.Getenv("LOCALAPPDATA")
 	if localAppData == "" {
 		home, _ := os.UserHomeDir()

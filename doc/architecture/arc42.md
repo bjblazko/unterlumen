@@ -143,6 +143,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 |---------|---------------|
 | `main` | CLI flag parsing, HTTP server startup; `server.go` swaps the whole app when the setup saves a new configuration ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/installation` | `config.json` of the installed app (photo folder, data folder, destinations folder, port), reading an older launcher's flags, the `.unterlumen-shared` convention, the tools folder put in front of `PATH` ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
+| `internal/toolinstall` | Installs the missing helper programs (ffmpeg, exiftool, cwebp) from the app: Homebrew or winget, otherwise the makers' downloads into the tools folder; the Linux command to run by hand ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/api/folderdialog` | `/api/folder-dialog` — the system's own folder dialog for the installed app, for requests from the same computer only ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/api/setup` | `/api/setup`, `/api/setup/shared`, `/api/setup/dirs` — the setup place; registered only when the app is configured by config.json |
 | `internal/api` | HTTP route registration; delegates to domain subpackages |
@@ -283,6 +284,8 @@ The binary and `web/` directory must be co-located (the server serves static fil
 **Multiple installations against the same library.** A common variant runs two independent installations against the same photo folders — e.g. Docker on a NAS that also serves the files, plus a native install on a Mac mounting them over the network. `-lib-dir` (SQLite database, thumbnails, search index) is intentionally per-machine so each installation stays fast and usable offline. `-channels-dir` can optionally point both installations at the same directory to share channel definitions (but not library data or export output) between them. See [ADR-0023](adr/0023-shared-channel-config-directory.md). Without `-channels-dir`, a `.unterlumen-shared` folder inside the photo folder is used as that directory, so two installations share by convention ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)).
 
 **Installed app.** The one-line installers (`install/install.sh`, `install/install.ps1`, attached to every release and forwarded from huepattl.de) download a release, check it against `checksums.txt`, install ffmpeg, exiftool, cwebp and heif-convert from Homebrew, apt/dnf/pacman or winget, or from their makers into a `tools` folder beside `config.json`, and run `-desktop-install`. The launcher passes only `-desktop`; the photo folder, data folder and destinations folder are in `config.json` and are chosen in the app (`#setup`). See [ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md).
+
+**Download packages.** Every release also carries `Unterlumen.dmg` (one universal app bundle, made by `-macos-bundle` and `packaging/macos/build-dmg.sh`) and `Unterlumen-Setup.exe` (Inno Setup, `packaging/windows/unterlumen.iss`), built by `.github/workflows/packages.yml`. Both are unsigned; the helper programs are installed from the app afterwards (`internal/toolinstall`).
 
 ## 8. Crosscutting Concepts
 

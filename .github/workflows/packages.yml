@@ -1,0 +1,107 @@
+name: Packages
+
+# The download packages (ADR-0042, stage 1b): Unterlumen.dmg, one app for
+# Apple Silicon and Intel, and Unterlumen-Setup.exe for Windows. The release
+# workflow calls this with upload: true once goreleaser has made the release;
+# a change to packaging/ builds them as workflow artifacts to look at.
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      upload:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        default: "0.0.0-dev"
+  push:
+    paths:
+      - "packaging/**"
+      - ".github/workflows/packages.yml"
+
+permissions:
+  contents: write
+
+env:
+  # The tag (v0.15.0) or a version (0.15.0); each job strips the v.
+  RAW_VERSION: ${{ inputs.version || '0.0.0-dev' }}
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Version
+        shell: bash
+        run: echo "VERSION=${RAW_VERSION#v}" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Build Unterlumen.dmg
+        run: packaging/macos/build-dmg.sh "$VERSION" dist
+      - name: The app is universal and opens its own disk image
+        run: |
+          mnt=$(hdiutil attach -nobrowse -readonly dist/Unterlumen.dmg | tail -1 | cut -f3)
+          lipo -archs "$mnt/Unterlumen.app/Contents/MacOS/unterlumen" | grep -q arm64
+          lipo -archs "$mnt/Unterlumen.app/Contents/MacOS/unterlumen" | grep -q x86_64
+          test -L "$mnt/Applications"
+          hdiutil detach "$mnt"
+      - name: Attach to the release
+        if: inputs.upload
+        run: gh release upload "v$VERSION" dist/Unterlumen.dmg --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.upload }}
+        with:
+          name: Unterlumen.dmg
+          path: dist/Unterlumen.dmg
+
+  windows-setup:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Version
+        shell: bash
+        run: echo "VERSION=${RAW_VERSION#v}" >> "$GITHUB_ENV"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: src/go.mod
+          cache-dependency-path: src/go.sum
+      - name: Build unterlumen.exe
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          Push-Location src
+          go build -ldflags "-s -w -X main.Version=$env:VERSION" -o ..\dist\unterlumen.exe .
+          Pop-Location
+      - name: Build Unterlumen-Setup.exe
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DSourceDir=$PWD\dist" "/O$PWD\dist" packaging\windows\unterlumen.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: The setup installs for this user, with a Start menu entry
+        shell: pwsh
+        run: |
+          Start-Process dist\Unterlumen-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          if (-not (Test-Path "$env:LOCALAPPDATA\Programs\Unterlumen\unterlumen.exe")) { throw 'unterlumen.exe is not installed' }
+          if (-not (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Unterlumen.lnk")) { throw 'no Start menu entry' }
+          $uninstall = Get-ChildItem "$env:LOCALAPPDATA\Programs\Unterlumen" -Filter 'unins*.exe' | Select-Object -First 1
+          if (-not $uninstall) { throw 'no uninstaller' }
+      - name: Attach to the release
+        if: inputs.upload
+        shell: pwsh
+        run: gh release upload "v$env:VERSION" dist\Unterlumen-Setup.exe --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ !inputs.upload }}
+        with:
+          name: Unterlumen-Setup.exe
+          path: dist/Unterlumen-Setup.exe

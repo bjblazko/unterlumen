@@ -62,3 +62,11 @@ jobs:
           build-args: VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Unterlumen.dmg and Unterlumen-Setup.exe, attached to the release goreleaser made.
+  packages:
+    needs: release
+    uses: ./.github/workflows/packages.yml
+    with:
+      version: ${{ github.ref_name }}
+      upload: true

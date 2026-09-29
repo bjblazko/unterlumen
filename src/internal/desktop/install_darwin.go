@@ -14,18 +14,34 @@ func launcherPath() string {
 	return filepath.Join(home, "Applications", "Unterlumen.app", "Contents", "MacOS", "launch")
 }
 
-func platformInstall(execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte, version string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot find home directory: %w", err)
 	}
 
 	appDir := filepath.Join(home, "Applications", "Unterlumen.app")
+	fmt.Printf("Installing to %s …\n", appDir)
+	if err := writeMacBundle(appDir, execPath, iconPNG, version); err != nil {
+		return err
+	}
+
+	fmt.Println("done.")
+	fmt.Println("Unterlumen is now available in Spotlight and Launchpad.")
+	return nil
+}
+
+// WriteMacBundle makes Unterlumen.app at appDir for the release's .dmg.
+func WriteMacBundle(appDir, execPath string, iconPNG []byte, version string) error {
+	return writeMacBundle(appDir, execPath, iconPNG, version)
+}
+
+// writeMacBundle makes the app bundle at appDir around the binary at
+// execPath, replacing whatever is there. -desktop-install puts it in
+// ~/Applications; the release puts it in the .dmg (WriteMacBundle).
+func writeMacBundle(appDir, execPath string, iconPNG []byte, version string) error {
 	macOSDir := filepath.Join(appDir, "Contents", "MacOS")
 	resourcesDir := filepath.Join(appDir, "Contents", "Resources")
-
-	fmt.Printf("Installing to %s …\n", appDir)
-
 	if err := os.RemoveAll(appDir); err != nil {
 		return fmt.Errorf("removing existing installation: %w", err)
 	}
@@ -43,20 +59,15 @@ func platformInstall(execPath string, iconPNG []byte) error {
 	if err := os.Chmod(binaryDst, 0755); err != nil {
 		return fmt.Errorf("setting binary permissions: %w", err)
 	}
-
 	if err := generateDarwinIcon(iconPNG, resourcesDir); err != nil {
 		fmt.Printf("Warning: icon generation failed (%v); bundle will have no icon\n", err)
 	}
-
 	if err := writeDarwinLaunchScript(filepath.Join(macOSDir, "launch")); err != nil {
 		return fmt.Errorf("writing launch script: %w", err)
 	}
-	if err := writeDarwinPlist(filepath.Join(appDir, "Contents", "Info.plist")); err != nil {
+	if err := writeDarwinPlist(filepath.Join(appDir, "Contents", "Info.plist"), version); err != nil {
 		return fmt.Errorf("writing Info.plist: %w", err)
 	}
-
-	fmt.Println("done.")
-	fmt.Println("Unterlumen is now available in Spotlight and Launchpad.")
 	return nil
 }
 
@@ -119,8 +130,8 @@ func writeDarwinLaunchScript(path string) error {
 	return os.WriteFile(path, []byte(script), 0755)
 }
 
-func writeDarwinPlist(path string) error {
-	const content = `<?xml version="1.0" encoding="UTF-8"?>
+func writeDarwinPlist(path, version string) error {
+	content := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -135,7 +146,9 @@ func writeDarwinPlist(path string) error {
 	<key>CFBundleIdentifier</key>
 	<string>de.huepattl.unterlumen</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>` + version + `</string>
+	<key>CFBundleShortVersionString</key>
+	<string>` + version + `</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>NSHighResolutionCapable</key>

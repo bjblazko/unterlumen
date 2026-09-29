@@ -36,7 +36,7 @@ func TestKeepSettingsOnAFirstInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, found, _ := installation.Load()
-	if !found || got != (installation.Config{Port: desktopPort}) {
+	if !found || got != (installation.Config{Port: installation.DesktopPort}) {
 		t.Errorf("config.json = %+v; want only the port, the photo folder is chosen in the app", got)
 	}
 }

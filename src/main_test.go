@@ -128,8 +128,8 @@ func TestWithInstallationDefaultsToTheInstallationsOwnDataFolder(t *testing.T) {
 		t.Setenv(k, "")
 	}
 	got := withInstallation(config{port: 8080, libDir: "/home/me/.unterlumen"}, nil, installation.Config{}, "/default/lib")
-	if got.libDir != "/default/lib" || got.port != 8080 || len(got.args) != 0 {
-		t.Errorf("config = %+v; want the default data folder and no photo folder yet", got)
+	if got.libDir != "/default/lib" || got.port != installation.DesktopPort || len(got.args) != 0 {
+		t.Errorf("config = %+v; want the default data folder, the desktop port and no photo folder yet", got)
 	}
 }
 

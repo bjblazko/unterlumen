@@ -25,6 +25,11 @@ type Config struct {
 	Port        int    `json:"port,omitempty"`
 }
 
+// DesktopPort is the installed app's port, apart from the 8080 a server or a
+// development build uses. An app started from the .dmg has no config.json
+// on its first start and takes it from here.
+const DesktopPort = 8090
+
 // Path is where config.json lives: the user's configuration folder, the same
 // on every start whatever flags the launcher passes.
 func Path() (string, error) {
