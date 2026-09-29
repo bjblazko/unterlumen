@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-28*
+*Last modified: 2026-09-29*
 
 ## 1. Introduction and Goals
 
@@ -141,7 +141,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 
 | Package | Responsibility |
 |---------|---------------|
-| `main` | CLI flag parsing, HTTP server startup |
+| `main` | CLI flag parsing, HTTP server startup; `server.go` swaps the whole app when the setup saves a new configuration ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
+| `internal/installation` | `config.json` of the installed app (photo folder, data folder, destinations folder, port), reading an older launcher's flags, the `.unterlumen-shared` convention, the tools folder put in front of `PATH` ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
+| `internal/api/setup` | `/api/setup`, `/api/setup/shared`, `/api/setup/dirs` — the setup place; registered only when the app is configured by config.json |
 | `internal/api` | HTTP route registration; delegates to domain subpackages |
 | `internal/api/browse` | `/api/browse`, `/api/browse/dates`, `/api/browse/meta`, `/api/browse/folder-stats`, `/api/thumbnail`, `/api/image`, `/api/info` handlers |
 | `internal/api/export` | `/api/export/*` handlers; ZIP token store |
@@ -189,6 +191,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
+| `setup-place.js` | `SetupPane` — the setup (`#setup`): photo folder, sharing, data folder, helper programs; opened on a first start and from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `guide-place.js` | `GuidePane` — "How Unterlumen works": the model as a diagram and a paragraph per term ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `timeline-stream.js` | `TimelineStream` — the skeleton in typed arrays and the details in pages of 500, at most 40 kept |
 | `timeline-calendar.js` | `TimelineCalendar` — days and months in UTC from the first photo's day, date labels |
@@ -276,7 +279,9 @@ Browser                     Server                    Filesystem
 
 The binary and `web/` directory must be co-located (the server serves static files from `./web/` relative to the working directory). The start directory is determined by CLI argument, `UNTERLUMEN_ROOT_PATH` environment variable, or user home directory (in that priority order). See [ADR-0010](adr/0010-root-path-resolution.md).
 
-**Multiple installations against the same library.** A common variant runs two independent installations against the same photo folders — e.g. Docker on a NAS that also serves the files, plus a native install on a Mac mounting them over the network. `-lib-dir` (SQLite database, thumbnails, search index) is intentionally per-machine so each installation stays fast and usable offline. `-channels-dir` can optionally point both installations at the same directory to share channel definitions (but not library data or export output) between them. See [ADR-0023](adr/0023-shared-channel-config-directory.md).
+**Multiple installations against the same library.** A common variant runs two independent installations against the same photo folders — e.g. Docker on a NAS that also serves the files, plus a native install on a Mac mounting them over the network. `-lib-dir` (SQLite database, thumbnails, search index) is intentionally per-machine so each installation stays fast and usable offline. `-channels-dir` can optionally point both installations at the same directory to share channel definitions (but not library data or export output) between them. See [ADR-0023](adr/0023-shared-channel-config-directory.md). Without `-channels-dir`, a `.unterlumen-shared` folder inside the photo folder is used as that directory, so two installations share by convention ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)).
+
+**Installed app.** The one-line installers (`install/install.sh`, `install/install.ps1`, attached to every release and forwarded from huepattl.de) download a release, check it against `checksums.txt`, install ffmpeg, exiftool, cwebp and heif-convert from Homebrew, apt/dnf/pacman or winget, or from their makers into a `tools` folder beside `config.json`, and run `-desktop-install`. The launcher passes only `-desktop`; the photo folder, data folder and destinations folder are in `config.json` and are chosen in the app (`#setup`). See [ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md).
 
 ## 8. Crosscutting Concepts
 
@@ -353,6 +358,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0039](adr/0039-map-place.md) — The Map is a place, clustered in the browser
 - [ADR-0040](adr/0040-timeline-place.md) — The Timeline is a place, laid out in the browser from a skeleton
 - [ADR-0041](adr/0041-explaining-the-model-in-the-app.md) — The app explains its model where it is used
+- [ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md) — Installation: one line, setup in the browser, sharing by convention
 
 ## 10. Quality Requirements
 

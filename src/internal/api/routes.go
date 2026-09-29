@@ -14,6 +14,7 @@ import (
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	apisetup "huepattl.de/unterlumen/internal/api/setup"
 	apitimeline "huepattl.de/unterlumen/internal/api/timeline"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/jobs"
@@ -30,7 +31,10 @@ import (
 // libMgr is the library manager; may be nil if library support could not be initialised.
 // chStore is the global channel store; may be nil if the lib dir is not configured.
 // version is the build version string injected at link time (e.g. "v1.2.3" or "dev").
-func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string) http.Handler {
+// setup describes the installation when it is configured by config.json and
+// can be set up in the browser; nil when a folder argument or
+// UNTERLUMEN_ROOT_PATH decides instead.
+func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string, setup func() apisetup.Installation) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 	imageCache := media.NewImageCache(20)
@@ -40,7 +44,12 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		libMgr.SetJobs(jobReg)
 	}
 
-	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version))
+	needsSetup := false
+	if setup != nil {
+		apisetup.Handle(mux, setup)
+		needsSetup = setup().Saved.PhotosDir == ""
+	}
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, needsSetup))
 	mux.HandleFunc("/api/tools/check", handleToolsCheck())
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())

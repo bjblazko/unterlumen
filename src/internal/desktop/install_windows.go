@@ -8,20 +8,17 @@ import (
 	"strings"
 )
 
-func platformDefaults() InstallConfig {
-	home, _ := os.UserHomeDir()
-	appData := os.Getenv("APPDATA")
-	if appData == "" {
-		appData = filepath.Join(home, "AppData", "Roaming")
+// launcherPath is where the launcher of an installed app is.
+func launcherPath() string {
+	localAppData := os.Getenv("LOCALAPPDATA")
+	if localAppData == "" {
+		home, _ := os.UserHomeDir()
+		localAppData = filepath.Join(home, "AppData", "Local")
 	}
-	return InstallConfig{
-		Port:   8090,
-		Path:   filepath.Join(home, "Pictures"),
-		LibDir: filepath.Join(appData, "Unterlumen"),
-	}
+	return filepath.Join(localAppData, "Unterlumen", "launch.bat")
 }
 
-func platformInstall(config InstallConfig, execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte) error {
 	localAppData := os.Getenv("LOCALAPPDATA")
 	if localAppData == "" {
 		home, _ := os.UserHomeDir()
@@ -52,8 +49,7 @@ func platformInstall(config InstallConfig, execPath string, iconPNG []byte) erro
 	}
 
 	batPath := filepath.Join(installDir, "launch.bat")
-	bat := fmt.Sprintf("@echo off\r\n\"%s\" -desktop -port %d -lib-dir \"%s\" \"%s\"\r\n",
-		binaryDst, config.Port, config.LibDir, config.Path)
+	bat := fmt.Sprintf("@echo off\r\n\"%s\" -desktop\r\n", binaryDst)
 	if err := os.WriteFile(batPath, []byte(bat), 0644); err != nil {
 		return fmt.Errorf("writing launch.bat: %w", err)
 	}

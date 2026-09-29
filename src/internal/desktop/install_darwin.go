@@ -8,16 +8,13 @@ import (
 	"strconv"
 )
 
-func platformDefaults() InstallConfig {
+// launcherPath is where the launcher of an installed app is.
+func launcherPath() string {
 	home, _ := os.UserHomeDir()
-	return InstallConfig{
-		Port:   8090,
-		Path:   filepath.Join(home, "Pictures"),
-		LibDir: filepath.Join(home, "Library", "Application Support", "Unterlumen"),
-	}
+	return filepath.Join(home, "Applications", "Unterlumen.app", "Contents", "MacOS", "launch")
 }
 
-func platformInstall(config InstallConfig, execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot find home directory: %w", err)
@@ -51,7 +48,7 @@ func platformInstall(config InstallConfig, execPath string, iconPNG []byte) erro
 		fmt.Printf("Warning: icon generation failed (%v); bundle will have no icon\n", err)
 	}
 
-	if err := writeDarwinLaunchScript(filepath.Join(macOSDir, "launch"), config); err != nil {
+	if err := writeDarwinLaunchScript(filepath.Join(macOSDir, "launch")); err != nil {
 		return fmt.Errorf("writing launch script: %w", err)
 	}
 	if err := writeDarwinPlist(filepath.Join(appDir, "Contents", "Info.plist")); err != nil {
@@ -112,14 +109,13 @@ func generateDarwinIcon(iconPNG []byte, resourcesDir string) error {
 	return exec.Command("iconutil", "-c", "icns", iconsetDir, "-o", icnsPath).Run()
 }
 
-func writeDarwinLaunchScript(path string, config InstallConfig) error {
-	// Prepend common Homebrew and system tool locations. Apps launched from
-	// Spotlight or Launchpad receive a minimal PATH that excludes these dirs,
-	// causing tools like ffmpeg and exiftool to appear unavailable.
-	script := fmt.Sprintf(
-		"#!/bin/bash\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop -port %d -lib-dir %s %s\n",
-		config.Port, shellescape(config.LibDir), shellescape(config.Path),
-	)
+// writeDarwinLaunchScript writes the launcher. It passes no settings; those
+// are in config.json. It prepends common Homebrew and system tool locations:
+// apps launched from Spotlight or Launchpad receive a minimal PATH that
+// excludes these dirs, causing tools like ffmpeg and exiftool to appear
+// unavailable.
+func writeDarwinLaunchScript(path string) error {
+	const script = "#!/bin/bash\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop\n"
 	return os.WriteFile(path, []byte(script), 0755)
 }
 

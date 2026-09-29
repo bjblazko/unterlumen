@@ -17,9 +17,9 @@ import (
 	"syscall"
 	"time"
 
-	"huepattl.de/unterlumen/internal/api"
 	"huepattl.de/unterlumen/internal/channels"
 	"huepattl.de/unterlumen/internal/desktop"
+	"huepattl.de/unterlumen/internal/installation"
 	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -31,6 +31,7 @@ var Version = "dev"
 
 func main() {
 	cfg := parseConfig(flag.CommandLine, os.Args[1:])
+	installation.AddToolsToPath()
 
 	if cfg.desktopInstall {
 		iconData, _ := webFS.ReadFile("web/logo.png")
@@ -44,42 +45,61 @@ func main() {
 		media.SetCacheDir(cfg.cacheDir)
 	}
 
-	var absStart, absBoundary string
-	startDir, boundary, err := browseRoots(cfg.args, os.Getenv("UNTERLUMEN_ROOT_PATH"))
-	if err == nil {
-		absStart, absBoundary, err = absoluteRoots(startDir, boundary)
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	// The home folder relative to the boundary is the frontend's home button;
-	// "" (the boundary root) when home is outside the boundary.
-	var homeRelPath string
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		homeRelPath = homeRelative(absBoundary, homeDir)
-	}
-
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		log.Fatalf("Failed to sub web FS: %v", err)
 	}
-	// Server mode: explicitly deployed via UNTERLUMEN_ROOT_PATH (multi-user, restricted UI).
-	// Local mode: cmdline arg or default home dir; boundary still restricts navigation.
-	serverRole := os.Getenv("UNTERLUMEN_ROOT_PATH") != ""
-	libMgr, chStore := openStores(cfg, absBoundary)
-	mux := api.NewRouter(absBoundary, relativeStart(absBoundary, absStart), homeRelPath, sub, serverRole, libMgr, chStore, Version)
+	srv := newServer(sub, cfg, flag.CommandLine)
+	cfg, err = srv.start()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.bind, cfg.port)
-	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)
 	log.Printf("Listening on http://%s", addr)
 	if !cfg.desktop {
-		if err := http.ListenAndServe(addr, mux); err != nil {
+		if err := http.ListenAndServe(addr, srv); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 		return
 	}
-	serveDesktop(addr, mux)
+	serveDesktop(addr, srv)
+}
+
+// app is what one configuration serves: the browse root, the folder to start
+// in, the libraries and the destinations.
+type app struct {
+	boundary, start, home string // start and home relative to boundary
+	serverRole            bool
+	libMgr                *library.Manager
+	chStore               *channels.Store
+	channelsDir           string
+}
+
+// buildApp resolves the photo folder of cfg and opens its stores.
+func buildApp(cfg config) (app, error) {
+	startDir, boundary, err := browseRoots(cfg.args, os.Getenv("UNTERLUMEN_ROOT_PATH"))
+	var absStart, absBoundary string
+	if err == nil {
+		absStart, absBoundary, err = absoluteRoots(startDir, boundary)
+	}
+	if err != nil {
+		return app{}, err
+	}
+	a := app{boundary: absBoundary, start: relativeStart(absBoundary, absStart)}
+	// The home folder relative to the boundary is the frontend's home button;
+	// "" (the boundary root) when home is outside the boundary.
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		a.home = homeRelative(absBoundary, homeDir)
+	}
+	// Server mode: explicitly deployed via UNTERLUMEN_ROOT_PATH (multi-user, restricted UI).
+	// Local mode: cmdline arg, config.json or default home dir; boundary still restricts navigation.
+	a.serverRole = os.Getenv("UNTERLUMEN_ROOT_PATH") != ""
+	a.channelsDir = channelsDir(cfg, absStart)
+	a.libMgr, a.chStore = openStores(cfg.libDir, a.channelsDir, absBoundary)
+	log.Printf("Serving photos from %s (boundary: %s)", absStart, absBoundary)
+	return a, nil
 }
 
 // config is the command line, with defaults from the environment.
@@ -197,23 +217,32 @@ func homeRelative(absBoundary, homeDir string) string {
 	return ""
 }
 
+// channelsDir is where the destinations are kept: -channels-dir, else the
+// shared folder in the photo folder when there is one (installations that
+// show the same photos find each other there), else the lib dir.
+func channelsDir(cfg config, absStart string) string {
+	if cfg.channelsDir != "" {
+		return cfg.channelsDir
+	}
+	if shared := installation.FindShared(absStart); shared != "" {
+		return shared
+	}
+	return cfg.libDir
+}
+
 // openStores opens the library manager and the destination store, or leaves
-// them nil without a -lib-dir.
-func openStores(cfg config, absBoundary string) (*library.Manager, *channels.Store) {
-	if cfg.libDir == "" {
+// them nil without a lib dir.
+func openStores(libDir, channelsDir, absBoundary string) (*library.Manager, *channels.Store) {
+	if libDir == "" {
 		return nil, nil
 	}
 	var libMgr *library.Manager
-	if mgr, err := library.NewManager(cfg.libDir); err != nil {
+	if mgr, err := library.NewManager(libDir); err != nil {
 		log.Printf("Warning: library manager init failed: %v", err)
 	} else {
 		libMgr = mgr
 	}
-	cfgDir := cfg.channelsDir
-	if cfgDir == "" {
-		cfgDir = cfg.libDir
-	}
-	return libMgr, channels.NewStore(cfgDir, cfg.libDir).WithBoundary(absBoundary)
+	return libMgr, channels.NewStore(channelsDir, libDir).WithBoundary(absBoundary)
 }
 
 // serveDesktop serves in a Chrome app window and shuts down when the window

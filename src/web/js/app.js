@@ -67,7 +67,9 @@ const App = {
             this.config = cfg;
             this.toolsStatus = tools;
             this.currentBrowsePath = cfg.startPath || '';
-            this.setMode(this._modeFromHash(), { replaceHistory: true });
+            // Until the photo folder is chosen there is nothing to show but
+            // the setup.
+            this.setMode(cfg.needsSetup ? 'setup' : this._modeFromHash(), { replaceHistory: true });
         }).catch(() => {
             this.setMode(this._modeFromHash(), { replaceHistory: true });
         });
@@ -91,6 +93,8 @@ const App = {
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
         // Reached from the sentence under each place, not from the sidebar.
         guide: { hash: 'guide' },
+        // Opened on a first start, and from Settings.
+        setup: { hash: 'setup' },
     },
 
     initNav() {
@@ -275,7 +279,8 @@ const App = {
             this.currentBrowsePath = this.organize.pane.path;
         }
         // Settings is a place you step into and back out of: Done returns here.
-        if (mode === 'settings' && this.mode !== 'settings') {
+        // The setup is opened from Settings, and Cancel goes back the same way.
+        if (mode === 'settings' && this.mode !== 'settings' && this.mode !== 'setup') {
             this._placeBeforeSettings = this.mode || null;
         }
         this.mode = mode;
@@ -304,7 +309,7 @@ const App = {
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
         ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
-        ['_settingsEl', 'settings'], ['_guideEl', 'guide'],
+        ['_settingsEl', 'settings'], ['_guideEl', 'guide'], ['_setupEl', 'setup'],
     ],
 
     // Mark where we are. There is no "done" or "next" — these are places.
@@ -342,6 +347,7 @@ const App = {
             case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
             case 'guide': this._openPane('_guideEl', '_guidePane', GuidePane); break;
+            case 'setup': this._openPane('_setupEl', '_setupPane', SetupPane); break;
         }
     },
 

@@ -7,16 +7,13 @@ import (
 	"path/filepath"
 )
 
-func platformDefaults() InstallConfig {
+// launcherPath is where the launcher of an installed app is.
+func launcherPath() string {
 	home, _ := os.UserHomeDir()
-	return InstallConfig{
-		Port:   8090,
-		Path:   filepath.Join(home, "Pictures"),
-		LibDir: filepath.Join(home, ".local", "share", "unterlumen"),
-	}
+	return filepath.Join(home, ".local", "share", "unterlumen", "launch.sh")
 }
 
-func platformInstall(config InstallConfig, execPath string, iconPNG []byte) error {
+func platformInstall(execPath string, iconPNG []byte) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot find home directory: %w", err)
@@ -48,10 +45,7 @@ func platformInstall(config InstallConfig, execPath string, iconPNG []byte) erro
 	}
 
 	launchScript := filepath.Join(installDir, "launch.sh")
-	script := fmt.Sprintf(
-		"#!/bin/bash\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop -port %d -lib-dir %s %s\n",
-		config.Port, shellescape(config.LibDir), shellescape(config.Path),
-	)
+	const script = "#!/bin/bash\nDIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\nexec \"$DIR/unterlumen\" -desktop\n"
 	if err := os.WriteFile(launchScript, []byte(script), 0755); err != nil {
 		return fmt.Errorf("writing launch script: %w", err)
 	}

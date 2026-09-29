@@ -33,6 +33,13 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# The one-line installers (ADR-0042). Attached to every release, so
+# releases/latest/download/install.sh is always the newest one.
+release:
+  extra_files:
+    - glob: ./install/install.sh
+    - glob: ./install/install.ps1
+
 changelog:
   sort: asc
   filters:

@@ -19,6 +19,13 @@ class SettingsPane {
                 </div>
                 <div class="gal-body settings-body">
                     <p class="settings-guide">New to Unterlumen, or not sure what a library or a destination is? ${placeLink('guide', 'guide', 'How Unterlumen works')} explains it on one page.</p>
+                    ${App.config?.canSetup ? `
+                    <div class="form-field">
+                        <span class="form-label">Photo folder</span>
+                        <span class="settings-cache">${escapeHtml(App.config.boundary)}</span>
+                        <span class="form-hint">${placeLink('setup', 'setup', 'Change the photo folder or sharing')}</span>
+                    </div>` : ''}
+
                     <div class="form-field">
                         <span class="form-label">Theme</span>
                         <div class="seg" role="group" aria-label="Theme" id="settings-theme">
@@ -153,21 +160,6 @@ class SettingsPane {
                 return;
             }
         }
-        // Name what is there and what is missing, and what each one is for;
-        // "some tools missing" tells nobody which feature will not work. The
-        // check reports a mixture of shapes — {available: true} per tool plus
-        // plain fields like `platform` — so each tool is read by name.
-        const tools = [
-            ['exiftool', status.exiftool?.available, 'reading and writing metadata'],
-            ['ffmpeg', status.ffmpeg?.available, 'HEIF and video frames'],
-            ['sips', status.sips?.available, 'HEIF conversion on macOS'],
-            ['heif-convert', status.heifConvert?.available, 'HEIF conversion on Linux'],
-        ];
-        const found = tools.filter(([, ok]) => ok).map(([name]) => name);
-        const missing = tools.filter(([, ok]) => !ok);
-        el.textContent = [
-            found.length ? `${found.join(', ')} found` : 'No helper programs found',
-            missing.length ? `missing: ${missing.map(([name, , what]) => `${name} (${what})`).join(', ')}` : null,
-        ].filter(Boolean).join(' · ');
+        el.textContent = toolsSummary(status);
     }
 }

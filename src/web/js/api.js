@@ -91,6 +91,29 @@ const API = {
         return resp.json();
     },
 
+    // The setup (#setup): what config.json says, whether a folder holds a
+    // shared folder, and saving a new choice.
+    async setup() {
+        const resp = await fetch('/api/setup');
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async setupShared(photosPath) {
+        const resp = await fetch(`/api/setup/shared?${new URLSearchParams({ path: photosPath })}`);
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async saveSetup(choice) {
+        const resp = await fetch('/api/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(choice),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+    },
+
     async toolsCheck() {
         const resp = await fetch('/api/tools/check');
         if (!resp.ok) throw new Error(await resp.text());

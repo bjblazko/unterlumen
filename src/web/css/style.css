@@ -7018,6 +7018,40 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .settings-body .seg,
 .settings-body .toggle { align-self: flex-start; }
 
+/* --- Setup (ADR-0042) --- */
+
+.setup-lede {
+    color: var(--fg-2);
+}
+
+.setup-path {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+}
+
+.setup-path--none {
+    font-family: var(--font-sans);
+    color: var(--fg-3);
+}
+
+.setup-advanced summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--fg-2);
+}
+
+.setup-advanced[open] summary {
+    margin-bottom: var(--space-3);
+}
+
+.setup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
 /* Organize says what happened where it happened. */
 
 /* --- Map (ADR-0039) --- */

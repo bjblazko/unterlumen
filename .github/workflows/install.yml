@@ -1,0 +1,54 @@
+name: Installers
+
+# The one-line installers (install/, ADR-0042) install the newest release, so
+# they are checked whenever they change and after every release.
+on:
+  push:
+    paths:
+      - "install/**"
+      - ".github/workflows/install.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck install/install.sh
+
+  unix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install
+        run: sh install/install.sh
+        env:
+          UNTERLUMEN_SKIP_TOOLS: "1"
+      - name: The launcher is there
+        run: |
+          if [ "$(uname -s)" = Darwin ]; then
+            test -x "$HOME/Applications/Unterlumen.app/Contents/MacOS/launch"
+          else
+            test -x "$HOME/.local/share/unterlumen/launch.sh"
+            test -f "$HOME/.local/share/applications/unterlumen.desktop"
+          fi
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install
+        shell: powershell
+        run: ./install/install.ps1
+        env:
+          UNTERLUMEN_SKIP_TOOLS: "1"
+      - name: The launcher is there
+        shell: powershell
+        run: |
+          if (-not (Test-Path "$env:LOCALAPPDATA\Unterlumen\launch.bat")) { exit 1 }
+          if (-not (Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Unterlumen.lnk")) { exit 1 }

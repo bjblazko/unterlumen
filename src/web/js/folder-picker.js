@@ -7,6 +7,10 @@
 //
 // Usage: const path = await new FolderPicker().open(startPath, { title });
 //        Resolves with the chosen path relative to the browse root, or null.
+//
+// The setup chooses the browse root itself, so it walks the whole disk
+// instead: { disk: true } lists folders through /api/setup/dirs, whose paths
+// are absolute without the leading slash, and has no Libraries source.
 
 const FOLDER_PICKER_SOURCE_KEY = 'folderPicker.source';
 
@@ -20,10 +24,13 @@ class FolderPicker {
         this._onKeyDown = this._onKeyDown.bind(this);
     }
 
-    open(startPath = '', { title = 'Choose folder' } = {}) {
+    open(startPath = '', { title = 'Choose folder', disk = false, home = null } = {}) {
         return new Promise((resolve) => {
             this._resolve = resolve;
             this._currentPath = startPath;
+            this._disk = disk;
+            this._home = home;
+            if (disk) this._source = 'fs';
             this._build(title);
             document.addEventListener('keydown', this._onKeyDown);
             this._showSource(this._source, startPath);
@@ -60,7 +67,7 @@ class FolderPicker {
             size: 'md',
             className: 'fp-dialog',
             body: `
-                <div class="seg fp-sources" role="group" aria-label="Where to look">
+                <div class="seg fp-sources" role="group" aria-label="Where to look"${this._disk ? ' hidden' : ''}>
                     <button data-source="fs">Filesystem</button>
                     <button data-source="libs">Libraries</button>
                 </div>
@@ -82,7 +89,7 @@ class FolderPicker {
 
     _showSource(source, startPath = null) {
         this._source = source;
-        writeSource(source);
+        if (!this._disk) writeSource(source);
         for (const btn of this._overlay.querySelectorAll('[data-source]')) {
             btn.setAttribute('aria-pressed', String(btn.dataset.source === source));
         }
@@ -100,7 +107,7 @@ class FolderPicker {
         let data;
         try {
             const params = new URLSearchParams({ path: relPath || '' });
-            const resp = await fetch(`/api/browse/dirs?${params}`);
+            const resp = await fetch(`${this._disk ? '/api/setup/dirs' : '/api/browse/dirs'}?${params}`);
             if (!resp.ok) throw new Error(await resp.text());
             data = await resp.json();
         } catch (err) {
@@ -143,7 +150,7 @@ class FolderPicker {
         });
         // Home is the folder the server was started with (or the OS home), the
         // same place the Home button goes to while browsing.
-        const home = App.config?.homePath ?? App.config?.startPath ?? '';
+        const home = this._home ?? App.config?.homePath ?? App.config?.startPath ?? '';
         const homeBtn = `<button class="btn btn-sm fp-home" data-crumb="${escapeHtml(home)}"${path === home ? ' disabled' : ''}>Home</button>`;
         const up = (parent !== null && parent !== undefined)
             ? `<button class="btn btn-sm fp-up" data-crumb="${escapeHtml(String(parent))}">Up</button>`

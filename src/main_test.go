@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"huepattl.de/unterlumen/internal/installation"
 )
 
 func TestParseConfigTakesDefaultsFromTheEnvironment(t *testing.T) {
@@ -99,5 +101,48 @@ func TestRelativeStartAndHome(t *testing.T) {
 		if got := c.fn(c.boundary, c.path); got != c.want {
 			t.Errorf("(%q, %q) = %q, want %q", c.boundary, c.path, got, c.want)
 		}
+	}
+}
+
+func TestWithInstallationFlagThenEnvironmentThenFile(t *testing.T) {
+	t.Setenv("UNTERLUMEN_PORT", "")
+	t.Setenv("UNTERLUMEN_LIB_DIR", "/env/lib")
+	t.Setenv("UNTERLUMEN_CHANNELS_DIR", "")
+	saved := installation.Config{PhotosDir: "/photos", LibDir: "/file/lib", ChannelsDir: "/file/shared", Port: 8090}
+	cfg := config{port: 7000, libDir: "/env/lib"}
+
+	got := withInstallation(cfg, map[string]bool{"port": true}, saved, "/default/lib")
+	if got.port != 7000 {
+		t.Errorf("port = %d, want the flag's 7000", got.port)
+	}
+	if got.libDir != "/env/lib" {
+		t.Errorf("libDir = %q, want the environment's", got.libDir)
+	}
+	if got.channelsDir != "/file/shared" || !reflect.DeepEqual(got.args, []string{"/photos"}) {
+		t.Errorf("channelsDir = %q, args = %v, want config.json's", got.channelsDir, got.args)
+	}
+}
+
+func TestWithInstallationDefaultsToTheInstallationsOwnDataFolder(t *testing.T) {
+	for _, k := range []string{"UNTERLUMEN_PORT", "UNTERLUMEN_LIB_DIR", "UNTERLUMEN_CHANNELS_DIR"} {
+		t.Setenv(k, "")
+	}
+	got := withInstallation(config{port: 8080, libDir: "/home/me/.unterlumen"}, nil, installation.Config{}, "/default/lib")
+	if got.libDir != "/default/lib" || got.port != 8080 || len(got.args) != 0 {
+		t.Errorf("config = %+v; want the default data folder and no photo folder yet", got)
+	}
+}
+
+func TestChannelsDirFindsTheSharedFolder(t *testing.T) {
+	photos := t.TempDir()
+	if got := channelsDir(config{libDir: "/lib"}, photos); got != "/lib" {
+		t.Errorf("without a shared folder = %q, want the lib dir", got)
+	}
+	os.Mkdir(filepath.Join(photos, installation.SharedDirName), 0o755) //nolint:errcheck
+	if got := channelsDir(config{libDir: "/lib"}, photos); got != filepath.Join(photos, installation.SharedDirName) {
+		t.Errorf("with a shared folder = %q", got)
+	}
+	if got := channelsDir(config{libDir: "/lib", channelsDir: "/flag"}, photos); got != "/flag" {
+		t.Errorf("-channels-dir = %q, want it to win", got)
 	}
 }

@@ -58,6 +58,25 @@ function _ffmpegDep(ffmpeg, platform, install) {
     return { name: 'ffmpeg', desc, ok: true };
 }
 
+// toolsSummary names what is there and what is missing, and what each one
+// is for; "some tools missing" tells nobody which feature will not work. The
+// check reports a mixture of shapes — {available: true} per tool plus plain
+// fields like `platform` — so each tool is read by name.
+function toolsSummary(status) {
+    const tools = [
+        ['exiftool', status.exiftool?.available, 'reading and writing metadata'],
+        ['ffmpeg', status.ffmpeg?.available, 'HEIF and video frames'],
+        ['sips', status.sips?.available, 'HEIF conversion on macOS'],
+        ['heif-convert', status.heifConvert?.available, 'HEIF conversion on Linux'],
+    ];
+    const found = tools.filter(([, ok]) => ok).map(([name]) => name);
+    const missing = tools.filter(([, ok]) => !ok);
+    return [
+        found.length ? `${found.join(', ')} found` : 'No helper programs found',
+        missing.length ? `missing: ${missing.map(([name, , what]) => `${name} (${what})`).join(', ')}` : null,
+    ].filter(Boolean).join(' · ');
+}
+
 class DepsModal {
     open(status) {
         const deps = this._deps(status, status ? status.platform : 'unknown');

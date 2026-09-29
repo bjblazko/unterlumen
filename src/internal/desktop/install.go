@@ -1,77 +1,42 @@
 package desktop
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
+
+	"huepattl.de/unterlumen/internal/installation"
 )
 
-// InstallConfig holds the user-configured parameters baked into the installed launcher.
-type InstallConfig struct {
-	Port   int
-	Path   string // photos root directory (positional arg)
-	LibDir string // value for -lib-dir
-}
-
-// Install runs the interactive install wizard and creates a native app launcher.
-// execPath must be the path to the current running binary (from os.Executable).
-// iconPNG is the raw PNG bytes used as the app icon.
+// Install creates a native app launcher for the binary at execPath (from
+// os.Executable), with iconPNG as its icon. It asks nothing: the photo folder
+// is chosen in the app on its first start (#setup), and the settings an older
+// launcher carried as flags are kept in config.json first.
 func Install(execPath string, iconPNG []byte) error {
-	defaults := platformDefaults()
-	scanner := bufio.NewScanner(os.Stdin)
-
-	fmt.Println("\nUnterlumen Desktop Installer")
-	fmt.Println(strings.Repeat("-", 30))
-
-	port := promptInt(scanner, defaults.Port, "Port")
-	path := expandPath(promptString(scanner, defaults.Path, "Photos directory"))
-	libDir := expandPath(promptString(scanner, defaults.LibDir, "Library directory"))
-
-	fmt.Println()
-	return platformInstall(InstallConfig{Port: port, Path: path, LibDir: libDir}, execPath, iconPNG)
+	if err := keepSettings(launcherPath()); err != nil {
+		return fmt.Errorf("keeping the settings of the installed version: %w", err)
+	}
+	return platformInstall(execPath, iconPNG)
 }
 
-func promptString(scanner *bufio.Scanner, def, label string) string {
-	fmt.Printf("%s [%s]: ", label, def)
-	if !scanner.Scan() {
-		return def
+// keepSettings writes config.json when there is none yet: from the flags of
+// an older launcher at path, or with the app's own port on a first install.
+func keepSettings(path string) error {
+	if _, found, err := installation.Load(); found || err != nil {
+		return err
 	}
-	if v := strings.TrimSpace(scanner.Text()); v != "" {
-		return v
-	}
-	return def
-}
-
-func promptInt(scanner *bufio.Scanner, def int, label string) int {
-	fmt.Printf("%s [%d]: ", label, def)
-	if !scanner.Scan() {
-		return def
-	}
-	v := strings.TrimSpace(scanner.Text())
-	if v == "" {
-		return def
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		fmt.Printf("  Invalid number, using %d\n", def)
-		return def
-	}
-	return n
-}
-
-// expandPath expands a leading ~/ to the user's home directory.
-func expandPath(p string) string {
-	if strings.HasPrefix(p, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, p[2:])
+	cfg := installation.Config{Port: desktopPort}
+	if script, err := os.ReadFile(path); err == nil {
+		if old, ok := installation.FromLauncher(string(script)); ok {
+			cfg = old
 		}
 	}
-	return p
+	return installation.Save(cfg)
 }
+
+// desktopPort is the installed app's port, apart from the 8080 a server or a
+// development build uses.
+const desktopPort = 8090
 
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
@@ -88,9 +53,4 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(out, in)
 	return err
-}
-
-// shellescape wraps s in single quotes safe for use in POSIX shell scripts.
-func shellescape(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

@@ -127,6 +127,7 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map, the t
 
 - [Features](#features)
 - [Install](#install)
+  - [One line (recommended)](#one-line-recommended)
   - [macOS](#macos)
   - [Windows](#windows)
   - [Linux](#linux)
@@ -173,7 +174,27 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map, the t
 
 ## Install
 
-### Pre-built binary (recommended)
+### One line (recommended)
+
+Paste one line into a terminal. It downloads the newest release, checks it, installs the helper programs Unterlumen uses (ffmpeg, exiftool, cwebp, heif-convert), sets Unterlumen up as an app with an icon and opens it. Running the same line again updates it.
+
+**macOS and Linux** — open Terminal and paste:
+
+```
+curl -fsSL https://huepattl.de/unterlumen/install | sh
+```
+
+**Windows** — open PowerShell and paste:
+
+```
+irm https://huepattl.de/unterlumen/install.ps1 | iex
+```
+
+Unterlumen then opens on its setup page: choose the folder that holds your photos, and press *Set up Unterlumen*. If another Unterlumen installation already works in that folder — on a NAS, say — the page offers to share its destinations and galleries (see [Sharing channel config across installations](#sharing-channel-config-across-installations)). Settings links back to the setup to change the folder later.
+
+Where the helper programs come from: Homebrew when it is installed, otherwise, on a Mac, the makers' own downloads (ffmpeg by martin-riedl.de, exiftool from exiftool.org's SourceForge, cwebp from Google) into Unterlumen's own `tools` folder; apt, dnf or pacman on Linux (sudo asks for your password); winget on Windows. The scripts are [install/install.sh](install/install.sh) and [install/install.ps1](install/install.ps1) — read them before you run them if you like. `UNTERLUMEN_SKIP_TOOLS=1` leaves the helper programs alone, `UNTERLUMEN_VERSION=0.13.0` installs that version.
+
+### Download and install by hand
 
 Download the latest release for your platform from the [Releases page](https://github.com/bjblazko/unterlumen/releases) and extract the archive — you will get a single file called `unterlumen` (or `unterlumen.exe` on Windows).
 
@@ -200,12 +221,7 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
    ./unterlumen -desktop-install
    ```
 
-5. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
-   - **Port** — the internal network port the app uses (default: `8090`; fine to leave as-is unless something else is already using that port)
-   - **Photos directory** — the folder Unterlumen opens by default (default: `~/Pictures`). If you want to be able to browse **any folder** on your Mac — not just Pictures — type `/` here. That sets the root of your entire filesystem as the starting point and lets you navigate anywhere.
-   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `~/Library/Application Support/Unterlumen`)
-
-6. **Done.** Unterlumen now appears in **Spotlight** (press **Cmd + Space** and type "Unterlumen") and in **Launchpad**. You can close the Terminal window.
+5. **Done.** Open Unterlumen and choose your photo folder on its setup page. If you want to be able to browse **any folder** on your Mac, choose the top of the disk (`/`). Unterlumen now appears in **Spotlight** (press **Cmd + Space** and type "Unterlumen") and in **Launchpad**. You can close the Terminal window.
 
 > **If macOS blocks the app when you first open it** ("cannot be opened because the developer cannot be verified"), open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**. If that button does not appear (common on macOS Sonoma and later), open Terminal and run:
 > ```
@@ -227,12 +243,7 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
    .\unterlumen.exe -desktop-install
    ```
 
-4. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
-   - **Port** — the internal network port the app uses (default: `8090`)
-   - **Photos directory** — the folder Unterlumen opens by default (default: your Pictures folder). If you want to browse **any folder** on a drive, type the drive root here — for example `C:\` for your main drive, or `D:\` for a second drive. You can only browse within one drive root at a time; to switch drives, re-run `-desktop-install` and change this setting.
-   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `%APPDATA%\Unterlumen`)
-
-5. **Done.** Unterlumen now appears in the **Start Menu**. You can close the PowerShell window.
+4. **Done.** Unterlumen now appears in the **Start Menu**. You can close the PowerShell window. Open it and choose your photo folder on its setup page; to browse **any folder** on a drive, choose the drive itself, for example `C:`.
 
 #### Linux
 
@@ -253,16 +264,11 @@ The installer sets Unterlumen up as a proper desktop application with an icon, s
    ./unterlumen -desktop-install
    ```
 
-5. **Answer the three prompts** — press **Enter** at each one to accept the default, or type your own value before pressing Enter:
-   - **Port** — the internal network port the app uses (default: `8090`)
-   - **Photos directory** — the folder Unterlumen opens by default (default: `~/Pictures`). If you want to be able to browse **any folder** on your system — not just Pictures — type `/` here. That sets the filesystem root as the starting point and lets you navigate anywhere.
-   - **Library directory** — where Unterlumen stores its database and thumbnails (default: `~/.local/share/unterlumen`)
-
-6. **Done.** Unterlumen now appears in your application launcher (GNOME Activities, KDE application menu, etc.). You can close the terminal window.
+5. **Done.** Unterlumen now appears in your application launcher (GNOME Activities, KDE application menu, etc.). You can close the terminal window. Open it and choose your photo folder on its setup page; `/` lets you browse any folder.
 
 #### Re-installing or updating
 
-To update Unterlumen, download the new binary and run `-desktop-install` again — it overwrites the previous installation automatically.
+To update Unterlumen, run the one line again, or download the new binary and run `-desktop-install` again — it replaces the app and keeps your settings. They are in `config.json` in Unterlumen's configuration folder (`~/Library/Application Support/Unterlumen` on macOS, `%APPDATA%\Unterlumen` on Windows, `~/.config/Unterlumen` on Linux). Installing over an older version copies the settings its launcher carried into that file first.
 
 ### Docker / Podman
 
@@ -310,7 +316,7 @@ You can also run Unterlumen directly from the terminal without installing it. Th
 | `-lib-dir` | `~/.unterlumen` | Root directory for library data (env: `UNTERLUMEN_LIB_DIR`) |
 | `-channels-dir` | (same as `-lib-dir`) | Directory for `channels.json`; override to share channel config across installations (env: `UNTERLUMEN_CHANNELS_DIR`) |
 | `-desktop` | off | Open in a Chrome/Chromium app window (no URL bar). Server exits when the window is closed. Falls back to the default browser if Chrome is not found. |
-| `-desktop-install` | — | Interactive installer: sets up a native app launcher with icon (macOS `.app`, Linux `.desktop`, Windows Start Menu shortcut). |
+| `-desktop-install` | — | Installer: sets up a native app launcher with icon (macOS `.app`, Linux `.desktop`, Windows Start Menu shortcut). It asks nothing; the app is set up on its first start. |
 
 **Environment variables:**
 
@@ -321,6 +327,8 @@ You can also run Unterlumen directly from the terminal without installing it. Th
 | `UNTERLUMEN_ROOT_PATH` | Restrict navigation to this directory. The server starts here and users cannot navigate above it. Takes effect only when no `directory` argument is provided. |
 | `UNTERLUMEN_LIB_DIR` | Root directory for library data (SQLite databases, thumbnails, channel exports). Default: `~/.unterlumen`. Overridden by `-lib-dir` flag. |
 | `UNTERLUMEN_CHANNELS_DIR` | Directory for `channels.json`. Default: same as `-lib-dir`. Overridden by `-channels-dir` flag. See [Sharing channel config across installations](#sharing-channel-config-across-installations). |
+
+**The installed app's settings:** started without a `directory` and without `UNTERLUMEN_ROOT_PATH` — the way the installed app's launcher starts it — Unterlumen reads its photo folder, `-lib-dir`, `-channels-dir` and port from `config.json` in its configuration folder, and opens the setup page when no photo folder is set. A flag or an environment variable still wins over the file.
 
 **Path resolution priority:**
 
@@ -402,6 +410,8 @@ docker run -p 8080:8080 \
 # Mac (native), same folder reachable over the network mount:
 ./unterlumen -channels-dir "/Volumes/<share>/.unterlumen-shared" ~/Pictures
 ```
+
+**By convention:** a folder named `.unterlumen-shared` directly inside the photo folder is used this way without any flag — so with the NAS example above, the Mac only has to pick the same photo folder on its setup page, which offers to share. The setup page also makes the folder when you choose to share and none is there yet, and copies this installation's destinations into it; what is already shared there is never overwritten.
 
 Notes:
 - The mount used for `UNTERLUMEN_CHANNELS_DIR` must be writable (the read-only `:ro` mount shown above works for browsing but not for a channels directory located on it).

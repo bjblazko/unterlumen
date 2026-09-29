@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-09-27*
+*Last modified: 2026-09-29*
 
 ## Project
 
@@ -46,7 +46,7 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0038)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0042)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 
@@ -90,6 +90,8 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 Non-obvious bugs that have already occurred and are easy to repeat:
 
 - **Paths: two views of the same photos.** The same tree is reached as a container path on the NAS and as a mounted path on the Mac, so a path string that is right in one view is silently wrong in the other. Before using any path, say which kind it is: *browse-root relative* (what the folder picker and API bodies carry) goes through `pathguard.SafePath(root, rel)` on the Go side and never through a `filepath.Join` against the process working directory; *absolute, headed back to the UI* goes through `absPathRelativeToBoundary(abs, boundary)` in `src/web/js/api.js`, whose `null` means "outside the root" and must be reported rather than dropped; *shared configuration* (`channels.json` in `-channels-dir`) must hold no machine-local absolute path — a destination's output folder lives in `output-paths.json` under the installation's own `-lib-dir` ([ADR-0035](doc/architecture/adr/0035-shared-album-register.md)); `channels.Store.Save` never writes it to the shared file, and a legacy value there is read only where that folder exists; *`-lib-dir` content* (library DBs, thumbnails, generated output) may be absolute, it never leaves the machine. Two shipped bugs came from getting this wrong: batch rename stripped a leading `/` to make a path relative (right only when the browse root is `/`, a doubled nonexistent path otherwise), and a destination's output path was handed to the filesystem as picked, resolving against the working directory — every gallery of that destination then vanished from the overview.
+
+- **config.json is only the installed app's** ([ADR-0042](doc/architecture/adr/0042-installation-one-line-setup-in-the-browser.md)): `internal/installation` reads `config.json` from the user's configuration folder only when the binary is started with neither a folder argument nor `UNTERLUMEN_ROOT_PATH` — how the launcher starts it. Dev runs, e2e and the container always name a folder, so they never touch it; keep it that way, or a dev run silently opens the desktop app's libraries. `#setup` and `/api/setup*` exist only in that mode. A `.unterlumen-shared` folder in the photo folder is used as `-channels-dir` in every mode when none is given.
 
 - **Library filter — one path, results replace what they filter**: the overview and a library's detail both host the same `LibraryFilterPanel` through `LibraryTab._mountFilter` (`src/web/js/library.js`); only the starting scope differs. Its results live in `_resultsPane`, which replaces the list of libraries or the library's folders (`_filterUnderEl`) while it is shown, and is kept but hidden after ×. Keyboard, info panel and selection must go through `getActivePaneForKeyboard()`: it returns the results pane only while it is visible, otherwise `_pane`. That is `null` in the overview, so a caller must handle "no pane". Never use `_resultsPane` directly just because it exists; a hidden results pane taking keys was a shipped bug.
 
