@@ -62,5 +62,5 @@ Stage 2 — NAS and containers:
 Stage 3 — store entries (decided 2026-09-29: only what can be self-hosted, nothing submitted to other projects' stores; the owner chose the Portainer template):
 
 - [x] Portainer template at huepattl.de/unterlumen/portainer.json, a compose stack from `packaging/portainer/compose.yml`
-- [ ] Deployed through a real Portainer
+- [x] Deployed through a real Portainer (2.45.1, as the API deploys an App Template: from the repository, uid 1026:100, volumes as named)
 - Not done, by decision: Unraid Community Applications, CasaOS, Umbrel, TrueNAS catalog (each needs a submission to, or a repository for, another project)
