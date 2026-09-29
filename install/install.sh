@@ -49,7 +49,9 @@ download() {
     curl -fsSL -o "$dir/$name" "$REPO/releases/download/v$version/$name" || fail "the download of $name failed."
     curl -fsSL -o "$dir/checksums.txt" "$REPO/releases/download/v$version/checksums.txt" || fail "the checksums of the release could not be downloaded."
     want=$(grep " $name\$" "$dir/checksums.txt" | cut -d ' ' -f 1)
-    [ -n "$want" ] && [ "$want" = "$(sha256 "$dir/$name")" ] || fail "the download is not the file the release lists. Nothing was installed."
+    if [ -z "$want" ] || [ "$want" != "$(sha256 "$dir/$name")" ]; then
+        fail "the download is not the file the release lists. Nothing was installed."
+    fi
     tar -xzf "$dir/$name" -C "$dir"
 }
 
