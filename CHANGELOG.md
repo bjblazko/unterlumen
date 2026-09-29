@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-29
+
 ### Added
 - **Install with one line.** `curl -fsSL https://huepattl.de/unterlumen/install | sh` on macOS and Linux, `irm https://huepattl.de/unterlumen/install.ps1 | iex` in Windows PowerShell. The installer downloads the newest release, checks it against the release's checksums, installs ffmpeg, exiftool, cwebp and heif-convert (with Homebrew, apt, dnf, pacman or winget, or from their makers' downloads on a Mac without Homebrew), sets up the app and starts it. Running it again updates Unterlumen. On a Mac nothing needs `xattr` or "Open Anyway" any more. Both scripts are attached to every release.
 - **Set up in the app.** The installed app opens on a setup page on its first start: choose the folder that holds your photos, and whether destinations are shared with another installation; the data folder can be changed there too. Saving takes effect at once. Settings shows the photo folder and links to the setup to change it. If the photo folder is missing when the app starts — a NAS that is not connected — the setup opens and says so instead of the app not starting.
