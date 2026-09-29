@@ -49,8 +49,8 @@ Stage 1b — download packages:
 - [x] `.dmg` with a universal `Unterlumen.app`, built in CI with free tools (`packaging/macos/build-dmg.sh`)
 - [x] Windows setup (Inno Setup) with Start menu entry and uninstaller, per user without admin rights
 - [x] "Install the missing ones" in Settings and the setup (macOS, Windows; the command on Linux)
-- [ ] Both packages attached to a release
-- [ ] huepattl.de: installation note at the top, a guide to which way fits which setup at the bottom, the one click through Gatekeeper/SmartScreen
+- [x] Both packages attached to a release (0.14.1)
+- [x] huepattl.de: installation note at the top, a guide to which way fits which setup at the bottom, the one click through Gatekeeper/SmartScreen (without screenshots of the system dialogs)
 
 Stage 2 — NAS and containers:
 
