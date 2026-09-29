@@ -411,6 +411,8 @@ volumes:
   unterlumen-cache:
 ```
 
+**Portainer:** enter `https://huepattl.de/unterlumen/portainer.json` under *Settings → App Templates*; Unterlumen then appears under *App Templates* and asks for the photo folder, its owner and the port. (That URL replaces the templates Portainer lists by default.)
+
 The image keeps its libraries in `/data` (`UNTERLUMEN_LIB_DIR`) and its cache in `/cache`; both are writable for any user, so `user:` can be the owner of the photos.
 
 ### Sharing channel config across installations

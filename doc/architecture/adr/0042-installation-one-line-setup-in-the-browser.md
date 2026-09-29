@@ -127,5 +127,8 @@ then:
    (`/products/unterlumen-nas.html`) is a page with a script that writes the
    `compose.yml` and the steps per NAS in the browser — no service on the
    server, since nothing in it needs one.
-4. Store entries: Unraid Community Applications, CasaOS, Umbrel, a Portainer
-   template URL.
+4. Store entries (2026-09-29): only the Portainer template URL,
+   `huepattl.de/unterlumen/portainer.json` (format 3, a compose stack from
+   `packaging/portainer/compose.yml` with PHOTOS, OWNER and PORT), since it
+   is the only one that needs no submission to another project. Unraid,
+   CasaOS, Umbrel and TrueNAS are left out on purpose.

@@ -1,0 +1,19 @@
+# Unterlumen as a Portainer stack. The template at
+# https://huepattl.de/unterlumen/portainer.json points here and asks for
+# PHOTOS, OWNER and PORT (ADR-0042, stage 3).
+services:
+  unterlumen:
+    image: ghcr.io/bjblazko/unterlumen:latest
+    # The owner of the photos: Unterlumen writes there (sidecars, moves, deletions).
+    user: "${OWNER:-1000:1000}"
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - "${PHOTOS:?the photo folder on the host}:/photos"
+      - unterlumen-data:/data
+      - unterlumen-cache:/cache
+    restart: unless-stopped
+
+volumes:
+  unterlumen-data:
+  unterlumen-cache:

@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A Portainer template.** Enter `https://huepattl.de/unterlumen/portainer.json` under Settings → App Templates in Portainer, and Unterlumen is one of its App Templates: it asks for the photo folder, the owner of the photos and the port, and deploys `packaging/portainer/compose.yml` from this repository with the libraries in a volume. The NAS page on huepattl.de names it among the Portainer steps.
+
 ## [0.14.2] - 2026-09-29
 
 ### Added

@@ -59,4 +59,8 @@ Stage 2 — NAS and containers:
 - [x] Sharing in server mode (Settings → Sharing), the photo folder stays fixed
 - [x] Released (0.14.2), and the wizard live on huepattl.de
 
-Stage 3 — store entries (Unraid, CasaOS, Umbrel, Portainer template URL)
+Stage 3 — store entries (decided 2026-09-29: only what can be self-hosted, nothing submitted to other projects' stores; the owner chose the Portainer template):
+
+- [x] Portainer template at huepattl.de/unterlumen/portainer.json, a compose stack from `packaging/portainer/compose.yml`
+- [ ] Deployed through a real Portainer
+- Not done, by decision: Unraid Community Applications, CasaOS, Umbrel, TrueNAS catalog (each needs a submission to, or a repository for, another project)
