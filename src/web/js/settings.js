@@ -59,6 +59,7 @@ class SettingsPane {
                         <span class="form-label">Helper programs</span>
                         <span class="settings-tools" id="settings-tools">Checking…</span>
                         <div><button class="btn btn-sm" id="settings-check-deps">What these are for</button></div>
+                        <div class="tools-install" id="settings-tools-install"></div>
                     </div>
                 </div>
             </div>`;
@@ -160,6 +161,10 @@ class SettingsPane {
                 return;
             }
         }
-        el.textContent = toolsSummary(status);
+        const show = (s) => {
+            el.textContent = toolsSummary(s);
+            mountToolsInstall(this.container.querySelector('#settings-tools-install'), s, show);
+        };
+        show(status);
     }
 }

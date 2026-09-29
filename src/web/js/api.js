@@ -128,6 +128,12 @@ const API = {
         return result.cancelled ? null : result.path;
     },
 
+    // Installs the missing helper programs and waits until that is done.
+    async installTools() {
+        const resp = await fetch('/api/tools/install', { method: 'POST' });
+        if (!resp.ok) throw new Error(await resp.text());
+    },
+
     async toolsCheck() {
         const resp = await fetch('/api/tools/check');
         if (!resp.ok) throw new Error(await resp.text());

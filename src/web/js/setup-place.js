@@ -65,6 +65,7 @@ class SetupPane {
                         <span class="form-label">Helper programs</span>
                         <span class="settings-tools" id="setup-tools">Checking…</span>
                         <div><button class="btn btn-sm" id="setup-deps">What these are for</button></div>
+                        <div class="tools-install" id="setup-tools-install"></div>
                     </div>
 
                     <div id="setup-error"></div>
@@ -80,7 +81,11 @@ class SetupPane {
         this.container.querySelector('#setup-save').addEventListener('click', (e) => this._save(e.currentTarget));
         this.container.querySelector('#setup-cancel')?.addEventListener('click', () => App.setMode('settings'));
         this.container.querySelector('#setup-deps').addEventListener('click', () => new DepsModal().open(App.toolsStatus));
-        this.container.querySelector('#setup-tools').textContent = App.toolsStatus ? toolsSummary(App.toolsStatus) : 'The helper check did not answer.';
+        const showTools = (status) => {
+            this.container.querySelector('#setup-tools').textContent = status ? toolsSummary(status) : 'The helper check did not answer.';
+            mountToolsInstall(this.container.querySelector('#setup-tools-install'), status, showTools);
+        };
+        showTools(App.toolsStatus);
         this._showPhotos();
     }
 

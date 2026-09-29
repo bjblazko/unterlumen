@@ -55,7 +55,11 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		apifolderdialog.Handle(mux)
 	}
 	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, needsSetup, folderDialog))
-	mux.HandleFunc("/api/tools/check", handleToolsCheck())
+	// Only the installed app installs programs on its computer.
+	mux.HandleFunc("/api/tools/check", handleToolsCheck(setup != nil))
+	if setup != nil {
+		mux.HandleFunc("POST /api/tools/install", handleToolsInstall(jobReg))
+	}
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
 	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))

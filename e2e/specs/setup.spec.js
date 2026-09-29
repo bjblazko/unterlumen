@@ -102,4 +102,30 @@ test.describe('Setup in the browser', () => {
         const channels = await (await fetch(URL + '/api/channels/')).json();
         expect(channels.map(c => c.slug)).toContain('e2e-shared');
     });
+
+    test('missing helper programs are installed from the setup', async ({ page }) => {
+        const missing = { platform: 'darwin', exiftool: { available: false }, ffmpeg: { available: false }, sips: { available: true }, heifConvert: { available: false },
+            install: { missing: ['ffmpeg', 'exiftool', 'cwebp'], canInstall: true, how: "the makers' downloads" } };
+        const found = { platform: 'darwin', exiftool: { available: true }, ffmpeg: { available: true, heifSupport: true, webpSupport: true }, sips: { available: true }, heifConvert: { available: false },
+            install: { missing: [], canInstall: false } };
+        let installed = false;
+        await page.route('**/api/tools/check', (route) => route.fulfill({ json: installed ? found : missing }));
+        await page.route('**/api/tools/install', (route) => { installed = true; return route.fulfill({ status: 204 }); });
+
+        await page.goto(URL + '/#setup');
+        await expect(page.locator('#setup-tools')).toContainText('missing: exiftool');
+        await expect(page.locator('#setup-tools-install')).toContainText("From the makers' downloads");
+        await page.locator('#setup-tools-install button').click();
+        await expect(page.locator('#setup-tools')).toHaveText(/^exiftool, ffmpeg, sips found/);
+        await expect(page.locator('#setup-tools-install')).toBeHidden();
+    });
+
+    test('on Linux the setup shows the command instead', async ({ page }) => {
+        await page.route('**/api/tools/check', (route) => route.fulfill({ json: {
+            platform: 'linux', exiftool: { available: false }, ffmpeg: { available: true }, sips: { available: false }, heifConvert: { available: false },
+            install: { missing: ['exiftool', 'heif-convert'], canInstall: false, command: 'sudo apt-get install -y ffmpeg libimage-exiftool-perl libheif-examples webp' } } }));
+        await page.goto(URL + '/#setup');
+        await expect(page.locator('#setup-tools-install .tools-command')).toHaveText(/^sudo apt-get install/);
+        await expect(page.locator('#setup-tools-install button')).toHaveCount(0);
+    });
 });

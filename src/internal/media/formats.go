@@ -60,105 +60,59 @@ type FFmpegStatus struct {
 	ErrorMessage string
 }
 
-var (
-	ffmpegStatus     FFmpegStatus
-	ffmpegStatusOnce sync.Once
-)
-
 // CheckFFmpeg checks whether ffmpeg is installed and supports HEIF decoding.
-// The result is cached for the lifetime of the process.
-func CheckFFmpeg() FFmpegStatus {
-	ffmpegStatusOnce.Do(func() {
-		path, err := exec.LookPath("ffmpeg")
-		if err != nil || path == "" {
-			ffmpegStatus = FFmpegStatus{
-				Available:    false,
-				ErrorMessage: "ffmpeg is not installed. HEIF/HEIC files cannot be displayed. Install ffmpeg (https://ffmpeg.org) to enable HEIF support.",
-			}
-			return
+// The result is kept until RecheckTools.
+func CheckFFmpeg() FFmpegStatus { return ffmpegCheck.get() }
+
+func lookFFmpeg() FFmpegStatus {
+	var status FFmpegStatus
+	path, err := exec.LookPath("ffmpeg")
+	if err != nil || path == "" {
+		return FFmpegStatus{
+			Available:    false,
+			ErrorMessage: "ffmpeg is not installed. HEIF/HEIC files cannot be displayed. Install ffmpeg (https://ffmpeg.org) to enable HEIF support.",
 		}
+	}
+	status.Available = true
 
-		ffmpegStatus.Available = true
+	var out bytes.Buffer
+	cmd, cancel := commandWithTimeout("ffmpeg", "-decoders")
+	cmd.Stdout = &out
+	cmd.Stderr = &bytes.Buffer{}
+	err = cmd.Run()
+	cancel()
+	if err != nil {
+		status.ErrorMessage = "ffmpeg is installed but its decoder list could not be checked. HEIF/HEIC files may not display correctly."
+		return status
+	}
+	if strings.Contains(out.String(), "hevc") {
+		status.HEIFSupport = true
+	} else {
+		status.ErrorMessage = "ffmpeg is installed but lacks HEVC/HEIF decoder support. HEIF/HEIC files cannot be displayed. Reinstall ffmpeg with HEIF support (e.g. 'brew install ffmpeg' on macOS or install libheif/libde265)."
+	}
 
-		var out bytes.Buffer
-		cmd, cancel := commandWithTimeout("ffmpeg", "-decoders")
-		cmd.Stdout = &out
-		cmd.Stderr = &bytes.Buffer{}
-		err = cmd.Run()
-		cancel()
-		if err != nil {
-			ffmpegStatus.HEIFSupport = false
-			ffmpegStatus.ErrorMessage = "ffmpeg is installed but its decoder list could not be checked. HEIF/HEIC files may not display correctly."
-			return
-		}
-
-		if strings.Contains(out.String(), "hevc") {
-			ffmpegStatus.HEIFSupport = true
-		} else {
-			ffmpegStatus.HEIFSupport = false
-			ffmpegStatus.ErrorMessage = "ffmpeg is installed but lacks HEVC/HEIF decoder support. HEIF/HEIC files cannot be displayed. Reinstall ffmpeg with HEIF support (e.g. 'brew install ffmpeg' on macOS or install libheif/libde265)."
-		}
-
-		var encOut bytes.Buffer
-		encCmd, encCancel := commandWithTimeout("ffmpeg", "-encoders")
-		encCmd.Stdout = &encOut
-		encCmd.Stderr = &bytes.Buffer{}
-		encErr := encCmd.Run()
-		encCancel()
-		if encErr == nil {
-			ffmpegStatus.WebPSupport = strings.Contains(encOut.String(), "webp")
-		}
-	})
-
-	return ffmpegStatus
+	var encOut bytes.Buffer
+	encCmd, encCancel := commandWithTimeout("ffmpeg", "-encoders")
+	encCmd.Stdout = &encOut
+	encCmd.Stderr = &bytes.Buffer{}
+	encErr := encCmd.Run()
+	encCancel()
+	if encErr == nil {
+		status.WebPSupport = strings.Contains(encOut.String(), "webp")
+	}
+	return status
 }
-
-var (
-	sipsAvailable     bool
-	sipsAvailableOnce sync.Once
-)
 
 // CheckSips returns true if sips (macOS built-in image tool) is available.
-// The result is cached for the lifetime of the process.
-func CheckSips() bool {
-	sipsAvailableOnce.Do(func() {
-		path, err := exec.LookPath("sips")
-		sipsAvailable = err == nil && path != ""
-	})
-	return sipsAvailable
-}
-
-var (
-	cwebpAvailable     bool
-	cwebpAvailableOnce sync.Once
-)
+func CheckSips() bool { return sipsCheck.get() }
 
 // CheckCwebp returns true if cwebp (from libwebp / brew install webp) is available.
 // Used as a WebP encoder fallback when ffmpeg lacks libwebp support.
-// The result is cached for the lifetime of the process.
-func CheckCwebp() bool {
-	cwebpAvailableOnce.Do(func() {
-		path, err := exec.LookPath("cwebp")
-		cwebpAvailable = err == nil && path != ""
-	})
-	return cwebpAvailable
-}
-
-var (
-	heifConvertAvailable     bool
-	heifConvertAvailableOnce sync.Once
-)
+func CheckCwebp() bool { return cwebpCheck.get() }
 
 // CheckHeifConvert returns true if heif-convert (from libheif-examples) is available.
 // Used as the primary HEIF/HEIC decoder on Linux when ffmpeg lacks libheif support.
-// The result is cached for the lifetime of the process.
-func CheckHeifConvert() bool {
-	heifConvertAvailableOnce.Do(func() {
-		path, err := exec.LookPath("heif-convert")
-		heifConvertAvailable = err == nil && path != ""
-	})
-	return heifConvertAvailable
-}
+func CheckHeifConvert() bool { return heifConvertCheck.get() }
 
 // --- Persistent disk cache ---
 

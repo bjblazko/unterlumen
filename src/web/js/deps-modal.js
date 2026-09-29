@@ -77,6 +77,41 @@ function toolsSummary(status) {
     ].filter(Boolean).join(' · ');
 }
 
+// mountToolsInstall offers to install what is missing, in wrap: a button in
+// the installed app on macOS and Windows, the command to run on Linux, and
+// nothing when all is there. onInstalled gets the new status.
+function mountToolsInstall(wrap, status, onInstalled) {
+    const plan = status?.install;
+    wrap.innerHTML = '';
+    if (!plan?.missing?.length) return;
+    if (!plan.canInstall) {
+        if (plan.command) {
+            wrap.innerHTML = `<span class="form-hint">To install them, run this in a terminal:</span>
+                <code class="tools-command">${escapeHtml(plan.command)}</code>`;
+        }
+        return;
+    }
+    wrap.innerHTML = `<div><button class="btn btn-sm" type="button">Install the missing ones</button></div>
+        <span class="form-hint">From ${escapeHtml(plan.how)}. It takes a minute or two; you can go on meanwhile.</span>
+        <div class="tools-install-result"></div>`;
+    const btn = wrap.querySelector('button');
+    const result = wrap.querySelector('.tools-install-result');
+    btn.addEventListener('click', async () => {
+        const restore = Activity.button(btn, 'Installing…');
+        result.innerHTML = '';
+        try {
+            await API.installTools();
+        } catch (err) {
+            restore();
+            result.innerHTML = `<div class="gal-detail-error">${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        const fresh = await API.toolsCheck().catch(() => status);
+        App.toolsStatus = fresh;
+        onInstalled(fresh);
+    });
+}
+
 class DepsModal {
     open(status) {
         const deps = this._deps(status, status ? status.platform : 'unknown');

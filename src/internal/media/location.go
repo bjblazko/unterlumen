@@ -4,23 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"os/exec"
-	"sync"
-)
-
-var (
-	hasExiftool     bool
-	exiftoolChecked sync.Once
 )
 
 // CheckExiftool returns true if exiftool is available on the system.
-func CheckExiftool() bool {
-	exiftoolChecked.Do(func() {
-		path, err := exec.LookPath("exiftool")
-		hasExiftool = err == nil && path != ""
-	})
-	return hasExiftool
-}
+func CheckExiftool() bool { return exiftoolCheck.get() }
 
 // RemoveGPSLocation strips all GPS EXIF tags from the image file at absPath using exiftool.
 func RemoveGPSLocation(absPath string) error {
