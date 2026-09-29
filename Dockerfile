@@ -38,8 +38,13 @@ RUN apt-get update \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root user
-RUN useradd -u 1000 -m unterlumen
+# Non-root user. /data and /cache exist in the image and are writable for any
+# user, because a NAS often runs the container as the owner of the photos
+# (user: in compose) rather than as 1000, and a named volume takes its
+# permissions from here.
+RUN useradd -u 1000 -m unterlumen \
+    && mkdir -p /data /cache \
+    && chmod 0777 /data /cache
 USER unterlumen
 
 COPY --from=builder /unterlumen /unterlumen
@@ -49,13 +54,17 @@ COPY --from=builder /unterlumen /unterlumen
 #   UNTERLUMEN_PORT=8080         — standard port
 #   UNTERLUMEN_ROOT_PATH=/photos — server mode, navigation locked to mount
 #   UNTERLUMEN_CACHE_DIR=/cache  — persistent cache volume; mount /cache for reuse across restarts
+#   UNTERLUMEN_LIB_DIR=/data     — libraries, their thumbnails and what Publish builds; mount
+#                                  /data, or they are gone when the container is replaced
 ENV UNTERLUMEN_BIND=0.0.0.0 \
     UNTERLUMEN_PORT=8080 \
     UNTERLUMEN_ROOT_PATH=/photos \
-    UNTERLUMEN_CACHE_DIR=/cache
+    UNTERLUMEN_CACHE_DIR=/cache \
+    UNTERLUMEN_LIB_DIR=/data
 
 VOLUME /photos
 VOLUME /cache
+VOLUME /data
 EXPOSE 8080
 
 ENTRYPOINT ["/unterlumen"]

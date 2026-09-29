@@ -29,6 +29,7 @@ type server struct {
 	channelsDir   string
 	defaultLibDir string
 	problem       string // why the saved photo folder is not shown, for the setup
+	boundary      string // the photo folder being served
 }
 
 func newServer(web fs.FS, flags config, fset *flag.FlagSet) *server {
@@ -94,14 +95,33 @@ func (s *server) build(saved installation.Config) (config, error) {
 	if err != nil {
 		return cfg, err
 	}
-	var setup func() apisetup.Installation
+	s.saved, s.channelsDir, s.boundary = saved, app.channelsDir, app.boundary
+	var hooks apisetup.Hooks
 	if s.managed {
-		s.saved, s.channelsDir = saved, app.channelsDir
-		setup = s.installation
+		hooks.Setup = s.installation
 	}
-	h := api.NewRouter(app.boundary, app.start, app.home, s.web, app.serverRole, app.libMgr, app.chStore, Version, setup)
+	if app.serverRole {
+		hooks.Sharing = &apisetup.Sharing{Share: s.share}
+		if app.channelsDir != cfg.libDir {
+			hooks.Sharing.SharedDir = app.channelsDir
+		}
+	}
+	h := api.NewRouter(app.boundary, app.start, app.home, s.web, app.serverRole, app.libMgr, app.chStore, Version, hooks)
 	s.handler.Store(&h)
 	return cfg, nil
+}
+
+// share makes the shared folder in the photo folder of a server, with this
+// installation's destinations in it, and starts using it; the next start
+// finds it there by convention.
+func (s *server) share() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := installation.Share(s.boundary, s.channelsDir); err != nil {
+		return err
+	}
+	_, err := s.build(s.saved)
+	return err
 }
 
 func (s *server) installation() apisetup.Installation {

@@ -105,6 +105,19 @@ const API = {
         return resp.json();
     },
 
+    // A server's sharing (server mode): where destinations are shared, and
+    // starting to share them through the photo folder.
+    async sharing() {
+        const resp = await fetch('/api/setup/sharing');
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    async share() {
+        const resp = await fetch('/api/setup/share', { method: 'POST' });
+        if (!resp.ok) throw new Error(await resp.text());
+    },
+
     async saveSetup(choice) {
         const resp = await fetch('/api/setup', {
             method: 'POST',

@@ -119,8 +119,13 @@ then:
    shows the command, since it needs root. `.github/workflows/packages.yml`
    builds both and the release workflow attaches them under fixed names, so
    `releases/latest/download/Unterlumen.dmg` always is the newest.
-3. A wizard on huepattl.de that writes a `compose.yml`, a Synology Container
-   Manager project or a Portainer stack; the image gets `UNTERLUMEN_LIB_DIR`
-   and a volume for it; the setup in server mode (sharing only).
+3. NAS and containers (2026-09-29): the image sets `UNTERLUMEN_LIB_DIR=/data`
+   with `/data` and `/cache` writable for any user, so a container run as the
+   photos' owner can use named volumes. In server mode Settings shares
+   (`/api/setup/sharing`, `/api/setup/share`; `apisetup.Hooks.Sharing`), so the
+   NAS shares first and the Mac's setup finds it. The wizard on huepattl.de
+   (`/products/unterlumen-nas.html`) is a page with a script that writes the
+   `compose.yml` and the steps per NAS in the browser — no service on the
+   server, since nothing in it needs one.
 4. Store entries: Unraid Community Applications, CasaOS, Umbrel, a Portainer
    template URL.

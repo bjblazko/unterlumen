@@ -133,3 +133,38 @@ func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v) //nolint:errcheck
 }
+
+// Hooks is what the router needs of the installation: the setup for the
+// installed app (Setup), or sharing for a server whose photo folder is fixed
+// (Sharing). Either may be nil.
+type Hooks struct {
+	Setup   func() Installation
+	Sharing *Sharing
+}
+
+// Sharing is a server's sharing: where destinations are shared, "" while
+// they are not, and making the shared folder in the photo folder.
+type Sharing struct {
+	SharedDir string
+	Share     func() error
+}
+
+// HandleSharing registers the sharing routes of a server (server mode): the
+// photo folder is fixed there, so sharing is all there is to set up. A NAS
+// that shares first is found by the desk installation's setup.
+func HandleSharing(mux *http.ServeMux, sh *Sharing) {
+	mux.HandleFunc("GET /api/setup/sharing", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]string{"sharedDir": sh.SharedDir})
+	})
+	mux.HandleFunc("POST /api/setup/share", func(w http.ResponseWriter, r *http.Request) {
+		if sh.SharedDir != "" {
+			http.Error(w, "Destinations are shared already, through "+sh.SharedDir+".", http.StatusConflict)
+			return
+		}
+		if err := sh.Share(); err != nil {
+			http.Error(w, "The shared folder could not be made: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}

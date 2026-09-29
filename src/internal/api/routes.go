@@ -32,10 +32,11 @@ import (
 // libMgr is the library manager; may be nil if library support could not be initialised.
 // chStore is the global channel store; may be nil if the lib dir is not configured.
 // version is the build version string injected at link time (e.g. "v1.2.3" or "dev").
-// setup describes the installation when it is configured by config.json and
-// can be set up in the browser; nil when a folder argument or
-// UNTERLUMEN_ROOT_PATH decides instead.
-func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string, setup func() apisetup.Installation) http.Handler {
+// hooks.Setup describes the installation when it is configured by
+// config.json and can be set up in the browser; nil when a folder argument or
+// UNTERLUMEN_ROOT_PATH decides instead. hooks.Sharing lets a server share its
+// destinations; nil outside server mode.
+func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole bool, libMgr *library.Manager, chStore *channels.Store, version string, hooks apisetup.Hooks) http.Handler {
 	mux := http.NewServeMux()
 	cache := media.NewScanCache()
 	imageCache := media.NewImageCache(20)
@@ -45,6 +46,10 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		libMgr.SetJobs(jobReg)
 	}
 
+	setup := hooks.Setup
+	if hooks.Sharing != nil {
+		apisetup.HandleSharing(mux, hooks.Sharing)
+	}
 	needsSetup := false
 	if setup != nil {
 		apisetup.Handle(mux, setup)

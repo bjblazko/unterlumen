@@ -54,8 +54,9 @@ Stage 1b — download packages:
 
 Stage 2 — NAS and containers:
 
-- [ ] Web wizard on huepattl.de writing compose.yml, Synology and Portainer setups
-- [ ] Docker image with `UNTERLUMEN_LIB_DIR=/data` and a volume
-- [ ] Setup in server mode: sharing only, the photo folder stays fixed
+- [x] Web wizard on huepattl.de writing compose.yml and the steps for Synology, QNAP, TrueNAS, Unraid, Portainer, plain Docker
+- [x] Docker image with `UNTERLUMEN_LIB_DIR=/data`, `/data` and `/cache` writable for any user
+- [x] Sharing in server mode (Settings → Sharing), the photo folder stays fixed
+- [ ] Released, and the wizard live on huepattl.de
 
 Stage 3 — store entries (Unraid, CasaOS, Umbrel, Portainer template URL)

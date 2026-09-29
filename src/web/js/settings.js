@@ -26,6 +26,12 @@ class SettingsPane {
                         <span class="form-hint">${placeLink('setup', 'setup', 'Change the photo folder or sharing')}</span>
                     </div>` : ''}
 
+                    ${App.config?.serverRole ? `
+                    <div class="form-field">
+                        <span class="form-label">Sharing</span>
+                        <div class="tools-install" id="settings-sharing">…</div>
+                    </div>` : ''}
+
                     <div class="form-field">
                         <span class="form-label">Theme</span>
                         <div class="seg" role="group" aria-label="Theme" id="settings-theme">
@@ -68,6 +74,7 @@ class SettingsPane {
         this._wireToggles();
         this._wireCache();
         this._wireTools();
+        if (App.config?.serverRole) this._wireSharing();
         this.container.querySelector('#settings-done').addEventListener('click', () => App.leaveSettings());
     }
 
@@ -144,6 +151,37 @@ class SettingsPane {
                 }
                 load();
             });
+        });
+    }
+
+    // A server's photo folder is fixed, so sharing is the one thing to set up
+    // there. A NAS that shares first is found by the Mac's setup (ADR-0042).
+    async _wireSharing() {
+        const el = this.container.querySelector('#settings-sharing');
+        let sharedDir;
+        try {
+            ({ sharedDir } = await API.sharing());
+        } catch (err) {
+            el.innerHTML = `<span class="gal-detail-error">Could not read the sharing: ${escapeHtml(err.message)}</span>`;
+            return;
+        }
+        if (sharedDir) {
+            el.innerHTML = `<span class="form-hint">Destinations and galleries are shared through <span class="mono">${escapeHtml(sharedDir)}</span>. Another installation that shows the same photos — Unterlumen on a Mac, say — uses them when it chooses this photo folder.</span>`;
+            return;
+        }
+        el.innerHTML = `<span class="form-hint">If another installation shows the same photos — Unterlumen on a Mac with this folder opened over the network, say — both can use the same destinations and galleries. They are then kept in the photo folder, in <span class="mono">.unterlumen-shared</span>.</span>
+            <div><button class="btn btn-sm" id="settings-share">Share with another installation</button></div>
+            <div id="settings-share-result"></div>`;
+        el.querySelector('#settings-share').addEventListener('click', async (e) => {
+            const restore = Activity.button(e.currentTarget, 'Sharing…');
+            try {
+                await API.share();
+            } catch (err) {
+                restore();
+                el.querySelector('#settings-share-result').innerHTML = `<div class="gal-detail-error">${escapeHtml(err.message)}</div>`;
+                return;
+            }
+            this._wireSharing();
         });
     }
 

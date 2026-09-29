@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Share from the NAS.** In server mode — the container on a NAS — Settings has a Sharing section: "Share with another installation" makes `.unterlumen-shared` in the photo folder with the server's destinations and starts using it at once. An installation on a Mac that then chooses the same photo folder finds it and joins. Where destinations are shared already, the section says through which folder.
+- **A page that sets Unterlumen up on a NAS.** huepattl.de/products/unterlumen-nas.html asks which NAS, where the photos are, who owns them and which port, and writes the `compose.yml` and the steps for Synology, QNAP, TrueNAS, Unraid, Portainer or plain Docker, with the steps for a Mac beside it.
+
+### Changed
+- **The container keeps its libraries.** The image sets `UNTERLUMEN_LIB_DIR=/data` and declares `/data` a volume, so libraries, thumbnails and generated galleries are no longer lost when the container is replaced. `/data` and `/cache` are writable for any user, so a container run as the owner of the photos (`user:` in compose, as on a Synology) can use named volumes. A setup that sets `UNTERLUMEN_LIB_DIR` itself is unchanged.
+
 ## [0.14.1] - 2026-09-29
 
 ### Added

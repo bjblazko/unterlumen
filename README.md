@@ -388,19 +388,30 @@ By default the container runs in **server mode** — navigation is locked to `/p
 | `UNTERLUMEN_PORT` | `8080` | HTTP port |
 | `UNTERLUMEN_BIND` | `0.0.0.0` | Bind address |
 | `UNTERLUMEN_ROOT_PATH` | `/photos` | Root directory (navigation locked here) |
+| `UNTERLUMEN_LIB_DIR` | `/data` | Libraries, thumbnails and generated galleries; mount a volume here |
+| `UNTERLUMEN_CACHE_DIR` | `/cache` | Preview cache |
 
-**Example with Docker Compose:**
+**Example with Docker Compose** — or let [huepattl.de/products/unterlumen-nas.html](https://huepattl.de/products/unterlumen-nas.html) write it for your NAS, with the steps for Synology, QNAP, TrueNAS, Unraid or Portainer:
 
 ```yaml
 services:
   unterlumen:
     image: ghcr.io/bjblazko/unterlumen:latest
+    user: "1026:100"            # the owner of the photos; Unterlumen writes there
     ports:
       - "8080:8080"
     volumes:
-      - /mnt/photos:/photos:ro
+      - "/volume1/photo:/photos"
+      - unterlumen-data:/data   # libraries, thumbnails, generated galleries
+      - unterlumen-cache:/cache
     restart: unless-stopped
+
+volumes:
+  unterlumen-data:
+  unterlumen-cache:
 ```
+
+The image keeps its libraries in `/data` (`UNTERLUMEN_LIB_DIR`) and its cache in `/cache`; both are writable for any user, so `user:` can be the owner of the photos.
 
 ### Sharing channel config across installations
 
@@ -419,13 +430,12 @@ docker run -p 8080:8080 \
 ./unterlumen -channels-dir "/Volumes/<share>/.unterlumen-shared" ~/Pictures
 ```
 
-**By convention:** a folder named `.unterlumen-shared` directly inside the photo folder is used this way without any flag — so with the NAS example above, the Mac only has to pick the same photo folder on its setup page, which offers to share. The setup page also makes the folder when you choose to share and none is there yet, and copies this installation's destinations into it; what is already shared there is never overwritten.
+**By convention:** a folder named `.unterlumen-shared` directly inside the photo folder is used this way without any flag. On the NAS, **Settings → Sharing → Share with another installation** makes it — so with the NAS example above, the Mac only has to pick the same photo folder on its setup page, which offers to share. The setup page also makes the folder when you choose to share and none is there yet, and copies this installation's destinations into it; what is already shared there is never overwritten.
 
 Notes:
 - The mount used for `UNTERLUMEN_CHANNELS_DIR` must be writable (the read-only `:ro` mount shown above works for browsing but not for a channels directory located on it).
 - A **website** channel also keeps its album list in the shared directory, one file per album under `albums/<channel>/`, so publishing album A from one installation and album B from the other leaves a site index and sitemap with both. **Shared:** `channels.json`, the album register (one `<postID>.json` per album, and a `<postID>.deleted` tombstone for a deleted one), and the XMP sidecars next to the photos, which record each album's address. **Per machine:** `-lib-dir` (database, thumbnails, search index), each destination's output folder (`output-paths.json` in `-lib-dir`), and the generated output, including its `site.json` cache. The album files contain no paths, so the two installations may disagree about the photo folder's location. When upgrading an existing setup, update and open the installation that publishes (and holds the real `site.json`) first: it copies its albums into the register once, and only then should the other installation start. *Rebuild album list* (Destinations → Advanced) then writes each album's address into its photos' sidecars, and restores the list from them if it is ever lost; see [ADR-0035](doc/architecture/adr/0035-shared-album-register.md).
 - `channels.json` can include credentials (e.g. publish tokens) for some channel handlers — only point installations at a shared directory you trust equally.
-- The default Docker Compose example above doesn't set `UNTERLUMEN_LIB_DIR` or mount a volume for it, so the container's SQLite library database and thumbnails live in the container's filesystem and are lost when the container is recreated. If you rely on library data on the NAS, mount a volume for `UNTERLUMEN_LIB_DIR` too.
 
 ## Keyboard Shortcuts
 
