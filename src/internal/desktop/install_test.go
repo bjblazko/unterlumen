@@ -72,3 +72,31 @@ func TestWithoutProcessSerial(t *testing.T) {
 		t.Errorf("args = %v", got)
 	}
 }
+
+func TestAdoptLauncherTakesOverAnOlderInstallation(t *testing.T) {
+	home := isolate(t)
+	launcher := filepath.Join(home, "launch")
+	os.WriteFile(launcher, []byte("exec \"$DIR/unterlumen\" -desktop -port 8090 -lib-dir '/lib' -channels-dir '/Volumes/nas/Bilder/.unterlumen-shared' '/'\n"), 0o755) //nolint:errcheck
+
+	adopted, err := adoptLauncher(launcher)
+	if !adopted || err != nil {
+		t.Fatalf("adopted=%v err=%v", adopted, err)
+	}
+	got, _, _ := installation.Load()
+	if got.PhotosDir != "/" || got.ChannelsDir != "/Volumes/nas/Bilder/.unterlumen-shared" || got.LibDir != "/lib" {
+		t.Errorf("config.json = %+v", got)
+	}
+	if again, _ := adoptLauncher(launcher); again {
+		t.Error("an existing config.json was replaced")
+	}
+}
+
+func TestAdoptLauncherWithoutOneWritesNothing(t *testing.T) {
+	home := isolate(t)
+	if adopted, err := adoptLauncher(filepath.Join(home, "no-launcher")); adopted || err != nil {
+		t.Errorf("adopted=%v err=%v", adopted, err)
+	}
+	if _, found, _ := installation.Load(); found {
+		t.Error("config.json written without an older installation; the setup would not be asked")
+	}
+}

@@ -45,7 +45,10 @@ then:
 2. **`-desktop-install` asks nothing.** Before it replaces a launcher it
    copies that launcher's flags into config.json once, so an update keeps the
    photo folder, the data folder and a `-channels-dir`. A first install writes
-   only the port (8090).
+   only the port (8090). The installed app does the same on its first start
+   (`desktop.AdoptOlderSettings`), so an app from the .dmg or the Windows
+   setup, installed beside an older one, starts with that one's settings
+   instead of the setup.
 
 3. **Setup in the browser (`#setup`).** Without a photo folder, the app opens
    on a setup place: the photo folder (chosen with the folder picker over the

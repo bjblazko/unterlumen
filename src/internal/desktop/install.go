@@ -24,16 +24,40 @@ func Install(execPath string, iconPNG []byte, version string) error {
 // keepSettings writes config.json when there is none yet: from the flags of
 // an older launcher at path, or with the app's own port on a first install.
 func keepSettings(path string) error {
+	adopted, err := adoptLauncher(path)
+	if adopted || err != nil {
+		return err
+	}
 	if _, found, err := installation.Load(); found || err != nil {
 		return err
 	}
-	cfg := installation.Config{Port: installation.DesktopPort}
-	if script, err := os.ReadFile(path); err == nil {
-		if old, ok := installation.FromLauncher(string(script)); ok {
-			cfg = old
-		}
+	return installation.Save(installation.Config{Port: installation.DesktopPort})
+}
+
+// AdoptOlderSettings takes over the settings of an older installation on the
+// installed app's first start, when there is no config.json yet: an app from
+// the .dmg or the Windows setup, installed beside one made by an older
+// -desktop-install, then starts where that one left off — its photo folder,
+// data folder, shared destinations and port — instead of asking again.
+func AdoptOlderSettings() (bool, error) {
+	return adoptLauncher(launcherPath())
+}
+
+// adoptLauncher saves the flags of the launcher at path as config.json,
+// unless there is a config.json or no such launcher.
+func adoptLauncher(path string) (bool, error) {
+	if _, found, err := installation.Load(); found || err != nil {
+		return false, err
 	}
-	return installation.Save(cfg)
+	script, err := os.ReadFile(path)
+	if err != nil {
+		return false, nil
+	}
+	old, ok := installation.FromLauncher(string(script))
+	if !ok {
+		return false, nil
+	}
+	return true, installation.Save(old)
 }
 
 // LaunchedAsMacApp says the program runs as the main executable of a macOS

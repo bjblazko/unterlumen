@@ -11,6 +11,7 @@ import (
 
 	"huepattl.de/unterlumen/internal/api"
 	apisetup "huepattl.de/unterlumen/internal/api/setup"
+	"huepattl.de/unterlumen/internal/desktop"
 	"huepattl.de/unterlumen/internal/installation"
 )
 
@@ -51,6 +52,11 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *server) start() (config, error) {
 	var saved installation.Config
 	if s.managed {
+		if adopted, err := desktop.AdoptOlderSettings(); err != nil {
+			log.Printf("Warning: the settings of the older installation were not taken over: %v", err)
+		} else if adopted {
+			log.Printf("Took over the settings of the older installation")
+		}
 		loaded, _, err := installation.Load()
 		if err != nil {
 			log.Printf("Warning: %v; starting with the setup", err)

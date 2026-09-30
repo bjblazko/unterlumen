@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **A new app starts where the old one left off.** Started for the first time beside an installation made by an older `-desktop-install` — the app from the .dmg or the Windows setup, say — Unterlumen takes over that installation's photo folder, data folder, shared destinations and port from its launcher instead of opening the setup. Where there is no older installation, the setup opens as before.
+
 ## [0.14.3] - 2026-09-29
 
 ### Added
