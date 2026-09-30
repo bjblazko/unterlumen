@@ -148,10 +148,10 @@ func TestMergeTLs(t *testing.T) {
 	want := &LibraryTimeline{
 		Granularity: "year",
 		Periods:     []string{"2024-01", "2024-02", "2024-03"},
-		// Top five by total — A 22, B 9, C 8, D 7, E 6 — then F as Other.
+		// Every camera, summed; topCameras cuts the list afterwards.
 		CameraUsage: []CameraTimeSlice{
 			{"A", []int{10, 11, 1}}, {"B", []int{9, 0, 0}}, {"C", []int{0, 8, 0}},
-			{"D", []int{7, 0, 0}}, {"E", []int{0, 6, 0}}, {"Other", []int{0, 0, 5}},
+			{"D", []int{7, 0, 0}}, {"E", []int{0, 6, 0}}, {"F", []int{0, 0, 5}},
 		},
 		FocalStats:     []PeriodStats{{"2024-01", 30, 15, 45, 4}},
 		ISOStats:       []PeriodStats{{"2024-02", 400, 200, 800, 1}},
@@ -178,14 +178,73 @@ func TestMergeTLsFewCamerasHasNoOther(t *testing.T) {
 	}
 }
 
-// A camera whose counts line up with no period is not ranked; it still adds
-// an all-zero "Other" row. Characterized as it is.
-func TestMergeTLsCameraWithoutCountsLandsInOther(t *testing.T) {
+// A camera whose counts line up with no period is left out.
+func TestMergeTLsCameraWithoutCountsIsLeftOut(t *testing.T) {
 	a := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{{"A", []int{2}}}}
 	b := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{{"Z", []int{}}}}
 	got := mergeTLs([]*LibraryTimeline{a, b}).CameraUsage
-	want := []CameraTimeSlice{{"A", []int{2}}, {"Other", []int{0}}}
+	want := []CameraTimeSlice{{"A", []int{2}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("cameras = %+v, want %+v", got, want)
+	}
+}
+
+// Five cameras by their total, the rest summed as Other.
+func TestTopCameras(t *testing.T) {
+	in := []CameraTimeSlice{
+		{"F", []int{0, 5}}, {"A", []int{10, 12}}, {"B", []int{9, 0}},
+		{"C", []int{0, 8}}, {"D", []int{7, 0}}, {"E", []int{0, 6}}, {"G", []int{1, 1}},
+	}
+	got := topCameras(in, 2)
+	want := []CameraTimeSlice{
+		{"A", []int{10, 12}}, {"B", []int{9, 0}}, {"C", []int{0, 8}},
+		{"D", []int{7, 0}}, {"E", []int{0, 6}}, {"Other", []int{1, 6}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("topCameras =\n%+v\nwant\n%+v", got, want)
+	}
+	if few := topCameras(in[:2], 2); len(few) != 2 || few[0].Camera != "A" {
+		t.Errorf("two cameras = %+v, want A then F and no Other", few)
+	}
+}
+
+// A library hands over every camera. It used to cut its own list to five
+// plus "Other", and merging two libraries then ranked that "Other" as a
+// camera: the chart showed "Other" twice.
+func TestAssembleCameraSlicesKeepsEveryCamera(t *testing.T) {
+	var rows []tlCameraRow
+	for i, camera := range []string{"A", "B", "C", "D", "E", "F", "G"} {
+		rows = append(rows, tlCameraRow{period: "2024", camera: camera, count: 10 - i})
+	}
+	got := assembleCameraSlices(rows, []string{"2024"}, map[string]int{"2024": 0})
+	if len(got) != 7 {
+		t.Fatalf("got %d cameras, want all 7", len(got))
+	}
+	for _, cs := range got {
+		if cs.Camera == "Other" {
+			t.Errorf("a library summed cameras as Other: %+v", got)
+		}
+	}
+}
+
+// Cameras are ranked by what the libraries hold together.
+func TestManagerTimelineRanksCamerasAcrossLibraries(t *testing.T) {
+	a := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{
+		{"A", []int{9}}, {"B", []int{8}}, {"C", []int{7}}, {"D", []int{6}}, {"E", []int{5}}, {"X", []int{4}},
+	}}
+	b := &LibraryTimeline{Periods: []string{"2024"}, CameraUsage: []CameraTimeSlice{
+		{"X", []int{5}}, {"Y", []int{1}},
+	}}
+	merged := mergeTLs([]*LibraryTimeline{a, b})
+	got := topCameras(merged.CameraUsage, len(merged.Periods))
+	var names []string
+	for _, c := range got {
+		names = append(names, c.Camera)
+	}
+	if want := []string{"A", "X", "B", "C", "D", "Other"}; !reflect.DeepEqual(names, want) {
+		t.Errorf("cameras = %v, want %v", names, want)
+	}
+	if other := got[len(got)-1].Counts[0]; other != 6 {
+		t.Errorf("Other = %d, want E 5 + Y 1 = 6", other)
 	}
 }

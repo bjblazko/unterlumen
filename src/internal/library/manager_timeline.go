@@ -1,6 +1,7 @@
 package library
 
 import (
+	"slices"
 	"sort"
 )
 
@@ -47,6 +48,7 @@ func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*Libra
 	} else {
 		tl = mergeTLs(results)
 	}
+	tl.CameraUsage = topCameras(tl.CameraUsage, len(tl.Periods))
 	m.timelineCache.Store(tlCacheKey, tl)
 	return tl, nil
 }
@@ -133,47 +135,55 @@ func (g *periodGrid) add(key string, srcPeriods []string, counts []int) (total i
 	return total, overlapped
 }
 
-// mergeCameraUsage sums usage per (camera, period), then keeps the five most
-// used cameras and adds up the rest as "Other".
+// mergeCameraUsage sums usage per (camera, period), every camera.
 func mergeCameraUsage(results []*LibraryTimeline, periods []string) []CameraTimeSlice {
 	grid := newPeriodGrid(periods)
-	totals := make(map[string]int)
+	var ranked []string
 	for _, r := range results {
 		for _, cs := range r.CameraUsage {
-			// A camera is ranked only once one of its counts lines up with a period.
-			if n, overlapped := grid.add(cs.Camera, r.Periods, cs.Counts); overlapped {
-				totals[cs.Camera] += n
+			// A camera is listed only once one of its counts lines up with a period.
+			if _, overlapped := grid.add(cs.Camera, r.Periods, cs.Counts); overlapped && !slices.Contains(ranked, cs.Camera) {
+				ranked = append(ranked, cs.Camera)
 			}
 		}
 	}
-	ranked := make([]string, 0, len(totals))
-	for camera := range totals {
-		ranked = append(ranked, camera)
-	}
-	sort.SliceStable(ranked, func(i, j int) bool { return totals[ranked[i]] > totals[ranked[j]] })
-	top := min(5, len(ranked))
-
-	cameras := make([]CameraTimeSlice, 0, top+1)
-	topSet := make(map[string]bool, top)
-	for _, camera := range ranked[:top] {
-		topSet[camera] = true
+	cameras := make([]CameraTimeSlice, 0, len(ranked))
+	for _, camera := range ranked {
 		cameras = append(cameras, CameraTimeSlice{Camera: camera, Counts: grid.rows[camera]})
 	}
-	other := make([]int, len(periods))
-	hasOther := false
-	for camera, counts := range grid.rows {
-		if topSet[camera] {
-			continue
+	return cameras
+}
+
+// topCameraCount is how many cameras a timeline names; the rest are "Other".
+const topCameraCount = 5
+
+// topCameras keeps the most used cameras, most photos first, and adds up the
+// rest as "Other".
+func topCameras(cameras []CameraTimeSlice, periods int) []CameraTimeSlice {
+	total := func(cs CameraTimeSlice) (n int) {
+		for _, c := range cs.Counts {
+			n += c
 		}
-		hasOther = true
-		for i, c := range counts {
+		return n
+	}
+	ranked := slices.Clone(cameras)
+	sort.SliceStable(ranked, func(i, j int) bool {
+		ti, tj := total(ranked[i]), total(ranked[j])
+		if ti != tj {
+			return ti > tj
+		}
+		return ranked[i].Camera < ranked[j].Camera
+	})
+	if len(ranked) <= topCameraCount {
+		return ranked
+	}
+	other := make([]int, periods)
+	for _, cs := range ranked[topCameraCount:] {
+		for i, c := range cs.Counts {
 			other[i] += c
 		}
 	}
-	if hasOther {
-		cameras = append(cameras, CameraTimeSlice{Camera: "Other", Counts: other})
-	}
-	return cameras
+	return append(ranked[:topCameraCount:topCameraCount], CameraTimeSlice{Camera: "Other", Counts: other})
 }
 
 // mergeApertureHeat sums the aperture bucket counts per period.

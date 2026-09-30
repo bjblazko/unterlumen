@@ -33,6 +33,12 @@ function showLibraryProgress(activity, p, busyText) {
 
 const LIBRARY_LEDE = placeLede(`A library catalogs a folder and every folder inside it — say Projects, with one subfolder per project — so you can search its photos, see them on the ${placeLink('map', 'map', 'map')} and the ${placeLink('timeline', 'timeline', 'timeline')}, and collect them into galleries. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder.`);
 
+// On a desk the sentence opens the list; on a phone it folds into the head,
+// where its "i" has room beside the title (see placeLede).
+function libraryLedeOnPhone() {
+    return matchMedia('(max-width: 700px)').matches;
+}
+
 class LibraryTab {
     constructor(container) {
         this.container = container;
@@ -55,23 +61,12 @@ class LibraryTab {
     }
 
 
-    async _openStats() {
+    // Statistics of this library, of the folder shown in it (relative to the
+    // library, so the address works on every machine).
+    _openStats() {
         const lib = this.currentLibrary;
-        const folderPath = this._pane?.path || '';
-        const libs = this._cachedLibs ?? await LibraryAPI.list();
-        if (!lib) {
-            new StatsModal().open(libs);
-        } else {
-            const pathPrefix = folderPath
-                ? lib.sourcePath.replace(/\/$/, '') + '/' + folderPath
-                : lib.sourcePath;
-            new StatsModal().open(libs, {
-                pathPrefix,
-                libraryId: lib.id,
-                fixedScope: true,
-                scopeLabel: folderPath ? `${lib.name} / ${folderPath}` : lib.name,
-            });
-        }
+        if (!lib) { App.openStatistics({}); return; }
+        App.openStatistics({ library: String(lib.id), path: this._pane?.path || '' });
     }
 
     render() {
@@ -93,14 +88,13 @@ class LibraryTab {
             <div class="library-list-header">
                 ${this._filterButtonHTML()}
                 <h2 class="library-list-title">Libraries</h2>
+                ${libraryLedeOnPhone() ? LIBRARY_LEDE : ''}
                 <div class="library-list-header-actions">
                     <select class="btn btn-sm select-btn lib-sort-select" aria-label="Sort libraries">
                         <option value="auto">Recently added</option>
                         <option value="name">Name</option>
                         <option value="manual">Custom order</option>
                     </select>
-                    <div class="header-actions-sep"></div>
-                    <button class="btn btn-sm" id="lib-stats-btn">Statistics</button>
                     <div class="header-actions-sep"></div>
                     <button class="btn btn-sm" id="lib-new-btn">New library…</button>
                 </div>
@@ -110,7 +104,6 @@ class LibraryTab {
         this.container.appendChild(el);
 
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._dialogs.create());
-        el.querySelector('#lib-stats-btn').addEventListener('click', () => this._openStats());
 
         const sortSelect = el.querySelector('.lib-sort-select');
         const body = el.querySelector('#lib-list-body');
@@ -155,7 +148,7 @@ class LibraryTab {
             this._cachedLibs = libs;
             const prevLastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
             localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
-            body.innerHTML = LIBRARY_LEDE;
+            body.innerHTML = libraryLedeOnPhone() ? '' : LIBRARY_LEDE;
             if (libs.length === 0) {
                 body.insertAdjacentHTML('beforeend', '<div class="library-empty">No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.</div>');
                 return;

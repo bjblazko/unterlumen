@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-29*
+*Last modified: 2026-09-30*
 
 ## 1. Introduction and Goals
 
@@ -189,7 +189,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `range-slider.js` | `RangeSlider` — two handles on one track, for pointer and keyboard; the library filter's ranges and the Map's time |
 | `map-place.js` | `MapPane` — the Map place: loads `/api/library/geo`, says why nothing is shown, the grey map in the theme's shade, opens photos read-only ([ADR-0039](adr/0039-map-place.md)) |
 | `map-markers.js` | `MapMarkers` — clustered GeoJSON source and the round HTML markers; zooms into a group or opens it |
-| `map-photos.js` | `MapPhotos` — the column beside the map: the photos in view as square tiles, rendered in chunks |
+| `photo-column.js` | `PhotoColumn` — photos beside a place as square tiles, rendered in chunks and read in pages: the Map's in view, the ones picked in Statistics; `openLibraryPhotos` opens them read-only |
 | `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
@@ -206,9 +206,10 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `timeline-tiles.js` | `TimelineTiles` — tiles only near the screen; a tile that leaves releases its image |
 | `infopanel.js` | `InfoPanel` class — collapsible side panel showing file metadata and EXIF data; a folder's dashboard comes from `FolderDashboard` |
 | `folder-dashboard.js` | `FolderDashboard` — the info panel's view of a folder: contents, size map (treemap), nesting depth, file types, library EXIF stats |
-| `stats-modal.js` | `StatsModal` — the Statistics place: library filter, snapshot and timeline tabs |
+| `stats-place.js` | `StatsPane` — the Statistics place (`#statistics[/<topic>]`): scope in the head, overview cards, a topic's charts, the photos of a picked value in a `PhotoColumn` ([ADR-0043](adr/0043-statistics-place-with-topics.md)) |
+| `stats-topics.js` | `STATS_TOPICS` — the topics and their charts, the criterion each click turns into, and the place's address |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
-| `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time |
+| `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
 | `js/vendor/maplibre-6.11.2/` | Vendored MapLibre GL JS 6.11.2 as ES modules, loaded as the global `maplibregl` ([ADR-0038](adr/0038-maplibre-6-as-es-module.md)) for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
@@ -365,6 +366,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0040](adr/0040-timeline-place.md) — The Timeline is a place, laid out in the browser from a skeleton
 - [ADR-0041](adr/0041-explaining-the-model-in-the-app.md) — The app explains its model where it is used
 - [ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md) — Installation: one line, setup in the browser, sharing by convention
+- [ADR-0043](adr/0043-statistics-place-with-topics.md) — Statistics is a place with topics
 
 ## 10. Quality Requirements
 

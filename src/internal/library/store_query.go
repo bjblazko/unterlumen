@@ -30,6 +30,9 @@ type ListPhotosOpts struct {
 	MetaExists     []string                 // photo_meta keys that must exist (any value)
 	AlbumTitle     string                   // match photos with any built:*:title = value
 	ExtFilter      string                   // file extension (photos.ext)
+	PathPrefix     string                   // absolute folder the photos must be in, as statistics take it
+	Hour           *int                     // hour of the day taken, 0–23
+	Aspect         string                   // frame shape, as aspectClassSQL names it
 	Offset         int
 	Limit          int
 }
@@ -101,6 +104,7 @@ func newPhotoFilter(opts ListPhotosOpts) *photoFilter {
 	f.addExifText(opts.Filters)
 	f.addExifNumeric(opts.NumericFilters)
 	f.addDatesAndExt(opts)
+	f.addPlaceAndShape(opts)
 	f.addMeta(opts)
 	return f
 }
@@ -165,6 +169,20 @@ func (f *photoFilter) addDatesAndExt(opts ListPhotosOpts) {
 	}
 	if opts.ExtFilter != "" {
 		f.cond(`p.ext = ?`, opts.ExtFilter)
+	}
+}
+
+// addPlaceAndShape requires a folder, an hour of the day and a frame shape:
+// the scopes and marks of the statistics.
+func (f *photoFilter) addPlaceAndShape(opts ListPhotosOpts) {
+	if opts.PathPrefix != "" {
+		f.cond(`p.path_hint LIKE ? ESCAPE '\'`, escapeLikePattern(opts.PathPrefix)+"/%")
+	}
+	if opts.Hour != nil {
+		f.cond(`(LENGTH(p.date_taken) >= 13 AND CAST(SUBSTR(p.date_taken, 12, 2) AS INTEGER) = ?)`, *opts.Hour)
+	}
+	if opts.Aspect != "" {
+		f.cond(`(`+hasSizeSQL("p.exif_json")+` AND `+aspectClassSQL("p.exif_json")+` = ?)`, opts.Aspect)
 	}
 }
 

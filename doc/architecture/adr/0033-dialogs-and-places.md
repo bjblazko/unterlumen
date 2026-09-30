@@ -1,6 +1,6 @@
 # ADR-0033: Dialogs and places, and one dialog to build them with
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-09-30*
 
 ## Status
 
@@ -80,14 +80,15 @@ button beside a labelled one is one button too many.
 | Choose folder, Publish, Progress, Helper programs, About, Location, Add to gallery, New library, Edit library | Dialog. One decision, one screen, the context behind matters. |
 | Export, Batch rename | Dialog. They are forms, but they belong to a selection that stays visible behind them; leaving them is a cancel, not a navigation. |
 | Slideshow | Dialog. One decision (how it should play) before one action. |
-| Statistics | Dialog, against rule 3 — see below. |
+| Statistics | A place since 2026-09-30 ([ADR-0043](0043-statistics-place-with-topics.md)); a dialog before, against rule 3 — see below. |
 
 **Statistics strains the rule.** It is 1 200 lines, fourteen charts and a
 library selector; you read and compare in it, which by rule 3 makes it a
 place. It stays a dialog by decision (2026-09-24): it always belongs to
 exactly one library, it is opened from that library's own screen, and the way
 back is one press. If it grows a second entry point — from the sidebar, or
-across libraries — it becomes a place.
+across libraries — it becomes a place. It did on 2026-09-30, with a sidebar
+entry and topics of its own: [ADR-0043](0043-statistics-place-with-topics.md).
 
 ## Consequences
 

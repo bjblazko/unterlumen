@@ -50,7 +50,10 @@ class MapPane {
                     <h1 class="map-title">Map</h1>
                     <span class="map-count"></span>
                     <span class="map-head-spacer"></span>
-                    <span class="map-style" hidden><span class="map-style-label">Style</span></span>
+                    <button class="btn btn-sm map-options-toggle" aria-expanded="false" aria-controls="map-options">Options</button>
+                    <span class="map-options" id="map-options">
+                        <span class="map-style" hidden><span class="map-style-label">Style</span></span>
+                    </span>
                     <button class="btn btn-sm lib-filter-toggle map-photos-toggle" aria-expanded="false" aria-controls="map-photos" data-state="off" hidden>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                             <rect x="1.5" y="2.5" width="13" height="11"/><path d="M10.5 2.5v11"/>
@@ -78,10 +81,21 @@ class MapPane {
             onChange: (on) => this._setColour(on),
         });
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
-        this._photos = new MapPhotos({
-            onOpen: (photos, index) => this._openPhotos(photos, index),
-            onClose: () => this._setPhotosOpen(false),
+        // On a phone the period and the style fold away, so the map keeps its height.
+        const optionsBtn = this._optionsBtn = this.container.querySelector('.map-options-toggle');
+        optionsBtn.addEventListener('click', () => {
+            const open = optionsBtn.getAttribute('aria-expanded') !== 'true';
+            optionsBtn.setAttribute('aria-expanded', String(open));
+            this._head.classList.toggle('map-options-open', open);
+            this._map?.resize();
         });
+        this._photos = new PhotoColumn({
+            onOpen: (photos, index) => openLibraryPhotos(photos, index),
+            onClose: () => this._setPhotosOpen(false),
+            label: 'Photos in this part of the map',
+            emptyText: 'No photos in this part of the map. Move the map or zoom out.',
+        });
+        this._photos.el.id = 'map-photos';
         this.container.querySelector('.map-body').appendChild(this._photos.el);
         this._countEl = this.container.querySelector('.map-count');
         this._canvas = this.container.querySelector('.map-canvas');
@@ -121,6 +135,7 @@ class MapPane {
         this._countEl.textContent = '';
         this._photosBtn.hidden = true;
         this._styleEl.hidden = true;
+        this._optionsBtn.hidden = true;
         this._photos.el.hidden = true;
         return true;
     }
@@ -136,6 +151,7 @@ class MapPane {
         this._noteEl.hidden = true;
         this._photosBtn.hidden = false;
         this._styleEl.hidden = false;
+        this._optionsBtn.hidden = false;
         this._buildTimeRange();
         this._drawPhotosOpen();
         if (!this._map) {
@@ -162,7 +178,7 @@ class MapPane {
         this._map.addControl(new maplibregl.AttributionControl({ compact: true }));
         this._markers = new MapMarkers(this._map, {
             photoAt: (rank) => this._points[rank],
-            onOpen: (photos) => this._openPhotos(photos),
+            onOpen: (photos) => openLibraryPhotos(photos),
         });
         // Fires for the first style and again after every theme switch.
         this._map.on('style.load', () => {
@@ -194,7 +210,7 @@ class MapPane {
             first, last,
             onChange: (range) => { this._range = range; this._applyRange(); },
         });
-        this._head.insertBefore(time.el, this._styleEl);
+        this._styleEl.before(time.el);
     }
 
     // Undated photos belong to every period only when none is chosen.
@@ -252,23 +268,6 @@ class MapPane {
         }
         this._photosBtn.querySelector('.lib-filter-btn-count').textContent = formatCount(inView.length);
         if (this._photosOpen) this._photos.show(inView);
-    }
-
-    // Photos seen from the map are looked at, not culled: the viewer opens
-    // read-only (no crop, no marking for deletion).
-    _openPhotos(photos, index = 0) {
-        const byKey = new Map(photos.map(p => [`${p.lib}/${p.id}/${p.name}`, p]));
-        const keys = [...byKey.keys()];
-        App.showViewer(keys[index], keys, {
-            readOnly: true,
-            imageURLFn: (k) => LibraryAPI.photoURL(byKey.get(k).lib, byKey.get(k).id),
-            thumbURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),
-            previewURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),
-            infoLoadFn: (k, panel) => {
-                const p = byKey.get(k);
-                panel.loadFromURL(`/api/library/${p.lib}/photo/${p.id}/info`, `lib:${p.lib}:${p.id}`);
-            },
-        });
     }
 }
 

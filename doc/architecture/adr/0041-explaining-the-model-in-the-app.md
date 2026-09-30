@@ -1,6 +1,6 @@
 # ADR-0041: The app explains its model where it is used
 
-*Last modified: 2026-09-28*
+*Last modified: 2026-09-30*
 
 ## Status
 
@@ -62,3 +62,9 @@ What rules out the usual answers:
   and diagram are updated when the model changes.
 - The copy is in the app, so it is tested like the app
   (`e2e/specs/explain-the-model.spec.js`).
+- On a phone (from 2026-09-30) the sentence costs the room the photos and the
+  map need, so it folds behind a round "i" button beside the title
+  (`aria-expanded`); tapping it shows the sentence, with the button left of
+  the text. The Map puts its sentence into its folded Options instead, and
+  the Libraries overview moves it from the top of the list into its head. The
+  desk shows it as before.

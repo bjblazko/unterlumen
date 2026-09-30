@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'published', 'guide']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide']);
 
 const App = {
     mode: 'browse',
@@ -24,6 +24,9 @@ const App = {
     _libraryTab: null,
     _timelineEl: null,
     _timelinePane: null,
+    _statsEl: null,
+    _statsPane: null,
+    _statsRoute: { topic: '', library: '', path: '' },
     _galleriesEl: null,
     _galleriesPane: null,
     _destinationsEl: null,
@@ -88,6 +91,7 @@ const App = {
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         map: { hash: 'map', id: 'mode-map', key: '7' },
         timeline: { hash: 'timeline', id: 'mode-timeline', key: '8' },
+        statistics: { hash: 'statistics', id: 'mode-statistics', key: '9' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
@@ -106,6 +110,7 @@ const App = {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
                 e.preventDefault();
                 if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
+                if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
                 this.setMode(mode);
             });
         }
@@ -134,15 +139,25 @@ const App = {
 
         window.addEventListener('popstate', () => this.setMode(this._modeFromHash(), { fromHistory: true }));
 
+        this._renderStatisticsNav();
+
         const collapseBtn = document.getElementById('sidebar-collapse');
         collapseBtn.addEventListener('click', () => this.toggleSidebar());
         this._applySidebarState(localStorage.getItem('sidebar-collapsed') === '1');
     },
 
+    // A place's address is its first segment; Statistics carries a topic
+    // and a scope after it, which it keeps in _statsRoute.
     _modeFromHash() {
-        const hash = location.hash.replace(/^#/, '');
+        const hash = location.hash.replace(/^#/, '').split(/[/?]/)[0];
         const entry = Object.entries(this.NAV).find(([, place]) => place.hash === hash);
-        return entry ? entry[0] : 'browse';
+        if (!entry) return 'browse';
+        if (entry[0] === 'statistics') this._statsRoute = statsRouteFromHash(location.hash);
+        return entry[0];
+    },
+
+    _placeHash(mode) {
+        return mode === 'statistics' ? statsHash(this._statsRoute) : '#' + this.NAV[mode].hash;
     },
 
     toggleSidebar() {
@@ -187,6 +202,41 @@ const App = {
             });
         }
         this._markCurrentLibraryNav();
+    },
+
+    // One sub-entry per topic of Statistics. Like the libraries' entries, they
+    // go when the sidebar is collapsed; the overview's cards lead to them then.
+    _renderStatisticsNav() {
+        const wrap = document.getElementById('nav-statistics');
+        if (!wrap) return;
+        wrap.innerHTML = STATS_TOPICS.map(t => `
+            <a class="nav-item nav-sub" href="${statsHash({ topic: t.id })}" data-stats-topic="${t.id}">
+                <span class="nav-text">${escapeHtml(t.label)}</span>
+            </a>`).join('');
+        for (const el of wrap.querySelectorAll('[data-stats-topic]')) {
+            el.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                this.openStatistics({ ...this._statsRoute, topic: el.dataset.statsTopic });
+            });
+        }
+    },
+
+    // Statistics at a topic and a scope: { topic, library, path }, the folder
+    // relative to the library.
+    openStatistics(route) {
+        this._statsRoute = { topic: '', library: '', path: '', ...route };
+        this.setMode('statistics');
+    },
+
+    // The topic entries point at the current scope, and the one shown is marked.
+    _markCurrentStatisticsNav() {
+        for (const el of document.querySelectorAll('#nav-statistics [data-stats-topic]')) {
+            el.href = statsHash({ ...this._statsRoute, topic: el.dataset.statsTopic });
+            const isCurrent = this.mode === 'statistics' && el.dataset.statsTopic === this._statsRoute.topic;
+            if (isCurrent) el.setAttribute('aria-current', 'page');
+            else el.removeAttribute('aria-current');
+        }
     },
 
     // Libraries, filtered to the photos a gallery or destination holds.
@@ -286,7 +336,7 @@ const App = {
         this.mode = mode;
         this._markPlace(mode);
 
-        const hash = '#' + this.NAV[mode].hash;
+        const hash = this._placeHash(mode);
         if (!fromHistory && location.hash !== hash) {
             if (replaceHistory) history.replaceState(null, '', hash);
             else history.pushState(null, '', hash);
@@ -297,6 +347,7 @@ const App = {
             if (this[elKey]) this[elKey].style.display = mode === place ? '' : 'none';
         }
         this._markCurrentLibraryNav();
+        this._markCurrentStatisticsNav();
     },
 
     // leaveSettings goes back to the place Settings was opened from, or to
@@ -308,7 +359,7 @@ const App = {
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
-        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'], ['_guideEl', 'guide'], ['_setupEl', 'setup'],
     ],
 
@@ -343,6 +394,13 @@ const App = {
             case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
             case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'timeline': this._openPane('_timelineEl', '_timelinePane', TimelinePane); break;
+            case 'statistics':
+                if (!this._statsEl) {
+                    this._statsEl = this._placeElement();
+                    this._statsPane = new StatsPane(this._statsEl);
+                }
+                this._statsPane.show(this._statsRoute);
+                break;
             case 'settings': this._openPane('_settingsEl', '_settingsPane', SettingsPane); break;
             case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;

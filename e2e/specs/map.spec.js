@@ -152,23 +152,38 @@ test.describe('Map', () => {
 
     // The photos in view: a column that is closed until asked for, follows
     // the map, and closes again with Done or Escape.
+    // The panel's own button opened it empty ("Select an image to view
+    // info"); only the I key loaded the photo.
+    test('the info panel opened by its button in the viewer shows the photo', async ({ page }) => {
+        await openMap(page);
+        await page.locator('.map-photos-toggle').click();
+        const tile = page.locator('#map-photos .photo-column-tile').first();
+        const name = (await tile.getAttribute('aria-label')).split(',')[0];
+        await tile.click();
+        await expect(page.locator('.viewer')).toBeVisible();
+        await page.locator('.viewer .info-toggle-btn').click();
+        const body = page.locator('.viewer .info-panel-body');
+        await expect(body).toContainText(name, { timeout: 10_000 });
+        await expect(body).not.toContainText('Select an image');
+    });
+
     test('the photos column shows what is in view and closes again', async ({ page }) => {
         await openMap(page);
         const btn = page.locator('.map-photos-toggle');
-        await expect(page.locator('.map-photos')).toBeHidden();
+        await expect(page.locator('#map-photos')).toBeHidden();
         const [total] = countsIn(await page.locator('.map-count').textContent());
         await expect(btn.locator('.lib-filter-btn-count')).toHaveText(String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
 
         await btn.click();
-        await expect(page.locator('.map-photos')).toBeVisible();
+        await expect(page.locator('#map-photos')).toBeVisible();
         await expect(btn).toHaveAttribute('aria-expanded', 'true');
-        await expect(page.locator('.map-photo')).toHaveCount(Math.min(total, 120));
+        await expect(page.locator('#map-photos .photo-column-tile')).toHaveCount(Math.min(total, 120));
 
         // Zooming into a group leaves fewer photos in view.
         await page.locator('.map-marker:has(.map-marker-count)').first().click();
-        await expect.poll(async () => countsIn(await page.locator('.map-photos-title').textContent())[0]).toBeLessThan(total);
+        await expect.poll(async () => countsIn(await page.locator('#map-photos .photo-column-title').textContent())[0]).toBeLessThan(total);
 
-        const tile = page.locator('.map-photo').nth(1);
+        const tile = page.locator('#map-photos .photo-column-tile').nth(1);
         const name = (await tile.getAttribute('aria-label')).split(',')[0];
         await tile.click();
         await expect(page.locator('.viewer-filename')).toHaveText(name);
@@ -176,13 +191,13 @@ test.describe('Map', () => {
 
         await page.keyboard.press('Escape');
         await expect(page.locator('.viewer')).toHaveCount(0);
-        await expect(page.locator('.map-photos')).toBeVisible();
+        await expect(page.locator('#map-photos')).toBeVisible();
         await page.keyboard.press('Escape');
-        await expect(page.locator('.map-photos')).toBeHidden();
+        await expect(page.locator('#map-photos')).toBeHidden();
 
         await btn.click();
-        await page.locator('.map-photos-close').click();
-        await expect(page.locator('.map-photos')).toBeHidden();
+        await page.locator('#map-photos .photo-column-close').click();
+        await expect(page.locator('#map-photos')).toBeHidden();
     });
 
     test('the photos column stays open across a reload', async ({ page }) => {
@@ -190,7 +205,7 @@ test.describe('Map', () => {
         await page.locator('.map-photos-toggle').click();
         await page.reload();
         await page.waitForSelector('.map-marker', { timeout: 20_000 });
-        await expect(page.locator('.map-photos')).toBeVisible();
+        await expect(page.locator('#map-photos')).toBeVisible();
     });
 
     // Grey by default; the switch brings colour and is remembered.

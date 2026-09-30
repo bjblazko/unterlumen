@@ -55,6 +55,10 @@ func TestListPhotosFilters(t *testing.T) {
 		{"meta key", ListPhotosOpts{MetaExists: []string{"rating"}}, []string{"p3"}},
 		{"built: key matches legacy published:", ListPhotosOpts{MetaExists: []string{"built:web"}}, []string{"p1"}},
 		{"album title", ListPhotosOpts{AlbumTitle: "Iceland"}, []string{"p2"}},
+		{"folder", ListPhotosOpts{PathPrefix: "/lib/2024"}, []string{"p2", "p1"}},
+		{"folder is not a pattern", ListPhotosOpts{PathPrefix: "/lib/20_4"}, []string{}},
+		{"hour of the day", ListPhotosOpts{Hour: ptr(10)}, []string{"p1", "p3"}},
+		{"frame shape", ListPhotosOpts{Aspect: "3:2"}, []string{"p1"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -101,3 +105,5 @@ func TestListPhotosNoMatchIsAnEmptyList(t *testing.T) {
 		t.Errorf("result = %#v, want an empty list", res)
 	}
 }
+
+func ptr[T any](v T) *T { return &v }

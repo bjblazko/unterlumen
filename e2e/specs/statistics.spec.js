@@ -1,128 +1,195 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
+import { reindexLibrary } from '../helpers/library.js';
 
-test.describe('Statistics dialog', () => {
-    let libID;
+// The Statistics place (ADR-0043): an overview with a card per topic, the
+// topics as sidebar sub-entries, a scope in the address, and the photos of a
+// clicked value in a column beside the charts. folder-b holds photos of many
+// cameras and years.
+
+const LIB_NAME = 'E2E Statistics';
+
+test.describe('Statistics', () => {
+    let lib;
 
     test.beforeAll(async ({ request }) => {
-        // Clean up stale libraries from interrupted previous runs
         const existing = await (await request.get('/api/library/')).json();
-        await Promise.all(existing.filter(l => l.name === 'Stats test library').map(l => request.delete(`/api/library/${l.id}`)));
-
-        // Create a test library (unindexed — stats will be empty but the dialog structure is testable)
-        const res = await request.post('/api/library/', {
-            data: { name: 'Stats test library', description: '', sourcePath: 'folder-a' },
-        });
+        await Promise.all(existing.filter(l => l.name === LIB_NAME).map(l => request.delete(`/api/library/${l.id}`)));
+        const res = await request.post('/api/library/', { data: { name: LIB_NAME, description: '', sourcePath: 'folder-b' } });
         expect(res.status()).toBe(201);
-        const body = await res.json();
-        libID = body.id;
+        lib = await res.json();
+        await reindexLibrary(request, lib.id);
     });
 
     test.afterAll(async ({ request }) => {
-        if (libID) await request.delete(`/api/library/${libID}`);
+        if (lib) await request.delete(`/api/library/${lib.id}`);
     });
 
-    test('Statistics API returns expected shape', async ({ request }) => {
-        const res = await request.get(`/api/library/statistics?ids=${libID}`);
-        expect(res.status()).toBe(200);
-        const body = await res.json();
-        expect(typeof body.totalPhotos).toBe('number');
-        expect(Array.isArray(body.formats)).toBe(true);
-        expect(Array.isArray(body.filmSims)).toBe(true);
-        // focalLengths, focalLengths35, apertures, isos are {value, count} pairs
-        expect(Array.isArray(body.focalLengths)).toBe(true);
-        expect(Array.isArray(body.focalLengths35)).toBe(true);
-        expect(Array.isArray(body.apertures)).toBe(true);
-        expect(Array.isArray(body.isos)).toBe(true);
-        for (const arr of [body.focalLengths, body.focalLengths35, body.apertures, body.isos]) {
-            for (const item of arr) {
-                expect(typeof item.value).toBe('number');
-                expect(typeof item.count).toBe('number');
-            }
+    // The overview or a topic, scoped to the test library: the shared
+    // database may hold other libraries (e2e/NOTES.md).
+    async function open(page, topic = '') {
+        await page.goto(`/#statistics${topic ? '/' + topic : ''}?library=${lib.id}`);
+        await waitForAppReady(page);
+        await expect(page.locator('.stats-count')).toContainText('photos', { timeout: 15_000 });
+    }
+
+    test('the statistics API has the shape the charts read', async ({ request }) => {
+        const body = await (await request.get(`/api/library/statistics?ids=${lib.id}`)).json();
+        expect(body.totalPhotos).toBeGreaterThan(0);
+        for (const key of ['formats', 'filmSims', 'focalLengths', 'focalLengths35', 'apertures', 'isos', 'cameraLens']) {
+            expect(Array.isArray(body[key])).toBe(true);
         }
-        expect(Array.isArray(body.cameraLens)).toBe(true);
-        expect(Array.isArray(body.shootingHours)).toBe(true);
         expect(body.shootingHours).toHaveLength(24);
         expect(typeof body.shootingDays).toBe('object');
     });
 
-    test('Statistics API with no ids returns all libraries', async ({ request }) => {
-        const res = await request.get('/api/library/statistics');
-        expect(res.status()).toBe(200);
-        const body = await res.json();
-        expect(typeof body.totalPhotos).toBe('number');
-        expect(Array.isArray(body.shootingHours)).toBe(true);
+    test('search finds what the charts counted: hour, frame shape and folder', async ({ request }) => {
+        const stats = await (await request.get(`/api/library/statistics?ids=${lib.id}`)).json();
+        const hour = stats.shootingHours.findIndex(n => n > 0);
+        const byHour = await (await request.get(`/api/library/search?ids=${lib.id}&hour=${hour}`)).json();
+        expect(byHour.total).toBe(stats.shootingHours[hour]);
+
+        const tl = await (await request.get(`/api/library/timeline?ids=${lib.id}`)).json();
+        const shape = tl.aspectRatios[0];
+        const counted = shape.counts.reduce((a, b) => a + b, 0);
+        const byShape = await (await request.get(`/api/library/search?ids=${lib.id}&aspect=${encodeURIComponent(shape.ratio)}`)).json();
+        // The timeline counts dated photos only.
+        expect(byShape.total).toBeGreaterThanOrEqual(counted);
+
+        const inFolder = await (await request.get(`/api/library/search?ids=${lib.id}&pathPrefix=${encodeURIComponent(lib.sourcePath)}`)).json();
+        expect(inFolder.total).toBe(stats.totalPhotos);
+        const elsewhere = await (await request.get(`/api/library/search?ids=${lib.id}&pathPrefix=${encodeURIComponent(lib.sourcePath + '-not')}`)).json();
+        expect(elsewhere.total).toBe(0);
     });
 
-    test('Statistics button opens the dialog in library mode', async ({ page }) => {
-        await page.goto('/');
-        await waitForAppReady(page);
-        await page.locator('#mode-library').click();
-        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
-
-        const statsBtn = page.locator('#lib-stats-btn');
-        await expect(statsBtn).toBeVisible();
-        await statsBtn.click();
-
-        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
-        await expect(page.locator('.stats-dialog')).toBeVisible();
-        await expect(page.locator('.dialog-title')).toContainText('Statistics');
+    test('a camera is listed once, and "Other" at most once', async ({ request }) => {
+        const tl = await (await request.get('/api/library/timeline')).json();
+        const names = tl.cameraUsage.map(c => c.camera);
+        expect(new Set(names).size).toBe(names.length);
+        expect(names.length).toBeLessThanOrEqual(6);
     });
 
-    test('Statistics dialog shows chart cards', async ({ page }) => {
-        await page.goto('/');
+    test('the sidebar lists the topics, and they have addresses', async ({ page }) => {
+        await open(page);
+        await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
+        const topics = page.locator('#nav-statistics .nav-sub');
+        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame']);
+
+        await topics.filter({ hasText: 'Exposure' }).click();
+        await expect(page).toHaveURL(new RegExp(`#statistics/exposure\\?library=${lib.id}$`));
+        await expect(topics.filter({ hasText: 'Exposure' })).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.stats-title')).toHaveText('Exposure');
+        await expect(page.locator('.stats-chart-title', { hasText: 'Aperture over time' })).toBeVisible();
+
+        // The address alone brings the topic back.
+        await page.reload();
         await waitForAppReady(page);
-        await page.locator('#mode-library').click();
-        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        // Navigate into the Stats test library so stats are scoped to it (not all libraries)
-        const card = page.locator('.library-card', { hasText: 'Stats test library' });
+        await expect(page.locator('.stats-title')).toHaveText('Exposure');
+        await expect(page.locator('.stats-library')).toHaveValue(lib.id);
+    });
+
+    test('the overview leads to each topic, and back', async ({ page }) => {
+        await open(page);
+        const cards = page.locator('.stats-card');
+        await expect(cards).toHaveCount(4);
+        await cards.filter({ hasText: 'Frame' }).click();
+        await expect(page.locator('.stats-title')).toHaveText('Frame');
+        await page.locator('.stats-back').click();
+        await expect(page.locator('.stats-title')).toHaveText('Statistics');
+        await page.goBack();
+        await expect(page.locator('.stats-title')).toHaveText('Frame');
+    });
+
+    test('with the sidebar collapsed the topics are reached from the overview', async ({ page }) => {
+        await open(page);
+        await page.locator('#sidebar-collapse').click();
+        await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
+        await expect(page.locator('.stats-card')).toHaveCount(4);
+        await page.locator('#sidebar-collapse').click();
+    });
+
+    test('9 opens Statistics', async ({ page }) => {
+        await page.goto('/#folders');
+        await waitForAppReady(page);
+        await page.keyboard.press('9');
+        await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.stats-title')).toHaveText('Statistics');
+    });
+
+    test("a library's Statistics button opens the place for that library", async ({ page }) => {
+        await page.goto('/#libraries');
+        await waitForAppReady(page);
+        const card = page.locator('.library-card', { hasText: LIB_NAME });
         await card.waitFor({ timeout: 15_000 });
         await card.locator('.lib-open').click();
-        await page.waitForSelector('.library-detail', { timeout: 8_000 });
         await page.locator('#lib-detail-stats-btn').click();
-        await page.waitForSelector('.stats-grid', { timeout: 30_000 });
-
-        // Film simulation card is absent when the library has no Fuji film sim EXIF data
-        const cards = page.locator('.stats-chart');
-        await expect(cards).toHaveCount(7);
-        await expect(page.locator('.stats-chart-title', { hasText: 'Film simulation' })).toHaveCount(0);
+        await expect(page).toHaveURL(new RegExp(`#statistics\\?library=${lib.id}$`));
+        await expect(page.locator('.stats-library')).toHaveValue(lib.id);
     });
 
-    test('Statistics dialog has library filter dropdown', async ({ page }) => {
-        await page.goto('/');
-        await waitForAppReady(page);
-        await page.locator('#mode-library').click();
-        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
-        await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-lib-select', { timeout: 15_000 });
-        await expect(page.locator('.stats-lib-select')).toBeVisible();
+    test('camera usage is a line chart with a legend', async ({ page }) => {
+        await open(page, 'equipment');
+        const chart = page.locator('.stats-chart', { hasText: 'Camera usage' });
+        const legend = chart.locator('.stats-legend-item');
+        await expect(legend.first()).toBeVisible();
+        const names = await legend.allTextContents();
+        expect(new Set(names.map(n => n.trim())).size).toBe(names.length);
+        await expect(chart.locator('path[fill="none"]')).toHaveCount(names.length);
     });
 
-    test('Escape closes the statistics dialog', async ({ page }) => {
-        await page.goto('/');
-        await waitForAppReady(page);
-        await page.locator('#mode-library').click();
-        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
-        await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
+    test('clicking a camera shows its photos beside the charts', async ({ page, request }) => {
+        await open(page, 'equipment');
+        const cell = page.locator('.stats-chart', { hasText: 'Camera and lens' }).locator('.lens-cell .stats-pickable').first();
+        const label = await cell.getAttribute('aria-label');
+        const counted = Number(label.match(/([\d\s,.]+) photos?$/)[1].replace(/\D/g, ''));
+        await cell.click();
+
+        const column = page.locator('#stats-photos');
+        await expect(column).toBeVisible();
+        await expect(column.locator('.photo-column-subject')).toHaveText(label.split(',')[0]);
+        await expect(column.locator('.photo-column-title')).toContainText('photo');
+        const tiles = column.locator('.photo-column-tile');
+        await expect(tiles.first()).toBeVisible();
+        expect(await tiles.count()).toBeGreaterThanOrEqual(Math.min(counted, 1));
 
         await page.keyboard.press('Escape');
-        await expect(page.locator('.stats-dialog')).not.toBeVisible({ timeout: 3_000 });
+        await expect(column).toBeHidden();
     });
 
-    test('Close button closes the dialog', async ({ page }) => {
-        await page.goto('/');
-        await waitForAppReady(page);
-        await page.locator('#mode-library').click();
-        await page.waitForSelector('.library-list-view', { timeout: 8_000 });
-        await page.locator('.library-card', { hasText: 'Stats test library' }).waitFor({ timeout: 15_000 });
-        await page.locator('#lib-stats-btn').click();
-        await page.waitForSelector('.stats-dialog', { timeout: 30_000 });
+    // folder-b has years whose median is ISO 20; the axis used to start at 50
+    // and drew them below it.
+    test('ISO over time stays inside its plot', async ({ page }) => {
+        await open(page, 'exposure');
+        const chart = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: /^ISO over time$/ }) });
+        const plot = chart.locator('svg > g').first();
+        await expect(plot.locator('circle').first()).toBeAttached();
+        const escaped = await plot.evaluate((g) => {
+            const axis = [...g.children].find(c => c.getAttribute('transform')?.startsWith('translate(0,'));
+            const iH = Number(axis.getAttribute('transform').match(/translate\(0,([\d.]+)\)/)[1]);
+            return [...g.querySelectorAll('circle')].map(c => Number(c.getAttribute('cy'))).filter(cy => !(cy >= 0 && cy <= iH));
+        });
+        expect(escaped).toEqual([]);
+    });
 
-        await page.locator('.dialog-foot .btn', { hasText: 'Close' }).click();
-        await expect(page.locator('.stats-dialog')).not.toBeVisible({ timeout: 3_000 });
+    // The lens name drawn on a cell took the click, so clicking the name
+    // showed nothing.
+    test('clicking the name on a cell picks the cell', async ({ page }) => {
+        await open(page, 'equipment');
+        const label = page.locator('.stats-chart', { hasText: 'Camera and lens' }).locator('.lens-cell text').first();
+        // Where the name is drawn, as a person would click it; the name itself
+        // takes no pointer events.
+        const box = await label.boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await expect(page.locator('#stats-photos')).toBeVisible();
+    });
+
+    test('a bar can be picked with the keyboard', async ({ page }) => {
+        await open(page, 'exposure');
+        const iso = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: /^ISO$/ }) });
+        const bar = iso.locator('.stats-pickable').first();
+        await bar.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#stats-photos')).toBeVisible();
+        await expect(page.locator('#stats-photos .photo-column-subject')).toContainText('ISO');
     });
 });

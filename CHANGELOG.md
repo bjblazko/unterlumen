@@ -1,14 +1,28 @@
 # Changelog
 
-*Last modified: 2026-09-29*
+*Last modified: 2026-09-30*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-09-30
+
+### Added
+- **Clicking a value in Statistics shows its photos.** A lens in the treemap, a format, a film simulation, a bar of focal length, aperture or ISO, an hour, a day in the calendar, a camera or frame shape in a given year: the photos it counts appear in a column beside the charts, newest first, and open read-only. The column is the Map's Photos column. Escape or Done closes it. Every clickable mark can also be reached with Tab and picked with Enter.
+- **Search filters by folder, hour and frame shape.** `/api/library/search` takes `pathPrefix`, `hour` (0–23) and `aspect` (`1:1`, `4:3`, `3:2`, `16:9+`, `other`), so a click in folder-scoped statistics stays in that folder.
+
 ### Changed
+- **Statistics is a place, not a dialog.** It sits in the sidebar under Explore (key 9) with a sub-entry per topic: Equipment, Exposure, Time and Frame. Its overview has a card per topic, which is how to reach them with the sidebar collapsed. Each topic and scope has its own address (`#statistics/exposure?library=…`), so back, reload and bookmarks work. A library's Statistics button opens the place for that library and the folder shown; the button in the Libraries overview is gone. The Snapshot and Timeline tabs are gone too: each topic shows how its values are distributed and how they changed.
+- **On a phone the sentence under a place's title waits behind an "i".** It took several lines above the photos and the map; tap the "i" beside the title to read it. The Map also folds its period and style behind Options, so the map keeps its height.
+- **The info panel closes with a framed Done**, like the photo columns of the Map and Statistics, in Folders, Libraries, the Timeline and the viewer. It replaces a bare ✕.
+- **The Timeline has a calendar icon.** Its bars looked like a statistic, which now has a place of its own.
+- **Camera usage and aspect ratio are line charts.** Stacked bars and areas hid one camera or frame shape behind another. Now each is a line, with a legend, its name at the end when there are four or fewer, and every value of a period on hover. Years or months without photos stay on the axis, so a three-year gap no longer looks like one.
 - **A new app starts where the old one left off.** Started for the first time beside an installation made by an older `-desktop-install` — the app from the .dmg or the Windows setup, say — Unterlumen takes over that installation's photo folder, data folder, shared destinations and port from its launcher instead of opening the setup. Where there is no older installation, the setup opens as before.
 
 ### Fixed
+- **The info panel in the viewer shows the photo when opened with its button.** Opened with its own button (or on a phone with Info) rather than with `I`, it said "Select an image to view info" until you moved to the next photo. This happened wherever the viewer opens: Folders, Libraries, the Map, the Timeline and now Statistics.
+- **ISO over time no longer runs below its axis.** The axis started at ISO 50, so a year whose median was lower (some phones report ISO 20) drew under it. It now starts below the lowest median. Periods without photos are gaps in the ISO, focal length and resolution lines, rather than a curve through years in which nothing was taken.
+- **"Other" no longer shows twice in camera usage across libraries.** Each library cut its cameras to five plus "Other" before they were merged, and the merge ranked that "Other" as a camera. The cut now happens once, after merging, so the five cameras are the five most used across all libraries.
 - **The setup no longer offers to share from the top of a disk.** With `/` or `C:\` as the photo folder, "Shared" tried to make `.unterlumen-shared` there, which fails on a Mac and would be seen by no other installation anyway. There the setup now says to choose the folder both installations see, such as the NAS folder, as the photo folder; sharing itself refuses a disk root as well.
 - **A shared folder kept from an older installation stays shared in the setup.** With `/` as the photo folder, the setup took a `-channels-dir` such as `/Volumes/nas/…/.unterlumen-shared` for this folder's own and showed destinations as not shared; saving would have stopped sharing them.
 

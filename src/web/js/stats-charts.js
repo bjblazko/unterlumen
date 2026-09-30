@@ -51,16 +51,38 @@ function chartColors() {
     };
 }
 
+// A chart is drawn at a fixed size and shrinks with a narrow card. It grows
+// by at most a third, which brings its 9–11 px labels to the page's own text
+// size; any more and they would outgrow it.
 function svgBase(el, w, h) {
     return d3.select(el).append('svg')
         .attr('width', w).attr('height', h)
         .attr('viewBox', `0 0 ${w} ${h}`)
-        .style('display', 'block').style('width', '100%').style('height', 'auto');
+        .attr('class', 'stats-svg')
+        .style('max-width', `${Math.round(w * 1.3)}px`);
 }
+
+// Marks that show their photos when clicked, or with Enter or Space: a pointer,
+// a place in the tab order and a name. Without onPick (the overview's
+// previews) they stay pictures.
+function pickable(selection, onPick, label) {
+    if (!onPick) return selection;
+    return selection.classed('stats-pickable', true)
+        .attr('tabindex', 0).attr('role', 'button')
+        .attr('aria-label', label)
+        .on('click', (event, d) => onPick(d))
+        .on('keydown', (event, d) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            onPick(d);
+        });
+}
+
+const photoCount = n => `${n.toLocaleString()} ${n === 1 ? 'photo' : 'photos'}`;
 
 /* ─── 1. Format donut ───────────────────────────────────────────── */
 
-function renderFormatDonut(el, formats) {
+function renderFormatDonut(el, formats, onPick) {
     if (!formats?.length) { el.textContent = 'No data'; return; }
     const c = chartColors();
     const W = 320, H = 220, R = 80, r = 44;
@@ -78,7 +100,7 @@ function renderFormatDonut(el, formats) {
 
     const tooltip = d3.select(el).append('div').attr('class','stats-tooltip').style('display','none');
 
-    g.selectAll('path')
+    const slices = g.selectAll('path')
         .data(pie(formats))
         .join('path')
         .attr('d', arc)
@@ -97,6 +119,7 @@ function renderFormatDonut(el, formats) {
             d3.select(this).attr('d', arc);
             tooltip.style('display','none');
         });
+    pickable(slices, onPick && (d => onPick(d.data.name)), d => `${d.data.name.toUpperCase()}, ${photoCount(d.data.count)}`);
 
     // Centre label
     g.append('text').attr('text-anchor','middle').attr('dy','-0.2em')
@@ -144,7 +167,7 @@ function filmSimColor(name) {
     return token ? cssVar(token) : null;
 }
 
-function renderFilmSimBar(el, filmSims) {
+function renderFilmSimBar(el, filmSims, onPick) {
     if (!filmSims?.length) { el.textContent = 'No data'; return; }
 
     let showNone = false;
@@ -189,10 +212,12 @@ function renderFilmSimBar(el, filmSims) {
                 .attr('x', pad.left - 8).attr('y', y + barH/2 + 4)
                 .attr('text-anchor','end').attr('fill', c.text).attr('font-size', 11)
                 .text(name);
-            svg.append('rect')
+            const bar = svg.append('rect').datum(name)
                 .attr('x', pad.left).attr('y', y + 3)
                 .attr('width', x(d.count)).attr('height', barH - 6)
                 .attr('rx', 2).attr('fill', barColor);
+            // Untagged photos have no value to look for.
+            if (name !== 'None') pickable(bar, onPick, `${name}, ${photoCount(d.count)}`);
             svg.append('text')
                 .attr('x', pad.left + x(d.count) + 5).attr('y', y + barH/2 + 4)
                 .attr('fill', c.textSec).attr('font-size', 10)
@@ -204,7 +229,7 @@ function renderFilmSimBar(el, filmSims) {
 
 /* ─── 3. Focal length histogram (with 35mm toggle) ─────────────── */
 
-function renderFocalHistogram(el, focalLengths, focalLengths35) {
+function renderFocalHistogram(el, focalLengths, focalLengths35, onPick) {
     const has35 = focalLengths35?.length > 0;
     let show35 = false;
 
@@ -255,12 +280,15 @@ function renderFocalHistogram(el, focalLengths, focalLengths35) {
             .selectAll('text').attr('fill', c.textSec).attr('font-size', 10);
         g.selectAll('.stats-axis path, .stats-axis line').attr('stroke', c.border);
 
-        g.selectAll('rect').data(bins).join('rect')
+        const bars = g.selectAll('rect').data(bins).join('rect')
             .attr('x', d => x(d.x0) + 1)
             .attr('y', d => y(d.length))
             .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 2))
             .attr('height', d => iH - y(d.length))
             .attr('fill', c.cats[0]).attr('rx', 1);
+        const field = data === focalLengths35 ? 'FocalLength35' : 'FocalLength';
+        pickable(bars.filter(d => d.length > 0), onPick && (d => onPick({ field, min: d.x0, max: d.x1 })),
+            d => `${d.x0}–${d.x1} mm, ${photoCount(d.length)}`);
 
         return svg.node();
     }
@@ -268,7 +296,7 @@ function renderFocalHistogram(el, focalLengths, focalLengths35) {
 
 /* ─── 4. Aperture histogram ─────────────────────────────────────── */
 
-function renderApertureHistogram(el, apertures) {
+function renderApertureHistogram(el, apertures, onPick) {
     if (!apertures?.length) { el.textContent = 'No data'; return; }
     const c = chartColors();
     const W = 280, H = 160;
@@ -291,17 +319,19 @@ function renderApertureHistogram(el, apertures) {
         .selectAll('text').attr('fill', c.textSec).attr('font-size', 10);
     g.selectAll('.stats-axis path, .stats-axis line').attr('stroke', c.border);
 
-    g.selectAll('rect').data(bins).join('rect')
+    const bars = g.selectAll('rect').data(bins).join('rect')
         .attr('x', d => x(Math.max(0.9, d.x0)) + 1)
         .attr('y', d => y(d.length))
         .attr('width', d => Math.max(0, x(Math.max(0.9, d.x1)) - x(Math.max(0.9, d.x0)) - 2))
         .attr('height', d => iH - y(d.length))
         .attr('fill', c.cats[0]).attr('rx', 1);
+    pickable(bars.filter(d => d.length > 0), onPick && (d => onPick({ min: d.x0, max: d.x1 })),
+        d => `f/${d.x0} to f/${d.x1}, ${photoCount(d.length)}`);
 }
 
 /* ─── 5. ISO histogram (log scale) ─────────────────────────────── */
 
-function renderISOHistogram(el, isos) {
+function renderISOHistogram(el, isos, onPick) {
     if (!isos?.length) { el.textContent = 'No data'; return; }
     const c = chartColors();
     const W = 280, H = 160;
@@ -325,17 +355,19 @@ function renderISOHistogram(el, isos) {
         .selectAll('text').attr('fill', c.textSec).attr('font-size', 10);
     g.selectAll('.stats-axis path, .stats-axis line').attr('stroke', c.border);
 
-    g.selectAll('rect').data(bins).join('rect')
+    const bars = g.selectAll('rect').data(bins).join('rect')
         .attr('x', d => x(Math.max(50, d.x0)) + 1)
         .attr('y', d => y(d.length))
         .attr('width', d => Math.max(0, x(Math.max(50, d.x1)) - x(Math.max(50, d.x0)) - 2))
         .attr('height', d => iH - y(d.length))
         .attr('fill', c.cats[0]).attr('rx', 1);
+    pickable(bars.filter(d => d.length > 0), onPick && (d => onPick({ min: d.x0, max: d.x1 })),
+        d => `ISO ${d.x0} to ${d.x1}, ${photoCount(d.length)}`);
 }
 
 /* ─── 6. Camera × lens treemap ──────────────────────────────────── */
 
-function renderCameraLensTreemap(el, cameraLens, totalPhotos) {
+function renderCameraLensTreemap(el, cameraLens, totalPhotos, onPick) {
     if (!cameraLens?.length) { el.textContent = 'No data'; return; }
     const c = chartColors();
     const W = 600, H = 220;
@@ -371,10 +403,11 @@ function renderCameraLensTreemap(el, cameraLens, totalPhotos) {
         .join('g').attr('class','cam-cell')
         .each(function(d) {
             const g = d3.select(this);
-            g.append('rect')
+            const cell = g.append('rect')
                 .attr('x', d.x0).attr('y', d.y0)
                 .attr('width', d.x1 - d.x0).attr('height', d.y1 - d.y0)
                 .attr('fill', camColor(d.data.name)).attr('opacity', 0.15).attr('rx', 2);
+            pickable(cell, onPick && (() => onPick({ camera: d.data.name })), `${d.data.name}, ${photoCount(d.value)}`);
             const w = d.x1 - d.x0;
             if (w > 40) {
                 g.append('text')
@@ -391,11 +424,12 @@ function renderCameraLensTreemap(el, cameraLens, totalPhotos) {
         .each(function(d) {
             const g = d3.select(this);
             const w = d.x1 - d.x0, h = d.y1 - d.y0;
-            g.append('rect')
+            const cell = g.append('rect')
                 .attr('x', d.x0 + 1).attr('y', d.y0 + 1)
                 .attr('width', Math.max(0, w - 2)).attr('height', Math.max(0, h - 2))
-                .attr('fill', camColor(d.parent.data.name)).attr('opacity', 0.55).attr('rx', 2)
-                .style('cursor', 'default');
+                .attr('fill', camColor(d.parent.data.name)).attr('opacity', 0.55).attr('rx', 2);
+            pickable(cell, onPick && (() => onPick({ camera: d.parent.data.name, lens: d.data.name })),
+                `${d.parent.data.name}, ${d.data.name}, ${photoCount(d.value)}`);
             if (w > 50 && h > 18) {
                 g.append('text')
                     .attr('x', d.x0 + 4).attr('y', d.y0 + h/2 + 4)
@@ -426,7 +460,7 @@ function cleanExif(s) {
 
 /* ─── 7. Shooting-time radial clock ─────────────────────────────── */
 
-function renderShootingClock(el, shootingHours) {
+function renderShootingClock(el, shootingHours, onPick) {
     if (!shootingHours || shootingHours.every(h => h === 0)) { el.textContent = 'No data'; return; }
     const c = chartColors();
     const W = 260, H = 260, cx = W/2, cy = H/2;
@@ -454,9 +488,10 @@ function renderShootingClock(el, shootingHours) {
         const startAngle = h * slice;
         const endAngle = startAngle + slice * 0.85;
         const arc = d3.arc()({ innerRadius: innerR, outerRadius: rScale(n), startAngle, endAngle });
-        svg.append('path').attr('d', arc)
+        const bar = svg.append('path').datum(h).attr('d', arc)
             .attr('transform', `translate(${cx},${cy})`)
             .attr('fill', seqStep(c, n, maxVal) ?? c.seq[0]);
+        pickable(bar, onPick, `${String(h).padStart(2, '0')}:00 to ${String(h + 1).padStart(2, '0')}:00, ${photoCount(n)}`);
     }
 
     // Clock face labels: midnight top, 6am right, noon bottom, 6pm left
@@ -478,7 +513,7 @@ function renderShootingClock(el, shootingHours) {
 
 /* ─── 8. Calendar heatmap (paginated by year) ───────────────────── */
 
-function renderCalendarHeatmap(el, shootingDays) {
+function renderCalendarHeatmap(el, shootingDays, onPick) {
     if (!shootingDays || Object.keys(shootingDays).length === 0) { el.textContent = 'No data'; return; }
 
     const c = chartColors();
@@ -493,14 +528,17 @@ function renderCalendarHeatmap(el, shootingDays) {
 
     const controls = document.createElement('div');
     controls.className = 'stats-cal-controls';
+    const chevron = d => `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="${d}"/></svg>`;
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'stats-cal-nav';
-    prevBtn.textContent = '◀';
+    prevBtn.className = 'btn btn-sm stats-cal-nav';
+    prevBtn.setAttribute('aria-label', 'Year before');
+    prevBtn.innerHTML = chevron('M7 2L3 6l4 4');
     const yearLabel = document.createElement('span');
     yearLabel.className = 'stats-cal-year';
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'stats-cal-nav';
-    nextBtn.textContent = '▶';
+    nextBtn.className = 'btn btn-sm stats-cal-nav';
+    nextBtn.setAttribute('aria-label', 'Year after');
+    nextBtn.innerHTML = chevron('M5 2l4 4-4 4');
     controls.appendChild(prevBtn);
     controls.appendChild(yearLabel);
     controls.appendChild(nextBtn);
@@ -579,6 +617,7 @@ function renderCalendarHeatmap(el, shootingDays) {
                     .attr('fill', n > 0 ? seqStep(c, n, maxCount) : c.border)
                     .attr('opacity', n > 0 ? 1 : 0.4);
                 if (n > 0) {
+                    pickable(rect.datum(key), onPick, `${key}, ${photoCount(n)}`);
                     rect.on('mouseover', function(event) {
                             tooltip.style('display','block').html(`${key}<br>${n} photo${n !== 1 ? 's':''}`);
                         })

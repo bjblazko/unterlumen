@@ -73,9 +73,11 @@ Because it is indexed, a library can be filtered across all of it: date, shutter
 
 #### Statistics
 
-What you shoot with and when: formats, film simulations, lenses, exposure, time of day and a calendar, and on the Timeline tab how cameras, focal lengths and apertures change over the years.
+What you shoot with and when, by topic: Equipment (cameras, lenses, formats, film simulations), Exposure (focal length, aperture, ISO), Time (time of day, calendar) and Frame (aspect ratio), each with how it changed over the years. The overview has a card per topic, and the topics are also in the sidebar. Click a bar, a slice or a point and the photos it counts appear beside the charts.
 
-![Statistics](doc/screenshots/statistics.webp)
+| Overview | A topic |
+|---|---|
+| ![Statistics overview with a card per topic](doc/screenshots/statistics.webp) | ![Equipment, with the photos of one camera and lens beside the charts](doc/screenshots/statistics-photos.webp) |
 
 #### Map
 
@@ -153,6 +155,7 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map, the t
 - **On a phone** — Below 700 px the sidebar becomes a tab bar (Libraries, Folders, Map, Timeline, Galleries) and Unterlumen becomes read-only: browse libraries and folders, open a photo full screen and swipe through the set, read its metadata in a sheet from the bottom, look at statistics, and see how your galleries are doing. Everything that changes files or settings stays on the desktop; a desktop-only place says so instead of showing controls that cannot work there. Reach it by binding the server to your network (`UNTERLUMEN_BIND=0.0.0.0`) or through the Docker deployment
 - **Map** — Every photo with a location, from every library, on one large map. Photos taken close together form a group, shown as a round thumbnail of the newest one with the number of photos beside it; zooming in splits the groups until each photo stands at its own place. Clicking a group zooms in; a group whose photos share one spot, or a single photo, opens in the viewer (read-only: no crop, no marking for deletion). A time slider narrows the map to the months the photos were taken in. The Photos button opens a column with the photos in the part of the map on screen, newest first, following the map as you move and zoom; Done or Escape closes it again. The map is grey by default, light or dark with the theme; the Style switch shows it in colour. Its tiles come from OpenFreeMap and need an internet connection. Only photos in a library appear. See [ADR-0039](doc/architecture/adr/0039-map-place.md)
 - **Explains itself** — Under the title of each place one sentence says what it is and what it does to your files, and links the places it names. "How Unterlumen works" (`#guide`, linked from each sentence, Settings and About) shows the whole model in a diagram — photo folder, Folders, libraries, Map and Timeline, galleries, destinations — with a paragraph for each. See [ADR-0041](doc/architecture/adr/0041-explaining-the-model-in-the-app.md)
+- **Statistics** — A place under Explore (`#statistics`, key 9) with a topic per sidebar sub-entry: Equipment, Exposure, Time and Frame. The overview shows a card for each, which is how to reach them with the sidebar collapsed. A library select limits it to one library; a library's Statistics button opens it for that library and the folder shown. Developments over time are lines, one per camera or frame shape, with a legend and every value of a period on hover. Clicking a value — a lens, an f-stop, an hour, a day, a camera in one year — shows its photos in a column beside the charts; they open read-only. See [ADR-0043](doc/architecture/adr/0043-statistics-place-with-topics.md)
 - **Timeline** — Every dated photo of every library on one time axis, each photo once even when it sits in several libraries. On a desk the photos run left (oldest) to right (newest) in two to four rows (⋯ menu) above a time bar: an overview with bracket handles that limits the view to a span of months, and an axis with a graph of how many photos were taken when, years and month names, and a frame marking what the rows show. Drag the frame or click the axis to go somewhere; scroll the photos and the frame follows. A click selects a photo and the info panel (I) shows it, a double click or Enter opens it read-only. On a phone the newest come first, grouped by month, with a scrubber down the right edge. Only the photos near the screen are loaded. Photos without a date taken are left out and counted. See [ADR-0040](doc/architecture/adr/0040-timeline-place.md)
 - **Galleries** — A dedicated "Galleries" place lists every gallery across every destination (the UI name for a channel), grouped by destination and showing its state in words: Not online yet, Changes not online, Online, or Built. An action appears only where there is something to do — "Publish", "Publish N changes", "Check again". Link reachability is checked once when the screen opens and after each publish, and is reported next to the state with the time of the check rather than as a state of its own. Opening a gallery shows the photos waiting to go online (removable individually), its title, date, visibility toggle (single-gallery destinations), address, and Unpublish — with a scoped remote delete over SSH for rsync destinations. The channels list links to a destination's public site and to its galleries
 - **Image viewer** — Full-screen image view with keyboard navigation, and a button that downloads the original file (a HEIF stays HEIF)
@@ -451,7 +454,7 @@ Notes:
 | `\` | Collapse or expand the sidebar |
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
-| 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map / Timeline |
+| 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 / 9 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map / Timeline / Statistics |
 | Tab | Switch panes in File Manager mode |
 | F5 | Copy selected files (File Manager) |
 | F6 | Move selected files (File Manager) |

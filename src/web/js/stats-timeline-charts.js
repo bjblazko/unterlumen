@@ -17,68 +17,246 @@ function tlAxisBottom(g, x, periods, iH, c) {
     g.selectAll('.domain, .tick line').attr('stroke', c.border);
 }
 
-function tlNoData(el, msg) {
-    el.innerHTML = `<div class="stats-tl-nodata">${escapeHtml(msg)}</div>`;
+// The server lists only the periods that have photos. A line over time needs
+// the ones between as well, or three empty years look as long as one month.
+// Counts per period are index-aligned and get zeros; everything else is keyed
+// by its period and stays as it is.
+function continuousTimeline(tl) {
+    const periods = tl?.periods;
+    if (!periods?.length) return tl;
+    const all = periodRange(periods[0], periods[periods.length - 1], tl.granularity);
+    if (!all || all.length === periods.length) return tl;
+    const at = new Map(periods.map((p, i) => [p, i]));
+    const spread = counts => all.map(p => (at.has(p) ? counts[at.get(p)] ?? 0 : 0));
+    return {
+        ...tl,
+        periods: all,
+        cameraUsage: (tl.cameraUsage ?? []).map(cs => ({ ...cs, counts: spread(cs.counts) })),
+        aspectRatios: (tl.aspectRatios ?? []).map(a => ({ ...a, counts: spread(a.counts) })),
+    };
 }
 
-/* ─── TL 1. Camera stacked bar ──────────────────────────────────── */
+// Every period from first to last: "2004" … "2026", or "2024-11" … "2025-02".
+function periodRange(first, last, granularity) {
+    const out = [];
+    if (granularity === 'year') {
+        for (let y = +first; y <= +last; y++) out.push(String(y));
+        return out;
+    }
+    const m = /^(\d{4})-(\d{2})$/;
+    const a = m.exec(first), b = m.exec(last);
+    if (!a || !b) return null;
+    for (let y = +a[1], mo = +a[2]; y < +b[1] || (y === +b[1] && mo <= +b[2]); mo === 12 ? (y++, mo = 1) : mo++) {
+        out.push(`${y}-${String(mo).padStart(2, '0')}`);
+    }
+    return out;
+}
 
-function renderCameraStream(el, tlData) {
-    const cameras = tlData.cameraUsage;
-    const periods = tlData.periods;
-    if (!cameras?.length || !periods?.length) { tlNoData(el, 'No camera data'); return; }
+// A transparent band over each period that has data, so a click on a line
+// chart without its own hover shows that period's photos.
+function periodBands(g, x, periods, iH, onPick) {
+    if (!onPick) return;
+    pickable(g.append('g').selectAll('rect').data(periods).join('rect')
+        .attr('x', p => x(p)).attr('y', 0)
+        .attr('width', x.bandwidth()).attr('height', iH)
+        .attr('fill', 'transparent'),
+    p => onPick({ period: p }), p => `Photos of ${p}`);
+}
+
+// A value per period as a line (and optionally an area under it) that breaks
+// where a period has no value: a line through years without photos would
+// invent the values between. Each value gets a dot, so a period between two
+// gaps still shows.
+function gappedLine(g, periods, xC, yOf, { color, area = null, curve = d3.curveMonotoneX }, c) {
+    const defined = p => { const v = yOf(p); return v !== null && Number.isFinite(v); };
+    if (area !== null) {
+        g.append('path').datum(periods)
+            .attr('d', d3.area().defined(defined).x(xC).y0(area).y1(yOf).curve(curve))
+            .attr('fill', color).attr('opacity', 0.18);
+    }
+    g.append('path').datum(periods)
+        .attr('d', d3.line().defined(defined).x(xC).y(yOf).curve(curve))
+        .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
+    g.append('g').selectAll('circle').data(periods.filter(defined)).join('circle')
+        .attr('cx', xC).attr('cy', yOf).attr('r', 3)
+        .attr('fill', color).attr('stroke', c.surface).attr('stroke-width', 1.5);
+}
+
+function tlNoData(el, msg) {
+    el.innerHTML = `<p class="stats-nodata">${escapeHtml(msg)}</p>`;
+}
+
+/* ─── Lines per series ──────────────────────────────────────────── */
+
+// Several series over the same periods as lines, so no series hides another
+// (a stack or a filled area did). A legend names every line; with four or
+// fewer, each is also labelled at its end. Hovering shows every value of the
+// period under the pointer.
+//
+// series: [{ name, values: [number|null per period], color }]
+// format(value, series, periodIndex): the value as the tooltip says it.
+// onPick({ period, series }): a click; series is the line nearest the pointer
+// when it is close, else null.
+function renderSeriesLines(el, periods, series, { yMax, yFormat, format, onPick, height = 200 }) {
     const c = chartColors();
-    const W = 680, H = 220;
-    const m = { top: 8, right: 16, bottom: 48, left: 16 };
+    const direct = series.length <= 4;
+    const W = 680, H = height;
+    const m = { top: 12, right: direct ? 112 : 16, bottom: 48, left: 48 };
     const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
 
-    const cameraNames = cameras.map(cs => cs.camera);
-    const stackData = periods.map((p, i) => {
-        const obj = { period: p };
-        for (const cs of cameras) obj[cs.camera] = cs.counts[i] ?? 0;
-        return obj;
-    });
+    el.appendChild(seriesLegend(series));
 
-    const stack = d3.stack().keys(cameraNames)(stackData);
-    const colorScale = d3.scaleOrdinal().domain(cameraNames).range(c.cats);
-
-    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.08);
-    const maxY = d3.max(stack[stack.length - 1], d => d[1]);
-    const y = d3.scaleLinear().domain([0, maxY]).range([iH, 0]).nice();
+    const x = d3.scalePoint().domain(periods).range([0, iW]).padding(0.5);
+    const top = yMax ?? d3.max(series, s => d3.max(s.values)) ?? 0;
+    const y = d3.scaleLinear().domain([0, top || 1]).range([iH, 0]).nice();
 
     const svg = svgBase(el, W, H);
     const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+    g.append('g').attr('class', 'stats-grid-lines')
+        .call(d3.axisLeft(y).ticks(4).tickSize(-iW).tickFormat(yFormat))
+        .call(axis => axis.select('.domain').remove())
+        .call(axis => axis.selectAll('line').attr('stroke', c.border))
+        .call(axis => axis.selectAll('text').attr('fill', c.textSec).attr('font-size', 9));
     tlAxisBottom(g, x, periods, iH, c);
 
-    const layers = g.selectAll('.cam-layer').data(stack).join('g')
-        .attr('class', 'cam-layer')
-        .attr('fill', d => colorScale(d.key));
+    const line = d3.line()
+        .defined(v => v !== null && v !== undefined)
+        .x((_, i) => x(periods[i])).y(v => y(v));
+    for (const s of series) {
+        g.append('path').datum(s.values).attr('d', line)
+            .attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2)
+            .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+    }
+    if (direct) endLabels(g, series, periods, x, y, iW, c);
 
-    layers.selectAll('rect').data(d => d).join('rect')
-        .attr('x', d => x(d.data.period))
-        .attr('y', d => y(d[1]))
-        .attr('height', d => Math.max(0, y(d[0]) - y(d[1])))
-        .attr('width', x.bandwidth());
+    seriesHover(el, g, { periods, series, x, y, iW, iH, m, W, format, onPick, c });
+}
 
+function seriesLegend(series) {
     const legend = document.createElement('div');
-    legend.className = 'stats-tl-legend';
-    cameraNames.forEach(cam => {
-        const item = document.createElement('div');
-        item.className = 'stats-tl-legend-item';
-        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${colorScale(cam)}"></span>${escapeHtml(cam)}`;
-        item.addEventListener('click', () => {
-            item.classList.toggle('tl-dim');
-            const dimmed = item.classList.contains('tl-dim');
-            layers.filter(d => d.key === cam).attr('opacity', dimmed ? 0.12 : 1);
-        });
-        legend.appendChild(item);
+    legend.className = 'stats-legend';
+    legend.innerHTML = series.map(s => `
+        <span class="stats-legend-item"><span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.name)}</span>`).join('');
+    return legend;
+}
+
+// Each line's name beside its last value, moved apart where two would touch.
+function endLabels(g, series, periods, x, y, iW, c) {
+    const labels = series.map(s => {
+        let i = s.values.length - 1;
+        while (i >= 0 && (s.values[i] === null || s.values[i] === undefined)) i--;
+        return i < 0 ? null : { name: s.name, y: y(s.values[i]) };
+    }).filter(Boolean).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++) {
+        labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 12);
+    }
+    for (const l of labels) {
+        g.append('text').attr('x', iW + 8).attr('y', l.y + 3)
+            .attr('fill', c.textSec).attr('font-size', 10)
+            .text(truncate(l.name, 18));
+    }
+}
+
+// A rule at the period under the pointer, a dot on every line there and a
+// tooltip with the values, largest first. Arrow keys move it, Enter picks.
+function seriesHover(el, g, { periods, series, x, y, iW, iH, m, W, format, onPick, c }) {
+    const tooltip = d3.select(el).append('div').attr('class', 'stats-tooltip').style('display', 'none');
+    const rule = g.append('line').attr('y1', 0).attr('y2', iH)
+        .attr('stroke', c.axis).attr('stroke-width', 1).style('display', 'none');
+    const dots = g.append('g').style('display', 'none');
+    let current = -1;
+
+    const show = (i) => {
+        current = i;
+        const px = x(periods[i]);
+        rule.attr('x1', px).attr('x2', px).style('display', null);
+        dots.style('display', null).selectAll('circle')
+            .data(series.filter(s => s.values[i] !== null && s.values[i] !== undefined))
+            .join('circle').attr('cx', px).attr('cy', s => y(s.values[i])).attr('r', 4)
+            .attr('fill', s => s.color).attr('stroke', c.surface).attr('stroke-width', 2);
+        const rows = series.filter(s => s.values[i]).sort((a, b) => b.values[i] - a.values[i])
+            .map(s => `<span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.name)} <span class="stats-tooltip-value">${escapeHtml(format(s.values[i], s, i))}</span>`);
+        tooltip.style('display', 'block')
+            .html(`<span class="stats-tooltip-value">${escapeHtml(periods[i])}</span><br>${rows.join('<br>') || 'No photos'}`);
+        const drawn = g.node().ownerSVGElement.clientWidth;
+        const left = (m.left + px) * drawn / W;
+        tooltip.style('left', `${left + 12}px`).style('top', `${m.top * drawn / W}px`)
+            .style('transform', left > drawn / 2 ? 'translateX(calc(-100% - 24px))' : null);
+    };
+    const hide = () => {
+        current = -1;
+        rule.style('display', 'none');
+        dots.style('display', 'none');
+        tooltip.style('display', 'none');
+    };
+    const nearestPeriod = (px) => {
+        let best = 0;
+        periods.forEach((p, i) => { if (Math.abs(x(p) - px) < Math.abs(x(periods[best]) - px)) best = i; });
+        return best;
+    };
+    // The line nearest the pointer, when it is within 16 px of it.
+    const nearestSeries = (i, py) => {
+        let best = null, dist = 16;
+        for (const s of series) {
+            const v = s.values[i];
+            if (v === null || v === undefined) continue;
+            const d = Math.abs(y(v) - py);
+            if (d < dist) { dist = d; best = s; }
+        }
+        return best;
+    };
+
+    const overlay = g.append('rect').attr('width', iW).attr('height', iH)
+        .attr('fill', 'transparent').style('cursor', onPick ? 'pointer' : null)
+        .on('mousemove', (event) => show(nearestPeriod(d3.pointer(event)[0])))
+        .on('mouseleave', hide);
+    if (!onPick) return;
+    overlay.on('click', (event) => {
+        const [px, py] = d3.pointer(event);
+        const i = nearestPeriod(px);
+        onPick({ period: periods[i], series: nearestSeries(i, py) });
     });
-    el.appendChild(legend);
+    const svg = d3.select(g.node().ownerSVGElement)
+        .attr('tabindex', 0).attr('role', 'img')
+        .attr('aria-label', 'Chart. Arrow keys move between periods, Enter shows the photos of one.');
+    svg.on('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+            event.preventDefault();
+            const step = event.key === 'ArrowRight' ? 1 : -1;
+            show(Math.max(0, Math.min(periods.length - 1, (current < 0 ? (step > 0 ? -1 : periods.length) : current) + step)));
+        } else if (event.key === 'Enter' && current >= 0) {
+            event.preventDefault();
+            onPick({ period: periods[current], series: null });
+        }
+    }).on('blur', hide);
+}
+
+/* ─── TL 1. Camera usage ────────────────────────────────────────── */
+
+// The server sends the five cameras with the most photos, in that order, and
+// the rest summed as "Other", which is drawn in the axis grey.
+function renderCameraLines(el, tlData, onPick) {
+    const cameras = tlData?.cameraUsage;
+    const periods = tlData?.periods;
+    if (!cameras?.length || !periods?.length) { tlNoData(el, 'No camera data'); return; }
+    const c = chartColors();
+    let slot = 0;
+    const series = cameras.map(cs => ({
+        name: cs.camera,
+        camera: cs.camera === 'Other' ? null : cs.camera,
+        values: periods.map((_, i) => cs.counts[i] ?? 0),
+        color: cs.camera === 'Other' ? c.axis : c.cats[slot++],
+    }));
+    renderSeriesLines(el, periods, series, {
+        yFormat: d => d.toLocaleString(),
+        format: v => `${v.toLocaleString()} ${v === 1 ? 'photo' : 'photos'}`,
+        onPick: onPick && (({ period, series: s }) => onPick({ period, camera: s?.camera ?? null })),
+    });
 }
 
 /* ─── TL 2. Focal length drift ──────────────────────────────────── */
 
-function renderFocalDrift(el, tlData) {
+function renderFocalDrift(el, tlData, onPick) {
     const stats = tlData.focalStats;
     const periods = tlData.periods;
     if (!stats?.length || !periods?.length) { tlNoData(el, 'No focal length data'); return; }
@@ -102,24 +280,20 @@ function renderFocalDrift(el, tlData) {
         .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
     g.selectAll('.domain, .tick line').attr('stroke', c.border);
 
-    // IQR band
+    // The middle half of the photos as a band, broken where a period has none.
     g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.area()
+        .datum(periods)
+        .attr('d', d3.area().defined(p => statsMap.has(p))
             .x(p => xC(p)).y0(p => y(statsMap.get(p).p25)).y1(p => y(statsMap.get(p).p75))
             .curve(d3.curveMonotoneX))
         .attr('fill', c.cats[0]).attr('opacity', 0.18);
-
-    // Median line
-    g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
+    gappedLine(g, periods, xC, p => (statsMap.has(p) ? y(statsMap.get(p).median) : null), { color: c.cats[0] }, c);
+    periodBands(g, x, validPeriods, iH, onPick);
 }
 
 /* ─── TL 3. ISO evolution ───────────────────────────────────────── */
 
-function renderISOEvolution(el, tlData) {
+function renderISOEvolution(el, tlData, onPick) {
     const stats = tlData.isoStats;
     const periods = tlData.periods;
     if (!stats?.length || !periods?.length) { tlNoData(el, 'No ISO data'); return; }
@@ -130,43 +304,41 @@ function renderISOEvolution(el, tlData) {
 
     const statsMap = new Map(stats.map(s => [s.period, s]));
     const validPeriods = periods.filter(p => statsMap.has(p));
-    const allMedians = stats.map(s => s.median).filter(v => v >= 50);
-    const isoMax = Math.max(d3.max(allMedians) * 1.5, 200);
+    // A log scale has no place for 0; below 50 it starts under the lowest
+    // median (some phones report ISO 20), so no line runs below the axis.
+    const medians = stats.map(s => s.median).filter(v => v > 0);
+    const isoMin = Math.min(50, d3.min(medians) ?? 50) / 1.25;
+    const isoMax = Math.max((d3.max(medians) ?? 0) * 1.5, 200);
+    const isoTicks = [25, 100, 400, 1600, 6400, 25600].filter(v => v >= isoMin && v <= isoMax);
 
     const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.1);
     const xC = p => x(p) + x.bandwidth() / 2;
-    const y = d3.scaleLog().domain([50, isoMax]).range([iH, 0]).base(2);
+    const y = d3.scaleLog().domain([isoMin, isoMax]).range([iH, 0]).base(2).clamp(true);
 
     const svg = svgBase(el, W, H);
     const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
     // ISO grid lines
-    [100, 400, 1600, 6400, 25600].filter(v => v <= isoMax).forEach(iso => {
+    isoTicks.forEach(iso => {
         g.append('line').attr('x1', 0).attr('x2', iW).attr('y1', y(iso)).attr('y2', y(iso))
             .attr('stroke', c.border).attr('stroke-dasharray', '3,3');
     });
 
     tlAxisBottom(g, x, periods, iH, c);
     g.append('g').call(d3.axisLeft(y)
-        .tickValues([100, 400, 1600, 6400, 25600].filter(v => v <= isoMax))
+        .tickValues(isoTicks)
         .tickSizeOuter(0).tickFormat(d => d >= 1000 ? `${d/1000}K` : d))
         .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
     g.selectAll('.domain, .tick line').attr('stroke', c.border);
 
-    g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.area().x(p => xC(p)).y0(iH).y1(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', c.cats[0]).attr('opacity', 0.18);
-
-    g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.line().x(p => xC(p)).y(p => y(statsMap.get(p).median)).curve(d3.curveMonotoneX))
-        .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
+    const median = p => (statsMap.get(p)?.median > 0 ? y(statsMap.get(p).median) : null);
+    gappedLine(g, periods, xC, median, { color: c.cats[0], area: iH }, c);
+    periodBands(g, x, validPeriods, iH, onPick);
 }
 
 /* ─── TL 4. Aperture heatmap ────────────────────────────────────── */
 
-function renderApertureHeat(el, tlData) {
+function renderApertureHeat(el, tlData, onPick) {
     const heat = tlData.apertureHeat;
     const periods = tlData.periods;
     if (!heat?.length || !periods?.length) { tlNoData(el, 'No aperture data'); return; }
@@ -206,7 +378,7 @@ function renderApertureHeat(el, tlData) {
         bucketOrder.forEach((b, bi) => {
             const count = buckets[b] ?? 0;
             const norm = count / total;
-            g.append('rect')
+            const cell = g.append('rect')
                 .attr('x', pi * cellW).attr('y', bi * cellH)
                 .attr('width', cellW - 1).attr('height', cellH - 1).attr('rx', 1)
                 .attr('fill', count > 0 ? seqStep(c, norm, 1) : c.border)
@@ -221,66 +393,45 @@ function renderApertureHeat(el, tlData) {
                     tooltip.style('left', mx + 12 + 'px').style('top', my - 28 + 'px');
                 })
                 .on('mouseout', () => tooltip.style('display', 'none'));
+            if (count) pickable(cell, onPick && (() => onPick({ period: p, bucket: b })), `${p}, ${b}, ${count.toLocaleString()} photos`);
         });
     });
 }
 
-/* ─── TL 5. Aspect ratio river ──────────────────────────────────── */
+/* ─── TL 5. Aspect ratio ────────────────────────────────────────── */
 
 // Aspect ratios are a fixed set, so each keeps its slot in the ramp whatever
 // the library holds (ADR-0034).
 const TL_ASPECT_SLOTS = { '3:2': 0, '4:3': 1, '16:9+': 2, '1:1': 3, 'other': 4 };
 const aspectColor = (c, ratio) => c.cats[TL_ASPECT_SLOTS[ratio] ?? 4];
 
-function renderAspectRiver(el, tlData) {
-    const aspects = tlData.aspectRatios;
-    const periods = tlData.periods;
+// The share of each frame shape per period, so a period with few photos
+// counts as much as one with many. A period without photos is a gap.
+function renderAspectLines(el, tlData, onPick) {
+    const aspects = tlData?.aspectRatios;
+    const periods = tlData?.periods;
     if (!aspects?.length || !periods?.length) { tlNoData(el, 'No aspect ratio data'); return; }
     const c = chartColors();
-    const W = 680, H = 160;
-    const m = { top: 8, right: 16, bottom: 48, left: 44 };
-    const iW = W - m.left - m.right, iH = H - m.top - m.bottom;
-
-    const ratioNames = aspects.map(a => a.ratio);
-    const stackData = periods.map((p, i) => {
-        const obj = { period: p };
-        for (const as of aspects) obj[as.ratio] = as.counts[i] ?? 0;
-        return obj;
+    const totals = periods.map((_, i) => d3.sum(aspects, a => a.counts[i] ?? 0));
+    const ordered = [...aspects].sort((a, b) => (TL_ASPECT_SLOTS[a.ratio] ?? 4) - (TL_ASPECT_SLOTS[b.ratio] ?? 4));
+    const series = ordered.map(a => ({
+        name: a.ratio,
+        counts: a.counts,
+        values: periods.map((_, i) => totals[i] ? 100 * (a.counts[i] ?? 0) / totals[i] : null),
+        color: aspectColor(c, a.ratio),
+    }));
+    renderSeriesLines(el, periods, series, {
+        yMax: 100,
+        yFormat: d => `${d} %`,
+        format: (v, s, i) => `${Math.round(v)} % (${(s.counts[i] ?? 0).toLocaleString()})`,
+        onPick: onPick && (({ period, series: s }) => onPick({ period, aspect: s?.name ?? null })),
+        height: 180,
     });
-
-    const stack = d3.stack().keys(ratioNames).offset(d3.stackOffsetExpand)(stackData);
-
-    const x = d3.scaleBand().domain(periods).range([0, iW]).padding(0.05);
-    const xC = p => x(p) + x.bandwidth() / 2;
-    const y = d3.scaleLinear().domain([0, 1]).range([iH, 0]);
-
-    const svg = svgBase(el, W, H);
-    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
-    tlAxisBottom(g, x, periods, iH, c);
-    g.append('g').call(d3.axisLeft(y).ticks(4).tickSizeOuter(0).tickFormat(d => `${(d*100).toFixed(0)}%`))
-        .selectAll('text').attr('fill', c.textSec).attr('font-size', 9);
-    g.selectAll('.domain, .tick line').attr('stroke', c.border);
-
-    g.selectAll('.aspect-layer').data(stack).join('path')
-        .attr('class', 'aspect-layer')
-        .attr('fill', d => aspectColor(c, d.key))
-        .attr('opacity', 0.85)
-        .attr('d', d3.area().x(d => xC(d.data.period)).y0(d => y(d[0])).y1(d => y(d[1])).curve(d3.curveMonotoneX));
-
-    const legend = document.createElement('div');
-    legend.className = 'stats-tl-legend';
-    ratioNames.forEach(ratio => {
-        const item = document.createElement('div');
-        item.className = 'stats-tl-legend-item';
-        item.innerHTML = `<span class="stats-tl-legend-swatch" style="background:${aspectColor(c, ratio)}"></span>${escapeHtml(ratio)}`;
-        legend.appendChild(item);
-    });
-    el.appendChild(legend);
 }
 
 /* ─── TL 6. Megapixel timeline ──────────────────────────────────── */
 
-function renderMegapixelTimeline(el, tlData) {
+function renderMegapixelTimeline(el, tlData, onPick) {
     const stats = tlData.megapixelStats;
     const periods = tlData.periods;
     if (!stats?.length || !periods?.length) { tlNoData(el, 'No megapixel data'); return; }
@@ -306,15 +457,17 @@ function renderMegapixelTimeline(el, tlData) {
 
     // Avg line (dashed)
     g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.line().x(p => xC(p)).y(p => y(byPeriod.get(p).avg)).curve(d3.curveMonotoneX))
+        .datum(periods)
+        .attr('d', d3.line().defined(p => byPeriod.has(p)).x(p => xC(p)).y(p => y(byPeriod.get(p).avg)).curve(d3.curveMonotoneX))
         .attr('fill', 'none').attr('stroke', c.textSec).attr('stroke-width', 1.5).attr('stroke-dasharray', '4,3');
 
     // Max line (step)
     g.append('path')
-        .datum(validPeriods)
-        .attr('d', d3.line().x(p => xC(p)).y(p => y(byPeriod.get(p).max)).curve(d3.curveStepAfter))
+        .datum(periods)
+        .attr('d', d3.line().defined(p => byPeriod.has(p)).x(p => xC(p)).y(p => y(byPeriod.get(p).max)).curve(d3.curveStepAfter))
         .attr('fill', 'none').attr('stroke', c.cats[0]).attr('stroke-width', 2);
+
+    periodBands(g, x, validPeriods, iH, onPick);
 
     // Mark significant max jumps (>20%)
     for (let i = 1; i < validPeriods.length; i++) {
@@ -326,16 +479,8 @@ function renderMegapixelTimeline(el, tlData) {
         }
     }
 
-    const legend = document.createElement('div');
-    legend.className = 'stats-tl-legend';
-    legend.innerHTML = `
-        <div class="stats-tl-legend-item">
-            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.cats[0]}" stroke-width="2"/></svg>
-            Max MP
-        </div>
-        <div class="stats-tl-legend-item">
-            <svg width="20" height="10" style="flex-shrink:0"><line x1="0" y1="5" x2="20" y2="5" stroke="${c.textSec}" stroke-width="1.5" stroke-dasharray="4,3"/></svg>
-            Avg MP
-        </div>`;
-    el.appendChild(legend);
+    el.insertBefore(seriesLegend([
+        { name: 'Largest', color: c.cats[0] },
+        { name: 'Average', color: c.textSec },
+    ]), el.firstChild);
 }

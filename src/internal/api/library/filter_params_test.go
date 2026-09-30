@@ -45,3 +45,20 @@ func TestParseListPhotosOptsClampsLimit(t *testing.T) {
 		t.Errorf("limit=500: got %d, want 500", got)
 	}
 }
+
+// The statistics' scope and marks are filters of their own, never EXIF text.
+func TestParseListPhotosOptsStatisticsFilters(t *testing.T) {
+	q, _ := url.ParseQuery("pathPrefix=/photos/2024&hour=7&aspect=3:2")
+	got := parseListPhotosOpts(q)
+	if got.PathPrefix != "/photos/2024" || got.Hour == nil || *got.Hour != 7 || got.Aspect != "3:2" {
+		t.Errorf("got path %q, hour %v, aspect %q", got.PathPrefix, got.Hour, got.Aspect)
+	}
+	if len(got.Filters) != 0 {
+		t.Errorf("text filters = %v, want none", got.Filters)
+	}
+	for _, bad := range []string{"", "24", "-1", "noon"} {
+		if h := parseListPhotosOpts(url.Values{"hour": {bad}}).Hour; h != nil {
+			t.Errorf("hour=%q: got %d, want none", bad, *h)
+		}
+	}
+}

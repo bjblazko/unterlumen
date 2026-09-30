@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { navigateToFolder } from '../helpers/fixtures.js';
+import { reindexLibrary } from '../helpers/library.js';
 
 // Phase 8 of the Rams redesign: on a phone Unterlumen is for looking —
 // libraries, folders, photos, metadata and how the galleries are doing.
@@ -68,32 +69,32 @@ test.describe('Phone', () => {
         const lib = await (await request.post('/api/library/', { data: { name: NAME, description: '', sourcePath: 'folder-a' } })).json();
         await request.post(`/api/library/${lib.id}/reindex`, { timeout: 120_000 });
         try {
-            await page.goto('/#libraries');
-            await waitForAppReady(page);
-            await page.locator('.library-card', { hasText: NAME }).locator('.lib-open').tap();
-            await page.waitForSelector('.folder-tile', { timeout: 15_000 });
-            const tiles = await page.locator('.folder-tile').evaluateAll(els => els.slice(0, 2).map(e => {
-                const r = e.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) };
-            }));
-            expect(tiles[0].top).toBe(tiles[1].top);
-            expect(tiles[0].left).toBeLessThanOrEqual(8);
-            // The mosaic is square and ends above the name. Safari once let
-            // the photos run over the name and the counts.
-            const tile = await page.locator('.folder-tile').first().evaluate(t => {
-                const m = t.querySelector('.folder-tile-mosaic').getBoundingClientRect();
-                const n = t.querySelector('.item-name').getBoundingClientRect();
-                return { w: Math.round(m.width), h: Math.round(m.height), gap: Math.round(n.top - m.bottom) };
-            });
-            expect(Math.abs(tile.w - tile.h)).toBeLessThanOrEqual(1);
-            expect(tile.gap).toBeGreaterThanOrEqual(0);
-            const barPadding = await page.locator('.tabbar').evaluate(e => getComputedStyle(e).paddingBottom);
-            expect(barPadding).toBe('4px');
+                await page.goto('/#libraries');
+                await waitForAppReady(page);
+                await page.locator('.library-card', { hasText: NAME }).locator('.lib-open').tap();
+                await page.waitForSelector('.folder-tile', { timeout: 15_000 });
+                const tiles = await page.locator('.folder-tile').evaluateAll(els => els.slice(0, 2).map(e => {
+                    const r = e.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) };
+                }));
+                expect(tiles[0].top).toBe(tiles[1].top);
+                expect(tiles[0].left).toBeLessThanOrEqual(8);
+                // The mosaic is square and ends above the name. Safari once let
+                // the photos run over the name and the counts.
+                const tile = await page.locator('.folder-tile').first().evaluate(t => {
+                    const m = t.querySelector('.folder-tile-mosaic').getBoundingClientRect();
+                    const n = t.querySelector('.item-name').getBoundingClientRect();
+                    return { w: Math.round(m.width), h: Math.round(m.height), gap: Math.round(n.top - m.bottom) };
+                });
+                expect(Math.abs(tile.w - tile.h)).toBeLessThanOrEqual(1);
+                expect(tile.gap).toBeGreaterThanOrEqual(0);
+                const barPadding = await page.locator('.tabbar').evaluate(e => getComputedStyle(e).paddingBottom);
+                expect(barPadding).toBe('4px');
 
-            // Statistics has no room in the head; it is in the pane's ⋯.
-            await expect(page.locator('#lib-detail-stats-btn')).toBeHidden();
-            await page.locator('#lib-pane .menu-btn').tap();
-            await page.locator('.menu [data-id="statistics"]').tap();
-            await expect(page.locator('.stats-dialog')).toBeVisible({ timeout: 15_000 });
+                // Statistics has no room in the head; it is in the pane's ⋯.
+                await expect(page.locator('#lib-detail-stats-btn')).toBeHidden();
+                await page.locator('#lib-pane .menu-btn').tap();
+                await page.locator('.menu [data-id="statistics"]').tap();
+                await expect(page.locator('.stats-place')).toBeVisible({ timeout: 15_000 });
         } finally {
             await clean();
         }
@@ -202,16 +203,57 @@ test.describe('Phone', () => {
         expect(onTop).toBe(true);
     });
 
-    test('statistics fill the screen', async ({ page }) => {
+    test('statistics fit the width of the screen', async ({ page }) => {
+        await page.goto('/#statistics/equipment');
+        await waitForAppReady(page);
+        const place = page.locator('.stats-place');
+        await expect(place).toBeVisible({ timeout: 15_000 });
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow).toBeLessThanOrEqual(0);
+        const box = await place.boundingBox();
+        expect(Math.round(box.width)).toBe(page.viewportSize().width);
+    });
+
+    // The sentence under a place's title folds behind an "i" on a phone.
+    test('a place says what it is only when asked', async ({ page }) => {
         await page.goto('/#libraries');
         await waitForAppReady(page);
-        await expect(page.locator('#lib-stats-btn')).toBeVisible({ timeout: 8_000 });
-        await page.locator('#lib-stats-btn').tap();
+        const lede = page.locator('.library-list-header .place-lede');
+        await expect(lede.locator('.place-lede-text')).toBeHidden();
+        const info = lede.locator('.place-lede-toggle');
+        await expect(info).toHaveAttribute('aria-expanded', 'false');
+        await info.tap();
+        await expect(lede.locator('.place-lede-text')).toBeVisible();
+        await expect(lede.locator('.place-lede-text')).toContainText('every folder inside it');
+        await info.tap();
+        await expect(lede.locator('.place-lede-text')).toBeHidden();
+    });
 
-        const modal = page.locator('.stats-dialog');
-        await expect(modal).toBeVisible({ timeout: 8_000 });
-        const box = await modal.boundingBox();
-        const viewport = page.viewportSize();
-        expect(Math.round(box.width)).toBe(viewport.width);
+    // The period and the style fold away so the map keeps its height.
+    test('the map folds its options', async ({ page, request }) => {
+        // folder-b holds photos with a location.
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'E2E Phone map').map(l => request.delete(`/api/library/${l.id}`)));
+        const lib = await (await request.post('/api/library/', { data: { name: 'E2E Phone map', description: '', sourcePath: 'folder-b' } })).json();
+        await reindexLibrary(request, lib.id);
+        try {
+            await page.route('https://tiles.openfreemap.org/**', (route) => route.fulfill({
+                contentType: 'application/json',
+                body: JSON.stringify({ version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#ddd' } }] }),
+            }));
+            await page.goto('/#map');
+            await waitForAppReady(page);
+            const options = page.locator('.map-options-toggle');
+            await expect(options).toBeVisible({ timeout: 15_000 });
+            await expect(page.locator('.map-style')).toBeHidden();
+            await expect(page.locator('.map-head .place-lede')).toBeHidden();
+            await options.tap();
+            await expect(page.locator('.map-style')).toBeVisible();
+            await expect(page.locator('.map-head .place-lede-text')).toBeVisible();
+            await options.tap();
+            await expect(page.locator('.map-style')).toBeHidden();
+        } finally {
+            await request.delete(`/api/library/${lib.id}`);
+        }
     });
 });

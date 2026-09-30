@@ -112,14 +112,7 @@ class MapMarkers {
 
 // "12 photos, the newest from 3 May 2024" · "DSCF0042.JPG, 3 May 2024"
 function markerLabel(newest, count) {
+    if (count === 1) return photoLabel(newest);
     const date = newest.taken ? formatTakenDate(newest.taken) : '';
-    if (count === 1) return date ? `${newest.name}, ${date}` : newest.name;
     return date ? `${formatCount(count)} photos, the newest from ${date}` : `${formatCount(count)} photos`;
-}
-
-function formatTakenDate(iso) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-    if (!m) return '';
-    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
-        .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }

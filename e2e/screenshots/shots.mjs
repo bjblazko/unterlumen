@@ -132,11 +132,24 @@ export const shots = [
         },
     },
     {
+        // The overview: a card per topic, the topics under Statistics in the sidebar.
         name: 'statistics',
         take: async (page, { base }) => {
-            await openLibrary(page, base);
-            await page.locator('#lib-detail-stats-btn').click();
-            await page.waitForSelector('.stats-grid svg');
+            await ready(page, base, 'statistics');
+            await page.waitForSelector('.stats-card svg');
+            await settle(page, 1500);
+        },
+    },
+    {
+        // A topic with a lens clicked: its photos in the column beside the charts.
+        name: 'statistics-photos',
+        take: async (page, { base }) => {
+            await ready(page, base, 'statistics/equipment');
+            await page.waitForSelector('.stats-chart svg');
+            await page.locator('.lens-cell .stats-pickable').first().click();
+            await page.waitForSelector('#stats-photos .photo-column-tile img');
+            await page.mouse.move(1, 1); // no tooltip in the picture
+            await page.evaluate(() => document.activeElement?.blur());
             await settle(page, 2000);
         },
     },
@@ -146,7 +159,7 @@ export const shots = [
         take: async (page, { base }) => {
             await ready(page, base, 'map');
             await page.waitForSelector('.map-marker');
-            await page.waitForSelector('.map-photo img');
+            await page.waitForSelector('#map-photos .photo-column-tile img');
             await settle(page, 4000);
         },
     },
@@ -226,7 +239,7 @@ export const shots = [
         storage: { 'map-photos-open': '1' },
         take: async (page, { base }) => {
             await ready(page, base, 'map');
-            await page.waitForSelector('.map-photo img');
+            await page.waitForSelector('#map-photos .photo-column-tile img');
             await settle(page, 4000);
         },
     },

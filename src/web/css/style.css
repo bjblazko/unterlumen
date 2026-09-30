@@ -1972,11 +1972,15 @@ button.toggle {
     color: var(--overlay-fg-3);
 }
 
+/* Framed like the viewer's own buttons: a hairline on the dark ground. */
 .viewer .info-collapse-btn {
-    color: var(--overlay-fg-3);
+    background: transparent;
+    border-color: var(--overlay-line);
+    color: var(--overlay-fg-2);
 }
 
 .viewer .info-collapse-btn:hover {
+    background: var(--overlay-hover);
     color: var(--overlay-fg);
 }
 
@@ -2262,7 +2266,7 @@ body.ui-hidden .viewer-filmstrip {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--line);
     flex-shrink: 0;
 }
@@ -2271,21 +2275,6 @@ body.ui-hidden .viewer-filmstrip {
     font-size: var(--text-sm);
     color: var(--fg-2);
     font-weight: 600;
-}
-
-.info-collapse-btn {
-    background: none;
-    border: none;
-    color: var(--fg-2);
-    font-size: 14px;
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: var(--radius-sm);
-    line-height: 1;
-}
-
-.info-collapse-btn:hover {
-    color: var(--fg);
 }
 
 .info-panel-body {
@@ -5178,226 +5167,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-2);
 }
 
-/* --- Statistics modal --- */
-
-.stats-dialog {
-    max-width: 68rem;
-}
-
-.stats-dialog .dialog-body {
-    gap: var(--space-3);
-}
-
-.stats-title-block {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.stats-scope-label {
-    font-size: 11px;
-    color: var(--fg-2);
-    font-weight: 400;
-}
-
-.stats-header-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.stats-lib-select {
-    font-size: 12px;
-    padding: 3px 6px;
-    height: 28px;
-    min-width: 140px;
-    max-width: 240px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background: var(--bg-2);
-    color: var(--fg);
-    font-family: inherit;
-    cursor: pointer;
-}
-
-.stats-lib-select:disabled {
-    opacity: 0.45;
-    cursor: default;
-}
-
-.stats-lib-select option {
-    background: var(--bg-2);
-    color: var(--fg);
-}
-
-.stats-body {
-    padding: 16px;
-}
-
-.stats-total {
-    font-size: 13px;
-    color: var(--fg-2);
-    margin-bottom: 14px;
-    letter-spacing: 0.02em;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-}
-
-.stats-chart {
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px 14px;
-    min-height: 160px;
-    position: relative;
-    overflow: hidden;
-}
-
-.stats-chart--full {
-    grid-column: 1 / -1;
-}
-
-.stats-chart-title {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--fg-2);
-    margin-bottom: 10px;
-}
-
-.stats-chart-content {
-    position: relative;
-}
-
-.stats-nodata {
-    font-size: 12px;
-    color: var(--fg-2);
-    padding: 16px 0;
-}
-
-.stats-warning {
-    padding: var(--space-2) var(--space-3);
-    background: var(--warning-soft);
-    border-left: 3px solid var(--warning);
-    color: var(--warning-ink);
-    font-size: 12px;
-    margin-bottom: 14px;
-}
-
-.stats-chart-subtitle {
-    font-size: 11px;
-    color: var(--fg-2);
-    margin-bottom: 6px;
-}
-
-/* Film simulation toggle row */
-.stats-filmsim-toggle-row {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
-}
-
-.stats-filmsim-toggle-label {
-    font-size: var(--text-sm);
-    line-height: 1;
-    font-weight: 500;
-    color: var(--fg);
-    white-space: nowrap;
-}
-
-/* Focal length toggle */
-.stats-focal-toggle {
-    margin-bottom: var(--space-2);
-}
-
-.stats-toggle-btn {
-    background: none;
-    border: none;
-    padding: 3px 10px;
-    font-size: 11px;
-    color: var(--fg-2);
-    cursor: pointer;
-    transition: background 0.1s;
-}
-
-.stats-toggle-btn:hover {
-    background: var(--line);
-    color: var(--fg);
-}
-
-.stats-toggle-btn.stats-toggle-active {
-    background: var(--fg);
-    color: var(--bg);
-}
-
-/* D3 axis styling applied via inline attr, but override tick lines */
-.stats-chart .stats-axis .domain,
-.stats-chart .stats-axis .tick line {
-    stroke: var(--line);
-}
-
-.stats-chart .stats-axis .tick text {
-    fill: var(--fg-2);
-}
-
-/* Shared tooltip */
-.stats-tooltip {
-    position: absolute;
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 5px 8px;
-    font-size: 11px;
-    color: var(--fg);
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 10;
-    line-height: 1.5;
-}
-
-.stats-error {
-    padding: 32px;
-    text-align: center;
-    color: var(--fg-2);
-    font-size: 13px;
-}
-
-.stats-error {
-    color: var(--warning-ink);
-}
-
-.stats-cal-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-}
-
-.stats-cal-nav {
-    background: none;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    color: var(--fg-2);
-    cursor: pointer;
-    font-size: 11px;
-    line-height: 1;
-    padding: 2px 6px;
-}
-
-.stats-cal-nav:hover:not(:disabled) {
-    border-color: var(--fg-2);
-    color: var(--fg);
-}
-
-.stats-cal-nav:disabled {
-    opacity: 0.35;
-    cursor: default;
-}
-
 /* --- Crop Tool --- */
 
 .crop-overlay {
@@ -5535,96 +5304,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .viewer-zoom-select:focus {
     outline: none;
     border-color: var(--overlay-fg-3);
-}
-
-/* --- Stats calendar --- */
-
-.stats-cal-year {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--fg);
-    min-width: 40px;
-    text-align: center;
-}
-
-/* --- Statistics timeline --- */
-.stats-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--line);
-    margin: 0 -16px 16px;
-    padding: 0 16px;
-}
-.stats-tab-btn {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-family: inherit;
-    color: var(--fg-2);
-    cursor: pointer;
-    margin-bottom: -1px;
-}
-.stats-tab-btn:hover { color: var(--fg); }
-.stats-tab-btn.stats-tab-active {
-    color: var(--fg);
-    border-bottom-color: var(--fg);
-    font-weight: 500;
-}
-.stats-timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
-.stats-tl-chart {
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px 14px;
-}
-.stats-tl-title {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--fg-2);
-    margin-bottom: 2px;
-}
-.stats-tl-subtitle {
-    font-size: 11px;
-    color: var(--fg-2);
-    margin-bottom: 10px;
-}
-.stats-tl-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-.stats-tl-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
-    margin-top: 8px;
-}
-.stats-tl-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    color: var(--fg-2);
-    cursor: pointer;
-}
-.stats-tl-legend-item.tl-dim { opacity: 0.35; }
-.stats-tl-legend-swatch {
-    width: 10px;
-    height: 10px;
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-}
-.stats-tl-nodata {
-    font-size: 12px;
-    color: var(--fg-2);
-    padding: 16px 0;
-    text-align: center;
 }
 
 /* --- Galleries (ADR-0029) --- */
@@ -6541,13 +6220,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         padding: var(--space-2);
     }
 
-    /* Statistics fills the phone: a chart in a corner shows nothing. */
-    .dialog.stats-dialog {
-        max-height: 100vh;
-        height: 100%;
-        border-radius: 0;
-    }
-
     /* Photos take the width: a thin margin, not a frame. */
     .browse-container { padding: 0 var(--space-2); }
     .library-pane-wrap { padding: 0 var(--space-2); }
@@ -7160,6 +6832,13 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .map-style[hidden] { display: none; }
 
+/* The period and the style; a group of their own only so a phone can fold them. */
+.map-options { display: contents; }
+
+.map-options-toggle { display: none; }
+
+.map-options-toggle[aria-expanded="true"] { background: var(--bg-3); }
+
 .map-style-label { color: var(--fg-2); }
 
 .map-body {
@@ -7254,80 +6933,21 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     text-align: center;
 }
 
-/* The photos in view: a column beside the map, like the library filter's,
-   taking its width from the map rather than lying over it. */
-.map-photos {
-    display: flex;
-    flex-direction: column;
-    width: 22rem;
-    flex-shrink: 0;
-    border-left: 1px solid var(--line);
-    background: var(--bg);
-}
-
-.map-photos[hidden] { display: none; }
-
-.map-photos-head {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--line);
-}
-
-.map-photos-title {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-
-.map-photos-close { margin-left: auto; }
-
-.map-photos-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: var(--space-2);
-}
-
-.map-photos-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-1);
-}
-
-.map-photo {
-    aspect-ratio: 1;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    background: var(--bg-3);
-    cursor: pointer;
-}
-
-.map-photo img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.map-photos-empty {
-    padding: var(--space-4) var(--space-2);
-    font-size: var(--text-sm);
-    color: var(--fg-3);
-}
-
-.map-photos-sentinel { height: 1px; }
 
 @media (max-width: 700px) {
     .map-head { padding: var(--space-3) var(--space-2); }
     /* On a phone the column is the lower half, the map stays above it. */
     .map-body { flex-direction: column; }
-    .map-photos { width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
-    .map-photos-grid { grid-template-columns: repeat(4, 1fr); }
     .map-head-spacer { display: none; }
+    .map-options-toggle:not([hidden]) { display: inline-flex; }
+    .map-options { display: none; }
+    .map-options-open .map-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2) var(--space-6);
+        width: 100%;
+        order: 1;
+    }
     .map-time { width: 100%; }
     .map-time .range-slider { flex: 1; width: auto; }
     .map-time-value { min-width: 0; }
@@ -7347,6 +6967,45 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .place-lede-text {
     display: block;
     max-width: 64ch;
+}
+
+.place-lede-toggle { display: none; }
+
+/* On a phone only the button is left; it shows the sentence on its own line. */
+@media (max-width: 700px) {
+    .place-lede { width: auto; }
+    .place-lede-toggle {
+        display: inline-flex;
+        width: var(--control-h-sm);
+        height: var(--control-h-sm);
+        box-sizing: border-box;
+        align-items: center;
+        padding: 0;
+        justify-content: center;
+        border-radius: var(--radius-full);
+    }
+    .place-lede-text { display: none; }
+    .place-lede-open {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        width: 100%;
+    }
+    .place-lede-open .place-lede-toggle { flex-shrink: 0; }
+    .place-lede-open .place-lede-text { display: block; }
+}
+
+/* Where a head has no room for the button on a line with the title, it goes
+   elsewhere on a phone. The Map's sentence belongs to its folded options. */
+@media (max-width: 700px) {
+    .map-head:not(.map-options-open) .place-lede { display: none; }
+    .map-options-open .place-lede { width: 100%; order: 2; }
+    .map-options-open .place-lede-toggle { display: none; }
+    .map-options-open .place-lede-text { display: block; }
+    /* Closed, the "i" follows the title; open, the sentence takes a line. */
+    .timeline-title { order: -2; }
+    .timeline-head .place-lede:not(.place-lede-open) { order: -1; }
+    .library-list-header .place-lede-open { order: 1; }
 }
 
 .place-link,
@@ -7479,4 +7138,98 @@ a.guide-node:focus-visible .guide-box {
 .guide-tree-note {
     font-family: var(--font-sans);
     color: var(--fg-3);
+}
+
+/* --- Photo column --- */
+
+/* Photos beside a place — the Map's in view, the ones picked in Statistics —
+   like the library filter's column, taking its width from the place rather
+   than lying over it. */
+.photo-column {
+    display: flex;
+    flex-direction: column;
+    width: 22rem;
+    flex-shrink: 0;
+    border-left: 1px solid var(--line);
+    background: var(--bg);
+}
+
+.photo-column[hidden] { display: none; }
+
+.photo-column-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+}
+
+.photo-column-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.photo-column-heading {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* What the photos have in common: data, so in mono. */
+.photo-column-subject {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.photo-column-subject[hidden] { display: none; }
+
+.photo-column-close { margin-left: auto; }
+
+.photo-column-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-2);
+}
+
+.photo-column-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-1);
+}
+
+.photo-column-tile {
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-3);
+    cursor: pointer;
+}
+
+.photo-column-tile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-column-empty {
+    padding: var(--space-4) var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.photo-column-sentinel { height: 1px; }
+
+/* On a phone the column is the lower half; the place stays above it. */
+@media (max-width: 700px) {
+    .photo-column { width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
+    .photo-column-grid { grid-template-columns: repeat(4, 1fr); }
 }

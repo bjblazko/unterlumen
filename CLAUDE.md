@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-09-29*
+*Last modified: 2026-09-30*
 
 ## Project
 
@@ -46,9 +46,10 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0042)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0043)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
+- `doc/ideas/` — collections of ideas, not plans; an idea taken up gets its own feature document
 
 ## Design Philosophy
 

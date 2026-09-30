@@ -39,6 +39,12 @@ class Viewer {
         this.currentPath = this.images[this.currentIndex];
 
         this.infoPanel = new InfoPanel(document.createElement('div'));
+        // However the panel is opened — I, its own button, the phone's Info —
+        // it shows the photo on screen. Only I used to load it, so the button
+        // opened an empty panel.
+        this.infoPanel.onToggle = () => {
+            if (this.infoPanel?.expanded) this._infoLoadFn(this.currentPath, this.infoPanel);
+        };
         this.buildFilmStrip();
 
         document.addEventListener('keydown', this.keyHandler);
@@ -142,11 +148,7 @@ class Viewer {
     }
 
     toggleInfo() {
-        if (!this.infoPanel) return;
-        this.infoPanel.toggle();
-        if (this.infoPanel.expanded) {
-            this._infoLoadFn(this.currentPath, this.infoPanel);
-        }
+        this.infoPanel?.toggle();
     }
 
     // Horizontal swipe moves through the photos; vertical is left to the page

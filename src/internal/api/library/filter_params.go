@@ -22,6 +22,9 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		MetaFilters:    parseMetaFilters(q),
 		AlbumTitle:     q.Get("album_title"),
 		ExtFilter:      q.Get("ext"),
+		PathPrefix:     q.Get("pathPrefix"),
+		Hour:           parseHour(q.Get("hour")),
+		Aspect:         q.Get("aspect"),
 	}
 	if ch := q.Get("channel"); ch != "" {
 		opts.MetaExists = append(opts.MetaExists, "built:"+ch)
@@ -37,6 +40,15 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		opts.Limit = 100
 	}
 	return opts
+}
+
+// parseHour is an hour of the day, 0–23, or nil for none or anything else.
+func parseHour(s string) *int {
+	h, err := strconv.Atoi(s)
+	if err != nil || h < 0 || h > 23 {
+		return nil
+	}
+	return &h
 }
 
 func parseIDList(s string) []string {
@@ -65,6 +77,9 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 			continue
 		}
 		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
+			continue
+		}
+		if k == "pathPrefix" || k == "hour" || k == "aspect" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

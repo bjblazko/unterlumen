@@ -188,24 +188,11 @@ func tlApertureMap(db *sql.DB, N int, pWhere string, pArgs []any) (map[string]ma
 
 func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]map[string]int, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(date_taken,1,?),
-		       CASE
-		         WHEN CAST(json_extract(exif_json,'$.width') AS REAL) /
-		              CAST(json_extract(exif_json,'$.height') AS REAL) BETWEEN 0.98 AND 1.02 THEN '1:1'
-		         WHEN CAST(json_extract(exif_json,'$.width') AS REAL) /
-		              CAST(json_extract(exif_json,'$.height') AS REAL) BETWEEN 1.28 AND 1.42 THEN '4:3'
-		         WHEN CAST(json_extract(exif_json,'$.width') AS REAL) /
-		              CAST(json_extract(exif_json,'$.height') AS REAL) BETWEEN 1.45 AND 1.58 THEN '3:2'
-		         WHEN CAST(json_extract(exif_json,'$.width') AS REAL) /
-		              CAST(json_extract(exif_json,'$.height') AS REAL) > 1.65 THEN '16:9+'
-		         ELSE 'other'
-		       END,
-		       COUNT(*)
+		SELECT SUBSTR(date_taken,1,?), `+aspectClassSQL("exif_json")+`, COUNT(*)
 		FROM photos
 		WHERE status='ok'
 		  AND date_taken IS NOT NULL
-		  AND CAST(json_extract(exif_json,'$.width') AS INTEGER) > 0
-		  AND CAST(json_extract(exif_json,'$.height') AS INTEGER) > 0`+pcWhere+`
+		  AND `+hasSizeSQL("exif_json")+pcWhere+`
 		GROUP BY 1, 2 ORDER BY 1`,
 		append([]any{N}, pcArgs...)...)
 	if err != nil {
@@ -306,9 +293,13 @@ func assembleTL(
 	}
 }
 
+// assembleCameraSlices is every camera's count per period. A library keeps
+// all of them: only the answer as a whole is cut to the most used
+// (topCameras), or merging libraries would rank what one of them had
+// already summed up as "Other".
 func assembleCameraSlices(rows []tlCameraRow, periods []string, idx map[string]int) []CameraTimeSlice {
-	totals := make(map[string]int)
 	grid := make(map[string][]int)
+	var order []string
 	for _, r := range rows {
 		pi, ok := idx[r.period]
 		if !ok {
@@ -316,51 +307,13 @@ func assembleCameraSlices(rows []tlCameraRow, periods []string, idx map[string]i
 		}
 		if grid[r.camera] == nil {
 			grid[r.camera] = make([]int, len(periods))
+			order = append(order, r.camera)
 		}
 		grid[r.camera][pi] += r.count
-		totals[r.camera] += r.count
 	}
-
-	type kv struct {
-		k string
-		v int
-	}
-	ranked := make([]kv, 0, len(totals))
-	for k, v := range totals {
-		ranked = append(ranked, kv{k, v})
-	}
-	for i := 1; i < len(ranked); i++ {
-		for j := i; j > 0 && ranked[j].v > ranked[j-1].v; j-- {
-			ranked[j], ranked[j-1] = ranked[j-1], ranked[j]
-		}
-	}
-
-	top := 5
-	if len(ranked) < top {
-		top = len(ranked)
-	}
-	topSet := make(map[string]bool, top)
-	for _, kv := range ranked[:top] {
-		topSet[kv.k] = true
-	}
-
-	out := make([]CameraTimeSlice, 0, top+1)
-	for _, kv := range ranked[:top] {
-		out = append(out, CameraTimeSlice{Camera: kv.k, Counts: grid[kv.k]})
-	}
-	other := make([]int, len(periods))
-	hasOther := false
-	for cam, counts := range grid {
-		if topSet[cam] {
-			continue
-		}
-		hasOther = true
-		for i, c := range counts {
-			other[i] += c
-		}
-	}
-	if hasOther {
-		out = append(out, CameraTimeSlice{Camera: "Other", Counts: other})
+	out := make([]CameraTimeSlice, 0, len(order))
+	for _, camera := range order {
+		out = append(out, CameraTimeSlice{Camera: camera, Counts: grid[camera]})
 	}
 	return out
 }

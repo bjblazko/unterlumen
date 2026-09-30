@@ -184,7 +184,7 @@ class InfoPanel {
             '<div class="info-panel expanded">' +
                 '<div class="info-panel-header">' +
                     '<span class="info-panel-title">Info</span>' +
-                    '<button class="info-collapse-btn" title="Hide info (I)">\u2715</button>' +
+                    '<button class="btn btn-sm info-collapse-btn" title="Hide info (I)">Done</button>' +
                 '</div>' +
                 '<div class="info-panel-body">' + body + '</div>' +
             '</div>';

@@ -1,0 +1,307 @@
+/* Statistics place (ADR-0043): a head like the Map's and the Timeline's, the
+   charts in a scrolling column below it, and the photos of a picked value in
+   a column beside them. */
+
+/* --- Place --- */
+
+.stats-place {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-6);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--line);
+}
+
+.stats-back { gap: var(--space-1); }
+
+.stats-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+}
+
+.stats-count {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-head-spacer { flex: 1; }
+
+.stats-head .place-lede { flex-basis: 100%; }
+
+/* On a phone the closed "i" follows the title, before the scope. */
+@media (max-width: 700px) {
+    .stats-back { order: -3; }
+    .stats-title { order: -2; }
+    .stats-head .place-lede:not(.place-lede-open) { flex-basis: auto; order: -1; }
+}
+
+/* What is counted: a library, and within it perhaps one folder. */
+.stats-scope,
+.stats-period,
+.stats-folder {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+}
+
+.stats-period-label,
+.stats-folder-label { color: var(--fg-2); }
+
+.stats-folder-path {
+    font-family: var(--font-mono);
+    max-width: 20rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats-body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.stats-main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: var(--space-6);
+}
+
+/* Loading, nothing to count, or a failure: a sentence where the charts would be. */
+.stats-note {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    color: var(--fg-2);
+    text-align: center;
+}
+
+.stats-note[hidden] { display: none; }
+
+.stats-note p { max-width: 32rem; }
+
+.stats-note a { color: var(--fg); }
+
+.stats-note-error p { color: var(--warning-ink); }
+
+.stats-incomplete {
+    max-width: 48rem;
+    margin-bottom: var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--warning-ink);
+}
+
+/* --- Overview cards --- */
+
+/* One card per topic: its name, what it covers, and one of its charts. The
+   chart is a picture of the topic here; the card as a whole is the link. */
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--space-4);
+}
+
+.stats-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: background var(--dur) var(--ease);
+}
+
+.stats-card:hover { background: var(--bg-2); }
+
+.stats-card-title {
+    font-size: var(--text-md);
+    font-weight: 600;
+}
+
+.stats-card-blurb {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.stats-card-preview {
+    display: block;
+    margin-top: var(--space-3);
+    pointer-events: none;
+}
+
+.stats-card-preview .stats-svg {
+    width: 100%;
+    height: 9rem;
+}
+
+/* --- Charts --- */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+    max-width: 60rem;
+}
+
+.stats-chart {
+    min-width: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+}
+
+.stats-chart--full { grid-column: 1 / -1; }
+
+.stats-chart-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.stats-chart-subtitle {
+    margin-top: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.stats-chart-content {
+    position: relative;
+    margin-top: var(--space-3);
+}
+
+.stats-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.stats-chart-content svg:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.stats-nodata {
+    padding: var(--space-4) 0;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.stats-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.stats-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.stats-legend-line {
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    border-radius: var(--radius-full);
+    vertical-align: middle;
+}
+
+.stats-tooltip .stats-legend-line { margin-right: var(--space-1); }
+
+.stats-tooltip {
+    position: absolute;
+    z-index: 10;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-float);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--fg);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.stats-tooltip-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* A mark that shows its photos when clicked. Labels drawn on a mark let the
+   click through to it. */
+.stats-pickable { cursor: pointer; }
+
+.stats-svg text { pointer-events: none; }
+
+.stats-pickable:hover { opacity: 0.8; }
+
+.stats-pickable:focus { outline: none; }
+
+.stats-pickable:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* Switches above a chart: 35 mm or native, untagged photos counted or not. */
+.stats-focal-toggle,
+.stats-filmsim-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.stats-filmsim-toggle-label {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.stats-cal-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.stats-cal-nav {
+    width: var(--control-h-sm);
+    padding: 0;
+    justify-content: center;
+}
+
+.stats-cal-year {
+    min-width: 3rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+    .stats-head { padding: var(--space-3) var(--space-2); gap: var(--space-2) var(--space-4); }
+    .stats-main { padding: var(--space-3) var(--space-2); }
+    .stats-body { flex-direction: column; }
+    .stats-grid { grid-template-columns: minmax(0, 1fr); }
+    .stats-folder-path { max-width: 12rem; }
+}

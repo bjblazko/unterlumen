@@ -1,6 +1,6 @@
 # E2E Test Notes
 
-*Last modified: 2026-09-27*
+*Last modified: 2026-09-30*
 
 Non-obvious patterns and traps discovered during test development.
 
@@ -36,7 +36,9 @@ Three `.lib-filter-groups` elements exist: first wraps the date filter, second w
 
 ## Statistics API latency
 
-`GET /api/library/statistics` (no ids) takes ~4 s with large photo sets. Use `{ timeout: 15_000 }` for the `.stats-grid` selector.
+`GET /api/library/statistics` (no ids) takes ~4 s with large photo sets. Statistics is a place (ADR-0043): open it scoped to the test library with `/#statistics/<topic>?library=<id>` and wait for `.stats-count` with `{ timeout: 15_000 }`.
+
+In the Camera and lens treemap the camera's cell lies under its lens cells, so a click on the camera cell's centre hits a lens. Click `.lens-cell .stats-pickable`.
 
 ## `reindexLibrary` helper
 
