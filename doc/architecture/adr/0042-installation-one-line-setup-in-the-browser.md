@@ -66,7 +66,11 @@ then:
    offers to join a folder that has one, and to start sharing one that does
    not: that makes the folder and copies `channels.json` and the album
    register there unless the shared folder already has its own, which always
-   wins.
+   wins. A disk root (`/`, `C:\`) is never shared from
+   (`installation.IsDiskRoot`): no other installation sees it, and the top of
+   a macOS system disk cannot be written. A shared folder that is not the
+   photo folder's own — a `-channels-dir` taken over from an older
+   installation — is kept.
 
 5. **One-line installers.** `install/install.sh` (macOS, Linux) and
    `install/install.ps1` (Windows) download the newest release, check it

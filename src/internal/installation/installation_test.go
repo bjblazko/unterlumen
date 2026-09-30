@@ -1,6 +1,7 @@
 package installation
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,5 +130,21 @@ func TestDecide(t *testing.T) {
 	got, err = Decide(Config{ChannelsDir: shared}, Choice{PhotosDir: photos, LibDir: "/own"}, lib, lib)
 	if err != nil || got.ChannelsDir != "/own" {
 		t.Errorf("declining a shared folder that is there: %+v, %v", got, err)
+	}
+}
+
+func TestShareRefusesTheTopOfADisk(t *testing.T) {
+	if _, err := Share("/", t.TempDir()); !errors.Is(err, ErrShareAtDiskRoot) {
+		t.Errorf("Share(\"/\") = %v, want ErrShareAtDiskRoot", err)
+	}
+	if !IsDiskRoot("/") || IsDiskRoot("/Volumes/nas/Bilder") || IsDiskRoot(t.TempDir()) {
+		t.Error("IsDiskRoot misjudged a folder")
+	}
+}
+
+func TestDecideKeepsASharedFolderElsewhereAtTheTopOfADisk(t *testing.T) {
+	got, err := Decide(Config{ChannelsDir: "/Volumes/nas/Bilder/.unterlumen-shared"}, Choice{PhotosDir: "/", Share: true}, "/lib", "/lib")
+	if err != nil || got.ChannelsDir != "/Volumes/nas/Bilder/.unterlumen-shared" {
+		t.Errorf("Decide = %+v, %v; the share adopted from an older launcher must stay", got, err)
 	}
 }

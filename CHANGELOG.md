@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file.
 ### Changed
 - **A new app starts where the old one left off.** Started for the first time beside an installation made by an older `-desktop-install` — the app from the .dmg or the Windows setup, say — Unterlumen takes over that installation's photo folder, data folder, shared destinations and port from its launcher instead of opening the setup. Where there is no older installation, the setup opens as before.
 
+### Fixed
+- **The setup no longer offers to share from the top of a disk.** With `/` or `C:\` as the photo folder, "Shared" tried to make `.unterlumen-shared` there, which fails on a Mac and would be seen by no other installation anyway. There the setup now says to choose the folder both installations see, such as the NAS folder, as the photo folder; sharing itself refuses a disk root as well.
+- **A shared folder kept from an older installation stays shared in the setup.** With `/` as the photo folder, the setup took a `-channels-dir` such as `/Volumes/nas/…/.unterlumen-shared` for this folder's own and showed destinations as not shared; saving would have stopped sharing them.
+
 ## [0.14.3] - 2026-09-29
 
 ### Added

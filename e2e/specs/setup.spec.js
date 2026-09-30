@@ -85,6 +85,18 @@ test.describe('Setup in the browser', () => {
         expect(saved.photosDir).toBe(path.join(home, 'Photos'));
     });
 
+    // Before anything is shared: a share kept from elsewhere would be shown instead.
+    test('the top of the disk offers no sharing, and says why', async ({ page }) => {
+        await page.goto(URL + '/#setup');
+        await page.click('#setup-choose');
+        await page.locator('.fp-crumb[data-crumb=""]').click();
+        await expect(page.locator('.fp-crumb-here')).toHaveCount(0);
+        await page.click('#fp-select');
+        await expect(page.locator('#setup-photos')).toHaveText('/');
+        await expect(page.locator('#setup-share-hint')).toContainText('can only be shared from a folder another installation sees as well');
+        await expect(page.locator('#setup-share-toggle .toggle')).toHaveCount(0);
+    });
+
     test('a folder another installation shares is joined', async ({ page }) => {
         await page.goto(URL + '/#settings');
         await page.getByRole('link', { name: 'Change the photo folder or sharing' }).click();

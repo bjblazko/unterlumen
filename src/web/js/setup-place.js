@@ -118,16 +118,28 @@ class SetupPane {
         field.hidden = label === null;
         if (label === null) return;
 
-        let found = '';
+        let found = '', canShare = true;
         try {
-            found = (await API.setupShared(this._photosPath)).sharedDir;
+            ({ sharedDir: found, canShare } = await API.setupShared(this._photosPath));
         } catch { /* said as "not shared yet"; saving will tell if the folder is gone */ }
-        this._drawShare(found);
+        this._drawShare(found, canShare);
     }
 
-    _drawShare(found) {
-        const elsewhere = !found && this._setup.sharedDir && !this._setup.sharedDir.startsWith(this._photosLabel());
+    // Shared elsewhere is a shared folder other than this photo folder's own
+    // .unterlumen-shared — e.g. a -channels-dir taken over from an older
+    // installation while the photo folder is the whole disk. It is kept.
+    _drawShare(found, canShare) {
+        const own = this._photosLabel().replace(/[\\/]$/, '') + '/.unterlumen-shared';
+        const elsewhere = !found && Boolean(this._setup.sharedDir) && this._setup.sharedDir !== own;
         const hint = this.container.querySelector('#setup-share-hint');
+        const wrap = this.container.querySelector('#setup-share-toggle');
+        wrap.innerHTML = '';
+        this._shareToggle = null;
+        if (!found && !elsewhere && !canShare) {
+            // The top of a disk: nothing another installation could see.
+            hint.textContent = 'Destinations can only be shared from a folder another installation sees as well, such as a folder on a NAS. To share, choose that folder as the photo folder.';
+            return;
+        }
         if (found) {
             hint.innerHTML = 'Another Unterlumen installation works in this folder, for example on a NAS. Shared, its destinations and galleries are used here too.';
         } else if (elsewhere) {
@@ -135,8 +147,6 @@ class SetupPane {
         } else {
             hint.innerHTML = `If another installation shows the same photos, for example on a NAS, both can use the same destinations and galleries. They are then kept in the photo folder, in <span class="setup-path">.unterlumen-shared</span>, where the other one finds them.`;
         }
-        const wrap = this.container.querySelector('#setup-share-toggle');
-        wrap.innerHTML = '';
         this._shareToggle = Toggle.create(wrap, {
             initial: Boolean(found || elsewhere || this._setup.sharedDir),
             labelOn: 'Shared',

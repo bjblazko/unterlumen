@@ -72,7 +72,12 @@ func getSetup(current func() Installation) http.HandlerFunc {
 func getShared() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dir := fromPickerPath(r.URL.Query().Get("path"))
-		writeJSON(w, map[string]string{"sharedDir": installation.FindShared(dir)})
+		found := installation.FindShared(dir)
+		writeJSON(w, map[string]any{
+			"sharedDir": found,
+			// Sharing starts in the photo folder, so the top of a disk has none to offer.
+			"canShare": found != "" || !installation.IsDiskRoot(dir),
+		})
 	}
 }
 

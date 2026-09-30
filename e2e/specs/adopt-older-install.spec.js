@@ -63,4 +63,10 @@ test.describe('An older installation', () => {
         await expect(page).not.toHaveURL(/#setup$/);
         await expect(page.getByRole('button', { name: 'Fotos' })).toBeVisible();
     });
+
+    test('the setup shows the taken-over sharing and keeps it on', async ({ page }) => {
+        await page.goto(URL + '/#setup');
+        await expect(page.locator('#setup-share-hint')).toContainText(`shared through ${path.join(home, 'shared')}`);
+        await expect(page.locator('#setup-share-toggle .toggle')).toHaveAttribute('aria-checked', 'true');
+    });
 });
