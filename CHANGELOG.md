@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - **Warm and cool for one year.** A select above "Warm and cool through the year" narrows the chart from all years to one; a bar then shows the photos of that month in that year.
 
 ### Changed
+- **The photo column is open when you arrive, on the desk.** On the Map it shows the photos in view, as before, without pressing Photos first. In Statistics it shows every photo of the library or folder chosen until a value is picked, which replaces them. Done or Escape closes it, and it stays closed in that browser until you open it again (on the Map with Photos, in Statistics by picking a value). On a phone it still waits, since it would take half the screen.
 - **A selected sub-entry in the sidebar is indented as a whole.** Its highlight starts under its place's name, so a selected topic of Statistics reads as part of Statistics.
 
 ### Fixed

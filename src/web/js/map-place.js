@@ -24,7 +24,7 @@ class MapPane {
         this._points = [];
         this._shown = [];
         this._range = null;
-        this._photosOpen = readFlag('map-photos-open');
+        this._photosOpen = photoColumnStartsOpen('map-photos-open');
         this._colour = readFlag('map-colour');
     }
 
@@ -243,7 +243,7 @@ class MapPane {
 
     _setPhotosOpen(open) {
         this._photosOpen = open;
-        writeFlag('map-photos-open', open);
+        keepPhotoColumnOpen('map-photos-open', open);
         this._drawPhotosOpen();
         this._updateInView();
     }

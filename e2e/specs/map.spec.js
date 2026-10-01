@@ -150,13 +150,12 @@ test.describe('Map', () => {
         await expect.poll(() => markerTotal(page)).toBe(total);
     });
 
-    // The photos in view: a column that is closed until asked for, follows
-    // the map, and closes again with Done or Escape.
+    // The photos in view: a column that starts open on the desk, follows the
+    // map, and closes with Done or Escape, which this browser remembers.
     // The panel's own button opened it empty ("Select an image to view
     // info"); only the I key loaded the photo.
     test('the info panel opened by its button in the viewer shows the photo', async ({ page }) => {
         await openMap(page);
-        await page.locator('.map-photos-toggle').click();
         const tile = page.locator('#map-photos .photo-column-tile').first();
         const name = (await tile.getAttribute('aria-label')).split(',')[0];
         await tile.click();
@@ -170,11 +169,9 @@ test.describe('Map', () => {
     test('the photos column shows what is in view and closes again', async ({ page }) => {
         await openMap(page);
         const btn = page.locator('.map-photos-toggle');
-        await expect(page.locator('#map-photos')).toBeHidden();
         const [total] = countsIn(await page.locator('.map-count').textContent());
         await expect(btn.locator('.lib-filter-btn-count')).toHaveText(String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
 
-        await btn.click();
         await expect(page.locator('#map-photos')).toBeVisible();
         await expect(btn).toHaveAttribute('aria-expanded', 'true');
         await expect(page.locator('#map-photos .photo-column-tile')).toHaveCount(Math.min(total, 120));
@@ -200,8 +197,21 @@ test.describe('Map', () => {
         await expect(page.locator('#map-photos')).toBeHidden();
     });
 
-    test('the photos column stays open across a reload', async ({ page }) => {
+    // On a phone the column would take half the screen, so it waits for
+    // its button.
+    test('the photos column starts closed at phone width', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
         await openMap(page);
+        await expect(page.locator('.map-photos-toggle')).toBeVisible();
+        await expect(page.locator('#map-photos')).toBeHidden();
+    });
+
+    test('the photos column, once closed, stays closed across a reload', async ({ page }) => {
+        await openMap(page);
+        await page.locator('#map-photos .photo-column-close').click();
+        await page.reload();
+        await page.waitForSelector('.map-marker', { timeout: 20_000 });
+        await expect(page.locator('#map-photos')).toBeHidden();
         await page.locator('.map-photos-toggle').click();
         await page.reload();
         await page.waitForSelector('.map-marker', { timeout: 20_000 });

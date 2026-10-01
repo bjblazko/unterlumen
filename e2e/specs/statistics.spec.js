@@ -192,4 +192,33 @@ test.describe('Statistics', () => {
         await expect(page.locator('#stats-photos')).toBeVisible();
         await expect(page.locator('#stats-photos .photo-column-subject')).toContainText('ISO');
     });
+
+    test('the photo column starts open on the desk with every photo of the scope', async ({ page }) => {
+        await open(page, 'time');
+        const column = page.locator('#stats-photos');
+        await expect(column).toBeVisible();
+        await expect(column.locator('.photo-column-subject')).toHaveText(`All photos in ${LIB_NAME}`);
+        await expect(column.locator('.photo-column-tile').first()).toBeVisible();
+    });
+
+    test('once closed, the photo column stays closed until a value is picked', async ({ page }) => {
+        await open(page, 'exposure');
+        await page.locator('#stats-photos .photo-column-close').click();
+        await expect(page.locator('#stats-photos')).toBeHidden();
+        await page.reload();
+        await expect(page.locator('.stats-count')).toContainText('photos', { timeout: 15_000 });
+        await expect(page.locator('#stats-photos')).toBeHidden();
+        const iso = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: /^ISO$/ }) });
+        await iso.locator('.stats-pickable').first().click();
+        await expect(page.locator('#stats-photos')).toBeVisible();
+    });
+
+    test.describe('on a phone', () => {
+        test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+        test('the photo column waits for a picked value', async ({ page }) => {
+            await open(page, 'time');
+            await expect(page.locator('#stats-photos')).toBeHidden();
+        });
+    });
 });

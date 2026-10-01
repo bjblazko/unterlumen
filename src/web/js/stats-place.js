@@ -15,10 +15,12 @@ class StatsPane {
     // The route comes from the address (App keeps it); every visit reads the
     // numbers again, since a scan may have changed them. The server caches them.
     // The photos shown belong to what was on screen, so a new topic or
-    // scope closes the column.
+    // scope replaces them: with all photos of the scope while the column is
+    // kept open (photoColumnStartsOpen), else the column closes.
     show(route) {
         this._route = route;
-        this.closePhotos();
+        this._hidePhotos();
+        this._allPhotosDue = photoColumnStartsOpen(STATS_PHOTOS_KEY);
         return this.render();
     }
 
@@ -52,6 +54,10 @@ class StatsPane {
         if (topic) this._drawTopic(topic, data);
         else this._drawOverview(data);
         this._drawn = true;
+        if (this._allPhotosDue) {
+            this._allPhotosDue = false;
+            this._showAllPhotos();
+        }
     }
 
     _buildShell() {
@@ -260,9 +266,22 @@ class StatsPane {
 
     /* --- The photos of a picked value --- */
 
+    // Before a value is picked, the column holds every photo in the scope.
+    _showAllPhotos() {
+        const where = this._route.path ? `in ${this._route.path}` : this._lib ? `in ${this._lib.name}` : 'in all libraries';
+        return this._showPhotos({ subject: `All photos ${where}`, params: {} });
+    }
+
+    // A value picked in a chart opens the column, and keeps it open on the
+    // next visit.
+    _pick(criterion) {
+        keepPhotoColumnOpen(STATS_PHOTOS_KEY, true);
+        return this._showPhotos(criterion);
+    }
+
     // A criterion is { subject, params }: what the photos have in common, and
     // the search that finds them, within the scope shown.
-    async _pick({ subject, params }) {
+    async _showPhotos({ subject, params }) {
         const generation = ++this._pickGeneration;
         const query = { ...params, ...this._scopeParams() };
         const read = async (offset) => {
@@ -288,14 +307,24 @@ class StatsPane {
         });
     }
 
-    // Escape closes the column; returns whether there was one to close.
+    // Escape or Done closes the column, and it stays closed on the next visit;
+    // returns whether there was one to close.
     closePhotos() {
+        if (!this._hidePhotos()) return false;
+        keepPhotoColumnOpen(STATS_PHOTOS_KEY, false);
+        return true;
+    }
+
+    _hidePhotos() {
         this._pickGeneration++;
         if (!this._photos || this._photos.el.hidden) return false;
         this._photos.el.hidden = true;
         return true;
     }
 }
+
+// Where this browser keeps whether the column is open.
+const STATS_PHOTOS_KEY = 'stats-photos-open';
 
 // Photos read at a time for the column; more follow as it scrolls.
 const STATS_PHOTOS_PAGE = 200;

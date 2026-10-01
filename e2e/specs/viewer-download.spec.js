@@ -176,7 +176,7 @@ test.describe('Download the original from the viewer', () => {
             }));
             await page.goto('/#map');
             await waitForAppReady(page);
-            await page.locator('.map-photos-toggle').click();
+            // The photos column starts open on the desk.
             await page.locator('#map-photos .photo-column-tile').first().click();
             await expect(page.locator('.viewer')).toBeVisible();
             await expect(page.locator('.viewer-delete')).toHaveCount(0);

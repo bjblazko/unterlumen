@@ -1,9 +1,25 @@
 // PhotoColumn — a column of photos beside a place, newest first, as square
 // tiles: the Map's photos in view (ADR-0039) and the photos of a value picked
 // in Statistics (ADR-0043). Closed, the place has the whole width; the place
-// decides when it opens.
+// decides when it opens, by default with photoColumnStartsOpen.
 
 const PHOTO_COLUMN_CHUNK = 120;
+
+// Whether a place's column starts open. On the desk it opens by itself: there
+// is room beside the map or the charts. On a phone it would take half the
+// screen, so it waits for its button. Once opened or closed, the choice is
+// kept in this browser under key.
+function photoColumnStartsOpen(key) {
+    try {
+        const kept = localStorage.getItem(key);
+        if (kept !== null) return kept === '1';
+    } catch { /* storage blocked: fall back to the layout */ }
+    return !matchMedia('(max-width: 700px)').matches;
+}
+
+function keepPhotoColumnOpen(key, open) {
+    try { localStorage.setItem(key, open ? '1' : '0'); } catch { /* per browser only */ }
+}
 
 class PhotoColumn {
     // onOpen(photos, index): open these photos in the viewer at index.
