@@ -55,6 +55,15 @@ func rebuildAllPreviewsLibrary(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+func analyseLibrary(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		subfolder := r.URL.Query().Get("subfolder")
+		libraryScan(mgr, "Analysing", func(idx *lib.Indexer, ch chan<- lib.Progress) {
+			idx.RunAnalyseAgainInFolder(context.Background(), ch, subfolder)
+		})(w, r)
+	}
+}
+
 // libraryScan returns a handler that starts a scan or joins an in-progress one.
 // If the library is already being scanned the caller connects to the live progress
 // stream instead of receiving a 409. Scans run on context.Background() so they

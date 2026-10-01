@@ -1,6 +1,6 @@
 # Ideas for Statistics
 
-*Last modified: 2026-09-30*
+*Last modified: 2026-10-01*
 
 A collection of ideas for the Statistics place ([ADR-0043](../architecture/adr/0043-statistics-place-with-topics.md)), not a plan. Nothing here is decided. When one of them is taken up, it gets its own feature document in `doc/features/open/`, with details and acceptance criteria, and an ADR where it makes a design decision.
 
@@ -58,6 +58,8 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **What it shows:** a landscape of columns over the world map. Places photographed often, such as holiday spots, rise high; places seen rarely stay low.
 
 ## What the ideas need
+
+Colour per photo, image entropy and a perceptual hash are collected since 2026-10-01 ([feature](../features/open/2026-10-01-photo-appearance-index.md), [ADR-0044](../architecture/adr/0044-photo-appearance-from-thumbnails.md)); what follows is how the need was described before.
 
 - **Colour per photo** (ideas 1, 2 and 6, and colour over time): a dominant or average colour computed when a photo is indexed, stored in the library index, and computed for photos indexed before. The thumbnails are there to compute it from.
 - **Image entropy** (idea 6): one more value per photo at indexing.

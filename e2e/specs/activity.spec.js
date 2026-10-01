@@ -35,7 +35,8 @@ test.describe('Activity and the status line', () => {
         // Started without waiting: the scan streams until it is done.
         page.evaluate((id) => { fetch(`/api/library/${id}/reindex`, { method: 'POST' }).then(r => r.text()); }, libID);
 
-        const job = page.locator('#status-line .status-job', { hasText: LIB_NAME });
+        // Measuring the photos' appearance follows as a job of its own.
+        const job = page.locator('#status-line .status-job', { hasText: `Indexing "${LIB_NAME}"` });
         await expect(job).toBeVisible({ timeout: 10_000 });
         await expect(job).toHaveAttribute('href', '#libraries');
 

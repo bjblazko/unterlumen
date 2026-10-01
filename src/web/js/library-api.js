@@ -185,6 +185,7 @@ const LibraryAPI = {
     cleanup(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'cleanup', onProgress, subfolder); },
     regenMissingPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-missing', onProgress, subfolder); },
     rebuildAllPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-all', onProgress, subfolder); },
+    analyseAgain(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'analyse', onProgress, subfolder); },
     scanNew(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'scan-new', onProgress, subfolder); },
     // _libraryJob starts a job on a library, or on one of its folders, and
     // reports each progress event. It resolves when the job says it finished

@@ -173,13 +173,15 @@ func (m *Manager) JoinScan(id string) (*Broadcaster, bool) {
 	return nil, false
 }
 
-// EndScan removes the broadcaster and releases the index lock.
+// EndScan removes the broadcaster and releases the index lock, then
+// measures the appearance of photos the scan added or changed.
 // The broadcaster itself must be closed separately (by the bridge goroutine).
 func (m *Manager) EndScan(id string) {
 	m.scans.Delete(id)
 	m.UnlockIndex(id)
 	m.InvalidateStatsCache(id)
 	go m.prewarmFolderStats(id)
+	go m.AnalyseMissing(id)
 }
 
 // IsScanning reports whether a scan is currently active for the library.

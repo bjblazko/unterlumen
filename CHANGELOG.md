@@ -1,9 +1,12 @@
 # Changelog
 
-*Last modified: 2026-09-30*
+*Last modified: 2026-10-01*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- **Libraries measure what their photos look like.** After each scan, and once at startup for photos indexed before, Unterlumen measures each photo's thumbnail: black and white, toned or colour; the average colour and up to five main colours with their share; brightness, contrast, key and clipping; entropy, sharpness and edge density; and a hash for finding look-alikes. The values are stored beside the index for coming statistics and a search by colour. The work shows in the status line as "Analysing" while it runs. "Analyse photos again" in Edit library → Maintenance measures a library again. See ADR-0044.
 
 ## [0.14.4] - 2026-09-30
 

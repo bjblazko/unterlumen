@@ -47,6 +47,37 @@ CREATE TABLE IF NOT EXISTS photo_meta (
 	PRIMARY KEY (photo_id, key)
 );
 
+-- What a photo looks like, measured from its thumbnail (ADR-0044).
+CREATE TABLE IF NOT EXISTS photo_appearance (
+	photo_id      TEXT PRIMARY KEY REFERENCES photos(id),
+	version       INTEGER NOT NULL,
+	analysed_at   DATETIME NOT NULL,
+	mono_class    TEXT NOT NULL,
+	tint_hue      REAL,
+	avg_l REAL, avg_c REAL, avg_h REAL,
+	colourfulness REAL,
+	warmth        REAL,
+	lum_mean REAL, lum_median REAL, lum_p05 REAL, lum_p95 REAL,
+	contrast      REAL,
+	tone_key      TEXT NOT NULL,
+	clip_high REAL, clip_low REAL,
+	lum_hist      BLOB,
+	entropy REAL, sharpness REAL, edge_density REAL,
+	centroid_x REAL, centroid_y REAL,
+	dhash         INTEGER
+);
+CREATE INDEX IF NOT EXISTS photo_appearance_version ON photo_appearance(version);
+
+CREATE TABLE IF NOT EXISTS photo_palette (
+	photo_id TEXT NOT NULL REFERENCES photos(id),
+	rank     INTEGER NOT NULL,
+	l REAL NOT NULL, c REAL NOT NULL, h REAL NOT NULL,
+	hue_bin  INTEGER,
+	share    REAL NOT NULL,
+	PRIMARY KEY (photo_id, rank)
+);
+CREATE INDEX IF NOT EXISTS photo_palette_hue ON photo_palette(hue_bin, share);
+
 CREATE TABLE IF NOT EXISTS library_props (
 	key         TEXT PRIMARY KEY,
 	value       TEXT NOT NULL

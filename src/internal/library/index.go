@@ -322,6 +322,7 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 	absThumb := filepath.Join(idx.libDir, "thumbs", photoID[:2], photoID+".jpg")
 	os.Remove(absThumb) //nolint:errcheck
 	thumbRel, _ := idx.ensureThumbnail(absPath, photoID)
+	idx.store.ClearAppearance(photoID) //nolint:errcheck // measured again from the new thumbnail
 
 	exists, err := idx.store.PhotoExists(photoID)
 	if err != nil {
@@ -637,6 +638,7 @@ func (idx *Indexer) RunRebuildAllPreviewsInFolder(ctx context.Context, progress 
 
 		thumbRel, _ := idx.ensureThumbnail(absPath, photoID)
 		idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+		idx.store.ClearAppearance(photoID)             //nolint:errcheck // measured again from the new thumbnail
 	}
 
 	progress <- Progress{Done: total, Total: total, Finished: true}

@@ -19,6 +19,7 @@ type Manager struct {
 	root             string
 	indexMu          sync.Map       // map[libraryID]bool — prevents concurrent reindex of same library
 	scans            sync.Map       // map[libraryID]*Broadcaster — active scan progress broadcasters
+	analysing        sync.Map       // map[libraryID]*atomic.Bool — an appearance pass runs; true: run it once more
 	dbMu             sync.Mutex     // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
 	openDBs          sync.Map       // map[libraryID]*sql.DB — long-lived per-library connections
 	statsCache       sync.Map       // map[cacheKey]*LibraryStatistics — invalidated on scan start/end

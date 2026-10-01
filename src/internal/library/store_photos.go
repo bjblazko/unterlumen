@@ -93,6 +93,8 @@ func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err erro
 		`DELETE FROM path_cache WHERE photo_id = ?`,
 		`DELETE FROM exif_index WHERE photo_id = ?`,
 		`DELETE FROM photo_meta WHERE photo_id = ?`,
+		`DELETE FROM photo_palette    WHERE photo_id = ?`,
+		`DELETE FROM photo_appearance WHERE photo_id = ?`,
 		`DELETE FROM photos     WHERE id       = ?`,
 	} {
 		if _, err = tx.Exec(q, id); err != nil {
@@ -148,6 +150,8 @@ func (s *Store) PurgeMissingPhotos() (int, error) {
 		`DELETE FROM path_cache  WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM exif_index  WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_meta  WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM photo_palette    WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM photo_appearance WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photos      WHERE id        IN (` + ph + `)`,
 	} {
 		if _, err := tx.Exec(q, ids...); err != nil {

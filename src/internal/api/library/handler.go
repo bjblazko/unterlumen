@@ -41,6 +41,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("POST /api/library/{id}/cleanup", cleanupLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/regen-previews-missing", regenMissingPreviewsLibrary(mgr))
 	mux.HandleFunc("POST /api/library/{id}/regen-previews-all", rebuildAllPreviewsLibrary(mgr))
+	mux.HandleFunc("POST /api/library/{id}/analyse", analyseLibrary(mgr))
 	mux.HandleFunc("GET /api/library/{id}/browse", browseFolder(mgr, root))
 	mux.HandleFunc("GET /api/library/{id}/browse-recursive", browseFolderRecursive(mgr))
 	mux.HandleFunc("GET /api/library/{id}/folder-stats", libraryFolderStats(mgr))

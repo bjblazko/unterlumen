@@ -86,7 +86,7 @@ test.describe('Library scan operations', () => {
 
     // ── Maintenance in "Edit library…" ───────────────────────────────────────
 
-    test('Edit library holds the four maintenance runs', async ({ page }) => {
+    test('Edit library holds the maintenance runs', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -105,6 +105,7 @@ test.describe('Library scan operations', () => {
         await expect(actions.locator('[data-maint="reindex"]')).toContainText('Rebuild metadata & previews');
         await expect(actions.locator('[data-maint="regenMissingPreviews"]')).toContainText('Generate missing previews');
         await expect(actions.locator('[data-maint="rebuildAllPreviews"]')).toContainText('Rebuild all previews');
+        await expect(actions.locator('[data-maint="analyseAgain"]')).toContainText('Analyse photos again');
         await expect(actions.locator('[data-maint="cleanup"]')).toContainText('Remove deleted photos');
 
         await dialog.locator('#lib-edit-cancel').click();

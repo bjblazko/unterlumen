@@ -33,6 +33,7 @@ class LibraryDialogs {
                         <button class="btn btn-sm" data-maint="reindex">Rebuild metadata &amp; previews</button>
                         <button class="btn btn-sm" data-maint="regenMissingPreviews">Generate missing previews</button>
                         <button class="btn btn-sm" data-maint="rebuildAllPreviews">Rebuild all previews</button>
+                        <button class="btn btn-sm" data-maint="analyseAgain">Analyse photos again</button>
                         <button class="btn btn-sm" data-maint="cleanup">Remove deleted photos</button>
                     </div>
                     <span class="form-hint">Rarely needed. Scanning finds new files; the others re-read what is already indexed.</span>
@@ -77,7 +78,7 @@ class LibraryDialogs {
         return dlg;
     }
 
-    // All five maintenance runs live here rather than behind a chevron on the
+    // All six maintenance runs live here rather than behind a chevron on the
     // Libraries row: they are rare, they act on this one library, and the
     // dialog has room to say what each one does while it runs.
     _wireMaintenance(dlg, lib) {
@@ -89,6 +90,7 @@ class LibraryDialogs {
             reindex: 'Indexing',
             regenMissingPreviews: 'Generating',
             rebuildAllPreviews: 'Rebuilding',
+            analyseAgain: 'Analysing',
             cleanup: 'Checking',
         };
 

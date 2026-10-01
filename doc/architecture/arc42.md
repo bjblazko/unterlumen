@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-09-30*
+*Last modified: 2026-10-01*
 
 ## 1. Introduction and Goals
 
@@ -163,6 +163,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/sse` | Opens a server-sent event stream and writes JSON data events; used by every streaming handler |
 | `internal/site` | Static output of a destination: single-gallery pages and multi-album sites (templates, assets, nav, sitemap), their state files, slugs, and the shared album register ([ADR-0035](adr/0035-shared-album-register.md)); no HTTP |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
+| `internal/appearance` | What a photo looks like, measured from an image: mono/tinted/colour, average colour and palette in OKLab, tone, texture, dHash; pure, no storage ([ADR-0044](adr/0044-photo-appearance-from-thumbnails.md)) |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
 ### 5.3 Level 2 — Frontend Modules
@@ -367,6 +368,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0041](adr/0041-explaining-the-model-in-the-app.md) — The app explains its model where it is used
 - [ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md) — Installation: one line, setup in the browser, sharing by convention
 - [ADR-0043](adr/0043-statistics-place-with-topics.md) — Statistics is a place with topics
+- [ADR-0044](adr/0044-photo-appearance-from-thumbnails.md) — What a photo looks like is measured from its thumbnail
 
 ## 10. Quality Requirements
 
