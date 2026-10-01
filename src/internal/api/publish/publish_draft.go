@@ -106,6 +106,13 @@ func newPublishRun(r *http.Request, mgr *lib.Manager, chStore *channels.Store, d
 		run.closeStores()
 		return nil, status, err
 	}
+	if run.addToExisting && !run.galleryMode && !run.siteMode {
+		// A plain export keeps no list of its posts; the libraries know the
+		// post's title and first date from its photos' records.
+		if post, ok := mgr.PublishedPost(slug, target.postID); ok {
+			target.existingTitle, target.existingPublishedAt = post.Title, post.PublishedAt
+		}
+	}
 	run.target = target
 	run.pub = run.publication()
 	return run, 0, nil

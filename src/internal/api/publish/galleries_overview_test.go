@@ -36,7 +36,7 @@ func TestListAllGalleriesGeneratedOnlyHasGeneratedStatus(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -71,7 +71,7 @@ func TestListAllGalleriesDraftOnlyAppearsAsSyntheticRow(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -127,7 +127,7 @@ func TestListAllGalleriesDraftOnlyFallsBackToChannelNameWhenTitleBlank(t *testin
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -164,7 +164,7 @@ func TestListAllGalleriesPlainExportChannelDraftAppearsAsRow(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -215,7 +215,7 @@ func TestListAllGalleriesGeneratedPlusDraftOnSamePostIDMergesIntoOneRow(t *testi
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -278,7 +278,7 @@ func TestListAllGalleriesMergesSiteAndGalleryChannels(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
@@ -335,7 +335,7 @@ func TestListAllGalleriesSkipsNonPublishingChannels(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -377,7 +377,7 @@ func TestListAllGalleriesToleratesOneBrokenChannel(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	if rec.Code != 200 {
 		t.Fatalf("status = %d, want 200 even with one broken channel", rec.Code)
@@ -820,7 +820,7 @@ func TestListAllGalleriesTwoPendingDraftsGetDistinctRowKeys(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
@@ -866,7 +866,7 @@ func TestListAllGalleriesSecondDraftOnSamePostIDGetsItsOwnRow(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/channels/galleries", nil)
 	rec := httptest.NewRecorder()
-	listAllGalleries(chStore, draftStore)(rec, req)
+	listAllGalleries(nil, chStore, draftStore)(rec, req)
 
 	var out []PublishedGallery
 	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {

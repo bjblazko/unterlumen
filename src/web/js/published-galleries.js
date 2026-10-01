@@ -70,13 +70,31 @@ function recordedTime(value) {
     return isNaN(d) || d.getUTCFullYear() <= 1970 ? null : d;
 }
 
+// The name a gallery goes by. A post of a files destination may have none —
+// a single photo posted on its own — and is named by its day instead.
+function galleryTitle(g) {
+    if (g.title) return g.title;
+    if (g.status !== 'draft' && g.publishedAt) {
+        return 'Post of ' + new Date(g.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    return '(untitled)';
+}
+
+// A files destination (Instagram, say) keeps no pages and no list: its
+// galleries are its posts, known from the photos' records (ADR-0029).
+function isFilesDestination(channel) {
+    return !!channel && !channel.galleryExport && !channel.siteExport;
+}
+
 function galleryState(row, channel) {
     // A Files destination puts image files in a folder; nothing of it is
     // ever online, so its draft is "not exported" rather than "not online".
     if (row.status === 'draft') {
         return { key: 'draft', label: channel && !channel.galleryExport && !channel.siteExport ? 'Not exported yet' : 'Not online yet' };
     }
-    if (row.status === 'live-pending') return { key: 'pending', label: 'Changes not online' };
+    if (row.status === 'live-pending') {
+        return { key: 'pending', label: isFilesDestination(channel) ? 'Photos waiting' : 'Changes not online' };
+    }
 
     // A files destination builds no pages and has nowhere to upload to: the
     // files are ready in a folder, and posting them is the user's own job.
@@ -125,7 +143,9 @@ function galleryStateLine(row, ch, state, check) {
                 ? 'Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.'
                 : 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.';
         case 'pending':
-            return `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`;
+            return isFilesDestination(ch)
+                ? `Exported ${published}. ${row.pendingCount} more photo${row.pendingCount !== 1 ? 's wait' : ' waits'} to be exported.`
+                : `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`;
         case 'exported':
             return `Exported ${published} as ${row.photoCount} file${row.photoCount !== 1 ? 's' : ''}. This destination has no upload configured, so putting them anywhere is up to you.`;
         case 'built':
@@ -316,7 +336,7 @@ class GalleriesPane {
         return `
             <div class="gal-row" role="link" tabindex="0" data-rowkey="${escapeHtml(row.rowKey)}" data-postid="${escapeHtml(row.postID || '')}">
                 <span class="gal-row-main">
-                    <span class="gal-row-title">${escapeHtml(row.title || '(untitled)')}</span>
+                    <span class="gal-row-title">${escapeHtml(galleryTitle(row))}</span>
                     <span class="gal-row-sub">${escapeHtml(sub)}${row.unlisted && row.galleryExport ? ' · hidden from search' : ''}</span>
                 </span>
                 <span class="gal-row-state">${this._stateHTML(row, state)}</span>
@@ -426,7 +446,7 @@ class GalleriesPane {
                     <nav class="gal-crumbs" aria-label="Breadcrumb">
                         <button class="link-btn gal-back">Galleries</button>
                         <span class="gal-crumb-sep">/</span>
-                        <span class="gal-crumb-here">${escapeHtml(row.title || '(untitled)')}</span>
+                        <span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span>
                     </nav>
                     <span class="gal-group-spacer"></span>
                     ${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">Show photos</a>' : ''}
@@ -435,7 +455,7 @@ class GalleriesPane {
                 <div class="gal-detail-body">
                     <div class="gal-detail-main">
                         <div class="gal-detail-title-row">
-                            <h1 class="gal-title">${escapeHtml(row.title || '(untitled)')}</h1>
+                            <h1 class="gal-title">${escapeHtml(galleryTitle(row))}</h1>
                             ${this._stateHTML(row, state)}
                         </div>
                         <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
@@ -453,7 +473,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         const primary = this.container.querySelector('.gal-detail-primary .gal-row-action');
         if (primary) primary.addEventListener('click', () => this._runAction(primary.dataset.act, row.rowKey));
         showPhotosLink(this.container.querySelector('#gal-show-photos'), {
-            gallery: { id: `${row.channelSlug}:${row.postID}`, title: row.title || '(untitled)' },
+            gallery: { id: `${row.channelSlug}:${row.postID}`, title: galleryTitle(row) },
         });
 
         this.container.querySelector('.gal-dest-link').addEventListener('click', (e) => {
@@ -497,6 +517,23 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                             <span class="gal-detail-value"><a class="gal-dest-link" href="#destinations" data-slug="${escapeHtml(row.channelSlug)}">${escapeHtml(ch?.name || row.channelName)}</a>${ch ? ` · ${escapeHtml(this._destinationType(ch))}` : ''}</span>
                             <span class="form-hint">Where this gallery goes when you publish it, and how its files are made.</span>
                         </div>
+                        ${isFilesDestination(ch) && state.key !== 'draft' ? `
+                        <div class="form-field">
+                            <span class="form-label">Date</span>
+                            <span class="gal-detail-value">${escapeHtml(new Date(row.publishedAt).toLocaleDateString())}</span>
+                            <span class="form-hint">A post's files are in this destination's folder; its title and date are kept in its photos' sidecars, so they cannot be changed here.</span>
+                        </div>` : this._pageFieldsHTML(row, state, canEditVisibility)}
+                        <dl class="gal-detail-kv">
+                            <dt>Destination</dt><dd>${escapeHtml(ch?.name || row.channelName)}</dd>
+                            <dt>Type</dt><dd>${escapeHtml(this._destinationType(ch))}</dd>
+                        </dl>
+                        <div class="gal-detail-danger" id="gal-danger"></div>
+                    </aside>`;
+    }
+
+    // Title, date, visibility and address: what a gallery with pages has.
+    _pageFieldsHTML(row, state, canEditVisibility) {
+        return `
                         <div class="form-field">
                             <label class="form-label" for="gal-title-input">Title</label>
                             <div class="gal-title-edit">
@@ -521,13 +558,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                             <span class="form-label">Address</span>
                             <span class="gal-detail-value${row.url ? ' gal-detail-url' : ''}">${row.url ? escapeHtml(row.url) : 'No address configured'}</span>
                             ${row.urlGuessed ? '<span class="form-hint">Guessed from the upload host, not configured.</span>' : ''}
-                        </div>
-                        <dl class="gal-detail-kv">
-                            <dt>Destination</dt><dd>${escapeHtml(ch?.name || row.channelName)}</dd>
-                            <dt>Type</dt><dd>${escapeHtml(this._destinationType(ch))}</dd>
-                        </dl>
-                        <div class="gal-detail-danger" id="gal-danger"></div>
-                    </aside>`;
+                        </div>`;
     }
 
     _wireTitleSave(row) {
@@ -551,7 +582,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
 
     _wireVisibility(row, canEdit) {
         const wrap = this.container.querySelector('#gal-visibility');
-        if (!canEdit) return;
+        if (!canEdit || !wrap) return;
         // Three visible labels, as every toggle carries (ADR-0019).
         const toggle = Toggle.create(wrap, {
             initial: !!row.unlisted,
@@ -573,13 +604,17 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
     _renderDangerZone(row, state) {
         const wrap = this.container.querySelector('#gal-danger');
         const isDraft = state.key === 'draft';
+        if (!isDraft && isFilesDestination(this._channelBySlug(row.channelSlug))) {
+            wrap.innerHTML = ''; // a post's files are the user's; nothing here to unpublish
+            return;
+        }
         wrap.innerHTML = `<button class="btn btn-sm btn-danger" id="gal-remove">${isDraft ? 'Discard draft…' : 'Unpublish…'}</button>`;
         wrap.querySelector('#gal-remove').addEventListener('click', () => {
             const canDeleteRemote = !isDraft && row.channelHandler === 'rsync';
             wrap.innerHTML = `
                 <p class="gal-danger-question">${isDraft
                     ? `Discard this draft? The ${row.pendingCount} collected photo${row.pendingCount !== 1 ? 's stay' : ' stays'} in your library.`
-                    : `Unpublish "${escapeHtml(row.title || '(untitled)')}"? This removes the built gallery from the local output. The photos stay in your libraries.`}</p>
+                    : `Unpublish "${escapeHtml(galleryTitle(row))}"? This removes the built gallery from the local output. The photos stay in your libraries.`}</p>
                 ${canDeleteRemote ? `<label class="gal-danger-remote"><input type="checkbox" id="gal-remove-remote"> Also delete it on the remote host over SSH</label>` : ''}
                 <div class="gal-danger-actions">
                     <button class="btn btn-sm" id="gal-remove-cancel">Keep it</button>

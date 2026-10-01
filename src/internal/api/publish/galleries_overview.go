@@ -103,7 +103,7 @@ func resolveGalleryURL(ch *channels.Channel, item galleryListItem) (url string, 
 // "live-pending" and carries the draft's photo count as PendingCount; a
 // draft with no matching PostID (a gallery never generated) appears as its
 // own synthetic "draft" row.
-func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
+func listAllGalleries(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.DraftStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if chStore == nil {
 			http.Error(w, "channel store not available", http.StatusServiceUnavailable)
@@ -117,10 +117,9 @@ func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) 
 
 		out := []PublishedGallery{}
 		for _, ch := range chs {
-			// Only gallery/site-export channels have generated statefiles to
-			// read — but a plain-export channel (e.g. Instagram) can still
-			// have a pending draft, and must not be skipped entirely or that
-			// draft would never surface anywhere as a "draft" row below.
+			// Gallery and site channels keep statefiles of their galleries; a
+			// plain-export channel (e.g. Instagram) keeps none, so its posts
+			// come from the photos' publication records in the libraries.
 			var items []galleryListItem
 			if ch.SiteExport || ch.GalleryExport {
 				it, err := collectGalleryItems(ch, chStore)
@@ -130,6 +129,8 @@ func listAllGalleries(chStore *channels.Store, draftStore *channels.DraftStore) 
 					continue
 				}
 				items = it
+			} else {
+				items = postItems(mgr, ch.Slug)
 			}
 
 			drafts := channelDrafts(draftStore, ch.Slug)
@@ -654,4 +655,23 @@ func (f *albumForgetting) inLibrary(store *lib.Store, ids []string) {
 			deleteChannelPublicationKeys(store, id, f.channel)
 		}
 	}
+}
+
+// postItems lists a plain-export channel's published posts as gallery rows.
+func postItems(mgr *lib.Manager, slug string) []galleryListItem {
+	if mgr == nil {
+		return nil
+	}
+	posts, err := mgr.PublishedPosts(slug)
+	if err != nil {
+		return nil
+	}
+	items := make([]galleryListItem, 0, len(posts))
+	for _, p := range posts {
+		items = append(items, galleryListItem{
+			PostID: p.PostID, Title: p.Title, PhotoCount: p.PhotoCount,
+			PublishedAt: p.PublishedAt, UpdatedAt: p.UpdatedAt, GeneratedAt: p.PublishedAt,
+		})
+	}
+	return items
 }

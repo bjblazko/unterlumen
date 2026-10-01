@@ -103,13 +103,13 @@ class CollectDialog {
         const ch = this._channelBySlug(g.channelSlug);
         const state = galleryState(g, ch);
         const target = g.status === 'draft' ? `draft:${g.draftID}` : `post:${g.postID}`;
-        const search = `${g.title || ''} ${ch?.name || g.channelName}`.toLowerCase();
+        const search = `${galleryTitle(g)} ${ch?.name || g.channelName}`.toLowerCase();
         return `
             <button class="collect-item" role="option" aria-selected="false"
                     data-slug="${escapeHtml(g.channelSlug)}" data-target="${escapeHtml(target)}"
-                    data-label="${escapeHtml(g.title || '(untitled)')}"
+                    data-label="${escapeHtml(galleryTitle(g))}"
                     data-search="${escapeHtml(search)}">
-                <span class="collect-item-title">${escapeHtml(g.title || '(untitled)')}</span>
+                <span class="collect-item-title">${escapeHtml(galleryTitle(g))}</span>
                 <span class="collect-item-meta">${escapeHtml(ch?.name || g.channelName)} · ${escapeHtml(state.label)} · ${g.status === 'draft' ? g.pendingCount : g.photoCount} photo${(g.status === 'draft' ? g.pendingCount : g.photoCount) !== 1 ? 's' : ''}</span>
             </button>`;
     }

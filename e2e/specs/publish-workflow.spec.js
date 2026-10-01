@@ -19,7 +19,9 @@ import { waitForAppReady } from '../helpers/wait.js';
 const LIB_NAME = 'E2E Publish Workflow Library';
 const GALLERY_SLUG = 'e2e-publish-workflow-gallery';
 const SITE_SLUG = 'e2e-publish-workflow-site';
-const FILES_SLUG = 'e2e-publish-workflow-files';
+// A files destination's posts live on in the photos' sidecars after the
+// destination is deleted (ADR-0048), so each run takes a slug of its own.
+const FILES_SLUG = `e2e-publish-workflow-files-${Date.now()}`;
 
 // ─── Shared setup helpers ────────────────────────────────────────────────────
 
@@ -334,6 +336,21 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await publishDlg.locator('#pub-run').click();
         await expect(publishDlg.locator('#pub-done')).toBeVisible({ timeout: 30_000 });
         await expect(publishDlg).toContainText('Exported to the local output folder');
+
+        // A files destination keeps no list of its galleries; the exported one
+        // is known from its photos' records, so it stays in Galleries and can
+        // be added to (Instagram's posts were lost from both).
+        await publishDlg.locator('#pub-done').click();
+        await expect(publishDlg).toHaveCount(0);
+        await reopenPublishedTab(page);
+        const exported = page.locator('.gal-row', { hasText: title });
+        await expect(exported.locator('.gal-state')).toHaveText('Exported to folder');
+        await page.locator('#mode-library').click();
+        await openLibraryDetail(page);
+        await selectTwoPhotosAt(page, 8);
+        await page.locator('.selection-bar [data-action="collect"]').click();
+        await expect(dlg.locator('.collect-item', { hasText: title })).toBeVisible();
+        await dlg.locator('#collect-cancel').click();
     });
 
     // The date belongs to the gallery, not to the publish run. The dialog used

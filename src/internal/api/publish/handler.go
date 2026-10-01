@@ -19,7 +19,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, chStore *channels.Store, draft
 	mux.HandleFunc("GET /api/channels/{slug}/galleries", listGalleries(chStore))
 	mux.HandleFunc("PATCH /api/channels/{slug}/galleries/{postID}", trackDestination(mgr, chStore, "Updating a gallery of", renameGallery(chStore, mgr)))
 	mux.HandleFunc("DELETE /api/channels/{slug}/galleries/{postID}", trackDestination(mgr, chStore, "Unpublishing a gallery of", deleteGallery(chStore, mgr)))
-	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(chStore, draftStore))
+	mux.HandleFunc("GET /api/channels/galleries", listAllGalleries(mgr, chStore, draftStore))
 	mux.HandleFunc("POST /api/channels/galleries/reachability", checkGalleryReachability())
 	registerDraftRoutes(mux, mgr, chStore, draftStore)
 }
