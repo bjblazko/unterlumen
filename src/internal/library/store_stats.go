@@ -8,20 +8,23 @@ import (
 // statsScope is the path restriction of a statistics query, as SQL fragments
 // for each kind of query. Empty fragments mean the whole library.
 type statsScope struct {
-	photos     string // appended to a WHERE on the photos table
-	exif       string // appended to a WHERE on exif_index aliased e
-	cameraJoin string // joins exif_index aliased c to its ok photos
-	args       []any  // the one argument each non-empty fragment takes
+	photos string // appended to a WHERE on the photos table
+	exif   string // appended to a WHERE on exif_index aliased e
+	camera string // appended to a WHERE on exif_index aliased c: its ok photos
+	args   []any  // the one argument each non-empty fragment takes
 }
 
 func newStatsScope(pathPrefix string) statsScope {
-	sc := statsScope{cameraJoin: " JOIN photos _ph ON _ph.id = c.photo_id AND _ph.status='ok'"}
+	// "In the set of ok photos" rather than a join on photos: the set comes
+	// from a covering index once, while a join read each photo's row (and its
+	// EXIF JSON) to check its status — 2 s of 2.5 on 36,000 photos.
+	sc := statsScope{camera: " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok')"}
 	if pathPrefix == "" {
 		return sc
 	}
 	sc.photos = " AND path_hint LIKE ? ESCAPE '\\'"
 	sc.exif = " AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
-	sc.cameraJoin += " AND _ph.path_hint LIKE ? ESCAPE '\\'"
+	sc.camera = " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
 	sc.args = []any{escapeLikePattern(pathPrefix) + "/%"}
 	return sc
 }
@@ -138,9 +141,9 @@ func (s *Store) focalLength35Counts(sc statsScope) ([]ValueCount, error) {
 func (s *Store) cameraLensCounts(sc statsScope) ([]CameraLensCount, error) {
 	rows, err := s.db.Query(`
 		SELECT c.value AS camera, COALESCE(l.value, '(no lens)') AS lens, COUNT(*) AS n
-		FROM   exif_index c`+sc.cameraJoin+`
+		FROM   exif_index c
 		LEFT JOIN exif_index l ON c.photo_id = l.photo_id AND l.field = 'LensModel'
-		WHERE  c.field = 'Model'
+		WHERE  c.field = 'Model'`+sc.camera+`
 		GROUP BY camera, lens ORDER BY n DESC LIMIT 100`, sc.args...)
 	if err != nil {
 		return nil, err

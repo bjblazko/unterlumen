@@ -391,9 +391,11 @@ body {
 
 .nav-count:empty { display: none; }
 
+/* A sub-entry is indented as a whole, so its selection box starts under its
+   place's name and still ends where the others do. */
 .nav-item.nav-sub {
     min-height: 30px;
-    padding-left: calc(var(--space-2) + 22px);
+    margin-left: 22px;
     font-size: var(--text-sm);
 }
 
@@ -3854,6 +3856,15 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .lib-filter-close {
     margin-left: auto;
 }
+
+.lib-filter-hint {
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.lib-filter-hint a { color: var(--fg); }
 
 .lib-filter-head {
     background: var(--bg-2);

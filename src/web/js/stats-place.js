@@ -48,7 +48,7 @@ class StatsPane {
         if (data.snap.totalPhotos === 0) { this._note(this._nothingCounted(data.snap)); return; }
         this._noteEl.hidden = true;
         this._main.innerHTML = '';
-        this._drawIndexing(data.snap);
+        this._drawIndexing(data.snap, topic && data.colour);
         if (topic) this._drawTopic(topic, data);
         else this._drawOverview(data);
         this._drawn = true;
@@ -88,7 +88,7 @@ class StatsPane {
     /* --- Head: where we are, what is counted --- */
 
     _drawHead(topic) {
-        const hasTimeline = topic ? topic.charts.some(c => c.source === 'tl') : false;
+        const hasTimeline = topic ? topic.charts.some(c => c.source === 'tl' || c.source === 'colour') : false;
         this._head.innerHTML = `
             ${topic ? `<a class="btn btn-sm stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2L3 6l4 4"/></svg>
@@ -145,9 +145,11 @@ class StatsPane {
         return this._lib ? 'This library holds no photos yet. Scan it under Libraries to count them.' : 'Your libraries hold no photos yet.';
     }
 
-    _drawIndexing(snap) {
+    // colour: the Colour topic's numbers, which only count analysed photos.
+    _drawIndexing(snap, colour) {
         const lines = [];
         if (snap.indexingPhotos > 0) lines.push(`${formatCount(snap.indexingPhotos)} photos are still being read, so these numbers are not complete yet.`);
+        if (colour?.analysedPhotos > 0 && colour.unanalysedPhotos > 0) lines.push(`${formatCount(colour.unanalysedPhotos)} photos have not been analysed yet, so the colours are not complete.`);
         lines.push(...(snap.warnings ?? []));
         if (!lines.length) return;
         const p = document.createElement('p');
@@ -168,16 +170,18 @@ class StatsPane {
         return params;
     }
 
-    // The overview's Frame card and every topic with a development over time
-    // need the timeline as well.
+    // The overview's cards and every topic with a development over time need
+    // the timeline or the colours as well.
     async _read(topic) {
         const scope = this._scopeParams();
-        const needTimeline = !topic || topic.charts.some(c => c.source === 'tl');
-        const [snap, tl] = await Promise.all([
+        const over = { ...scope, ...(this._granularity ? { granularity: this._granularity } : {}) };
+        const needs = source => !topic || topic.charts.some(c => c.source === source);
+        const [snap, tl, colour] = await Promise.all([
             this._fetch('/api/library/statistics', scope),
-            needTimeline ? this._fetch('/api/library/timeline', { ...scope, ...(this._granularity ? { granularity: this._granularity } : {}) }) : null,
+            needs('tl') ? this._fetch('/api/library/timeline', over) : null,
+            needs('colour') ? this._fetch('/api/library/colour', over) : null,
         ]);
-        return { snap, tl: continuousTimeline(tl) };
+        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour) };
     }
 
     async _fetch(url, params) {

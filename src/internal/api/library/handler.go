@@ -32,6 +32,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/exif-fields", globalExifFields(mgr))
 	mux.HandleFunc("GET /api/library/statistics", libraryStatistics(mgr))
 	mux.HandleFunc("GET /api/library/timeline", libraryTimeline(mgr))
+	mux.HandleFunc("GET /api/library/colour", libraryColour(mgr))
 	mux.HandleFunc("GET /api/library/geo", libraryGeo(mgr))
 	mux.HandleFunc("GET /api/library/{id}", getLibrary(mgr, root))
 	mux.HandleFunc("PATCH /api/library/{id}", updateLibrary(mgr, root))

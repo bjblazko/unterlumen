@@ -282,12 +282,7 @@ func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
 
 func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ids := parseIDList(r.URL.Query().Get("ids"))
-		pathPrefix := r.URL.Query().Get("pathPrefix")
-		granularity := r.URL.Query().Get("granularity")
-		if granularity != "month" && granularity != "year" {
-			granularity = ""
-		}
+		ids, pathPrefix, granularity := timeScope(r)
 		tl, err := mgr.Timeline(ids, pathPrefix, granularity)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -295,6 +290,29 @@ func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
 		}
 		writeJSON(w, tl)
 	}
+}
+
+func libraryColour(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids, pathPrefix, granularity := timeScope(r)
+		c, err := mgr.Colour(ids, pathPrefix, granularity)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, c)
+	}
+}
+
+// timeScope reads the libraries, folder and granularity of a statistic over
+// time; a granularity other than month or year is chosen by the server.
+func timeScope(r *http.Request) (ids []string, pathPrefix, granularity string) {
+	q := r.URL.Query()
+	granularity = q.Get("granularity")
+	if granularity != "month" && granularity != "year" {
+		granularity = ""
+	}
+	return parseIDList(q.Get("ids")), q.Get("pathPrefix"), granularity
 }
 
 func exifRanges(mgr *lib.Manager) http.HandlerFunc {

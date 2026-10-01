@@ -33,6 +33,10 @@ type ListPhotosOpts struct {
 	PathPrefix     string                   // absolute folder the photos must be in, as statistics take it
 	Hour           *int                     // hour of the day taken, 0–23
 	Aspect         string                   // frame shape, as aspectClassSQL names it
+	Month          *int                     // month of the year taken, 1–12, any year
+	Mono           string                   // mono, tinted or colour (photo_appearance)
+	HueBin         *int                     // a main colour: a swatch of this 30° sector, 0–11, of at least HueShareMin
+	Warmth         string                   // warm or cool, beyond WarmthThreshold
 	Offset         int
 	Limit          int
 }
@@ -42,7 +46,7 @@ func (s *Store) ListPhotos(opts ListPhotosOpts) (ListPhotosResult, error) {
 	fromSQL, whereSQL, args := newPhotoFilter(opts).sql()
 
 	var total int
-	if err := s.db.QueryRow(`SELECT COUNT(p.id) `+fromSQL+` WHERE `+whereSQL, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRow(`SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL, args...).Scan(&total); err != nil {
 		return ListPhotosResult{}, err
 	}
 
@@ -105,6 +109,7 @@ func newPhotoFilter(opts ListPhotosOpts) *photoFilter {
 	f.addExifNumeric(opts.NumericFilters)
 	f.addDatesAndExt(opts)
 	f.addPlaceAndShape(opts)
+	f.addAppearance(opts)
 	f.addMeta(opts)
 	return f
 }
@@ -167,8 +172,31 @@ func (f *photoFilter) addDatesAndExt(opts ListPhotosOpts) {
 	if opts.DateMax != "" {
 		f.cond(`(p.date_taken IS NOT NULL AND SUBSTR(p.date_taken, 1, 10) <= ?)`, opts.DateMax)
 	}
+	if opts.Month != nil {
+		f.cond(`(LENGTH(p.date_taken) >= 7 AND CAST(SUBSTR(p.date_taken, 6, 2) AS INTEGER) = ?)`, *opts.Month)
+	}
 	if opts.ExtFilter != "" {
 		f.cond(`p.ext = ?`, opts.ExtFilter)
+	}
+}
+
+// addAppearance requires what a photo looks like: the marks of the Colour
+// statistics, with the same thresholds they count by.
+func (f *photoFilter) addAppearance(opts ListPhotosOpts) {
+	if opts.Mono != "" {
+		f.cond(`EXISTS (SELECT 1 FROM photo_appearance a WHERE a.photo_id=p.id AND a.mono_class=?)`, opts.Mono)
+	}
+	if opts.HueBin != nil {
+		// The photos are collected once through the (hue_bin, share) index. As
+		// a correlated EXISTS, SQLite took that index for every photo and
+		// walked all swatches of the hue each time: minutes on 48,000 photos.
+		f.cond(`p.id IN (SELECT photo_id FROM photo_palette WHERE hue_bin=? AND share >= ?)`, *opts.HueBin, HueShareMin)
+	}
+	switch opts.Warmth {
+	case "warm":
+		f.cond(`EXISTS (SELECT 1 FROM photo_appearance a WHERE a.photo_id=p.id AND a.warmth > ?)`, WarmthThreshold)
+	case "cool":
+		f.cond(`EXISTS (SELECT 1 FROM photo_appearance a WHERE a.photo_id=p.id AND a.warmth < ?)`, -WarmthThreshold)
 	}
 }
 

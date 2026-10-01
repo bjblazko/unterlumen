@@ -24,6 +24,7 @@ type Manager struct {
 	openDBs          sync.Map       // map[libraryID]*sql.DB — long-lived per-library connections
 	statsCache       sync.Map       // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
 	timelineCache    sync.Map       // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
+	colourCache      sync.Map       // map[cacheKey]*LibraryColour — invalidated on scan start/end and after analysis
 	exifRangesCache  sync.Map       // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
 	exifValuesCache  sync.Map       // map[cacheKey+"|"+field][]string — invalidated on scan start/end
 	folderStatsCache sync.Map       // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end

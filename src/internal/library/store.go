@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS exif_index (
 	value         TEXT NOT NULL,
 	numeric_value REAL,
 	PRIMARY KEY (photo_id, field)
-);
+) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS exif_index_field_value ON exif_index(field, value);
 CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value);
 
@@ -83,7 +83,6 @@ CREATE TABLE IF NOT EXISTS library_props (
 	value       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS photos_status_idx ON photos(status);
-CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint);
 CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at);
 CREATE INDEX IF NOT EXISTS photos_status_indexed_at_idx ON photos(status, indexed_at);
 `
@@ -124,8 +123,7 @@ func openDB(dbPath string) (*sql.DB, error) {
 		  AND CAST(TRIM(value, '"') AS REAL) > 0`)
 	// Migration: index path_hint for fast folder-scoped stats queries.
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_path_hint_idx ON photos(path_hint)`)
-	// Migration: composite (status, path_hint) index and indexed_at index for browse/sort.
-	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_path_idx ON photos(status, path_hint)`)
+	// Migration: indexed_at index for browse/sort.
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_indexed_at_idx ON photos(indexed_at)`)
 	// Migration: date_taken column for fast date-based stats and timeline queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN date_taken TEXT`)
@@ -161,6 +159,10 @@ func openDB(dbPath string) (*sql.DB, error) {
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_ext_idx ON photos(status, ext)`)
 	// Migration: compound (status, indexed_at) index for sorted pagination in ListPhotos.
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_status_indexed_at_idx ON photos(status, indexed_at)`)
+	if err := coverQueries(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate indexes: %w", err)
+	}
 	return db, nil
 }
 

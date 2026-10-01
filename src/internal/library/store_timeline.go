@@ -76,8 +76,14 @@ func tlDetectGranularity(db *sql.DB, pcWhere string, pcArgs []any) string {
 	if !minP.Valid || !maxP.Valid || len(minP.String) < 7 || len(maxP.String) < 7 {
 		return "month"
 	}
-	minT, err1 := time.Parse("2006-01", minP.String)
-	maxT, err2 := time.Parse("2006-01", maxP.String)
+	return granularityForSpan(minP.String, maxP.String)
+}
+
+// granularityForSpan counts in years when the first and last month ("2006-01")
+// lie more than four years apart, otherwise in months.
+func granularityForSpan(first, last string) string {
+	minT, err1 := time.Parse("2006-01", first)
+	maxT, err2 := time.Parse("2006-01", last)
 	if err1 != nil || err2 != nil {
 		return "month"
 	}

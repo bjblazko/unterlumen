@@ -1,6 +1,6 @@
 # ADR-0030: Adopt rams-design tokens
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-10-01*
 
 ## Status
 
@@ -33,6 +33,7 @@ Replace the `:root` token block in `src/web/css/style.css` with the rams-design 
 Recorded here as the skill requires; anything not listed follows the skill.
 
 - **Thumbnail overlay badges** are dark chips over the photo (`rgb(18 19 20 / .72)` with light mono text) rather than the skill's soft-tint badges. A tinted badge is unreadable over arbitrary photo content. The chips are uniform: the per-format and per-film-simulation colors of the old design are dropped, because eight decorative colors on top of a photograph compete with the photograph and dilute the signal colors' meaning.
+- **A photo's own colour as a mark.** In the Colour topic of Statistics, and in later views that show what photos look like (the colour cloud of `doc/ideas/statistics.md`), a mark may be filled with a colour measured from the photos: an `oklch()` value from `photo_appearance` or `photo_palette` (ADR-0044). That colour is data and not an interface signal, like the film simulation colours (ADR-0034, point 5). It is neither a chart slot nor a signal colour, so it follows four rules instead. It is the same in both themes, because it is the photo's colour. It always has a `--line` hairline, so a swatch close to the page's background still shows. It always carries a word beside it or in its accessible name (a hue name, a share, a period, warm or cool, or its position above or below a labelled axis), so the chart still reads in grayscale. And an orange that comes from a photo is never the accent: nothing about it is clickable that would not be clickable in grey. Everything else in those charts (axes, grid, the neutral centre, categories such as black and white against colour) uses the interface tokens and the chart ramp.
 - **The viewer** keeps its near-black background (`#111213`) and light-on-dark controls rather than following the theme, for the same reason it always has: it is a presentation surface, not chrome.
 
 ## Consequences

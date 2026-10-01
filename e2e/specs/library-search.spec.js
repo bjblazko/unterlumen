@@ -46,6 +46,19 @@ test.describe('Filter panel — no EXIF data', () => {
         await expect(page.locator('.lib-filter-reset')).toBeVisible();
     });
 
+    test('the filter points to Statistics for more ways to find photos', async ({ page }) => {
+        const hint = page.locator('.lib-filter-hint');
+        await expect(hint).toContainText('by colour');
+        await hint.locator('a').click();
+        await expect(page).toHaveURL(/#statistics\/colour/);
+        await expect(page.locator('.stats-title')).toHaveText('Colour');
+    });
+
+    test('on a phone the filter leaves the Statistics hint out', async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect(page.locator('.lib-filter-hint')).toBeHidden();
+    });
+
     test('shows "No numeric EXIF data" for unindexed library', async ({ page }) => {
         await expect(page.locator('.lib-filter-groups', { hasText: 'No numeric EXIF data' })).toContainText(
             'No numeric EXIF data — re-index the library to populate.',

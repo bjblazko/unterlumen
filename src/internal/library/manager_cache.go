@@ -22,26 +22,29 @@ func timelineCacheKey(ids []string, pathPrefix, granularity string) string {
 
 // InvalidateStatsCache removes cached statistics for all entries that include the given library ID.
 func (m *Manager) InvalidateStatsCache(id string) {
-	invalidateByID := func(cache *sync.Map) {
-		cache.Range(func(k, _ any) bool {
-			before, _, _ := strings.Cut(k.(string), "|")
-			for _, part := range strings.Split(before, ",") {
-				if part == id {
-					cache.Delete(k)
-					break
-				}
-			}
-			return true
-		})
-	}
-	invalidateByID(&m.statsCache)
-	invalidateByID(&m.timelineCache)
-	invalidateByID(&m.exifRangesCache)
-	invalidateByID(&m.exifValuesCache)
+	dropEntriesOf(&m.statsCache, id)
+	dropEntriesOf(&m.timelineCache, id)
+	dropEntriesOf(&m.colourCache, id)
+	dropEntriesOf(&m.exifRangesCache, id)
+	dropEntriesOf(&m.exifValuesCache, id)
 	// Folder stats keys are "<libID>|<absPath>" — prefix match is exact.
 	m.folderStatsCache.Range(func(k, _ any) bool {
 		if strings.HasPrefix(k.(string), id+"|") {
 			m.folderStatsCache.Delete(k)
+		}
+		return true
+	})
+}
+
+// dropEntriesOf deletes the entries whose key ("<id>,<id>|…") names the library.
+func dropEntriesOf(cache *sync.Map, id string) {
+	cache.Range(func(k, _ any) bool {
+		before, _, _ := strings.Cut(k.(string), "|")
+		for _, part := range strings.Split(before, ",") {
+			if part == id {
+				cache.Delete(k)
+				break
+			}
 		}
 		return true
 	})

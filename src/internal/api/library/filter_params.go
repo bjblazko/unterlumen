@@ -23,8 +23,12 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		AlbumTitle:     q.Get("album_title"),
 		ExtFilter:      q.Get("ext"),
 		PathPrefix:     q.Get("pathPrefix"),
-		Hour:           parseHour(q.Get("hour")),
+		Hour:           parseIntIn(q.Get("hour"), 0, 23),
 		Aspect:         q.Get("aspect"),
+		Month:          parseIntIn(q.Get("month"), 1, 12),
+		Mono:           q.Get("mono"),
+		HueBin:         parseIntIn(q.Get("hue_bin"), 0, 11),
+		Warmth:         q.Get("warmth"),
 	}
 	if ch := q.Get("channel"); ch != "" {
 		opts.MetaExists = append(opts.MetaExists, "built:"+ch)
@@ -42,13 +46,13 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 	return opts
 }
 
-// parseHour is an hour of the day, 0–23, or nil for none or anything else.
-func parseHour(s string) *int {
-	h, err := strconv.Atoi(s)
-	if err != nil || h < 0 || h > 23 {
+// parseIntIn is a whole number from lo to hi, or nil for none or anything else.
+func parseIntIn(s string, lo, hi int) *int {
+	n, err := strconv.Atoi(s)
+	if err != nil || n < lo || n > hi {
 		return nil
 	}
-	return &h
+	return &n
 }
 
 func parseIDList(s string) []string {
@@ -79,7 +83,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
-		if k == "pathPrefix" || k == "hour" || k == "aspect" {
+		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "warmth" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

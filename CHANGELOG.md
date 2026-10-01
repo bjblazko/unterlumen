@@ -7,6 +7,16 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - **Libraries measure what their photos look like.** After each scan, and once at startup for photos indexed before, Unterlumen measures each photo's thumbnail: black and white, toned or colour; the average colour and up to five main colours with their share; brightness, contrast, key and clipping; entropy, sharpness and edge density; and a hash for finding look-alikes. The values are stored beside the index for coming statistics and a search by colour. The work shows in the status line as "Analysing" while it runs. "Analyse photos again" in Edit library → Maintenance measures a library again. See ADR-0044.
+- **Statistics has a Colour topic.** It shows four charts. Black and white: the share of black-and-white, toned and colour photos per period. Colour of each period: a strip of swatches, each the average hue of that period's colour photos' main colours, at their most colourful. Main colours: a hue wheel of how much of the photos each hue covers, from red, orange and amber round to purple and pink, with the neutrals in the middle. Warm and cool through the year: the share of warm and of cool photos per month, all years together, each bar in its photos' warm or cool colours. Clicking a swatch, a sector or a bar shows its photos, as in the other topics. Photos not yet analysed are named above the charts.
+- **Search filters by what photos look like.** `/api/library/search` takes `mono` (`mono`, `tinted`, `colour`), `hue_bin` (0–11, a main colour covering at least 20 % of the frame), `warmth` (`warm`, `cool`) and `month` (1–12, any year). `GET /api/library/colour` returns the Colour topic's numbers.
+- **The filter points to Statistics.** On the desk, a line at the top of the library filter says that Statistics finds photos by more, such as by colour, and leads to the Colour topic.
+- **Warm and cool for one year.** A select above "Warm and cool through the year" narrows the chart from all years to one; a bar then shows the photos of that month in that year.
+
+### Changed
+- **A selected sub-entry in the sidebar is indented as a whole.** Its highlight starts under its place's name, so a selected topic of Statistics reads as part of Statistics.
+
+### Fixed
+- **Statistics and the search are fast on large libraries, and a search no longer blocks the app.** A search by a main colour ran for minutes on 36,000 photos, and because a library has one database connection, everything else waited: the app seemed to hang. The EXIF index is rebuilt without a row id and two indexes cover the photos' dates and folders. On that library, the statistics now take under a second instead of 8–9 s, and searches 0.03–0.4 s. The first start after the update rebuilds each library's index once, which can take a minute or more before the libraries appear. See ADR-0045.
 
 ## [0.14.4] - 2026-09-30
 

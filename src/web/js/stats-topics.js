@@ -85,7 +85,39 @@ const STATS_TOPICS = [
                   : periodCriterion(v))) },
         ],
     },
+    {
+        id: 'colour',
+        label: 'Colour',
+        blurb: 'Black and white or colour, the colour of each period, the main colours, and warm against cool through the year.',
+        preview: (el, d) => renderColourStrip(el, d.colour),
+        charts: [
+            { title: 'Black and white', subtitle: 'Share of black-and-white, toned and colour photos per period', source: 'colour', full: true,
+              render: (el, d, pick) => renderColourClasses(el, d.colour, v => pick(v.cls
+                  ? { subject: `${v.name} · ${v.period}`, params: { mono: v.cls, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: 'Colour of each period', subtitle: 'The average hue of the colour photos\' main colours, at their most colourful', source: 'colour', full: true,
+              render: (el, d, pick) => renderColourStrip(el, d.colour, v => pick({
+                  subject: `Colour photos · ${v.period}`, params: { mono: 'colour', ...periodDates(v.period) },
+              })) },
+            { title: 'Main colours', subtitle: 'Part of the colour photos\' area in each hue; each hue at its most colourful', source: 'colour',
+              render: (el, d, pick) => renderHueWheel(el, d.colour, bin => pick({
+                  subject: `${capitalise(hueName(bin))} · at least ${HUE_SHARE_MIN_PERCENT} % of the frame`,
+                  params: { mono: 'colour', hue_bin: bin },
+              })) },
+            { title: 'Warm and cool through the year', subtitle: 'Share of warm and of cool colour photos per month, in their warm or cool colours', source: 'colour', full: true,
+              render: (el, d, pick) => renderWarmCool(el, d.colour, b => pick({
+                  subject: `${b.warmth === 'warm' ? 'Warm' : 'Cool'} · ${MONTHS[b.month - 1]}${b.year ? ' ' + b.year : ''}`,
+                  params: { mono: 'colour', warmth: b.warmth, month: b.month, ...(b.year ? periodDates(b.year) : {}) },
+              })) },
+        ],
+    },
 ];
+
+// The swatch a hue must cover to be a main colour of a photo; the server's
+// HueShareMin.
+const HUE_SHARE_MIN_PERCENT = 20;
+
+const capitalise = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* --- Criteria --- */
 

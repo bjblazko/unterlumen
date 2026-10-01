@@ -270,6 +270,23 @@ class LibraryFilterPanel {
         active.className = 'lib-filter-active';
         this._activeEl = active;
         this._container.appendChild(active);
+        this._container.appendChild(this._statisticsHint());
+    }
+
+    // Statistics find photos by what no filter here offers: colour, warmth,
+    // an hour of the day. Said on the desk only; a phone has no room for it.
+    _statisticsHint() {
+        const route = { topic: 'colour', library: this._initialLibID ? String(this._initialLibID) : '', path: '' };
+        const hint = document.createElement('p');
+        hint.className = 'lib-filter-hint desk-only';
+        hint.innerHTML = `More ways to find photos, such as by colour, are in
+            <a href="${statsHash(route)}">Statistics</a>: click a value in a chart to see its photos.`;
+        hint.querySelector('a').addEventListener('click', (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            App.openStatistics(route);
+        });
+        return hint;
     }
 
     // What is filtering right now, as one chip each — the reason the count

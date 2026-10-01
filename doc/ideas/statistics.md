@@ -10,7 +10,7 @@ A new idea usually becomes a topic in `STATS_TOPICS` (`src/web/js/stats-topics.j
 
 Mentioned while Statistics became a place:
 
-- **Colour over time.** How the average or dominant colour of the photos changes by month or year, as a topic of its own ("Colour"). Needs a colour value per photo in the index (see "What the ideas need").
+- **Colour over time.** How the average or dominant colour of the photos changes by month or year, as a topic of its own ("Colour"). Needs a colour value per photo in the index (see "What the ideas need"). Taken up on 2026-10-01: [Statistics: Colour](../features/open/2026-10-01-statistics-colour.md).
 - **More metadata.** Statistics from fields the index already holds but no chart shows yet: white balance, flash, exposure time, exposure compensation.
 - **Weekday and season** in the Time topic.
 - **Charts drawn to the width of their card** instead of at a fixed size and scaled. That matters most on a phone.

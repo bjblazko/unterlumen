@@ -1,6 +1,6 @@
 # ADR-0034: Colour in charts
 
-*Last modified: 2026-09-24*
+*Last modified: 2026-10-01*
 
 ## Status
 
@@ -52,7 +52,9 @@ spent.
    than a slot in the ramp. As a palette they fail the categorical checks by
    construction (several film looks *are* grey), which is legal here because
    the film chart is a labelled bar chart: the name is always beside the bar,
-   and colour never has to carry the difference on its own.
+   and colour never has to carry the difference on its own. A photo's own
+   measured colour, as the Colour topic draws it, is a second exception of
+   the same kind, recorded in ADR-0030 under "Deviations".
 
 Anything outside the statistics that encodes a category with colour follows
 the same rule — the batch-rename token chips, for example, take chart slots

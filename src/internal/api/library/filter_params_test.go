@@ -62,3 +62,20 @@ func TestParseListPhotosOptsStatisticsFilters(t *testing.T) {
 		}
 	}
 }
+
+// The Colour statistics' marks are filters of their own, never EXIF text.
+func TestParseListPhotosOptsColourFilters(t *testing.T) {
+	q, _ := url.ParseQuery("mono=colour&hue_bin=2&warmth=warm&month=7")
+	got := parseListPhotosOpts(q)
+	if got.Mono != "colour" || got.HueBin == nil || *got.HueBin != 2 || got.Warmth != "warm" || got.Month == nil || *got.Month != 7 {
+		t.Errorf("got mono %q, hue %v, warmth %q, month %v", got.Mono, got.HueBin, got.Warmth, got.Month)
+	}
+	if len(got.Filters) != 0 {
+		t.Errorf("text filters = %v, want none", got.Filters)
+	}
+	for _, bad := range []url.Values{{"hue_bin": {"12"}}, {"hue_bin": {"-1"}}, {"month": {"0"}}, {"month": {"13"}}} {
+		if o := parseListPhotosOpts(bad); o.HueBin != nil || o.Month != nil {
+			t.Errorf("%v: got hue %v, month %v, want none", bad, o.HueBin, o.Month)
+		}
+	}
+}
