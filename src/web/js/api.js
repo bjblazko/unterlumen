@@ -99,14 +99,14 @@ const API = {
         return resp.json();
     },
 
-    async setupShared(photosPath) {
-        const resp = await fetch(`/api/setup/shared?${new URLSearchParams({ path: photosPath })}`);
+    async setupShared(path) {
+        const resp = await fetch(`/api/setup/shared?${new URLSearchParams({ path })}`);
         if (!resp.ok) throw new Error(await resp.text());
         return resp.json();
     },
 
     // A server's sharing (server mode): where destinations are shared, and
-    // starting to share them through the photo folder.
+    // starting to share them through the folder it serves.
     async sharing() {
         const resp = await fetch('/api/setup/sharing');
         if (!resp.ok) throw new Error(await resp.text());

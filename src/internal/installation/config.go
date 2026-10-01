@@ -1,6 +1,7 @@
 // Package installation is what one installation of Unterlumen remembers
-// about itself: which photo folder it shows, where its own data lives, and
-// whether it shares its destinations with another installation.
+// about itself: where its own data lives and whether it shares its
+// destinations with another installation. Libraries name their own folders
+// (ADR-0047).
 //
 // The launchers used to carry all of this as command-line flags, which only a
 // terminal could change. It lives in config.json now, so the app can be set up
@@ -19,7 +20,7 @@ import (
 
 // Config is the content of config.json. An empty field means "the default".
 type Config struct {
-	PhotosDir   string `json:"photosDir,omitempty"`
+	PhotosDir   string `json:"photosDir,omitempty"` // only before ADR-0047; Migrate removes it
 	LibDir      string `json:"libDir,omitempty"`
 	ChannelsDir string `json:"channelsDir,omitempty"`
 	Port        int    `json:"port,omitempty"`

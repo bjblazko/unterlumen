@@ -15,9 +15,9 @@ import (
 	"huepattl.de/unterlumen/internal/installation"
 )
 
-// server serves the app and can replace everything behind it — browse root,
-// libraries, destinations — when the setup saves a new configuration, so a
-// first start needs no restart after the photo folder is chosen.
+// server serves the app and can replace everything behind it — libraries,
+// destinations — when the setup saves a new configuration, so changing the
+// shared folder or the data folder needs no restart.
 type server struct {
 	web     fs.FS
 	flags   config          // the command line, with defaults from the environment
@@ -29,8 +29,7 @@ type server struct {
 	saved         installation.Config
 	channelsDir   string
 	defaultLibDir string
-	problem       string // why the saved photo folder is not shown, for the setup
-	boundary      string // the photo folder being served
+	boundary      string // the folder being served
 }
 
 func newServer(web fs.FS, flags config, fset *flag.FlagSet) *server {
@@ -61,22 +60,18 @@ func (s *server) start() (config, error) {
 		if err != nil {
 			log.Printf("Warning: %v; starting with the setup", err)
 		}
+		if migrated, changed := installation.Migrate(loaded); changed {
+			if err := installation.Save(migrated); err != nil {
+				log.Printf("Warning: config.json could not be updated: %v", err)
+			}
+			loaded = migrated
+		}
 		saved = loaded
 		if s.defaultLibDir, err = installation.DefaultLibDir(); err != nil {
 			s.defaultLibDir = s.flags.libDir
 		}
 	}
-	cfg, err := s.build(saved)
-	if err != nil && s.managed && saved.PhotosDir != "" {
-		// A photo folder on a disk or a NAS that is not connected must not
-		// keep the app from starting: it opens the setup and says why.
-		log.Printf("Warning: %v; opening the setup", err)
-		s.problem = "The photo folder " + saved.PhotosDir + " is not there. If it is on a disk or a NAS, connect it and start Unterlumen again, or choose another folder."
-		without := saved
-		without.PhotosDir = ""
-		return s.build(without)
-	}
-	return cfg, err
+	return s.build(saved)
 }
 
 // apply saves a configuration from the setup and starts using it.
@@ -87,7 +82,6 @@ func (s *server) apply(next installation.Config) error {
 	if _, err := s.build(next); err != nil {
 		return err
 	}
-	s.problem = ""
 	return installation.Save(next)
 }
 
@@ -138,7 +132,6 @@ func (s *server) installation() apisetup.Installation {
 		Saved:         s.saved,
 		ChannelsDir:   s.channelsDir,
 		DefaultLibDir: s.defaultLibDir,
-		Problem:       s.problem,
 		Apply:         s.apply,
 	}
 }
@@ -159,11 +152,13 @@ func withInstallation(cfg config, set map[string]bool, saved installation.Config
 			cfg.libDir = saved.LibDir
 		}
 	}
-	if unset("channels-dir", "UNTERLUMEN_CHANNELS_DIR") && saved.ChannelsDir != "" {
-		cfg.channelsDir = saved.ChannelsDir
-	}
-	if saved.PhotosDir != "" {
-		cfg.args = []string{saved.PhotosDir}
+	// Always set, so a .unterlumen-shared in the home folder, where the
+	// installed app starts browsing, is never taken for its shared folder.
+	if unset("channels-dir", "UNTERLUMEN_CHANNELS_DIR") {
+		cfg.channelsDir = cfg.libDir
+		if saved.ChannelsDir != "" {
+			cfg.channelsDir = saved.ChannelsDir
+		}
 	}
 	return cfg
 }

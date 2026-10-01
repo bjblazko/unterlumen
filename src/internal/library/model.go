@@ -13,6 +13,11 @@ type Library struct {
 	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
 	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
 	SortPosition  *int       `json:"sortPosition,omitempty"`
+
+	// Filled in by Manager.Annotate from the base folder, for the UI only.
+	Shared    bool    `json:"shared,omitempty"`    // the base folder carries this library's marker
+	JoinOffer *Marker `json:"joinOffer,omitempty"` // the base folder is shared by another installation as this
+	Missing   bool    `json:"missing,omitempty"`   // the base folder is not reachable (a disk or NAS not connected)
 }
 
 // Photo represents an indexed photo in a library.

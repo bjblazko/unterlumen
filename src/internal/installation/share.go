@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 )
 
-// SharedDirName is the folder inside the photo folder where installations
-// that show the same photos keep what they share: channels.json and the album
-// register. An installation that finds it there uses it, so two installations
-// share by convention instead of by two matching -channels-dir flags.
+// SharedDirName is the folder where installations keep what they share:
+// channels.json and the album register. The installed app is given its folder
+// in the setup; a server or a dev run that finds one in its folder uses it, so
+// two installations share by convention instead of by two matching
+// -channels-dir flags.
 const SharedDirName = ".unterlumen-shared"
 
 // FindShared returns the shared folder inside photosDir, or "" when there is
@@ -36,7 +37,7 @@ func IsDiskRoot(dir string) bool {
 }
 
 // ErrShareAtDiskRoot is why Share refused a disk root, in a sentence.
-var ErrShareAtDiskRoot = errors.New("destinations cannot be shared from the top of a disk; choose the photo folder both installations see, for example the NAS folder, as the photo folder")
+var ErrShareAtDiskRoot = errors.New("destinations cannot be shared from the top of a disk; choose a folder both installations see, for example on the NAS")
 
 // Share makes the shared folder inside photosDir and moves this
 // installation's destinations there: channels.json and the album register are

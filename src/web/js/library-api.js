@@ -33,6 +33,23 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    // Sharing a library between installations (ADR-0047): its marker, which
+    // a folder may carry, and joining the library another installation shares.
+    async marker(sourcePath) {
+        const r = await fetch(`/api/library/marker?${new URLSearchParams({ path: sourcePath })}`);
+        if (!r.ok) return { marker: null };
+        return r.json();
+    },
+    async setShared(id, shared) {
+        const r = await fetch(`/api/library/${id}/share`, { method: shared ? 'PUT' : 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    async join(id) {
+        const r = await fetch(`/api/library/${id}/join`, { method: 'POST' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async setOrder(ids) {
         const r = await fetch('/api/library-order', {
             method: 'PUT',

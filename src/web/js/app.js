@@ -70,9 +70,7 @@ const App = {
             this.config = cfg;
             this.toolsStatus = tools;
             this.currentBrowsePath = cfg.startPath || '';
-            // Until the photo folder is chosen there is nothing to show but
-            // the setup.
-            this.setMode(cfg.needsSetup ? 'setup' : this._modeFromHash(), { replaceHistory: true });
+            this.setMode(this._modeFromHash(), { replaceHistory: true });
         }).catch(() => {
             this.setMode(this._modeFromHash(), { replaceHistory: true });
         });
@@ -250,7 +248,7 @@ const App = {
         if (this._libraryTab) this._libraryTab.showFiltered(criteria);
     },
 
-    // Folders at a folder, given relative to the photo folder.
+    // Folders at a folder, given relative to the browse boundary.
     // A first visit builds Folders at currentBrowsePath, so it is already there.
     openFolder(relPath) {
         this.currentBrowsePath = relPath;
@@ -446,7 +444,7 @@ const App = {
             onFocusChange: (path, type) => this.handleFocusChange(path, type),
             onToolInvoke: (params) => this.handleToolInvoke(params),
             onSlideshowInvoke: () => this.handleSlideshowInvoke(),
-            lede: placeLede(`Your photo folder as it is on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a ${placeLink('library', 'libraries', 'library')}.`),
+            lede: placeLede(`Your folders as they are on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a ${placeLink('library', 'libraries', 'library')}.`),
         });
         this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
         this.infoPanel.onToggle = () => {

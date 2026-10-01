@@ -8,14 +8,15 @@
 // Usage: const path = await new FolderPicker().open(startPath, { title });
 //        Resolves with the chosen path relative to the browse root, or null.
 //
-// The setup chooses the browse root itself, so it walks the whole disk
+// The setup chooses the shared folder anywhere, so it walks the whole disk
 // instead: { disk: true } lists folders through /api/setup/dirs, whose paths
 // are absolute without the leading slash, and has no Libraries source.
 //
 // In the installed app on its own computer the system's folder dialog opens
 // first (/api/folder-dialog), because it knows the NAS shares and external
-// disks. A folder outside the photo folder is not taken: the dialog here
-// opens instead and says why. Anywhere else — a phone, the container — or
+// disks. The installed app's boundary is the whole disk (ADR-0047), so a
+// folder outside it does not happen there; were it to, the dialog here opens
+// instead and says why. Anywhere else — a phone, the container — or
 // when the system dialog fails, this dialog is the one.
 
 const FOLDER_PICKER_SOURCE_KEY = 'folderPicker.source';
@@ -45,7 +46,7 @@ class FolderPicker {
         if (rel !== null) return rel;
         return this._openHere(startPath, {
             ...options,
-            notice: `${path} is outside the photo folder ${App.config.boundary}, and Unterlumen works only inside it. Choose a folder in it here, or change the photo folder in Settings.`,
+            notice: `${path} is outside ${App.config.boundary}, the folder this installation serves. Choose a folder in it here.`,
         });
     }
 

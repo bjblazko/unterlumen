@@ -35,6 +35,15 @@ const LIBRARY_LEDE = placeLede(`A library catalogs a folder and every folder ins
 
 // On a desk the sentence opens the list; on a phone it folds into the head,
 // where its "i" has room beside the title (see placeLede).
+// Words after a library's folder in the overview: shared, not connected, or
+// shared by another installation. Words, so the state reads without colour.
+function libraryStateWords(lib) {
+    if (lib.missing) return ' \u00b7 not connected';
+    if (lib.joinOffer) return ' \u00b7 shared by another installation';
+    if (lib.shared) return ' \u00b7 shared';
+    return '';
+}
+
 function libraryLedeOnPhone() {
     return matchMedia('(max-width: 700px)').matches;
 }
@@ -189,7 +198,7 @@ class LibraryTab {
             <button class="library-card-open lib-open">
                 <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</span>
                 <span class="library-card-count">${lib.photoCount.toLocaleString()} photo${lib.photoCount !== 1 ? 's' : ''}</span>
-                <span class="library-card-meta">${escapeHtml(lib.sourcePath)}</span>
+                <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
             <div class="library-card-actions">
@@ -348,8 +357,34 @@ class LibraryTab {
     _folderLinkHTML(lib) {
         const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
         return rel === null
-            ? '<span class="library-detail-folder">Outside the photo folder, so Folders cannot show it</span>'
+            ? '<span class="library-detail-folder">Outside the folder this installation serves, so Folders cannot show it</span>'
             : `<span class="library-detail-folder">${folderLink(rel, 'Open in Folders')}</span>`;
+    }
+
+    // What only the library's folder can tell: that it is not connected, or
+    // that another installation shares it and this library can join it.
+    _libraryNoticeHTML(lib) {
+        if (lib.missing) {
+            return `<div class="library-notice">${escapeHtml(lib.sourcePath)} is not connected. Connect its disk or NAS to see new photos; what is indexed stays readable.</div>`;
+        }
+        if (lib.joinOffer) {
+            return `<div class="library-notice">Another installation shares this folder as \u201c${escapeHtml(lib.joinOffer.name)}\u201d. Joining it gives this library that name and identity, so galleries name the same library on both; the index stays as it is.
+                <button class="btn btn-sm" id="lib-join-btn">Join \u201c${escapeHtml(lib.joinOffer.name)}\u201d</button>
+                <span id="lib-join-result"></span></div>`;
+        }
+        return '';
+    }
+
+    async _join(lib, btn) {
+        const restore = Activity.button(btn, 'Joining\u2026');
+        try {
+            const joined = await LibraryAPI.join(lib.id);
+            this._cachedLibs = null;
+            this._openLibrary(joined);
+        } catch (err) {
+            restore();
+            this.container.querySelector('#lib-join-result').innerHTML = `<span class="form-hint form-hint--error">${escapeHtml(err.message)}</span>`;
+        }
     }
 
     _renderDetail() {
@@ -374,8 +409,10 @@ class LibraryTab {
                     <button class="btn btn-sm desk-only" id="lib-edit-btn">Edit library…</button>
                 </div>
             </div>
+            ${this._libraryNoticeHTML(lib)}
             ${this._filterBodyHTML('<div class="library-pane-wrap" id="lib-pane"></div>')}`;
         this.container.appendChild(el);
+        el.querySelector('#lib-join-btn')?.addEventListener('click', (e) => this._join(lib, e.currentTarget));
         // Actions on a selection live in the bar, not in the header, so they
         // are never shown greyed out with no reason given.
         this._detailSelectionBar = new SelectionBar(el, {

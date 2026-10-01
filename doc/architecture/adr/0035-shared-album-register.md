@@ -1,12 +1,14 @@
 # ADR-0035: The album list of a website lives in the shared channel directory
 
-*Last modified: 2026-09-25*
+*Last modified: 2026-10-01*
 
 ## Status
 
 Accepted. Builds on [ADR-0023](0023-shared-channel-config-directory.md)
 (shared channel directory) and [ADR-0027](0027-per-album-publication-meta-keys.md)
 (album identity in sidecars and meta).
+[ADR-0047](0047-independent-libraries-shared-per-library.md) gives a shared
+library one ID on every installation, so drafts name it alike on both.
 
 ## Context
 

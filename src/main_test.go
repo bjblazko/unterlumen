@@ -118,8 +118,11 @@ func TestWithInstallationFlagThenEnvironmentThenFile(t *testing.T) {
 	if got.libDir != "/env/lib" {
 		t.Errorf("libDir = %q, want the environment's", got.libDir)
 	}
-	if got.channelsDir != "/file/shared" || !reflect.DeepEqual(got.args, []string{"/photos"}) {
-		t.Errorf("channelsDir = %q, args = %v, want config.json's", got.channelsDir, got.args)
+	if got.channelsDir != "/file/shared" {
+		t.Errorf("channelsDir = %q, want config.json's", got.channelsDir)
+	}
+	if len(got.args) != 0 {
+		t.Errorf("args = %v; a photo folder from before ADR-0047 must not fence the browser", got.args)
 	}
 }
 
@@ -129,7 +132,10 @@ func TestWithInstallationDefaultsToTheInstallationsOwnDataFolder(t *testing.T) {
 	}
 	got := withInstallation(config{port: 8080, libDir: "/home/me/.unterlumen"}, nil, installation.Config{}, "/default/lib")
 	if got.libDir != "/default/lib" || got.port != installation.DesktopPort || len(got.args) != 0 {
-		t.Errorf("config = %+v; want the default data folder, the desktop port and no photo folder yet", got)
+		t.Errorf("config = %+v; want the default data folder, the desktop port and no folder", got)
+	}
+	if got.channelsDir != "/default/lib" {
+		t.Errorf("channelsDir = %q; want the data folder, not a shared folder found by convention", got.channelsDir)
 	}
 }
 

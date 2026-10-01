@@ -29,8 +29,8 @@ function guideDiagram() {
     const mid = c => c + GUIDE_COL_W / 2;
     const libW = c3 + GUIDE_COL_W - c2;
     return `<svg class="guide-diagram" viewBox="0 0 360 ${r4 + h}" role="img"
-                aria-label="Your photo folder is shown as it is in Folders, and cataloged by libraries. Map and Timeline read all libraries. Galleries are collected from libraries and go to destinations.">
-        ${guideNode({ x: c1, y: r1, w: 360, h: 44, title: 'Your photo folder', sub: 'The folder Unterlumen was started on' })}
+                aria-label="Your folders are shown as they are in Folders, and cataloged by libraries. Map and Timeline read all libraries. Galleries are collected from libraries and go to destinations.">
+        ${guideNode({ x: c1, y: r1, w: 360, h: 44, title: 'Your folders', sub: 'On this computer, a card, a NAS' })}
         ${guideEdge(mid(c1), r1 + 44, r2)}
         ${guideEdge(c2 + libW / 2, r1 + 44, r2)}
         ${guideNode({ x: c1, y: r2, title: 'Folders', sub: 'Files as on disk', place: ['browse', 'folders'] })}
@@ -47,27 +47,26 @@ function guideDiagram() {
 function guideText() {
     return `
         <section class="guide-section">
-            <h2>Your photo folder</h2>
-            <p>Unterlumen is started on one folder — on a desk usually your Pictures folder, on a server the folder the container is given. Everything it shows lies inside it.</p>
+            <h2>Your folders</h2>
+            <p>Unterlumen works on folders where they are — on this computer, on a camera card, on a NAS. Nothing is imported or copied. On a server it sees the folder the container is given.</p>
         </section>
         <section class="guide-section">
             <h2>Folders, Marked for deletion, Organize</h2>
-            <p>${placeLink('browse', 'folders', 'Folders')} shows the photo folder as it is on disk, folder by folder. This is where you cull: mark what should go, and it waits in ${placeLink('wastebin', 'marked', 'Marked for deletion')} until you delete it there — nothing leaves the disk before. ${placeLink('organize', 'organize', 'Organize')} moves the photos of one folder into others with a key each. Folders needs nothing prepared; it works on any folder at once.</p>
+            <p>${placeLink('browse', 'folders', 'Folders')} shows any folder as it is on disk, folder by folder. This is where you cull: mark what should go, and it waits in ${placeLink('wastebin', 'marked', 'Marked for deletion')} until you delete it there — nothing leaves the disk before. ${placeLink('organize', 'organize', 'Organize')} moves the photos of one folder into others with a key each. Folders needs nothing prepared; it works on any folder at once.</p>
         </section>
         <section class="guide-section">
             <h2>Libraries</h2>
             <p>A ${placeLink('library', 'libraries', 'library')} catalogs a folder together with every folder inside it, however deep. Keep your photos in subfolders as you like; a library does not flatten them, and you browse it folder by folder as in Folders. For example:</p>
-            <pre class="guide-tree" aria-label="The photo folder Photos with two libraries in it, Projects and Travel, each with subfolders">Photos/                     <span class="guide-tree-note">your photo folder</span>
-  Projects/                 <span class="guide-tree-note">one library</span>
-    2024 Wedding Anna and Ben/
-    Portraits studio/
-    Street Berlin/
-      Day 1/
-      Day 2/
-  Travel/                   <span class="guide-tree-note">another library</span>
-    2023 Iceland/
-    2025 Lisbon/</pre>
-            <p>Every library lies inside your photo folder, here Photos — New library… accepts only folders in it. So keep one folder that holds all your photos and start Unterlumen on it.</p>
+            <pre class="guide-tree" aria-label="Two libraries in two places: Projects on this computer and Travel on a NAS, each with subfolders">Pictures/Projects/          <span class="guide-tree-note">one library, on this computer</span>
+  2024 Wedding Anna and Ben/
+  Portraits studio/
+  Street Berlin/
+    Day 1/
+    Day 2/
+nas/Travel/                 <span class="guide-tree-note">another library, on a NAS</span>
+  2023 Iceland/
+  2025 Lisbon/</pre>
+            <p>Each library is its own folder, wherever it is; libraries need no folder in common. New library… asks for that folder and nothing else.</p>
             <p>Search and filter in Projects then cover every project in it at once. A library reads each photo once and keeps what it found — camera, lens, date, place — so you can search and filter across thousands of photos in an instant. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder. Beside a photo it writes only an XMP sidecar (<span class="mono">photo.xmp</span>), when you give the photo a title or publish it, so that record travels with the photo. Make a library of a folder you want to search, map or publish from. Folders and libraries show the same files, so a photo you mark or move in one is gone from the other too.</p>
         </section>
         <section class="guide-section">
@@ -77,6 +76,10 @@ function guideText() {
         <section class="guide-section">
             <h2>Galleries and destinations</h2>
             <p>A ${placeLink('published', 'galleries', 'gallery')} is a set of photos you collect in a library with Add to gallery…. Nothing is made yet; you can add to it over days. Publish then makes the files and sends them to the gallery’s ${placeLink('destinations', 'destinations', 'destination')}: a website with an index of its albums, share links for family and friends, or plain image files you post yourself. A destination also says how the files are made — size, format, which metadata stays.</p>
+        </section>
+        <section class="guide-section">
+            <h2>Two installations</h2>
+            <p>Unterlumen can run on a NAS and on a desk computer at once, on the same photos. A library you share (Edit library…) is the same library on both: the other installation adds its folder and gets its name, and each one keeps its own index. Libraries you do not share stay on one installation. Destinations and galleries are shared through one shared folder, chosen in ${placeLink('settings', 'settings', 'Settings')}.</p>
         </section>
         <section class="guide-section">
             <h2>What Unterlumen does not do</h2>

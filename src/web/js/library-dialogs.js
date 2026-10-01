@@ -1,5 +1,5 @@
 // LibraryDialogs — creating a library, and editing one: its name and
-// description, maintenance jobs and deletion. Opened by the LibraryTab that
+// description, whether it is shared, maintenance jobs and deletion. Opened by the LibraryTab that
 // owns it, whose list it refreshes.
 
 class LibraryDialogs {
@@ -25,6 +25,11 @@ class LibraryDialogs {
                     <span class="library-dialog-label">Folder</span>
                     <span class="library-dialog-path">${escapeHtml(lib.sourcePath)}</span>
                     <span class="form-hint">The folder a library reads is fixed; make a new library to read another one.</span>
+                </div>
+                <div class="library-dialog-field">
+                    <span class="library-dialog-label">Share with other installations</span>
+                    <div id="lib-edit-share"></div>
+                    <span class="form-hint" id="lib-edit-share-hint"></span>
                 </div>
                 <div class="library-dialog-field">
                     <span class="library-dialog-label">Maintenance</span>
@@ -73,9 +78,47 @@ class LibraryDialogs {
             }
         }
 
+        this._wireSharing(dlg, lib, onSaved);
         this._wireMaintenance(dlg, lib);
         this._renderLibraryDanger(dlg, lib, close);
         return dlg;
+    }
+
+    // Sharing takes effect at once, like maintenance: it writes or removes the
+    // marker in the library's folder, which Save has nothing to do with.
+    _wireSharing(dlg, lib, onSaved) {
+        const wrap = dlg.querySelector('#lib-edit-share');
+        const hint = dlg.querySelector('#lib-edit-share-hint');
+        const explain = 'Shared, the folder carries a small file, .unterlumen-library.json, with this library\u2019s name. Another installation that adds the folder gets the same library; each one keeps its own index.';
+        if (lib.missing) {
+            hint.textContent = `${lib.sourcePath} is not connected. Connect its disk or NAS to change this.`;
+            return;
+        }
+        if (lib.joinOffer) {
+            hint.textContent = `Another installation shares this folder as \u201c${lib.joinOffer.name}\u201d. Join it in the library.`;
+            return;
+        }
+        hint.textContent = explain;
+        const toggle = Toggle.create(wrap, {
+            initial: Boolean(lib.shared),
+            labelOn: 'Shared',
+            labelOff: 'This installation only',
+            onChange: async (on) => {
+                hint.textContent = on ? 'Sharing\u2026' : 'Stopping\u2026';
+                hint.classList.remove('form-hint--error');
+                try {
+                    const updated = await LibraryAPI.setShared(lib.id, on);
+                    lib.shared = updated.shared;
+                    this.tab._cachedLibs = null;
+                    hint.textContent = explain;
+                    if (onSaved) onSaved(updated);
+                } catch (err) {
+                    toggle.setState(!on);
+                    hint.textContent = err.message;
+                    hint.classList.add('form-hint--error');
+                }
+            },
+        });
     }
 
     // All six maintenance runs live here rather than behind a chevron on the
@@ -178,12 +221,31 @@ class LibraryDialogs {
             pathEl.value = '/' + picked;
             if (!nameEl.value.trim()) nameEl.value = picked.split('/').filter(Boolean).pop() || '';
             nameEl.focus();
+            showShared();
         });
+        pathEl.addEventListener('change', () => showShared());
+
+        // A folder another installation shares is added as that library, under
+        // its name, so name and description come from there.
+        const noteEl = dlg.querySelector('.library-dialog-note');
+        const plainNote = noteEl.textContent;
+        const showShared = async () => {
+            const { marker } = await LibraryAPI.marker(stripQuotes(pathEl.value.trim()));
+            nameEl.readOnly = descEl.readOnly = Boolean(marker);
+            if (!marker) {
+                noteEl.textContent = plainNote;
+                return;
+            }
+            nameEl.value = marker.name;
+            descEl.value = marker.description || '';
+            noteEl.textContent = `Another installation shares this folder as \u201c${marker.name}\u201d. It is added as that library; this installation reads the photos once for its own index.`;
+        };
 
         if (prefillPath) {
             pathEl.value = prefillPath;
             nameEl.value = prefillPath.split('/').filter(Boolean).pop() || '';
             nameEl.focus();
+            showShared();
         } else {
             nameEl.focus();
         }

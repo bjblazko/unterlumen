@@ -6746,7 +6746,21 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .settings-body .seg,
 .settings-body .toggle { align-self: flex-start; }
 
-/* --- Setup (ADR-0042) --- */
+/* --- Library notice (ADR-0047) --- */
+
+.library-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    border-bottom: 1px solid var(--line);
+    color: var(--fg-2);
+    font-size: var(--text-sm);
+    flex-shrink: 0;
+}
+
+/* --- Setup (ADR-0042, ADR-0047) --- */
 
 .setup-lede {
     color: var(--fg-2);
@@ -6761,6 +6775,15 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .setup-path--none {
     font-family: var(--font-sans);
     color: var(--fg-3);
+}
+
+.setup-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.form-hint.form-hint--error {
+    color: var(--warning-ink);
 }
 
 .setup-advanced summary {

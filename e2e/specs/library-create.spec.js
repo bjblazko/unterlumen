@@ -78,7 +78,7 @@ test.describe('New library dialog with the system folder dialog', () => {
     await page.locator('#lib-dlg-choose').click();
   }
 
-  test('a folder inside the photo folder is taken as chosen', async ({ page }) => {
+  test('a folder inside the served folder is taken as chosen', async ({ page }) => {
     await openWithSystemDialog(page, (root) => ({ path: `${root}/folder-a/a3/`, cancelled: false }));
     await expect(page.locator('#lib-dlg-path')).toHaveValue('/folder-a/a3');
     await expect(page.locator('#lib-dlg-name')).toHaveValue('a3');
@@ -87,7 +87,7 @@ test.describe('New library dialog with the system folder dialog', () => {
 
   test('a folder outside it opens the picker, which says why', async ({ page }) => {
     await openWithSystemDialog(page, () => ({ path: '/Volumes/elsewhere', cancelled: false }));
-    await expect(page.locator('.fp-notice')).toContainText('/Volumes/elsewhere is outside the photo folder');
+    await expect(page.locator('.fp-notice')).toContainText('/Volumes/elsewhere is outside');
     await page.locator('#fp-cancel').click();
     await expect(page.locator('#lib-dlg-path')).toHaveValue('');
   });

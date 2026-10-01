@@ -41,6 +41,7 @@ func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
 		}
 		out := make([]libraryJSON, len(libs))
 		for i, l := range libs {
+			mgr.Annotate(l)
 			out[i] = toLibraryJSON(l, root, mgr.IsScanning(l.ID))
 		}
 		writeJSON(w, out)
@@ -95,7 +96,7 @@ func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			http.Error(w, "sourcePath must be an existing directory", http.StatusBadRequest)
 			return
 		}
-		created, err := mgr.CreateLibrary(body.Name, body.Description, absPath)
+		created, err := createOrAddShared(mgr, body.Name, body.Description, absPath)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -103,6 +104,15 @@ func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 		writeJSON(w, toLibraryJSON(created, root, false))
 	}
+}
+
+// createOrAddShared adds the library another installation shares in absPath
+// under its identity, or creates a new one when the folder is not shared.
+func createOrAddShared(mgr *lib.Manager, name, description, absPath string) (*lib.Library, error) {
+	if mk, err := lib.ReadMarker(absPath); err == nil && mk != nil {
+		return mgr.AddSharedLibrary(absPath)
+	}
+	return mgr.CreateLibrary(name, description, absPath)
 }
 
 func getLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
@@ -113,6 +123,7 @@ func getLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
+		mgr.Annotate(l)
 		writeJSON(w, toLibraryJSON(l, root, mgr.IsScanning(id)))
 	}
 }

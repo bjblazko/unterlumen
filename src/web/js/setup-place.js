@@ -1,17 +1,15 @@
-// setup-place.js — the setup (#setup): which folder holds the photos, and
-// whether destinations are shared with another installation that shows the
-// same photos. The installed app opens here on its first start; afterwards
-// Settings links here to change it (ADR-0042).
+// setup-place.js — the setup (#setup): where destinations are shared with
+// another installation, and where this one keeps its own data. Libraries name
+// their own folders and are added in Libraries (ADR-0047). Settings links
+// here (ADR-0042).
 //
-// A place, not a dialog: on a first start there is nothing else to show, and
-// it keeps its address for later.
+// A place, not a dialog: it keeps its address, and Settings comes back to it.
 
 class SetupPane {
     constructor(container) {
         this.container = container;
-        this._photosPath = '';   // as the folder picker names it
-        this._photosDir = '';    // as the disk names it, to show
-        this._shareToggle = null;
+        this._sharedPath = '';   // as the folder picker names it; '' for not shared
+        this._sharedLabel = '';  // as the disk names it, to show
     }
 
     async render() {
@@ -24,32 +22,28 @@ class SetupPane {
             return;
         }
         this._setup = setup;
-        this._photosPath = setup.photosPath;
-        this._photosDir = setup.photosDir;
+        this._sharedPath = setup.sharedPath;
+        this._sharedLabel = setup.sharedDir;
         this._draw();
     }
 
     _draw() {
-        const first = !this._setup.photosDir;
         this.container.innerHTML = `
             <div class="settings-pane">
                 <div class="gal-head">
-                    <h1 class="gal-title">${first ? 'Set up Unterlumen' : 'Photo folder and sharing'}</h1>
+                    <h1 class="gal-title">Sharing and data folder</h1>
                 </div>
                 <div class="gal-body settings-body">
-                    ${this._setup.problem ? `<div class="gal-detail-error">${escapeHtml(this._setup.problem)}</div>` : ''}
-                    <p class="setup-lede">Unterlumen shows the photos in one folder and in every folder inside it. Choose the folder that holds your photos. ${placeLink('guide', 'guide', 'How Unterlumen works')} explains the rest.</p>
+                    <p class="setup-lede">Each library names its own folder; add them in ${placeLink('library', 'libraries', 'Libraries')}. ${placeLink('guide', 'guide', 'How Unterlumen works')} explains the rest.</p>
 
                     <div class="form-field">
-                        <span class="form-label">Photo folder</span>
-                        <span class="setup-path" id="setup-photos"></span>
-                        <div><button class="btn btn-sm" id="setup-choose">Choose…</button></div>
-                    </div>
-
-                    <div class="form-field" id="setup-share-field" hidden>
-                        <span class="form-label">Share with another installation</span>
-                        <div id="setup-share-toggle"></div>
-                        <span class="form-hint" id="setup-share-hint"></span>
+                        <span class="form-label">Shared folder</span>
+                        <span class="setup-path" id="setup-shared"></span>
+                        <span class="form-hint" id="setup-shared-hint"></span>
+                        <div class="setup-row">
+                            <button class="btn btn-sm" id="setup-choose">Choose…</button>
+                            <button class="btn btn-sm" id="setup-unshare">Do not share</button>
+                        </div>
                     </div>
 
                     <details class="setup-advanced">
@@ -70,113 +64,87 @@ class SetupPane {
 
                     <div id="setup-error"></div>
                     <div class="setup-actions">
-                        ${first ? '' : '<button class="btn" id="setup-cancel">Cancel</button>'}
-                        <button class="btn btn-accent" id="setup-save">${first ? 'Set up Unterlumen' : 'Save'}</button>
+                        <button class="btn" id="setup-cancel">Cancel</button>
+                        <button class="btn btn-accent" id="setup-save">Save</button>
                     </div>
                 </div>
             </div>`;
 
         this.container.querySelector('#setup-libdir').value = this._setup.libDir || this._setup.defaultLibDir;
         this.container.querySelector('#setup-choose').addEventListener('click', () => this._choose());
+        this.container.querySelector('#setup-unshare').addEventListener('click', () => this._showShared('', ''));
         this.container.querySelector('#setup-save').addEventListener('click', (e) => this._save(e.currentTarget));
-        this.container.querySelector('#setup-cancel')?.addEventListener('click', () => App.setMode('settings'));
+        this.container.querySelector('#setup-cancel').addEventListener('click', () => App.setMode('settings'));
         this.container.querySelector('#setup-deps').addEventListener('click', () => new DepsModal().open(App.toolsStatus));
         const showTools = (status) => {
             this.container.querySelector('#setup-tools').textContent = status ? toolsSummary(status) : 'The helper check did not answer.';
             mountToolsInstall(this.container.querySelector('#setup-tools-install'), status, showTools);
         };
         showTools(App.toolsStatus);
-        this._showPhotos();
+        this._showShared(this._sharedPath, this._sharedLabel, this._sharedPath ? 'kept' : '');
     }
 
     async _choose() {
-        const picked = await new FolderPicker().open(this._photosPath || this._setup.homePath, {
-            title: 'Folder that holds your photos',
+        const picked = await new FolderPicker().open(this._sharedPath || this._setup.homePath, {
+            title: 'Folder both installations see',
             disk: true,
             home: this._setup.homePath,
         });
         if (picked === null) return;
-        this._photosPath = picked;
-        this._photosDir = null; // named by the picker path until saved
-        this._showPhotos();
-    }
-
-    _photosLabel() {
-        if (this._photosDir) return this._photosDir;
-        if (!this._photosPath && this._photosDir === '') return null;
-        return /^[A-Za-z]:/.test(this._photosPath) ? this._photosPath : '/' + this._photosPath;
-    }
-
-    // The photo folder decides what sharing means: a folder another
-    // installation already shares is joined, any other one can start sharing.
-    async _showPhotos() {
-        const label = this._photosLabel();
-        const el = this.container.querySelector('#setup-photos');
-        el.textContent = label ?? 'Not chosen yet';
-        el.classList.toggle('setup-path--none', label === null);
-        const field = this.container.querySelector('#setup-share-field');
-        field.hidden = label === null;
-        if (label === null) return;
-
+        const label = /^[A-Za-z]:/.test(picked) ? picked : '/' + picked;
         let found = '', canShare = true;
         try {
-            ({ sharedDir: found, canShare } = await API.setupShared(this._photosPath));
-        } catch { /* said as "not shared yet"; saving will tell if the folder is gone */ }
-        this._drawShare(found, canShare);
-    }
-
-    // Shared elsewhere is a shared folder other than this photo folder's own
-    // .unterlumen-shared — e.g. a -channels-dir taken over from an older
-    // installation while the photo folder is the whole disk. It is kept.
-    _drawShare(found, canShare) {
-        const own = this._photosLabel().replace(/[\\/]$/, '') + '/.unterlumen-shared';
-        const elsewhere = !found && Boolean(this._setup.sharedDir) && this._setup.sharedDir !== own;
-        const hint = this.container.querySelector('#setup-share-hint');
-        const wrap = this.container.querySelector('#setup-share-toggle');
-        wrap.innerHTML = '';
-        this._shareToggle = null;
-        if (!found && !elsewhere && !canShare) {
-            // The top of a disk: nothing another installation could see.
-            hint.textContent = 'Destinations can only be shared from a folder another installation sees as well, such as a folder on a NAS. To share, choose that folder as the photo folder.';
+            ({ sharedDir: found, canShare } = await API.setupShared(picked));
+        } catch { /* saving will say if the folder is gone */ }
+        if (!found && !canShare) {
+            this._showShared(this._sharedPath, this._sharedLabel, this._sharedPath ? 'kept' : '');
+            this._hint('The top of a disk cannot be shared: no other installation sees it. Choose a folder on the disk or the NAS both installations use.', true);
             return;
         }
-        if (found) {
-            hint.innerHTML = 'Another Unterlumen installation works in this folder, for example on a NAS. Shared, its destinations and galleries are used here too.';
-        } else if (elsewhere) {
-            hint.innerHTML = `Destinations and galleries are shared through <span class="setup-path">${escapeHtml(this._setup.sharedDir)}</span>.`;
-        } else {
-            hint.innerHTML = `If another installation shows the same photos, for example on a NAS, both can use the same destinations and galleries. They are then kept in the photo folder, in <span class="setup-path">.unterlumen-shared</span>, where the other one finds them.`;
-        }
-        this._shareToggle = Toggle.create(wrap, {
-            initial: Boolean(found || elsewhere || this._setup.sharedDir),
-            labelOn: 'Shared',
-            labelOff: 'This installation only',
-        });
+        this._showShared(picked, found || label, found ? 'found' : 'new');
+    }
+
+    // how: 'kept' (in use now), 'found' (another installation shares there),
+    // 'new' (made on Save), '' (not shared).
+    _showShared(path, label, how = '') {
+        this._sharedPath = path;
+        this._sharedLabel = label;
+        const el = this.container.querySelector('#setup-shared');
+        el.textContent = path ? label : 'Not shared';
+        el.classList.toggle('setup-path--none', !path);
+        this.container.querySelector('#setup-unshare').hidden = !path;
+        const hints = {
+            kept: 'Destinations and galleries are shared through this folder with every installation that uses it.',
+            found: 'Another installation shares through this folder. Its destinations and galleries are used here too.',
+            new: 'A folder .unterlumen-shared is made in it, and this installation’s destinations are copied there. Choose the same folder on the other installation.',
+            '': 'Destinations and galleries stay on this computer. To use them on a second installation, for example a NAS, choose a folder both see.',
+        };
+        this._hint(hints[how], false);
+    }
+
+    _hint(text, isError) {
+        const hint = this.container.querySelector('#setup-shared-hint');
+        hint.textContent = text;
+        hint.classList.toggle('form-hint--error', isError);
     }
 
     async _save(btn) {
         const errorEl = this.container.querySelector('#setup-error');
         errorEl.innerHTML = '';
-        if (this._photosLabel() === null) {
-            errorEl.innerHTML = '<div class="gal-detail-error">Choose the folder that holds your photos first.</div>';
-            return;
-        }
         const libDir = this.container.querySelector('#setup-libdir').value.trim();
-        const restore = Activity.button(btn, 'Setting up…');
+        const restore = Activity.button(btn, 'Saving…');
         try {
             await API.saveSetup({
-                photosPath: this._photosPath,
                 libDir: libDir === this._setup.defaultLibDir ? '' : libDir,
-                share: this._shareToggle?.state() ?? false,
+                sharedPath: this._sharedPath,
             });
         } catch (err) {
             restore();
             errorEl.innerHTML = `<div class="gal-detail-error">${escapeHtml(err.message)}</div>`;
             return;
         }
-        // Everything behind the app changed — the browse root, the libraries,
-        // the destinations — so it starts again, in Folders.
-        location.hash = '#folders';
+        // The libraries and destinations behind the app changed, so it starts again.
+        location.hash = '#settings';
         location.reload();
     }
 }

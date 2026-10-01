@@ -106,30 +106,54 @@ func TestShareNeverOverwritesWhatIsShared(t *testing.T) {
 }
 
 func TestDecide(t *testing.T) {
-	photos, lib := t.TempDir(), t.TempDir()
-	shared := filepath.Join(photos, SharedDirName)
+	nas, lib := t.TempDir(), t.TempDir()
+	shared := filepath.Join(nas, SharedDirName)
 
-	got, err := Decide(Config{Port: 8090}, Choice{PhotosDir: photos}, lib, lib)
-	if err != nil || got != (Config{Port: 8090, PhotosDir: photos}) {
+	got, err := Decide(Config{Port: 8090, PhotosDir: "/old"}, Choice{}, lib)
+	if err != nil || got != (Config{Port: 8090}) {
 		t.Errorf("not sharing: %+v, %v", got, err)
 	}
 
-	got, err = Decide(Config{ChannelsDir: "/Volumes/nas/.unterlumen-shared"}, Choice{PhotosDir: photos, Share: true}, lib, lib)
-	if err != nil || got.ChannelsDir != "/Volumes/nas/.unterlumen-shared" {
-		t.Errorf("sharing elsewhere is kept: %+v, %v", got, err)
-	}
-	if FindShared(photos) != "" {
-		t.Error("keeping a share elsewhere made a shared folder in the photo folder")
+	got, err = Decide(Config{}, Choice{SharedDir: nas}, lib)
+	if err != nil || got.ChannelsDir != shared || FindShared(nas) == "" {
+		t.Errorf("sharing in a chosen folder: %+v, %v", got, err)
 	}
 
-	got, err = Decide(Config{}, Choice{PhotosDir: photos, Share: true}, lib, lib)
-	if err != nil || got.ChannelsDir != shared || FindShared(photos) == "" {
-		t.Errorf("sharing: %+v, %v", got, err)
+	got, err = Decide(Config{}, Choice{SharedDir: shared}, lib)
+	if err != nil || got.ChannelsDir != shared {
+		t.Errorf("choosing the shared folder itself: %+v, %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(shared, SharedDirName)); err == nil {
+		t.Error("choosing the shared folder made another one inside it")
 	}
 
-	got, err = Decide(Config{ChannelsDir: shared}, Choice{PhotosDir: photos, LibDir: "/own"}, lib, lib)
-	if err != nil || got.ChannelsDir != "/own" {
-		t.Errorf("declining a shared folder that is there: %+v, %v", got, err)
+	got, err = Decide(Config{ChannelsDir: shared}, Choice{LibDir: "/own"}, lib)
+	if err != nil || got.ChannelsDir != "" || got.LibDir != "/own" {
+		t.Errorf("no longer sharing: %+v, %v", got, err)
+	}
+}
+
+func TestMigrate(t *testing.T) {
+	photos := t.TempDir()
+	shared := filepath.Join(photos, SharedDirName)
+	os.Mkdir(shared, 0o755) //nolint:errcheck
+
+	got, changed := Migrate(Config{PhotosDir: photos, Port: 8090})
+	if !changed || got != (Config{ChannelsDir: shared, Port: 8090}) {
+		t.Errorf("Migrate = %+v, %v; want the shared folder kept and the photo folder gone", got, changed)
+	}
+	if _, again := Migrate(got); again {
+		t.Error("a migrated configuration was migrated again")
+	}
+
+	got, _ = Migrate(Config{PhotosDir: photos, ChannelsDir: "/own"})
+	if got.ChannelsDir != "/own" {
+		t.Errorf("a chosen destinations folder was replaced: %+v", got)
+	}
+
+	missing := Config{PhotosDir: filepath.Join(photos, "not-mounted")}
+	if got, changed := Migrate(missing); changed || got != missing {
+		t.Errorf("a photo folder that is not there was migrated: %+v", got)
 	}
 }
 
@@ -142,9 +166,9 @@ func TestShareRefusesTheTopOfADisk(t *testing.T) {
 	}
 }
 
-func TestDecideKeepsASharedFolderElsewhereAtTheTopOfADisk(t *testing.T) {
-	got, err := Decide(Config{ChannelsDir: "/Volumes/nas/Bilder/.unterlumen-shared"}, Choice{PhotosDir: "/", Share: true}, "/lib", "/lib")
-	if err != nil || got.ChannelsDir != "/Volumes/nas/Bilder/.unterlumen-shared" {
+func TestDecideKeepsTheSharedFolderInUse(t *testing.T) {
+	got, err := Decide(Config{ChannelsDir: "/Volumes/nas/Bilder/channels"}, Choice{SharedDir: "/Volumes/nas/Bilder/channels"}, "/lib")
+	if err != nil || got.ChannelsDir != "/Volumes/nas/Bilder/channels" {
 		t.Errorf("Decide = %+v, %v; the share adopted from an older launcher must stay", got, err)
 	}
 }

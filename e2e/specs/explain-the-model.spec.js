@@ -47,9 +47,10 @@ test.describe('Explaining the model', () => {
     await page.goto('/#guide');
     await expect(page.locator('.guide-pane h1')).toHaveText('How Unterlumen works');
     await expect(page.locator('.guide-diagram')).toBeVisible();
-    // A library holds subfolders; the guide shows it with an example tree.
-    await expect(page.locator('.guide-tree')).toContainText('Photos/');
-    await expect(page.locator('.guide-tree')).toContainText('Projects/');
+    // A library holds subfolders, and libraries need no folder in common
+    // (ADR-0047); the guide shows both with an example tree.
+    await expect(page.locator('.guide-tree')).toContainText('Pictures/Projects/');
+    await expect(page.locator('.guide-tree')).toContainText('nas/Travel/');
     await page.locator('a.guide-node[data-mode="destinations"]').click();
     await expect(page.locator('#mode-destinations')).toHaveAttribute('aria-current', 'page');
   });

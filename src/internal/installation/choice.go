@@ -1,46 +1,68 @@
 package installation
 
-// Choice is what the setup asks: the photo folder, where the app keeps its
-// own data ("" for the default), and whether destinations are shared with
-// another installation that shows the same photos.
+import (
+	"os"
+	"path/filepath"
+)
+
+// Choice is what the setup asks: where the app keeps its own data ("" for
+// the default) and the folder whose shared folder holds the destinations of
+// every installation that uses it ("" when they are not shared). Libraries
+// are not part of it: each one names its own folder (ADR-0047).
 type Choice struct {
-	PhotosDir string
 	LibDir    string
-	Share     bool
+	SharedDir string
 }
 
 // Decide turns a choice into the configuration to save. cur is the saved
-// configuration, fromDir the folder that holds the destinations now, and
-// defaultLibDir the data folder used when none is chosen.
+// configuration and fromDir the folder that holds the destinations now.
 //
-// Sharing means the shared folder in the photo folder, made here if it is
-// not there yet — unless destinations are already shared somewhere else and
-// the photo folder has no shared folder of its own, which is kept. Not
-// sharing while the photo folder has one is written down as this
-// installation's own folder, or the shared folder would be found and used
-// again on the next start.
-func Decide(cur Config, ch Choice, fromDir, defaultLibDir string) (Config, error) {
+// Sharing means the shared folder inside the chosen folder, made there if it
+// is not there yet; choosing a shared folder itself, or the one in use, keeps
+// it. Not sharing keeps the destinations in the data folder.
+func Decide(cur Config, ch Choice, fromDir string) (Config, error) {
 	next := cur
-	next.PhotosDir = ch.PhotosDir
+	next.PhotosDir = ""
 	next.LibDir = ch.LibDir
-	ownDir := ch.LibDir
-	if ownDir == "" {
-		ownDir = defaultLibDir
-	}
-	found := FindShared(ch.PhotosDir)
 	switch {
-	case !ch.Share && found != "":
-		next.ChannelsDir = ownDir
-	case !ch.Share:
+	case ch.SharedDir == "":
 		next.ChannelsDir = ""
-	case found == "" && cur.ChannelsDir != "" && cur.ChannelsDir != ownDir:
-		// shared elsewhere already, e.g. a -channels-dir kept from an older launcher
+	case ch.SharedDir == cur.ChannelsDir:
+		// shared there already, e.g. a -channels-dir kept from an older launcher
 	default:
-		dir, err := Share(ch.PhotosDir, fromDir)
+		dir, err := Share(sharingFolder(ch.SharedDir), fromDir)
 		if err != nil {
 			return Config{}, err
 		}
 		next.ChannelsDir = dir
 	}
 	return next, nil
+}
+
+// sharingFolder is the folder the shared folder is made in: picked, or its
+// parent when the shared folder itself was picked.
+func sharingFolder(picked string) string {
+	if filepath.Base(picked) == SharedDirName {
+		return filepath.Dir(picked)
+	}
+	return picked
+}
+
+// Migrate turns a config.json from the time of one photo folder into one
+// without: a shared folder found in the photo folder becomes the chosen
+// shared folder, and the photo folder is forgotten. A photo folder that is
+// not there (a NAS not mounted) is left for a later start, or its shared
+// folder would be lost. changed says whether there is anything to save.
+func Migrate(cfg Config) (migrated Config, changed bool) {
+	if cfg.PhotosDir == "" {
+		return cfg, false
+	}
+	if info, err := os.Stat(cfg.PhotosDir); err != nil || !info.IsDir() {
+		return cfg, false
+	}
+	if cfg.ChannelsDir == "" {
+		cfg.ChannelsDir = FindShared(cfg.PhotosDir)
+	}
+	cfg.PhotosDir = ""
+	return cfg, true
 }

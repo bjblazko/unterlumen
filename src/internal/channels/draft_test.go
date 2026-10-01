@@ -175,3 +175,20 @@ func TestDraftStore_MultiplePendingGalleriesPerChannel(t *testing.T) {
 		}
 	}
 }
+
+func TestDraftStore_RekeyLibrary(t *testing.T) {
+	dir := t.TempDir()
+	chs := NewStore(dir, dir)
+	if err := chs.Save(&Channel{Slug: "website", Name: "Website", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatal(err)
+	}
+	s := NewDraftStore(chs)
+	d, _ := s.Create("website", DraftTarget{Title: "Summer"}, []DraftPhoto{{LibraryID: "old", PhotoID: "p1"}, {LibraryID: "other", PhotoID: "p2"}})
+	if err := s.RekeyLibrary("old", "new"); err != nil {
+		t.Fatalf("RekeyLibrary: %v", err)
+	}
+	got, _ := s.Get("website", d.ID)
+	if got.Photos[0].LibraryID != "new" || got.Photos[1].LibraryID != "other" {
+		t.Errorf("photos = %+v, want old→new and other untouched", got.Photos)
+	}
+}

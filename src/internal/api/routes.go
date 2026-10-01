@@ -50,16 +50,14 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	if hooks.Sharing != nil {
 		apisetup.HandleSharing(mux, hooks.Sharing)
 	}
-	needsSetup := false
 	if setup != nil {
 		apisetup.Handle(mux, setup)
-		needsSetup = setup().Saved.PhotosDir == ""
 	}
 	folderDialog := setup != nil && apifolderdialog.Available()
 	if folderDialog {
 		apifolderdialog.Handle(mux)
 	}
-	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, needsSetup, folderDialog))
+	mux.HandleFunc("/api/config", handleConfig(boundary, startPath, homePath, serverRole, version, setup != nil, folderDialog))
 	// Only the installed app installs programs on its computer.
 	mux.HandleFunc("/api/tools/check", handleToolsCheck(setup != nil))
 	if setup != nil {

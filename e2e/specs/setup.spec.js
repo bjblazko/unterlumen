@@ -5,9 +5,11 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// The installed app starts without a photo folder and asks for it in the
-// browser (#setup, ADR-0042). A folder another installation shares — it has
-// .unterlumen-shared in it — is joined, and its destinations appear.
+// The installed app needs no photo folder (ADR-0047): it starts on the whole
+// disk, each library names its own folder, and the setup (#setup, ADR-0042)
+// chooses only the shared folder and the data folder. A folder another
+// installation shares through — it has .unterlumen-shared in it — is joined,
+// and its destinations appear.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const BINARY = path.resolve(ROOT, '..', 'unterlumen');
@@ -29,12 +31,10 @@ async function waitForServer() {
     throw new Error('the app did not start');
 }
 
-async function choosePhotoFolder(page, name) {
+async function chooseSharedFolder(page, crumbOrRow) {
     await page.click('#setup-choose');
-    await page.locator('.fp-row', { hasText: name }).click();
-    await expect(page.locator('.fp-crumb-here')).toHaveText(name);
+    await crumbOrRow(page);
     await page.click('#fp-select');
-    await expect(page.locator('#setup-photos')).toContainText(name);
 }
 
 test.describe('Setup in the browser', () => {
@@ -69,50 +69,58 @@ test.describe('Setup in the browser', () => {
         fs.rmSync(home, { recursive: true, force: true });
     });
 
-    test('a first start opens the setup, and the chosen folder is shown in Folders', async ({ page }) => {
+    test('a first start opens no setup, and Folders reaches the whole disk', async ({ page }) => {
+        const cfg = await (await fetch(URL + '/api/config')).json();
+        expect(cfg.boundary).toBe('/');
+        expect(cfg.needsSetup).toBeUndefined();
         await page.goto(URL + '/');
-        await expect(page).toHaveURL(/#setup$/);
-        await expect(page.locator('#setup-photos')).toHaveText('Not chosen yet');
-        await expect(page.locator('#setup-share-field')).toBeHidden();
-
-        await choosePhotoFolder(page, 'Photos');
-        await expect(page.locator('#setup-share-toggle .toggle')).toHaveAttribute('aria-checked', 'false');
-        await page.click('#setup-save');
-
-        await expect(page).toHaveURL(/#folders$/);
-        await expect(page.getByRole('button', { name: 'folder-a' })).toBeVisible();
-        const saved = JSON.parse(fs.readFileSync(configFile(home), 'utf8'));
-        expect(saved.photosDir).toBe(path.join(home, 'Photos'));
+        await expect(page).not.toHaveURL(/#setup$/);
+        await expect(page.getByRole('button', { name: 'Photos' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'NAS' })).toBeVisible();
     });
 
-    // Before anything is shared: a share kept from elsewhere would be shown instead.
-    test('the top of the disk offers no sharing, and says why', async ({ page }) => {
+    test('the top of the disk cannot be shared, and the setup says why', async ({ page }) => {
         await page.goto(URL + '/#setup');
-        await page.click('#setup-choose');
-        await page.locator('.fp-crumb[data-crumb=""]').click();
-        await expect(page.locator('.fp-crumb-here')).toHaveCount(0);
-        await page.click('#fp-select');
-        await expect(page.locator('#setup-photos')).toHaveText('/');
-        await expect(page.locator('#setup-share-hint')).toContainText('can only be shared from a folder another installation sees as well');
-        await expect(page.locator('#setup-share-toggle .toggle')).toHaveCount(0);
+        await expect(page.locator('#setup-shared')).toHaveText('Not shared');
+        await chooseSharedFolder(page, async (p) => {
+            await p.locator('.fp-crumb[data-crumb=""]').click();
+            await expect(p.locator('.fp-crumb-here')).toHaveCount(0);
+        });
+        await expect(page.locator('#setup-shared-hint')).toContainText('The top of a disk cannot be shared');
+        await expect(page.locator('#setup-shared')).toHaveText('Not shared');
     });
 
-    test('a folder another installation shares is joined', async ({ page }) => {
+    test('a folder another installation shares through is joined', async ({ page }) => {
         await page.goto(URL + '/#settings');
-        await page.getByRole('link', { name: 'Change the photo folder or sharing' }).click();
+        await expect(page.locator('#settings-shared-dir')).toHaveText('Not shared');
+        await page.getByRole('link', { name: 'Change the shared folder or the data folder' }).click();
         await expect(page).toHaveURL(/#setup$/);
 
-        await page.click('#setup-choose');
-        await page.locator('.fp-home').click();
-        await page.locator('.fp-row', { hasText: 'NAS' }).click();
-        await page.click('#fp-select');
-        await expect(page.locator('#setup-share-hint')).toContainText('Another Unterlumen installation works in this folder');
-        await expect(page.locator('#setup-share-toggle .toggle')).toHaveAttribute('aria-checked', 'true');
+        await chooseSharedFolder(page, async (p) => {
+            await p.locator('.fp-row', { hasText: 'NAS' }).click();
+        });
+        const shared = path.join(home, 'NAS', '.unterlumen-shared');
+        await expect(page.locator('#setup-shared')).toHaveText(shared);
+        await expect(page.locator('#setup-shared-hint')).toContainText('Another installation shares through this folder');
         await page.click('#setup-save');
 
-        await expect(page).toHaveURL(/#folders$/);
+        await expect(page).toHaveURL(/#settings$/);
+        await expect(page.locator('#settings-shared-dir')).toHaveText(shared);
         const channels = await (await fetch(URL + '/api/channels/')).json();
         expect(channels.map(c => c.slug)).toContain('e2e-shared');
+        const saved = JSON.parse(fs.readFileSync(configFile(home), 'utf8'));
+        expect(saved.channelsDir).toBe(shared);
+        expect(saved.photosDir).toBeUndefined();
+    });
+
+    test('a library is added from any folder, with no folder in common', async ({ page }) => {
+        const created = await (await fetch(URL + '/api/library/', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Anywhere', sourcePath: path.join(home, 'Photos', 'folder-a') }),
+        })).json();
+        expect(created.sourcePath).toBe(fs.realpathSync(path.join(home, 'Photos', 'folder-a')));
+        await page.goto(URL + '/#libraries');
+        await expect(page.locator('.library-card-name', { hasText: 'Anywhere' })).toBeVisible();
     });
 
     test('missing helper programs are installed from the setup', async ({ page }) => {

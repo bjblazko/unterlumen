@@ -197,6 +197,10 @@ func (m *Manager) CreateLibrary(name, description, sourcePath string) (*Library,
 	if err != nil {
 		return nil, err
 	}
+	return m.createLibrary(id, name, description, sourcePath)
+}
+
+func (m *Manager) createLibrary(id, name, description, sourcePath string) (*Library, error) {
 	dir := m.LibDir(id)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create library dir: %w", err)
@@ -256,8 +260,23 @@ func (m *Manager) DeleteLibrary(id string) error {
 	return os.RemoveAll(m.LibDir(id))
 }
 
-// UpdateLibrary updates the name and description of an existing library.
+// UpdateLibrary updates the name and description of an existing library, and
+// of its marker when it is shared, so other installations show them too.
 func (m *Manager) UpdateLibrary(id, name, description string) (*Library, error) {
+	l, err := m.setNameAndDescription(id, name, description)
+	if err != nil {
+		return nil, err
+	}
+	if ownMarker(l) != nil {
+		if err := writeMarker(l.SourcePath, Marker{ID: id, Name: name, Description: description}); err != nil {
+			return nil, fmt.Errorf("the shared name could not be written: %w", err)
+		}
+		l.Shared = true
+	}
+	return l, nil
+}
+
+func (m *Manager) setNameAndDescription(id, name, description string) (*Library, error) {
 	store, err := m.OpenStore(id)
 	if err != nil {
 		return nil, err

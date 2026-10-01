@@ -1,6 +1,6 @@
-// Package apisetup serves the setup place (#setup): the photo folder, the
-// data folder and whether destinations are shared, saved to config.json and
-// applied without a restart (ADR-0042).
+// Package apisetup serves the setup place (#setup): the data folder and
+// where destinations are shared, saved to config.json and applied without a
+// restart (ADR-0042, ADR-0047).
 package apisetup
 
 import (
@@ -20,8 +20,6 @@ type Installation struct {
 	ChannelsDir string
 	// DefaultLibDir is the data folder used when none is chosen.
 	DefaultLibDir string
-	// Problem says why the saved photo folder is not in use, or is "".
-	Problem string
 	// Apply saves a configuration and starts using it.
 	Apply func(installation.Config) error
 }
@@ -36,55 +34,51 @@ func Handle(mux *http.ServeMux, current func() Installation) {
 }
 
 type setupResponse struct {
-	PhotosDir     string `json:"photosDir"`
-	PhotosPath    string `json:"photosPath"` // the photo folder as the folder picker names it
 	LibDir        string `json:"libDir"`
 	DefaultLibDir string `json:"defaultLibDir"`
 	HomePath      string `json:"homePath"`
-	SharedDir     string `json:"sharedDir"` // where destinations are shared, "" when they are not
-	Problem       string `json:"problem"`
+	SharedDir     string `json:"sharedDir"`  // where destinations are shared, "" when they are not
+	SharedPath    string `json:"sharedPath"` // the same as the folder picker names it
 }
 
 func getSetup(current func() Installation) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		inst := current()
 		resp := setupResponse{
-			PhotosDir:     inst.Saved.PhotosDir,
 			LibDir:        inst.Saved.LibDir,
 			DefaultLibDir: inst.DefaultLibDir,
-			Problem:       inst.Problem,
-		}
-		if inst.Saved.PhotosDir != "" {
-			resp.PhotosPath = pickerPath(inst.Saved.PhotosDir)
 		}
 		if home, err := os.UserHomeDir(); err == nil {
 			resp.HomePath = pickerPath(home)
 		}
 		if ownDir := orDefault(inst.Saved.LibDir, inst.DefaultLibDir); inst.ChannelsDir != ownDir {
 			resp.SharedDir = inst.ChannelsDir
+			resp.SharedPath = pickerPath(inst.ChannelsDir)
 		}
 		writeJSON(w, resp)
 	}
 }
 
-// getShared says whether a photo folder has a shared folder in it, so the
+// getShared says whether a chosen folder has a shared folder in it, so the
 // setup can say so before anything is saved.
 func getShared() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dir := fromPickerPath(r.URL.Query().Get("path"))
 		found := installation.FindShared(dir)
+		if filepath.Base(dir) == installation.SharedDirName {
+			found = dir
+		}
 		writeJSON(w, map[string]any{
 			"sharedDir": found,
-			// Sharing starts in the photo folder, so the top of a disk has none to offer.
+			// The shared folder is made inside the chosen one, which the top of a disk cannot hold.
 			"canShare": found != "" || !installation.IsDiskRoot(dir),
 		})
 	}
 }
 
 type setupRequest struct {
-	PhotosPath string `json:"photosPath"`
 	LibDir     string `json:"libDir"`
-	Share      bool   `json:"share"`
+	SharedPath string `json:"sharedPath"` // as the folder picker names it; "" for not shared
 }
 
 func postSetup(current func() Installation) http.HandlerFunc {
@@ -100,7 +94,7 @@ func postSetup(current func() Installation) http.HandlerFunc {
 			return
 		}
 		inst := current()
-		next, err := installation.Decide(inst.Saved, choice, inst.ChannelsDir, inst.DefaultLibDir)
+		next, err := installation.Decide(inst.Saved, choice, inst.ChannelsDir)
 		if err == nil {
 			err = inst.Apply(next)
 		}
@@ -114,17 +108,17 @@ func postSetup(current func() Installation) http.HandlerFunc {
 
 // validChoice checks the request and says in a sentence what is wrong.
 func validChoice(req setupRequest) (installation.Choice, string) {
-	photos := fromPickerPath(req.PhotosPath)
-	if req.PhotosPath == "" {
-		return installation.Choice{}, "Choose the folder that holds your photos."
-	}
-	if info, err := os.Stat(photos); err != nil || !info.IsDir() {
-		return installation.Choice{}, "The photo folder " + photos + " does not exist. Choose another one."
+	var shared string
+	if req.SharedPath != "" {
+		shared = fromPickerPath(req.SharedPath)
+		if info, err := os.Stat(shared); err != nil || !info.IsDir() {
+			return installation.Choice{}, "The folder " + shared + " is not there. Connect its disk or NAS, or choose another one."
+		}
 	}
 	if req.LibDir != "" && !filepath.IsAbs(req.LibDir) {
 		return installation.Choice{}, "The data folder has to be a full path, starting at the top of the disk."
 	}
-	return installation.Choice{PhotosDir: photos, LibDir: req.LibDir, Share: req.Share}, ""
+	return installation.Choice{LibDir: req.LibDir, SharedDir: shared}, ""
 }
 
 func orDefault(v, def string) string {

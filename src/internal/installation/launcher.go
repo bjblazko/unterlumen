@@ -21,7 +21,8 @@ func FromLauncher(script string) (cfg Config, ok bool) {
 }
 
 // fromArgs reads the flags a launcher passed after -desktop; the last plain
-// argument is the photo folder.
+// argument is the photo folder of that time, which Migrate turns into a
+// shared folder on the next start.
 func fromArgs(args []string) Config {
 	var cfg Config
 	for i := 0; i < len(args); i++ {

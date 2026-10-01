@@ -21,9 +21,9 @@ class SettingsPane {
                     <p class="settings-guide">New to Unterlumen, or not sure what a library or a destination is? ${placeLink('guide', 'guide', 'How Unterlumen works')} explains it on one page.</p>
                     ${App.config?.canSetup ? `
                     <div class="form-field">
-                        <span class="form-label">Photo folder</span>
-                        <span class="settings-cache">${escapeHtml(App.config.boundary)}</span>
-                        <span class="form-hint">${placeLink('setup', 'setup', 'Change the photo folder or sharing')}</span>
+                        <span class="form-label">Shared folder</span>
+                        <span class="settings-cache" id="settings-shared-dir">…</span>
+                        <span class="form-hint">${placeLink('setup', 'setup', 'Change the shared folder or the data folder')}</span>
                     </div>` : ''}
 
                     ${App.config?.serverRole ? `
@@ -75,6 +75,7 @@ class SettingsPane {
         this._wireCache();
         this._wireTools();
         if (App.config?.serverRole) this._wireSharing();
+        if (App.config?.canSetup) this._showSharedDir();
         this.container.querySelector('#settings-done').addEventListener('click', () => App.leaveSettings());
     }
 
@@ -154,7 +155,18 @@ class SettingsPane {
         });
     }
 
-    // A server's photo folder is fixed, so sharing is the one thing to set up
+    // The installed app's shared folder, shown here and changed in the setup.
+    async _showSharedDir() {
+        const el = this.container.querySelector('#settings-shared-dir');
+        try {
+            const { sharedDir } = await API.setup();
+            el.textContent = sharedDir || 'Not shared';
+        } catch (err) {
+            el.textContent = `Could not read the settings: ${err.message}`;
+        }
+    }
+
+    // A server's folder is fixed, so sharing is the one thing to set up
     // there. A NAS that shares first is found by the Mac's setup (ADR-0042).
     async _wireSharing() {
         const el = this.container.querySelector('#settings-sharing');
@@ -166,10 +178,10 @@ class SettingsPane {
             return;
         }
         if (sharedDir) {
-            el.innerHTML = `<span class="form-hint">Destinations and galleries are shared through <span class="mono">${escapeHtml(sharedDir)}</span>. Another installation that shows the same photos — Unterlumen on a Mac, say — uses them when it chooses this photo folder.</span>`;
+            el.innerHTML = `<span class="form-hint">Destinations and galleries are shared through <span class="mono">${escapeHtml(sharedDir)}</span>. Another installation — Unterlumen on a Mac, say — uses them when it chooses this folder as its shared folder.</span>`;
             return;
         }
-        el.innerHTML = `<span class="form-hint">If another installation shows the same photos — Unterlumen on a Mac with this folder opened over the network, say — both can use the same destinations and galleries. They are then kept in the photo folder, in <span class="mono">.unterlumen-shared</span>.</span>
+        el.innerHTML = `<span class="form-hint">If another installation shows the same photos — Unterlumen on a Mac with this folder opened over the network, say — both can use the same destinations and galleries. They are then kept in this installation’s folder, in <span class="mono">.unterlumen-shared</span>.</span>
             <div><button class="btn btn-sm" id="settings-share">Share with another installation</button></div>
             <div id="settings-share-result"></div>`;
         el.querySelector('#settings-share').addEventListener('click', async (e) => {

@@ -1,10 +1,13 @@
 # ADR-0042: Installation — one line, setup in the browser, sharing by convention
 
-*Last modified: 2026-09-29*
+*Last modified: 2026-10-01*
 
 ## Status
 
-Accepted.
+Accepted. The photo folder (§3, and §4 for the installed app) is superseded by
+[ADR-0047](0047-independent-libraries-shared-per-library.md): the installed app
+has none, the setup chooses a shared folder, and libraries are shared one by
+one.
 
 ## Context
 

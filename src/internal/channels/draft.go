@@ -210,6 +210,38 @@ func (s *DraftStore) Delete(slug, draftID string) error {
 	return s.writeLocked(slug, filtered)
 }
 
+// RekeyLibrary points every draft photo of library oldID at newID, for a
+// library that joined a shared library and took its ID (ADR-0047).
+func (s *DraftStore) RekeyLibrary(oldID, newID string) error {
+	chs, err := s.channelStore.List()
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, ch := range chs {
+		drafts, err := s.loadLocked(ch.Slug)
+		if err != nil {
+			return err
+		}
+		changed := false
+		for _, d := range drafts {
+			for i := range d.Photos {
+				if d.Photos[i].LibraryID == oldID {
+					d.Photos[i].LibraryID = newID
+					changed = true
+				}
+			}
+		}
+		if changed {
+			if err := s.writeLocked(ch.Slug, drafts); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func newDraftID() string {
 	b := make([]byte, 8)
 	rand.Read(b) //nolint:errcheck

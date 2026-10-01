@@ -7,7 +7,8 @@ import { fileURLToPath } from 'url';
 
 // The installed app, started for the first time beside an installation made
 // by an older -desktop-install, takes over that one's settings from its
-// launcher instead of opening the setup (ADR-0042).
+// launcher (ADR-0042). The photo folder of that time no longer fences Folders
+// (ADR-0047): it is forgotten, and its shared destinations are kept.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BINARY = path.resolve(__dirname, '..', '..', 'unterlumen');
 const PORT = 8087;
@@ -52,21 +53,20 @@ test.describe('An older installation', () => {
         fs.rmSync(home, { recursive: true, force: true });
     });
 
-    test('its photo folder and shared destinations are taken over, and the setup is not asked', async ({ page }) => {
+    test('its shared destinations are taken over, and Folders is not fenced by its photo folder', async ({ page }) => {
         const cfg = await (await fetch(URL + '/api/config')).json();
-        expect(cfg.needsSetup).toBe(false);
-        expect(cfg.boundary).toBe(path.join(home, 'Bilder'));
+        expect(cfg.boundary).toBe('/');
         const channels = await (await fetch(URL + '/api/channels/')).json();
         expect(channels.map(c => c.slug)).toContain('e2e-old-install');
 
         await page.goto(URL + '/');
         await expect(page).not.toHaveURL(/#setup$/);
-        await expect(page.getByRole('button', { name: 'Fotos' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Bilder' })).toBeVisible();
     });
 
-    test('the setup shows the taken-over sharing and keeps it on', async ({ page }) => {
+    test('the setup shows the taken-over shared folder', async ({ page }) => {
         await page.goto(URL + '/#setup');
-        await expect(page.locator('#setup-share-hint')).toContainText(`shared through ${path.join(home, 'shared')}`);
-        await expect(page.locator('#setup-share-toggle .toggle')).toHaveAttribute('aria-checked', 'true');
+        await expect(page.locator('#setup-shared')).toHaveText(path.join(home, 'shared'));
+        await expect(page.locator('#setup-shared-hint')).toContainText('shared through this folder');
     });
 });
