@@ -17,8 +17,7 @@ test.describe('Full screen', () => {
     });
 
     test('a slideshow starts in full screen and Close leaves it', async ({ page }) => {
-        await page.locator('.browse-more .menu-btn').click();
-        await page.locator('.menu [data-id="slideshow"]').click();
+        await page.locator('.browse-slideshow-btn').click();
         await page.locator('.dialog .btn-accent').click();
         await expect(page.locator('.ss-hud')).toBeVisible();
         await expect.poll(() => isFullscreen(page)).toBe(true);

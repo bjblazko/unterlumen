@@ -3,7 +3,8 @@ import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { navigateToFolder } from '../helpers/fixtures.js';
 
 // The ⋯ menu holds what need not be on screen all the time: the Names and
-// Details switches, the slideshow and the rarer folder work.
+// Details switches and the rarer folder work. The slideshow has a button of
+// its own beside it.
 
 test.describe('The ⋯ menu', () => {
     test.beforeEach(async ({ page }) => {
@@ -20,9 +21,18 @@ test.describe('The ⋯ menu', () => {
         await btn.click();
         await expect(btn).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('menu')).toBeVisible();
-        // The switches and the slideshow no longer take room in the toolbar.
+        // The switches no longer take room in the toolbar, and the slideshow is not in the menu.
         await expect(page.locator('.controls .toggle')).toHaveCount(0);
-        await expect(page.locator('.controls').getByText('Slideshow')).toHaveCount(0);
+        await expect(page.getByRole('menuitem', { name: 'Slideshow' })).toHaveCount(0);
+    });
+
+    test('the slideshow has its own button beside the menu', async ({ page }) => {
+        const btn = page.locator('.breadcrumb-row .browse-slideshow-btn');
+        await expect(btn).toHaveAccessibleName('Slideshow');
+        await expect(btn.locator('svg')).toBeVisible();
+        await btn.click();
+        await expect(page.locator('.dialog-scrim .dialog-title')).toHaveText('Slideshow');
+        await page.keyboard.press('Escape');
     });
 
     test('a switch flips in place and leaves the menu open', async ({ page }) => {
@@ -36,11 +46,10 @@ test.describe('The ⋯ menu', () => {
     });
 
     test('an action closes the menu', async ({ page }) => {
+        await page.locator('[data-type="image"]').first().click();
         await page.locator('.browse-more .menu-btn').click();
-        await page.getByRole('menuitem', { name: 'Slideshow' }).click();
+        await page.getByRole('menuitem', { name: /Clear cache/ }).click();
         await expect(page.getByRole('menu')).toHaveCount(0);
-        await expect(page.locator('.dialog-scrim .dialog-title')).toHaveText('Slideshow');
-        await page.keyboard.press('Escape');
     });
 
     test('keys move through it, and Escape closes only the menu', async ({ page }) => {

@@ -5975,10 +5975,29 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* --- Menu: the "⋯" of a place, for what need not be on screen --- */
 
-/* The button closes the breadcrumb row; the path takes the room before it. */
-.browse-more {
+/* Slideshow and the menu close the breadcrumb row; the path takes the room
+   before them. */
+.browse-row-end {
     margin-left: auto;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.browse-more {
+    flex-shrink: 0;
+}
+
+.browse-slideshow-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* On a phone the path needs the row; the play mark says it alone. */
+@media (max-width: 700px) {
+    .browse-slideshow-label { display: none; }
 }
 
 /* The same square as the Home and Up buttons at the start of the row. */

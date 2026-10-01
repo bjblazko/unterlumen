@@ -434,7 +434,15 @@ class BrowsePane {
             const isCurrent = i === parts.length - 1;
             crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
         }
-        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span><span class="browse-more"></span></div>`;
+        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span><span class="browse-row-end">${this._slideshowButtonHTML()}<span class="browse-more"></span></span></div>`;
+    }
+
+    // The slideshow is always on screen where a pane offers one, beside the
+    // ⋯ menu: a frame with a play mark, and its name.
+    _slideshowButtonHTML() {
+        if (!this.onSlideshowInvoke) return '';
+        const noPhotos = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
+        return `<button class="btn btn-sm browse-slideshow-btn" aria-label="Slideshow"${noPhotos ? ' disabled title="This folder holds no photos"' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M5.25 4.75v3.5l3-1.75z" fill="currentColor"/></svg><span class="browse-slideshow-label">Slideshow</span></button>`;
     }
 
     _renderControls() {
@@ -581,6 +589,8 @@ class BrowsePane {
             el.addEventListener('click', () => this.setView(el.dataset.view));
         });
 
+        this.container.querySelector('.browse-slideshow-btn')?.addEventListener('click', () => this.onSlideshowInvoke());
+
         const moreSlot = this.container.querySelector('.browse-more');
         if (moreSlot) {
             // One menu per pane, moved into each render, so a menu left open
@@ -623,12 +633,11 @@ class BrowsePane {
     // The two folder-level buttons say what they would act on, and are hidden
     // or disabled only when there is genuinely nothing for them to do.
 
-    // _menuItems is what the ⋯ menu offers now: how photos are shown, the
-    // slideshow, and on a desk the rarer folder work. A phone looks; it does
+    // _menuItems is what the ⋯ menu offers now: how photos are shown, and on
+    // a desk the rarer folder work. The slideshow has its own button. A phone looks; it does
     // not scan, index or clear caches. A pane offers only what its host wired
-    // up — Organize's source pane has neither slideshow nor folder tools.
+    // up — Organize's source pane has no folder tools.
     _menuItems() {
-        const noPhotos = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
         const items = [
             {
                 id: 'names', label: 'Names', switch: { on: this.showNames, labelOn: 'Shown', labelOff: 'Hidden' },
@@ -639,13 +648,6 @@ class BrowsePane {
                 onChange: (on) => { this.showOverlays = on; this.render(); },
             },
         ];
-        if (this.onSlideshowInvoke) {
-            items.push('separator', {
-                id: 'slideshow', label: 'Slideshow', disabled: noPhotos,
-                title: noPhotos ? 'This folder holds no photos' : '',
-                onSelect: () => this.onSlideshowInvoke(),
-            });
-        }
         if (!this.onToolInvoke || window.matchMedia('(max-width: 700px)').matches) return items;
         items.push('separator');
         const dir = this.getFocusedDir();

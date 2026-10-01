@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Slideshow has its own button.** It stands beside the ⋯ menu at the end of the path row, with a play mark, instead of inside the menu; on a phone the play mark alone.
+
 ### Fixed
 - **The folder dashboard names cameras and lenses plainly.** In a library's info panel a selected folder listed them in quotes (`"iPhone" / (no lens)`); it now shows `iPhone`, and a lens only where there is one. "Shooting Hours" is "Shooting hours".
 

@@ -127,9 +127,9 @@ test.describe('Phone', () => {
         const gap = await page.locator('.browse-header').evaluate(e => getComputedStyle(e).paddingBottom);
         expect(gap).toBe('8px');
         await page.locator('.browse-more .menu-btn').tap();
-        await expect(page.locator('.menu .menu-item')).toHaveCount(3);
+        await expect(page.locator('.menu .menu-item')).toHaveCount(2);
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-        expect(ids).toEqual(['names', 'details', 'slideshow']);
+        expect(ids).toEqual(['names', 'details']);
         const itemHeight = await page.locator('.menu .menu-item').first().evaluate(e => e.getBoundingClientRect().height);
         expect(itemHeight).toBeGreaterThanOrEqual(44);
     });
@@ -183,8 +183,7 @@ test.describe('Phone', () => {
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
-        await page.locator('.browse-more .menu-btn').tap();
-        await page.locator('.menu [data-id="slideshow"]').tap();
+        await page.locator('.browse-slideshow-btn').tap();
         await page.locator('.dialog .btn-accent').tap();
         await expect(page.locator('.ss-hud')).toBeVisible();
 
