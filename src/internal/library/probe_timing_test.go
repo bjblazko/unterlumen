@@ -37,6 +37,9 @@ func TestProbeTimings(t *testing.T) {
 	timed("Timeline", func() error { _, err := s.Timeline("", ""); return err })
 	timed("ColourSource", func() error { _, err := s.ColourSource(""); return err })
 	timed("ColourPoints", func() error { _, err := s.ColourPoints(""); return err })
+	timed("ExposurePoints", func() error { _, err := s.ExposurePoints(""); return err })
+	timed("GeoPoints", func() error { _, err := s.GeoPoints(); return err })
+	timed("LocatedPhotos", func() error { _, err := s.LocatedPhotos(""); return err })
 	timed("FolderStats (root)", func() error { _, err := s.FolderStats(root); return err })
 	f := func(v float64) map[string]NumericFilter {
 		return map[string]NumericFilter{"FNumber": {Min: v, Max: v + 0.7}}

@@ -24,8 +24,10 @@ func timelineCacheKey(ids []string, pathPrefix, granularity string) string {
 func (m *Manager) InvalidateStatsCache(id string) {
 	dropEntriesOf(&m.statsCache, id)
 	dropEntriesOf(&m.timelineCache, id)
+	dropEntriesOf(&m.exposureCache, id)
 	dropEntriesOf(&m.colourCache, id)
 	dropEntriesOf(&m.colourSpaceCache, id)
+	dropEntriesOf(&m.spaceTimeCache, id)
 	dropEntriesOf(&m.exifRangesCache, id)
 	dropEntriesOf(&m.exifValuesCache, id)
 	// Folder stats keys are "<libID>|<absPath>" — prefix match is exact.

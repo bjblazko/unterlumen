@@ -24,6 +24,7 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 
 - **Axes:** longitude, latitude, and time taken as the height (a year or a day per unit).
 - **Encoding:** the colour of a point is the photo's dominant colour; its size is the focal length or the file size.
+- Taken up on 2026-10-01 as Space and time, with a floor of log distance around the middle of the photos instead of a base map: [feature](../features/done/2026-10-01-statistics-3d-views.md). Size by focal length or file size is still open.
 - **What it shows:** journeys and periods of life as paths in three dimensions. Connecting the points in the order they were taken with 3D splines gives a trail above a base map. Where and when photos were taken, and how many, can be seen at once.
 
 ### 2. Colour space cloud with mood paths
@@ -38,6 +39,7 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **Axes:** focal length, aperture, and exposure time or ISO.
 - **Encoding:** the colour of a point is the camera model or the lens.
 - **What it shows:** how one photographs, as dense clusters in the space of settings. Portraits gather around 85 mm, f/1.8, ISO 100; night and astro photos form a separate cloud around 14 mm, f/2.8, ISO 3200. A section through the cube shows which lenses are used at the extremes.
+- Taken up on 2026-10-01 with focal length, aperture and ISO, coloured by camera: [Statistics: Exposure space and Daylight](../features/done/2026-10-01-statistics-3d-views.md). Lens colours and a section are still open.
 
 ### 4. Semantic space (image embeddings reduced to 3D)
 
@@ -58,6 +60,18 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **Encoding:** the colour of a column is the mean hue of the photos taken there; its surface texture can show image entropy (visual complexity).
 - **What it shows:** a landscape of columns over the world map. Places photographed often, such as holiday spots, rise high; places seen rarely stay low.
 
+### 7. Daylight (taken up)
+
+- **Axes:** the day of the year around a ring, the hour of the day from the middle outward, and each photo's brightness up.
+- **Encoding:** each photo in its main colour; a trail round the twelve months.
+- **What it shows:** golden hours on summer evenings, short dark winter days, bright noons on holiday. Not on the original list. It came up on 2026-10-01 because date, time and brightness were all in the index, and it was built the same day: [feature](../features/done/2026-10-01-statistics-3d-views.md).
+
+### 8. Character (taken up)
+
+- **Axes:** each photo's mean brightness, contrast and colourfulness, measured from its thumbnail.
+- **Encoding:** each photo in its main colour; a trail through each period's mean.
+- **What it shows:** the moods of the pictures as clusters: dark and moody, bright and airy, flat and foggy, punchy and vivid. Built on 2026-10-01: [feature](../features/done/2026-10-01-statistics-3d-views.md).
+
 ## What the ideas need
 
 Colour per photo, image entropy and a perceptual hash are collected since 2026-10-01 ([feature](../features/open/2026-10-01-photo-appearance-index.md), [ADR-0044](../architecture/adr/0044-photo-appearance-from-thumbnails.md)); what follows is how the need was described before.
@@ -66,7 +80,7 @@ Colour per photo, image entropy and a perceptual hash are collected since 2026-1
 - **Image entropy** (idea 6): one more value per photo at indexing.
 - **Embeddings** (idea 4): a vision model has to run somewhere. Running it locally keeps the photos on the machine but needs a model runtime next to the Go binary. Sending photos to a service would be a change in what Unterlumen does with photos and needs a decision of its own. The reduction to 3D (UMAP) is computed once per library and redone when photos change.
 - **Graph edges** (idea 5): similarity between photos, from colours or embeddings; closeness in time and on the map can be computed from what the index holds.
-- **WebGPU for the 3D views.** D3 draws in two dimensions; the 3D views are meant to draw with WebGPU in the browser, which handles tens of thousands of points and columns. Whether directly or through a library with a WebGPU renderer (three.js has one) is open; a library would be vendored like D3 ([ADR-0017](../architecture/adr/0017-d3-vendored-bundle.md)) and MapLibre ([ADR-0031](../architecture/adr/0031-vendor-maplibre.md)). Decided for the colour space ([ADR-0046](../architecture/adr/0046-colour-space-webgpu-glow-stage.md)): WebGPU directly, without a library or a fallback. A browser without it gets a sentence. The base maps of ideas 1 and 6 could come from MapLibre, which can draw extruded columns itself.
+- **WebGPU for the 3D views.** D3 draws in two dimensions; the 3D views are meant to draw with WebGPU in the browser, which handles tens of thousands of points and columns. Whether directly or through a library with a WebGPU renderer (three.js has one) is open; a library would be vendored like D3 ([ADR-0017](../architecture/adr/0017-d3-vendored-bundle.md)) and MapLibre ([ADR-0031](../architecture/adr/0031-vendor-maplibre.md)). Decided for the 3D views ([ADR-0046](../architecture/adr/0046-colour-space-webgpu-glow-stage.md)): WebGPU directly, without a library or a fallback, on one point stage that each view maps its data onto. A browser without it gets a sentence. The base maps of ideas 1 and 6 could come from MapLibre, which can draw extruded columns itself.
 
 ## Design questions
 

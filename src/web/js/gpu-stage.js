@@ -88,17 +88,16 @@ function projectPoint(vp, x, y, z, w, h) {
 
 /* --- Stage --- */
 
-// A canvas drawn by draw(pass, frame) whenever invalidate() asks for it, or
-// on every frame while animate() returns true. It stops for good once the
-// canvas has left the page.
+// A canvas drawn by draw(encoder, view, width, height) whenever invalidate()
+// asks for it, or on every frame while animate() returns true. It stops for
+// good once the canvas has left the page.
 class GpuStage {
-    constructor(canvas, device, { clear, draw, animate = () => false, onFrame = () => {} }) {
+    constructor(canvas, device, { draw, animate = () => false, onFrame = () => {} }) {
         this.canvas = canvas;
         this.device = device;
         this.format = navigator.gpu.getPreferredCanvasFormat();
         this.context = canvas.getContext('webgpu');
         this.context.configure({ device, format: this.format, alphaMode: 'opaque' });
-        this._clear = clear;
         this._draw = draw;
         this._animate = animate;
         this._onFrame = onFrame;
@@ -141,14 +140,7 @@ class GpuStage {
         this._last = t;
         this._onFrame(dt);
         const encoder = this.device.createCommandEncoder();
-        const pass = encoder.beginRenderPass({
-            colorAttachments: [{
-                view: this.context.getCurrentTexture().createView(),
-                clearValue: this._clear, loadOp: 'clear', storeOp: 'store',
-            }],
-        });
-        this._draw(pass);
-        pass.end();
+        this._draw(encoder, this.context.getCurrentTexture().createView(), this.canvas.width, this.canvas.height);
         this.device.queue.submit([encoder.finish()]);
         if (this._animate()) this.invalidate();
         else this._last = 0;

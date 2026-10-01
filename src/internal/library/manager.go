@@ -26,6 +26,8 @@ type Manager struct {
 	timelineCache    sync.Map       // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
 	colourCache      sync.Map       // map[cacheKey]*LibraryColour — invalidated on scan start/end and after analysis
 	colourSpaceCache sync.Map       // map[cacheKey]*ColourSpace — invalidated with colourCache
+	exposureCache    sync.Map       // map[cacheKey]*ExposureSpace — invalidated with statsCache
+	spaceTimeCache   sync.Map       // map[cacheKey]*SpaceTime — invalidated with colourCache
 	exifRangesCache  sync.Map       // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
 	exifValuesCache  sync.Map       // map[cacheKey+"|"+field][]string — invalidated on scan start/end
 	folderStatsCache sync.Map       // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end

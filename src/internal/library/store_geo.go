@@ -3,6 +3,7 @@ package library
 import (
 	"database/sql"
 	"math"
+	"strings"
 )
 
 // GeoPoint is one photo with a known location.
@@ -75,4 +76,45 @@ func usableLocation(lat, lon float64) bool {
 		return false
 	}
 	return lat != 0 || lon != 0
+}
+
+// LocatedPhotos returns the photos within pathPrefix (or the whole library
+// when it is empty) that have a usable location and a date, for the Space
+// and time statistics. Unlike GeoPoints it reads the GPS tags from
+// exif_index and the photos from their covering index, never a photo's row
+// with its EXIF: 0.17 s against 0.33 s on 32,000 photos (ADR-0045). Every
+// photo whose parsed location GeoPoints prefers has these tags as well.
+// Filename stays empty.
+func (s *Store) LocatedPhotos(pathPrefix string) ([]GeoPoint, error) {
+	pathGlob := ""
+	if pathPrefix != "" {
+		pathGlob = escapeLikePattern(pathPrefix) + "/%"
+	}
+	where, args := tlAliasCond(pathGlob)
+	rows, err := s.db.Query(`
+		SELECT p.id, p.date_taken, la.value, COALESCE(lar.value, ''), lo.value, COALESCE(lor.value, '')
+		FROM photos p
+		CROSS JOIN exif_index la ON la.photo_id = p.id AND la.field = 'GPSLatitude'
+		CROSS JOIN exif_index lo ON lo.photo_id = p.id AND lo.field = 'GPSLongitude'
+		LEFT JOIN exif_index lar ON lar.photo_id = p.id AND lar.field = 'GPSLatitudeRef'
+		LEFT JOIN exif_index lor ON lor.photo_id = p.id AND lor.field = 'GPSLongitudeRef'
+		WHERE p.status='ok' AND p.date_taken IS NOT NULL`+where, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	points := []GeoPoint{}
+	unquote := func(s string) string { return strings.ReplaceAll(s, `"`, "") }
+	err = scanRows(rows, func() error {
+		var p GeoPoint
+		var lat, latRef, lon, lonRef string
+		if err := rows.Scan(&p.ID, &p.Taken, &lat, &latRef, &lon, &lonRef); err != nil {
+			return err
+		}
+		if coordsFromTags(&p, unquote(lat), unquote(latRef), unquote(lon), unquote(lonRef)) && usableLocation(p.Lat, p.Lon) {
+			points = append(points, p)
+		}
+		return nil
+	})
+	return points, err
 }

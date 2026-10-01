@@ -50,13 +50,13 @@ test.describe('Statistics: Colour space', () => {
         await expect(page.locator('.stats-title')).toHaveText('Colour space');
         const hasGPU = await page.evaluate(async () => !!(navigator.gpu && await navigator.gpu.requestAdapter().catch(() => null)));
         if (hasGPU) {
-            await expect(page.locator('.colour-space-canvas')).toBeVisible({ timeout: 15_000 });
-            await expect(page.locator('.colour-space-label', { hasText: 'Sky blue' })).toBeAttached();
-            await expect(page.locator('.colour-space-help')).toContainText('each at its main colour');
-            await expect(page.locator('.colour-space-legend')).toContainText('One photo, at its main colour');
-            await expect(page.locator('.colour-space-legend')).toContainText('The line joins the');
+            await expect(page.locator('.point-stage-canvas')).toBeVisible({ timeout: 15_000 });
+            await expect(page.locator('.point-stage-label', { hasText: 'Sky blue' })).toBeAttached();
+            await expect(page.locator('.point-stage-help')).toContainText('each at its main colour');
+            await expect(page.locator('.point-stage-legend')).toContainText('One photo, at its main colour');
+            await expect(page.locator('.point-stage-legend')).toContainText('The line joins the');
         } else {
-            await expect(page.locator('.colour-space-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
+            await expect(page.locator('.point-stage-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
         }
     });
 
@@ -88,7 +88,7 @@ test.describe('Statistics: Colour space', () => {
     test('a selected stage owns the arrow keys until Escape', async ({ page }) => {
         await page.goto(`/#statistics/colour-space?library=${lib.id}`);
         await waitForAppReady(page);
-        const canvas = page.locator('.colour-space-canvas');
+        const canvas = page.locator('.point-stage-canvas');
         test.skip(!(await canvas.isVisible({ timeout: 15_000 }).catch(() => false)), 'no WebGPU in this browser');
         await canvas.focus();
         await expect(canvas).toHaveClass(/keyboard-owner/);

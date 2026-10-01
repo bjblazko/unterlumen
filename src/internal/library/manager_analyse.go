@@ -69,6 +69,7 @@ func (m *Manager) analyseOnce(id string) {
 	// New measurements change only the colours.
 	dropEntriesOf(&m.colourCache, id)
 	dropEntriesOf(&m.colourSpaceCache, id)
+	dropEntriesOf(&m.spaceTimeCache, id)
 	if last.Error != "" {
 		job.Finish(errors.New(last.Error))
 		return

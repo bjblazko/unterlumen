@@ -323,12 +323,14 @@
     .stats-folder-path { max-width: 12rem; }
 }
 
-/* --- Colour space ---
-   A recorded deviation (ADR-0030, ADR-0046): a dark stage in both themes,
-   on which the photos glow in their own colours. The stage keeps its own
-   colours; nothing outside the canvas uses them. */
+/* --- Point stage ---
+   The 3D views (Colour space, Exposure space, Daylight). A recorded
+   deviation (ADR-0030, ADR-0046): a dark stage in both themes, on which
+   the photos glow. The stage is data-theme="dark", so its tooltip and
+   legend use the dark tokens; its own colours (--stage-*) are for the
+   labels on the canvas only. */
 
-.colour-space {
+.point-stage {
     --stage-bg: #07080b;
     --stage-label: rgba(200, 210, 230, 0.62);
     --stage-label-strong: rgba(235, 240, 250, 0.92);
@@ -339,12 +341,12 @@
     border-radius: var(--radius-md);
 }
 
-.colour-space--preview {
+.point-stage--preview {
     height: 9rem;
     min-height: 0;
 }
 
-.colour-space-canvas {
+.point-stage-canvas {
     display: block;
     width: 100%;
     height: 100%;
@@ -352,20 +354,20 @@
     cursor: grab;
 }
 
-.colour-space-canvas:active { cursor: grabbing; }
+.point-stage-canvas:active { cursor: grabbing; }
 
-.colour-space-canvas:focus-visible {
+.point-stage-canvas:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
 }
 
-.colour-space-labels {
+.point-stage-labels {
     position: absolute;
     inset: 0;
     pointer-events: none;
 }
 
-.colour-space-label {
+.point-stage-label {
     position: absolute;
     left: 0;
     top: 0;
@@ -377,10 +379,11 @@
     white-space: nowrap;
 }
 
-.colour-space-label--axis { translate: var(--space-2) -50%; }
-.colour-space-label--period { translate: var(--space-3) calc(-100% - var(--space-1)); color: var(--stage-label-strong); }
+.point-stage-label--axis { translate: var(--space-2) -50%; }
+.point-stage-label--name { color: var(--stage-label-strong); }
+.point-stage-label--period { translate: var(--space-3) calc(-100% - var(--space-1)); color: var(--stage-label-strong); }
 
-.colour-space-ring {
+.point-stage-ring {
     position: absolute;
     left: 0;
     top: 0;
@@ -392,7 +395,7 @@
     pointer-events: none;
 }
 
-.colour-space-tip {
+.point-stage-tip {
     position: absolute;
     left: 0;
     top: 0;
@@ -411,48 +414,47 @@
     pointer-events: none;
 }
 
-.colour-space-tip-thumb {
+.point-stage-tip-thumb {
     width: 100%;
     max-height: 8rem;
     object-fit: contain;
     background: var(--bg-2);
 }
 
-.colour-space-tip-title { font-weight: 600; font-family: var(--font-mono); }
+.point-stage-tip-title { font-weight: 600; font-family: var(--font-mono); }
 
-.colour-space-tip-values {
+.point-stage-tip-values {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
-.colour-space-swatch {
+.point-stage-swatch {
     width: var(--space-3);
     height: var(--space-3);
     border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
 }
 
-.colour-space-help {
+.point-stage-help {
     margin-top: var(--space-3);
     max-width: 48rem;
     font-size: var(--text-sm);
     color: var(--fg-2);
 }
 
-.colour-space-nogpu {
+.point-stage-nogpu {
     padding: var(--space-6);
     font-size: var(--text-sm);
     color: var(--stage-label-strong);
 }
 
-.colour-space--preview .colour-space-nogpu { padding: var(--space-3); }
+.point-stage--preview .point-stage-nogpu { padding: var(--space-3); }
 
 /* What the two kinds of light mean. */
-.colour-space-legend {
+.point-stage-legend {
     position: absolute;
     left: var(--space-4);
     right: var(--space-4);
@@ -465,23 +467,31 @@
     pointer-events: none;
 }
 
-.colour-space-legend-item {
+.point-stage-legend-item {
     display: flex;
     align-items: center;
     gap: var(--space-2);
 }
 
-.colour-space-legend-dot,
-.colour-space-legend-step {
+.point-stage-legend-dot,
+.point-stage-legend-step {
     flex-shrink: 0;
     border-radius: var(--radius-full);
     background: var(--stage-label-strong);
 }
 
-.colour-space-legend-dot { width: var(--space-1); height: var(--space-1); }
+.point-stage-legend-dot { width: var(--space-1); height: var(--space-1); }
+
+/* A category, such as a camera: the colour its photos glow in. */
+.point-stage-legend-swatch {
+    flex-shrink: 0;
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: var(--radius-full);
+}
 
 /* A larger light on a short line, as the trail draws a period. */
-.colour-space-legend-step {
+.point-stage-legend-step {
     position: relative;
     width: var(--space-2);
     height: var(--space-2);
@@ -489,7 +499,7 @@
     box-shadow: 0 0 0 var(--space-1) rgba(235, 240, 250, 0.15);
 }
 
-.colour-space-legend-step::before {
+.point-stage-legend-step::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -515,7 +525,7 @@
 .stats-place--stage .stats-head,
 .stats-place--stage .stats-incomplete,
 .stats-place--stage .stats-chart-subtitle,
-.stats-place--stage .colour-space-help { display: none; }
+.stats-place--stage .point-stage-help { display: none; }
 
 .stats-place--stage .stats-main {
     padding: 0;
@@ -554,7 +564,7 @@
     margin-top: 0;
 }
 
-.stats-place--stage .colour-space {
+.stats-place--stage .point-stage {
     height: 100%;
     border-radius: 0;
 }

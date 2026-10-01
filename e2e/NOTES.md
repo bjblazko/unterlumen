@@ -1,6 +1,6 @@
 # E2E Test Notes
 
-*Last modified: 2026-09-30*
+*Last modified: 2026-10-01*
 
 Non-obvious patterns and traps discovered during test development.
 
@@ -87,3 +87,7 @@ Downloaded via `e2e/fixtures/setup.sh`, gitignored. Sources: ianare/exif-samples
 ## Map tiles
 
 `map.spec.js` routes `https://tiles.openfreemap.org/**` to an empty MapLibre style (one background layer) before opening `#map`. The markers come from the app's own GeoJSON source, so the tests need no tiles and run offline; waiting for real tiles made the spec depend on the network. Assert on `.map-marker` and `.map-count`, never on the canvas.
+
+## WebGPU stages
+
+Headless Chromium in the e2e run has no WebGPU, so the 3D topics (Colour space, Exposure space, Daylight, Character, Space and time) show their "needs WebGPU" sentence. Their specs ask `navigator.gpu.requestAdapter()` and assert the canvas or the sentence, whichever applies. A test that needs the canvas skips itself without it. To look at the drawing, use a Playwright script with `channel: 'chrome'` and `--enable-unsafe-webgpu`, which has WebGPU headless on macOS. Run such a scratch server on a port other than 8083, which `site-album-register.spec.js` uses for its second installation.

@@ -96,7 +96,7 @@ class StatsPane {
     /* --- Head: where we are, what is counted --- */
 
     _drawHead(topic) {
-        const hasTimeline = topic ? topic.charts.some(c => ['tl', 'colour', 'colourSpace'].includes(c.source)) : false;
+        const hasTimeline = topic ? topic.charts.some(c => ['tl', 'colour', 'colourSpace', 'exposureSpace'].includes(c.source) && c.periods !== false) : false;
         this._head.innerHTML = `
             ${topic ? `<a class="btn btn-sm stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2L3 6l4 4"/></svg>
@@ -179,18 +179,20 @@ class StatsPane {
     }
 
     // The overview's cards and every topic with a development over time need
-    // the timeline, the colours or the colour space as well.
+    // the timeline, the colours or the points of a 3D view as well.
     async _read(topic) {
         const scope = this._scopeParams();
         const over = { ...scope, ...(this._granularity ? { granularity: this._granularity } : {}) };
         const needs = source => !topic || topic.charts.some(c => c.source === source);
-        const [snap, tl, colour, colourSpace] = await Promise.all([
+        const [snap, tl, colour, colourSpace, exposureSpace, spaceTime] = await Promise.all([
             this._fetch('/api/library/statistics', scope),
             needs('tl') ? this._fetch('/api/library/timeline', over) : null,
             needs('colour') ? this._fetch('/api/library/colour', over) : null,
             needs('colourSpace') ? this._fetch('/api/library/colour-space', over) : null,
+            needs('exposureSpace') ? this._fetch('/api/library/exposure-space', over) : null,
+            needs('spaceTime') ? this._fetch('/api/library/space-time', scope) : null,
         ]);
-        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour), colourSpace };
+        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour), colourSpace, exposureSpace, spaceTime };
     }
 
     async _fetch(url, params) {

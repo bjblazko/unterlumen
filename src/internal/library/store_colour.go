@@ -116,6 +116,11 @@ type ColourPoint struct {
 	Date   string // date taken as stored, "" when unknown
 	Mono   string // mono, tinted or colour
 	Colour LCh
+	Lum    float64 // mean brightness, 0…1
+	// Contrast is the standard deviation of lightness; Colourful the
+	// Hasler–Süsstrunk colourfulness, about 0 for grey and above 100 when vivid.
+	Contrast  float64
+	Colourful float64
 }
 
 // ColourPoints reads every analysed photo within pathPrefix, or the whole
@@ -132,7 +137,8 @@ func (s *Store) ColourPoints(pathPrefix string) ([]ColourPoint, error) {
 	// its EXIF, which took 1.2 s instead of 0.2 s on 32,000 photos.
 	rows, err := s.db.Query(`
 		SELECT p.id, COALESCE(p.date_taken, ''), a.mono_class,
-		       COALESCE(m.l, a.avg_l, 0), COALESCE(m.c, a.avg_c, 0), COALESCE(m.h, a.avg_h, 0)
+		       COALESCE(m.l, a.avg_l, 0), COALESCE(m.c, a.avg_c, 0), COALESCE(m.h, a.avg_h, 0),
+		       COALESCE(a.lum_mean, 0), COALESCE(a.contrast, 0), COALESCE(a.colourfulness, 0)
 		FROM photos p
 		JOIN photo_appearance a ON a.photo_id = p.id
 		LEFT JOIN (SELECT photo_id, l, c, h, MIN(rank) FROM photo_palette
@@ -145,7 +151,7 @@ func (s *Store) ColourPoints(pathPrefix string) ([]ColourPoint, error) {
 	out := []ColourPoint{}
 	err = scanRows(rows, func() error {
 		var c ColourPoint
-		if err := rows.Scan(&c.ID, &c.Date, &c.Mono, &c.Colour.L, &c.Colour.C, &c.Colour.H); err != nil {
+		if err := rows.Scan(&c.ID, &c.Date, &c.Mono, &c.Colour.L, &c.Colour.C, &c.Colour.H, &c.Lum, &c.Contrast, &c.Colourful); err != nil {
 			return err
 		}
 		out = append(out, c)

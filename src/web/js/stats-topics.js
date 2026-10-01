@@ -120,15 +120,68 @@ const STATS_TOPICS = [
         charts: [
             { title: 'Colour space', subtitle: 'Each photo at its main colour in OKLab, with a trail through the mean colour of each period', source: 'colourSpace', full: true, stage: true,
               render: (el, d, pick) => renderColourSpace(el, d.colourSpace, v => pick(v.photo
-                  ? { subject: `One photo · ${v.photo.date ? v.photo.date.slice(0, 10) : 'no date'}`, params: { photo_id: v.photo.id } }
+                  ? photoCriterion(v.photo)
                   : { subject: `Colour photos · ${v.step.period}`, params: { mono: 'colour', ...periodDates(v.step.period) } })) },
+        ],
+    },
+    {
+        id: 'exposure-space',
+        label: 'Exposure space',
+        wide: true,
+        blurb: 'Every photo by focal length, aperture and ISO, coloured by camera: how you photograph, as clusters in three dimensions.',
+        preview: (el, d) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, null, { preview: true }),
+        charts: [
+            { title: 'Exposure space', subtitle: 'Focal length, aperture and ISO of each photo, in stops and coloured by camera, with a trail through the median settings of each period', source: 'exposureSpace', full: true, stage: true,
+              render: (el, d, pick) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
+        ],
+    },
+    {
+        id: 'daylight',
+        label: 'Daylight',
+        wide: true,
+        blurb: 'Every photo by day of the year, hour and brightness: summer evenings, winter mornings and bright noons.',
+        preview: (el, d) => renderDaylight(el, d.colourSpace, null, { preview: true }),
+        charts: [
+            { title: 'Daylight', subtitle: 'Day of the year around, hour outward, brightness up; each photo in its main colour, with a trail through the months of the year', source: 'colourSpace', periods: false, full: true, stage: true,
+              render: (el, d, pick) => renderDaylight(el, d.colourSpace, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `${MONTHS[v.month - 1]} · all years`, params: { month: v.month } })) },
+        ],
+    },
+    {
+        id: 'character',
+        label: 'Character',
+        wide: true,
+        blurb: 'Every photo by brightness, contrast and colourfulness: the moods of your pictures as clusters.',
+        preview: (el, d) => renderCharacter(el, d.colourSpace, null, { preview: true }),
+        charts: [
+            { title: 'Character', subtitle: 'Brightness across, contrast in depth, colourfulness up; each photo in its main colour, with a trail through the average of each period', source: 'colourSpace', full: true, stage: true,
+              render: (el, d, pick) => renderCharacter(el, d.colourSpace, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
+        ],
+    },
+    {
+        id: 'space-time',
+        label: 'Space and time',
+        wide: true,
+        blurb: 'Every photo with a location by where and when it was taken: home as a column of light, journeys as trails out into the world.',
+        preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
+        charts: [
+            { title: 'Space and time', subtitle: 'Where on the floor, around the middle of your photos with distance on a log scale; when, upward; a trail through the days', source: 'spaceTime', periods: false, full: true, stage: true,
+              render: (el, d, pick) => renderSpaceTime(el, d.spaceTime, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: v.day, params: { date_taken_min: v.day, date_taken_max: v.day } })) },
         ],
     },
 ];
 
 // A topic may be wide: its charts take the width of the page instead of
 // the reading width. A chart may be a stage: a Full view button shows it,
-// and the photos beside it, over the whole window in the dark.
+// and the photos beside it, over the whole window in the dark. A chart with
+// periods: false has no use for the Periods select, though its source has.
 
 // The swatch a hue must cover to be a main colour of a photo; the server's
 // HueShareMin.
@@ -143,6 +196,11 @@ const capitalise = s => s.charAt(0).toUpperCase() + s.slice(1);
 function cameraCriterion({ camera, lens }) {
     if (!lens || lens === '(no lens)' || lens === '(unknown)') return { subject: camera, params: { Model: camera } };
     return { subject: `${camera} · ${lens}`, params: { Model: camera, LensModel: lens } };
+}
+
+// One photo, picked as a light on a 3D stage.
+function photoCriterion({ id, date }) {
+    return { subject: `One photo · ${date ? date.slice(0, 10) : 'no date'}`, params: { photo_id: id } };
 }
 
 function periodCriterion({ period }) {

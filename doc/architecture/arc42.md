@@ -154,7 +154,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
-| `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`), statistics, timeline, colour (`/api/library/colour`) and the colour space's points (`/api/library/colour-space`, [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)); the search filters by appearance (`mono`, `hue_bin`, `warmth`, `month`) and by one photo (`photo_id`). The library database's indexes cover these queries ([ADR-0045](adr/0045-indexes-cover-statistics-and-search.md)) |
+| `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`), statistics, timeline, colour (`/api/library/colour`) the points of the 3D views (`/api/library/colour-space`, `/api/library/exposure-space`, `/api/library/space-time`, [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)); the search filters by appearance (`mono`, `hue_bin`, `warmth`, `month`) and by one photo (`photo_id`). The library database's indexes cover these queries ([ADR-0045](adr/0045-indexes-cover-statistics-and-search.md)) |
 | `internal/timeline` | Every dated photo of every library as one stream, oldest first, each photo once; display aspect ratios, versioned by the libraries' content stamps and cached ([ADR-0040](adr/0040-timeline-place.md)) |
 | `internal/api/timeline` | `/api/timeline` (skeleton: a day and an aspect ratio per photo) and `/api/timeline/photos` (details by index range, 409 when the stream changed) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
@@ -210,13 +210,19 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `stats-place.js` | `StatsPane` — the Statistics place (`#statistics[/<topic>]`): scope in the head, overview cards, a topic's charts, the photos of a picked value in a `PhotoColumn`, and the Full view of a stage chart ([ADR-0043](adr/0043-statistics-place-with-topics.md)) |
 | `stats-topics.js` | `STATS_TOPICS` — the topics and their charts, the criterion each click turns into, and the place's address |
 | `gpu-stage.js` | WebGPU basics for 3D views: the page's device, `GpuStage` (a canvas that follows its size and draws only while something moves) and `OrbitCamera` ([ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)) |
-| `colour-space-gpu.js` | `ColourSpaceScene` — the Colour space's WGSL and pipelines: glowing lights, the trail, the floor |
-| `colour-space-view.js` | `renderColourSpace` — the Colour space topic: labels, legend, turning and zooming, hover and click |
+| `point-scene.js` | `PointScene` — the WGSL and pipelines of a 3D stage: glowing lights, the trail, faint lines, tone mapping; colour helpers |
+| `point-stage.js` | `renderPointStage` / `PointStage` — a 3D stage of photos as lights: labels, legend, turning and zooming, hover and click |
+| `colour-space-view.js` | The Colour space topic: photos at their main colour in OKLab |
+| `exposure-space-view.js` | The Exposure space topic: photos by focal length, aperture and ISO, coloured by camera |
+| `daylight-view.js` | The Daylight topic: photos by day of the year, hour and brightness |
+| `character-view.js` | The Character topic: photos by brightness, contrast and colourfulness |
+| `space-time-view.js` | The Space and time topic: photos by where (log distance around the middle of the photos) and when, over the world outline |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |
 | `stats-colour-charts.js` | Colour charts from `/api/library/colour`: black and white against colour, a swatch strip per period, a hue wheel, warm and cool per month; marks in the photos' own colour (ADR-0030, Deviations) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
 | `js/vendor/maplibre-6.11.2/` | Vendored MapLibre GL JS 6.11.2 as ES modules, loaded as the global `maplibregl` ([ADR-0038](adr/0038-maplibre-6-as-es-module.md)) for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
+| `data/natural-earth-lines.json` | Natural Earth 1:50m coastlines and land borders (public domain), simplified and delta-encoded, for the floor of Space and time ([ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)) |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
 
 ## 6. Runtime View
@@ -374,7 +380,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0043](adr/0043-statistics-place-with-topics.md) — Statistics is a place with topics
 - [ADR-0044](adr/0044-photo-appearance-from-thumbnails.md) — What a photo looks like is measured from its thumbnail
 - [ADR-0045](adr/0045-indexes-cover-statistics-and-search.md) — Indexes cover what the statistics and the search read
-- [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md) — The Colour space draws with WebGPU, on a glowing stage
+- [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md) — The 3D views draw with WebGPU, on a glowing stage
 
 ## 10. Quality Requirements
 

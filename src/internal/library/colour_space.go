@@ -27,6 +27,10 @@ type ColourSpacePoints struct {
 	L    []float64 `json:"l"`
 	A    []float64 `json:"a"`
 	B    []float64 `json:"b"`
+	Lum  []float64 `json:"lum"` // mean brightness 0…1, for Daylight and Character
+	// Contrast and Colourful are for the Character space.
+	Contrast  []float64 `json:"contrast"`
+	Colourful []float64 `json:"colourful"`
 }
 
 // ColourSpaceStep is one period on the path: the mean OKLab colour of its
@@ -51,7 +55,8 @@ type LibraryPoints struct {
 func BuildColourSpace(libs []LibraryPoints, granularity string) *ColourSpace {
 	cs := &ColourSpace{Libraries: []string{}, Path: []ColourSpaceStep{}, Points: ColourSpacePoints{
 		ID: []string{}, Lib: []int{}, Date: []string{}, Mono: []string{},
-		L: []float64{}, A: []float64{}, B: []float64{},
+		L: []float64{}, A: []float64{}, B: []float64{}, Lum: []float64{},
+		Contrast: []float64{}, Colourful: []float64{},
 	}}
 	var all []ColourPoint
 	for i, l := range libs {
@@ -64,7 +69,7 @@ func BuildColourSpace(libs []LibraryPoints, granularity string) *ColourSpace {
 	}
 	cs.AnalysedPhotos = len(all)
 	if granularity != "month" && granularity != "year" {
-		granularity = pointGranularity(all)
+		granularity = datesGranularity(all, func(p ColourPoint) string { return p.Date })
 	}
 	cs.Granularity = granularity
 	cs.Path = colourPath(all, granularity)
@@ -80,6 +85,9 @@ func (ps *ColourSpacePoints) add(p ColourPoint, lib int) {
 	ps.L = append(ps.L, round4(p.Colour.L))
 	ps.A = append(ps.A, round4(a))
 	ps.B = append(ps.B, round4(b))
+	ps.Lum = append(ps.Lum, round4(p.Lum))
+	ps.Contrast = append(ps.Contrast, round4(p.Contrast))
+	ps.Colourful = append(ps.Colourful, math.Round(p.Colourful*10)/10)
 }
 
 func labAB(c LCh) (a, b float64) {
@@ -88,23 +96,6 @@ func labAB(c LCh) (a, b float64) {
 }
 
 func round4(v float64) float64 { return math.Round(v*1e4) / 1e4 }
-
-func pointGranularity(points []ColourPoint) string {
-	lo, hi := "", ""
-	for _, p := range points {
-		if len(p.Date) < 7 {
-			continue
-		}
-		if lo == "" || p.Date[:7] < lo {
-			lo = p.Date[:7]
-		}
-		hi = max(hi, p.Date[:7])
-	}
-	if lo == "" {
-		return "month"
-	}
-	return granularityForSpan(lo, hi)
-}
 
 // colourPath averages the colour photos of each period in OKLab: a and b
 // separately, so opposite hues cancel out as they do for the eye.
