@@ -31,6 +31,7 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **Axes:** each photo's average or main colour in CIELAB or HSL: hue, saturation and lightness.
 - **Encoding:** lines connecting photos in the order they were taken.
 - **What it shows:** the library as a cloud of colours. The path through it shows colour periods, such as dark winter months against saturated summer holidays.
+- Taken up on 2026-10-01: [Statistics: Colour space](../features/done/2026-10-01-statistics-colour-space.md), [ADR-0046](../architecture/adr/0046-colour-space-webgpu-glow-stage.md).
 
 ### 3. Exposure parameter cube (photographic style space)
 
@@ -65,7 +66,7 @@ Colour per photo, image entropy and a perceptual hash are collected since 2026-1
 - **Image entropy** (idea 6): one more value per photo at indexing.
 - **Embeddings** (idea 4): a vision model has to run somewhere. Running it locally keeps the photos on the machine but needs a model runtime next to the Go binary. Sending photos to a service would be a change in what Unterlumen does with photos and needs a decision of its own. The reduction to 3D (UMAP) is computed once per library and redone when photos change.
 - **Graph edges** (idea 5): similarity between photos, from colours or embeddings; closeness in time and on the map can be computed from what the index holds.
-- **WebGPU for the 3D views.** D3 draws in two dimensions; the 3D views are meant to draw with WebGPU in the browser, which handles tens of thousands of points and columns. Whether directly or through a library with a WebGPU renderer (three.js has one) is open; a library would be vendored like D3 ([ADR-0017](../architecture/adr/0017-d3-vendored-bundle.md)) and MapLibre ([ADR-0031](../architecture/adr/0031-vendor-maplibre.md)). To check: which browsers the owner and the NAS's visitors use support WebGPU, and what a browser without it shows instead (the 2D charts, or WebGL). The base maps of ideas 1 and 6 could come from MapLibre, which can draw extruded columns itself.
+- **WebGPU for the 3D views.** D3 draws in two dimensions; the 3D views are meant to draw with WebGPU in the browser, which handles tens of thousands of points and columns. Whether directly or through a library with a WebGPU renderer (three.js has one) is open; a library would be vendored like D3 ([ADR-0017](../architecture/adr/0017-d3-vendored-bundle.md)) and MapLibre ([ADR-0031](../architecture/adr/0031-vendor-maplibre.md)). Decided for the colour space ([ADR-0046](../architecture/adr/0046-colour-space-webgpu-glow-stage.md)): WebGPU directly, without a library or a fallback. A browser without it gets a sentence. The base maps of ideas 1 and 6 could come from MapLibre, which can draw extruded columns itself.
 
 ## Design questions
 

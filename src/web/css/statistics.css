@@ -169,6 +169,15 @@
 
 .stats-chart--full { grid-column: 1 / -1; }
 
+.stats-grid--wide { max-width: none; }
+
+.stats-chart-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
 .stats-chart-title {
     font-size: var(--text-sm);
     font-weight: 600;
@@ -312,4 +321,240 @@
     .stats-body { flex-direction: column; }
     .stats-grid { grid-template-columns: minmax(0, 1fr); }
     .stats-folder-path { max-width: 12rem; }
+}
+
+/* --- Colour space ---
+   A recorded deviation (ADR-0030, ADR-0046): a dark stage in both themes,
+   on which the photos glow in their own colours. The stage keeps its own
+   colours; nothing outside the canvas uses them. */
+
+.colour-space {
+    --stage-bg: #07080b;
+    --stage-label: rgba(200, 210, 230, 0.62);
+    --stage-label-strong: rgba(235, 240, 250, 0.92);
+    position: relative;
+    height: clamp(20rem, calc(100vh - 16rem), 60rem);
+    overflow: hidden;
+    background: var(--stage-bg);
+    border-radius: var(--radius-md);
+}
+
+.colour-space--preview {
+    height: 9rem;
+    min-height: 0;
+}
+
+.colour-space-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+}
+
+.colour-space-canvas:active { cursor: grabbing; }
+
+.colour-space-canvas:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.colour-space-labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.colour-space-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    translate: -50% -50%;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--stage-label);
+    white-space: nowrap;
+}
+
+.colour-space-label--axis { translate: var(--space-2) -50%; }
+.colour-space-label--period { translate: var(--space-3) calc(-100% - var(--space-1)); color: var(--stage-label-strong); }
+
+.colour-space-ring {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--space-6);
+    height: var(--space-6);
+    translate: -50% -50%;
+    border: 1px solid var(--stage-label-strong);
+    border-radius: var(--radius-full);
+    pointer-events: none;
+}
+
+.colour-space-tip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-width: 14rem;
+    padding: var(--space-2);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-float);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--fg);
+    pointer-events: none;
+}
+
+.colour-space-tip-thumb {
+    width: 100%;
+    max-height: 8rem;
+    object-fit: contain;
+    background: var(--bg-2);
+}
+
+.colour-space-tip-title { font-weight: 600; font-family: var(--font-mono); }
+
+.colour-space-tip-values {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.colour-space-swatch {
+    width: var(--space-3);
+    height: var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+}
+
+.colour-space-help {
+    margin-top: var(--space-3);
+    max-width: 48rem;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.colour-space-nogpu {
+    padding: var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--stage-label-strong);
+}
+
+.colour-space--preview .colour-space-nogpu { padding: var(--space-3); }
+
+/* What the two kinds of light mean. */
+.colour-space-legend {
+    position: absolute;
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-6);
+    font-size: var(--text-xs);
+    color: var(--stage-label-strong);
+    pointer-events: none;
+}
+
+.colour-space-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.colour-space-legend-dot,
+.colour-space-legend-step {
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    background: var(--stage-label-strong);
+}
+
+.colour-space-legend-dot { width: var(--space-1); height: var(--space-1); }
+
+/* A larger light on a short line, as the trail draws a period. */
+.colour-space-legend-step {
+    position: relative;
+    width: var(--space-2);
+    height: var(--space-2);
+    margin: 0 var(--space-3);
+    box-shadow: 0 0 0 var(--space-1) rgba(235, 240, 250, 0.15);
+}
+
+.colour-space-legend-step::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(-1 * var(--space-3));
+    width: calc(var(--space-8) - var(--space-2));
+    height: 1px;
+    background: var(--stage-label-strong);
+    translate: 0 -50%;
+}
+
+/* --- Full view ---
+   The stage chart and the photo column over the whole window, dark in both
+   themes (data-theme="dark" on the place). */
+
+.stats-place--stage {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: var(--bg);
+    color: var(--fg);
+}
+
+.stats-place--stage .stats-head,
+.stats-place--stage .stats-incomplete,
+.stats-place--stage .stats-chart-subtitle,
+.stats-place--stage .colour-space-help { display: none; }
+
+.stats-place--stage .stats-main {
+    padding: 0;
+    overflow: hidden;
+}
+
+.stats-place--stage .stats-grid {
+    display: block;
+    height: 100%;
+}
+
+.stats-place--stage .stats-chart {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+}
+
+.stats-place--stage .stats-chart-head {
+    position: absolute;
+    top: var(--space-4);
+    left: var(--space-4);
+    right: var(--space-4);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.stats-place--stage .stats-chart-head > * { pointer-events: auto; }
+
+.stats-place--stage .stats-chart-content {
+    flex: 1;
+    min-height: 0;
+    margin-top: 0;
+}
+
+.stats-place--stage .colour-space {
+    height: 100%;
+    border-radius: 0;
 }

@@ -37,6 +37,7 @@ type ListPhotosOpts struct {
 	Mono           string                   // mono, tinted or colour (photo_appearance)
 	HueBin         *int                     // a main colour: a swatch of this 30° sector, 0–11, of at least HueShareMin
 	Warmth         string                   // warm or cool, beyond WarmthThreshold
+	PhotoID        string                   // one photo, by its id
 	Offset         int
 	Limit          int
 }
@@ -177,6 +178,9 @@ func (f *photoFilter) addDatesAndExt(opts ListPhotosOpts) {
 	}
 	if opts.ExtFilter != "" {
 		f.cond(`p.ext = ?`, opts.ExtFilter)
+	}
+	if opts.PhotoID != "" {
+		f.cond(`p.id = ?`, opts.PhotoID)
 	}
 }
 

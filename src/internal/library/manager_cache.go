@@ -25,6 +25,7 @@ func (m *Manager) InvalidateStatsCache(id string) {
 	dropEntriesOf(&m.statsCache, id)
 	dropEntriesOf(&m.timelineCache, id)
 	dropEntriesOf(&m.colourCache, id)
+	dropEntriesOf(&m.colourSpaceCache, id)
 	dropEntriesOf(&m.exifRangesCache, id)
 	dropEntriesOf(&m.exifValuesCache, id)
 	// Folder stats keys are "<libID>|<absPath>" — prefix match is exact.

@@ -36,6 +36,7 @@ func TestProbeTimings(t *testing.T) {
 	timed("Statistics (root)", func() error { _, err := s.Statistics(root); return err })
 	timed("Timeline", func() error { _, err := s.Timeline("", ""); return err })
 	timed("ColourSource", func() error { _, err := s.ColourSource(""); return err })
+	timed("ColourPoints", func() error { _, err := s.ColourPoints(""); return err })
 	timed("FolderStats (root)", func() error { _, err := s.FolderStats(root); return err })
 	f := func(v float64) map[string]NumericFilter {
 		return map[string]NumericFilter{"FNumber": {Min: v, Max: v + 0.7}}

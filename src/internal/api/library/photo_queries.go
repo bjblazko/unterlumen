@@ -304,6 +304,18 @@ func libraryColour(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+func libraryColourSpace(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids, pathPrefix, granularity := timeScope(r)
+		cs, err := mgr.ColourSpace(ids, pathPrefix, granularity)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, cs)
+	}
+}
+
 // timeScope reads the libraries, folder and granularity of a statistic over
 // time; a granularity other than month or year is chosen by the server.
 func timeScope(r *http.Request) (ids []string, pathPrefix, granularity string) {

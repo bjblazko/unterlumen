@@ -114,7 +114,7 @@ class GlobalKeyboard {
             if (app._mapPane.closePhotos()) e.preventDefault();
         } else if (app.mode === 'statistics' && app._statsPane) {
             if (this._viewerOpen()) return;
-            if (app._statsPane.closePhotos()) e.preventDefault();
+            if (app._statsPane.leaveStage() || app._statsPane.closePhotos()) e.preventDefault();
         } else if (app.mode === 'settings') {
             // Escape is Done: back to where Settings was opened from.
             e.preventDefault();

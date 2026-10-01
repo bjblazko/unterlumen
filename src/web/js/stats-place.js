@@ -19,6 +19,7 @@ class StatsPane {
     // kept open (photoColumnStartsOpen), else the column closes.
     show(route) {
         this._route = route;
+        this._setStage(false);
         this._hidePhotos();
         this._allPhotosDue = photoColumnStartsOpen(STATS_PHOTOS_KEY);
         return this.render();
@@ -50,9 +51,10 @@ class StatsPane {
         if (data.snap.totalPhotos === 0) { this._note(this._nothingCounted(data.snap)); return; }
         this._noteEl.hidden = true;
         this._main.innerHTML = '';
-        this._drawIndexing(data.snap, topic && data.colour);
+        this._drawIndexing(data.snap, topic && (data.colour || data.colourSpace));
         if (topic) this._drawTopic(topic, data);
         else this._drawOverview(data);
+        this._labelStageButton();
         this._drawn = true;
         if (this._allPhotosDue) {
             this._allPhotosDue = false;
@@ -94,7 +96,7 @@ class StatsPane {
     /* --- Head: where we are, what is counted --- */
 
     _drawHead(topic) {
-        const hasTimeline = topic ? topic.charts.some(c => c.source === 'tl' || c.source === 'colour') : false;
+        const hasTimeline = topic ? topic.charts.some(c => ['tl', 'colour', 'colourSpace'].includes(c.source)) : false;
         this._head.innerHTML = `
             ${topic ? `<a class="btn btn-sm stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2L3 6l4 4"/></svg>
@@ -177,17 +179,18 @@ class StatsPane {
     }
 
     // The overview's cards and every topic with a development over time need
-    // the timeline or the colours as well.
+    // the timeline, the colours or the colour space as well.
     async _read(topic) {
         const scope = this._scopeParams();
         const over = { ...scope, ...(this._granularity ? { granularity: this._granularity } : {}) };
         const needs = source => !topic || topic.charts.some(c => c.source === source);
-        const [snap, tl, colour] = await Promise.all([
+        const [snap, tl, colour, colourSpace] = await Promise.all([
             this._fetch('/api/library/statistics', scope),
             needs('tl') ? this._fetch('/api/library/timeline', over) : null,
             needs('colour') ? this._fetch('/api/library/colour', over) : null,
+            needs('colourSpace') ? this._fetch('/api/library/colour-space', over) : null,
         ]);
-        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour) };
+        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour), colourSpace };
     }
 
     async _fetch(url, params) {
@@ -243,7 +246,7 @@ class StatsPane {
 
     _drawTopic(topic, data) {
         const grid = document.createElement('div');
-        grid.className = 'stats-grid';
+        grid.className = 'stats-grid' + (topic.wide ? ' stats-grid--wide' : '');
         for (const chart of topic.charts) {
             if (chart.when && !chart.when(data)) continue;
             grid.appendChild(this._chartCard(chart, data));
@@ -256,12 +259,41 @@ class StatsPane {
         card.className = 'stats-chart' + (chart.full ? ' stats-chart--full' : '');
         const coverage = chart.coverage ? coverageLine(chart.coverage(data), data.snap.totalPhotos) : '';
         const sub = [chart.subtitle, coverage].filter(Boolean).join(' · ');
+        const title = `<h2 class="stats-chart-title">${escapeHtml(chart.title)}</h2>`;
         card.innerHTML = `
-            <h2 class="stats-chart-title">${escapeHtml(chart.title)}</h2>
+            ${chart.stage ? `<div class="stats-chart-head">${title}<button class="btn btn-sm stats-stage-btn"></button></div>` : title}
             ${sub ? `<p class="stats-chart-subtitle">${escapeHtml(sub)}</p>` : ''}
             <div class="stats-chart-content"></div>`;
+        card.querySelector('.stats-stage-btn')?.addEventListener('click', () => this._setStage(!this._stage));
         drawSafely(card.querySelector('.stats-chart-content'), el => chart.render(el, data, c => this._pick(c)));
         return card;
+    }
+
+    /* --- Full view --- */
+
+    // A stage chart and the photo column over the whole window, dark in
+    // both themes (ADR-0046); the head and the other charts step aside.
+    _setStage(on) {
+        this._stage = on;
+        const place = this.container.querySelector('.stats-place');
+        if (!place) return;
+        place.classList.toggle('stats-place--stage', on);
+        if (on) place.dataset.theme = 'dark';
+        else delete place.dataset.theme;
+        this._labelStageButton();
+    }
+
+    _labelStageButton() {
+        const btn = this._main?.querySelector('.stats-stage-btn');
+        if (btn) btn.textContent = this._stage ? 'Leave full view' : 'Full view';
+    }
+
+    // Escape leaves the full view before it closes the photos; returns
+    // whether there was one to leave.
+    leaveStage() {
+        if (!this._stage) return false;
+        this._setStage(false);
+        return true;
     }
 
     /* --- The photos of a picked value --- */

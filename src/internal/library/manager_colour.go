@@ -31,3 +31,36 @@ func (m *Manager) Colour(ids []string, pathPrefix, granularity string) (*Library
 	m.colourCache.Store(key, c)
 	return c, nil
 }
+
+// ColourSpace returns the points of the Colour space across the requested
+// libraries (or all if ids is nil).
+func (m *Manager) ColourSpace(ids []string, pathPrefix, granularity string) (*ColourSpace, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix, granularity)
+	if v, ok := m.colourSpaceCache.Load(key); ok {
+		return v.(*ColourSpace), nil
+	}
+	var all []LibraryPoints
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		points, err := store.ColourPoints(pathPrefix)
+		var unanalysed int
+		if err == nil {
+			unanalysed, err = store.UnanalysedCount(pathPrefix)
+		}
+		store.Close()
+		if err != nil {
+			continue
+		}
+		all = append(all, LibraryPoints{LibraryID: l.ID, Points: points, Unanalysed: unanalysed})
+	}
+	cs := BuildColourSpace(all, granularity)
+	m.colourSpaceCache.Store(key, cs)
+	return cs, nil
+}

@@ -111,7 +111,24 @@ const STATS_TOPICS = [
               })) },
         ],
     },
+    {
+        id: 'colour-space',
+        label: 'Colour space',
+        wide: true,
+        blurb: 'Every photo as a point of light at its main colour, and the path the periods took through the colours.',
+        preview: (el, d) => renderColourSpace(el, d.colourSpace, null, { preview: true }),
+        charts: [
+            { title: 'Colour space', subtitle: 'Each photo at its main colour in OKLab, with a trail through the mean colour of each period', source: 'colourSpace', full: true, stage: true,
+              render: (el, d, pick) => renderColourSpace(el, d.colourSpace, v => pick(v.photo
+                  ? { subject: `One photo · ${v.photo.date ? v.photo.date.slice(0, 10) : 'no date'}`, params: { photo_id: v.photo.id } }
+                  : { subject: `Colour photos · ${v.step.period}`, params: { mono: 'colour', ...periodDates(v.step.period) } })) },
+        ],
+    },
 ];
+
+// A topic may be wide: its charts take the width of the page instead of
+// the reading width. A chart may be a stage: a Full view button shows it,
+// and the photos beside it, over the whole window in the dark.
 
 // The swatch a hue must cover to be a main colour of a photo; the server's
 // HueShareMin.

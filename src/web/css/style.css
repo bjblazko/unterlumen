@@ -157,7 +157,9 @@
     --target-min:   44px;
 }
 
-:root[data-theme="dark"] {
+/* An element may be dark in a light app (the Statistics full view). */
+:root[data-theme="dark"],
+[data-theme="dark"] {
     color-scheme: dark;
 
     --bg:          #161718;
