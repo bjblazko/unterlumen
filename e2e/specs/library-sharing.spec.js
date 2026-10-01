@@ -40,8 +40,11 @@ test.describe('Sharing a library between two installations', () => {
     test.beforeAll(async () => {
         home = fs.mkdtempSync(path.join(os.tmpdir(), 'unterlumen-libshare-'));
         photos = path.join(home, 'photos');
-        fs.cpSync(path.join(ROOT, 'fixtures', 'photos', 'folder-a'), path.join(photos, 'Travel'), { recursive: true });
-        fs.cpSync(path.join(ROOT, 'fixtures', 'photos', 'folder-b'), path.join(photos, 'Projects'), { recursive: true });
+        // Travel is read twice (New library, and the NAS before the field
+        // test): the JPEGs of folder-b read fast enough for CI; the HEIFs of
+        // folder-a go where nothing reads them.
+        fs.cpSync(path.join(ROOT, 'fixtures', 'photos', 'folder-b'), path.join(photos, 'Travel'), { recursive: true });
+        fs.cpSync(path.join(ROOT, 'fixtures', 'photos', 'folder-a'), path.join(photos, 'Projects'), { recursive: true });
         for (const inst of [NAS, MAC]) {
             const env = { ...process.env, UNTERLUMEN_LIB_DIR: path.join(home, `data-${inst.port}`) };
             for (const k of ['UNTERLUMEN_CHANNELS_DIR', 'UNTERLUMEN_ROOT_PATH', 'UNTERLUMEN_PORT']) delete env[k];

@@ -272,9 +272,11 @@ class FolderDashboard {
             const max = Math.max(...stats.cameraLens.map(cl => cl.count), 1);
             const items = stats.cameraLens.slice(0, 5).map(cl => {
                 const pct = Math.round((cl.count / max) * 100);
-                const cam = cl.camera || 'Unknown';
-                const lens = cl.lens || '—';
-                const label = cam + (lens !== '—' ? ' / ' + lens : '');
+                // EXIF values come quoted from the index; a camera without a
+                // lens (a phone, a compact) is named alone.
+                const cam = this.panel.stripQuotes(cl.camera) || 'Unknown';
+                const lens = this.panel.stripQuotes(cl.lens);
+                const label = cam + (lens && lens !== '(no lens)' ? ' / ' + lens : '');
                 return `<div class="folder-cam-item">` +
                     `<div class="folder-cam-bar-row">` +
                     `<span class="folder-cam-count">${cl.count}x</span>` +
@@ -288,7 +290,7 @@ class FolderDashboard {
 
         // Shooting hours (24-bar chart)
         if (stats.shootingHours && stats.shootingHours.some(h => h > 0)) {
-            sections.push(this.panel.section('Shooting Hours', [this._renderHoursChart(stats.shootingHours)]));
+            sections.push(this.panel.section('Shooting hours', [this._renderHoursChart(stats.shootingHours)]));
         }
 
         return sections;

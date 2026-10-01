@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **The folder dashboard names cameras and lenses plainly.** In a library's info panel a selected folder listed them in quotes (`"iPhone" / (no lens)`); it now shows `iPhone`, and a lens only where there is one. "Shooting Hours" is "Shooting hours".
+
 ## [0.15.1] - 2026-10-01
 
 ### Changed

@@ -61,9 +61,9 @@ Marked photos disappear from Folders and libraries but stay on disk until you de
 
 #### Libraries
 
-A library indexes a folder tree once. Its folders then show what they hold: the four newest photos, how many there are and the years they span.
+A library indexes a folder tree once. Its folders then show what they hold: the four newest photos, how many there are and the years they span. Select a folder and the info panel describes it: its size and date range, its formats, the cameras and lenses it was shot with, and at which hours.
 
-![A library with its folders as tiles of four photos](doc/screenshots/library.webp)
+![A library with its folders as tiles of four photos, one selected, and the info panel describing that folder](doc/screenshots/library.webp)
 
 #### Libraries and the filter
 

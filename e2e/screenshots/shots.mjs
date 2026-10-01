@@ -111,12 +111,19 @@ export const shots = [
         },
     },
     {
+        // A folder selected, with the info panel's dashboard of it beside the
+        // tiles: what it holds, by type, camera and lens, and hour.
         name: 'library',
         take: async (page, { base }) => {
             await openLibrary(page, base);
             // The previews follow the folder names; wait for all four tiles.
             await page.waitForFunction(() => document.querySelectorAll('.folder-tile-mosaic img').length >= 13);
-            await settle(page, 2000);
+            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
+            await page.waitForSelector('.info-panel.expanded');
+            await page.locator('.folder-tile[data-name="Travel"]').click();
+            await page.waitForSelector('.info-panel.expanded .folder-type-chart');
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 2500);
         },
     },
     {
