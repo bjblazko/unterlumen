@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-10-01
+
 ### Changed
 - **Posts of a files destination show in Galleries.** A destination that only exports files, such as Instagram, keeps no list of what it published, so a gallery published there disappeared from Galleries and from Add to gallery, and only a photo's info panel still named it. Its posts are now listed from the photos' publication records, which come from the sidecars and so are the same on every installation: titled ones by their title, untitled ones as "Post of" their day, with their photo count. Adding photos to one records them under its title. A post's title, date and files cannot be changed or unpublished from Unterlumen.
 - **Slideshow has its own button.** It stands beside the ⋯ menu at the end of the path row, with a play mark, instead of inside the menu; on a phone the play mark alone.
