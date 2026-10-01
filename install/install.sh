@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs Unterlumen on macOS or Linux, with the helper programs it uses
 # (ffmpeg, exiftool, cwebp, heif-convert), and starts it. Running it again
-# updates it. The photo folder is chosen in the app afterwards.
+# updates it. Libraries are added in the app afterwards.
 #
 #   curl -fsSL https://huepattl.de/unterlumen/install | sh
 #
@@ -134,7 +134,7 @@ main() {
     fi
     "$work/unterlumen" -desktop-install </dev/null
     start_app
-    say "Unterlumen $version is installed. It opens in a window; choose your photo folder there."
+    say "Unterlumen $version is installed. It opens in a window; add your libraries there."
 }
 
 main "$@"

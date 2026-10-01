@@ -50,7 +50,7 @@ function Install-Unterlumen {
         if (-not $env:CI) {
             Start-Process "$env:LOCALAPPDATA\Unterlumen\launch.bat" -WindowStyle Hidden
         }
-        Write-Host "Unterlumen $version is installed. It opens in a window; choose your photo folder there."
+        Write-Host "Unterlumen $version is installed. It opens in a window; add your libraries there."
     }
     catch {
         Write-Host "Unterlumen could not be installed: $($_.Exception.Message)" -ForegroundColor Red

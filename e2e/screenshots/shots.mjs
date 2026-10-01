@@ -132,6 +132,21 @@ export const shots = [
         },
     },
     {
+        // Sharing is per library (ADR-0047): the switch in Edit library,
+        // turned on, with the sentence saying what it writes where.
+        name: 'library-sharing',
+        take: async (page, { base }) => {
+            await openLibrary(page, base);
+            await page.locator('#lib-edit-btn').click();
+            await page.waitForSelector('#lib-edit-share .toggle');
+            await page.locator('#lib-edit-share .toggle').click();
+            await page.waitForSelector('#lib-edit-share .toggle[data-state="on"]');
+            await page.waitForFunction(() => !document.querySelector('#lib-edit-share-hint').textContent.endsWith('\u2026'));
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 1000);
+        },
+    },
+    {
         // The overview: a card per topic with its charts small, the topics
         // under Statistics in the sidebar.
         name: 'statistics',

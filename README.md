@@ -71,6 +71,12 @@ Because it is indexed, a library can be filtered across all of it: date, shutter
 
 ![Library filter](doc/screenshots/library-filter.webp)
 
+#### Sharing a library
+
+Each library is its own folder, anywhere: on this computer, a disk or a NAS. Shared from Edit library, it is the same library on a second installation, which adds the folder and gets its name; each keeps its own index.
+
+![Edit library with Share with other installations switched on](doc/screenshots/library-sharing.webp)
+
 #### Statistics
 
 What you shoot with, when, where and in what colours, by topic: Equipment (cameras, lenses, formats, film simulations), Exposure (focal length, aperture, ISO), Time (time of day, calendar), Frame (aspect ratio), Colour (black and white, main colours, warm and cool) and Places, each with how it changed over the years. The overview has a card per topic showing a few of its charts, and the topics are in the sidebar while Statistics is open. Click a bar, a slice or a point and the photos it counts appear beside the charts.

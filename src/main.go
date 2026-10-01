@@ -187,10 +187,13 @@ func browseRoots(args []string, envRoot string) (startDir, boundary string, err 
 	return home, "/", nil
 }
 
-// absoluteRoots makes both roots absolute and checks they are folders. A
-// boundary of "/" stays as it is.
+// absoluteRoots makes both roots absolute, with symlinks resolved, and checks
+// they are folders. A boundary of "/" stays as it is. Resolved, because a
+// library's folder is stored resolved (pathguard.SafePath), and a boundary
+// reached through a symlink (/var → /private/var on macOS) would otherwise
+// never contain it.
 func absoluteRoots(startDir, boundary string) (absStart, absBoundary string, err error) {
-	absStart, err = filepath.Abs(startDir)
+	absStart, err = realAbs(startDir)
 	if err != nil {
 		return "", "", fmt.Errorf("Error resolving start path: %v", err)
 	}
@@ -200,7 +203,7 @@ func absoluteRoots(startDir, boundary string) (absStart, absBoundary string, err
 	if boundary == "/" {
 		return absStart, "/", nil
 	}
-	absBoundary, err = filepath.Abs(boundary)
+	absBoundary, err = realAbs(boundary)
 	if err != nil {
 		return "", "", fmt.Errorf("Error resolving boundary path: %v", err)
 	}
@@ -208,6 +211,19 @@ func absoluteRoots(startDir, boundary string) (absStart, absBoundary string, err
 		return "", "", fmt.Errorf("Boundary path is not a valid directory: %s", absBoundary)
 	}
 	return absStart, absBoundary, nil
+}
+
+// realAbs is dir as an absolute path with its symlinks resolved; a folder
+// that is not there stays as filepath.Abs makes it, for the caller to report.
+func realAbs(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		return real, nil
+	}
+	return abs, nil
 }
 
 // relativeStart is the start folder relative to the boundary, for the

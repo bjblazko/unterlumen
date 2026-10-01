@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A library at the top of a folder reached through a symlink is in Folders again.** Started on such a folder (on macOS any folder under `/var` or `/tmp`), the app compared the folder as named with the library's folder as resolved, so a library said "Outside the folder this installation serves" and Folders did not name its library. The served folder is now resolved at start.
+- **The installers' last sentence** said to choose a photo folder, which the app no longer asks for; it says to add libraries.
+
 ## [0.15.0] - 2026-10-01
 
 ### Added

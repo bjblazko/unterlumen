@@ -63,8 +63,20 @@ func TestBrowseRoots(t *testing.T) {
 	}
 }
 
+func TestAbsoluteRootsResolveSymlinks(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip(err)
+	}
+	want, _ := filepath.EvalSymlinks(real)
+	if s, b, err := absoluteRoots(link, link); err != nil || s != want || b != want {
+		t.Errorf("absoluteRoots(link) = %q, %q, %v; want the real folder %q, as libraries store it", s, b, err, want)
+	}
+}
+
 func TestAbsoluteRoots(t *testing.T) {
-	dir := t.TempDir()
+	dir, _ := filepath.EvalSymlinks(t.TempDir())
 	file := filepath.Join(dir, "f.txt")
 	os.WriteFile(file, nil, 0o644) //nolint:errcheck
 

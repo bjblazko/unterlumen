@@ -1,14 +1,18 @@
 name: Installers
 
 # The one-line installers (install/, ADR-0042) install the newest release, so
-# they are checked whenever they change and after every release.
+# they are checked whenever they change and after every release. After, not
+# on the tag: run beside the Release workflow they installed the release
+# before it.
 on:
   push:
+    branches: [main]
     paths:
       - "install/**"
       - ".github/workflows/install.yml"
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 jobs:
@@ -32,7 +36,7 @@ jobs:
       - name: The launcher is there
         run: |
           if [ "$(uname -s)" = Darwin ]; then
-            test -x "$HOME/Applications/Unterlumen.app/Contents/MacOS/launch"
+            test -x "$HOME/Applications/Unterlumen.app/Contents/MacOS/unterlumen"
           else
             test -x "$HOME/.local/share/unterlumen/launch.sh"
             test -f "$HOME/.local/share/applications/unterlumen.desktop"
