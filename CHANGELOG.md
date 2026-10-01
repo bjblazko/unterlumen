@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-01
+
 ### Added
 - **Libraries measure what their photos look like.** After each scan, and once at startup for photos indexed before, Unterlumen measures each photo's thumbnail: black and white, toned or colour; the average colour and up to five main colours with their share; brightness, contrast, key and clipping; entropy, sharpness and edge density; and a hash for finding look-alikes. The values are stored beside the index for coming statistics and a search by colour. The work shows in the status line as "Analysing" while it runs. "Analyse photos again" in Edit library → Maintenance measures a library again. See ADR-0044.
 - **Statistics has a Colour topic.** It shows four charts. Black and white: the share of black-and-white, toned and colour photos per period. Colour of each period: a strip of swatches, each the average hue of that period's colour photos' main colours, at their most colourful. Main colours: a hue wheel of how much of the photos each hue covers, from red, orange and amber round to purple and pink, with the neutrals in the middle. Warm and cool through the year: the share of warm and of cool photos per month, all years together, each bar in its photos' warm or cool colours. Clicking a swatch, a sector or a bar shows its photos, as in the other topics. Photos not yet analysed are named above the charts.
