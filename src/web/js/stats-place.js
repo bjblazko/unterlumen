@@ -19,7 +19,7 @@ class StatsPane {
     // kept open (photoColumnStartsOpen), else the column closes.
     show(route) {
         this._route = route;
-        this._setStage(false);
+        this._setStage(null);
         this._hidePhotos();
         this._allPhotosDue = photoColumnStartsOpen(STATS_PHOTOS_KEY);
         return this.render();
@@ -54,7 +54,7 @@ class StatsPane {
         this._drawIndexing(data.snap, topic && (data.colour || data.colourSpace));
         if (topic) this._drawTopic(topic, data);
         else this._drawOverview(data);
-        this._labelStageButton();
+        this._labelStageButtons();
         this._drawn = true;
         if (this._allPhotosDue) {
             this._allPhotosDue = false;
@@ -235,25 +235,45 @@ class StatsPane {
             card.innerHTML = `
                 <span class="stats-card-title">${escapeHtml(topic.label)}</span>
                 <span class="stats-card-blurb">${escapeHtml(topic.blurb)}</span>
-                <span class="stats-card-preview" aria-hidden="true"></span>`;
+                <span class="stats-card-previews" aria-hidden="true"></span>`;
             cards.appendChild(card);
-            // A preview fills its card: it is a picture of the topic, not read.
-            drawSafely(card.querySelector('.stats-card-preview'), el => {
-                topic.preview(el, data);
-                el.querySelector('.stats-svg')?.style.removeProperty('max-width');
-            });
+            this._drawPreviews(card.querySelector('.stats-card-previews'), overviewCharts(topic, data), data);
         }
         this._main.appendChild(cards);
     }
 
-    _drawTopic(topic, data) {
-        const grid = document.createElement('div');
-        grid.className = 'stats-grid' + (topic.wide ? ' stats-grid--wide' : '');
-        for (const chart of topic.charts) {
-            if (chart.when && !chart.when(data)) continue;
-            grid.appendChild(this._chartCard(chart, data));
+    // A card's previews are pictures of the topic, not read: each chart small
+    // with its title, so a card shows there is more than one.
+    _drawPreviews(el, charts, data) {
+        for (const chart of charts) {
+            const cell = document.createElement('span');
+            cell.className = 'stats-card-preview' + (chart.stage ? ' stats-card-preview--stage' : '');
+            cell.innerHTML = `<span class="stats-card-preview-title">${escapeHtml(chart.title)}</span><span class="stats-card-preview-chart"></span>`;
+            el.appendChild(cell);
+            drawSafely(cell.querySelector('.stats-card-preview-chart'), chartEl => {
+                if (chart.preview) chart.preview(chartEl, data);
+                else chart.render(chartEl, data, () => {});
+                chartEl.querySelector('.stats-svg')?.style.removeProperty('max-width');
+            });
         }
-        this._main.appendChild(grid);
+    }
+
+    // A topic's charts come first at the reading width; its stages (3D views)
+    // follow at the page's width. Opening with a 3D view, a topic's charts
+    // went unnoticed below it.
+    _drawTopic(topic, data) {
+        const charts = shownCharts(topic, data);
+        const grid = document.createElement('div');
+        grid.className = 'stats-grid';
+        for (const chart of charts.filter(c => !c.stage)) grid.appendChild(this._chartCard(chart, data));
+        if (grid.firstChild) this._main.appendChild(grid);
+        const stages = charts.filter(c => c.stage);
+        if (stages.length) {
+            const row = document.createElement('div');
+            row.className = 'stats-stages';
+            for (const chart of stages) row.appendChild(this._chartCard(chart, data));
+            this._main.appendChild(row);
+        }
     }
 
     _chartCard(chart, data) {
@@ -266,35 +286,39 @@ class StatsPane {
             ${chart.stage ? `<div class="stats-chart-head">${title}<button class="btn btn-sm stats-stage-btn"></button></div>` : title}
             ${sub ? `<p class="stats-chart-subtitle">${escapeHtml(sub)}</p>` : ''}
             <div class="stats-chart-content"></div>`;
-        card.querySelector('.stats-stage-btn')?.addEventListener('click', () => this._setStage(!this._stage));
+        card.querySelector('.stats-stage-btn')?.addEventListener('click', () => this._setStage(this._stage ? null : card));
         drawSafely(card.querySelector('.stats-chart-content'), el => chart.render(el, data, c => this._pick(c)));
         return card;
     }
 
     /* --- Full view --- */
 
-    // A stage chart and the photo column over the whole window, dark in
-    // both themes (ADR-0046); the head and the other charts step aside.
-    _setStage(on) {
-        this._stage = on;
+    // A stage chart (card) and the photo column over the whole window, dark
+    // in both themes (ADR-0046); the head and the other charts step aside.
+    // null leaves the full view.
+    _setStage(card) {
+        this._stage?.classList.remove('stats-chart--staged');
+        this._stage = card;
+        card?.classList.add('stats-chart--staged');
         const place = this.container.querySelector('.stats-place');
         if (!place) return;
-        place.classList.toggle('stats-place--stage', on);
-        if (on) place.dataset.theme = 'dark';
+        place.classList.toggle('stats-place--stage', !!card);
+        if (card) place.dataset.theme = 'dark';
         else delete place.dataset.theme;
-        this._labelStageButton();
+        this._labelStageButtons();
     }
 
-    _labelStageButton() {
-        const btn = this._main?.querySelector('.stats-stage-btn');
-        if (btn) btn.textContent = this._stage ? 'Leave full view' : 'Full view';
+    _labelStageButtons() {
+        for (const btn of this._main?.querySelectorAll('.stats-stage-btn') ?? []) {
+            btn.textContent = btn.closest('.stats-chart') === this._stage ? 'Leave full view' : 'Full view';
+        }
     }
 
     // Escape leaves the full view before it closes the photos; returns
     // whether there was one to leave.
     leaveStage() {
         if (!this._stage) return false;
-        this._setStage(false);
+        this._setStage(null);
         return true;
     }
 
@@ -362,6 +386,20 @@ const STATS_PHOTOS_KEY = 'stats-photos-open';
 
 // Photos read at a time for the column; more follow as it scrolls.
 const STATS_PHOTOS_PAGE = 200;
+
+// The charts a topic shows for this data.
+function shownCharts(topic, data) {
+    return topic.charts.filter(c => !c.when || c.when(data));
+}
+
+// The charts a topic's card shows small: up to four charts, or two and the
+// first stage, which takes the card's width.
+function overviewCharts(topic, data) {
+    const charts = shownCharts(topic, data);
+    const stage = charts.find(c => c.stage);
+    const flat = charts.filter(c => !c.stage).slice(0, stage ? 2 : 4);
+    return stage ? [...flat, stage] : flat;
+}
 
 // A chart that cannot draw its data says so instead of taking the page down.
 function drawSafely(el, draw) {

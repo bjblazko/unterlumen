@@ -77,6 +77,8 @@ async function api(method, url, body) {
 async function seed() {
     const lib = await api('POST', '/api/library/', { name: 'Pictures', description: 'Everything', sourcePath: '.' });
     await api('POST', `/api/library/${lib.id}/reindex`);
+    // The measurements the colour charts and 3D views read; returns when done.
+    await api('POST', `/api/library/${lib.id}/analyse`);
     const geo = await api('GET', '/api/library/geo');
     const points = geo.libraries[0].points.map(([id, lat, lon, taken, name]) => ({ id, lat, lon, taken, name }));
     const near = (lat, lon) => points.filter(p => Math.abs(p.lat - lat) < 1 && Math.abs(p.lon - lon) < 1).map(p => p.id);
@@ -130,6 +132,14 @@ async function main() {
     const root = preparePhotos(tmp);
     const server = await startServer(tmp, root);
     const browser = await chromium.launch();
+    // The 3D views need WebGPU, which only Chrome itself has headless; it is
+    // started for the shots that ask for it (gpu: true).
+    let gpuBrowser = null;
+    const browserFor = async shot => {
+        if (!shot.gpu) return browser;
+        gpuBrowser ??= await chromium.launch({ channel: 'chrome', args: ['--enable-unsafe-webgpu'] });
+        return gpuBrowser;
+    };
     try {
         const lib = await seed();
         const site = path.join(tmp, 'lib', 'channels');
@@ -137,7 +147,7 @@ async function main() {
         const only = process.argv.slice(2);
         for (const shot of shots) {
             if (only.length && !only.includes(shot.name)) continue;
-            const context = await browser.newContext({
+            const context = await (await browserFor(shot)).newContext({
                 viewport: shot.viewport || { width: 1440, height: 900 },
                 deviceScaleFactor: shot.scale || 2,
                 isMobile: !!shot.phone,
@@ -160,6 +170,7 @@ async function main() {
         }
     } finally {
         await browser.close();
+        await gpuBrowser?.close();
         server.kill();
         rmSync(tmp, { recursive: true, force: true });
     }

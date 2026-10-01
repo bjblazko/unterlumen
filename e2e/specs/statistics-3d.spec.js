@@ -64,40 +64,51 @@ test.describe('Statistics: the 3D topics', () => {
         expect(body.borders.length).toBeGreaterThan(100);
     });
 
-    for (const [topic, title, legend] of [
-        ['exposure-space', 'Exposure space', 'the median focal length, aperture and ISO'],
-        ['daylight', 'Daylight', 'One month of the year'],
-        ['character', 'Character', 'the average brightness, contrast and colourfulness'],
+    const stage = (page, title) => page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: new RegExp(`^${title}$`) }) });
+
+    for (const [topic, topicTitle, title, legend] of [
+        ['exposure', 'Exposure', 'Exposure space', 'the median focal length, aperture and ISO'],
+        ['time', 'Time', 'Daylight', 'One month of the year'],
+        ['colour', 'Colour', 'Character', 'the average brightness, contrast and colourfulness'],
     ]) {
-        test(`${title} draws its stage, or says that WebGPU is missing`, async ({ page }) => {
+        test(`${title} comes first in ${topicTitle}, drawn or saying that WebGPU is missing`, async ({ page }) => {
             await page.goto(`/#statistics/${topic}?library=${lib.id}`);
             await waitForAppReady(page);
-            await expect(page.locator('.stats-title')).toHaveText(title);
-            await expect(page.locator('.stats-stage-btn')).toHaveText('Full view');
+            await expect(page.locator('.stats-title')).toHaveText(topicTitle);
+            await expect(page.locator('.stats-stages')).toContainText(title);
+            await expect(stage(page, title).locator('.stats-stage-btn')).toHaveText('Full view');
             const hasGPU = await page.evaluate(async () => !!(navigator.gpu && await navigator.gpu.requestAdapter().catch(() => null)));
             if (hasGPU) {
-                await expect(page.locator('.point-stage-canvas')).toBeVisible({ timeout: 15_000 });
-                await expect(page.locator('.point-stage-legend')).toContainText(legend);
+                await expect(stage(page, title).locator('.point-stage-canvas')).toBeVisible({ timeout: 15_000 });
+                await expect(stage(page, title).locator('.point-stage-legend')).toContainText(legend);
             } else {
-                await expect(page.locator('.point-stage-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
+                await expect(stage(page, title).locator('.point-stage-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
             }
         });
     }
 
-    test('Space and time draws its stage or says why not', async ({ page }) => {
-        await page.goto(`/#statistics/space-time?library=${lib.id}`);
+    test('Places holds Space and time', async ({ page }) => {
+        await page.goto(`/#statistics/places?library=${lib.id}`);
         await waitForAppReady(page);
-        await expect(page.locator('.stats-title')).toHaveText('Space and time');
-        await expect(page.locator('.point-stage-canvas, .point-stage-nogpu, .stats-nodata').first()).toBeAttached({ timeout: 15_000 });
+        await expect(page.locator('.stats-title')).toHaveText('Places');
+        await expect(stage(page, 'Space and time').locator('.point-stage-canvas, .point-stage-nogpu, .stats-nodata').first()).toBeAttached({ timeout: 15_000 });
     });
 
-    test('Daylight has no Periods select, the Exposure space has', async ({ page }) => {
-        await page.goto(`/#statistics/daylight?library=${lib.id}`);
+    test('the addresses the 3D views had lead to the topics that hold them', async ({ page }) => {
+        for (const [old, title] of [['colour-space', 'Colour'], ['character', 'Colour'], ['exposure-space', 'Exposure'], ['daylight', 'Time'], ['space-time', 'Places']]) {
+            await page.goto(`/#statistics/${old}?library=${lib.id}`);
+            await waitForAppReady(page);
+            await expect(page.locator('.stats-title')).toHaveText(title);
+        }
+    });
+
+    test('Time has no Periods select, Exposure has', async ({ page }) => {
+        await page.goto(`/#statistics/time?library=${lib.id}`);
         await waitForAppReady(page);
-        await expect(page.locator('.stats-title')).toHaveText('Daylight');
+        await expect(page.locator('.stats-title')).toHaveText('Time');
         await expect(page.locator('.stats-granularity')).toHaveCount(0);
-        await page.goto(`/#statistics/exposure-space?library=${lib.id}`);
-        await expect(page.locator('.stats-title')).toHaveText('Exposure space');
+        await page.goto(`/#statistics/exposure?library=${lib.id}`);
+        await expect(page.locator('.stats-title')).toHaveText('Exposure');
         await expect(page.locator('.stats-granularity')).toHaveCount(1);
     });
 });

@@ -132,12 +132,16 @@ export const shots = [
         },
     },
     {
-        // The overview: a card per topic, the topics under Statistics in the sidebar.
+        // The overview: a card per topic with its charts small, the topics
+        // under Statistics in the sidebar.
         name: 'statistics',
+        gpu: true,
         take: async (page, { base }) => {
+            await page.emulateMedia({ reducedMotion: 'reduce' });
             await ready(page, base, 'statistics');
             await page.waitForSelector('.stats-card svg');
-            await settle(page, 1500);
+            await page.waitForSelector('.stats-card .point-stage-canvas');
+            await settle(page, 2000);
         },
     },
     {
@@ -153,6 +157,26 @@ export const shots = [
             await settle(page, 2000);
         },
     },
+    ...[
+        // The 3D views, each in its topic's Full view with the photos beside it.
+        ['statistics-colour-space', 'colour', 'Colour space'],
+        ['statistics-exposure-space', 'exposure', 'Exposure space'],
+        ['statistics-daylight', 'time', 'Daylight'],
+        ['statistics-space-time', 'places', 'Space and time'],
+    ].map(([name, topic, title]) => ({
+        name,
+        gpu: true,
+        take: async (page, { base }) => {
+            await page.emulateMedia({ reducedMotion: 'reduce' });
+            await ready(page, base, `statistics/${topic}`);
+            const stage = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: new RegExp(`^${title}$`) }) });
+            await stage.locator('.point-stage-canvas').waitFor();
+            await stage.locator('.stats-stage-btn').click();
+            await page.mouse.move(1, 1);
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 2500);
+        },
+    })),
     {
         name: 'map',
         storage: { 'map-photos-open': '1' },

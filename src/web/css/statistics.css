@@ -140,16 +140,53 @@
     color: var(--fg-2);
 }
 
-.stats-card-preview {
-    display: block;
+.stats-card-previews {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
     margin-top: var(--space-3);
     pointer-events: none;
 }
 
+/* One chart small, with its title. A single chart, or a stage, takes the
+   card's width. */
+.stats-card-preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.stats-card-preview:only-child,
+.stats-card-preview--stage { grid-column: 1 / -1; }
+
+.stats-card-preview-title {
+    font-size: var(--text-xs);
+    color: var(--fg-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-card-preview-chart {
+    display: block;
+    min-width: 0;
+}
+
 .stats-card-preview .stats-svg {
     width: 100%;
-    height: 9rem;
+    height: 5.5rem;
 }
+
+.stats-card-preview:only-child .stats-svg { height: 9rem; }
+
+/* A chart's own controls, such as the calendar's year or a switch, are
+   not for a card. */
+.stats-card-preview .stats-cal-controls,
+.stats-card-preview .stats-season-year,
+.stats-card-preview .stats-filmsim-toggle-row,
+.stats-card-preview .stats-focal-toggle,
+.stats-card-preview .stats-legend { display: none; }
 
 /* --- Charts --- */
 
@@ -169,7 +206,13 @@
 
 .stats-chart--full { grid-column: 1 / -1; }
 
-.stats-grid--wide { max-width: none; }
+/* A topic's 3D stages, after its charts and at the page's width. */
+.stats-stages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+}
 
 .stats-chart-head {
     display: flex;
@@ -532,9 +575,13 @@
     overflow: hidden;
 }
 
-.stats-place--stage .stats-grid {
+.stats-place--stage .stats-grid,
+.stats-place--stage .stats-chart:not(.stats-chart--staged) { display: none; }
+
+.stats-place--stage .stats-stages {
     display: block;
     height: 100%;
+    margin: 0;
 }
 
 .stats-place--stage .stats-chart {

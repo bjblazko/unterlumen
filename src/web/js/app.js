@@ -204,8 +204,10 @@ const App = {
         this._markCurrentLibraryNav();
     },
 
-    // One sub-entry per topic of Statistics. Like the libraries' entries, they
-    // go when the sidebar is collapsed; the overview's cards lead to them then.
+    // One sub-entry per topic of Statistics, shown only while Statistics is
+    // open, so the sidebar stays short elsewhere. Like the libraries' entries,
+    // they go when the sidebar is collapsed; the overview's cards lead to them
+    // then.
     _renderStatisticsNav() {
         const wrap = document.getElementById('nav-statistics');
         if (!wrap) return;
@@ -229,8 +231,11 @@ const App = {
         this.setMode('statistics');
     },
 
-    // The topic entries point at the current scope, and the one shown is marked.
+    // The topic entries show while Statistics is open, point at the current
+    // scope, and the one shown is marked.
     _markCurrentStatisticsNav() {
+        const wrap = document.getElementById('nav-statistics');
+        if (wrap) wrap.hidden = this.mode !== 'statistics';
         for (const el of document.querySelectorAll('#nav-statistics [data-stats-topic]')) {
             el.href = statsHash({ ...this._statsRoute, topic: el.dataset.statsTopic });
             const isCurrent = this.mode === 'statistics' && el.dataset.statsTopic === this._statsRoute.topic;

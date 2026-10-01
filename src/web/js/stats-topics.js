@@ -1,6 +1,7 @@
 // stats-topics.js — what the Statistics place shows, by topic (ADR-0043).
 // The place, its sidebar entries and the overview's cards are all built from
-// this list, so a new topic is one entry here and its charts.
+// this list, so a new topic is one entry here and its charts. A card shows
+// its topic's first charts small (overviewCharts in stats-place.js).
 //
 // A chart reads the snapshot (`snap`, /api/library/statistics) or the
 // development over time (`tl`, /api/library/timeline). A chart reports the
@@ -13,7 +14,6 @@ const STATS_TOPICS = [
         id: 'equipment',
         label: 'Equipment',
         blurb: 'Cameras, lenses, file formats and film simulations, and how their use changed.',
-        preview: (el, d) => renderCameraLensTreemap(el, d.snap.cameraLens, d.snap.totalPhotos),
         charts: [
             { title: 'Camera and lens', source: 'snap', full: true,
               render: (el, d, pick) => renderCameraLensTreemap(el, d.snap.cameraLens, d.snap.totalPhotos, v => pick(cameraCriterion(v))) },
@@ -33,9 +33,13 @@ const STATS_TOPICS = [
     {
         id: 'exposure',
         label: 'Exposure',
-        blurb: 'Focal lengths, apertures and ISO, and how they drifted over time.',
-        preview: (el, d) => renderISOHistogram(el, expandValues(d.snap.isos)),
+        blurb: 'Focal lengths, apertures and ISO: every photo in the space of settings, coloured by camera, and how they drifted over time.',
         charts: [
+            { title: 'Exposure space', subtitle: 'Focal length, aperture and ISO of each photo, in stops and coloured by camera, with a trail through the median settings of each period', source: 'exposureSpace', full: true, stage: true,
+              preview: (el, d) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, null, { preview: true }),
+              render: (el, d, pick) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
             { title: 'Focal length', source: 'snap', full: true, coverage: d => d.snap.focalLengths,
               render: (el, d, pick) => renderFocalHistogram(el, expandValues(d.snap.focalLengths), expandValues(d.snap.focalLengths35),
                   v => pick({ subject: `${v.min}–${v.max} mm${v.field === 'FocalLength35' ? ' (35 mm)' : ''}`, params: binRange(v.field, v) })) },
@@ -59,9 +63,13 @@ const STATS_TOPICS = [
     {
         id: 'time',
         label: 'Time',
-        blurb: 'The hours and days on which the photos were taken.',
-        preview: (el, d) => renderShootingClock(el, d.snap.shootingHours),
+        blurb: 'The hours and days on which the photos were taken, and in what light.',
         charts: [
+            { title: 'Daylight', subtitle: 'Day of the year around, hour outward, brightness up; each photo in its main colour, with a trail through the months of the year', source: 'colourSpace', periods: false, full: true, stage: true,
+              preview: (el, d) => renderDaylight(el, d.colourSpace, null, { preview: true }),
+              render: (el, d, pick) => renderDaylight(el, d.colourSpace, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `${MONTHS[v.month - 1]} · all years`, params: { month: v.month } })) },
             { title: 'Time of day', source: 'snap',
               render: (el, d, pick) => renderShootingClock(el, d.snap.shootingHours, h => pick({
                   subject: `${String(h).padStart(2, '0')}:00 – ${String(h + 1).padStart(2, '0')}:00`,
@@ -77,7 +85,6 @@ const STATS_TOPICS = [
         id: 'frame',
         label: 'Frame',
         blurb: 'The shape of the pictures, and how it changed.',
-        preview: (el, d) => renderAspectLines(el, d.tl),
         charts: [
             { title: 'Aspect ratio', subtitle: 'Share of each frame shape per period', source: 'tl', full: true,
               render: (el, d, pick) => renderAspectLines(el, d.tl, v => pick(v.aspect
@@ -88,9 +95,18 @@ const STATS_TOPICS = [
     {
         id: 'colour',
         label: 'Colour',
-        blurb: 'Black and white or colour, the colour of each period, the main colours, and warm against cool through the year.',
-        preview: (el, d) => renderColourStrip(el, d.colour),
+        blurb: 'Every photo at its main colour and by its character, black and white or colour, the main colours, and warm against cool through the year.',
         charts: [
+            { title: 'Colour space', subtitle: 'Each photo at its main colour in OKLab, with a trail through the mean colour of each period', source: 'colourSpace', full: true, stage: true,
+              preview: (el, d) => renderColourSpace(el, d.colourSpace, null, { preview: true }),
+              render: (el, d, pick) => renderColourSpace(el, d.colourSpace, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `Colour photos · ${v.step.period}`, params: { mono: 'colour', ...periodDates(v.step.period) } })) },
+            { title: 'Character', subtitle: 'Brightness across, contrast in depth, colourfulness up; each photo in its main colour, with a trail through the average of each period', source: 'colourSpace', full: true, stage: true,
+              preview: (el, d) => renderCharacter(el, d.colourSpace, null, { preview: true }),
+              render: (el, d, pick) => renderCharacter(el, d.colourSpace, v => pick(v.photo
+                  ? photoCriterion(v.photo)
+                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
             { title: 'Black and white', subtitle: 'Share of black-and-white, toned and colour photos per period', source: 'colour', full: true,
               render: (el, d, pick) => renderColourClasses(el, d.colour, v => pick(v.cls
                   ? { subject: `${v.name} · ${v.period}`, params: { mono: v.cls, ...periodDates(v.period) } }
@@ -112,65 +128,12 @@ const STATS_TOPICS = [
         ],
     },
     {
-        id: 'colour-space',
-        label: 'Colour space',
-        wide: true,
-        blurb: 'Every photo as a point of light at its main colour, and the path the periods took through the colours.',
-        preview: (el, d) => renderColourSpace(el, d.colourSpace, null, { preview: true }),
-        charts: [
-            { title: 'Colour space', subtitle: 'Each photo at its main colour in OKLab, with a trail through the mean colour of each period', source: 'colourSpace', full: true, stage: true,
-              render: (el, d, pick) => renderColourSpace(el, d.colourSpace, v => pick(v.photo
-                  ? photoCriterion(v.photo)
-                  : { subject: `Colour photos · ${v.step.period}`, params: { mono: 'colour', ...periodDates(v.step.period) } })) },
-        ],
-    },
-    {
-        id: 'exposure-space',
-        label: 'Exposure space',
-        wide: true,
-        blurb: 'Every photo by focal length, aperture and ISO, coloured by camera: how you photograph, as clusters in three dimensions.',
-        preview: (el, d) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, null, { preview: true }),
-        charts: [
-            { title: 'Exposure space', subtitle: 'Focal length, aperture and ISO of each photo, in stops and coloured by camera, with a trail through the median settings of each period', source: 'exposureSpace', full: true, stage: true,
-              render: (el, d, pick) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, v => pick(v.photo
-                  ? photoCriterion(v.photo)
-                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
-        ],
-    },
-    {
-        id: 'daylight',
-        label: 'Daylight',
-        wide: true,
-        blurb: 'Every photo by day of the year, hour and brightness: summer evenings, winter mornings and bright noons.',
-        preview: (el, d) => renderDaylight(el, d.colourSpace, null, { preview: true }),
-        charts: [
-            { title: 'Daylight', subtitle: 'Day of the year around, hour outward, brightness up; each photo in its main colour, with a trail through the months of the year', source: 'colourSpace', periods: false, full: true, stage: true,
-              render: (el, d, pick) => renderDaylight(el, d.colourSpace, v => pick(v.photo
-                  ? photoCriterion(v.photo)
-                  : { subject: `${MONTHS[v.month - 1]} · all years`, params: { month: v.month } })) },
-        ],
-    },
-    {
-        id: 'character',
-        label: 'Character',
-        wide: true,
-        blurb: 'Every photo by brightness, contrast and colourfulness: the moods of your pictures as clusters.',
-        preview: (el, d) => renderCharacter(el, d.colourSpace, null, { preview: true }),
-        charts: [
-            { title: 'Character', subtitle: 'Brightness across, contrast in depth, colourfulness up; each photo in its main colour, with a trail through the average of each period', source: 'colourSpace', full: true, stage: true,
-              render: (el, d, pick) => renderCharacter(el, d.colourSpace, v => pick(v.photo
-                  ? photoCriterion(v.photo)
-                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
-        ],
-    },
-    {
-        id: 'space-time',
-        label: 'Space and time',
-        wide: true,
-        blurb: 'Every photo with a location by where and when it was taken: home as a column of light, journeys as trails out into the world.',
-        preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
+        id: 'places',
+        label: 'Places',
+        blurb: 'Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world.',
         charts: [
             { title: 'Space and time', subtitle: 'Where on the floor, around the middle of your photos with distance on a log scale; when, upward; a trail through the days', source: 'spaceTime', periods: false, full: true, stage: true,
+              preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
               render: (el, d, pick) => renderSpaceTime(el, d.spaceTime, v => pick(v.photo
                   ? photoCriterion(v.photo)
                   : { subject: v.day, params: { date_taken_min: v.day, date_taken_max: v.day } })) },
@@ -178,10 +141,18 @@ const STATS_TOPICS = [
     },
 ];
 
-// A topic may be wide: its charts take the width of the page instead of
-// the reading width. A chart may be a stage: a Full view button shows it,
+// A chart may be a stage, a 3D view (ADR-0046): it comes after the topic's
+// other charts, takes the width of the page, has a preview of its own for the
+// overview's card, and a Full view button shows it,
 // and the photos beside it, over the whole window in the dark. A chart with
 // periods: false has no use for the Periods select, though its source has.
+
+// The topics the 3D views had on their own for a day; their addresses lead
+// to the topics that hold them now.
+const STATS_TOPIC_MOVED = {
+    'colour-space': 'colour', 'character': 'colour', 'exposure-space': 'exposure',
+    'daylight': 'time', 'space-time': 'places',
+};
 
 // The swatch a hue must cover to be a main colour of a photo; the server's
 // HueShareMin.
@@ -245,7 +216,8 @@ function statsTopic(id) {
 
 function statsRouteFromHash(hash) {
     const [pathPart, query = ''] = hash.replace(/^#/, '').split('?');
-    const topic = pathPart.split('/')[1] || '';
+    const named = pathPart.split('/')[1] || '';
+    const topic = STATS_TOPIC_MOVED[named] ?? named;
     const q = new URLSearchParams(query);
     return {
         topic: statsTopic(topic) ? topic : '',

@@ -32,7 +32,8 @@ test.describe('Statistics: Colour', () => {
         await page.goto(`/#statistics/colour?library=${lib.id}`);
         await waitForAppReady(page);
         await expect(page.locator('.stats-title')).toHaveText('Colour');
-        await expect(page.locator('.stats-chart')).toHaveCount(4, { timeout: 15_000 });
+        // Two stages (Colour space, Character) and four charts.
+        await expect(page.locator('.stats-chart')).toHaveCount(6, { timeout: 15_000 });
     }
 
     const chart = (page, title) => page.locator('.stats-chart')
@@ -49,11 +50,11 @@ test.describe('Statistics: Colour', () => {
         expect(body.seasons).toHaveLength(12);
     });
 
-    test('the overview has a Colour card with the strip', async ({ page }) => {
+    test('the overview has a Colour card with the Colour space as its picture', async ({ page }) => {
         await page.goto(`/#statistics?library=${lib.id}`);
         await waitForAppReady(page);
-        const card = page.locator('.stats-card', { hasText: 'Colour' });
-        await expect(card.locator('svg rect').first()).toBeAttached({ timeout: 15_000 });
+        const card = page.locator('.stats-card', { has: page.locator('.stats-card-title', { hasText: /^Colour$/ }) });
+        await expect(card.locator('.point-stage--preview')).toBeAttached({ timeout: 15_000 });
     });
 
     test('the black-and-white photo is found from its share', async ({ request }) => {

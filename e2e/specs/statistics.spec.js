@@ -73,7 +73,7 @@ test.describe('Statistics', () => {
         await open(page);
         await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
         const topics = page.locator('#nav-statistics .nav-sub');
-        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Colour space', 'Exposure space', 'Daylight', 'Character', 'Space and time']);
+        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Places']);
 
         await topics.filter({ hasText: /^\s*Exposure\s*$/ }).click();
         await expect(page).toHaveURL(new RegExp(`#statistics/exposure\\?library=${lib.id}$`));
@@ -91,7 +91,7 @@ test.describe('Statistics', () => {
     test('the overview leads to each topic, and back', async ({ page }) => {
         await open(page);
         const cards = page.locator('.stats-card');
-        await expect(cards).toHaveCount(10);
+        await expect(cards).toHaveCount(6);
         await cards.filter({ hasText: 'Frame' }).click();
         await expect(page.locator('.stats-title')).toHaveText('Frame');
         await page.locator('.stats-back').click();
@@ -104,8 +104,15 @@ test.describe('Statistics', () => {
         await open(page);
         await page.locator('#sidebar-collapse').click();
         await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
-        await expect(page.locator('.stats-card')).toHaveCount(10);
+        await expect(page.locator('.stats-card')).toHaveCount(6);
         await page.locator('#sidebar-collapse').click();
+    });
+
+    test('the topics show in the sidebar only while Statistics is open', async ({ page }) => {
+        await open(page);
+        await expect(page.locator('#nav-statistics .nav-sub').first()).toBeVisible();
+        await page.locator('#mode-map').click();
+        await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
     });
 
     test('9 opens Statistics', async ({ page }) => {

@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
 
-// The Colour space topic of Statistics: every analysed photo as a light in
-// OKLab, drawn with WebGPU (ADR-0046). Headless Chromium may have no WebGPU;
+// The Colour space of Statistics, the first stage of the Colour topic:
+// every analysed photo as a light in OKLab, drawn with WebGPU (ADR-0046). Headless Chromium may have no WebGPU;
 // then the topic must say so, and the drawing itself is not tested.
 
 const LIB_NAME = 'E2E Statistics Colour space';
@@ -26,6 +26,8 @@ test.describe('Statistics: Colour space', () => {
         if (lib) await request.delete(`/api/library/${lib.id}`);
     });
 
+    const stage = page => page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: /^Colour space$/ }) });
+
     test('the colour space API has one point per analysed photo and a path', async ({ request }) => {
         const body = await (await request.get(`/api/library/colour-space?ids=${lib.id}`)).json();
         expect(body.analysedPhotos).toBeGreaterThan(0);
@@ -45,27 +47,27 @@ test.describe('Statistics: Colour space', () => {
     });
 
     test('the topic draws the stage, or says that WebGPU is missing', async ({ page }) => {
-        await page.goto(`/#statistics/colour-space?library=${lib.id}`);
+        await page.goto(`/#statistics/colour?library=${lib.id}`);
         await waitForAppReady(page);
-        await expect(page.locator('.stats-title')).toHaveText('Colour space');
+        await expect(page.locator('.stats-title')).toHaveText('Colour');
         const hasGPU = await page.evaluate(async () => !!(navigator.gpu && await navigator.gpu.requestAdapter().catch(() => null)));
         if (hasGPU) {
-            await expect(page.locator('.point-stage-canvas')).toBeVisible({ timeout: 15_000 });
-            await expect(page.locator('.point-stage-label', { hasText: 'Sky blue' })).toBeAttached();
-            await expect(page.locator('.point-stage-help')).toContainText('each at its main colour');
-            await expect(page.locator('.point-stage-legend')).toContainText('One photo, at its main colour');
-            await expect(page.locator('.point-stage-legend')).toContainText('The line joins the');
+            await expect(stage(page).locator('.point-stage-canvas')).toBeVisible({ timeout: 15_000 });
+            await expect(stage(page).locator('.point-stage-label', { hasText: 'Sky blue' })).toBeAttached();
+            await expect(stage(page).locator('.point-stage-help')).toContainText('each at its main colour');
+            await expect(stage(page).locator('.point-stage-legend')).toContainText('One photo, at its main colour');
+            await expect(stage(page).locator('.point-stage-legend')).toContainText('The line joins the');
         } else {
-            await expect(page.locator('.point-stage-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
+            await expect(stage(page).locator('.point-stage-nogpu')).toContainText('needs WebGPU', { timeout: 15_000 });
         }
     });
 
     test('Full view shows the chart and the photos over the window, dark, until Escape', async ({ page }) => {
         await page.emulateMedia({ colorScheme: 'light' });
-        await page.goto(`/#statistics/colour-space?library=${lib.id}`);
+        await page.goto(`/#statistics/colour?library=${lib.id}`);
         await waitForAppReady(page);
         const place = page.locator('.stats-place');
-        const button = page.locator('.stats-stage-btn');
+        const button = stage(page).locator('.stats-stage-btn');
         await expect(button).toHaveText('Full view', { timeout: 15_000 });
         await button.click();
         await expect(place).toHaveClass(/stats-place--stage/);
@@ -73,6 +75,9 @@ test.describe('Statistics: Colour space', () => {
         await expect(page.locator('.stats-head')).toBeHidden();
         await expect(page.locator('#stats-photos')).toBeVisible();
         await expect(button).toHaveText('Leave full view');
+        // Only this stage: the topic's other stage and charts step aside.
+        await expect(page.locator('.stats-chart-title', { hasText: /^Character$/ })).toBeHidden();
+        await expect(page.locator('.stats-grid')).toBeHidden();
         const box = await place.boundingBox();
         expect(box.x).toBe(0);
         expect(box.width).toBe(page.viewportSize().width);
@@ -86,9 +91,9 @@ test.describe('Statistics: Colour space', () => {
     });
 
     test('a selected stage owns the arrow keys until Escape', async ({ page }) => {
-        await page.goto(`/#statistics/colour-space?library=${lib.id}`);
+        await page.goto(`/#statistics/colour?library=${lib.id}`);
         await waitForAppReady(page);
-        const canvas = page.locator('.point-stage-canvas');
+        const canvas = stage(page).locator('.point-stage-canvas');
         test.skip(!(await canvas.isVisible({ timeout: 15_000 }).catch(() => false)), 'no WebGPU in this browser');
         await canvas.focus();
         await expect(canvas).toHaveClass(/keyboard-owner/);

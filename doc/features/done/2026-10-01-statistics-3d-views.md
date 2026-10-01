@@ -18,9 +18,11 @@ Four more 3D topics in Statistics, on the stage the Colour space introduced ([AD
 - Space and time: `GET /api/library/space-time` (`ids`, `pathPrefix`) returns located, dated photos with their main colour, read from `exif_index` (0.17 s on 32,000 photos). The floor is an azimuthal projection around the median location with log distance, rings at 10, 100, 1,000 and 10,000 km, and Natural Earth coastlines and borders (public domain, vendored, 371 KB). Days within 30 km of the middle sit on the time axis, so the trail climbs the home column and reaches out on journeys. A click on a day shows its photos.
 - A click on a light shows that photo. A click on an Exposure trail point shows the period's photos, and on a Daylight month, that month's photos from all years.
 
+- **Grouped by subject:** each 3D view is a stage (full width) after the 2D charts of its subject's topic, and an overview card shows up to four of its topic's charts small: Exposure space in Exposure, Daylight in Time, Colour space and Character in Colour, Space and time in Places. Six topics instead of ten. The sidebar's Statistics sub-entries show only while Statistics is open. The old addresses lead to the topics.
+
 ## Acceptance Criteria
 
-- [x] "Exposure space", "Daylight", "Character" and "Space and time" in the sidebar under Statistics, with overview cards.
+- [x] Each 3D view comes after the charts of its subject's topic (Exposure, Time, Colour, Places); an overview card previews up to four charts with their titles. Six sidebar entries, shown while Statistics is open, and old addresses redirect.
 - [x] Exposure space: focal length, aperture and ISO on log axes with labelled ticks; lights coloured by camera with a legend; a trail of median settings per period.
 - [x] Daylight: day of the year around, hour outward, brightness up; lights in their main colour; a closed trail round the months; labelled months, hours and brightness.
 - [x] Dense clusters keep their colour (tone mapping) instead of turning white.
