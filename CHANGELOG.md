@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - **Statistics and the search are fast on large libraries, and a search no longer blocks the app.** A search by a main colour ran for minutes on 36,000 photos, and because a library has one database connection, everything else waited: the app seemed to hang. The EXIF index is rebuilt without a row id and two indexes cover the photos' dates and folders. On that library, the statistics now take under a second instead of 8–9 s, and searches 0.03–0.4 s. The first start after the update rebuilds each library's index once, which can take a minute or more before the libraries appear. See ADR-0045.
+- **Unpublishing a gallery clears it in every library that holds its photos.** A photo is the same photo in every library whose folder contains it, and each library keeps its own record of where it was published. Unpublishing cleared that record only in the first such library, so in another one, such as the library the gallery was published from, the photos still showed the removed gallery and the destination filter still matched them. The photo's sidecar was always cleared.
 
 ## [0.14.4] - 2026-09-30
 

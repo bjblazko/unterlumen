@@ -594,47 +594,64 @@ func deleteRemoteCopy(ch *channels.Channel, remoteSubpath string, result map[str
 // forgetAlbumInPhotos takes one album out of its photos: its record leaves the
 // photo's sidecar and its keys leave the library, so nothing on the photo
 // claims it is published there any more (and a rebuild cannot find it). The
-// channel marker goes with the photo's last album of that destination. It
-// returns how many photos it could not reach from this installation — not in a
-// library here, not mounted, or an entry without a photo ID.
+// channel marker goes with the photo's last album of that destination. A
+// photo has the same id in every library that holds it, and each library has
+// its own keys, so every one of them is cleared; the sidecar is one file and
+// is cleared once. It returns how many photos it could not reach from this
+// installation — in no library here, not mounted, or an entry without a
+// photo ID.
 func forgetAlbumInPhotos(mgr *lib.Manager, channelSlug, postID string, photos []site.Photo) (notCleared int) {
-	pending := map[string]bool{}
+	f := albumForgetting{channel: channelSlug, postID: postID, reached: map[string]bool{}}
+	var ids []string
 	for _, sp := range photos {
 		if sp.PhotoID == "" {
 			notCleared++
 		} else {
-			pending[sp.PhotoID] = true
+			ids = append(ids, sp.PhotoID)
 		}
 	}
 	if mgr != nil {
 		libs, _ := mgr.ListLibraries()
 		for _, l := range libs {
-			if len(pending) == 0 {
-				break
+			if store, err := mgr.OpenStore(l.ID); err == nil {
+				f.inLibrary(store, ids)
+				store.Close()
 			}
-			store, err := mgr.OpenStore(l.ID)
-			if err != nil {
-				continue
-			}
-			for id := range pending {
-				hint, err := store.GetPhotoPathHint(id)
-				if err != nil || hint == "" {
-					continue
-				}
-				if _, err := os.Stat(hint); err != nil {
-					continue // in a library here, but not reachable right now
-				}
-				delete(pending, id)
-				if media.RemovePublication(hint, channelSlug, postID) != nil {
-					notCleared++
-				}
-				deleteAlbumKeys(store, id, channelSlug, postID)
-				if entries, err := store.GetMeta(id); err == nil && len(albumPostIDsForChannel(entries, channelSlug)) == 0 {
-					deleteChannelPublicationKeys(store, id, channelSlug)
-				}
-			}
-			store.Close()
 		}
 	}
-	return notCleared + len(pending)
+	for _, id := range ids {
+		if !f.reached[id] {
+			notCleared++
+		}
+	}
+	return notCleared + f.sidecarsFailed
+}
+
+// albumForgetting is one album being taken out of its photos, library by library.
+type albumForgetting struct {
+	channel, postID string
+	reached         map[string]bool // photos found in a library and on disk; their sidecar is done
+	sidecarsFailed  int
+}
+
+func (f *albumForgetting) inLibrary(store *lib.Store, ids []string) {
+	for _, id := range ids {
+		hint, err := store.GetPhotoPathHint(id)
+		if err != nil || hint == "" {
+			continue
+		}
+		if _, err := os.Stat(hint); err != nil {
+			continue // in this library, but not reachable right now
+		}
+		if !f.reached[id] {
+			f.reached[id] = true
+			if media.RemovePublication(hint, f.channel, f.postID) != nil {
+				f.sidecarsFailed++
+			}
+		}
+		deleteAlbumKeys(store, id, f.channel, f.postID)
+		if entries, err := store.GetMeta(id); err == nil && len(albumPostIDsForChannel(entries, f.channel)) == 0 {
+			deleteChannelPublicationKeys(store, id, f.channel)
+		}
+	}
 }
