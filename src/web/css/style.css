@@ -6746,6 +6746,18 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .settings-body .seg,
 .settings-body .toggle { align-self: flex-start; }
 
+/* --- Library dialog facts (ADR-0048) --- */
+
+.library-dialog-facts {
+    margin: 0;
+    padding-left: var(--space-5);
+    color: var(--fg-2);
+    font-size: var(--text-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
 /* --- Library notice (ADR-0047) --- */
 
 .library-notice {

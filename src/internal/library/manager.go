@@ -219,10 +219,11 @@ func (m *Manager) createLibrary(id, name, description, sourcePath string) (*Libr
 
 	now := time.Now().UTC()
 	for k, v := range map[string]string{
-		"name":        name,
-		"description": description,
-		"source_path": sourcePath,
-		"created_at":  now.Format(time.RFC3339),
+		"name":             name,
+		"description":      description,
+		"source_path":      sourcePath,
+		"created_at":       now.Format(time.RFC3339),
+		notesInSidecarProp: "1", // a new library has no notes of its own to move
 	} {
 		if err := store.SetProp(k, v); err != nil {
 			m.openDBs.Delete(id)

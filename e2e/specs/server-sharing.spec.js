@@ -26,7 +26,8 @@ test.describe('Sharing on a server', () => {
     let app, dir;
 
     test.beforeAll(async () => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unterlumen-server-'));
+        // The server names its folder by its real path (/var is /private/var on macOS).
+        dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'unterlumen-server-')));
         fs.mkdirSync(path.join(dir, 'photos'));
         fs.mkdirSync(path.join(dir, 'data'));
         fs.writeFileSync(path.join(dir, 'data', 'channels.json'),

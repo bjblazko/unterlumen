@@ -14,6 +14,7 @@ const BINARY = path.resolve(ROOT, '..', 'unterlumen');
 const NAS = { port: 8088 };
 const MAC = { port: 8089 };
 const url = (inst) => `http://127.0.0.1:${inst.port}`;
+const photos_dir = (photo) => path.dirname(photo.pathHint);
 
 async function waitForServer(inst) {
     for (let i = 0; i < 60; i++) {
@@ -70,6 +71,8 @@ test.describe('Sharing a library between two installations', () => {
     test('New library on a shared folder adds that library, under its name', async ({ page }) => {
         await page.goto(url(MAC) + '/#libraries');
         await page.locator('#lib-new-btn').click();
+        // Before anything is added, the dialog says what it does to the folder.
+        await expect(page.locator('.library-dialog-facts')).toContainText('.xmp');
         await page.locator('#lib-dlg-path').fill('/Travel');
         await page.locator('#lib-dlg-path').dispatchEvent('change');
         await expect(page.locator('#lib-dlg-name')).toHaveValue('Travel');
@@ -112,5 +115,29 @@ test.describe('Sharing a library between two installations', () => {
         });
         const seen = await (await fetch(url(MAC) + `/api/library/${travel.id}`)).json();
         expect(seen.name).toBe('Journeys');
+    });
+
+    // Titles and fields live in the sidecar beside the photo (ADR-0048), so
+    // what one installation writes, the other reads — without a scan.
+    test('a field written on one installation is read on the other', async () => {
+        const travel = (await (await fetch(url(NAS) + '/api/library/')).json()).find(l => l.name === 'Journeys');
+        // The NAS's library was made through the API and not read yet; this returns when it is.
+        await (await fetch(url(NAS) + `/api/library/${travel.id}/reindex`, { method: 'POST' })).text();
+        const { photos } = await (await fetch(url(NAS) + `/api/library/${travel.id}/photos?limit=1`)).json();
+        const photo = photos[0];
+        const put = await fetch(url(NAS) + `/api/library/${travel.id}/photo/${photo.id}/meta`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'people', value: 'Anna & Ben' }),
+        });
+        expect(put.ok).toBe(true);
+        const sidecar = path.join(photos_dir(photo), photo.filename.replace(/\.[^.]+$/, '.xmp'));
+        expect(fs.readFileSync(sidecar, 'utf8')).toContain('Anna &amp; Ben');
+
+        const seen = await (await fetch(url(MAC) + `/api/library/${travel.id}/photo/${photo.id}/meta`)).json();
+        expect(seen.find(e => e.key === 'people')?.value).toBe('Anna & Ben');
+
+        await fetch(url(MAC) + `/api/library/${travel.id}/photo/${photo.id}/meta?key=people`, { method: 'DELETE' });
+        const after = await (await fetch(url(NAS) + `/api/library/${travel.id}/photo/${photo.id}/meta`)).json();
+        expect(after.find(e => e.key === 'people')).toBeUndefined();
     });
 });

@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Titles and fields live in the photo's sidecar.** A field you add in the info panel is written to the XMP sidecar beside the photo, as the title already was, and the library's index copies it from there. A second installation reads it when you open the photo, and in search and filters after its next scan; removing a title or a field travels the same way. When the sidecar cannot be written — a read-only or disconnected share — nothing is saved, the panel says why and shows the old value again. On the first start, fields that only a library's index held are written into the sidecars; a sidecar that already has a different value keeps it. See ADR-0048.
+- **New library says what a library does to the folder**: photos stay where they are, are read once, get a small `.xmp` file beside them when titled, given a field or published, Set location and Rename change the files themselves, and removing the library leaves all of it as it is.
+
 ### Fixed
 - **A library at the top of a folder reached through a symlink is in Folders again.** Started on such a folder (on macOS any folder under `/var` or `/tmp`), the app compared the folder as named with the library's folder as resolved, so a library said "Outside the folder this installation serves" and Folders did not name its library. The served folder is now resolved at start.
 - **The installers' last sentence** said to choose a photo folder, which the app no longer asks for; it says to add libraries.

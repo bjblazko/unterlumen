@@ -36,6 +36,8 @@ type Indexer struct {
 	libDir     string
 	sourcePath string
 	newPhotos  int
+	// notesReplace caches Store.NotesInSidecars for the indexer's run.
+	notesReplace *bool
 }
 
 // NewIndexer creates an Indexer for the given store and source path.
@@ -418,15 +420,15 @@ func hashFile(path string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// indexSidecar reads XMP sidecar publications and title for absPath and upserts them into photo_meta.
-// Non-fatal: errors are silently ignored (sidecar may not exist).
+// indexSidecar copies the photo's sidecar into photo_meta: its publications,
+// and its notes — title and fields — which replace the index's once the
+// library's notes live in the sidecars (ADR-0048). Non-fatal: a sidecar that
+// cannot be read changes nothing.
 func (idx *Indexer) indexSidecar(absPath, photoID string) {
-	pubs, _ := media.ReadSidecar(absPath)
-	title, _ := media.ReadTitle(absPath)
-	if len(pubs) == 0 && title == "" {
-		return
+	if notes, err := media.ReadNotes(absPath); err == nil {
+		idx.store.ApplyNotes(photoID, notes, idx.notesInSidecars()) //nolint:errcheck
 	}
-
+	pubs, _ := media.ReadSidecar(absPath)
 	if len(pubs) > 0 {
 		type latestEntry struct {
 			ts           string
@@ -483,9 +485,15 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 		}
 	}
 
-	if title != "" {
-		idx.store.UpsertMeta(photoID, "title", title) //nolint:errcheck
+}
+
+// notesInSidecars is read once per indexer: a scan asks it for every photo.
+func (idx *Indexer) notesInSidecars() bool {
+	if idx.notesReplace == nil {
+		v := idx.store.NotesInSidecars()
+		idx.notesReplace = &v
 	}
+	return *idx.notesReplace
 }
 
 // RunInFolder force-reindexes every file in subfolder (relative to sourcePath),

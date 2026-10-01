@@ -25,6 +25,13 @@ func getMeta(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
+		// The sidecar is where notes live; another installation may have
+		// changed it since the last scan.
+		if path, err := store.GetPhotoPathHint(photoID); err == nil && path != "" {
+			if notes, err := media.ReadNotes(path); err == nil {
+				store.ApplyNotes(photoID, notes, store.NotesInSidecars()) //nolint:errcheck
+			}
+		}
 		entries, err := store.GetMeta(photoID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -81,14 +88,9 @@ func upsertMeta(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		if err := store.UpsertMeta(photoID, body.Key, body.Value); err != nil {
+		if err := writeMeta(store, photoID, body.Key, body.Value); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-		if body.Key == "title" {
-			if pathHint, phErr := store.GetPhotoPathHint(photoID); phErr == nil && pathHint != "" {
-				media.WriteTitle(pathHint, body.Value) //nolint:errcheck
-			}
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -128,15 +130,22 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 			}
 		}
 
-		if key == "title" {
-			if pathHint, phErr := store.GetPhotoPathHint(photoID); phErr == nil && pathHint != "" {
-				media.WriteTitle(pathHint, "") //nolint:errcheck
-			}
-		}
-		if err := store.DeleteMeta(photoID, key); err != nil {
+		if err := writeMeta(store, photoID, key, ""); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// writeMeta writes a note through the sidecar (ADR-0048); any other key is
+// the index's own. An empty value removes the key.
+func writeMeta(store *lib.Store, photoID, key, value string) error {
+	if lib.IsNoteKey(key) {
+		return store.WriteNote(photoID, key, value)
+	}
+	if value == "" {
+		return store.DeleteMeta(photoID, key)
+	}
+	return store.UpsertMeta(photoID, key, value)
 }

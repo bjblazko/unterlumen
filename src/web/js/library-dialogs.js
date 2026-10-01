@@ -198,7 +198,17 @@ class LibraryDialogs {
                 </div>
                 <label class="library-dialog-label" for="lib-dlg-desc">Description (optional)</label>
                 <input class="library-dialog-input" id="lib-dlg-desc" type="text" placeholder="">
-                <div class="library-dialog-note">The folder is scanned when you press Create. A large folder takes a few minutes.</div>
+                <div class="library-dialog-field">
+                    <span class="library-dialog-label">What a library does with the folder</span>
+                    <ul class="library-dialog-facts">
+                        <li>Your photos stay where they are. Nothing is copied or uploaded.</li>
+                        <li>Every photo is read once. A large folder takes a few minutes.</li>
+                        <li>When you give a photo a title or a field, or publish it, a small file of the same name ending in .xmp is put beside it. Other photo programs do the same and read it.</li>
+                        <li>Set location and Rename change the photo files themselves.</li>
+                        <li>Removing the library later leaves the photos and these files as they are.</li>
+                    </ul>
+                </div>
+                <div class="library-dialog-note" hidden></div>
                 <div class="library-dialog-progress" id="lib-dlg-progress" style="display:none"></div>`,
             actions: [
                 { label: 'Cancel', id: 'lib-dlg-cancel', onClick: () => this._createDialog.close(null) },
@@ -228,16 +238,16 @@ class LibraryDialogs {
         // A folder another installation shares is added as that library, under
         // its name, so name and description come from there.
         const noteEl = dlg.querySelector('.library-dialog-note');
-        const plainNote = noteEl.textContent;
         const showShared = async () => {
             const { marker } = await LibraryAPI.marker(stripQuotes(pathEl.value.trim()));
             nameEl.readOnly = descEl.readOnly = Boolean(marker);
             if (!marker) {
-                noteEl.textContent = plainNote;
+                noteEl.hidden = true;
                 return;
             }
             nameEl.value = marker.name;
             descEl.value = marker.description || '';
+            noteEl.hidden = false;
             noteEl.textContent = `Another installation shares this folder as \u201c${marker.name}\u201d. It is added as that library; this installation reads the photos once for its own index.`;
         };
 

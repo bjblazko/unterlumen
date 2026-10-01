@@ -731,8 +731,16 @@ class InfoPanel {
             valEl.addEventListener('blur', () => {
                 const newVal = valEl.textContent.trim();
                 if (newVal !== originalValue) {
-                    ctx.onUpsert(key, newVal).catch(err => App.showToast('Could not save it: ' + err.message));
+                    // A title or field lives in the sidecar beside the photo;
+                    // when that cannot be written nothing is saved, so the
+                    // old value comes back.
+                    const previous = originalValue;
                     originalValue = newVal;
+                    ctx.onUpsert(key, newVal).catch(err => {
+                        valEl.textContent = previous;
+                        originalValue = previous;
+                        App.showToast('Could not save it: ' + err.message);
+                    });
                 }
             });
             valEl.addEventListener('keydown', (e) => {

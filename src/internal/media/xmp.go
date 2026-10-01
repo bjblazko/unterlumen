@@ -208,16 +208,22 @@ func parseSidecarPublications(data []byte) ([]Publication, error) {
 
 // renderFreshXMP creates a complete XMP sidecar with just the unterlumen namespace.
 func renderFreshXMP(pubs []Publication) string {
+	return renderFreshXMPWith(pubs, nil)
+}
+
+func renderFreshXMPWith(pubs []Publication, fields map[string]string) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-` + renderULBlock(pubs) + `
+` + renderULBlock(pubs, fields) + `
   </rdf:RDF>
 </x:xmpmeta>`
 }
 
-// renderULBlock produces the rdf:Description block for the unterlumen namespace.
-func renderULBlock(pubs []Publication) string {
+// renderULBlock produces the rdf:Description block for the unterlumen
+// namespace: the publication records and the fields (ADR-0048). A sidecar
+// that holds only fields has no empty Publications element.
+func renderULBlock(pubs []Publication, fields map[string]string) string {
 	var items strings.Builder
 	for _, p := range pubs {
 		items.WriteString("\n        <rdf:li rdf:parseType=\"Resource\">")
@@ -240,19 +246,29 @@ func renderULBlock(pubs []Publication) string {
 		items.WriteString("\n          <ul:PublishedAt>" + p.PublishedAt.UTC().Format(time.RFC3339) + "</ul:PublishedAt>")
 		items.WriteString("\n        </rdf:li>")
 	}
-	return `    <rdf:Description rdf:about="" xmlns:ul="https://unterlumen.app/xmp/1.0/">
+	var publications string
+	if len(pubs) > 0 || len(fields) == 0 {
+		publications = `
       <ul:Publications>
         <rdf:Bag>` + items.String() + `
         </rdf:Bag>
-      </ul:Publications>
+      </ul:Publications>`
+	}
+	return `    <rdf:Description rdf:about="" xmlns:ul="https://unterlumen.app/xmp/1.0/">` + publications + renderFields(fields) + `
     </rdf:Description>`
 }
 
-// mergeULBlock replaces the unterlumen rdf:Description block in existing XMP.
-// If no unterlumen block exists, inserts one before </rdf:RDF>.
+// mergeULBlock replaces the publication records in existing XMP and keeps its
+// fields.
 func mergeULBlock(existing []byte, pubs []Publication) []byte {
+	return spliceULBlock(existing, pubs, parseSidecarFields(existing))
+}
+
+// spliceULBlock replaces the unterlumen rdf:Description block in existing XMP.
+// If no unterlumen block exists, inserts one before </rdf:RDF>.
+func spliceULBlock(existing []byte, pubs []Publication, fields map[string]string) []byte {
 	s := string(existing)
-	newBlock := renderULBlock(pubs)
+	newBlock := renderULBlock(pubs, fields)
 
 	const marker = `xmlns:ul="https://unterlumen.app/xmp/1.0/"`
 	idx := strings.Index(s, marker)
@@ -260,14 +276,14 @@ func mergeULBlock(existing []byte, pubs []Publication) []byte {
 		endTag := "</rdf:RDF>"
 		endIdx := strings.LastIndex(s, endTag)
 		if endIdx == -1 {
-			return []byte(renderFreshXMP(pubs))
+			return []byte(renderFreshXMPWith(pubs, fields))
 		}
 		return []byte(s[:endIdx] + "  " + newBlock + "\n  " + s[endIdx:])
 	}
 
 	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
 	if descStart == -1 {
-		return []byte(renderFreshXMP(pubs))
+		return []byte(renderFreshXMPWith(pubs, fields))
 	}
 
 	closeTag := "</rdf:Description>"
@@ -275,7 +291,7 @@ func mergeULBlock(existing []byte, pubs []Publication) []byte {
 	if descEnd == -1 {
 		selfClose := strings.Index(s[descStart:], "/>")
 		if selfClose == -1 {
-			return []byte(renderFreshXMP(pubs))
+			return []byte(renderFreshXMPWith(pubs, fields))
 		}
 		descEnd = descStart + selfClose + 2
 	} else {
