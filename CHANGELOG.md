@@ -5,20 +5,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [0.14.5] - 2026-10-02
+## [0.15.3] - 2026-10-02
 
 ### Added
+- **Colour combinations in Statistics.** Beside Main colours, Colour combinations shows how many photos have the colours of a well-known combination — orange & teal, blue & orange, blue & yellow, violet & yellow, red & green, pink & green, and the triads red, yellow & blue and orange, green & violet — as chords across the hue circle, as thick as their photos are many, with a list of their counts. Your combination counts any two or three colours chosen on a wheel. A photo has a colour when that colour covers at least a tenth of the frame. Both show their photos. `/api/library/colour` carries `hueSets`, and `/api/library/search` takes `hues` (up to three hue sectors). See ADR-0049.
+- **The library filter has Colours.** Twelve named colours, up to three, to find photos with, say, orange and teal together, combined with every other filter.
 - **One filter for the Map, the Statistics and the Timeline.** The head of each has the same filter: Libraries, Taken (a span of months; not on the Timeline, whose axis is time), Cameras and Lenses. Each is a list with every entry on at first, so nothing is filtered until you narrow it; the lenses offered follow the cameras chosen. The choice is shared by the three places and kept in the browser, and Reset widens it again. On a phone it folds behind a Filter button. Counts, charts, the map, the timeline and the photos of a picked value all count within it. It replaces the Map's own span of months and the Statistics' library select; a library's Statistics button sets the filter to that library. The statistics, colour, 3D-view, timeline, map and search endpoints take `ids`, `month_from`, `month_until`, and repeated `model` and `lens`; `GET /api/library/scope-values` lists the cameras and lenses with their photo counts. See ADR-0050.
 
 ### Fixed
 - **Photos whose files were deleted no longer read as "still being read".** A full re-index and Remove deleted photos marked photos first and removed them only at the end, so a run that stopped early — the app quit, a restart — left photos marked for good, and Statistics said they were still being read, however often the library was scanned. Both runs now settle the library in one step at the end — photos whose files are gone are removed, photos left marked whose files are there are found again — and a run that stops early leaves the library as it was. Statistics says how many photos were not found and offers Check the folders again, which sorts them out.
 - **Far journeys stand out in Space and time.** On the plain log scale of distance a journey of 5,000 km sat barely further out than one of 1,500 km. Beyond 1,000 km the scale now widens twice as fast, so Dubai or the USA lie well outside the journeys within Europe, while the neighbourhood keeps its room.
-
-## [0.16.0] - 2026-10-02
-
-### Added
-- **Colour combinations in Statistics.** Beside Main colours, Colour combinations shows how many photos have the colours of a well-known combination — orange & teal, blue & orange, blue & yellow, violet & yellow, red & green, pink & green, and the triads red, yellow & blue and orange, green & violet — as chords across the hue circle, as thick as their photos are many, with a list of their counts. Your combination counts any two or three colours chosen on a wheel. A photo has a colour when that colour covers at least a tenth of the frame. Both show their photos. `/api/library/colour` carries `hueSets`, and `/api/library/search` takes `hues` (up to three hue sectors). See ADR-0049.
-- **The library filter has Colours.** Twelve named colours, up to three, to find photos with, say, orange and teal together, combined with every other filter.
 
 ## [0.15.2] - 2026-10-01
 
