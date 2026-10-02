@@ -101,16 +101,16 @@ const scenes = [
     {
         caption: 'Catalog any folder as a library',
         bars: 1,
+        // Inside a folder of the library, its photos fill the frame.
         prepare: async (page) => {
             await openLibrary(page, BASE);
-            await page.waitForFunction(() => document.querySelectorAll('.folder-tile-mosaic img').length >= 8);
-            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
-            await page.locator('.folder-tile').first().click();
+            await page.locator('#lib-pane .folder-tile[data-name="Travel"]').dblclick();
+            await page.locator('#lib-pane [data-type="image"] img').nth(12).waitFor();
             await settle(page, 1500);
         },
         act: async (page) => {
-            const tiles = page.locator('.folder-tile');
-            for (let i = 1; i < Math.min(4, await tiles.count()); i++) { await wait(420); await tiles.nth(i).click(); }
+            await page.mouse.move(450, 500);
+            for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 60); await wait(210); }
         },
     },
     {
@@ -214,11 +214,14 @@ const scenes = [
                     position: 'fixed', inset: '0', zIndex: 9998, background: 'var(--bg-2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '36px', paddingBottom: '70px',
                 });
-                el.innerHTML = ['#libraries', '#map'].map(hash => `<iframe src="/${hash}" style="width:390px;height:760px;border:10px solid var(--fg);border-radius:36px;background:var(--bg)"></iframe>`).join('');
+                el.innerHTML = ['#folders', '#map'].map(hash => `<iframe src="/${hash}" style="width:390px;height:760px;border:10px solid var(--fg);border-radius:36px;background:var(--bg)"></iframe>`).join('');
                 document.body.appendChild(el);
             });
             const frames = page.locator('#supercut-phones iframe');
-            await frames.nth(0).contentFrame().locator('.library-card-filmstrip img').first().waitFor();
+            // The left phone opens a folder, whose photos fill its screen.
+            const folders = frames.nth(0).contentFrame();
+            await folders.locator('.dir-item[data-name="Travel"]').first().dblclick();
+            await folders.locator('[data-type="image"] img').nth(8).waitFor();
             await frames.nth(1).contentFrame().locator('.map-marker').first().waitFor();
             await settle(page, 2500);
         },
