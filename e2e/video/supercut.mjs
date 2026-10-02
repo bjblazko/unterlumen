@@ -101,16 +101,18 @@ const scenes = [
     {
         caption: 'Catalog any folder as a library',
         bars: 1,
-        // Inside a folder of the library, its photos fill the frame.
+        // The library's folders with the four-photo preview of each — not a
+        // photo grid, which the scene before already shows.
         prepare: async (page) => {
             await openLibrary(page, BASE);
-            await page.locator('#lib-pane .folder-tile[data-name="Travel"]').dblclick();
-            await page.locator('#lib-pane [data-type="image"] img').nth(12).waitFor();
+            await page.waitForFunction(() => document.querySelectorAll('.folder-tile-mosaic img').length >= 8);
+            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
+            await page.locator('.folder-tile').first().click();
             await settle(page, 1500);
         },
         act: async (page) => {
-            await page.mouse.move(450, 500);
-            for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 60); await wait(210); }
+            const tiles = page.locator('.folder-tile');
+            for (let i = 1; i < Math.min(4, await tiles.count()); i++) { await wait(420); await tiles.nth(i).click(); }
         },
     },
     {

@@ -65,6 +65,10 @@ is off the beat); the last frame is the end card; length about 30 s.
   leaves the caption standing, which is fine). Reuse the shot
   helpers (`ready`, `settle`, `openFolder`, `openLibrary` from
   `e2e/screenshots/shots.mjs`).
+- **The two opening scenes must look different.** Folders shows a folder's
+  photos; the library scene shows the library's folder tiles with their
+  four-photo previews (and the info panel), never a second photo grid. The
+  owner noticed when a change made both photo grids.
 - **Selectors** that also exist in the info panel's mini map or in hidden
   places need scoping (`.map-pane .maplibregl-ctrl-zoom-in`).
 - **A scene that does not move** paints no frame; `rec.start` flips a 1-pixel
