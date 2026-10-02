@@ -3,13 +3,13 @@
 
 const IMAGE = '[data-type="image"]';
 
-async function ready(page, base, hash) {
+export async function ready(page, base, hash) {
     await page.goto(`${base}/#${hash}`);
     await page.waitForFunction(() => document.querySelector('.nav-item[aria-current="page"]') && document.querySelector('#app > *'));
 }
 
 // Images have loaded when every visible thumbnail has a size.
-async function settle(page, ms = 800) {
+export async function settle(page, ms = 800) {
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
     await page.waitForFunction(() => [...document.images]
         .filter(img => img.offsetParent && img.loading !== 'lazy')
@@ -17,7 +17,7 @@ async function settle(page, ms = 800) {
     await page.waitForTimeout(ms);
 }
 
-async function openFolder(page, name) {
+export async function openFolder(page, name) {
     const dir = page.locator(`.dir-item[data-name="${name}"]`).first();
     await dir.waitFor();
     if (await page.evaluate(() => matchMedia('(hover: none)').matches)) await dir.tap();
@@ -40,13 +40,13 @@ async function folderWithInfo(page, base) {
 }
 
 // Selects `count` photos from `first` on, as a person would with Cmd-click.
-async function selectPhotos(page, first, count) {
+export async function selectPhotos(page, first, count) {
     const images = page.locator(IMAGE);
     await images.nth(first).click();
     for (let i = 1; i < count; i++) await images.nth(first + i).click({ modifiers: ['ControlOrMeta'] });
 }
 
-async function openLibrary(page, base) {
+export async function openLibrary(page, base) {
     await ready(page, base, 'libraries');
     await page.locator('.library-card', { hasText: 'Pictures' }).locator('.lib-open').click();
     await page.waitForSelector('#lib-pane [data-type="dir"], #lib-pane [data-type="image"]');

@@ -50,3 +50,4 @@ src/data/
 
 # SDD worktrees
 .worktrees/
+e2e/video/out/
