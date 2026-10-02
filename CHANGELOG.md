@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.14.5] - 2026-10-02
+
 ### Added
 - **One filter for the Map, the Statistics and the Timeline.** The head of each has the same filter: Libraries, Taken (a span of months; not on the Timeline, whose axis is time), Cameras and Lenses. Each is a list with every entry on at first, so nothing is filtered until you narrow it; the lenses offered follow the cameras chosen. The choice is shared by the three places and kept in the browser, and Reset widens it again. On a phone it folds behind a Filter button. Counts, charts, the map, the timeline and the photos of a picked value all count within it. It replaces the Map's own span of months and the Statistics' library select; a library's Statistics button sets the filter to that library. The statistics, colour, 3D-view, timeline, map and search endpoints take `ids`, `month_from`, `month_until`, and repeated `model` and `lens`; `GET /api/library/scope-values` lists the cameras and lenses with their photo counts. See ADR-0050.
 
