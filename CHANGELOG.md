@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-10-02
+
 ### Added
 - **The full view has a ⋯ menu.** What a library's overview does to a selection can now be done to the photo on screen — Add to gallery…, Export…, Rename…, Set location…, Show in Organize — also when it was opened from the Map, Statistics or the Timeline. Show in library opens the library at the photo's folder with the photo selected. A photo in Folders has Export…, Rename…, Set location… and Show in Organize.
 - **Licenses and thanks.** About links to a new place (`#licenses`) that lists every project Unterlumen is built on or calls, and the map data it shows, each with its license, its website and — where the project takes support — a link to support it. The license texts of everything built in now travel inside the binary (`/licenses/`) and lie in a `licenses/` folder in every release archive, as their BSD, MIT, ISC and OFL licenses require. A Go test fails when a module is built in without being listed.
