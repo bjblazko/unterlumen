@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openInfoPanel } from '../helpers/info-panel.js';
 import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 
@@ -72,7 +73,7 @@ test.describe('Info panel', () => {
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
         await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
-        await page.keyboard.press('i');
+        await openInfoPanel(page);
         await expect(page.locator('.info-panel.expanded')).toBeVisible({ timeout: 8_000 });
         // The panel renders empty until the photo's info arrives; allInnerTexts
         // and friends do not retry, so wait for content before reading it.
@@ -114,7 +115,7 @@ test.describe('Info panel', () => {
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
         await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
-        await page.keyboard.press('i');
+        await openInfoPanel(page);
         await expect(page.locator('.info-all-meta')).toHaveAttribute('open', '');
     });
 

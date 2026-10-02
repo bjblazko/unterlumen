@@ -1,10 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
+import { openInfoPanel } from '../helpers/info-panel.js';
 
-async function openInfoPanel(page) {
-    await page.keyboard.press('i');
-    await page.waitForSelector('.info-panel.expanded', { timeout: 5_000 });
-}
 
 // folder-a has exactly 3 immediate subdirectories: a1, a2, a3
 const FOLDER_A_SUBDIR_COUNT = 3;
@@ -157,8 +154,7 @@ test.describe('Folder info panel — library mode', () => {
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
         // Open the info panel in library mode
-        await page.keyboard.press('i');
-        await page.waitForSelector('#lib-info-panel .info-panel.expanded', { timeout: 5_000 });
+        await openInfoPanel(page, '#lib-info-panel');
     });
 
     test('selecting a folder in library mode shows folder sections in info panel', async ({ page }) => {

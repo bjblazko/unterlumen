@@ -24,6 +24,8 @@ class Viewer {
         // Read-only: photos seen from somewhere that is not their folder (the
         // map) can be looked at, not cropped or marked for deletion.
         this._readOnly = !!options.readOnly;
+        // The ⋯ menu: what the overview does to a selection, for this photo.
+        this._menu = new ViewerMenu(this, options.libraryRef);
         this._cacheBust = null;
         this._cropTool = null;
         this._cropKeyHandler = null;
@@ -64,6 +66,7 @@ class Viewer {
             this._cropTool = null;
         }
         if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
+        this._menu.menu.close({ refocus: false });
         this._stopFullLoad();
         document.removeEventListener('keydown', this.keyHandler);
         document.removeEventListener('fullscreenchange', this._onFullscreenChange);
@@ -147,6 +150,14 @@ class Viewer {
         this._prefetch(2);
     }
 
+    // reloadInfo reads the photo's info again after it changed on disk.
+    reloadInfo() {
+        if (!this.infoPanel?.expanded) return;
+        this.infoPanel.currentPath = null;
+        this.infoPanel.data = null;
+        this._infoLoadFn(this.currentPath, this.infoPanel);
+    }
+
     toggleInfo() {
         this.infoPanel?.toggle();
     }
@@ -211,6 +222,8 @@ class Viewer {
 
     handleKey(e) {
         if (this._cropTool) return; // crop mode has its own key handler
+        // A dialog or the menu opened from here has the keys while it is open.
+        if (document.querySelector('.dialog-scrim, .keyboard-owner')) return;
         switch (e.key) {
             case 'ArrowLeft':
                 e.preventDefault();
@@ -296,6 +309,7 @@ class Viewer {
                         <button class="btn viewer-crop-btn" title="${preview ? 'Crop works on the full-size photo, which is still being prepared' : 'Crop'}" ${preview ? 'disabled' : ''}>Crop</button>
                         <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
                     </div>`}
+                    <div class="viewer-menu-wrap desk-only"></div>
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
@@ -330,6 +344,7 @@ class Viewer {
             this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
         });
 
+        this.container.querySelector('.viewer-menu-wrap').appendChild(this._menu.menu.button);
         this.container.querySelector('.viewer-crop-btn')?.addEventListener('click', () => this._enterCropMode());
         this.container.querySelector('.viewer-delete')?.addEventListener('click', () => this.markCurrentForDeletion());
         const prevBtn = this.container.querySelector('.viewer-prev');

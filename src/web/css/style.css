@@ -1013,6 +1013,13 @@ button.toggle {
     border-top: 1px solid var(--line);
 }
 
+.about-places {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+}
+
 .about-label {
     font-size: var(--text-sm);
     font-weight: 500;
@@ -1854,7 +1861,8 @@ button.toggle {
 }
 
 .viewer-toolbar .viewer-fullscreen-btn,
-.viewer-toolbar .viewer-download-btn {
+.viewer-toolbar .viewer-download-btn,
+.viewer-toolbar .menu-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1864,6 +1872,11 @@ button.toggle {
     padding: 0;
     line-height: 0;
 }
+
+/* The ⋯ menu: the same square as Download beside it. */
+.viewer-menu-wrap { display: flex; }
+
+.viewer-toolbar .menu-btn[aria-expanded="true"] { background: var(--overlay-hover); }
 
 .viewer-body {
     flex: 1;
@@ -7435,6 +7448,75 @@ a.guide-node:focus-visible .guide-box {
 .guide-tree-note {
     font-family: var(--font-sans);
     color: var(--fg-3);
+}
+
+/* --- Licenses and thanks --- */
+
+.credits-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    max-width: 72ch;
+    padding: var(--space-6);
+}
+
+.credits-intro a,
+.credits-text p a,
+.credits-links a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--line-strong);
+}
+
+.credits-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.credits-list {
+    list-style: none;
+    margin-top: var(--space-3);
+}
+
+/* Name and purpose on the left, the license as data on the right. */
+.credits-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-4);
+    row-gap: var(--space-1);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--line);
+}
+
+.credits-name { font-weight: 500; }
+
+.credits-use {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.credits-license {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+    text-align: right;
+}
+
+.credits-links {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+}
+
+@media (max-width: 700px) {
+    .credits-body { padding: var(--space-4); }
+    .credits-item { grid-template-columns: minmax(0, 1fr); }
+    .credits-license { grid-column: 1; grid-row: auto; text-align: left; }
 }
 
 /* --- Photo column --- */

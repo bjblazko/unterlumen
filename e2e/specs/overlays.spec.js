@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openInfoPanel } from '../helpers/info-panel.js';
 import { waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { GPS_IMAGE, NO_GPS_IMAGE, HIF_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 import { reindexLibrary } from '../helpers/library.js';
@@ -32,7 +33,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
 
   test('info panel shows Location section for GPS JPEG', async ({ page }) => {
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
-    await page.keyboard.press('i');
+    await openInfoPanel(page);
     await expect(page.locator('.info-panel.expanded, .info-panel[data-expanded="true"]')).toBeVisible({ timeout: 5_000 });
     await page.waitForFunction(
       () => document.querySelector('.info-panel') &&
@@ -46,7 +47,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
   // Closed by a framed Done, like the Map's and Statistics' photo columns.
   test('Done closes the info panel', async ({ page }) => {
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
-    await page.keyboard.press('i');
+    await openInfoPanel(page);
     const done = page.locator('.info-panel.expanded .info-collapse-btn');
     await expect(done).toHaveText('Done');
     await expect(done).toHaveClass(/\bbtn\b/);
@@ -57,7 +58,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
 
   test('info panel has no Location section for non-GPS JPEG', async ({ page }) => {
     await page.locator(`[data-name="${NO_GPS_IMAGE}"]`).click();
-    await page.keyboard.press('i');
+    await openInfoPanel(page);
     await expect(page.locator('.info-panel.expanded, .info-panel[data-expanded="true"]')).toBeVisible({ timeout: 5_000 });
     await page.waitForFunction(
       () => document.querySelector('.info-panel') &&

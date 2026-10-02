@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openInfoPanel } from '../helpers/info-panel.js';
 import { waitForAppReady } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
 
@@ -237,11 +238,15 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('#lib-results-pane .focused')).toHaveCount(1);
         });
 
-        test('i key opens info panel in list-view filter results', async ({ page }) => {
+        test('the info panel is open beside the filter results, and i closes and opens it', async ({ page }) => {
             const results = page.locator('#lib-results-pane [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
+            const panel = page.locator('#lib-info-panel .info-panel');
+            await expect(panel).toHaveClass(/expanded/, { timeout: 5_000 });
             await page.keyboard.press('i');
-            await expect(page.locator('.info-panel.expanded')).toBeVisible({ timeout: 5_000 });
+            await expect(panel).toHaveClass(/collapsed/);
+            await page.keyboard.press('i');
+            await expect(panel).toHaveClass(/expanded/);
         });
 
         // The × works as in a library: criteria dropped, column closed, the
@@ -263,7 +268,7 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('#lib-results-pane')).toBeHidden();
 
             await page.keyboard.press('i');
-            await expect(page.locator('.info-panel.expanded')).toHaveCount(0);
+            await expect(page.locator('.info-panel.expanded:visible')).toHaveCount(0);
         });
 
         // Dropping a chip is instant; only the photos wait for the server.
@@ -394,17 +399,16 @@ test.describe('Library search with indexed fixtures', () => {
             await page.locator('#lib-pane [data-name="folder-b"]').first().dblclick();
             await page.waitForSelector('#lib-pane [data-type="image"]', { timeout: 15_000 });
             await page.locator('#lib-pane [data-type="image"]').first().click();
-            await page.keyboard.press('i');
-            await page.waitForSelector('.info-panel.expanded', { timeout: 10_000 });
+            await openInfoPanel(page);
             await page.waitForFunction(
                 () => {
-                    const panel = document.querySelector('.info-panel.expanded');
+                    const panel = document.querySelector('#lib-info-panel .info-panel.expanded');
                     return panel && !panel.querySelector('.info-loading');
                 },
                 { timeout: 15_000 },
             );
 
-            const panelText = await page.locator('.info-panel.expanded').textContent();
+            const panelText = await page.locator('#lib-info-panel .info-panel.expanded').textContent();
             expect(panelText).not.toMatch(/error.*invalid path/i);
             expect(panelText).toMatch(/Name/i);
             // Library contains JPEG and HIF images

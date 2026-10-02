@@ -72,16 +72,16 @@ async function loadInfoForPhotoAt(page, offset) {
     const images = page.locator('#lib-pane [data-type="image"]');
     const target = images.nth(offset);
     await target.click();
-    if (await page.locator('.info-panel.expanded').count() === 0) {
+    if (await page.locator('.info-panel.expanded:visible').count() === 0) {
         await page.keyboard.press('i');
     } else {
         await images.nth(offset + 1).click();
         await target.click();
     }
-    await page.waitForSelector('.info-panel.expanded', { timeout: 10_000 });
+    await page.locator('.info-panel.expanded:visible').waitFor({ timeout: 10_000 });
     await page.waitForFunction(
         () => {
-            const panel = document.querySelector('.info-panel.expanded');
+            const panel = document.querySelector('#lib-info-panel .info-panel.expanded');
             return panel && !panel.querySelector('.info-loading');
         },
         { timeout: 15_000 },

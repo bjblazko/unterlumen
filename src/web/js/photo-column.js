@@ -132,6 +132,7 @@ function openLibraryPhotos(photos, index = 0) {
     const keys = [...byKey.keys()];
     App.showViewer(keys[index], keys, {
         readOnly: true,
+        libraryRef: (k) => ({ lib: byKey.get(k).lib, id: byKey.get(k).id }),
         imageURLFn: (k) => LibraryAPI.photoURL(byKey.get(k).lib, byKey.get(k).id),
         thumbURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),
         previewURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),

@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide', 'licenses']);
 
 const App = {
     mode: 'browse',
@@ -95,6 +95,8 @@ const App = {
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
         // Reached from the sentence under each place, not from the sidebar.
         guide: { hash: 'guide' },
+        // Reached from About.
+        licenses: { hash: 'licenses' },
         // Opened on a first start, and from Settings.
         setup: { hash: 'setup' },
     },
@@ -256,6 +258,13 @@ const App = {
         if (this.browsePane.path !== relPath) this.browsePane.load(relPath);
     },
 
+    // showInLibrary opens a library at one of its folders with one photo
+    // selected — the way from a photo seen elsewhere to where it is kept.
+    showInLibrary(libraryId, relDir, name) {
+        this.setMode('library');
+        this._libraryTab?.showPhoto(libraryId, relDir, name);
+    },
+
     openLibrary(libraryId) {
         this.setMode('library');
         if (this._libraryTab) this._libraryTab.openLibraryById(libraryId);
@@ -363,7 +372,7 @@ const App = {
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
         ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
-        ['_settingsEl', 'settings'], ['_guideEl', 'guide'], ['_setupEl', 'setup'],
+        ['_settingsEl', 'settings'], ['_guideEl', 'guide'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
 
     // Mark where we are. There is no "done" or "next" — these are places.
@@ -408,6 +417,7 @@ const App = {
             case 'destinations': this._openPane('_destinationsEl', '_destinationsPane', DestinationsPane); break;
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
             case 'guide': this._openPane('_guideEl', '_guidePane', GuidePane); break;
+            case 'licenses': this._openPane('_creditsEl', '_creditsPane', CreditsPane); break;
             case 'setup': this._openPane('_setupEl', '_setupPane', SetupPane); break;
         }
     },
@@ -541,6 +551,10 @@ const App = {
             thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
             previewURLFn: pane.viewerPreviewURL ? (p) => pane.viewerPreviewURL(p) : undefined,
             infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
+            libraryRef: pane.getLibraryMeta ? (p) => {
+                const meta = pane.getLibraryMeta(p);
+                return meta ? { lib: meta.libID, id: meta.photoID } : null;
+            } : undefined,
         }, () => {
             if (pane.updateMarkedForDeletion) pane.updateMarkedForDeletion();
         });
@@ -747,7 +761,7 @@ const App = {
         }
         switch (tool) {
             case 'make-library': this._makeLibraryAt(path); break;
-            case 'set-location': this.locationModal.open(files, (changed) => this._filesChanged(pane, changed)); break;
+            case 'set-location': this._setLocation(files, sourcePath, onDone, pane); break;
             case 'batch-rename': this._batchRename(files, sourcePath, onDone, pane); break;
             case 'export': this._openExport(files, sourcePath, pane); break;
             case 'clear-cache': this._clearCache(files, path, sourcePath, onDone); break;
@@ -777,28 +791,45 @@ const App = {
         this._libraryTab.openCreateDialogForPath(absPath);
     },
 
-    _batchRename(files, sourcePath, onDone, pane) {
-        // Files from SearchResultPane are absolute pathHints; files from
-        // LibraryPane are relative to the library source dir. The batch rename
-        // API validates against the server's browse boundary, so an absolute
-        // sourcePath must be made relative to that boundary specifically —
-        // not to filesystem root "/" (only coincidentally the same when the
-        // server has no navigation restriction, e.g. desktop installs).
-        let srcPrefix = '';
-        if (sourcePath) {
-            srcPrefix = absPathRelativeToBoundary(sourcePath, this.config?.boundary);
-            if (srcPrefix === null) {
-                this.showToast('This library\'s folder is outside the server\'s browse root, so batch rename cannot reach it.');
-                if (onDone) onDone();
-                return;
-            }
+    // _boundaryPaths turns the files of a tool into what every path-taking
+    // API expects: paths relative to the server's browse boundary. Files from
+    // a library are relative to its folder (sourcePath); files from Folders
+    // already are; filter results are absolute pathHints. null means a file
+    // lies outside the boundary, which the caller must say.
+    _boundaryPaths(files, sourcePath) {
+        const boundary = this.config?.boundary;
+        const out = [];
+        for (const f of files) {
+            const abs = f.startsWith('/') ? f
+                : sourcePath ? `${sourcePath.replace(/\/$/, '')}/${f}` : null;
+            const rel = abs === null ? f : absPathRelativeToBoundary(abs, boundary);
+            if (rel === null) return null;
+            out.push(rel);
         }
-        const resolvedFiles = files.map(f =>
-            f.startsWith('/') ? f.slice(1) : (srcPrefix ? `${srcPrefix}/${f}` : f)
-        );
-        this.batchRenameModal.open(resolvedFiles, (libraryUpdated) => {
+        return out;
+    },
+
+    _outsideBoundary(onDone) {
+        this.showToast('This photo\'s folder is outside the folder this installation serves, so it cannot be changed from here.');
+        if (onDone) onDone();
+    },
+
+    _setLocation(files, sourcePath, onDone, pane) {
+        const resolved = this._boundaryPaths(files, sourcePath);
+        if (!resolved) { this._outsideBoundary(onDone); return; }
+        this.locationModal.open(resolved, (changed) => {
+            this._filesChanged(pane, files.filter((f, i) => changed.includes(resolved[i])));
+            if (onDone) onDone();
+        });
+    },
+
+    _batchRename(files, sourcePath, onDone, pane) {
+        const resolved = this._boundaryPaths(files, sourcePath);
+        if (!resolved) { this._outsideBoundary(onDone); return; }
+        this.batchRenameModal.open(resolved, (libraryUpdated) => {
             if (pane) pane.load(pane.path);
             if (libraryUpdated) this.reloadLibraryPane();
+            if (onDone) onDone();
         });
     },
 

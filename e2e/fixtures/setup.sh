@@ -9,6 +9,8 @@ echo "Copying example images to $OUT/photos..."
 
 rm -rf "$OUT/photos"
 cp -r "$EXAMPLES" "$OUT/photos"
+# The photos' licence note is not a test photo.
+rm -f "$OUT/photos/LICENSE"
 
 # Add one image directly inside folder-a to create a mixed dir (subdirs + image at same level)
 cp "$OUT/photos/folder-b/2018-10-20_17-46-50_Canon EOS 500D_IMG_3826.jpeg" \

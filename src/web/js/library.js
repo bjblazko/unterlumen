@@ -345,6 +345,20 @@ class LibraryTab {
         await this._filterPanel.openWith(criteria);
     }
 
+    // showPhoto opens a library at a folder with one photo selected and in
+    // view. A filter's results give way, as they would to a folder link.
+    async showPhoto(libraryId, relDir, name) {
+        if (String(this.currentLibrary?.id) !== String(libraryId)) {
+            this._startAt = { path: relDir, name };
+            await this.openLibraryById(libraryId);
+            this._startAt = null; // used up, or the library is gone
+            return;
+        }
+        if (this.getActivePaneForKeyboard() !== this._pane) this._hideFilterResults();
+        this._pane.primePreselect([name]);
+        this._pane.load(relDir);
+    }
+
     // Open a library by id — used by the sidebar's per-library entries.
     async openLibraryById(libraryId) {
         if (String(this.currentLibrary?.id) === String(libraryId)) return;
@@ -457,7 +471,10 @@ class LibraryTab {
         });
 
         this._syncInfoPanel();
-        this._pane.load('');
+        const start = this._startAt || { path: '' };
+        this._startAt = null;
+        if (start.name) this._pane.primePreselect([start.name]);
+        this._pane.load(start.path);
     }
 
     /* --- Filter: one column, the same in the overview and in a library --- */
@@ -731,33 +748,13 @@ class LibraryTab {
 
         new CollectDialog({
             count,
-            onCollect: async ({ slug, draftID, postID, title, unlisted, account }) => {
+            onCollect: async (choice) => {
                 let groups = photoGroups;
                 if (!groups) {
                     const photoIDs = await Promise.all(selectedPaths.map(p => LibraryAPI.photoIDByPath(lib.id, p)));
                     groups = [{ libID: lib.id, photoIDs: photoIDs.filter(Boolean) }];
                 }
-                groups = groups.filter(g => g.photoIDs.length > 0);
-                if (groups.length === 0) throw new Error('No matching library photos found for this selection.');
-
-                // The first call creates the draft, the rest append to it.
-                // Passing the title to every call would instead create one
-                // gallery per library, all with the same name.
-                let total = 0;
-                let currentDraft = draftID;
-                for (const g of groups) {
-                    const draft = await LibraryAPI.collect(g.libID, slug, {
-                        photoIDs: g.photoIDs,
-                        draftID: currentDraft,
-                        postID: !currentDraft ? postID : undefined,
-                        title: !currentDraft && !postID ? title : undefined,
-                        unlisted: currentDraft ? undefined : unlisted,
-                        account: currentDraft ? undefined : account,
-                    });
-                    currentDraft = draft?.id || currentDraft;
-                    total += g.photoIDs.length;
-                }
-                return total;
+                return collectPhotoGroups(groups, choice);
             },
         }).open();
     }

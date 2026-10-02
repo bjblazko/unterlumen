@@ -187,6 +187,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `fullscreen.js` | `Fullscreen` — the browser's own full screen for the slideshow and the viewer; a caller leaves only the full screen it entered |
 | `menu.js` | `Menu` class — the ⋯ menu of a place: actions and Toggle switches that need not be on screen, keyboard-owning while open |
 | `viewer.js` | `Viewer` class — full-image display, prev/next navigation; `readOnly` leaves out crop and marking for deletion |
+| `viewer-menu.js` | `ViewerMenu` — the full view's ⋯ menu: an overview's actions for the photo on screen, from a `libraryRef` (`{ lib, id }`) or a Folders path; Show in library |
 | `range-slider.js` | `RangeSlider` — two handles on one track, for pointer and keyboard; the library filter's ranges and the Map's time |
 | `map-place.js` | `MapPane` — the Map place: loads `/api/library/geo`, says why nothing is shown, the grey map in the theme's shade, opens photos read-only ([ADR-0039](adr/0039-map-place.md)) |
 | `map-markers.js` | `MapMarkers` — clustered GeoJSON source and the round HTML markers; zooms into a group or opens it |
@@ -197,6 +198,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
+| `credits-place.js` | `CreditsPane` — Licenses and thanks (`#licenses`), read from `web/licenses/credits.json`, whose license texts are embedded in the binary; `credits_test.go` keeps it complete |
 | `guide-place.js` | `GuidePane` — "How Unterlumen works": the model as a diagram and a paragraph per term ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `timeline-stream.js` | `TimelineStream` — the skeleton in typed arrays and the details in pages of 500, at most 40 kept |
 | `timeline-calendar.js` | `TimelineCalendar` — days and months in UTC from the first photo's day, date labels |

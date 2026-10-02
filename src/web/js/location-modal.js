@@ -168,6 +168,8 @@ class LocationModal {
         });
 
         this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        // OpenStreetMap's licence (ODbL) asks for its credit on every map.
+        this.map.addControl(new maplibregl.AttributionControl({ compact: true }));
 
         this.map.on('click', (e) => {
             this.lat = Math.round(e.lngLat.lat * 1000000) / 1000000;

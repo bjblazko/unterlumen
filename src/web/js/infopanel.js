@@ -1,9 +1,16 @@
 // Info side panel — displays file metadata and EXIF data
 
+const INFO_PANEL_PHONE = '(max-width: 700px)';
+const INFO_PANEL_KEY = 'info-panel';
+
 class InfoPanel {
+    // Every panel built so far; those no longer on the page are dropped.
+    static _live = new Set();
+
     constructor(container) {
         this.container = container;
-        this.expanded = false;
+        this.expanded = InfoPanel.startsOpen();
+        InfoPanel._live.add(this);
         this.data = null;
         this.folderData = null;
         this.libraryStats = null;
@@ -21,8 +28,29 @@ class InfoPanel {
         this.render();
     }
 
+    // Open from the start on a desk, where there is room beside the photos,
+    // until it is closed: then it stays closed, everywhere, for the session.
+    // A phone opens it with its Info button.
+    static startsOpen() {
+        if (window.matchMedia(INFO_PANEL_PHONE).matches) return false;
+        try { return sessionStorage.getItem(INFO_PANEL_KEY) !== 'closed'; } catch { return true; }
+    }
+
     toggle() {
-        this.expanded = !this.expanded;
+        this._setExpanded(!this.expanded);
+        if (window.matchMedia(INFO_PANEL_PHONE).matches) return;
+        try { sessionStorage.setItem(INFO_PANEL_KEY, this.expanded ? 'open' : 'closed'); } catch { /* this view only */ }
+        // The other places' panels follow, so a panel closed over a photo is
+        // closed in the library it came from too.
+        for (const other of InfoPanel._live) {
+            if (other === this) continue;
+            if (!other.container?.isConnected) { InfoPanel._live.delete(other); continue; }
+            if (other.expanded !== this.expanded) other._setExpanded(this.expanded);
+        }
+    }
+
+    _setExpanded(on) {
+        this.expanded = on;
         this.render();
         if (this.onToggle) this.onToggle();
     }
@@ -171,7 +199,7 @@ class InfoPanel {
         if (this.loading) {
             body = '<div class="info-loading"></div>';
         } else if (this.error) {
-            body = '<div class="info-empty">Error: ' + this.error + '</div>';
+            body = '<div class="info-empty">Error: ' + escapeHtml(this.error) + '</div>';
         } else if (this.folderData) {
             body = this._folders.render(this.folderData);
         } else if (!this.data) {
@@ -600,10 +628,12 @@ class InfoPanel {
             '</div>';
     }
 
+    // Labels and values are text: file names, paths and EXIF tags and values
+    // come from the file, so none of them may be read as markup.
     row(label, value) {
         return '<div class="info-row">' +
-            '<span class="info-label">' + label + '</span>' +
-            '<span class="info-value">' + (value || '\u2014') + '</span>' +
+            '<span class="info-label">' + escapeHtml(label) + '</span>' +
+            '<span class="info-value">' + (value ? escapeHtml(value) : '\u2014') + '</span>' +
             '</div>';
     }
 
@@ -613,8 +643,8 @@ class InfoPanel {
     badgeRow(label, value) {
         if (!value) return this.row(label, value);
         return '<div class="info-row">' +
-            '<span class="info-label">' + label + '</span>' +
-            '<span class="info-value"><span class="info-chip">' + value + '</span></span>' +
+            '<span class="info-label">' + escapeHtml(label) + '</span>' +
+            '<span class="info-value"><span class="info-chip">' + escapeHtml(value) + '</span></span>' +
             '</div>';
     }
 

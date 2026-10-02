@@ -234,8 +234,8 @@ test.describe('Single-gallery channel — many albums on one host', () => {
 
         const images = page.locator('#lib-pane [data-type="image"]');
         await images.first().click();
-        if (await page.locator('.info-panel.expanded').count() === 0) await page.keyboard.press('i');
-        await page.waitForSelector('.info-panel.expanded', { timeout: 10_000 });
+        if (await page.locator('.info-panel.expanded:visible').count() === 0) await page.keyboard.press('i');
+        await page.locator('.info-panel.expanded:visible').waitFor({ timeout: 10_000 });
 
         // One card per album the photo actually belongs to. Earlier tests in
         // this file publish the same photo too, so the expected number comes

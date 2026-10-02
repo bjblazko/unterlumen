@@ -155,13 +155,15 @@ test.describe('Map', () => {
     // The photos in view: a column that starts open on the desk, follows the
     // map, and closes with Done or Escape, which this browser remembers.
     // The panel's own button opened it empty ("Select an image to view
-    // info"); only the I key loaded the photo.
+    // info"); only the I key loaded the photo. It starts open now, so it is
+    // closed with Done first.
     test('the info panel opened by its button in the viewer shows the photo', async ({ page }) => {
         await openMap(page);
         const tile = page.locator('#map-photos .photo-column-tile').first();
         const name = (await tile.getAttribute('aria-label')).split(',')[0];
         await tile.click();
         await expect(page.locator('.viewer')).toBeVisible();
+        await page.locator('.viewer .info-collapse-btn').click();
         await page.locator('.viewer .info-toggle-btn').click();
         const body = page.locator('.viewer .info-panel-body');
         await expect(body).toContainText(name, { timeout: 10_000 });

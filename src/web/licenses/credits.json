@@ -1,0 +1,34 @@
+{
+  "inside": [
+    { "name": "Go", "use": "The language and its standard library", "license": "BSD-3-Clause", "home": "https://go.dev", "text": "go.txt" },
+    { "name": "modernc.org/sqlite", "module": "modernc.org/sqlite", "use": "SQLite in pure Go: the library catalogs", "license": "BSD-3-Clause, SQLite: public domain", "home": "https://gitlab.com/cznic/sqlite", "text": "modernc-sqlite.txt" },
+    { "name": "modernc.org/libc", "module": "modernc.org/libc", "use": "The C library SQLite runs on", "license": "BSD-3-Clause, musl: MIT", "home": "https://gitlab.com/cznic/libc", "text": "modernc-libc.txt" },
+    { "name": "modernc.org/mathutil", "module": "modernc.org/mathutil", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://gitlab.com/cznic/mathutil", "text": "modernc-mathutil.txt" },
+    { "name": "modernc.org/memory", "module": "modernc.org/memory", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://gitlab.com/cznic/memory", "text": "modernc-memory.txt" },
+    { "name": "goexif", "module": "github.com/rwcarlsen/goexif", "use": "Reads EXIF metadata", "license": "BSD-2-Clause", "home": "https://github.com/rwcarlsen/goexif", "text": "goexif.txt" },
+    { "name": "goldmark", "module": "github.com/yuin/goldmark", "use": "Turns Markdown into HTML on published websites", "license": "MIT", "home": "https://github.com/yuin/goldmark", "support": "https://github.com/sponsors/yuin", "text": "goldmark.txt" },
+    { "name": "golang.org/x/image", "module": "golang.org/x/image", "use": "Scales images and reads WebP", "license": "BSD-3-Clause", "home": "https://pkg.go.dev/golang.org/x/image", "text": "x-image.txt" },
+    { "name": "golang.org/x/sys", "module": "golang.org/x/sys", "use": "Calls into the operating system", "license": "BSD-3-Clause", "home": "https://pkg.go.dev/golang.org/x/sys", "text": "x-sys.txt" },
+    { "name": "go-humanize", "module": "github.com/dustin/go-humanize", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/dustin/go-humanize", "text": "go-humanize.txt" },
+    { "name": "uuid", "module": "github.com/google/uuid", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://github.com/google/uuid", "text": "google-uuid.txt" },
+    { "name": "go-isatty", "module": "github.com/mattn/go-isatty", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/mattn/go-isatty", "support": "https://github.com/sponsors/mattn", "text": "go-isatty.txt" },
+    { "name": "go-strftime", "module": "github.com/ncruces/go-strftime", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/ncruces/go-strftime", "text": "go-strftime.txt" },
+    { "name": "bigfft", "module": "github.com/remyoudompheng/bigfft", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://github.com/remyoudompheng/bigfft", "text": "bigfft.txt" },
+    { "name": "MapLibre GL JS 6.11.2", "use": "Draws the maps", "license": "BSD-3-Clause", "home": "https://maplibre.org", "support": "https://maplibre.org/sponsors/", "text": "maplibre.txt" },
+    { "name": "D3 7.9.0", "use": "Draws the charts in Statistics", "license": "ISC", "home": "https://d3js.org", "text": "d3.txt" },
+    { "name": "IBM Plex Sans and Mono", "use": "The typefaces", "license": "OFL-1.1", "home": "https://github.com/IBM/plex", "text": "ibm-plex.txt" }
+  ],
+  "programs": [
+    { "name": "FFmpeg", "use": "Reads HEIF photos and writes WebP", "license": "LGPL-2.1-or-later or GPL-2.0-or-later, by build", "home": "https://ffmpeg.org", "support": "https://ffmpeg.org/donations.html" },
+    { "name": "ExifTool", "use": "Writes locations and metadata, renames by date", "license": "Artistic-1.0-Perl or GPL-1.0-or-later", "home": "https://exiftool.org", "support": "https://exiftool.org/#donate" },
+    { "name": "libheif (heif-convert)", "use": "Decodes HEIF photos on Linux", "license": "LGPL-3.0-or-later, tools: MIT", "home": "https://github.com/strukturag/libheif", "support": "https://github.com/sponsors/farindk" },
+    { "name": "libde265", "use": "The HEVC decoder libheif uses", "license": "LGPL-3.0-or-later", "home": "https://github.com/strukturag/libde265", "support": "https://github.com/sponsors/farindk" },
+    { "name": "libwebp (cwebp)", "use": "Writes WebP when FFmpeg cannot", "license": "BSD-3-Clause", "home": "https://developers.google.com/speed/webp" }
+  ],
+  "data": [
+    { "name": "OpenStreetMap", "use": "The map data, by its contributors", "license": "ODbL-1.0", "home": "https://www.openstreetmap.org/copyright", "support": "https://supporting.openstreetmap.org/" },
+    { "name": "OpenFreeMap", "use": "Serves the map tiles, free of charge", "license": "MIT", "home": "https://openfreemap.org", "support": "https://github.com/sponsors/hyperknot" },
+    { "name": "OpenMapTiles", "use": "The tile schema and map styles", "license": "BSD-3-Clause, schema: CC-BY-4.0", "home": "https://openmaptiles.org" },
+    { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" }
+  ]
+}

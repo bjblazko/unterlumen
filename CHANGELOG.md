@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **The full view has a ⋯ menu.** What a library's overview does to a selection can now be done to the photo on screen — Add to gallery…, Export…, Rename…, Set location…, Show in Organize — also when it was opened from the Map, Statistics or the Timeline. Show in library opens the library at the photo's folder with the photo selected. A photo in Folders has Export…, Rename…, Set location… and Show in Organize.
+- **Licenses and thanks.** About links to a new place (`#licenses`) that lists every project Unterlumen is built on or calls, and the map data it shows, each with its license, its website and — where the project takes support — a link to support it. The license texts of everything built in now travel inside the binary (`/licenses/`) and lie in a `licenses/` folder in every release archive, as their BSD, MIT, ISC and OFL licenses require. A Go test fails when a module is built in without being listed.
+
+### Changed
+- **The info panel is open from the start.** On a desk it starts open beside the photos, in Folders, a library, the Timeline and the full view. Closed, it stays closed everywhere for the rest of the session. A phone still opens it with Info.
+
+### Fixed
+- **The info panel shows file names and metadata as text.** A file name, path or EXIF value containing markup was inserted into the panel as HTML, so a crafted file name could run a script once the panel showed that photo. All of its rows now escape what they show.
+- **Rename and Set location in a library whose folder is not the served folder.** A library sent its photos' paths relative to its own folder, where the server expects them under the folder it serves; in the installed app, which serves `/`, that named files that do not exist. Both now resolve the path first, and say so when a photo lies outside.
+- **The map in Set location credits OpenStreetMap.** Its credit line was switched off; OpenStreetMap's license asks for it on every map, as the Map and the info panel already showed it.
+
 ## [0.15.3] - 2026-10-02
 
 ### Added

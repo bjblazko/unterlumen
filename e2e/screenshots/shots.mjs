@@ -83,7 +83,7 @@ export const shots = [
             await page.locator(`${IMAGE}[data-name="${FUJI}"]`).dblclick();
             await page.waitForSelector('.viewer img');
             await page.keyboard.press('f');
-            await page.keyboard.press('i');
+            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
             await settle(page, 2500);
         },
     },

@@ -26,8 +26,9 @@ class AboutModal {
                             github.com/bjblazko/unterlumen
                         </a>
                     </div>
-                    <div class="about-section">
-                        <a class="about-link" href="#guide" id="about-guide">How Unterlumen works</a>
+                    <div class="about-section about-places">
+                        <a class="about-link about-place" href="#guide" data-mode="guide">How Unterlumen works</a>
+                        <a class="about-link about-place" href="#licenses" data-mode="licenses">Licenses and thanks</a>
                     </div>
                     <div class="about-section">
                         <div class="about-label">Author</div>
@@ -42,13 +43,15 @@ class AboutModal {
             actions: [{ label: 'Close', value: null }],
         });
         this._dialog.open();
-        // A place, so the dialog gives way to it.
-        document.getElementById('about-guide').addEventListener('click', (e) => {
-            if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-            e.preventDefault();
-            this.close();
-            App.setMode('guide');
-        });
+        // Places, so the dialog gives way to them.
+        for (const link of document.querySelectorAll('.about-place')) {
+            link.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                e.preventDefault();
+                this.close();
+                App.setMode(link.dataset.mode);
+            });
+        }
     }
 
     close() {

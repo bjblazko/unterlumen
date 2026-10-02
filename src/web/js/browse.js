@@ -276,6 +276,12 @@ class BrowsePane {
         if (this.selection.selected.size > 0) {
             this.selection.updateClasses(this.container);
             if (this.onSelectionChange) this.onSelectionChange(this.getSelectedFiles());
+            // The first of them gets the focus and is scrolled into view.
+            const first = this.entries.findIndex(e => e.type === 'image' && this.selection.selected.has(this.fullPath(e.name)));
+            this.keyboard.focusedIndex = first;
+            this.keyboard.updateFocusClass();
+            this.keyboard.scrollFocusedIntoView();
+            this._notifyFocusChange();
         }
     }
 

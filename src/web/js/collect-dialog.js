@@ -8,6 +8,34 @@
 //
 // The frame, Escape, the scrim and the focus are the Dialog's (ADR-0033);
 // this file only knows about galleries.
+
+// collectPhotoGroups adds library photos — [{ libID, photoIDs }], from one
+// library or several — to the gallery chosen in the dialog, and returns how
+// many were added.
+async function collectPhotoGroups(groups, { slug, draftID, postID, title, unlisted, account }) {
+    groups = groups.filter(g => g.photoIDs.length > 0);
+    if (groups.length === 0) throw new Error('No matching library photos found for this selection.');
+
+    // The first call creates the draft, the rest append to it.
+    // Passing the title to every call would instead create one
+    // gallery per library, all with the same name.
+    let total = 0;
+    let currentDraft = draftID;
+    for (const g of groups) {
+        const draft = await LibraryAPI.collect(g.libID, slug, {
+            photoIDs: g.photoIDs,
+            draftID: currentDraft,
+            postID: !currentDraft ? postID : undefined,
+            title: !currentDraft && !postID ? title : undefined,
+            unlisted: currentDraft ? undefined : unlisted,
+            account: currentDraft ? undefined : account,
+        });
+        currentDraft = draft?.id || currentDraft;
+        total += g.photoIDs.length;
+    }
+    return total;
+}
+
 class CollectDialog {
     // count:    how many photos are being added (for the title).
     // onCollect: async ({ slug, draftID, postID, title, unlisted, account })

@@ -29,6 +29,15 @@ archives:
       - goos: windows
         formats: [zip]
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ if eq .Os "darwin" }}macos{{ else }}{{ .Os }}{{ end }}_{{ if eq .Os "darwin" }}{{ if eq .Arch "amd64" }}intel{{ else }}apple_silicon{{ end }}{{ else }}{{ .Arch }}{{ end }}'
+    # The third-party license texts are inside the binary too (About >
+    # Licenses and thanks); they lie beside it so they can be read unopened.
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - src: src/web/licenses/*.txt
+        dst: licenses
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt

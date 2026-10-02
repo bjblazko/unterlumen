@@ -245,6 +245,7 @@ class TimelinePane {
         if (this._phone.matches) keys.reverse();
         App.showViewer(keyOf(opened), keys, {
             readOnly: true,
+            libraryRef: (k) => ({ lib: byKey.get(k).lib, id: byKey.get(k).id }),
             imageURLFn: (k) => LibraryAPI.photoURL(byKey.get(k).lib, byKey.get(k).id),
             thumbURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),
             previewURLFn: (k) => LibraryAPI.thumbURL(byKey.get(k).lib, byKey.get(k).id),

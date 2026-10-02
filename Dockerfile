@@ -17,6 +17,12 @@ RUN CGO_ENABLED=0 GOOS=linux \
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM debian:trixie-slim
 
+# Unterlumen is Apache-2.0. The tools below keep their own licenses (GPL and
+# LGPL among them); /usr/share/doc/unterlumen/README.txt says where their
+# license texts and sources are.
+LABEL org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/bjblazko/unterlumen"
+
 # Install external tools bundled in the image:
 #   ffmpeg            — HEIF/HEIC embedded preview extraction, WebP export (built with libwebp)
 #   libheif-examples  — heif-convert; primary HEIC decoder on Linux; handles Fujifilm HEIC
@@ -48,6 +54,10 @@ RUN useradd -u 1000 -m unterlumen \
 USER unterlumen
 
 COPY --from=builder /unterlumen /unterlumen
+
+# Licenses and where the sources of everything in the image are.
+COPY LICENSE packaging/docker/README.txt /usr/share/doc/unterlumen/
+COPY src/web/licenses/*.txt /usr/share/doc/unterlumen/licenses/
 
 # Defaults suitable for container use:
 #   UNTERLUMEN_BIND=0.0.0.0      — listen on all interfaces
