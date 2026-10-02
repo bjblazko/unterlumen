@@ -85,7 +85,8 @@ test.describe('Statistics', () => {
         await page.reload();
         await waitForAppReady(page);
         await expect(page.locator('.stats-title')).toHaveText('Exposure');
-        await expect(page.locator('.stats-library')).toHaveValue(lib.id);
+        // The library is the shared filter's now (ADR-0050).
+        await expect(page.locator('.stats-place .scope-filter-libraries .multi-select-btn')).toHaveText(`Libraries: ${LIB_NAME}`);
     });
 
     test('the overview leads to each topic, and back', async ({ page }) => {
@@ -131,7 +132,8 @@ test.describe('Statistics', () => {
         await card.locator('.lib-open').click();
         await page.locator('#lib-detail-stats-btn').click();
         await expect(page).toHaveURL(new RegExp(`#statistics\\?library=${lib.id}$`));
-        await expect(page.locator('.stats-library')).toHaveValue(lib.id);
+        // The library is the shared filter's now (ADR-0050).
+        await expect(page.locator('.stats-place .scope-filter-libraries .multi-select-btn')).toHaveText(`Libraries: ${LIB_NAME}`);
     });
 
     test('camera usage is a line chart with a legend', async ({ page }) => {

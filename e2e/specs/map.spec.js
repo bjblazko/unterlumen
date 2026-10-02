@@ -133,20 +133,22 @@ test.describe('Map', () => {
         await expect(page.locator('#mode-map')).toHaveAttribute('aria-current', 'page');
     });
 
+    // The span of months is part of the shared filter now (ADR-0050).
     test('the time range narrows the photos on the map', async ({ page }) => {
         await openMap(page);
         const [total] = countsIn(await page.locator('.map-count').textContent());
 
-        await page.locator('.range-handle--min').focus();
-        await page.keyboard.press('End');
-        await expect(page.locator('.map-count')).toContainText(' of ');
-        const [shown, of] = countsIn(await page.locator('.map-count').textContent());
-        expect(of).toBe(total);
+        // From 2020 on: the slider spans every photo's months, and the last
+        // ones need not have a located photo.
+        await page.evaluate(() => ScopeState.set({ from: '2020-01', until: '' }));
+        await expect(page.locator('.map-count')).toContainText('within the filter');
+        const [shown] = countsIn(await page.locator('.map-count').textContent());
+        expect(shown).toBeGreaterThan(0);
         expect(shown).toBeLessThan(total);
         await expect.poll(() => markerTotal(page)).toBe(shown);
 
-        await page.keyboard.press('Home');
-        await expect(page.locator('.map-count')).not.toContainText(' of ');
+        await page.locator('.map-pane .scope-filter-reset').click();
+        await expect(page.locator('.map-count')).not.toContainText('within the filter');
         await expect.poll(() => markerTotal(page)).toBe(total);
     });
 

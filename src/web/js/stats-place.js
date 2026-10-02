@@ -373,7 +373,11 @@ class StatsPane {
 
     // Before a value is picked, the column holds every photo in the scope.
     _showAllPhotos() {
-        const where = this._route.path ? `in ${this._route.path}` : ScopeState.narrowed() ? 'within the filter' : this._lib ? `in ${this._lib.name}` : 'in all libraries';
+        const v = ScopeState.value;
+        const onlyLibrary = v.libraries?.length === 1 && v.models === null && v.lenses === null && !v.from && !v.until;
+        const where = this._route.path ? `in ${this._route.path}`
+            : onlyLibrary && this._lib ? `in ${this._lib.name}`
+            : ScopeState.narrowed() ? 'within the filter' : 'in all libraries';
         return this._showPhotos({ subject: `All photos ${where}`, params: {}, all: true });
     }
 
