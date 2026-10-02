@@ -28,6 +28,7 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		Month:          parseIntIn(q.Get("month"), 1, 12),
 		Mono:           q.Get("mono"),
 		HueBin:         parseIntIn(q.Get("hue_bin"), 0, 11),
+		Hues:           parseHues(q.Get("hues")),
 		Warmth:         q.Get("warmth"),
 		PhotoID:        q.Get("photo_id"),
 	}
@@ -54,6 +55,22 @@ func parseIntIn(s string, lo, hi int) *int {
 		return nil
 	}
 	return &n
+}
+
+// parseHues reads a colour combination, "1,6": up to three distinct hue
+// sectors 0–11; anything else in the list is left out.
+func parseHues(s string) []int {
+	var out []int
+	seen := map[int]bool{}
+	for _, part := range strings.Split(s, ",") {
+		bin := parseIntIn(strings.TrimSpace(part), 0, 11)
+		if bin == nil || seen[*bin] || len(out) == 3 {
+			continue
+		}
+		seen[*bin] = true
+		out = append(out, *bin)
+	}
+	return out
 }
 
 func parseIDList(s string) []string {
@@ -84,7 +101,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
-		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "warmth" || k == "photo_id" {
+		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "photo_id" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

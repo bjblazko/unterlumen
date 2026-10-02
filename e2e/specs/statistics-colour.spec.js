@@ -32,8 +32,8 @@ test.describe('Statistics: Colour', () => {
         await page.goto(`/#statistics/colour?library=${lib.id}`);
         await waitForAppReady(page);
         await expect(page.locator('.stats-title')).toHaveText('Colour');
-        // Two stages (Colour space, Character) and four charts.
-        await expect(page.locator('.stats-chart')).toHaveCount(6, { timeout: 15_000 });
+        // Two stages (Colour space, Character) and six charts.
+        await expect(page.locator('.stats-chart')).toHaveCount(8, { timeout: 15_000 });
     }
 
     const chart = (page, title) => page.locator('.stats-chart')
@@ -105,5 +105,58 @@ test.describe('Statistics: Colour', () => {
         await bar.click();
         await expect(page.locator('#stats-photos .photo-column-subject')).toHaveText(new RegExp(`^(Warm|Cool) · \\w+ ${year}$`));
         await expect(page.locator('#stats-photos .photo-column-tile').first()).toBeVisible();
+    });
+
+    // Colour combinations (ADR-0049): a photo has a hue when its swatches of
+    // it cover a tenth of the frame; the server counts photos per set of hues.
+    async function aCombination(request) {
+        const body = await (await request.get(`/api/library/colour?ids=${lib.id}`)).json();
+        expect(body.hueSets.length).toBeGreaterThan(0);
+        const set = body.hueSets.find(s => s.hues.length >= 2) ?? body.hueSets[0];
+        const hues = set.hues.slice(0, 2);
+        const found = await (await request.get(`/api/library/search?ids=${lib.id}&hues=${hues.join(',')}&limit=200`)).json();
+        return { hues, total: found.total };
+    }
+
+    test('a well-known combination shows its photos', async ({ page }) => {
+        await open(page);
+        const row = chart(page, 'Colour combinations').locator('button.combo-item').first();
+        await expect(row).toBeVisible();
+        const count = Number((await row.locator('.combo-count').textContent()).replace(/\D/g, ''));
+        const name = await row.locator('.combo-name').textContent();
+        await row.click();
+        const column = page.locator('#stats-photos');
+        await expect(column.locator('.photo-column-subject')).toContainText(name);
+        await expect(column.locator('.photo-column-tile')).toHaveCount(count);
+    });
+
+    test('your combination counts the hues chosen on the wheel', async ({ page, request }) => {
+        const { hues, total } = await aCombination(request);
+        await open(page);
+        const picker = chart(page, 'Your combination');
+        const sector = name => picker.locator(`.stats-pickable[aria-label="${name}"]`);
+        // Start from nothing chosen, then choose the combination's hues.
+        const pressed = picker.locator('.stats-pickable[aria-pressed="true"]');
+        while (await pressed.count()) await pressed.first().click();
+        await expect(picker.locator('.combo-sentence')).toHaveText('Choose two or three colours on the wheel.');
+        const names = await page.evaluate(h => h.map(hueName), hues);
+        for (const name of names) await sector(name).click();
+        await expect(picker.locator('.combo-sentence')).toContainText(total === 0 ? 'No photo is' : `${total} photo`);
+        if (total > 0) {
+            await picker.getByRole('button', { name: 'Show photos' }).click();
+            await expect(page.locator('#stats-photos .photo-column-tile')).toHaveCount(total);
+        }
+    });
+
+    test('the library filter takes a colour combination', async ({ page, request }) => {
+        const { hues, total } = await aCombination(request);
+        await page.goto('/#libraries');
+        await waitForAppReady(page);
+        await page.locator('.library-card', { hasText: LIB_NAME }).locator('.lib-open').click();
+        await page.locator('#lib-filter-btn').click();
+        for (const bin of hues) await page.locator(`.lib-colour-chip[data-bin="${bin}"]`).click();
+        await expect(page.locator(`.lib-colour-chip[data-bin="${hues[0]}"]`)).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('.lib-filter-chip', { hasText: 'Colours:' })).toBeVisible();
+        await expect(page.locator('#lib-results-pane [data-type="image"]')).toHaveCount(total, { timeout: 15_000 });
     });
 });

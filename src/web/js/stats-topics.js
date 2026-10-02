@@ -120,6 +120,10 @@ const STATS_TOPICS = [
                   subject: `${capitalise(hueName(bin))} · at least ${HUE_SHARE_MIN_PERCENT} % of the frame`,
                   params: { mono: 'colour', hue_bin: bin },
               })) },
+            { title: 'Colour combinations', subtitle: `Photos with each colour of a well-known combination, each at least ${COMBO_SHARE_MIN_PERCENT} % of the frame`, source: 'colour',
+              render: (el, d, pick) => renderColourCombos(el, d.colour, hues => pick(comboCriterion(hues))) },
+            { title: 'Your combination', subtitle: 'Choose two or three colours on the wheel to count and show their photos', source: 'colour', full: true,
+              render: (el, d, pick) => renderComboPicker(el, d.colour, hues => pick(comboCriterion(hues))) },
             { title: 'Warm and cool through the year', subtitle: 'Share of warm and of cool colour photos per month, in their warm or cool colours', source: 'colour', full: true,
               render: (el, d, pick) => renderWarmCool(el, d.colour, b => pick({
                   subject: `${b.warmth === 'warm' ? 'Warm' : 'Cool'} · ${MONTHS[b.month - 1]}${b.year ? ' ' + b.year : ''}`,

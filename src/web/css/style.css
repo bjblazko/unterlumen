@@ -6777,6 +6777,120 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-1);
 }
 
+/* --- Colour combinations (ADR-0049) --- */
+
+.lib-colour-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.lib-colour-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.lib-colour-chip:hover:not(:disabled) { background: var(--bg-2); }
+
+/* Chosen: the interface's ink, as a selected state is (ADR-0030). */
+.lib-colour-chip[aria-pressed="true"] {
+    border: 2px solid var(--fg);
+    padding: 0 calc(var(--space-2) - 1px);
+}
+
+.lib-colour-chip:disabled {
+    color: var(--fg-3);
+    cursor: default;
+}
+
+.lib-colour-swatch {
+    width: var(--space-3);
+    height: var(--space-3);
+    border-radius: var(--radius-full);
+}
+
+.combo-chart {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4) var(--space-6);
+}
+
+.combo-wheel {
+    flex: 0 1 260px;
+}
+
+.combo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.combo-item {
+    display: grid;
+    grid-template-columns: var(--space-12) 1fr auto;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: var(--control-h-sm);
+    padding: 0 var(--space-2);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: left;
+}
+
+button.combo-item { cursor: pointer; }
+button.combo-item:hover { background: var(--bg-2); }
+
+.combo-swatches {
+    display: flex;
+    gap: 2px;
+}
+
+.combo-swatch {
+    width: var(--space-3);
+    height: var(--space-3);
+    border-radius: var(--radius-sm);
+}
+
+.combo-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-2);
+}
+
+.combo-result {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    max-width: 24rem;
+}
+
+.combo-sentence {
+    margin: 0;
+    color: var(--fg-2);
+}
+
 /* --- Library notice (ADR-0047) --- */
 
 .library-notice {

@@ -1,9 +1,13 @@
 # Changelog
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-10-02*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- **Colour combinations in Statistics.** Beside Main colours, Colour combinations shows how many photos have the colours of a well-known combination — orange & teal, blue & orange, blue & yellow, violet & yellow, red & green, pink & green, and the triads red, yellow & blue and orange, green & violet — as chords across the hue circle, as thick as their photos are many, with a list of their counts. Your combination counts any two or three colours chosen on a wheel. A photo has a colour when that colour covers at least a tenth of the frame. Both show their photos. `/api/library/colour` carries `hueSets`, and `/api/library/search` takes `hues` (up to three hue sectors). See ADR-0049.
+- **The library filter has Colours.** Twelve named colours, up to three, to find photos with, say, orange and teal together, combined with every other filter.
 
 ## [0.15.2] - 2026-10-01
 

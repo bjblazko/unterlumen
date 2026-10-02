@@ -183,6 +183,7 @@ class LibraryFilterPanel {
         if (criteria.gallery) {
             this._chipInput.add(GALLERY_CHIP_NS, criteria.gallery.id, criteria.gallery.title);
         }
+        if (criteria.hues) this._setHues(criteria.hues);
         this._suppressQuery = false;
         this._runQuery();
     }
@@ -240,6 +241,7 @@ class LibraryFilterPanel {
         this._buildStatus();
         this._buildControls();
         this._buildDateFilter();
+        this._buildColourFilter();
         this._buildSliders();
         this._buildTextFilters();
         this._buildChipFilters();
@@ -322,6 +324,13 @@ class LibraryFilterPanel {
                     if (this._dateMaxInput) this._dateMaxInput.value = '';
                     this._runQuery();
                 },
+            });
+        }
+
+        if (this._hues?.length) {
+            out.push({
+                label: `Colours: ${comboName(this._hues)}`,
+                clear: () => this._setHues([]),
             });
         }
 
@@ -554,6 +563,45 @@ class LibraryFilterPanel {
         return group;
     }
 
+    // Colours: up to three of the twelve hues, each covering at least a tenth
+    // of the photo — orange and teal, say (ADR-0049). Named ranges, not exact
+    // colours, as the Colour statistics count them.
+    _buildColourFilter() {
+        this._hues ??= [];
+        const wrap = document.createElement('div');
+        wrap.className = 'lib-filter-groups';
+        const group = document.createElement('div');
+        group.className = 'lib-filter-group';
+        group.innerHTML = `<div class="lib-filter-label" id="lib-colour-label">Colours</div>
+            <div class="lib-colour-chips" role="group" aria-labelledby="lib-colour-label">${HUE_NAMES.map((name, bin) =>
+                `<button type="button" class="lib-colour-chip" data-bin="${bin}" aria-pressed="false"><span class="lib-colour-swatch" style="background: oklch(0.66 0.12 ${bin * 30 + 15})"></span>${escapeHtml(name)}</button>`).join('')}</div>
+            <span class="form-hint">Up to three; each covers at least ${COMBO_SHARE_MIN_PERCENT} % of the photo.</span>`;
+        group.querySelectorAll('.lib-colour-chip').forEach(chip => chip.addEventListener('click', () => {
+            const bin = Number(chip.dataset.bin);
+            this._setHues(this._hues.includes(bin) ? this._hues.filter(b => b !== bin) : [...this._hues, bin].sort((a, b) => a - b));
+        }));
+        this._colourChips = group;
+        wrap.appendChild(group);
+        this._container.appendChild(wrap);
+        this._syncColourChips();
+    }
+
+    _setHues(hues) {
+        this._hues = hues.slice(0, 3);
+        this._syncColourChips();
+        this._scheduleQuery();
+    }
+
+    // A chosen chip is pressed; with three chosen the others wait.
+    _syncColourChips() {
+        if (!this._colourChips) return;
+        for (const chip of this._colourChips.querySelectorAll('.lib-colour-chip')) {
+            const on = this._hues.includes(Number(chip.dataset.bin));
+            chip.setAttribute('aria-pressed', String(on));
+            chip.disabled = !on && this._hues.length >= 3;
+        }
+    }
+
     _buildDateFilter() {
         const wrap = document.createElement('div');
         wrap.className = 'lib-filter-groups';
@@ -681,6 +729,8 @@ class LibraryFilterPanel {
         this._dateMax = '';
         if (this._dateMinInput) this._dateMinInput.value = '';
         if (this._dateMaxInput) this._dateMaxInput.value = '';
+        this._hues = [];
+        this._syncColourChips();
         this._chipInput?.reset();
         this._rebuildSliders();
         this._rebuildTextFilters();
@@ -710,6 +760,7 @@ class LibraryFilterPanel {
         }
         if (this._dateMin) params.date_taken_min = this._dateMin;
         if (this._dateMax) params.date_taken_max = this._dateMax;
+        if (this._hues?.length) params.hues = this._hues.join(',');
         for (const chip of (this._chipInput?.getChips() || [])) {
             const p = chipToParam(chip);
             if (p) params[p.key] = p.value;

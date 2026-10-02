@@ -36,6 +36,15 @@ func TestProbeTimings(t *testing.T) {
 	timed("Statistics (root)", func() error { _, err := s.Statistics(root); return err })
 	timed("Timeline", func() error { _, err := s.Timeline("", ""); return err })
 	timed("ColourSource", func() error { _, err := s.ColourSource(""); return err })
+	timed("hueSets", func() error {
+		src, err := s.ColourSource("")
+		if err == nil {
+			start := time.Now()
+			sets := hueSets(src.Swatches)
+			t.Logf("  %d hue sets in %d ms", len(sets), time.Since(start).Milliseconds())
+		}
+		return err
+	})
 	timed("ColourPoints", func() error { _, err := s.ColourPoints(""); return err })
 	timed("ExposurePoints", func() error { _, err := s.ExposurePoints(""); return err })
 	timed("GeoPoints", func() error { _, err := s.GeoPoints(); return err })
@@ -45,19 +54,21 @@ func TestProbeTimings(t *testing.T) {
 		return map[string]NumericFilter{"FNumber": {Min: v, Max: v + 0.7}}
 	}
 	for name, o := range map[string]ListPhotosOpts{
-		"search: none":       {},
-		"search: hue":        {Mono: "colour", HueBin: intp(2)},
-		"search: mono":       {Mono: "mono"},
-		"search: warm June":  {Mono: "colour", Warmth: "warm", Month: intp(6)},
-		"search: model":      {Filters: map[string]string{"Model": "X-T50"}},
-		"search: model+lens": {Filters: map[string]string{"Model": "X-T50", "LensModel": "XF23mmF2 R WR"}},
-		"search: f-number":   {NumericFilters: f(1.6)},
-		"search: focal 35":   {NumericFilters: map[string]NumericFilter{"FocalLength35": {Min: 30, Max: 40}}},
-		"search: year":       {DateMin: "2019-01-01", DateMax: "2019-12-31"},
-		"search: hour":       {Hour: intp(7)},
-		"search: aspect":     {Aspect: "3:2"},
-		"search: folder":     {PathPrefix: root},
-		"search: film sim":   {Filters: map[string]string{"FilmSimulation": "Classic Chrome"}},
+		"search: none":        {},
+		"search: hue":         {Mono: "colour", HueBin: intp(2)},
+		"search: orange+teal": {Hues: []int{1, 6}},
+		"search: 3 hues":      {Hues: []int{0, 3, 8}},
+		"search: mono":        {Mono: "mono"},
+		"search: warm June":   {Mono: "colour", Warmth: "warm", Month: intp(6)},
+		"search: model":       {Filters: map[string]string{"Model": "X-T50"}},
+		"search: model+lens":  {Filters: map[string]string{"Model": "X-T50", "LensModel": "XF23mmF2 R WR"}},
+		"search: f-number":    {NumericFilters: f(1.6)},
+		"search: focal 35":    {NumericFilters: map[string]NumericFilter{"FocalLength35": {Min: 30, Max: 40}}},
+		"search: year":        {DateMin: "2019-01-01", DateMax: "2019-12-31"},
+		"search: hour":        {Hour: intp(7)},
+		"search: aspect":      {Aspect: "3:2"},
+		"search: folder":      {PathPrefix: root},
+		"search: film sim":    {Filters: map[string]string{"FilmSimulation": "Classic Chrome"}},
 	} {
 		o.Limit = 200
 		timed(name, func() error { _, err := s.ListPhotos(o); return err })

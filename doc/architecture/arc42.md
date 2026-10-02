@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-10-02*
 
 ## 1. Introduction and Goals
 
@@ -383,6 +383,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md) — The 3D views draw with WebGPU, on a glowing stage
 - [ADR-0047](adr/0047-independent-libraries-shared-per-library.md) — Libraries are independent folders; sharing is per library
 - [ADR-0048](adr/0048-notes-live-in-the-sidecar.md) — A photo's title and fields live in its sidecar; the index copies them
+- [ADR-0049](adr/0049-colour-combinations.md) — Colour combinations are counted from sets of hues
 
 ## 10. Quality Requirements
 

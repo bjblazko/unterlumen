@@ -179,6 +179,23 @@ export const shots = [
             await settle(page, 2000);
         },
     },
+    {
+        // Colour combinations beside Main colours, and the wheel to choose
+        // one's own, with orange and teal's photos in the column.
+        name: 'statistics-colour-combos',
+        take: async (page, { base }) => {
+            await ready(page, base, 'statistics/colour');
+            const chart = title => page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: new RegExp(`^${title}$`) }) });
+            await chart('Colour combinations').locator('.combo-row').first().waitFor();
+            await chart('Main colours').evaluate(el => el.scrollIntoView({ block: 'start' }));
+            await chart('Colour combinations').locator('button.combo-item').first().click();
+            await page.waitForSelector('#stats-photos .photo-column-tile img');
+            await chart('Main colours').evaluate(el => el.scrollIntoView({ block: 'start' }));
+            await page.mouse.move(1, 1);
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 2000);
+        },
+    },
     ...[
         // The 3D views, each in its topic's Full view with the photos beside it.
         ['statistics-colour-space', 'colour', 'Colour space'],
