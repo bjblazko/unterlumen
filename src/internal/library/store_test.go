@@ -106,22 +106,17 @@ func TestListPhotosFocalLength35Filter(t *testing.T) {
 	}
 }
 
-// TestPurgeMissingPhotos verifies that PurgeMissingPhotos removes missing photos
-// and their dependent rows, leaving ok photos untouched.
-func TestPurgeMissingPhotos(t *testing.T) {
+// TestPurgePhotos verifies that PurgePhotos removes the photos named and
+// their dependent rows, leaving the others untouched.
+func TestPurgePhotos(t *testing.T) {
 	s := newTestStore(t)
 
 	insertPhoto(t, s, "keep", fp(50), nil)
 	insertPhoto(t, s, "gone", fp(35), nil)
 
-	// Simulate a re-scan that only found "keep".
-	if _, err := s.db.Exec(`UPDATE photos SET status='missing' WHERE id='gone'`); err != nil {
-		t.Fatalf("mark missing: %v", err)
-	}
-
-	n, err := s.PurgeMissingPhotos()
+	n, err := s.PurgePhotos([]string{"gone"})
 	if err != nil {
-		t.Fatalf("PurgeMissingPhotos: %v", err)
+		t.Fatalf("PurgePhotos: %v", err)
 	}
 	if n != 1 {
 		t.Errorf("purged %d, want 1", n)

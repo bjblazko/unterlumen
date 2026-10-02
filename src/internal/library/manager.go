@@ -108,6 +108,16 @@ func (m *Manager) OpenStore(id string) (*Store, error) {
 	return newStore(db, m.LibDir(id)), nil
 }
 
+// OpenFiltered opens a library's store with a filter on its statistics, map
+// and timeline queries (ADR-0050).
+func (m *Manager) OpenFiltered(id string, f Filter) (*Store, error) {
+	store, err := m.OpenStore(id)
+	if err == nil {
+		store.filter = f
+	}
+	return store, err
+}
+
 // ListLibraries returns all known libraries by scanning the libraries directory.
 func (m *Manager) ListLibraries() ([]*Library, error) {
 	entries, err := os.ReadDir(filepath.Join(m.root, "libraries"))

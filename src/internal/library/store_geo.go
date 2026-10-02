@@ -19,6 +19,7 @@ type GeoPoint struct {
 // The parsed coordinates written at index time are preferred; libraries
 // indexed before they existed fall back to the raw GPS tags.
 func (s *Store) GeoPoints() ([]GeoPoint, error) {
+	fw, fa := s.filter.Cond("id")
 	rows, err := s.db.Query(`
 		SELECT id, filename, COALESCE(date_taken, ''),
 		       json_extract(exif_json, '$.latitude'),
@@ -30,7 +31,7 @@ func (s *Store) GeoPoints() ([]GeoPoint, error) {
 		  FROM photos
 		 WHERE status='ok' AND exif_json IS NOT NULL
 		   AND (json_extract(exif_json, '$.latitude') IS NOT NULL
-		        OR json_extract(exif_json, '$.tags.GPSLatitude') IS NOT NULL)`)
+		        OR json_extract(exif_json, '$.tags.GPSLatitude') IS NOT NULL)`+fw, fa...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (s *Store) LocatedPhotos(pathPrefix string) ([]GeoPoint, error) {
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	where, args := tlAliasCond(pathGlob)
+	where, args := s.aliasCond(pathGlob)
 	rows, err := s.db.Query(`
 		SELECT p.id, p.date_taken, la.value, COALESCE(lar.value, ''), lo.value, COALESCE(lor.value, '')
 		FROM photos p

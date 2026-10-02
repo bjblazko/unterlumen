@@ -32,6 +32,8 @@ class TimelinePane {
     // and stays at the date it showed.
     async render() {
         if (!this.container.firstChild) this._buildShell();
+        else this._filter.sync();
+        this.stream.scope = ScopeState.query({ time: false });
         await this._reload();
     }
 
@@ -51,7 +53,18 @@ class TimelinePane {
         this._body = this.container.querySelector('.timeline-body');
         this._noteEl = this.container.querySelector('.timeline-note');
         this._menu = new Menu({ label: 'Timeline options', items: () => this._menuItems() });
-        this.container.querySelector('.timeline-head').appendChild(this._menu.button);
+        // The shared filter (ADR-0050) without its months: time is this
+        // place's axis, and its own span chooses within it.
+        this._filter = new ScopeFilter({ time: false });
+        const head = this.container.querySelector('.timeline-head');
+        head.querySelector('.timeline-head-spacer').after(this._filter.el, this._menu.button);
+        ScopeState.onChange(() => {
+            if (App.mode !== 'timeline') return;
+            const scope = ScopeState.query({ time: false });
+            if (scope === this.stream.scope) return;
+            this.stream.scope = scope;
+            this._reloadSoon();
+        });
     }
 
     _menuItems() {
@@ -130,7 +143,9 @@ class TimelinePane {
 
     _explainEmpty() {
         this._noteEl.hidden = false;
-        this._noteEl.innerHTML = this.stream.undated
+        this._noteEl.innerHTML = ScopeState.narrowed({ time: false })
+            ? 'No dated photo matches the filter. Widen it, or reset it.'
+            : this.stream.undated
             ? 'None of the photos in the libraries has a date taken, so there is nothing to place on the timeline.'
             : `There are no photos in any library yet. Make a library in ${placeLink('library', 'libraries', 'Libraries')}, and its dated photos appear here.`;
     }

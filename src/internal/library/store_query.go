@@ -37,6 +37,7 @@ type ListPhotosOpts struct {
 	Mono           string                   // mono, tinted or colour (photo_appearance)
 	HueBin         *int                     // a main colour: a swatch of this 30° sector, 0–11, of at least HueShareMin
 	Hues           []int                    // a colour combination: each of these sectors covers at least ComboShareMin (ADR-0049)
+	Scope          Filter                   // the shared filter of the Map, the Statistics and the Timeline (ADR-0050)
 	Warmth         string                   // warm or cool, beyond WarmthThreshold
 	PhotoID        string                   // one photo, by its id
 	Offset         int
@@ -196,6 +197,9 @@ func (f *photoFilter) addAppearance(opts ListPhotosOpts) {
 		// a correlated EXISTS, SQLite took that index for every photo and
 		// walked all swatches of the hue each time: minutes on 48,000 photos.
 		f.cond(`p.id IN (SELECT photo_id FROM photo_palette WHERE hue_bin=? AND share >= ?)`, *opts.HueBin, HueShareMin)
+	}
+	if w, args := opts.Scope.Cond("p.id"); w != "" {
+		f.cond(strings.TrimPrefix(w, " AND "), args...)
 	}
 	// One set per hue, read through the same index; a hue's swatches add up.
 	for _, bin := range opts.Hues {

@@ -74,11 +74,6 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 		return
 	}
 
-	if err := idx.store.MarkAllMissing(); err != nil {
-		progress <- Progress{Error: err.Error(), Finished: true}
-		return
-	}
-
 	total := len(files)
 	for i, absPath := range files {
 		select {
@@ -95,12 +90,46 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 		}
 	}
 
-	idx.store.PurgeMissingPhotos() //nolint:errcheck
+	// Only a run that saw every file knows which are gone.
+	idx.purgeGone(files)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
 	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// purgeGone removes the photos whose last known file is not among files, the
+// whole library's, and finds again the ones an older version left marked
+// missing whose files are there.
+func (idx *Indexer) purgeGone(files []string) {
+	present := make(map[string]bool, len(files))
+	for _, f := range files {
+		present[f] = true
+	}
+	idx.settle("", present)
+}
+
+// settle removes, in one step, the photos inside folder ("" for the whole
+// library) whose files are not in present, and sets back to ok the ones left
+// marked missing whose files are. Called only once every file is known, so a
+// run that stops early changes nothing.
+func (idx *Indexer) settle(folder string, present map[string]bool) {
+	refs, err := idx.store.refsWithStatus(folder)
+	if err != nil {
+		return
+	}
+	var gone, found []string
+	for _, r := range refs {
+		switch {
+		case !present[r.PathHint]:
+			gone = append(gone, r.ID)
+		case r.missing:
+			found = append(found, r.ID)
+		}
+	}
+	idx.store.PurgePhotos(gone) //nolint:errcheck
+	idx.store.markOK(found)     //nolint:errcheck
 }
 
 // RunScanNew walks the full source directory and indexes new or changed photos without
@@ -672,6 +701,10 @@ func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Prog
 		scanRoot = candidate
 	}
 
+	settleFolder := ""
+	if subfolder != "" {
+		settleFolder = scanRoot
+	}
 	presentPaths, err := collectFileSet(scanRoot)
 	if err != nil {
 		progress <- Progress{Error: err.Error(), Finished: true}
@@ -690,7 +723,6 @@ func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Prog
 	}
 
 	total := len(refs)
-	missing := 0
 	for i, ref := range refs {
 		select {
 		case <-ctx.Done():
@@ -700,16 +732,11 @@ func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Prog
 
 		progress <- Progress{Done: i, Total: total, Current: filepath.Base(ref.PathHint)}
 
-		if !presentPaths[ref.PathHint] {
-			if err := idx.store.MarkPhotoMissing(ref.ID); err == nil {
-				missing++
-			}
-		}
 	}
 
-	if missing > 0 {
-		idx.store.PurgeMissingPhotos() //nolint:errcheck
-	}
+	// Settled in one step once every photo is checked: a cleanup that stops
+	// early leaves the library as it was.
+	idx.settle(settleFolder, presentPaths)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
@@ -742,7 +769,6 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 	}
 
 	total := len(refs)
-	missing := 0
 	for i, ref := range refs {
 		select {
 		case <-ctx.Done():
@@ -752,16 +778,11 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 
 		progress <- Progress{Done: i, Total: total, Current: filepath.Base(ref.PathHint)}
 
-		if !presentPaths[ref.PathHint] {
-			if err := idx.store.MarkPhotoMissing(ref.ID); err == nil {
-				missing++
-			}
-		}
 	}
 
-	if missing > 0 {
-		idx.store.PurgeMissingPhotos() //nolint:errcheck
-	}
+	// Settled in one step once every photo is checked: a cleanup that stops
+	// early leaves the library as it was.
+	idx.settle("", presentPaths)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck

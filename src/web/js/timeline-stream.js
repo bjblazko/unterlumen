@@ -8,6 +8,7 @@ const TIMELINE_PAGES_KEPT = 40;
 
 class TimelineStream {
     constructor() {
+        this.scope = '';       // the shared filter as a query string, without its months (ADR-0050)
         this.onDetails = null; // a page of details arrived
         this.onStale = null;   // the server's stream changed; load() again
         this.adopt({ version: '', start: '', days: [], ratios: [], undated: 0 });
@@ -15,7 +16,7 @@ class TimelineStream {
 
     // load reads the skeleton and says whether it differs from the one held.
     async load() {
-        const r = await fetch('/api/timeline');
+        const r = await fetch(this.scope ? `/api/timeline?${this.scope}` : '/api/timeline');
         if (!r.ok) throw new Error(await r.text());
         const sk = await r.json();
         if (sk.version === this.version && this.count) {
@@ -77,7 +78,7 @@ class TimelineStream {
     }
 
     async _fetchPage(p, version) {
-        const url = `/api/timeline/photos?v=${encodeURIComponent(version)}&from=${p * TIMELINE_PAGE}&count=${TIMELINE_PAGE}`;
+        const url = `/api/timeline/photos?v=${encodeURIComponent(version)}&from=${p * TIMELINE_PAGE}&count=${TIMELINE_PAGE}${this.scope ? '&' + this.scope : ''}`;
         const r = await fetch(url);
         if (r.status === 409) {
             // Every page in flight hears it; the place needs to hear it once.

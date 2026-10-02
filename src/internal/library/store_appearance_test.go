@@ -145,9 +145,8 @@ func TestDeletingAPhotoDeletesItsAppearance(t *testing.T) {
 	if _, _, err := s.DeletePhotoByID("aa01"); err != nil {
 		t.Fatalf("DeletePhotoByID: %v", err)
 	}
-	s.db.Exec(`UPDATE photos SET status='missing' WHERE id='bb02'`) //nolint:errcheck
-	if _, err := s.PurgeMissingPhotos(); err != nil {
-		t.Fatalf("PurgeMissingPhotos: %v", err)
+	if _, err := s.PurgePhotos([]string{"bb02"}); err != nil {
+		t.Fatalf("PurgePhotos: %v", err)
 	}
 	var left int
 	s.db.QueryRow(`SELECT (SELECT COUNT(*) FROM photo_appearance) + (SELECT COUNT(*) FROM photo_palette)`).Scan(&left) //nolint:errcheck

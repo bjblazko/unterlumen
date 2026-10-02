@@ -37,7 +37,7 @@ func TestBuilderMergesInSidebarOrderAndCaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := NewBuilder(mgr)
-	s, err := b.Current()
+	s, err := b.Current(Scope{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,12 +47,12 @@ func TestBuilderMergesInSidebarOrderAndCaches(t *testing.T) {
 	if s.Photos[1].Day != 365 || s.Start != "2022-01-01" || s.Photos[0].Ratio != 1.5 {
 		t.Errorf("days/ratio = %+v, start %s", s.Photos, s.Start)
 	}
-	again, _ := b.Current()
+	again, _ := b.Current(Scope{})
 	if again != s {
 		t.Error("an unchanged library built the stream again")
 	}
 	seedLibrary(t, mgr, "Beta", map[string]string{"new": "2024-01-01T10:00:00"})
-	changed, _ := b.Current()
+	changed, _ := b.Current(Scope{})
 	if changed.Version == s.Version || len(changed.Photos) != 3 {
 		t.Errorf("a new library did not change the stream: %+v", changed)
 	}

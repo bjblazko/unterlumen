@@ -7,19 +7,19 @@ import (
 
 // Statistics returns aggregated statistics across the requested libraries (or all if ids is nil).
 // pathPrefix, when non-empty, restricts each library's results to photos whose path starts with that prefix.
-func (m *Manager) Statistics(ids []string, pathPrefix string) (*LibraryStatistics, error) {
+func (m *Manager) Statistics(ids []string, pathPrefix string, f Filter) (*LibraryStatistics, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
-	cacheKey := statsCacheKey(libraryIDs(libs), pathPrefix)
+	cacheKey := statsCacheKey(libraryIDs(libs), pathPrefix+f.Key())
 	if v, ok := m.statsCache.Load(cacheKey); ok {
 		return v.(*LibraryStatistics), nil
 	}
 
 	sm := newStatsMerger()
 	for _, l := range libs {
-		st, warning := m.libraryStatistics(l, pathPrefix)
+		st, warning := m.libraryStatistics(l, pathPrefix, f)
 		if warning != "" {
 			sm.merged.Warnings = append(sm.merged.Warnings, warning)
 			continue
@@ -41,8 +41,8 @@ func libraryIDs(libs []*Library) []string {
 
 // libraryStatistics returns one library's statistics, or the warning to show
 // when they cannot be read.
-func (m *Manager) libraryStatistics(l *Library, pathPrefix string) (*LibraryStatistics, string) {
-	store, err := m.OpenStore(l.ID)
+func (m *Manager) libraryStatistics(l *Library, pathPrefix string, f Filter) (*LibraryStatistics, string) {
+	store, err := m.OpenFiltered(l.ID, f)
 	if err != nil {
 		return nil, fmt.Sprintf("library %q could not be read", l.Name)
 	}
@@ -50,6 +50,9 @@ func (m *Manager) libraryStatistics(l *Library, pathPrefix string) (*LibraryStat
 	store.Close()
 	if err != nil {
 		return nil, fmt.Sprintf("library %q statistics unavailable", l.Name)
+	}
+	if st.GonePhotos > 0 {
+		st.GoneLibraries = []string{l.ID}
 	}
 	return st, ""
 }
@@ -81,7 +84,8 @@ func newStatsMerger() *statsMerger {
 
 func (sm *statsMerger) add(st *LibraryStatistics) {
 	sm.merged.TotalPhotos += st.TotalPhotos
-	sm.merged.IndexingPhotos += st.IndexingPhotos
+	sm.merged.GonePhotos += st.GonePhotos
+	sm.merged.GoneLibraries = append(sm.merged.GoneLibraries, st.GoneLibraries...)
 	addNameCounts(sm.formats, st.Formats)
 	addNameCounts(sm.filmSims, st.FilmSims)
 	addValueCounts(sm.focal, st.FocalLengths)

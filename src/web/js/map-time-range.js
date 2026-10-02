@@ -1,5 +1,6 @@
-// MapTimeRange — the Map's one filter: a from–to range of months over the
-// dates the located photos were taken, drawn as a RangeSlider (ADR-0039).
+// MapTimeRange — a from–to range of months over the dates the photos were
+// taken, drawn as a RangeSlider (ADR-0039). The shared filter of the Map and
+// the Statistics holds it (ADR-0050).
 //
 // Months are counted as year * 12 + month index, read from the ISO date
 // text itself, so a photo's month never shifts with the browser's time zone.
@@ -18,9 +19,10 @@ function formatMonth(month) {
 
 class MapTimeRange {
     // first, last: the months of the oldest and newest photo.
+    // value: { from, until } to start at, or null for all of them.
     // onChange(range): range is { from, until } in months, or null for all
     // of them; called once the handles rest for a moment.
-    constructor({ first, last, onChange }) {
+    constructor({ first, last, value = null, onChange }) {
         this._first = first;
         this._span = last - first;
         this._onChange = onChange;
@@ -38,7 +40,10 @@ class MapTimeRange {
             onInput: (minPos, maxPos) => this._input(minPos, maxPos),
         });
         this.el.insertBefore(this._slider.el, this._value);
-        this._show(first, last);
+        const from = Math.max(first, Math.min(last, value?.from ?? first));
+        const until = Math.max(from, Math.min(last, value?.until ?? last));
+        this._slider.setPositions((from - first) / this._span, (until - first) / this._span);
+        this._show(from, until);
     }
 
     _monthAt(pos) {

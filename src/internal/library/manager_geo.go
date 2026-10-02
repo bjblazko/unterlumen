@@ -6,16 +6,17 @@ type LibraryGeo struct {
 	Points    []GeoPoint
 }
 
-// GeoPoints returns the located photos of every library. A library whose
-// database cannot be read is left out rather than failing the whole map.
-func (m *Manager) GeoPoints() ([]LibraryGeo, error) {
-	libs, err := m.ListLibraries()
+// GeoPoints returns the located photos of the requested libraries (or all
+// if ids is nil) within the filter (ADR-0050). A library whose database
+// cannot be read is left out rather than failing the whole map.
+func (m *Manager) GeoPoints(ids []string, f Filter) ([]LibraryGeo, error) {
+	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
 	result := []LibraryGeo{}
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenFiltered(l.ID, f)
 		if err != nil {
 			continue
 		}

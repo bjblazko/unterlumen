@@ -136,7 +136,7 @@ const STATS_TOPICS = [
         label: 'Places',
         blurb: 'Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world.',
         charts: [
-            { title: 'Space and time', subtitle: 'Where on the floor, around the middle of your photos with distance on a log scale; when, upward; a trail through the days', source: 'spaceTime', periods: false, full: true, stage: true,
+            { title: 'Space and time', subtitle: 'Where on the floor, around the middle of your photos with distance on a log scale, wider beyond 1,000 km; when, upward; a trail through the days', source: 'spaceTime', periods: false, full: true, stage: true,
               preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
               render: (el, d, pick) => renderSpaceTime(el, d.spaceTime, v => pick(v.photo
                   ? photoCriterion(v.photo)

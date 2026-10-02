@@ -18,7 +18,13 @@ class StatsPane {
     // scope replaces them: with all photos of the scope while the column is
     // kept open (photoColumnStartsOpen), else the column closes.
     show(route) {
+        // A library's Statistics button names its library: the shared
+        // filter takes it, so the other places show the same (ADR-0050).
+        if (route.library && JSON.stringify(ScopeState.value.libraries) !== JSON.stringify([route.library])) {
+            ScopeState.set({ libraries: [route.library] });
+        }
         this._route = route;
+        this._filter?.sync();
         this._setStage(null);
         this._hidePhotos();
         this._allPhotosDue = photoColumnStartsOpen(STATS_PHOTOS_KEY);
@@ -32,7 +38,11 @@ class StatsPane {
         if (generation !== this._generation) return;
         if (libs === null) { this._note('The libraries could not be read. Reload the page to try again.', true); return; }
         this._libs = libs;
-        this._lib = libs.find(l => String(l.id) === this._route.library) || null;
+        // The one library in scope: named by the route, or the only one the
+        // filter keeps. A folder belongs to the route's library.
+        const chosen = ScopeState.value.libraries;
+        const only = chosen?.length === 1 ? chosen[0] : this._route.library;
+        this._lib = libs.find(l => String(l.id) === only) || null;
         const topic = statsTopic(this._route.topic);
         this._drawHead(topic);
         if (libs.length === 0) {
@@ -72,6 +82,25 @@ class StatsPane {
                 </div>
             </div>`;
         this._head = this.container.querySelector('.stats-head');
+        // The shared filter (ADR-0050): one for the place, moved into each
+        // new head. A change counts again, once the choice rests a moment.
+        this._filter = new ScopeFilter();
+        ScopeState.onChange(() => {
+            if (App.mode !== 'statistics') return;
+            const lib = this._route.library;
+            if (this._route.path && JSON.stringify(ScopeState.value.libraries) !== JSON.stringify([lib])) {
+                App.openStatistics({ ...this._route, library: '', path: '' });
+                return;
+            }
+            clearTimeout(this._filterTimer);
+            this._filterTimer = setTimeout(async () => {
+                await this.render();
+                // The photos in the column count within the filter too.
+                if (this._photos.el.hidden || !this._shownCriterion) return;
+                if (this._shownCriterion.all) this._showAllPhotos();
+                else this._showPhotos(this._shownCriterion);
+            }, 250);
+        });
         this._main = this.container.querySelector('.stats-main');
         this._noteEl = this.container.querySelector('.stats-note');
         this._photos = new PhotoColumn({
@@ -105,14 +134,11 @@ class StatsPane {
             <span class="stats-count"></span>
             <span class="stats-head-spacer"></span>
             <div class="stats-scope">
-                ${this._libs.length ? this._librarySelectHTML() : ''}
                 ${this._lib && this._route.path ? this._folderHTML() : ''}
             </div>
             ${hasTimeline ? this._granularitySelectHTML() : ''}
             ${placeLede(`What the photos in your ${placeLink('library', 'libraries', 'libraries')} have in common, and how that changed. Click a bar, a slice or a point to see its photos.`)}`;
-        this._head.querySelector('.stats-library')?.addEventListener('change', (e) => {
-            App.openStatistics({ ...this._route, library: e.target.value, path: '' });
-        });
+        this._head.querySelector('.stats-scope').appendChild(this._filter.el);
         this._head.querySelector('.stats-whole-library')?.addEventListener('click', () => {
             App.openStatistics({ ...this._route, path: '' });
         });
@@ -120,13 +146,6 @@ class StatsPane {
             this._granularity = e.target.value;
             this.render();
         });
-    }
-
-    _librarySelectHTML() {
-        const options = this._libs.map(l =>
-            `<option value="${escapeHtml(String(l.id))}"${l === this._lib ? ' selected' : ''}>${escapeHtml(l.name)}</option>`).join('');
-        return `<select class="btn btn-sm select-btn stats-library" aria-label="Library">
-            <option value="">All libraries</option>${options}</select>`;
     }
 
     _folderHTML() {
@@ -148,17 +167,44 @@ class StatsPane {
     }
 
     _nothingCounted(snap) {
-        if (snap.indexingPhotos > 0) return `The ${formatCount(snap.indexingPhotos)} photos here are still being read. Their statistics appear once the scan is done.`;
+        if (snap.gonePhotos > 0) return `The ${formatCount(snap.gonePhotos)} photos here were not found in their folders. Edit library → Maintenance → Remove deleted photos checks them again.`;
         if (this._route.path) return 'This folder holds no photos.';
         return this._lib ? 'This library holds no photos yet. Scan it under Libraries to count them.' : 'Your libraries hold no photos yet.';
+    }
+
+    // Photos an older version left marked as not found. Checking again (Remove
+    // deleted photos) finds those still there and takes the others out.
+    _drawGone(snap) {
+        const p = document.createElement('div');
+        p.className = 'stats-gone';
+        const n = snap.gonePhotos;
+        p.innerHTML = `<span>${formatCount(n)} ${n === 1 ? 'photo was' : 'photos were'} not found in ${n === 1 ? 'its folder' : 'their folders'} — deleted or moved outside Unterlumen — and ${n === 1 ? 'is' : 'are'} not counted. Checking the folders again finds those still there and takes the others out of the library.</span>
+            <button type="button" class="btn btn-sm">Check the folders again</button>
+            <span class="stats-gone-progress"></span>`;
+        const btn = p.querySelector('button');
+        btn.addEventListener('click', async () => {
+            const restore = Activity.button(btn, 'Removing…');
+            const progress = Activity.in(p.querySelector('.stats-gone-progress'), 'Checking the folders…');
+            try {
+                for (const id of snap.goneLibraries ?? []) {
+                    await LibraryAPI.cleanup(id, (pr) => showLibraryProgress(progress, pr, 'Checking the folders…'));
+                }
+            } catch (err) {
+                restore();
+                progress.fail(`They were not removed: ${err.message}`);
+                return;
+            }
+            this.render();
+        });
+        this._main.appendChild(p);
     }
 
     // colour: the Colour topic's numbers, which only count analysed photos.
     _drawIndexing(snap, colour) {
         const lines = [];
-        if (snap.indexingPhotos > 0) lines.push(`${formatCount(snap.indexingPhotos)} photos are still being read, so these numbers are not complete yet.`);
         if (colour?.analysedPhotos > 0 && colour.unanalysedPhotos > 0) lines.push(`${formatCount(colour.unanalysedPhotos)} photos have not been analysed yet, so the colours are not complete.`);
         lines.push(...(snap.warnings ?? []));
+        if (snap.gonePhotos > 0) this._drawGone(snap);
         if (!lines.length) return;
         const p = document.createElement('p');
         p.className = 'stats-incomplete';
@@ -169,20 +215,21 @@ class StatsPane {
     /* --- Reading --- */
 
     // The scope as the server takes it: library ids and an absolute folder.
+    // As [key, value] pairs, since the filter's cameras and lenses repeat.
     _scopeParams() {
-        const params = {};
-        if (!this._lib) return params;
-        params.ids = String(this._lib.id);
-        const root = this._lib.sourcePath.replace(/\/$/, '');
-        params.pathPrefix = this._route.path ? `${root}/${this._route.path}` : root;
-        return params;
+        const pairs = ScopeState.params();
+        if (this._lib && this._route.path) {
+            const root = this._lib.sourcePath.replace(/\/$/, '');
+            pairs.push(['pathPrefix', `${root}/${this._route.path}`]);
+        }
+        return pairs;
     }
 
     // The overview's cards and every topic with a development over time need
     // the timeline, the colours or the points of a 3D view as well.
     async _read(topic) {
         const scope = this._scopeParams();
-        const over = { ...scope, ...(this._granularity ? { granularity: this._granularity } : {}) };
+        const over = [...scope, ...(this._granularity ? [['granularity', this._granularity]] : [])];
         const needs = source => !topic || topic.charts.some(c => c.source === source);
         const [snap, tl, colour, colourSpace, exposureSpace, spaceTime] = await Promise.all([
             this._fetch('/api/library/statistics', scope),
@@ -326,8 +373,8 @@ class StatsPane {
 
     // Before a value is picked, the column holds every photo in the scope.
     _showAllPhotos() {
-        const where = this._route.path ? `in ${this._route.path}` : this._lib ? `in ${this._lib.name}` : 'in all libraries';
-        return this._showPhotos({ subject: `All photos ${where}`, params: {} });
+        const where = this._route.path ? `in ${this._route.path}` : ScopeState.narrowed() ? 'within the filter' : this._lib ? `in ${this._lib.name}` : 'in all libraries';
+        return this._showPhotos({ subject: `All photos ${where}`, params: {}, all: true });
     }
 
     // A value picked in a chart opens the column, and keeps it open on the
@@ -339,9 +386,11 @@ class StatsPane {
 
     // A criterion is { subject, params }: what the photos have in common, and
     // the search that finds them, within the scope shown.
-    async _showPhotos({ subject, params }) {
+    async _showPhotos(criterion) {
+        const { subject, params } = criterion;
+        this._shownCriterion = criterion;
         const generation = ++this._pickGeneration;
-        const query = { ...params, ...this._scopeParams() };
+        const query = { ...params, scope: this._scopeParams() };
         const read = async (offset) => {
             const page = await LibraryAPI.search({ ...query, offset, limit: STATS_PHOTOS_PAGE });
             return {

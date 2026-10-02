@@ -23,7 +23,7 @@ func (s *Store) ExposurePoints(pathPrefix string) ([]ExposurePoint, error) {
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	where, args := tlAliasCond(pathGlob)
+	where, args := s.aliasCond(pathGlob)
 	rows, err := s.db.Query(`
 		SELECT p.id, COALESCE(p.date_taken, ''), COALESCE(m.value, ''),
 		       COALESCE(fl35.numeric_value, fl.numeric_value), fn.numeric_value, iso.numeric_value

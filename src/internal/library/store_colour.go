@@ -33,7 +33,7 @@ func (s *Store) ColourSource(pathPrefix string) (*ColourSource, error) {
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	where, args := tlAliasCond(pathGlob)
+	where, args := s.aliasCond(pathGlob)
 	src := &ColourSource{}
 	var err error
 	if src.Photos, err = colourPhotos(s.db, where, args); err != nil {
@@ -53,7 +53,7 @@ func (s *Store) UnanalysedCount(pathPrefix string) (int, error) {
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	where, args := tlAliasCond(pathGlob)
+	where, args := s.aliasCond(pathGlob)
 	var n int
 	err := s.db.QueryRow(`
 		SELECT COUNT(*) FROM photos p
@@ -130,7 +130,7 @@ func (s *Store) ColourPoints(pathPrefix string) ([]ColourPoint, error) {
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	where, args := tlAliasCond(pathGlob)
+	where, args := s.aliasCond(pathGlob)
 	// The bare columns of an aggregate with MIN come from the row holding the
 	// minimum in SQLite: the swatch of the lowest rank, the largest. The file
 	// name is left out on purpose: reading it reaches into each photo's row with

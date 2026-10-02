@@ -271,7 +271,7 @@ func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids := parseIDList(r.URL.Query().Get("ids"))
 		pathPrefix := r.URL.Query().Get("pathPrefix")
-		stats, err := mgr.Statistics(ids, pathPrefix)
+		stats, err := mgr.Statistics(ids, pathPrefix, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -283,7 +283,7 @@ func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
 func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, granularity := timeScope(r)
-		tl, err := mgr.Timeline(ids, pathPrefix, granularity)
+		tl, err := mgr.Timeline(ids, pathPrefix, granularity, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -295,7 +295,7 @@ func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
 func libraryColour(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, granularity := timeScope(r)
-		c, err := mgr.Colour(ids, pathPrefix, granularity)
+		c, err := mgr.Colour(ids, pathPrefix, granularity, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -307,7 +307,7 @@ func libraryColour(mgr *lib.Manager) http.HandlerFunc {
 func libraryColourSpace(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, granularity := timeScope(r)
-		cs, err := mgr.ColourSpace(ids, pathPrefix, granularity)
+		cs, err := mgr.ColourSpace(ids, pathPrefix, granularity, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -319,7 +319,7 @@ func libraryColourSpace(mgr *lib.Manager) http.HandlerFunc {
 func libraryExposureSpace(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, granularity := timeScope(r)
-		es, err := mgr.ExposureSpace(ids, pathPrefix, granularity)
+		es, err := mgr.ExposureSpace(ids, pathPrefix, granularity, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -331,7 +331,7 @@ func libraryExposureSpace(mgr *lib.Manager) http.HandlerFunc {
 func librarySpaceTime(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, _ := timeScope(r)
-		st, err := mgr.SpaceTime(ids, pathPrefix)
+		st, err := mgr.SpaceTime(ids, pathPrefix, scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -191,7 +191,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `map-place.js` | `MapPane` — the Map place: loads `/api/library/geo`, says why nothing is shown, the grey map in the theme's shade, opens photos read-only ([ADR-0039](adr/0039-map-place.md)) |
 | `map-markers.js` | `MapMarkers` — clustered GeoJSON source and the round HTML markers; zooms into a group or opens it |
 | `photo-column.js` | `PhotoColumn` — photos beside a place as square tiles, rendered in chunks and read in pages: the Map's in view, the ones picked in Statistics; `openLibraryPhotos` opens them read-only |
-| `map-time-range.js` | `MapTimeRange` — the Map's month range over the photos' dates |
+| `map-time-range.js` | `MapTimeRange` — a month range over the photos' dates, the time part of the shared filter |
+| `multi-select.js` | `MultiSelect` — a button naming a choice that opens a list of checkboxes, all on at first ([ADR-0050](adr/0050-shared-scope-filter.md)) |
+| `scope-filter.js` | `ScopeState` and `ScopeFilter` — the one filter of the Map, the Statistics and the Timeline: libraries, months, cameras, lenses, shared and kept in the browser ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
@@ -384,6 +386,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0047](adr/0047-independent-libraries-shared-per-library.md) — Libraries are independent folders; sharing is per library
 - [ADR-0048](adr/0048-notes-live-in-the-sidecar.md) — A photo's title and fields live in its sidecar; the index copies them
 - [ADR-0049](adr/0049-colour-combinations.md) — Colour combinations are counted from sets of hues
+- [ADR-0050](adr/0050-shared-scope-filter.md) — One filter for the Map, the Statistics and the Timeline
 
 ## 10. Quality Requirements
 

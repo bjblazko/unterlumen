@@ -28,7 +28,7 @@ type LibraryColour struct {
 	PeriodColours    []PeriodColour     `json:"periodColours"`
 	HueWheel         []HueSector        `json:"hueWheel"`
 	NeutralShare     float64            `json:"neutralShare"`
-	HueSets          []HueSet           `json:"hueSets"` // for the colour combinations (ADR-0049)
+	HueSets          []HueSet           `json:"hueSets"`       // for the colour combinations (ADR-0049)
 	Seasons          []SeasonBar        `json:"seasons"`       // all years together
 	SeasonsByYear    []YearSeasons      `json:"seasonsByYear"` // each year with colour photos, oldest first
 	AnalysedPhotos   int                `json:"analysedPhotos"`

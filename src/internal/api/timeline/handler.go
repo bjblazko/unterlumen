@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
+	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/timeline"
 )
 
@@ -20,7 +22,7 @@ func Handle(mux *http.ServeMux, b *timeline.Builder) {
 
 func skeleton(b *timeline.Builder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s, err := b.Current()
+		s, err := b.Current(scopeOf(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -39,7 +41,7 @@ func photos(b *timeline.Builder) http.HandlerFunc {
 			http.Error(w, "from and count must be whole numbers, from at least 0 and count at least 1", http.StatusBadRequest)
 			return
 		}
-		s, err := b.Current()
+		s, err := b.Current(scopeOf(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -55,6 +57,18 @@ func photos(b *timeline.Builder) http.HandlerFunc {
 		}
 		writeJSON(w, map[string]any{"photos": rows})
 	}
+}
+
+// scopeOf reads the libraries and the shared filter (ADR-0050). Time is the
+// Timeline's own axis, so the filter's months do not narrow it.
+func scopeOf(r *http.Request) timeline.Scope {
+	f := apilibrary.ScopeFilter(r)
+	f.From, f.Until = "", ""
+	var ids []string
+	if v := r.URL.Query().Get("ids"); v != "" {
+		ids = strings.Split(v, ",")
+	}
+	return timeline.Scope{IDs: ids, Filter: f}
 }
 
 func pageRange(r *http.Request) (from, count int, ok bool) {

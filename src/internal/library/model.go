@@ -92,8 +92,12 @@ type LibSubfolder struct {
 
 // LibraryStatistics holds aggregated statistics across one or more libraries.
 type LibraryStatistics struct {
-	TotalPhotos    int               `json:"totalPhotos"`
-	IndexingPhotos int               `json:"indexingPhotos,omitempty"`
+	TotalPhotos int `json:"totalPhotos"`
+	// GonePhotos are indexed photos whose files are no longer there, left
+	// marked by a run of an older version that stopped early; GoneLibraries
+	// names the libraries that have them, for Remove deleted photos.
+	GonePhotos     int               `json:"gonePhotos,omitempty"`
+	GoneLibraries  []string          `json:"goneLibraries,omitempty"`
 	Warnings       []string          `json:"warnings,omitempty"`
 	Formats        []NameCount       `json:"formats"`
 	FilmSims       []NameCount       `json:"filmSims"`

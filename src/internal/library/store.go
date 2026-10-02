@@ -89,8 +89,9 @@ CREATE INDEX IF NOT EXISTS photos_status_indexed_at_idx ON photos(status, indexe
 
 // Store wraps the per-library SQLite database.
 type Store struct {
-	db  *sql.DB
-	dir string
+	db     *sql.DB
+	dir    string
+	filter Filter // narrows the statistics, map and timeline queries (ADR-0050)
 }
 
 // openDB opens and migrates a SQLite database, returning the underlying *sql.DB.

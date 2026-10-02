@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -64,15 +63,6 @@ func (s *Store) UpsertExifIndex(photoID string, fields map[string]string, numeri
 	return tx.Commit()
 }
 
-// MarkAllMissing sets status='missing' for all photos.
-// Called at the start of a re-index; found photos are set back to 'ok' via UpsertPhoto.
-func (s *Store) MarkAllMissing() error {
-	_, err := s.db.Exec(`UPDATE photos SET status='missing'`)
-	return err
-}
-
-// PurgeMissingPhotos deletes all photos still at status='missing' after a re-index,
-// along with their exif_index, photo_meta, and path_cache rows. Orphaned thumbnail
 // DeletePhotoByID removes a single photo from the database and returns its
 // pathHint and thumbPath so the caller can delete the files from disk.
 func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err error) {
@@ -105,42 +95,20 @@ func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err erro
 	return
 }
 
-// files are removed from disk. Returns the number of photos purged.
-func (s *Store) PurgeMissingPhotos() (int, error) {
-	rows, err := s.db.Query(`SELECT id, thumb_path FROM photos WHERE status='missing'`)
-	if err != nil {
-		return 0, err
-	}
-	type entry struct{ id, thumbPath string }
-	var victims []entry
-	for rows.Next() {
-		var e entry
-		var thumbPath *string
-		if err := rows.Scan(&e.id, &thumbPath); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		if thumbPath != nil {
-			e.thumbPath = *thumbPath
-		}
-		victims = append(victims, e)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-	if len(victims) == 0 {
+// PurgePhotos deletes the photos ids — whose files are gone — with their
+// index rows, in one transaction, and then their thumbnails. Nothing is
+// marked first, so a run that stops before calling it leaves the library as
+// it was.
+func (s *Store) PurgePhotos(ids []string) (int, error) {
+	if len(ids) == 0 {
 		return 0, nil
 	}
-
-	ids := make([]any, len(victims))
-	placeholders := make([]string, len(victims))
-	for i, v := range victims {
-		ids[i] = v.id
-		placeholders[i] = "?"
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
 	}
-	ph := strings.Join(placeholders, ",")
-
+	ph := placeholders(len(ids))
+	thumbs := s.thumbPaths(ph, args)
 	tx, err := s.db.Begin()
 	if err != nil {
 		return 0, err
@@ -154,20 +122,33 @@ func (s *Store) PurgeMissingPhotos() (int, error) {
 		`DELETE FROM photo_appearance WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photos      WHERE id        IN (` + ph + `)`,
 	} {
-		if _, err := tx.Exec(q, ids...); err != nil {
+		if _, err := tx.Exec(q, args...); err != nil {
 			return 0, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
+	for _, thumb := range thumbs {
+		os.Remove(filepath.Join(s.dir, thumb)) //nolint:errcheck
+	}
+	return len(ids), nil
+}
 
-	for _, v := range victims {
-		if v.thumbPath != "" {
-			os.Remove(filepath.Join(s.dir, v.thumbPath)) //nolint:errcheck
+func (s *Store) thumbPaths(ph string, args []any) []string {
+	rows, err := s.db.Query(`SELECT thumb_path FROM photos WHERE thumb_path IS NOT NULL AND id IN (`+ph+`)`, args...)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var p string
+		if rows.Scan(&p) == nil && p != "" {
+			out = append(out, p)
 		}
 	}
-	return len(victims), nil
+	return out
 }
 
 // PhotoRef is a minimal photo record used for cleanup path checks.
@@ -203,6 +184,52 @@ func (s *Store) ListPhotoRefsInFolder(folderPath string) ([]PhotoRef, error) {
 		refs = append(refs, r)
 	}
 	return refs, rows.Err()
+}
+
+// statusRef is a photo's last known path and whether an older version left
+// it marked missing.
+type statusRef struct {
+	PhotoRef
+	missing bool
+}
+
+// refsWithStatus lists every photo — ok or left marked missing — whose
+// path_hint lies inside folderPath, or the whole library when it is "".
+func (s *Store) refsWithStatus(folderPath string) ([]statusRef, error) {
+	q, args := `SELECT id, path_hint, status FROM photos`, []any{}
+	if folderPath != "" {
+		q += ` WHERE path_hint LIKE ? ESCAPE '\'`
+		args = append(args, escapeLikePattern(folderPath)+string(filepath.Separator)+"%")
+	}
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var refs []statusRef
+	for rows.Next() {
+		var r statusRef
+		var status string
+		if err := rows.Scan(&r.ID, &r.PathHint, &status); err != nil {
+			return nil, err
+		}
+		r.missing = status == "missing"
+		refs = append(refs, r)
+	}
+	return refs, rows.Err()
+}
+
+// markOK sets the photos ids back to status ok.
+func (s *Store) markOK(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	_, err := s.db.Exec(`UPDATE photos SET status='ok' WHERE id IN (`+placeholders(len(ids))+`)`, args...)
+	return err
 }
 
 // ListAllPhotoRefs returns the ID and path_hint for every ok photo.

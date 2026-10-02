@@ -12,8 +12,8 @@ func (s *Store) Timeline(pathPrefix, granularity string) (*LibraryTimeline, erro
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
 	}
-	pcWhere, pcArgs := tlPhotoCond(pathGlob)
-	pWhere, pArgs := tlAliasCond(pathGlob)
+	pcWhere, pcArgs := s.photoCond(pathGlob)
+	pWhere, pArgs := s.aliasCond(pathGlob)
 
 	if granularity != "month" && granularity != "year" {
 		granularity = tlDetectGranularity(s.db, pcWhere, pcArgs)
@@ -51,18 +51,25 @@ func (s *Store) Timeline(pathPrefix, granularity string) (*LibraryTimeline, erro
 	return assembleTL(granularity, cameraRows, focalVals, isoVals, aperMap, aspectMap, mpStats), nil
 }
 
-func tlPhotoCond(pathGlob string) (string, []any) {
-	if pathGlob == "" {
-		return "", nil
+// photoCond restricts the photos table, unaliased, to the folder and the
+// store's filter (ADR-0050).
+func (s *Store) photoCond(pathGlob string) (string, []any) {
+	where, args := "", []any(nil)
+	if pathGlob != "" {
+		where, args = " AND path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
 	}
-	return " AND path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
+	fw, fa := s.filter.Cond("id")
+	return where + fw, append(args, fa...)
 }
 
-func tlAliasCond(pathGlob string) (string, []any) {
-	if pathGlob == "" {
-		return "", nil
+// aliasCond does the same for photos aliased p.
+func (s *Store) aliasCond(pathGlob string) (string, []any) {
+	where, args := "", []any(nil)
+	if pathGlob != "" {
+		where, args = " AND p.path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
 	}
-	return " AND p.path_hint LIKE ? ESCAPE '\\'", []any{pathGlob}
+	fw, fa := s.filter.Cond("p.id")
+	return where + fw, append(args, fa...)
 }
 
 func tlDetectGranularity(db *sql.DB, pcWhere string, pcArgs []any) string {

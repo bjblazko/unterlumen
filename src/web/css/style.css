@@ -7134,6 +7134,122 @@ button.combo-item:hover { background: var(--bg-2); }
     .map-time-value { min-width: 0; }
 }
 
+/* --- Statistics: photos whose files are gone --- */
+
+.stats-gone {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin: 0 0 var(--space-4);
+    color: var(--fg-2);
+    font-size: var(--text-sm);
+}
+
+/* --- Shared filter (ADR-0050) --- */
+
+/* One row of the place's head: libraries, months, cameras, lenses, reset. */
+.scope-filter {
+    display: contents;
+}
+
+.scope-filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+}
+
+.scope-filter-controls > span:empty { display: none; }
+
+.scope-filter .map-time {
+    height: var(--control-h-sm);
+}
+
+.scope-filter-toggle { display: none; }
+
+.scope-filter-toggle[aria-expanded="true"] { background: var(--bg-3); }
+
+.scope-filter-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Multi-select --- */
+
+.multi-select {
+    position: relative;
+}
+
+/* A narrowed choice reads in the interface's ink, framed a step stronger. */
+.multi-select-btn--narrowed {
+    border-color: var(--fg);
+}
+
+.multi-select-list {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    z-index: 30;
+    min-width: 16rem;
+    max-width: min(28rem, calc(100vw - var(--space-8)));
+    max-height: 22rem;
+    overflow-y: auto;
+    padding: var(--space-1);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-float);
+}
+
+.multi-select-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--control-h-sm);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.multi-select-row:hover { background: var(--bg-2); }
+
+.multi-select-all {
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    margin-bottom: var(--space-1);
+}
+
+.multi-select-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multi-select-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-2);
+}
+
+/* On a phone the filter folds behind its button, so the place keeps its
+   room; open, it takes a line of its own. */
+@media (max-width: 700px) {
+    .scope-filter-toggle { display: inline-flex; }
+    .scope-filter-controls { display: none; }
+    .scope-filter--open .scope-filter-controls {
+        display: flex;
+        width: 100%;
+        order: 1;
+    }
+    .scope-filter-time { width: 100%; }
+    .scope-filter .map-time { width: 100%; }
+    .scope-filter .map-time .range-slider { flex: 1; width: auto; }
+    .multi-select-list { position: fixed; left: var(--space-4); right: var(--space-4); top: auto; }
+}
+
 /* --- Place lede --- */
 
 /* The sentence under a place's title. It comes last in the head and takes a

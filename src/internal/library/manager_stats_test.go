@@ -36,14 +36,15 @@ func managerFixture(t *testing.T) (mgr *Manager, fixtureID, extraID string) {
 }
 
 func TestManagerStatisticsMergesLibraries(t *testing.T) {
-	mgr, _, _ := managerFixture(t)
-	st, err := mgr.Statistics(nil, "")
+	mgr, fixtureID, _ := managerFixture(t)
+	st, err := mgr.Statistics(nil, "", Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := &LibraryStatistics{
 		TotalPhotos:    5,
-		IndexingPhotos: 1,
+		GonePhotos:     1,
+		GoneLibraries:  []string{fixtureID},
 		Formats:        []NameCount{{"jpeg", 4}, {"raf", 1}},
 		FilmSims:       []NameCount{{"Velvia", 3}, {"None", 2}},
 		FocalLengths:   []ValueCount{{23, 3}, {50, 1}},
@@ -67,7 +68,7 @@ func TestManagerStatisticsMergesLibraries(t *testing.T) {
 
 func TestManagerStatisticsOnlyTheRequestedLibraries(t *testing.T) {
 	mgr, _, extraID := managerFixture(t)
-	st, err := mgr.Statistics([]string{extraID}, "")
+	st, err := mgr.Statistics([]string{extraID}, "", Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}

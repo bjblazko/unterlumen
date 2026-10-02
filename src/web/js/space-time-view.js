@@ -63,11 +63,28 @@ function distanceAndBearing(centre, lat, lon) {
     return { d, bearing };
 }
 
+// Beyond this distance the floor's log scale runs at STRETCH times the
+// pace: on a plain log scale a journey of 5,000 km sat barely further out
+// than one of 1,500, and the far journeys did not stand out.
+const STRETCH_FROM_KM = 1000;
+const STRETCH = 2;
+
+function stretchedLog(km) {
+    const u = Math.log10(1 + km), knee = Math.log10(1 + STRETCH_FROM_KM);
+    return u <= knee ? u : knee + STRETCH * (u - knee);
+}
+
+// The radius of a distance on the floor, 0 in the middle, 1 at the other
+// side of the earth.
+function distanceRadius(km) {
+    return stretchedLog(km) / stretchedLog(FARTHEST_KM);
+}
+
 // The floor: north away from the start of the view, east to the right, the
-// radius growing with the logarithm of the distance.
+// radius growing with the logarithm of the distance, faster beyond 1,000 km.
 function floorPoint(centre, lat, lon) {
     const { d, bearing } = distanceAndBearing(centre, lat, lon);
-    const r = Math.log10(1 + d) / Math.log10(1 + FARTHEST_KM);
+    const r = distanceRadius(d);
     return [r * Math.sin(bearing), r * -Math.cos(bearing), d];
 }
 
@@ -110,7 +127,7 @@ function spaceTimeSpec(st, world) {
     const first = p.date.reduce((a, b) => (a < b ? a : b)).slice(0, 4);
     const last = p.date.reduce((a, b) => (a > b ? a : b)).slice(0, 4);
     return {
-        summary: `${formatCount(n)} photos with a place and a date: where they were taken on the floor, around the middle of the photos at ${formatLatLon(centre.lat, centre.lon)} and further out the further away, on a log scale of distance; and when, upward from ${first} to ${last}. Each is in its main colour.`,
+        summary: `${formatCount(n)} photos with a place and a date: where they were taken on the floor, around the middle of the photos at ${formatLatLon(centre.lat, centre.lon)} and further out the further away, on a log scale of distance that widens beyond ${formatCount(STRETCH_FROM_KM)} km; and when, upward from ${first} to ${last}. Each is in its main colour.`,
         legend: legendDotHTML('One photo, where and when it was taken')
             + legendStepHTML(`One day away: where most of its photos were taken, larger with more photos. Days within ${HOME_KM} km of the middle sit on the axis. The line follows the days in time order.`),
         sprites, steps,
@@ -174,7 +191,7 @@ function spaceTimeLines(centre, world) {
     };
     draw(world.coast, 0.32);
     draw(world.borders, 0.14);
-    for (const km of [10, 100, 1000, 10000]) lines.ring(Math.log10(1 + km) / Math.log10(1 + FARTHEST_KM), y, 0.1);
+    for (const km of [10, 100, 1000, 10000]) lines.ring(distanceRadius(km), y, 0.1);
     lines.line([0, y, 0], [0, 1, 0], 0.3);
     return lines.toArray();
 }
@@ -182,7 +199,7 @@ function spaceTimeLines(centre, world) {
 function spaceTimeLabels(time) {
     const labels = [];
     for (const km of [10, 100, 1000, 10000]) {
-        const r = Math.log10(1 + km) / Math.log10(1 + FARTHEST_KM);
+        const r = distanceRadius(km);
         labels.push({ text: `${formatCount(km)} km`, pos: [r * Math.SQRT1_2, -1.02, r * Math.SQRT1_2], kind: 'tick' });
     }
     labels.push({ text: 'North', pos: [0, -1.02, -1.05], kind: 'name' });

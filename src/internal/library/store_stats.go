@@ -14,25 +14,35 @@ type statsScope struct {
 	args   []any  // the one argument each non-empty fragment takes
 }
 
-func newStatsScope(pathPrefix string) statsScope {
+func (s *Store) statsScope(pathPrefix string) statsScope {
 	// "In the set of ok photos" rather than a join on photos: the set comes
 	// from a covering index once, while a join read each photo's row (and its
 	// EXIF JSON) to check its status — 2 s of 2.5 on 36,000 photos.
 	sc := statsScope{camera: " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok')"}
-	if pathPrefix == "" {
-		return sc
+	if pathPrefix != "" {
+		sc.photos = " AND path_hint LIKE ? ESCAPE '\\'"
+		sc.exif = " AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
+		sc.camera = " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
+		sc.args = []any{escapeLikePattern(pathPrefix) + "/%"}
 	}
-	sc.photos = " AND path_hint LIKE ? ESCAPE '\\'"
-	sc.exif = " AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
-	sc.camera = " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
-	sc.args = []any{escapeLikePattern(pathPrefix) + "/%"}
+	// The filter (ADR-0050) adds the same set to every fragment, so each
+	// fragment still takes all of sc.args.
+	if !s.filter.Empty() {
+		pw, fa := s.filter.Cond("id")
+		ew, _ := s.filter.Cond("e.photo_id")
+		cw, _ := s.filter.Cond("c.photo_id")
+		sc.photos += pw
+		sc.exif += ew
+		sc.camera += cw
+		sc.args = append(sc.args, fa...)
+	}
 	return sc
 }
 
 // Statistics returns aggregated statistics for photos with status='ok' in this library.
 // pathPrefix, when non-empty, restricts results to photos whose path_hint starts with that prefix.
 func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
-	sc := newStatsScope(pathPrefix)
+	sc := s.statsScope(pathPrefix)
 	st := &LibraryStatistics{}
 	var err error
 	steps := []func() error{
@@ -89,7 +99,7 @@ func (s *Store) photoCounts(sc statsScope, st *LibraryStatistics) error {
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE status='ok'`+sc.photos, sc.args...).Scan(&st.TotalPhotos); err != nil {
 		return err
 	}
-	return s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE status='missing'`+sc.photos, sc.args...).Scan(&st.IndexingPhotos)
+	return s.db.QueryRow(`SELECT COUNT(*) FROM photos WHERE status='missing'`+sc.photos, sc.args...).Scan(&st.GonePhotos)
 }
 
 // filmSimCounts is the film simulation distribution, with the photos that

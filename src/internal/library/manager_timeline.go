@@ -6,20 +6,20 @@ import (
 )
 
 // Timeline returns time-series statistics across the requested libraries (or all if ids is nil).
-func (m *Manager) Timeline(ids []string, pathPrefix, granularity string) (*LibraryTimeline, error) {
+func (m *Manager) Timeline(ids []string, pathPrefix, granularity string, f Filter) (*LibraryTimeline, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
 
-	tlCacheKey := timelineCacheKey(libraryIDs(libs), pathPrefix, granularity)
+	tlCacheKey := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), granularity)
 	if v, ok := m.timelineCache.Load(tlCacheKey); ok {
 		return v.(*LibraryTimeline), nil
 	}
 
 	var results []*LibraryTimeline
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenFiltered(l.ID, f)
 		if err != nil {
 			continue
 		}

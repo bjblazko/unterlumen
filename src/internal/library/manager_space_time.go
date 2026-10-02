@@ -2,18 +2,18 @@ package library
 
 // SpaceTime returns the located photos across the requested libraries (or
 // all if ids is nil), with their main colours.
-func (m *Manager) SpaceTime(ids []string, pathPrefix string) (*SpaceTime, error) {
+func (m *Manager) SpaceTime(ids []string, pathPrefix string, f Filter) (*SpaceTime, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
-	key := timelineCacheKey(libraryIDs(libs), pathPrefix, "")
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), "")
 	if v, ok := m.spaceTimeCache.Load(key); ok {
 		return v.(*SpaceTime), nil
 	}
 	var all []LibrarySpaceTime
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenFiltered(l.ID, f)
 		if err != nil {
 			continue
 		}

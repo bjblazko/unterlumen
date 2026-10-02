@@ -19,14 +19,15 @@ type DatedPhoto struct {
 // DatedPhotos returns the photos that have a date taken, oldest first.
 // Photos marked missing are left out.
 func (s *Store) DatedPhotos() ([]DatedPhoto, error) {
+	fw, fa := s.filter.Cond("id")
 	rows, err := s.db.Query(`
 		SELECT id, filename, date_taken,
 		       json_extract(exif_json, '$.width'),
 		       json_extract(exif_json, '$.height'),
 		       json_extract(exif_json, '$.tags.Orientation')
 		  FROM photos
-		 WHERE status='ok' AND date_taken IS NOT NULL
-		 ORDER BY date_taken, id`)
+		 WHERE status='ok' AND date_taken IS NOT NULL`+fw+`
+		 ORDER BY date_taken, id`, fa...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,13 @@ func (s *Store) DatedPhotos() ([]DatedPhoto, error) {
 
 // UndatedPhotoIDs returns the IDs of the photos without a date taken.
 func (s *Store) UndatedPhotoIDs() ([]string, error) {
-	rows, err := s.db.Query(`SELECT id FROM photos WHERE status='ok' AND date_taken IS NULL ORDER BY id`)
+	// Undated photos fall outside any span of months, but cameras and lenses
+	// still narrow them.
+	fw, fa := Filter{Models: s.filter.Models, Lenses: s.filter.Lenses}.Cond("id")
+	if s.filter.From != "" || s.filter.Until != "" {
+		return []string{}, nil
+	}
+	rows, err := s.db.Query(`SELECT id FROM photos WHERE status='ok' AND date_taken IS NULL`+fw+` ORDER BY id`, fa...)
 	if err != nil {
 		return nil, err
 	}

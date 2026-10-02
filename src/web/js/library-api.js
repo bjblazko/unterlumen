@@ -123,10 +123,13 @@ const LibraryAPI = {
         if (!r.ok) return [];
         return r.json();
     },
-    async search({ ids, limit = 100, offset = 0, ...rest } = {}) {
+    // scope: [key, value] pairs of the shared filter (ADR-0050), which
+    // repeat a key for several cameras or lenses.
+    async search({ ids, limit = 100, offset = 0, scope = [], ...rest } = {}) {
         const params = new URLSearchParams({ limit, offset });
         if (ids) params.set('ids', ids);
         for (const [k, v] of Object.entries(rest)) params.set(k, v);
+        for (const [k, v] of scope) params.append(k, v);
         const r = await fetch(`/api/library/search?${params}`);
         if (!r.ok) throw new Error(await r.text());
         return r.json();
@@ -144,8 +147,8 @@ const LibraryAPI = {
     },
     // Every located photo of every library: { libraries: [{ id, points:
     // [[photoID, lat, lon, taken, filename], …] }] } (ADR-0039).
-    async geo() {
-        const r = await fetch('/api/library/geo');
+    async geo(query = '') {
+        const r = await fetch(query ? `/api/library/geo?${query}` : '/api/library/geo');
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },

@@ -23,7 +23,6 @@ class MapPane {
         this._markers = null;
         this._points = [];
         this._shown = [];
-        this._range = null;
         this._photosOpen = photoColumnStartsOpen('map-photos-open');
         this._colour = readFlag('map-colour');
     }
@@ -32,13 +31,16 @@ class MapPane {
     // but keeps the map where it was left.
     async render() {
         if (!this.container.firstChild) this._buildLayout();
+        else this._filter.sync();
+        const gen = this._gen = (this._gen || 0) + 1;
         let geo, libraries;
         try {
-            [geo, libraries] = await this._whileLoading(() => Promise.all([LibraryAPI.geo(), LibraryAPI.list()]));
+            [geo, libraries] = await this._whileLoading(() => Promise.all([LibraryAPI.geo(ScopeState.query()), LibraryAPI.list()]));
         } catch (err) {
             this._note(`The locations could not be read: ${escapeHtml(err.message)}. Reload the page to try again.`, true);
             return;
         }
+        if (gen !== this._gen) return;
         this._points = mapPoints(geo);
         if (!this._explainNothing(libraries)) this._showPoints();
     }
@@ -72,6 +74,15 @@ class MapPane {
                 </div>
             </div>`;
         this._head = this.container.querySelector('.map-head');
+        // The shared filter (ADR-0050) replaces the Map's own span of months;
+        // the server sends only the photos within it.
+        this._filter = new ScopeFilter();
+        this._head.querySelector('.map-head-spacer').after(this._filter.el);
+        ScopeState.onChange(() => {
+            if (App.mode !== 'map') return;
+            clearTimeout(this._filterTimer);
+            this._filterTimer = setTimeout(() => this.render(), 250);
+        });
         this._photosBtn = this.container.querySelector('.map-photos-toggle');
         this._styleEl = this.container.querySelector('.map-style');
         Toggle.create(this._styleEl, {
@@ -125,6 +136,8 @@ class MapPane {
     _explainNothing(libraries) {
         if (libraries.length === 0) {
             this._note('No libraries yet. Photos appear here once they are in a library — <a href="#libraries" data-mode="library">add one under Libraries</a>.');
+        } else if (this._points.length === 0 && ScopeState.narrowed()) {
+            this._note('No photo with a location matches the filter. Widen it, or reset it.');
         } else if (this._points.length === 0) {
             const total = libraries.reduce((n, l) => n + (l.photoCount || 0), 0);
             this._note(`None of the ${formatCount(total)} photos in your libraries has a location.`);
@@ -152,7 +165,6 @@ class MapPane {
         this._photosBtn.hidden = false;
         this._styleEl.hidden = false;
         this._optionsBtn.hidden = false;
-        this._buildTimeRange();
         this._drawPhotosOpen();
         if (!this._map) {
             this._buildMap();
@@ -196,33 +208,14 @@ class MapPane {
         });
     }
 
-    // The slider spans the months of the dated photos; with fewer than two
-    // months there is nothing to choose between.
-    _buildTimeRange() {
-        this._range = null;
-        this._head.querySelector('.map-time')?.remove();
-        const months = this._points.map(p => p.month).filter(m => m !== null);
-        if (months.length === 0) return;
-        const first = Math.min(...months);
-        const last = Math.max(...months);
-        if (first === last) return;
-        const time = new MapTimeRange({
-            first, last,
-            onChange: (range) => { this._range = range; this._applyRange(); },
-        });
-        this._styleEl.before(time.el);
-    }
-
-    // Undated photos belong to every period only when none is chosen.
+    // The server has filtered the points already (ADR-0050).
     _applyRange() {
-        const r = this._range;
-        const shown = r ? this._points.filter(p => p.month !== null && p.month >= r.from && p.month <= r.until) : this._points;
-        this._shown = shown;
-        const total = formatCount(this._points.length);
-        this._countEl.textContent = r ? `${formatCount(shown.length)} of ${total} photos` : `${total} ${this._points.length === 1 ? 'photo' : 'photos'}`;
-        if (this._styleLoaded) this._markers.show(shown);
-        if (shown.length === 0) this._note('No photo with a location was taken in this period.');
-        else this._noteEl.hidden = true;
+        this._shown = this._points;
+        const n = formatCount(this._points.length);
+        const noun = this._points.length === 1 ? 'photo' : 'photos';
+        this._countEl.textContent = ScopeState.narrowed() ? `${n} ${noun} within the filter` : `${n} ${noun}`;
+        if (this._styleLoaded) this._markers.show(this._points);
+        this._noteEl.hidden = true;
         this._updateInView();
     }
 

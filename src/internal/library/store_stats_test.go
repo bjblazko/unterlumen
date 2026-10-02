@@ -82,7 +82,7 @@ func TestStatisticsWholeLibrary(t *testing.T) {
 	}
 	want := &LibraryStatistics{
 		TotalPhotos:    4,
-		IndexingPhotos: 1,
+		GonePhotos:     1,
 		Formats:        []NameCount{{"jpeg", 3}, {"raf", 1}},
 		FilmSims:       []NameCount{{"Velvia", 2}, {"None", 2}},
 		FocalLengths:   []ValueCount{{23, 2}, {50, 1}},

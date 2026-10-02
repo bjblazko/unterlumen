@@ -50,6 +50,18 @@ func TestProbeTimings(t *testing.T) {
 	timed("GeoPoints", func() error { _, err := s.GeoPoints(); return err })
 	timed("LocatedPhotos", func() error { _, err := s.LocatedPhotos(""); return err })
 	timed("FolderStats (root)", func() error { _, err := s.FolderStats(root); return err })
+	// The shared filter (ADR-0050): the same queries, narrowed.
+	xt50 := Filter{Models: []string{`"X-T50"`}, From: "2024-01", Until: "2025-06"}
+	filtered := newStore(db, "")
+	filtered.filter = xt50
+	timed("Statistics (filter)", func() error { _, err := filtered.Statistics(""); return err })
+	timed("Timeline (filter)", func() error { _, err := filtered.Timeline("", ""); return err })
+	timed("ColourSource (filter)", func() error { _, err := filtered.ColourSource(""); return err })
+	timed("ColourPoints (filter)", func() error { _, err := filtered.ColourPoints(""); return err })
+	timed("ExposurePoints (filter)", func() error { _, err := filtered.ExposurePoints(""); return err })
+	timed("GeoPoints (filter)", func() error { _, err := filtered.GeoPoints(); return err })
+	timed("DatedPhotos (filter)", func() error { _, err := filtered.DatedPhotos(); return err })
+	timed("search: filter", func() error { _, err := s.ListPhotos(ListPhotosOpts{Scope: xt50, Limit: 200}); return err })
 	f := func(v float64) map[string]NumericFilter {
 		return map[string]NumericFilter{"FNumber": {Min: v, Max: v + 0.7}}
 	}

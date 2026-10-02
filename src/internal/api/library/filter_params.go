@@ -29,6 +29,7 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		Mono:           q.Get("mono"),
 		HueBin:         parseIntIn(q.Get("hue_bin"), 0, 11),
 		Hues:           parseHues(q.Get("hues")),
+		Scope:          filterFromQuery(q),
 		Warmth:         q.Get("warmth"),
 		PhotoID:        q.Get("photo_id"),
 	}
@@ -101,7 +102,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
-		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "photo_id" {
+		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

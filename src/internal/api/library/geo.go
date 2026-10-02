@@ -19,7 +19,7 @@ type geoLibrary struct {
 
 func libraryGeo(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		libs, err := mgr.GeoPoints()
+		libs, err := mgr.GeoPoints(parseIDList(r.URL.Query().Get("ids")), scopeFilter(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

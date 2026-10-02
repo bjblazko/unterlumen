@@ -3,18 +3,18 @@ package library
 // Colour returns the Colour statistics across the requested libraries (or
 // all if ids is nil). The photos of every library are aggregated together,
 // so medians and means span them all.
-func (m *Manager) Colour(ids []string, pathPrefix, granularity string) (*LibraryColour, error) {
+func (m *Manager) Colour(ids []string, pathPrefix, granularity string, f Filter) (*LibraryColour, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
-	key := timelineCacheKey(libraryIDs(libs), pathPrefix, granularity)
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), granularity)
 	if v, ok := m.colourCache.Load(key); ok {
 		return v.(*LibraryColour), nil
 	}
 	all := &ColourSource{Photos: []ColourPhoto{}, Swatches: []ColourSwatch{}}
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenFiltered(l.ID, f)
 		if err != nil {
 			continue
 		}
@@ -34,18 +34,18 @@ func (m *Manager) Colour(ids []string, pathPrefix, granularity string) (*Library
 
 // ColourSpace returns the points of the Colour space across the requested
 // libraries (or all if ids is nil).
-func (m *Manager) ColourSpace(ids []string, pathPrefix, granularity string) (*ColourSpace, error) {
+func (m *Manager) ColourSpace(ids []string, pathPrefix, granularity string, f Filter) (*ColourSpace, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
-	key := timelineCacheKey(libraryIDs(libs), pathPrefix, granularity)
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), granularity)
 	if v, ok := m.colourSpaceCache.Load(key); ok {
 		return v.(*ColourSpace), nil
 	}
 	var all []LibraryPoints
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenFiltered(l.ID, f)
 		if err != nil {
 			continue
 		}

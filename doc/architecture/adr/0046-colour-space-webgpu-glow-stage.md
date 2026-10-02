@@ -1,6 +1,6 @@
 # ADR-0046: The 3D views draw with WebGPU, on a glowing stage
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-10-02*
 
 ## Status
 
@@ -22,7 +22,7 @@ The owner decided both for this view. It may glow, and it uses WebGPU with no We
 - **Daylight.** Every analysed photo with a time of day: the day of the year runs around a ring, the hour from midnight in the middle outward, and the photo's mean brightness (`lum_mean`, ADR-0044) up. Each light is in the photo's main colour. A closed trail goes round the twelve months, all years together, through each month's mean hour, brightness and colour. It reads the Colour space's points, which carry the date and, since this view, the brightness, so it needs no endpoint of its own. A click on a month shows that month's photos from every year (`month`).
 - **Character.** Every analysed photo by mean brightness (across), contrast (in depth) and colourfulness (up), measured from its thumbnail (ADR-0044), in its main colour. A trail joins each period's mean. It reads the Colour space's points, which carry `contrast` and `colourful` as well since this view.
 - **Space and time.** Every photo with a location and a date: where it was taken on the floor, when it was taken upward, in its main colour.
-  - **Projection.** The floor is the world seen from the middle of the photos (the median latitude and longitude). Directions are true, and distance runs on a log scale: 10 km, 100 km, 1,000 km and 10,000 km are rings at even steps. A library that is mostly at home with journeys abroad shows both on one floor. On a flat map, home would be a dot and every journey a speck at the edge.
+  - **Projection.** The floor is the world seen from the middle of the photos (the median latitude and longitude). Directions are true, and distance runs on a log scale: 10 km, 100 km and 1,000 km are rings at even steps, and beyond 1,000 km the scale runs twice as fast, so journeys to other continents lie well outside those within one (changed 2026-10-02: on the plain log scale 5,000 km sat barely beyond 1,500 km). A library that is mostly at home with journeys abroad shows both on one floor. On a flat map, home would be a dot and every journey a speck at the edge.
   - **World outline.** Coastlines and land borders come from Natural Earth's 1:50m data, which is public domain. They are vendored as `src/web/data/natural-earth-lines.json`: lines shorter than 0.4° dropped, points closer than 0.06° merged, delta-encoded in hundredths of a degree, 371 KB. They are fetched only when the topic opens, with no network at run time.
   - **Days and journeys.** The trail follows the days in time order. A day sits where most of its photos were taken, but a day within 30 km of the middle sits on the time axis, so the trail runs straight up the home column and reaches out only on journeys. Without that, a few kilometres around home spread the trail all over the column. A click on a day shows its photos.
   - **Data.** `GET /api/library/space-time` returns the located, dated photos by column, with their main colour (L −1 when not analysed yet). Its query (`LocatedPhotos`) reads the GPS tags from `exif_index` and never a photo's row: 0.17 s against 0.33 s for the Map's `GeoPoints` on 32,000 photos. Every photo with the parsed location the Map prefers has these tags as well.
