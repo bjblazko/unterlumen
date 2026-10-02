@@ -21,6 +21,10 @@ const OUT = path.join(REPO, 'e2e/video/out');
 const SIZE = 1080;          // the film is SIZE × SIZE
 const VIEW = 900;           // CSS pixels of the page; scaled to SIZE
 const FPS = 30;
+// Every cut falls on a bar of 4/4 at BPM, so music of that tempo laid on from
+// 0 s cuts with it. A scene lasts one bar unless it says more.
+const BPM = 120;
+const BAR = 4 * 60 / BPM;   // seconds
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -55,12 +59,32 @@ async function glide(page, [x0, y0], [x1, y1], ms, { down = false } = {}) {
 const chart = (page, title) => page.locator('.stats-chart')
     .filter({ has: page.locator('.stats-chart-title', { hasText: new RegExp(`^${title}$`) }) });
 
+// A 3D view of a statistics topic in its Full view, turned by a drag.
+function stage3D(topic, title, text) {
+    return {
+        caption: text,
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, `statistics/${topic}`);
+            const stage = chart(page, title);
+            await stage.locator('.point-stage-canvas').waitFor();
+            await stage.locator('.stats-stage-btn').click();
+            await settle(page, 2000);
+        },
+        act: async (page) => {
+            const box = await page.locator('.point-stage-canvas:visible').first().boundingBox();
+            const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+            await glide(page, [cx - 180, cy], [cx + 220, cy - 30], BAR * 1000 - 100, { down: true });
+        },
+    };
+}
+
 // Each scene: its caption, a preparation that is not filmed, and a motion
-// that is, for about `seconds`.
+// that is, for `bars` bars of music.
 const scenes = [
     {
         caption: 'Cull your photos where they are',
-        seconds: 2.0,
+        bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'folders');
             await openFolder(page, 'Travel');
@@ -76,7 +100,7 @@ const scenes = [
     },
     {
         caption: 'Catalog any folder as a library',
-        seconds: 2.2,
+        bars: 1,
         prepare: async (page) => {
             await openLibrary(page, BASE);
             await page.waitForFunction(() => document.querySelectorAll('.folder-tile-mosaic img').length >= 8);
@@ -91,7 +115,7 @@ const scenes = [
     },
     {
         caption: 'Every photo on one map',
-        seconds: 2.0,
+        bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'map');
             await page.waitForSelector('.map-marker');
@@ -105,7 +129,7 @@ const scenes = [
     },
     {
         caption: '…and on one timeline',
-        seconds: 1.8,
+        bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'timeline');
             await page.waitForSelector('.timeline-body img');
@@ -117,8 +141,51 @@ const scenes = [
         },
     },
     {
-        caption: 'Statistics: colours, cameras, places',
-        seconds: 2.2,
+        caption: 'Statistics in six topics',
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, 'statistics');
+            await page.waitForSelector('.stats-card svg');
+            await settle(page, 2000);
+        },
+        act: async (page) => {
+            const cards = page.locator('.stats-card');
+            for (let i = 0; i < Math.min(5, await cards.count()); i++) { await cards.nth(i).hover(); await wait(380); }
+        },
+    },
+    {
+        caption: 'Cameras and lenses, and their photos',
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, 'statistics/equipment');
+            await page.locator('.lens-cell .stats-pickable').first().waitFor();
+            await settle(page, 1500);
+        },
+        act: async (page) => {
+            const cells = page.locator('.lens-cell .stats-pickable');
+            await cells.nth(1).hover(); await wait(500);
+            await cells.first().click(); await wait(900);
+            await cells.nth(2).click();
+        },
+    },
+    {
+        caption: 'When you shoot',
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, 'statistics/time');
+            await chart(page, 'Time of day').locator('svg').waitFor();
+            await chart(page, 'Time of day').evaluate(el => el.scrollIntoView({ block: 'start' }));
+            await settle(page, 1500);
+        },
+        act: async (page) => {
+            const marks = chart(page, 'Shooting calendar').locator('.stats-pickable');
+            const n = await marks.count();
+            for (let i = 0; i < 5 && n; i++) { await marks.nth(Math.floor(i * n / 5)).hover(); await wait(380); }
+        },
+    },
+    {
+        caption: 'Colours and their combinations',
+        bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'statistics/colour');
             await chart(page, 'Colour combinations').locator('.combo-row').first().waitFor();
@@ -127,32 +194,18 @@ const scenes = [
         },
         act: async (page) => {
             const rows = chart(page, 'Colour combinations').locator('.combo-row');
-            for (let i = 0; i < 4; i++) { await rows.nth(i).hover(); await wait(280); }
+            for (let i = 0; i < 4; i++) { await rows.nth(i).hover(); await wait(300); }
             await chart(page, 'Colour combinations').locator('button.combo-item').first().click();
         },
     },
-    {
-        caption: 'Your library as a cloud of light',
-        seconds: 2.6,
-        prepare: async (page) => {
-            await page.emulateMedia({ reducedMotion: 'no-preference' });
-            await ready(page, BASE, 'statistics/colour');
-            const stage = chart(page, 'Colour space');
-            await stage.locator('.point-stage-canvas').waitFor();
-            await stage.locator('.stats-stage-btn').click();
-            await settle(page, 2000);
-        },
-        act: async (page) => {
-            const box = await page.locator('.point-stage-canvas:visible').first().boundingBox();
-            const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-            await glide(page, [cx - 180, cy], [cx + 220, cy - 30], 2500, { down: true });
-        },
-    },
+    stage3D('colour', 'Colour space', 'Your library as a cloud of light'),
+    stage3D('exposure', 'Exposure space', 'How you set your camera, in 3D'),
+    stage3D('places', 'Space and time', 'Home and journeys over the years'),
     {
         // Two phones side by side: the app as a phone shows it, each the real
         // page in a frame of a phone's width.
         caption: 'On your phone, too',
-        seconds: 2.2,
+        bars: 1,
         prepare: async (page) => {
             await page.evaluate(() => {
                 const el = document.createElement('div');
@@ -228,39 +281,26 @@ async function screencast(page) {
     return rec;
 }
 
-// Writes each segment's frames as JPEGs and an ffmpeg concat list in which
-// every frame lasts until the next one, each segment exactly its seconds.
-function writeConcat(tmp, rec) {
+// Writes the film frame by frame: each scene exactly seconds × FPS frames,
+// each frame the last one Chrome painted by then. Counting frames rather
+// than durations keeps every cut on its bar.
+function writeFrames(tmp, rec) {
     const dir = path.join(tmp, 'frames');
     mkdirSync(dir);
-    const lines = [];
     let n = 0;
     rec.segments.forEach((seg, s) => {
-        // Chrome paints up to 60 frames a second; the film has FPS, so a
-        // frame closer than that to the one before is left out.
-        const frames = [];
-        for (const f of rec.frames) {
-            if (f.seg !== s) continue;
-            if (!frames.length || f.t - frames[frames.length - 1].t >= 1 / FPS) frames.push(f);
-        }
-        if (!frames.length) return;
+        const frames = rec.frames.filter(f => f.seg === s);
+        if (!frames.length) throw new Error(`Scene ${s + 1} painted nothing.`);
         const start = frames[0].t;
-        frames.forEach((f, i) => {
-            const file = path.join(dir, `${String(n++).padStart(5, '0')}.jpg`);
-            writeFileSync(file, Buffer.from(f.data, 'base64'));
-            const end = i + 1 < frames.length ? frames[i + 1].t - start : seg.seconds;
-            const dur = Math.min(end, seg.seconds) - (f.t - start);
-            if (f.t - start < seg.seconds) lines.push(`file '${file}'`, `duration ${dur.toFixed(4)}`);
-        });
+        let at = 0;
+        const count = Math.round(seg.seconds * FPS);
+        for (let k = 0; k < count; k++) {
+            while (at + 1 < frames.length && frames[at + 1].t - start <= k / FPS) at++;
+            writeFileSync(path.join(dir, `${String(n++).padStart(5, '0')}.jpg`), Buffer.from(frames[at].data, 'base64'));
+        }
     });
-    // The concat demuxer takes the last listed file's duration from the line
-    // after it; the last frame is listed once more to keep it.
-    lines.push(`file '${path.join(dir, `${String(n - 1).padStart(5, '0')}.jpg`)}'`);
-    const total = lines.filter(l => l.startsWith('duration')).reduce((t, l) => t + Number(l.split(' ')[1]), 0);
-    console.log(`  ${rec.segments.length} scenes, ${n} frames, ${total.toFixed(1)} s`);
-    const list = path.join(tmp, 'frames.txt');
-    writeFileSync(list, lines.join('\n') + '\n');
-    return list;
+    console.log(`  ${rec.segments.length} cuts on the bars of ${BPM} BPM, ${n} frames, ${(n / FPS).toFixed(1)} s`);
+    return path.join(dir, '%05d.jpg');
 }
 
 async function main() {
@@ -287,23 +327,24 @@ async function main() {
             for (const frame of page.frames()) await showHomePath(frame, root);
             await caption(page, scene.caption);
             await page.mouse.move(VIEW - 2, 2);
-            await rec.start(scene.seconds);
+            const seconds = (scene.bars || 1) * BAR;
+            await rec.start(seconds);
             const started = Date.now();
             await scene.act(page);
-            await wait(Math.max(0, scene.seconds * 1000 - (Date.now() - started)));
+            await wait(Math.max(0, seconds * 1000 - (Date.now() - started)));
             rec.stop();
             console.log(`  ${scene.caption}`);
         }
         await endCard(page);
-        await rec.start(1.8);
-        await wait(1900);
+        await rec.start(2 * BAR);
+        await wait(2 * BAR * 1000 + 100);
         rec.stop();
         await rec.end();
 
         mkdirSync(OUT, { recursive: true });
         const out = path.join(OUT, 'unterlumen-supercut.mp4');
-        execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', writeConcat(tmp, rec),
-            '-vf', `scale=${SIZE}:${SIZE}:flags=lanczos,fps=${FPS},format=yuv420p`,
+        execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', writeFrames(tmp, rec),
+            '-vf', `scale=${SIZE}:${SIZE}:flags=lanczos,format=yuv420p`,
             '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-movflags', '+faststart', '-an', out]);
         console.log(`\n  ${path.relative(REPO, out)}`);
     } finally {
