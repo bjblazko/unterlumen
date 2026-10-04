@@ -1,6 +1,6 @@
 # Unterlumen
 
-[![Website](https://img.shields.io/badge/Website-huepattl.de-d35400)](https://huepattl.de/products/unterlumen.html)
+[![Website](https://img.shields.io/badge/Website-huepattl.de-d35400)](https://huepattl.de/products/unterlumen)
 [![E2E Tests](https://github.com/bjblazko/unterlumen/actions/workflows/e2e.yml/badge.svg)](https://github.com/bjblazko/unterlumen/actions/workflows/e2e.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
@@ -416,7 +416,7 @@ By default the container runs in **server mode** — navigation is locked to `/p
 | `UNTERLUMEN_LIB_DIR` | `/data` | Libraries, thumbnails and generated galleries; mount a volume here |
 | `UNTERLUMEN_CACHE_DIR` | `/cache` | Preview cache |
 
-**Example with Docker Compose** — or let [huepattl.de/products/unterlumen-nas.html](https://huepattl.de/products/unterlumen-nas.html) write it for your NAS, with the steps for Synology, QNAP, TrueNAS, Unraid or Portainer:
+**Example with Docker Compose** — or let [huepattl.de/products/unterlumen-nas](https://huepattl.de/products/unterlumen-nas) write it for your NAS, with the steps for Synology, QNAP, TrueNAS, Unraid or Portainer:
 
 ```yaml
 services:

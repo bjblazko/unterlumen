@@ -79,7 +79,7 @@ is off the beat); the last frame is the end card; length about 30 s.
 
 ## On huepattl.de
 
-The page head of `/products/unterlumen.html` (EN and DE) shows a web copy:
+The page head of `/products/unterlumen` (EN and DE) shows a web copy:
 720 × 720, silent, playing while in view, Pause button
 (`src/js/hero-video.js`; not for reduced motion). After a new film, in
 `../huepattl.de`:
@@ -87,9 +87,9 @@ The page head of `/products/unterlumen.html` (EN and DE) shows a web copy:
 ```bash
 V=../unterlumen/e2e/video/out/unterlumen-supercut.mp4
 ffmpeg -v error -y -i $V -vf scale=720:720:flags=lanczos -c:v libx264 -preset slow -crf 28 \
-  -pix_fmt yuv420p -movflags +faststart -an src/video/unterlumen-supercut.mp4
+  -pix_fmt yuv420p -movflags +faststart -an src/products/unterlumen/supercut.mp4
 ffmpeg -v error -y -i $V -vf "select='eq(n\,510)',scale=720:720" -frames:v 1 -vsync vfr /tmp/poster.png \
-  && cwebp -quiet -q 80 /tmp/poster.png -o src/img/unterlumen-supercut-poster.webp
+  && cwebp -quiet -q 80 /tmp/poster.png -o src/products/unterlumen/supercut-poster.webp
 ```
 
 The poster is bar 9 (the Colour space); pick another frame if the scenes

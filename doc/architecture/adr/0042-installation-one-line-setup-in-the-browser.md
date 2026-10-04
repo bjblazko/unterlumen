@@ -139,7 +139,7 @@ then:
    photos' owner can use named volumes. In server mode Settings shares
    (`/api/setup/sharing`, `/api/setup/share`; `apisetup.Hooks.Sharing`), so the
    NAS shares first and the Mac's setup finds it. The wizard on huepattl.de
-   (`/products/unterlumen-nas.html`) is a page with a script that writes the
+   (`/products/unterlumen-nas`) is a page with a script that writes the
    `compose.yml` and the steps per NAS in the browser — no service on the
    server, since nothing in it needs one.
 4. Store entries (2026-09-29): only the Portainer template URL,
