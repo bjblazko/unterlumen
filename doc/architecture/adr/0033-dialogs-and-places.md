@@ -1,6 +1,6 @@
 # ADR-0033: Dialogs and places, and one dialog to build them with
 
-*Last modified: 2026-09-30*
+*Last modified: 2026-10-04*
 
 ## Status
 
@@ -77,7 +77,8 @@ button beside a labelled one is one button too many.
 
 | Dialog | Verdict |
 | --- | --- |
-| Choose folder, Publish, Progress, Helper programs, About, Location, Add to gallery, New library, Edit library | Dialog. One decision, one screen, the context behind matters. |
+| Choose folder, Publish, Progress, Helper programs, Location, Add to gallery, New library, Edit library | Dialog. One decision, one screen, the context behind matters. |
+| About | A place since 2026-10-04 (`#about`, a sidebar entry with topics: How it works, Your data, No warranty, Licenses). It held no decision; it grew pages to read. |
 | Export, Batch rename | Dialog. They are forms, but they belong to a selection that stays visible behind them; leaving them is a cancel, not a navigation. |
 | Slideshow | Dialog. One decision (how it should play) before one action. |
 | Statistics | A place since 2026-09-30 ([ADR-0043](0043-statistics-place-with-topics.md)); a dialog before, against rule 3 — see below. |

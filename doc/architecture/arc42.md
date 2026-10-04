@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-02*
+*Last modified: 2026-10-04*
 
 ## 1. Introduction and Goals
 
@@ -198,6 +198,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
+| `about-place.js` | `AboutPane` — About (`#about`), the overview of its topics; `ABOUT_PLACES` decides when the sidebar lists them |
+| `privacy-place.js` | `PrivacyPane` — Your data (`#privacy`): every network call the app makes, and when |
+| `warranty-place.js` | `WarrantyPane` — No warranty (`#warranty`); `WarrantyNotice`, shown once per browser at the foot of the sidebar |
 | `credits-place.js` | `CreditsPane` — Licenses and thanks (`#licenses`), read from `web/licenses/credits.json`, whose license texts are embedded in the binary; `credits_test.go` keeps it complete |
 | `guide-place.js` | `GuidePane` — "How Unterlumen works": the model as a diagram and a paragraph per term ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `timeline-stream.js` | `TimelineStream` — the skeleton in typed arrays and the details in pages of 500, at most 40 kept |

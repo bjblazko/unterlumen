@@ -5,14 +5,13 @@ import { waitForAppReady } from '../helpers/wait.js';
 // license texts come with the program (feature doc 2026-10-02-licenses-and-thanks).
 
 test.describe('Licenses and thanks', () => {
-  test('About leads to the place, and the dialog gives way', async ({ page }) => {
+  test('About leads to the place', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('#about-trigger').click();
-    await page.locator('.about-place[data-mode="licenses"]').click();
-    await expect(page.locator('.dialog-scrim')).toHaveCount(0);
+    await page.locator('.about-topics a[data-mode="licenses"]').click();
     await expect(page).toHaveURL(/#licenses$/);
-    await expect(page.locator('.guide-pane h1')).toHaveText('Licenses and thanks');
+    await expect(page.locator('.guide-pane h1:visible')).toHaveText('Licenses and thanks');
   });
 
   test('every entry names its license and website, and built-in ones link their text', async ({ page }) => {

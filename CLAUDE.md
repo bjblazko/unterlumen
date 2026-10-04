@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-10-02*
+*Last modified: 2026-10-04*
 
 ## Project
 
@@ -80,6 +80,7 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 - **YAGNI** — never add parameters, abstractions, or features for hypothetical future use. Three concrete uses justify an abstraction; one does not.
 - **Domain grouping** — group by business domain (`export`, `location`, `wastebin`), not technical layer. When a directory exceeds ~8–10 files, look for a domain split. Names like `utils`, `helpers`, or `tools` are a warning sign — try harder to find a name that describes what the code actually does.
 - **Testing** — new Go packages or complex functions get a `_test.go`. New user-visible features get an e2e spec in `e2e/specs/`. When fixing a bug, add a test that would have caught it.
+- **Network calls** — Your data (`src/web/js/privacy-place.js`) lists every case in which Unterlumen sends something off the machine (map tiles, publishing, the reachability check, installing helper programs, links). A new outbound request — Go `http.*`, an `ssh`/`rsync`/`curl` exec, a `fetch` or tile URL to another host — gets its line there, or that page tells the user something false. There is deliberately no telemetry and no update check.
 - **Dependencies and their licenses** — anything new built into the binary (a Go module, a vendored script, a font) gets an entry in `src/web/licenses/credits.json` and its license text beside it; `TestCreditsListEveryModuleBuiltIn` fails for a Go module without one. A helper program the app calls goes into its `programs` group.
 - **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
 - **Dialogs** — one component builds all of them: `new Dialog({ title, subtitle, size, body, actions })` from `src/web/js/dialog.js` ([ADR-0033](doc/architecture/adr/0033-dialogs-and-places.md)). It owns the scrim, the header, the scrolling body, the footer, Escape, the scrim click and the focus trap, so a dialog file only writes its own body and actions. No closing cross — Cancel does that. At most one `btn-accent` action, and it comes last. `app-keyboard.js` defers to anything with `.dialog-scrim` or `.keyboard-owner` (the crop tool), which is the only guard left.

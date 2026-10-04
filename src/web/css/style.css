@@ -971,15 +971,12 @@ button.toggle {
     color: var(--fg);
 }
 
-/* --- About modal --- */
-
-.about-modal { max-width: 400px; }
+/* --- About --- */
 
 .about-logo-row {
     display: flex;
     align-items: center;
     gap: var(--space-4);
-    margin-bottom: var(--space-5);
 }
 
 .about-logo {
@@ -989,73 +986,61 @@ button.toggle {
 }
 
 .about-app-name {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: var(--fg);
+    font-size: var(--text-lg);
+    font-weight: 600;
 }
 
 .about-app-tagline {
-    font-size: 12px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
-    margin-top: 2px;
+    margin-top: var(--space-1);
 }
 
 .about-app-version {
-    font-size: 11px;
+    font-size: var(--text-xs);
     color: var(--fg-2);
-    margin-top: 4px;
-    font-family: var(--font-mono);
+    margin-top: var(--space-1);
 }
 
-.about-section {
+/* The topics, each a link with its one-line purpose. */
+.about-topics { list-style: none; }
+
+.about-topics li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
     padding: var(--space-3) 0;
     border-top: 1px solid var(--line);
 }
 
-.about-places {
+.about-topics li a { font-weight: 500; }
+
+.about-topics li span {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+/* --- Warranty notice --- */
+
+/* Shown once per browser at the foot of the sidebar, until acknowledged. */
+.warranty-notice {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
-}
-
-.about-label {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--fg-2);
-    margin-bottom: 4px;
-}
-
-.about-value {
-    font-size: 13px;
-    color: var(--fg);
-}
-
-.about-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: var(--text-sm);
-    color: var(--fg);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    text-decoration-color: var(--line-strong);
-}
-
-.about-link:hover { text-decoration: underline; }
-
-.about-link-sm {
-    font-size: 12px;
-    margin-top: 4px;
-    display: inline-flex;
-}
-
-.about-disclaimer {
-    font-size: 11px;
-    color: var(--fg-2);
+    padding: var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
     line-height: 1.5;
+    color: var(--fg-2);
 }
+
+.warranty-notice strong { color: var(--fg); font-weight: 500; }
+
+.warranty-notice a { color: var(--fg); }
+
+.sidebar-collapsed .warranty-notice { display: none; }
 
 .location-map {
     width: 100%;
@@ -7450,9 +7435,9 @@ a.guide-node:focus-visible .guide-box {
     color: var(--fg-3);
 }
 
-/* --- Licenses and thanks --- */
+/* --- Reading places: About, Your data, No warranty, Licenses and thanks --- */
 
-.credits-body {
+.reading-body {
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
@@ -7460,16 +7445,14 @@ a.guide-node:focus-visible .guide-box {
     padding: var(--space-6);
 }
 
-.credits-intro a,
-.credits-text p a,
-.credits-links a {
+.reading-body a {
     color: var(--fg);
     text-decoration: underline;
     text-underline-offset: 2px;
     text-decoration-color: var(--line-strong);
 }
 
-.credits-text {
+.reading-text {
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
@@ -7478,6 +7461,15 @@ a.guide-node:focus-visible .guide-box {
 .credits-list {
     list-style: none;
     margin-top: var(--space-3);
+}
+
+/* A list of cases in running text, each led by a bold word. */
+.privacy-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    padding-left: var(--space-5);
 }
 
 /* Name and purpose on the left, the license as data on the right. */
@@ -7514,7 +7506,7 @@ a.guide-node:focus-visible .guide-box {
 }
 
 @media (max-width: 700px) {
-    .credits-body { padding: var(--space-4); }
+    .reading-body { padding: var(--space-4); }
     .credits-item { grid-template-columns: minmax(0, 1fr); }
     .credits-license { grid-column: 1; grid-row: auto; text-align: left; }
 }

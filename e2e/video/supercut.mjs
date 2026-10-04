@@ -323,6 +323,7 @@ async function main() {
         });
         await context.addInitScript(() => {
             localStorage.setItem('theme', 'light');
+            localStorage.setItem('warranty-notice-seen', '1');
             localStorage.setItem('sidebar-collapsed', '1'); // the photos get the room
         });
         const page = await context.newPage();

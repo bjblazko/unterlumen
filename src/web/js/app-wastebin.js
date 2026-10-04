@@ -188,7 +188,7 @@ class Wastebin {
             const what = describeDeletion(count, dirCount);
             const actionsEl = containerEl.querySelector('#wb-actions');
             actionsEl.innerHTML = `
-                <span class="wastebin-question">Delete ${what} from disk?${dirCount ? ' A folder goes with everything inside it.' : ''} This can't be undone.</span>
+                <span class="wastebin-question">Delete ${what} from disk?${dirCount ? ' A folder goes with everything inside it.' : ''} This can't be undone: Unterlumen keeps no copy, and only a backup restores what is deleted.</span>
                 <button class="btn btn-sm" id="wb-delete-cancel">Cancel</button>
                 <button class="btn btn-sm btn-danger" id="wb-delete-confirm">Delete ${what}</button>`;
             actionsEl.querySelector('#wb-delete-cancel').addEventListener('click', () => this.render(containerEl, onRefresh));

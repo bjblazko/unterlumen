@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide', 'licenses']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
 
 const App = {
     mode: 'browse',
@@ -38,19 +38,18 @@ const App = {
     wastebin: null,
     theme: null,
     keyboard: null,
-    aboutModal: null,
 
     init() {
         this.wastebin = new Wastebin();
         this.theme = new ThemeManager(this);
         this.keyboard = new GlobalKeyboard(this);
-        this.aboutModal = new AboutModal();
-
+        // The logo leads to About, as the About entry at the foot does.
         const aboutTrigger = document.getElementById('about-trigger');
-        aboutTrigger.addEventListener('click', () => this.aboutModal.open(this.config?.version));
+        aboutTrigger.addEventListener('click', () => this.setMode('about'));
         aboutTrigger.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.aboutModal.open(this.config?.version); }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.setMode('about'); }
         });
+        WarrantyNotice.show();
 
         this.viewer = new Viewer(document.getElementById('app'));
 
@@ -93,10 +92,13 @@ const App = {
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
+        about: { hash: 'about', id: 'mode-about' },
         // Reached from the sentence under each place, not from the sidebar.
         guide: { hash: 'guide' },
-        // Reached from About.
+        // About's topics, listed under it in the sidebar while one is open.
         licenses: { hash: 'licenses' },
+        privacy: { hash: 'privacy' },
+        warranty: { hash: 'warranty' },
         // Opened on a first start, and from Settings.
         setup: { hash: 'setup' },
     },
@@ -105,7 +107,8 @@ const App = {
         for (const [mode, place] of Object.entries(this.NAV)) {
             const el = document.getElementById(place.id);
             if (!el) continue;
-            el.title = `${el.querySelector('.nav-text').textContent} (${place.key})`;
+            const name = el.querySelector('.nav-text').textContent;
+            el.title = place.key ? `${name} (${place.key})` : name;
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
                 e.preventDefault();
@@ -118,6 +121,13 @@ const App = {
         // The phone's tab bar, and any other link that names a place, point at
         // the same places as the sidebar. A hash link on its own would not
         // fire popstate, so the app would stay where it is.
+        for (const el of document.querySelectorAll('#nav-about [data-about-topic]')) {
+            el.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                this.setMode(el.dataset.aboutTopic);
+            });
+        }
         for (const el of document.querySelectorAll('.tabbar-item, .desk-only-notice a[data-mode]')) {
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -372,7 +382,7 @@ const App = {
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
         ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
-        ['_settingsEl', 'settings'], ['_guideEl', 'guide'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
+        ['_settingsEl', 'settings'], ['_aboutEl', 'about'], ['_guideEl', 'guide'], ['_privacyEl', 'privacy'], ['_warrantyEl', 'warranty'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
 
     // Mark where we are. There is no "done" or "next" — these are places.
@@ -385,6 +395,12 @@ const App = {
         }
         for (const el of document.querySelectorAll('.tabbar-item')) {
             if (el.dataset.mode === mode) el.setAttribute('aria-current', 'page');
+            else el.removeAttribute('aria-current');
+        }
+        // About's topics show while About or one of them is open.
+        document.getElementById('nav-about').hidden = !ABOUT_PLACES.has(mode);
+        for (const el of document.querySelectorAll('#nav-about [data-about-topic]')) {
+            if (el.dataset.aboutTopic === mode) el.setAttribute('aria-current', 'page');
             else el.removeAttribute('aria-current');
         }
         // A phone browses; it does not cull, organise or configure. Those
@@ -418,6 +434,9 @@ const App = {
             case 'published': this._openPane('_galleriesEl', '_galleriesPane', GalleriesPane); break;
             case 'guide': this._openPane('_guideEl', '_guidePane', GuidePane); break;
             case 'licenses': this._openPane('_creditsEl', '_creditsPane', CreditsPane); break;
+            case 'about': this._openPane('_aboutEl', '_aboutPane', AboutPane); break;
+            case 'privacy': this._openPane('_privacyEl', '_privacyPane', PrivacyPane); break;
+            case 'warranty': this._openPane('_warrantyEl', '_warrantyPane', WarrantyPane); break;
             case 'setup': this._openPane('_setupEl', '_setupPane', SetupPane); break;
         }
     },

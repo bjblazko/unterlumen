@@ -13,7 +13,7 @@
     <meta name="theme-color" content="#161718" media="(prefers-color-scheme: dark)">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=61">
+    <link rel="stylesheet" href="/css/style.css?v=62">
     <link rel="stylesheet" href="/css/timeline.css?v=1">
     <link rel="stylesheet" href="/css/statistics.css?v=12">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
@@ -125,6 +125,18 @@
                     </svg>
                     <span class="nav-text">Settings</span>
                 </a>
+                <a class="nav-item" id="mode-about" href="#about" data-mode="about">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="8" cy="8" r="6.5"/><path d="M8 7.5V11"/><circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span class="nav-text">About</span>
+                </a>
+                <div id="nav-about" hidden>
+                    <a class="nav-item nav-sub" href="#guide" data-about-topic="guide"><span class="nav-text">How it works</span></a>
+                    <a class="nav-item nav-sub" href="#privacy" data-about-topic="privacy"><span class="nav-text">Your data</span></a>
+                    <a class="nav-item nav-sub" href="#warranty" data-about-topic="warranty"><span class="nav-text">No warranty</span></a>
+                    <a class="nav-item nav-sub" href="#licenses" data-about-topic="licenses"><span class="nav-text">Licenses</span></a>
+                </div>
             </div>
 
             <!-- Work the server is doing: scans, exports, publishing (ADR-0036). -->
@@ -205,7 +217,6 @@
     <script src="/js/folder-picker.js?v=7"></script>
     <script src="/js/export-modal.js?v=8"></script>
     <script src="/js/deps-modal.js?v=7"></script>
-    <script src="/js/about-modal.js?v=6"></script>
     <script src="/js/slideshow-modal.js?v=4"></script>
     <script src="/js/slideshow-player.js?v=4"></script>
     <script src="/js/channels.js?v=12"></script>
@@ -253,11 +264,14 @@
     <script src="/js/stats-place.js?v=11"></script>
     <script src="/js/settings.js?v=8"></script>
     <script src="/js/guide-place.js?v=4"></script>
-    <script src="/js/credits-place.js?v=1"></script>
+    <script src="/js/credits-place.js?v=2"></script>
+    <script src="/js/about-place.js?v=1"></script>
+    <script src="/js/privacy-place.js?v=1"></script>
+    <script src="/js/warranty-place.js?v=1"></script>
     <script src="/js/setup-place.js?v=4"></script>
     <script src="/js/app-theme.js?v=4"></script>
-    <script src="/js/app-wastebin.js?v=5"></script>
+    <script src="/js/app-wastebin.js?v=6"></script>
     <script src="/js/app-keyboard.js?v=13"></script>
-    <script src="/js/app.js?v=28"></script>
+    <script src="/js/app.js?v=29"></script>
 </body>
 </html>

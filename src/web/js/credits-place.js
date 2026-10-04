@@ -46,12 +46,12 @@ class CreditsPane {
                 <div class="gal-head">
                     <h1 class="gal-title">Licenses and thanks</h1>
                 </div>
-                <div class="credits-body">
-                    <p class="credits-intro">Unterlumen stands on the work of the projects below. Each keeps its own license; Unterlumen itself is under the ${creditsLink('https://github.com/bjblazko/unterlumen/blob/main/LICENSE', 'Apache License 2.0')}. Thank you to everyone who makes them. If Unterlumen is useful to you, consider supporting them too — where a project takes support, its entry links there.</p>
-                    <div class="credits-text"></div>
+                <div class="reading-body">
+                    <p class="reading-intro">Unterlumen stands on the work of the projects below. Each keeps its own license; Unterlumen itself is under the ${creditsLink('https://github.com/bjblazko/unterlumen/blob/main/LICENSE', 'Apache License 2.0')}. Thank you to everyone who makes them. If Unterlumen is useful to you, consider supporting them too — where a project takes support, its entry links there.</p>
+                    <div class="reading-text"></div>
                 </div>
             </div>`;
-        await this._load(this.container.querySelector('.credits-text'));
+        await this._load(this.container.querySelector('.reading-text'));
     }
 
     async _load(host) {

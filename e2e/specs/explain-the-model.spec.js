@@ -72,8 +72,7 @@ test.describe('Explaining the model', () => {
     await expect(page.locator('.guide-pane')).toBeVisible();
 
     await page.locator('#about-trigger').click();
-    await page.locator('.about-place[data-mode="guide"]').click();
-    await expect(page.locator('.dialog-scrim')).toHaveCount(0);
+    await page.locator('.about-topics a[data-mode="guide"]').click();
     await expect(page).toHaveURL(/#guide$/);
   });
 
