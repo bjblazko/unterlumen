@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-10-04
+
 ### Added
 - **About is a place.** The About dialog became a place at the foot of the sidebar (`#about`, also behind the logo), with its topics listed under it while one is open: How it works, Your data, No warranty and Licenses.
 - **Your data** (`#privacy`) says what stays on your computer and every case in which something leaves it, and when: map tiles from OpenFreeMap while a map is shown, publishing to your destination and checking that it answers, installing helper programs on request, links you open. There is no telemetry and no update check.
