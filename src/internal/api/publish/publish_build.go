@@ -91,10 +91,7 @@ func writeDownloadZip(store *lib.Store, ch *channels.Channel, photoIDs []string,
 		return "", errors.New("create temp file: " + err.Error())
 	}
 	publishedAt := time.Now().UTC()
-	ex := downloadExport{store: store, ch: ch, opts: ch.ExportOptions(), ts: publishedAt.Format("20060102T150405Z"), ext: "." + ch.Format}
-	if ch.Format == "jpeg" {
-		ex.ext = ".jpg"
-	}
+	ex := downloadExport{store: store, ch: ch, opts: ch.ExportOptions(), ts: publishedAt.Format("20060102T150405Z"), ext: exportExt(ch)}
 	if recordXMP {
 		ex.record = &media.Publication{Channel: ch.Slug, PostID: newPostID(), PublishedAt: publishedAt}
 	}
@@ -123,28 +120,18 @@ func (ex downloadExport) add(zw *zip.Writer, photoID string) {
 	if err != nil || pathHint == "" {
 		return
 	}
-	if ex.record != nil {
-		recordDownload(ex.store, photoID, pathHint, *ex.record)
-	}
 	data, err := media.ExportImage(pathHint, ex.opts)
 	if err != nil {
 		return
 	}
 	base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
-	if fw, err := zw.Create(ex.ch.Slug + "_" + ex.ts + "_" + base + ex.ext); err == nil {
-		fw.Write(data) //nolint:errcheck
+	fw, err := zw.Create(ex.ch.Slug + "_" + ex.ts + "_" + base + ex.ext)
+	if err != nil {
+		return
 	}
-}
-
-// recordDownload records a downloaded photo as published: in its sidecar and
-// as the destination's built: keys.
-func recordDownload(store *lib.Store, photoID, pathHint string, pub media.Publication) {
-	media.AppendPublication(pathHint, pub) //nolint:errcheck
-	chKey := BuildPrefix + pub.Channel
-	tsVal := pub.PublishedAt.Format(time.RFC3339)
-	store.UpsertMeta(photoID, chKey, tsVal)                //nolint:errcheck
-	store.UpsertMeta(photoID, chKey+":"+pub.PostID, tsVal) //nolint:errcheck
-	store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
+	if _, err := fw.Write(data); err == nil && ex.record != nil {
+		recordPublication(ex.store, photoID, pathHint, *ex.record) //nolint:errcheck // the file is in the ZIP either way
+	}
 }
 
 // serveZipFile sends a ZIP file as an attachment.
@@ -201,32 +188,18 @@ var galleryThumbOpts = media.ExportOptions{
 	},
 }
 
+// exportExt is the extension of a channel's exported files.
+func exportExt(ch *channels.Channel) string {
+	if ch.Format == "jpeg" {
+		return ".jpg"
+	}
+	return "." + ch.Format
+}
+
 func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string, recordXMP bool) buildResult {
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
 		return buildResult{PhotoID: photoID, Error: "photo not found"}
-	}
-
-	if recordXMP {
-		if err := media.AppendPublication(pathHint, pub); err != nil {
-			return buildResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
-		}
-		metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
-		chKey := "built:" + pub.Channel
-		qualKey := chKey + ":" + pub.PostID
-		store.UpsertMeta(photoID, chKey, metaVal)   //nolint:errcheck
-		store.UpsertMeta(photoID, qualKey, metaVal) //nolint:errcheck
-		if pub.Account != "" {
-			store.UpsertMeta(photoID, chKey+":account", pub.Account)   //nolint:errcheck
-			store.UpsertMeta(photoID, qualKey+":account", pub.Account) //nolint:errcheck
-		}
-		if pub.PostID != "" {
-			store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
-		}
-		if pub.GalleryTitle != "" {
-			store.UpsertMeta(photoID, chKey+":title", pub.GalleryTitle)   //nolint:errcheck
-			store.UpsertMeta(photoID, qualKey+":title", pub.GalleryTitle) //nolint:errcheck
-		}
 	}
 
 	exported, err := media.ExportImage(pathHint, ch.ExportOptions())
@@ -234,16 +207,20 @@ func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts,
 		return buildResult{PhotoID: photoID, Error: "export: " + err.Error()}
 	}
 
-	ext := "." + ch.Format
-	if ch.Format == "jpeg" {
-		ext = ".jpg"
-	}
 	base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
-	outName := ch.Slug + "_" + ts + "_" + base + ext
+	outName := ch.Slug + "_" + ts + "_" + base + exportExt(ch)
 	outPath := filepath.Join(outDir, outName)
 
 	if err := os.WriteFile(outPath, exported, 0o644); err != nil {
 		return buildResult{PhotoID: photoID, Error: "write export: " + err.Error()}
+	}
+	// Recorded only once the file is there: a photo marked first and then
+	// failing showed as in the gallery with no file to post.
+	if recordXMP {
+		if err := recordPublication(store, photoID, pathHint, pub); err != nil {
+			os.Remove(outPath) //nolint:errcheck
+			return buildResult{PhotoID: photoID, Error: "xmp: " + err.Error()}
+		}
 	}
 
 	res := buildResult{PhotoID: photoID, OutputPath: outPath, Filename: outName}
@@ -262,6 +239,31 @@ func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts,
 	}
 
 	return res
+}
+
+// recordPublication records an exported photo as published: in its sidecar,
+// then as the destination's built: keys in the library.
+func recordPublication(store *lib.Store, photoID, pathHint string, pub media.Publication) error {
+	if err := media.AppendPublication(pathHint, pub); err != nil {
+		return err
+	}
+	metaVal := pub.PublishedAt.UTC().Format(time.RFC3339)
+	chKey := "built:" + pub.Channel
+	qualKey := chKey + ":" + pub.PostID
+	store.UpsertMeta(photoID, chKey, metaVal)   //nolint:errcheck
+	store.UpsertMeta(photoID, qualKey, metaVal) //nolint:errcheck
+	if pub.Account != "" {
+		store.UpsertMeta(photoID, chKey+":account", pub.Account)   //nolint:errcheck
+		store.UpsertMeta(photoID, qualKey+":account", pub.Account) //nolint:errcheck
+	}
+	if pub.PostID != "" {
+		store.UpsertMeta(photoID, chKey+":postid", pub.PostID) //nolint:errcheck
+	}
+	if pub.GalleryTitle != "" {
+		store.UpsertMeta(photoID, chKey+":title", pub.GalleryTitle)   //nolint:errcheck
+		store.UpsertMeta(photoID, qualKey+":title", pub.GalleryTitle) //nolint:errcheck
+	}
+	return nil
 }
 
 // scanAlbumPhotos reconstructs a site.GalleryItem list from the files on disk.
