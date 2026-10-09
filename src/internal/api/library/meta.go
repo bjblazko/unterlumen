@@ -121,7 +121,7 @@ func deleteMeta(mgr *lib.Manager, chStore *channels.Store, draftStore *channels.
 		if strings.HasPrefix(key, publish.BuildPrefix) && chStore != nil {
 			handled, rmErr := publish.DeleteBuiltMeta(store, chStore, photoID, key)
 			if rmErr != nil {
-				http.Error(w, "remove from site: "+rmErr.Error(), http.StatusInternalServerError)
+				http.Error(w, "remove from gallery: "+rmErr.Error(), http.StatusInternalServerError)
 				return
 			}
 			if handled {

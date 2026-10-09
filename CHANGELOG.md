@@ -5,10 +5,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A photo can leave a files destination's gallery.** In the info panel, the gallery card of a files destination (an Instagram folder) has a ×. It takes the gallery out of the photo's sidecar and library and deletes the exported file from the destination's folder; the photo itself stays. Galleries and websites still keep their photos, since their pages show them.
+
 ### Changed
 - **Files destinations name each file by when it was exported.** A file used to carry the date its gallery was first published, so a photo exported today sorted among the oldest in the folder. The gallery keeps its date; files exported before keep their names.
 
 ### Fixed
+- **A photo whose export failed is no longer marked as published.** Publishing recorded the gallery in the photo's sidecar and library before exporting it, so a failed export left the photo shown in the gallery with no file in the folder. It is now recorded once its file is written, and stays waiting otherwise. The same holds for downloads that record the photos.
 - **Copy path after exporting to a files destination.** The publish dialog showed and copied `undefined` instead of the destination's output folder, because the export did not send the folder back.
 
 ## [0.15.5] - 2026-10-04

@@ -336,6 +336,8 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await publishDlg.locator('#pub-run').click();
         await expect(publishDlg.locator('#pub-done')).toBeVisible({ timeout: 30_000 });
         await expect(publishDlg).toContainText('Exported to the local output folder');
+        // The folder the files went to — once "undefined", as was Copy path.
+        await expect(publishDlg.locator('.build-destination')).toContainText(FILES_SLUG);
 
         // A files destination keeps no list of its galleries; the exported one
         // is known from its photos' records, so it stays in Galleries and can
@@ -351,6 +353,17 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await page.locator('.selection-bar [data-action="collect"]').click();
         await expect(dlg.locator('.collect-item', { hasText: title })).toBeVisible();
         await dlg.locator('#collect-cancel').click();
+
+        // An exported photo can leave a files destination's gallery from the
+        // info panel; the photo stays, its record of the gallery goes.
+        await loadInfoForPhotoAt(page, 4);
+        const card = page.locator(`.info-pub-card:not(.info-pub-card--pending)[data-key^="built:${FILES_SLUG}"]`);
+        await expect(card).toHaveCount(1, { timeout: 5_000 });
+        await card.locator('.info-meta-del').click();
+        await expect(card).toHaveCount(0, { timeout: 5_000 });
+        await expect(page.locator('#lib-pane [data-type="image"]').nth(4)).toBeVisible();
+        await reopenPublishedTab(page);
+        await expect(page.locator('.gal-row', { hasText: title }).locator('.gal-row-sub')).toContainText('1 photo');
     });
 
     // The date belongs to the gallery, not to the publish run. The dialog used

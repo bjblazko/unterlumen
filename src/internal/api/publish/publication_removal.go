@@ -76,19 +76,80 @@ func DeleteBuiltMeta(store *lib.Store, chStore *channels.Store, photoID, key str
 		}
 		deleteChannelPublicationKeys(store, photoID, slug)
 		return true, nil
+	// A files destination builds no pages, so its album is only the
+	// photo's records and one file in the folder: all of them go, or
+	// the next scan reads the album back from the sidecar.
+	case isFilesDestination(ch) && !reservedMetaSuffix(albumPostID):
+		if err := removeFromFilesDestination(store, chStore, ch, photoID, albumPostID); err != nil {
+			return false, err
+		}
+		forgetAlbumKeys(store, photoID, slug, albumPostID)
+		return true, nil
 	// A gallery channel's albums are independent: drop just this
 	// album, and the channel marker only if it was the last one.
-	case albumPostID != "" && !reservedMetaSuffix(albumPostID):
-		deleteAlbumKeys(store, photoID, slug, albumPostID)
-		if entries, metaErr := store.GetMeta(photoID); metaErr == nil && len(albumPostIDsForChannel(entries, slug)) == 0 {
-			deleteChannelPublicationKeys(store, photoID, slug)
-		}
-		return true, nil
-	case albumPostID == "":
-		deleteChannelPublicationKeys(store, photoID, slug)
+	case !reservedMetaSuffix(albumPostID):
+		forgetAlbumKeys(store, photoID, slug, albumPostID)
 		return true, nil
 	}
 	return false, nil
+}
+
+func isFilesDestination(ch *channels.Channel) bool { return !ch.GalleryExport && !ch.SiteExport }
+
+// forgetAlbumKeys drops one album's keys, and the channel marker once the
+// photo is in none of the channel's albums. An empty postID names the
+// channel marker itself.
+func forgetAlbumKeys(store *lib.Store, photoID, slug, albumPostID string) {
+	if albumPostID == "" {
+		deleteChannelPublicationKeys(store, photoID, slug)
+		return
+	}
+	deleteAlbumKeys(store, photoID, slug, albumPostID)
+	if entries, err := store.GetMeta(photoID); err == nil && len(albumPostIDsForChannel(entries, slug)) == 0 {
+		deleteChannelPublicationKeys(store, photoID, slug)
+	}
+}
+
+// removeFromFilesDestination takes the album out of the photo's sidecar and
+// deletes the photo's exported file from the destination's folder.
+func removeFromFilesDestination(store *lib.Store, chStore *channels.Store, ch *channels.Channel, photoID, postID string) error {
+	pathHint, _ := store.GetPhotoPathHint(photoID)
+	if pathHint == "" {
+		return nil
+	}
+	if err := media.RemovePublication(pathHint, ch.Slug, postID); err != nil {
+		return fmt.Errorf("sidecar: %w", err)
+	}
+	dir := chStore.OutputDir(ch.Slug)
+	if name := exportedFileName(dir, ch, pathHint); name != "" {
+		os.Remove(filepath.Join(dir, name)) //nolint:errcheck // a file already gone is the goal
+	}
+	return nil
+}
+
+// exportedFileName finds the photo's file among "{slug}_{stamp}_{base}{ext}"
+// in dir. The stamp is not recorded, so a base name that matches more than one
+// file (the same photo in two albums, or two photos of one name) is left
+// alone rather than guessed: it returns "" then.
+func exportedFileName(dir string, ch *channels.Channel, pathHint string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	const stampLen = len("20060102T150405Z")
+	prefix := ch.Slug + "_"
+	suffix := "_" + strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint)) + exportExt(ch)
+	var found []string
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, prefix) && len(name) == len(prefix)+stampLen+len(suffix) && strings.HasSuffix(name, suffix) {
+			found = append(found, name)
+		}
+	}
+	if len(found) != 1 {
+		return ""
+	}
+	return found[0]
 }
 
 // removePhotoFromSite removes a photo from every album in a site-export channel:

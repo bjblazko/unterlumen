@@ -167,6 +167,20 @@ class InfoPanel {
     setMetaContext(ctx) {
         this._metaContext = ctx;
         if (this.expanded && this.data) this.render();
+        if (ctx?.entries?.some(e => e.key.startsWith('built:'))) this._loadFilesDestinations(ctx);
+    }
+
+    // Only a files destination's gallery can be left from here: it is nothing
+    // but the photo's records and one file in a folder. A gallery or a site
+    // would keep showing the photo on its pages.
+    async _loadFilesDestinations(ctx) {
+        try {
+            const channels = await ChannelAPI.list();
+            ctx.filesDestinations = new Set(channels.filter(c => !c.galleryExport && !c.siteExport).map(c => c.slug));
+        } catch {
+            return; // without the list, no card offers to leave
+        }
+        if (this._metaContext === ctx && this.expanded && this.data) this.render();
     }
 
     destroyMap() {
@@ -473,18 +487,22 @@ class InfoPanel {
         const ctx = this._metaContext;
         if (!ctx || !ctx.entries) return '';
 
-        // A published gallery is a place, so its entry leads there. Taking a
-        // photo out of a gallery is not something the info panel can do: here
-        // it only ever made the library forget, while the photo stayed in the
-        // gallery and came back with the next scan.
+        // A published gallery is a place, so its entry leads there. Only a
+        // files destination's gallery can be left from here (the server drops
+        // the sidecar record and the exported file too); a gallery or a site
+        // would keep the photo on its pages, and the next scan brought it back.
         const publishedCards = this._publishedAlbums(ctx.entries).map(a => {
             const galleryTitle = a.title ? escapeHtml(a.title) : '';
             const titleHTML = a.postID
                 ? `<a class="info-pub-title info-pub-link" href="#galleries" data-slug="${escapeHtml(a.slug)}" data-post="${escapeHtml(a.postID)}">${galleryTitle || 'Open the gallery'}</a>`
                 : (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '');
+            const leave = ctx.filesDestinations?.has(a.slug)
+                ? `<button class="info-meta-del" title="Remove from this gallery and delete its exported file" aria-label="Remove from this gallery" data-key="${escapeHtml(a.key)}">×</button>`
+                : '';
             return `<div class="info-pub-card" data-key="${escapeHtml(a.key)}">` +
                 `<div class="info-pub-card-header">` +
                     `<span class="info-pub-channel">${escapeHtml(a.channelName)}</span>` +
+                    leave +
                 `</div>` +
                 `<div class="info-pub-date">${escapeHtml(this.formatDate(a.date))}</div>` +
                 titleHTML +

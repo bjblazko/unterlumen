@@ -283,10 +283,7 @@ func (sa *sidecarAlbum) add(ch *channels.Channel, p lib.Photo, pub media.Publica
 // exportedFilename is the name a photo gets in an album folder: channel,
 // publish time and the photo's own name, the same scheme buildOne writes.
 func exportedFilename(ch *channels.Channel, publishedAt time.Time, pathHint string) string {
-	ext := "." + ch.Format
-	if ch.Format == "jpeg" {
-		ext = ".jpg"
-	}
+	ext := exportExt(ch)
 	base := strings.TrimSuffix(filepath.Base(pathHint), filepath.Ext(pathHint))
 	return ch.Slug + "_" + publishedAt.UTC().Format("20060102T150405Z") + "_" + base + ext
 }
