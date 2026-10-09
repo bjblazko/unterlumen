@@ -284,6 +284,15 @@ func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
 		t.Fatal("expected draft to be deleted after generate")
 	}
 
+	// The dialog shows and copies this folder; without it, it said "undefined".
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got, want := resp["outputPath"], chStore.OutputDir("instagram"); got != want {
+		t.Errorf("outputPath = %v, want %q", got, want)
+	}
+
 	entries, err := store.GetMeta("photo1")
 	if err != nil {
 		t.Fatalf("GetMeta: %v", err)
@@ -302,6 +311,45 @@ func TestGenerateDraft_PlainChannel_ExportsAndClearsDraft(t *testing.T) {
 	}
 	if !hasBuilt {
 		t.Error("expected built:instagram meta to be written")
+	}
+}
+
+// A files destination's folder fills up over months while its gallery keeps
+// the date it was first published. Files named by that date sorted a photo
+// exported today among the oldest ones, so they carry the export time.
+func TestGenerateDraft_PlainChannel_NamesFilesByExportTime(t *testing.T) {
+	mux, mgr, chStore, draftStore := setupGenerateTestMux(t)
+	if err := chStore.Save(&channels.Channel{Slug: "instagram", Name: "Instagram", Format: "jpeg", Quality: 85}); err != nil {
+		t.Fatalf("Save channel: %v", err)
+	}
+	libID := seedLibraryPhoto(t, mgr, "photo1")
+	draft, err := draftStore.Create("instagram", channels.DraftTarget{}, []channels.DraftPhoto{{LibraryID: libID, PhotoID: "photo1"}})
+	if err != nil {
+		t.Fatalf("Create draft: %v", err)
+	}
+
+	before := time.Now().UTC().Truncate(time.Second)
+	body := strings.NewReader(`{"publishedAt":"2026-06-26T12:00:00Z"}`)
+	req := httptest.NewRequest("POST", "/api/channels/instagram/drafts/"+draft.ID+"/generate", body)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Results []buildResult `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || len(resp.Results) != 1 {
+		t.Fatalf("decode response: %v, body = %s", err, rec.Body.String())
+	}
+	stamp := strings.Split(resp.Results[0].Filename, "_")[1]
+	exportedAt, err := time.Parse("20060102T150405Z", stamp)
+	if err != nil {
+		t.Fatalf("file name %q has no time stamp: %v", resp.Results[0].Filename, err)
+	}
+	if exportedAt.Before(before) {
+		t.Errorf("file name %q carries %v, want the export time (not before %v)", resp.Results[0].Filename, exportedAt, before)
 	}
 }
 

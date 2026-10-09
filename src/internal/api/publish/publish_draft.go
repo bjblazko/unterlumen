@@ -100,6 +100,11 @@ func newPublishRun(r *http.Request, mgr *lib.Manager, chStore *channels.Store, d
 	namesAlbum := draft.Target.Title != "" || run.addToExisting
 	run.galleryMode = ch.GalleryExport && namesAlbum
 	run.siteMode = ch.SiteExport && namesAlbum
+	if !run.galleryMode && !run.siteMode {
+		// Files land in one folder that grows for months under the gallery's
+		// first date; named by that date, today's file sorts among the oldest.
+		run.ts = time.Now().UTC().Format("20060102T150405Z")
+	}
 
 	target, status, err := resolveAlbumTarget(draft, run.channelDir, site.NewStore(chStore, slug), publishedAt, run.galleryMode, run.siteMode)
 	if err != nil {
@@ -271,7 +276,7 @@ func (p *publishRun) clearSucceededPhotos(results []buildResult) {
 func (p *publishRun) publishFiles(w http.ResponseWriter) {
 	results := p.buildPhotos("", func(int, buildResult) {})
 	p.clearSucceededPhotos(results)
-	writeJSON(w, map[string]any{"postID": p.target.postID, "results": results})
+	writeJSON(w, map[string]any{"postID": p.target.postID, "outputPath": p.target.outDir, "results": results})
 }
 
 // publishGallery streams SSE progress while it exports photos with thumbnails,

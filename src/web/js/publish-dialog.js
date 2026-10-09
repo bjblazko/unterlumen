@@ -229,7 +229,7 @@ class PublishDialog {
 
     _renderResult(failed) {
         const body = this._el.querySelector('#pub-body');
-        const localPath = this._result.sitePath || this._result.galleryPath;
+        const localPath = this._result.sitePath || this._result.galleryPath || this._result.outputPath;
         const showsHTML = !!(this._result.sitePath || this._result.galleryPath);
         const willUpload = this._row.channelHandler === 'rsync';
 

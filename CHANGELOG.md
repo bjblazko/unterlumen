@@ -1,9 +1,15 @@
 # Changelog
 
-*Last modified: 2026-10-02*
+*Last modified: 2026-10-09*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+- **Files destinations name each file by when it was exported.** A file used to carry the date its gallery was first published, so a photo exported today sorted among the oldest in the folder. The gallery keeps its date; files exported before keep their names.
+
+### Fixed
+- **Copy path after exporting to a files destination.** The publish dialog showed and copied `undefined` instead of the destination's output folder, because the export did not send the folder back.
 
 ## [0.15.5] - 2026-10-04
 
