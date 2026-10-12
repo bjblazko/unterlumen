@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-10-09*
+*Last modified: 2026-10-12*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.15.6] - 2026-10-12
 
 ### Added
 - **A photo can leave a files destination's gallery.** In the info panel, the gallery card of a files destination (an Instagram folder) has a ×. It takes the gallery out of the photo's sidecar and library and deletes the exported file from the destination's folder; the photo itself stays. Galleries and websites still keep their photos, since their pages show them.
