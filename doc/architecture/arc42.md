@@ -41,6 +41,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | No JavaScript framework | No build step, minimal frontend complexity |
 | No database | Filesystem is the source of truth (see [ADR-0002](adr/0002-no-persistence.md)) |
 | ffmpeg for HEIF | No mature pure-Go HEIF decoder available (see [ADR-0004](adr/0004-heif-via-ffmpeg.md)) |
+| No cgo | Every build is `CGO_ENABLED=0` and cross-compiles from one machine; native libraries such as ONNX Runtime are loaded at run time through purego (see [ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 
 ### 2.2 Organizational Constraints
 
@@ -95,6 +96,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `PATCH /api/library/{id}` | HTTP PATCH | JSON — update library name and description |
 | `PUT /api/library-order` | HTTP PUT | JSON `{order:[ids]}` — set `sort_position` on all libraries in bulk |
 | `GET /api/jobs/stream` | HTTP GET, SSE | Every running or recently finished job, then each change ([ADR-0036](adr/0036-activity-and-progress.md)) |
+| `GET /api/faces`, `POST /api/faces/install` | HTTP GET/POST | JSON — whether face recognition is installed and what it downloads; the download as a job ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `/api/library/{id}/people…`, `/face/{fid}`, `/faces/name\|unname\|hide` | HTTP GET/POST/PATCH | JSON and JPEG — named people, groups of unnamed faces, a face's picture, naming ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `GET /api/settings` | HTTP GET | JSON — global app settings (e.g. `librarySortMode`) |
 | `PATCH /api/settings` | HTTP PATCH | JSON — update one or more global settings fields |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
@@ -143,7 +146,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 |---------|---------------|
 | `main` | CLI flag parsing, HTTP server startup; `server.go` swaps the whole app when the setup saves a new configuration ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/installation` | `config.json` of the installed app (data folder, shared folder, port), reading an older launcher's flags, migrating the photo folder of before ADR-0047 away, the `.unterlumen-shared` convention, the tools folder put in front of `PATH` ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
-| `internal/toolinstall` | Installs the missing helper programs (ffmpeg, exiftool, cwebp) from the app: Homebrew or winget, otherwise the makers' downloads into the tools folder; the Linux command to run by hand ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
+| `internal/toolinstall` | Installs the missing helper programs (ffmpeg, exiftool, cwebp) from the app: Homebrew or winget, otherwise the makers' downloads into the tools folder; the Linux command to run by hand ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)); downloads ONNX Runtime and the face models, checked by SHA-256, into `<lib-dir>/recognition` ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/api/folderdialog` | `/api/folder-dialog` — the system's own folder dialog for the installed app, for requests from the same computer only ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md)) |
 | `internal/api/setup` | `/api/setup`, `/api/setup/shared`, `/api/setup/dirs` — the setup place, registered only when the app is configured by config.json; `/api/setup/sharing` and `/api/setup/share` — sharing on a server (server mode) |
 | `internal/api` | HTTP route registration; delegates to domain subpackages |
@@ -163,6 +166,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/sse` | Opens a server-sent event stream and writes JSON data events; used by every streaming handler |
 | `internal/site` | Static output of a destination: single-gallery pages and multi-album sites (templates, assets, nav, sitemap), their state files, slugs, and the shared album register ([ADR-0035](adr/0035-shared-album-register.md)); no HTTP |
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
+| `internal/onnx` | Runs ONNX models on ONNX Runtime, loaded from its shared library at run time through purego: float32 tensors in and out, CPU only ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `internal/faces` | Finds faces (YuNet), aligns them and describes each by an embedding (SFace); groups embeddings; pure, no storage ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `internal/api/people` | `/api/faces*` and the People routes of a library: overview, group and person faces, a face's picture, naming, hiding, renaming; writes the names into the sidecars ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/appearance` | What a photo looks like, measured from an image: mono/tinted/colour, average colour and palette in OKLab, tone, texture, dHash; pure, no storage ([ADR-0044](adr/0044-photo-appearance-from-thumbnails.md)) |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
@@ -196,6 +202,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `multi-select.js` | `MultiSelect` — a button naming a choice that opens a list of checkboxes, all on at first ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `scope-filter.js` | `ScopeState` and `ScopeFilter` — the one filter of the Map, the Statistics and the Timeline: libraries, months, cameras, lenses, shared and kept in the browser ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
+| `people-place.js` | `PeoplePane` — People: the download, a library's named people and groups of unnamed faces, a group's and a person's page ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `face-grid.js` | `FaceGrid` — pictures of faces, each a switch, for People's group and person pages |
+| `people-api.js` | `PeopleAPI` — the `/api/faces` and People calls |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
 | `about-place.js` | `AboutPane` — About (`#about`), the overview of its topics; `ABOUT_PLACES` decides when the sidebar lists them |
@@ -392,6 +401,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0048](adr/0048-notes-live-in-the-sidecar.md) — A photo's title and fields live in its sidecar; the index copies them
 - [ADR-0049](adr/0049-colour-combinations.md) — Colour combinations are counted from sets of hues
 - [ADR-0050](adr/0050-shared-scope-filter.md) — One filter for the Map, the Statistics and the Timeline
+- [ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md) — Faces found on this computer, with ONNX Runtime loaded without cgo
 - [ADR-0052](adr/0052-the-index-follows-the-folder.md) — The index follows the folder; a scan only reads it
 
 ## 10. Quality Requirements
@@ -437,6 +447,7 @@ Quality
 | ffmpeg not installed on target system | Medium | Low | HEIF files fail gracefully; all other formats work. Error message guides user. |
 | Large directories (10k+ files) slow to list | Low | Medium | Mitigated: in-memory scan cache and deferred EXIF extraction ([ADR-0011](adr/0011-scan-cache-deferred-exif.md)) |
 | `innerHTML` re-rendering causes flicker | Low | Low | Could switch to incremental DOM updates if UX suffers |
+| ONNX Runtime's C API changes the order of its function table | Low | High | The table is append-only by Microsoft's rule; `internal/onnx` asks for version 17 and pins the download to 1.31.0 ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 
 ## 12. Glossary
 

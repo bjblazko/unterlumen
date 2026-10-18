@@ -14,6 +14,7 @@
     { "name": "go-isatty", "module": "github.com/mattn/go-isatty", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/mattn/go-isatty", "support": "https://github.com/sponsors/mattn", "text": "go-isatty.txt" },
     { "name": "go-strftime", "module": "github.com/ncruces/go-strftime", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/ncruces/go-strftime", "text": "go-strftime.txt" },
     { "name": "bigfft", "module": "github.com/remyoudompheng/bigfft", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://github.com/remyoudompheng/bigfft", "text": "bigfft.txt" },
+    { "name": "purego", "module": "github.com/ebitengine/purego", "use": "Calls ONNX Runtime without cgo, for face recognition", "license": "Apache-2.0", "home": "https://github.com/ebitengine/purego", "text": "purego.txt" },
     { "name": "MapLibre GL JS 6.11.2", "use": "Draws the maps", "license": "BSD-3-Clause", "home": "https://maplibre.org", "support": "https://maplibre.org/sponsors/", "text": "maplibre.txt" },
     { "name": "D3 7.9.0", "use": "Draws the charts in Statistics", "license": "ISC", "home": "https://d3js.org", "text": "d3.txt" },
     { "name": "IBM Plex Sans and Mono", "use": "The typefaces", "license": "OFL-1.1", "home": "https://github.com/IBM/plex", "text": "ibm-plex.txt" }
@@ -23,12 +24,15 @@
     { "name": "ExifTool", "use": "Writes locations and metadata, renames by date", "license": "Artistic-1.0-Perl or GPL-1.0-or-later", "home": "https://exiftool.org", "support": "https://exiftool.org/#donate" },
     { "name": "libheif (heif-convert)", "use": "Decodes HEIF photos on Linux", "license": "LGPL-3.0-or-later, tools: MIT", "home": "https://github.com/strukturag/libheif", "support": "https://github.com/sponsors/farindk" },
     { "name": "libde265", "use": "The HEVC decoder libheif uses", "license": "LGPL-3.0-or-later", "home": "https://github.com/strukturag/libde265", "support": "https://github.com/sponsors/farindk" },
-    { "name": "libwebp (cwebp)", "use": "Writes WebP when FFmpeg cannot", "license": "BSD-3-Clause", "home": "https://developers.google.com/speed/webp" }
+    { "name": "libwebp (cwebp)", "use": "Writes WebP when FFmpeg cannot", "license": "BSD-3-Clause", "home": "https://developers.google.com/speed/webp" },
+    { "name": "ONNX Runtime", "use": "Runs the face models; downloaded from Microsoft when you turn on face recognition", "license": "MIT", "home": "https://onnxruntime.ai" }
   ],
   "data": [
     { "name": "OpenStreetMap", "use": "The map data, by its contributors", "license": "ODbL-1.0", "home": "https://www.openstreetmap.org/copyright", "support": "https://supporting.openstreetmap.org/" },
     { "name": "OpenFreeMap", "use": "Serves the map tiles, free of charge", "license": "MIT", "home": "https://openfreemap.org", "support": "https://github.com/sponsors/hyperknot" },
     { "name": "OpenMapTiles", "use": "The tile schema and map styles", "license": "BSD-3-Clause, schema: CC-BY-4.0", "home": "https://openmaptiles.org" },
-    { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" }
+    { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" },
+    { "name": "YuNet", "use": "Finds the faces in a photo; downloaded with face recognition", "license": "MIT", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet" },
+    { "name": "SFace", "use": "Tells faces apart; downloaded with face recognition", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface" }
   ]
 }

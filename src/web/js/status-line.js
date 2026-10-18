@@ -20,7 +20,14 @@ class StatusLine {
         this._views = new Map();    // id → { el, activity, title, mark }
         this._visible = new Set();  // ids that ran long enough to be shown
         this._timers = new Map();   // id → timeout (show after delay, hide after done)
+        this._finishedListeners = [];
         this._connect();
+    }
+
+    // onFinished calls fn with every job that finishes from now on, so a
+    // place can show what the job changed.
+    onFinished(fn) {
+        this._finishedListeners.push(fn);
     }
 
     _connect() {
@@ -37,7 +44,10 @@ class StatusLine {
         const known = this._jobs.get(job.id);
         this._jobs.set(job.id, job);
         if (!known) this._schedule(job);
-        if (job.finished) this._settle(job);
+        if (job.finished) {
+            this._settle(job);
+            if (known && !known.finished) this._finishedListeners.forEach(fn => fn(job));
+        }
         this._render();
     }
 

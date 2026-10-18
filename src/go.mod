@@ -3,6 +3,7 @@ module huepattl.de/unterlumen
 go 1.27.1
 
 require (
+	github.com/ebitengine/purego v0.11.2
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/yuin/goldmark v1.8.6
 	golang.org/x/image v0.46.0

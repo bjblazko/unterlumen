@@ -274,7 +274,7 @@ GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 
 // The number keys switch places; comma opens Settings.
 GlobalKeyboard.PLACE_KEYS = {
     '1': 'browse', '2': 'wastebin', '3': 'organize', '4': 'library',
-    '5': 'published', '6': 'destinations', '7': 'map', '8': 'timeline', '9': 'statistics', ',': 'settings',
+    '5': 'published', '6': 'destinations', '7': 'map', '8': 'timeline', '9': 'statistics', '0': 'people', ',': 'settings',
 };
 
 // parentFolder is the path one folder up; "" above the top.

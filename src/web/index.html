@@ -15,6 +15,7 @@
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css?v=62">
     <link rel="stylesheet" href="/css/timeline.css?v=1">
+    <link rel="stylesheet" href="/css/people.css?v=1">
     <link rel="stylesheet" href="/css/statistics.css?v=12">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
     <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
@@ -92,6 +93,12 @@
                         <rect x="1.5" y="3" width="13" height="11.5"/><path d="M1.5 6.5h13M5 1.5V4.5M11 1.5V4.5M4.5 9.5h2M9.5 9.5h2M4.5 12h2"/>
                     </svg>
                     <span class="nav-text">Timeline</span>
+                </a>
+                <a class="nav-item" id="mode-people" href="#people" data-mode="people">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="8" cy="5.5" r="3"/><path d="M2.5 14.5c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/>
+                    </svg>
+                    <span class="nav-text">People</span>
                 </a>
                 <a class="nav-item" id="mode-statistics" href="#statistics" data-mode="statistics">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -191,7 +198,7 @@
     <script src="/js/library-api.js?v=3"></script>
     <script src="/js/activity.js?v=1"></script>
     <script src="/js/place-lede.js?v=4"></script>
-    <script src="/js/status-line.js?v=1"></script>
+    <script src="/js/status-line.js?v=2"></script>
     <script src="/js/browse-selection.js?v=6"></script>
     <script src="/js/selection-bar.js?v=3"></script>
     <script src="/js/originals.js?v=2"></script>
@@ -261,17 +268,20 @@
     <script src="/js/timeline-list.js?v=1"></script>
     <script src="/js/timeline-scrubber.js?v=1"></script>
     <script src="/js/timeline-place.js?v=5"></script>
+    <script src="/js/people-api.js?v=1"></script>
+    <script src="/js/face-grid.js?v=1"></script>
+    <script src="/js/people-place.js?v=1"></script>
     <script src="/js/stats-place.js?v=11"></script>
     <script src="/js/settings.js?v=8"></script>
     <script src="/js/guide-place.js?v=4"></script>
     <script src="/js/credits-place.js?v=2"></script>
     <script src="/js/about-place.js?v=1"></script>
-    <script src="/js/privacy-place.js?v=1"></script>
+    <script src="/js/privacy-place.js?v=2"></script>
     <script src="/js/warranty-place.js?v=1"></script>
     <script src="/js/setup-place.js?v=4"></script>
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=6"></script>
-    <script src="/js/app-keyboard.js?v=13"></script>
-    <script src="/js/app.js?v=29"></script>
+    <script src="/js/app-keyboard.js?v=14"></script>
+    <script src="/js/app.js?v=30"></script>
 </body>
 </html>

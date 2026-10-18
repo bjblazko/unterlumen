@@ -27,6 +27,9 @@ const App = {
     _statsEl: null,
     _statsPane: null,
     _statsRoute: { topic: '', library: '', path: '' },
+    _peopleEl: null,
+    _peoplePane: null,
+    _peopleRoute: { library: '' },
     _galleriesEl: null,
     _galleriesPane: null,
     _destinationsEl: null,
@@ -88,6 +91,7 @@ const App = {
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         map: { hash: 'map', id: 'mode-map', key: '7' },
         timeline: { hash: 'timeline', id: 'mode-timeline', key: '8' },
+        people: { hash: 'people', id: 'mode-people', key: '0' },
         statistics: { hash: 'statistics', id: 'mode-statistics', key: '9' },
         published: { hash: 'galleries', id: 'mode-published', key: '5' },
         destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
@@ -114,6 +118,7 @@ const App = {
                 e.preventDefault();
                 if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
                 if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
+                if (mode === 'people') this._peopleRoute = { library: this._peopleRoute.library };
                 this.setMode(mode);
             });
         }
@@ -163,11 +168,14 @@ const App = {
         const entry = Object.entries(this.NAV).find(([, place]) => place.hash === hash);
         if (!entry) return 'browse';
         if (entry[0] === 'statistics') this._statsRoute = statsRouteFromHash(location.hash);
+        if (entry[0] === 'people') this._peopleRoute = peopleRouteFromHash(location.hash);
         return entry[0];
     },
 
     _placeHash(mode) {
-        return mode === 'statistics' ? statsHash(this._statsRoute) : '#' + this.NAV[mode].hash;
+        if (mode === 'statistics') return statsHash(this._statsRoute);
+        if (mode === 'people') return peopleHash(this._peopleRoute);
+        return '#' + this.NAV[mode].hash;
     },
 
     toggleSidebar() {
@@ -239,6 +247,12 @@ const App = {
     openStatistics(route) {
         this._statsRoute = { topic: '', library: '', path: '', ...route };
         this.setMode('statistics');
+    },
+
+    // People at a library, a group or a person: { library, view, id }.
+    openPeople(route, { replace = false } = {}) {
+        this._peopleRoute = { library: '', ...route };
+        this.setMode('people', { replaceHistory: replace });
     },
 
     // The topic entries show while Statistics is open, point at the current
@@ -381,7 +395,7 @@ const App = {
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
-        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'], ['_aboutEl', 'about'], ['_guideEl', 'guide'], ['_privacyEl', 'privacy'], ['_warrantyEl', 'warranty'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
 
@@ -422,6 +436,13 @@ const App = {
             case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
             case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'timeline': this._openPane('_timelineEl', '_timelinePane', TimelinePane); break;
+            case 'people':
+                if (!this._peopleEl) {
+                    this._peopleEl = this._placeElement();
+                    this._peoplePane = new PeoplePane(this._peopleEl);
+                }
+                this._peoplePane.show(this._peopleRoute);
+                break;
             case 'statistics':
                 if (!this._statsEl) {
                     this._statsEl = this._placeElement();

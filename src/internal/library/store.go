@@ -78,6 +78,35 @@ CREATE TABLE IF NOT EXISTS photo_palette (
 );
 CREATE INDEX IF NOT EXISTS photo_palette_hue ON photo_palette(hue_bin, share);
 
+-- The faces found in a photo's thumbnail and who they are (ADR-0051).
+-- person_id NULL with confirmed 0 is a face nobody has named yet; with
+-- confirmed 1 one the owner said not to name. grp groups unnamed faces
+-- that look alike; it is rebuilt after every pass.
+CREATE TABLE IF NOT EXISTS faces (
+	id         INTEGER PRIMARY KEY,
+	photo_id   TEXT NOT NULL REFERENCES photos(id),
+	x REAL NOT NULL, y REAL NOT NULL, w REAL NOT NULL, h REAL NOT NULL,
+	score      REAL NOT NULL,
+	embedding  BLOB NOT NULL,
+	person_id  INTEGER REFERENCES people(id),
+	confirmed  INTEGER NOT NULL DEFAULT 0,
+	grp        INTEGER
+);
+CREATE INDEX IF NOT EXISTS faces_photo  ON faces(photo_id);
+CREATE INDEX IF NOT EXISTS faces_person ON faces(person_id);
+CREATE INDEX IF NOT EXISTS faces_grp    ON faces(grp);
+
+-- The photos whose faces were looked for, with zero faces or more.
+CREATE TABLE IF NOT EXISTS photo_faces_found (
+	photo_id TEXT PRIMARY KEY REFERENCES photos(id),
+	version  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS people (
+	id   INTEGER PRIMARY KEY,
+	name TEXT NOT NULL UNIQUE COLLATE NOCASE
+);
+
 -- A photo whose file was changed in place (a location set, a crop) has new
 -- content and so a new ID; what still names the old ID — a gallery draft,
 -- the shared album register — is led to the new one.

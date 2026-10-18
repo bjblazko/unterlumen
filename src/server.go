@@ -118,7 +118,10 @@ func (s *server) build(saved installation.Config) (config, error) {
 		s.stopChecks = stop
 		go func() {
 			app.libMgr.MoveAllNotesToSidecars()
-			go app.libMgr.AnalyseAllMissing()
+			go func() {
+				app.libMgr.AnalyseAllMissing()
+				app.libMgr.FindAllFacesMissing()
+			}()
 			app.libMgr.KeepSharedLibrariesCurrent(ctx)
 		}()
 	}

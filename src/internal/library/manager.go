@@ -32,6 +32,7 @@ type Manager struct {
 	exifValuesCache  sync.Map       // map[cacheKey+"|"+field][]string — invalidated on scan start/end
 	folderStatsCache sync.Map       // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 	jobs             *jobs.Registry // where scans are reported to the status line; nil reports nowhere
+	faces            facesState     // the face engine and the face passes running (ADR-0051)
 }
 
 // SetJobs wires the job register that scans report to.

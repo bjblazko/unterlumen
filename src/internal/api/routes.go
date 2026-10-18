@@ -15,6 +15,7 @@ import (
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	apipeople "huepattl.de/unterlumen/internal/api/people"
 	apisetup "huepattl.de/unterlumen/internal/api/setup"
 	apitimeline "huepattl.de/unterlumen/internal/api/timeline"
 	"huepattl.de/unterlumen/internal/channels"
@@ -88,6 +89,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		}
 		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore, draftStore)
 		apitimeline.Handle(mux, timeline.NewBuilder(libMgr))
+		apipeople.Handle(mux, libMgr, jobReg)
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))

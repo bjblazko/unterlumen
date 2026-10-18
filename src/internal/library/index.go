@@ -457,12 +457,25 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 	if notes, err := media.ReadNotes(absPath); err == nil {
 		idx.store.ApplyNotes(photoID, notes, idx.notesInSidecars()) //nolint:errcheck
 	}
+	idx.applyFaceNames(absPath, photoID)
 	if pubs, err := media.ReadSidecar(absPath); err == nil {
 		idx.store.replaceBuiltMeta(photoID, publicationKeys(pubs)) //nolint:errcheck
 	}
 }
 
 // notesInSidecars is read once per indexer: a scan asks it for every photo.
+// applyFaceNames names the photo's faces after the regions in its sidecar,
+// which the other installation or another program may have written. Only a
+// photo with a sidecar pays for reading its orientation.
+func (idx *Indexer) applyFaceNames(absPath, photoID string) {
+	if _, err := os.Stat(media.SidecarPath(absPath)); err != nil {
+		return
+	}
+	if regions, err := media.ReadFaceRegions(absPath, media.ExtractOrientation(absPath)); err == nil {
+		idx.store.ApplyFaceNames(photoID, regions) //nolint:errcheck // the next scan tries again
+	}
+}
+
 func (idx *Indexer) notesInSidecars() bool {
 	if idx.notesReplace == nil {
 		v := idx.store.NotesInSidecars()

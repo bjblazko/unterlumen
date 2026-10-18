@@ -20,7 +20,7 @@ class PrivacyPane {
                     <div class="reading-text">
                         <section class="guide-section">
                             <h2>What stays here</h2>
-                            <p>Your photos stay in their folders. Libraries, thumbnails and settings live in Unterlumen's data folder. Titles, fields and publications are written beside a photo into its XMP sidecar, and a location or a crop into the photo itself — only when you set one.</p>
+                            <p>Your photos stay in their folders. Libraries, thumbnails and settings live in Unterlumen's data folder. Titles, fields, publications and the names you give faces are written beside a photo into its XMP sidecar, and a location or a crop into the photo itself — only when you set one.</p>
                         </section>
                         <section class="guide-section">
                             <h2>What leaves, and when</h2>
@@ -28,6 +28,7 @@ class PrivacyPane {
                                 <li><strong>Maps.</strong> Whenever a map is on screen — the Map, the info panel of a photo with a location, Set location… — your browser loads map tiles from ${link('https://openfreemap.org', 'OpenFreeMap')} (<span class="mono">tiles.openfreemap.org</span>). It sees your IP address and which part of the world the map shows, which is near where those photos were taken. Nothing else of your photos is sent. The coastlines in Space and time come with the app and load nothing.</li>
                                 <li><strong>Publishing.</strong> Publish sends a gallery's photos to its destination, and only there: over SSH and rsync to the server you set up for a website, or into a folder for a files destination. Galleries then checks that the published addresses answer, when it opens and after a publish, by asking your own site.</li>
                                 <li><strong>Helper programs.</strong> Only when you choose Install the missing ones in Settings does Unterlumen download ffmpeg, exiftool and cwebp — from Homebrew, winget or your package manager, or from ffmpeg.martin-riedl.de, exiftool.org through SourceForge, and Google.</li>
+                                <li><strong>Face recognition.</strong> Only when you choose Download and turn on in People does Unterlumen download ONNX Runtime from Microsoft's releases on GitHub (<span class="mono">github.com</span>) and two face models from OpenCV's model zoo on Hugging Face (<span class="mono">huggingface.co</span>), once. Faces are then found and compared on this computer; no photo, face or name is sent anywhere.</li>
                                 <li><strong>Links you open.</strong> GitHub, huepattl.de, OpenStreetMap and the projects under Licenses and thanks open in your browser only when you click them.</li>
                             </ul>
                         </section>

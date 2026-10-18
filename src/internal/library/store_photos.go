@@ -85,6 +85,8 @@ func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err erro
 		`DELETE FROM photo_meta WHERE photo_id = ?`,
 		`DELETE FROM photo_palette    WHERE photo_id = ?`,
 		`DELETE FROM photo_appearance WHERE photo_id = ?`,
+		`DELETE FROM faces             WHERE photo_id = ?`,
+		`DELETE FROM photo_faces_found WHERE photo_id = ?`,
 		`DELETE FROM photos     WHERE id       = ?`,
 	} {
 		if _, err = tx.Exec(q, id); err != nil {
@@ -120,6 +122,8 @@ func (s *Store) PurgePhotos(ids []string) (int, error) {
 		`DELETE FROM photo_meta  WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_palette    WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_appearance WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM faces             WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM photo_faces_found WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photos      WHERE id        IN (` + ph + `)`,
 	} {
 		if _, err := tx.Exec(q, args...); err != nil {
