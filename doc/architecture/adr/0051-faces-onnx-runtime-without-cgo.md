@@ -136,6 +136,33 @@ sidecar as Metadata Working Group regions; an architecture that is not
    shared (a second file two installations can overwrite), and the library
    filter would have to follow them too.
 
+9. **People in the statistics.** A topic of its own (ADR-0043), read from
+   `GET /api/library/people-stats` through `aliasCond`, so the folder and
+   the shared filter apply (ADR-0050). It is not cached: names change
+   outside scans. Only named people count, put together by name; the
+   numbers of faces per photo count every face found, named or not, and
+   only photos that were looked at. The search takes `faces_min` and
+   `faces_max` for those. Its 3D views (ADR-0046): the Face space places
+   every face by its print, reduced to the three principal axes of the
+   named people's average faces (of the faces themselves while fewer than
+   four people are named), so people stand apart and one person's faces
+   together; computed on this computer, at most 40,000 faces, every named
+   one kept. The Circle of people lays people out by the photos they share,
+   the same way on every visit; Life lines give each of the eight people
+   with the most photos a lane through time.
+
+10. **Birthdays, for ages.** A person's ⋯ menu, on a library's person page
+    and in All libraries, gives them a birthday. It is kept by name in
+    `people.json` beside `channels.json` (`internal/birthdays`), the folder
+    installations share, so the other installation and every library know
+    it; written whole with `atomicfile.Change` like a sidecar. It stays out
+    of the sidecars: it is about a person, not a photo. With it, the info
+    panel shows each named face's age on the day the photo was taken
+    (`PhotoFace.Age`), the person pages say when they were born, Statistics
+    counts photos per year of life (Photos by age), and Life lines name the
+    age in a photo. No model guesses an age from a face: that would be a
+    further download, often years off, and a new inference from faces.
+
 ## Consequences
 
 - The single binary stays: cgo-free, cross-compiled as before. Face

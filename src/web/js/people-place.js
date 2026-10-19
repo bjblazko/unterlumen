@@ -314,11 +314,11 @@ class PeoplePane {
 
     async _showPerson(id) {
         const activity = Activity.in(this._body, 'Reading the faces…', { area: true });
-        let faces, person, everyone;
+        let faces, person, everyone, birthdays;
         try {
-            [faces, this.overviewData, everyone] = await Promise.all([
+            [faces, this.overviewData, everyone, birthdays] = await Promise.all([
                 PeopleAPI.personFaces(this.route.library, id), PeopleAPI.overview(this.route.library),
-                this.libraries.length > 1 ? PeopleAPI.everyone() : []]);
+                this.libraries.length > 1 ? PeopleAPI.everyone() : [], peopleBirthdays()]);
             person = this.overviewData.people.find(p => p.id === id);
         } catch (err) {
             activity.fail(`The faces could not be read: ${err.message}.`);
@@ -338,6 +338,7 @@ class PeoplePane {
         });
         const menu = new Menu({ label: 'Person options', items: () => [
             { label: 'Rename…', onSelect: () => this._rename(person, elsewhere) },
+            { label: 'Birthday…', onSelect: () => editBirthday(person.name, birthdayOf(birthdays, person.name), () => this.show(this.route)) },
             { label: 'Take the name away…', onSelect: () => this._forget(person, faces.length, elsewhere) },
         ] });
         this._body.innerHTML = `
@@ -345,6 +346,7 @@ class PeoplePane {
                 <span class="people-head-spacer"></span>
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
+            ${bornHTML(birthdayOf(birthdays, person.name))}
             <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}; switch on one face to use it as the cover. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.${this._elsewhereNote(person.name, elsewhere)}</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar" hidden>

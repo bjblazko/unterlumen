@@ -17,6 +17,7 @@ const POINT_STAGE_NO_GPU = 'This view needs WebGPU, which this browser does not 
 //   tip(kind, i), the tooltip HTML of photo or step i,
 //   pick(kind, i), what onPick gets for it,
 //   distance,   how far the camera stands from the middle, if not the default,
+//   yaw, pitch, where the camera starts, if not the default,
 //   trailWidth, the trail's width in CSS pixels, if not 5.
 // }
 // build gets the stage element, so a view can read tokens from it. A
@@ -90,7 +91,8 @@ class PointStage {
         this.onPick = onPick;
         this.size = onPick ? 1 : 0.45;
         this.canvas = el.querySelector('.point-stage-canvas');
-        this.camera = new OrbitCamera(spec.distance ? { distance: spec.distance } : {});
+        const { distance, yaw, pitch } = spec;
+        this.camera = new OrbitCamera(Object.fromEntries(Object.entries({ distance, yaw, pitch }).filter(([, v]) => v !== undefined)));
         this.turning = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         this.hovered = null;
         this.stage = new GpuStage(this.canvas, device, {

@@ -73,7 +73,7 @@ test.describe('Statistics', () => {
         await open(page);
         await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
         const topics = page.locator('#nav-statistics .nav-sub');
-        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Places']);
+        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Places', 'People']);
 
         await topics.filter({ hasText: /^\s*Exposure\s*$/ }).click();
         await expect(page).toHaveURL(new RegExp(`#statistics/exposure\\?library=${lib.id}$`));
@@ -92,7 +92,7 @@ test.describe('Statistics', () => {
     test('the overview leads to each topic, and back', async ({ page }) => {
         await open(page);
         const cards = page.locator('.stats-card');
-        await expect(cards).toHaveCount(6);
+        await expect(cards).toHaveCount(7);
         await cards.filter({ hasText: 'Frame' }).click();
         await expect(page.locator('.stats-title')).toHaveText('Frame');
         await page.locator('.stats-back').click();
@@ -105,7 +105,7 @@ test.describe('Statistics', () => {
         await open(page);
         await page.locator('#sidebar-collapse').click();
         await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
-        await expect(page.locator('.stats-card')).toHaveCount(6);
+        await expect(page.locator('.stats-card')).toHaveCount(7);
         await page.locator('#sidebar-collapse').click();
     });
 

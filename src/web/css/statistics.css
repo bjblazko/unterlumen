@@ -232,6 +232,12 @@
     color: var(--fg-2);
 }
 
+.stats-chart-note {
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
 .stats-chart-content {
     position: relative;
     margin-top: var(--space-3);

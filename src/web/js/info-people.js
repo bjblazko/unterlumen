@@ -37,7 +37,7 @@ class InfoPeople {
             const pic = `<button type="button" class="info-face-pic" data-index="${i}" aria-label="Face ${i + 1}">` +
                 `<img src="${PeopleAPI.faceURL(this._ref.lib, f.id)}" alt="" width="40" height="40" loading="lazy"></button>`;
             const who = f.name
-                ? `<span class="info-value info-face-name">${escapeHtml(f.name)}</span>` +
+                ? `<span class="info-value info-face-name">${escapeHtml(f.name)}${f.age !== undefined ? `<span class="info-face-age"> · ${f.age}</span>` : ''}</span>` +
                   `<button type="button" class="info-meta-del info-face-unname" data-face="${f.id}" title="This is not ${escapeHtml(f.name)}" aria-label="This is not ${escapeHtml(f.name)}">×</button>`
                 : `<input class="info-face-input" type="text" list="info-face-names" autocomplete="off" data-face="${f.id}" aria-label="Who is face ${i + 1}?">`;
             return `<div class="info-face">${pic}${who}</div>`;

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"huepattl.de/unterlumen/internal/birthdays"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
 )
@@ -18,7 +19,7 @@ func TestAPersonAcrossLibraries(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := http.NewServeMux()
-	Handle(h, mgr, jobs.NewRegistry())
+	Handle(h, mgr, jobs.NewRegistry(), birthdays.New(t.TempDir()))
 	nameAll := func(id, name string) {
 		o := readOverview(t, h, id)
 		if rec := do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": o.Groups[0].Faces, "name": name}); rec.Code != http.StatusOK {
@@ -64,5 +65,33 @@ func TestAPersonAcrossLibraries(t *testing.T) {
 	}
 	if rec := do(t, h, "GET", "/api/people/someone", nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("without a name: %d, want 400", rec.Code)
+	}
+}
+
+// The People statistics read a real library: who is in which photo, faces
+// per photo, every face placed; and the search finds photos by their faces.
+func TestPeopleStatisticsAndTheFacesFilter(t *testing.T) {
+	h, mgr, id := libraryWithFaces(t)
+	o := readOverview(t, h, id)
+	do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": o.Groups[0].Faces[:1], "name": "Anna"})
+
+	ps, err := mgr.PeopleStats(nil, "", "", lib.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps.People) != 1 || ps.People[0].Photos != 1 || len(ps.Appearances.Photo) != 1 {
+		t.Errorf("people %+v appearances %+v", ps.People, ps.Appearances)
+	}
+	if len(ps.FaceSpace.Face) != 2 || ps.FaceSpace.Axes != "faces" {
+		t.Errorf("face space %d faces, axes %q", len(ps.FaceSpace.Face), ps.FaceSpace.Axes)
+	}
+
+	store, _ := mgr.OpenStore(id)
+	one, two := 1, 2
+	if res, _ := store.ListPhotos(lib.ListPhotosOpts{FacesMin: &one, FacesMax: &one, Limit: 10}); res.Total != 2 {
+		t.Errorf("photos with one face: %d, want 2", res.Total)
+	}
+	if res, _ := store.ListPhotos(lib.ListPhotosOpts{FacesMin: &two, Limit: 10}); res.Total != 0 {
+		t.Errorf("photos with two faces or more: %d, want 0", res.Total)
 	}
 }

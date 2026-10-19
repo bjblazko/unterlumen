@@ -1,6 +1,7 @@
 package api
 
 import (
+	"huepattl.de/unterlumen/internal/birthdays"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -89,7 +90,12 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 		}
 		apilibrary.Handle(mux, libMgr, imageCache, boundary, serverRole, chStore, draftStore)
 		apitimeline.Handle(mux, timeline.NewBuilder(libMgr))
-		apipeople.Handle(mux, libMgr, jobReg)
+		// Birthdays live beside channels.json, in the folder installations share.
+		var bdays *birthdays.Store
+		if chStore != nil {
+			bdays = birthdays.New(chStore.ConfigDir())
+		}
+		apipeople.Handle(mux, libMgr, jobReg, bdays)
 	}
 
 	mux.Handle("/", noCacheAssets(http.FileServer(http.FS(webFS))))

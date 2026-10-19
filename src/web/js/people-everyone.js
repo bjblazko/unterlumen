@@ -50,9 +50,9 @@ class PeopleEveryone {
     async showPerson(name) {
         const body = this.pane._body;
         const activity = Activity.in(body, `Looking for ${name} in all libraries…`, { area: true });
-        let data;
+        let data, birthdays;
         try {
-            data = await PeopleAPI.someone(name);
+            [data, birthdays] = await Promise.all([PeopleAPI.someone(name), peopleBirthdays()]);
         } catch (err) {
             activity.fail(`${name} could not be looked for: ${err.message}.`);
             return;
@@ -69,6 +69,7 @@ class PeopleEveryone {
                 <span class="people-head-spacer"></span>
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
+            ${bornHTML(birthdayOf(birthdays, name))}
             <p class="people-hint">Names are given and changed in each library. To rename ${escapeHtml(name)} or take the name away, do it on ${escapeHtml(name)}'s page in each library: ${sentenceList(data.in.map(l => this._personLink(l, l.libraryName)))}.</p>
             ${data.in.map(l => this._namedIn(name, l)).join('')}
             ${data.notIn.length ? `
@@ -77,6 +78,10 @@ class PeopleEveryone {
                     ${data.notIn.map(l => this._notNamedIn(name, l)).join('')}
                 </section>` : ''}`;
         showPhotosLink(body.querySelector('.people-show'), { person: name });
+        const menu = new Menu({ label: 'Person options', items: () => [
+            { label: 'Birthday…', onSelect: () => editBirthday(name, birthdayOf(birthdays, name), () => this.showPerson(name)) },
+        ] });
+        body.querySelector('.people-show').after(menu.button);
         data.in.forEach((l, i) => this._wireFaces(body.querySelectorAll('.people-in .face-grid')[i], l));
     }
 

@@ -235,6 +235,16 @@ func (s *Store) CountPhotos() (int, error) {
 }
 
 // GetPhoto returns a single photo with EXIF and meta populated.
+// DateTaken is the photo's date taken as stored; "" when it has none.
+func (s *Store) DateTaken(id string) (string, error) {
+	var d sql.NullString
+	err := s.db.QueryRow(`SELECT date_taken FROM photos WHERE id = ?`, s.CurrentPhotoID(id)).Scan(&d)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return d.String, err
+}
+
 func (s *Store) GetPhoto(id string) (*Photo, error) {
 	var p Photo
 	var indexedAt string

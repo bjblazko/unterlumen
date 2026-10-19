@@ -65,6 +65,7 @@
 .people-page-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
 .people-page-head .btn { height: var(--control-h-sm); box-sizing: border-box; }
 .people-page-title { margin: 0; font-size: var(--text-md); font-weight: 600; }
+.people-born { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--fg-2); }
 .people-grid-wrap { margin-bottom: var(--space-5); }
 .people-bar {
     position: sticky; bottom: calc(-1 * var(--space-5)); margin: 0 calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
@@ -129,6 +130,7 @@
     border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); font: inherit;
 }
 .info-face-hint { margin: 0; }
+.info-face-age { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--fg-3); }
 /* The viewer's panel is dark in both themes. */
 .viewer .info-face-input { background: transparent; color: var(--overlay-fg); border-color: var(--overlay-line); }
 .viewer .info-face-pic { background: var(--overlay-line-soft); }

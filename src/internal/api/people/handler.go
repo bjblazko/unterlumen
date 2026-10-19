@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"huepattl.de/unterlumen/internal/birthdays"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/toolinstall"
@@ -20,20 +21,25 @@ import (
 // them brings up the next. A face seen once is a group of one, last.
 const maxGroups = 60
 
-// Handle registers the People routes.
-func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
+// Handle registers the People routes. bdays keeps the birthdays; nil
+// without a folder for them, which leaves birthdays and ages out.
+func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *birthdays.Store) {
 	mux.HandleFunc("GET /api/faces", recognitionStatus(mgr))
 	mux.HandleFunc("POST /api/faces/install", installRecognition(mgr, reg))
 	mux.HandleFunc("GET /api/library/person-names", personNames(mgr))
 	mux.HandleFunc("GET /api/people", everyone(mgr))
 	mux.HandleFunc("GET /api/people/someone", someone(mgr))
+	if bdays != nil {
+		mux.HandleFunc("GET /api/people/birthdays", listBirthdays(bdays))
+		mux.HandleFunc("PUT /api/people/birthdays", setBirthday(bdays))
+	}
 	mux.HandleFunc("GET /api/library/{id}/people", overview(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}", groupFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))
 	mux.HandleFunc("PATCH /api/library/{id}/people/{pid}", renamePerson(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/people/{pid}", forgetPerson(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/people/{pid}/cover", chooseCover(mgr))
-	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/faces", photoFaces(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/faces", photoFaces(mgr, bdays))
 	mux.HandleFunc("GET /api/library/{id}/face/{fid}", serveFace(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/unname", changeFaces(mgr, (*lib.Store).UnnameFaces))
@@ -261,7 +267,7 @@ func chooseCover(mgr *lib.Manager) http.HandlerFunc {
 
 // photoFaces answers the faces of one photo and the library's names to
 // choose from, for the info panel.
-func photoFaces(mgr *lib.Manager) http.HandlerFunc {
+func photoFaces(mgr *lib.Manager, bdays *birthdays.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		store, ok := openStore(mgr, w, r)
 		if !ok {
@@ -281,6 +287,7 @@ func photoFaces(mgr *lib.Manager) http.HandlerFunc {
 		for i, p := range people {
 			names[i] = p.Name
 		}
+		addAges(store, bdays, r.PathValue("photoID"), found)
 		writeJSON(w, map[string]any{"faces": found, "names": names})
 	}
 }

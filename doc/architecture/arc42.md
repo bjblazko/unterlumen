@@ -170,6 +170,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/faces` | Finds faces (YuNet), aligns them and describes each by an embedding (SFace); groups embeddings; pure, no storage ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/api/people` | `/api/faces*` and the People routes of a library: overview, group and person faces, a face's picture, naming, hiding, renaming; everyone across libraries by name (`/api/people*`); writes the names into the sidecars ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/appearance` | What a photo looks like, measured from an image: mono/tinted/colour, average colour and palette in OKLab, tone, texture, dHash; pure, no storage ([ADR-0044](adr/0044-photo-appearance-from-thumbnails.md)) |
+| `internal/birthdays` | The people's birthdays by name, in `people.json` beside `channels.json` (the shared folder), and ages from them ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `internal/atomicfile` | Changes a file several installations write — sidecars, the birthdays — by writing it whole beside it and renaming, starting over when it changed meanwhile ([ADR-0052](adr/0052-the-index-follows-the-folder.md)) |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
 ### 5.3 Level 2 — Frontend Modules
@@ -234,6 +236,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `daylight-view.js` | The Daylight topic: photos by day of the year, hour and brightness |
 | `character-view.js` | The Character topic: photos by brightness, contrast and colourfulness |
 | `space-time-view.js` | The Space and time topic: photos by where (log distance around the middle of the photos) and when, over the world outline |
+| `people-birthday.js` | A person's birthday: the dialog, the line under the name, ages in whole years |
+| `people-stats-charts.js` | The People topic's charts: who appears most, people over time, who with whom, faces per photo |
+| `people-space-views.js` | The People topic's 3D views: Face space, Circle of people, Life lines |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |
 | `stats-colour-charts.js` | Colour charts from `/api/library/colour`: black and white against colour, a swatch strip per period, a hue wheel, warm and cool per month; marks in the photos' own colour (ADR-0030, Deviations) |

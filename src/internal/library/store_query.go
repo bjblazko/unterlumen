@@ -3,6 +3,7 @@ package library
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -30,6 +31,8 @@ type ListPhotosOpts struct {
 	MetaExists     []string                 // photo_meta keys that must exist (any value)
 	AlbumTitle     string                   // match photos with any built:*:title = value
 	People         []string                 // people named in the photo, all of them (ADR-0051), without regard to case
+	FacesMin       *int                     // at least this many faces found; only photos whose faces were looked for
+	FacesMax       *int                     // at most this many faces found; the same
 	ExtFilter      string                   // file extension (photos.ext)
 	PathPrefix     string                   // absolute folder the photos must be in, as statistics take it
 	Hour           *int                     // hour of the day taken, 0–23
@@ -244,6 +247,17 @@ func (f *photoFilter) addMeta(opts ListPhotosOpts) {
 	}
 	if opts.AlbumTitle != "" {
 		f.cond(`EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND (pm.key LIKE 'built:%:title' OR pm.key LIKE 'published:%:title') AND pm.value=?)`, opts.AlbumTitle)
+	}
+	if opts.FacesMin != nil || opts.FacesMax != nil {
+		lo, hi := 0, math.MaxInt32
+		if opts.FacesMin != nil {
+			lo = *opts.FacesMin
+		}
+		if opts.FacesMax != nil {
+			hi = *opts.FacesMax
+		}
+		f.cond(`(EXISTS (SELECT 1 FROM photo_faces_found ff WHERE ff.photo_id = p.id)
+			AND (SELECT COUNT(*) FROM faces fc WHERE fc.photo_id = p.id) BETWEEN ? AND ?)`, lo, hi)
 	}
 	for _, name := range opts.People {
 		f.cond(`EXISTS (SELECT 1 FROM faces fa JOIN people pe ON pe.id = fa.person_id

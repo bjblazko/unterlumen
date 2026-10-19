@@ -143,6 +143,42 @@ const STATS_TOPICS = [
                   : { subject: v.day, params: { date_taken_min: v.day, date_taken_max: v.day } })) },
         ],
     },
+    {
+        id: 'people',
+        label: 'People',
+        blurb: 'Who is in the photos, when and with whom, how many faces a photo holds, and every face placed by what it looks like.',
+        charts: [
+            { title: 'Who appears most', subtitle: 'Photos per named person', source: 'people', full: true,
+              render: (el, d, pick) => renderPeopleBars(el, d.people, name => pick(personCriterion(name))) },
+            { title: 'People over time', subtitle: 'Photos per period of the eight people with the most photos', source: 'people', full: true,
+              render: (el, d, pick) => renderPeopleLines(el, d.people, v => pick(v.person
+                  ? { subject: `${v.person} · ${v.period}`, params: { person: v.person, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: 'Photos by age', subtitle: 'Photos per year of life of the people with a birthday', source: 'people', periods: false, full: true,
+              render: (el, d, pick) => renderPeopleAges(el, d.people, v => pick({ subject: `${v.person} at ${v.age}`, params: { person: v.person, ...ageDates(v.birth, v.age) } })) },
+            { title: 'Who with whom', subtitle: 'Photos two people share, of the twelve with the most photos', source: 'people', periods: false,
+              render: (el, d, pick) => renderPeopleMatrix(el, d.people, v => pick({ subject: `${v.a} and ${v.b}`, params: { person: [v.a, v.b] } })) },
+            { title: 'Alone or in a group', subtitle: 'Photos by the faces found in them, named or not', source: 'people', periods: false,
+              render: (el, d, pick) => renderCrowdBars(el, d.people, b => pick({ subject: b.label, params: crowdParams(b) })) },
+            { title: 'Faces per photo over time', subtitle: 'Share of each number of faces per period', source: 'people', full: true,
+              render: (el, d, pick) => renderCrowdLines(el, d.people, v => pick(v.bucket
+                  ? { subject: `${v.bucket.label} · ${v.period}`, params: { ...crowdParams(v.bucket), ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: 'Face space', subtitle: 'Every face placed by what it looks like, in the colour of its person; the middle of each person as a larger light', source: 'people', periods: false, full: true, stage: true,
+              preview: (el, d) => renderFaceSpace(el, d.people, null, { preview: true }),
+              render: (el, d, pick) => renderFaceSpace(el, d.people, v => pick(v.person ? personCriterion(v.person) : photoCriterion(v.photo))) },
+            { title: 'Circle of people', subtitle: 'People drawn together by the photos they share, with their photos around them', source: 'people', periods: false, full: true, stage: true,
+              preview: (el, d) => renderPeopleCircle(el, d.people, null, { preview: true }),
+              render: (el, d, pick) => renderPeopleCircle(el, d.people, v => pick(
+                  v.pair ? { subject: v.pair.join(' and '), params: { person: v.pair } }
+                      : v.person ? personCriterion(v.person) : photoCriterion(v.photo))) },
+            { title: 'Life lines', subtitle: 'Time across, a lane for each of the eight people with the most photos, as high as their photos per period', source: 'people', full: true, stage: true,
+              preview: (el, d) => renderLifeLines(el, d.people, null, { preview: true }),
+              render: (el, d, pick) => renderLifeLines(el, d.people, v => pick(v.person
+                  ? { subject: `${v.person} · ${v.period}`, params: { person: v.person, ...periodDates(v.period) } }
+                  : photoCriterion(v.photo))) },
+        ],
+    },
 ];
 
 // A chart may be a stage, a 3D view (ADR-0046): it comes after the topic's

@@ -17,6 +17,18 @@ const PeopleAPI = {
     async someone(name) {
         return peopleJSON(await fetch(`/api/people/someone?name=${encodeURIComponent(name)}`));
     },
+    // The birthdays by name; the request fails where none are kept.
+    async birthdays() {
+        return peopleJSON(await fetch('/api/people/birthdays'));
+    },
+    async setBirthday(name, birthday) {
+        const r = await fetch('/api/people/birthdays', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, birthday }),
+        });
+        if (!r.ok) throw new Error((await r.text()).trim());
+    },
     async overview(lib) {
         return peopleJSON(await fetch(`/api/library/${lib}/people`));
     },

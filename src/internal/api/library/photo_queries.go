@@ -328,6 +328,19 @@ func libraryExposureSpace(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+// libraryPeopleStats serves the People topic of the statistics.
+func libraryPeopleStats(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids, pathPrefix, granularity := timeScope(r)
+		ps, err := mgr.PeopleStats(ids, pathPrefix, granularity, scopeFilter(r))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, ps)
+	}
+}
+
 func librarySpaceTime(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, _ := timeScope(r)

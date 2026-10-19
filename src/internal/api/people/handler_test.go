@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"huepattl.de/unterlumen/internal/faces"
+	"huepattl.de/unterlumen/internal/birthdays"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
 )
@@ -28,7 +29,7 @@ func libraryWithFaces(t *testing.T) (http.Handler, *lib.Manager, string) {
 	}
 	id := addLibraryWithFaces(t, mgr, "Test", 0)
 	mux := http.NewServeMux()
-	Handle(mux, mgr, jobs.NewRegistry())
+	Handle(mux, mgr, jobs.NewRegistry(), birthdays.New(t.TempDir()))
 	return mux, mgr, id
 }
 
@@ -48,7 +49,7 @@ func addLibraryWithFaces(t *testing.T, mgr *lib.Manager, name string, look int) 
 	for _, id := range []string{"aa1", "bb2"} {
 		thumb := filepath.Join("thumbs", id[:2], id+".jpg")
 		writeJPEG(t, filepath.Join(mgr.LibDir(l.ID), thumb))
-		if err := store.UpsertPhoto(id, filepath.Join(source, id+".jpg"), id+".jpg", 1, time.Now(), "{}", thumb, "", "jpeg"); err != nil {
+		if err := store.UpsertPhoto(id, filepath.Join(source, id+".jpg"), id+".jpg", 1, time.Now(), "{}", thumb, "2020-06-01T10:00:00", "jpeg"); err != nil {
 			t.Fatal(err)
 		}
 		found = append(found, lib.FoundFaces{PhotoID: id, Faces: []faces.Face{{X: 0.4, Y: 0.4, W: 0.2, H: 0.2, Score: 0.9, Embedding: emb}}, Names: []string{""}})
@@ -263,5 +264,30 @@ func TestChoosingAPersonsCover(t *testing.T) {
 	do(t, h, "POST", "/api/library/"+id+"/faces/unname", map[string]any{"faces": []int64{other}})
 	if o = readOverview(t, h, id); o.People[0].Cover == other {
 		t.Errorf("cover is still the face taken away")
+	}
+}
+
+// A birthday is kept by name and gives a named face its age in a photo.
+func TestABirthdayGivesAnAge(t *testing.T) {
+	h, _, id := libraryWithFaces(t)
+	o := readOverview(t, h, id)
+	do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": o.Groups[0].Faces, "name": "Anna"})
+	if rec := do(t, h, "PUT", "/api/people/birthdays", map[string]string{"name": "anna", "birthday": "2015-06-02"}); rec.Code != http.StatusNoContent {
+		t.Fatalf("set birthday: %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(t, h, "PUT", "/api/people/birthdays", map[string]string{"name": "Ben", "birthday": "soon"}); rec.Code != http.StatusBadRequest {
+		t.Errorf("a date that is none: %d, want 400", rec.Code)
+	}
+	var all map[string]string
+	json.Unmarshal(do(t, h, "GET", "/api/people/birthdays", nil).Body.Bytes(), &all) //nolint:errcheck
+	if all["anna"] != "2015-06-02" {
+		t.Errorf("birthdays %v", all)
+	}
+	var body struct {
+		Faces []lib.PhotoFace `json:"faces"`
+	}
+	json.Unmarshal(do(t, h, "GET", "/api/library/"+id+"/photo/aa1/faces", nil).Body.Bytes(), &body) //nolint:errcheck
+	if len(body.Faces) != 1 || body.Faces[0].Age == nil || *body.Faces[0].Age != 4 {
+		t.Fatalf("faces %+v, want Anna at 4 the day before her fifth birthday", body.Faces)
 	}
 }

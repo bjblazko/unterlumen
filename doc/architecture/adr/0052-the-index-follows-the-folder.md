@@ -99,7 +99,7 @@ destroy data?
    is not written. Measured on 3 218 photos on the NAS from a Mac over SMB,
    nothing changed: 53 s before, 19 s after with a cold cache, 4.5 s warm.
 7. **A sidecar is replaced whole, never rewritten in place.** Every sidecar
-   write goes through `media.changeSidecar`: it reads the sidecar, makes the
+   write goes through `media.changeSidecar` (`atomicfile.Change`): it reads the sidecar, makes the
    change from what is there now, writes the result beside it under a hidden
    name and renames it over the sidecar. A scan on the other installation
    reads the whole old or the whole new file; rewriting in place left an

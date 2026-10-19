@@ -43,6 +43,16 @@ async function fakeEveryone(page) {
   await page.route(`**/api/library/${FAMILY}/people`, r => r.fulfill({ json: {
     people: [{ id: 1, name: 'Anna', faces: 3, photos: 3, cover: 11 }], groups: [], groupCount: 0, pending: 0, finding: false } }));
   await page.route(`**/api/library/${FAMILY}/people/1`, r => r.fulfill({ json: [{ id: 11, photoId: 'p1', x: 0.1, y: 0.1, w: 0.2, h: 0.2 }] }));
+  const birthdays = {};
+  await page.route('**/api/people/birthdays', async r => {
+    if (r.request().method() === 'PUT') {
+      const { name, birthday } = r.request().postDataJSON();
+      birthdays[name] = birthday;
+      return r.fulfill({ status: 204 });
+    }
+    return r.fulfill({ json: birthdays });
+  });
+  return { birthdays };
 }
 
 test.describe('People in all libraries', () => {
@@ -64,8 +74,12 @@ test.describe('People in all libraries', () => {
     await expect(page.locator('.people-in .people-section-title')).toHaveText(['Family', 'NAS']);
     await expect(page.locator('.people-hint').first()).toContainText('Names are given and changed in each library');
     await expect(page.locator('.people-hint').first().locator('a')).toHaveText(['Family', 'NAS']);
-    // Read only: nothing here renames.
-    await expect(page.locator('.menu-button, .people-input')).toHaveCount(0);
+    // Read only: nothing here renames; the menu only has the birthday,
+    // which is the person's on every library.
+    await expect(page.locator('.people-input')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Person options' }).click();
+    await expect(page.getByRole('menuitem')).toHaveText(['Birthday…']);
+    await page.keyboard.press('Escape');
 
     const elsewhere = page.locator('.people-elsewhere');
     await expect(elsewhere.nth(0)).toContainText('Anna Müller there looks like Anna');
@@ -84,5 +98,18 @@ test.describe('People in all libraries', () => {
     await page.getByRole('button', { name: 'Person options' }).click();
     await page.getByRole('menuitem', { name: 'Rename…' }).click();
     await expect(page.locator('.dialog')).toContainText('This changes the name in Family only. Anna is also named in NAS: rename there too');
+  });
+  test("a person's birthday is given from their page and shows under the name", async ({ page }) => {
+    const { birthdays } = await fakeEveryone(page);
+    await page.goto(`/#people/${FAMILY}/person/1`);
+    await waitForAppReady(page);
+    await expect(page.locator('.people-born')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Person options' }).click();
+    await page.getByRole('menuitem', { name: 'Birthday…' }).click();
+    await page.locator('#people-birthday').fill('2015-05-12');
+    await page.locator('.dialog').getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('.people-born')).toContainText('Born');
+    await expect(page.locator('.people-born')).toContainText('2015');
+    expect(birthdays).toEqual({ Anna: '2015-05-12' });
   });
 });

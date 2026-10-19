@@ -438,6 +438,7 @@ type PhotoFace struct {
 	FaceRef
 	Name   string `json:"name,omitempty"`
 	Hidden bool   `json:"hidden,omitempty"`
+	Age    *int   `json:"age,omitempty"` // in whole years on the day the photo was taken, when both are known
 }
 
 // PhotoFaces lists the faces found in a photo, left to right.
