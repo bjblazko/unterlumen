@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-19
+
 ### Added
 - **Often with, on the computer too.** A person's page, in a library and in All libraries, names who is most often in the same photos, with how many; a click opens Libraries with both as Person chips, showing their photos together.
 
