@@ -1,9 +1,18 @@
 # Changelog
 
-*Last modified: 2026-10-12*
+*Last modified: 2026-10-19*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- **Shared libraries keep up on their own.** At start and every 30 minutes, each shared library is compared with its folder, shown as "Checking …" in the status line: photos the other installation added, deleted or edited, and titles, fields and galleries it changed, show without a click.
+
+### Fixed
+- **A photo whose location was set showed at its old place.** Setting a location, or cropping, rewrites the file; a scan then added the photo again and kept the old entry with the old location, so the Map kept showing it there. Now the edited photo replaces its old entry, and the next full scan of a library removes the entries earlier versions left. Drafts that named the photo before the edit still find it.
+- **A library could be emptied while its share was not connected.** Rebuilding or cleaning up a library whose folder could not be reached — a NAS not mounted — took every photo out of it. A scan that cannot read every folder now takes nothing out and says why.
+- **A gallery a photo was taken out of stayed in the other installation's library.** A scan only added the galleries a photo's sidecar named; it now also drops those the sidecar no longer names.
+- **Scans of photos on a network share are about three times faster** when little has changed: a photo without a sidecar no longer costs two extra questions to the share.
 
 ## [0.15.6] - 2026-10-12
 

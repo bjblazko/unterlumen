@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS photo_palette (
 );
 CREATE INDEX IF NOT EXISTS photo_palette_hue ON photo_palette(hue_bin, share);
 
+-- A photo whose file was changed in place (a location set, a crop) has new
+-- content and so a new ID; what still names the old ID — a gallery draft,
+-- the shared album register — is led to the new one.
+CREATE TABLE IF NOT EXISTS photo_replaced (
+	old_id TEXT PRIMARY KEY,
+	new_id TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS library_props (
 	key         TEXT PRIMARY KEY,
 	value       TEXT NOT NULL

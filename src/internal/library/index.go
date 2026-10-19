@@ -38,6 +38,9 @@ type Indexer struct {
 	newPhotos  int
 	// notesReplace caches Store.NotesInSidecars for the indexer's run.
 	notesReplace *bool
+	// sidecars, when a run's walk filled it, holds every sidecar below the
+	// source path (sidecarKey); nil means the disk is asked.
+	sidecars map[string]bool
 }
 
 // NewIndexer creates an Indexer for the given store and source path.
@@ -68,8 +71,9 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 		}
 	}()
 
-	files, err := collectFiles(idx.sourcePath)
-	if err != nil {
+	files, sidecars, err := collectFilesAndSidecars(idx.sourcePath)
+	idx.sidecars = sidecars
+	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
@@ -91,45 +95,16 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	}
 
 	// Only a run that saw every file knows which are gone.
-	idx.purgeGone(files)
+	if err != nil {
+		progress <- Progress{Done: total, Total: total, Finished: true, Error: nothingRemoved(err)}
+		return
+	}
+	idx.settle("", fileSet(files))
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
 	progress <- Progress{Done: total, Total: total, Finished: true}
-}
-
-// purgeGone removes the photos whose last known file is not among files, the
-// whole library's, and finds again the ones an older version left marked
-// missing whose files are there.
-func (idx *Indexer) purgeGone(files []string) {
-	present := make(map[string]bool, len(files))
-	for _, f := range files {
-		present[f] = true
-	}
-	idx.settle("", present)
-}
-
-// settle removes, in one step, the photos inside folder ("" for the whole
-// library) whose files are not in present, and sets back to ok the ones left
-// marked missing whose files are. Called only once every file is known, so a
-// run that stops early changes nothing.
-func (idx *Indexer) settle(folder string, present map[string]bool) {
-	refs, err := idx.store.refsWithStatus(folder)
-	if err != nil {
-		return
-	}
-	var gone, found []string
-	for _, r := range refs {
-		switch {
-		case !present[r.PathHint]:
-			gone = append(gone, r.ID)
-		case r.missing:
-			found = append(found, r.ID)
-		}
-	}
-	idx.store.PurgePhotos(gone) //nolint:errcheck
-	idx.store.markOK(found)     //nolint:errcheck
 }
 
 // RunScanNew walks the full source directory and indexes new or changed photos without
@@ -164,8 +139,9 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 		scanRoot = candidate
 	}
 
-	files, err := collectFiles(scanRoot)
-	if err != nil {
+	files, sidecars, err := collectFilesAndSidecars(scanRoot)
+	idx.sidecars = sidecars
+	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
@@ -239,7 +215,19 @@ func (idx *Indexer) indexFile(absPath string) error {
 	if err != nil {
 		return err
 	}
-	// Photo already indexed (rename case, or path-cache was cleared for forced re-index).
+	if err := idx.indexContent(absPath, photoID, mtimeNs, fileSize); err != nil {
+		return err
+	}
+	if found && cachedID != photoID {
+		return idx.retire(cachedID, photoID, absPath)
+	}
+	return nil
+}
+
+// indexContent records the photo photoID found at absPath: added when the
+// library does not know the content, otherwise marked present there (a
+// rename, or a path cache cleared for a forced re-index).
+func (idx *Indexer) indexContent(absPath, photoID string, mtimeNs, fileSize int64) error {
 	exists, err := idx.store.PhotoExists(photoID)
 	if err != nil {
 		return err
@@ -347,6 +335,10 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 	if err != nil {
 		return err
 	}
+	cachedID, _, _, found, err := idx.store.GetPathCache(absPath)
+	if err != nil {
+		return err
+	}
 	ex := readPhotoExif(absPath)
 
 	// Delete existing thumbnail from disk so ensureThumbnail rebuilds it from scratch.
@@ -374,6 +366,9 @@ func (idx *Indexer) forceReindexFile(absPath string) error {
 		return err
 	}
 	idx.indexSidecar(absPath, photoID)
+	if found && cachedID != photoID {
+		return idx.retire(cachedID, photoID, absPath)
+	}
 	return nil
 }
 
@@ -454,66 +449,17 @@ func hashFile(path string) (string, error) {
 // library's notes live in the sidecars (ADR-0048). Non-fatal: a sidecar that
 // cannot be read changes nothing.
 func (idx *Indexer) indexSidecar(absPath, photoID string) {
+	if idx.sidecars != nil && !idx.sidecars[sidecarKey(media.SidecarPath(absPath))] {
+		idx.store.ApplyNotes(photoID, media.Notes{}, idx.notesInSidecars()) //nolint:errcheck
+		idx.store.replaceBuiltMeta(photoID, nil)                            //nolint:errcheck
+		return
+	}
 	if notes, err := media.ReadNotes(absPath); err == nil {
 		idx.store.ApplyNotes(photoID, notes, idx.notesInSidecars()) //nolint:errcheck
 	}
-	pubs, _ := media.ReadSidecar(absPath)
-	if len(pubs) > 0 {
-		type latestEntry struct {
-			ts           string
-			account      string
-			postID       string
-			galleryTitle string
-		}
-		latest := make(map[string]latestEntry)
-
-		for _, p := range pubs {
-			ts := p.PublishedAt.UTC().Format(time.RFC3339)
-			if e, ok := latest[p.Channel]; !ok || ts > e.ts {
-				latest[p.Channel] = latestEntry{
-					ts:           ts,
-					account:      p.Account,
-					postID:       p.PostID,
-					galleryTitle: p.GalleryTitle,
-				}
-			}
-		}
-
-		// One key set per album the photo appears in. Collapsing to the
-		// newest publication per channel — as this did — silently dropped
-		// every earlier album of a channel that holds several, so a reindex
-		// erased album membership that the sidecar still recorded.
-		for _, p := range pubs {
-			if p.PostID == "" {
-				continue
-			}
-			key := "built:" + p.Channel + ":" + p.PostID
-			idx.store.UpsertMeta(photoID, key, p.PublishedAt.UTC().Format(time.RFC3339)) //nolint:errcheck
-			if p.Account != "" {
-				idx.store.UpsertMeta(photoID, key+":account", p.Account) //nolint:errcheck
-			}
-			if p.GalleryTitle != "" {
-				idx.store.UpsertMeta(photoID, key+":title", p.GalleryTitle) //nolint:errcheck
-			}
-		}
-
-		// Unqualified keys stay as the per-channel "has been built here"
-		// marker (the channel filter matches on them) and carry the most
-		// recent album's details.
-		for ch, e := range latest {
-			idx.store.UpsertMeta(photoID, "built:"+ch, e.ts) //nolint:errcheck
-			if e.account != "" {
-				idx.store.UpsertMeta(photoID, "built:"+ch+":account", e.account) //nolint:errcheck
-			}
-			if e.postID != "" {
-				idx.store.UpsertMeta(photoID, "built:"+ch+":postid", e.postID) //nolint:errcheck
-			}
-			if e.galleryTitle != "" {
-				idx.store.UpsertMeta(photoID, "built:"+ch+":title", e.galleryTitle) //nolint:errcheck
-			}
-		}
+	if pubs, err := media.ReadSidecar(absPath); err == nil {
+		idx.store.replaceBuiltMeta(photoID, publicationKeys(pubs)) //nolint:errcheck
 	}
-
 }
 
 // notesInSidecars is read once per indexer: a scan asks it for every photo.
@@ -547,8 +493,9 @@ func (idx *Indexer) RunInFolder(ctx context.Context, progress chan<- Progress, s
 		scanRoot = candidate
 	}
 
-	files, err := collectFiles(scanRoot)
-	if err != nil {
+	files, sidecars, err := collectFilesAndSidecars(scanRoot)
+	idx.sidecars = sidecars
+	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
@@ -601,7 +548,7 @@ func (idx *Indexer) RunRegenerateMissingPreviewsInFolder(ctx context.Context, pr
 	}
 
 	files, err := collectFiles(scanRoot)
-	if err != nil {
+	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
@@ -650,7 +597,7 @@ func (idx *Indexer) RunRebuildAllPreviewsInFolder(ctx context.Context, progress 
 	}
 
 	files, err := collectFiles(scanRoot)
-	if err != nil {
+	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
@@ -705,11 +652,12 @@ func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Prog
 	if subfolder != "" {
 		settleFolder = scanRoot
 	}
-	presentPaths, err := collectFileSet(scanRoot)
+	files, err := idx.collectInLibrary(scanRoot)
 	if err != nil {
-		progress <- Progress{Error: err.Error(), Finished: true}
+		progress <- Progress{Error: nothingRemoved(err), Finished: true}
 		return
 	}
+	presentPaths := fileSet(files)
 
 	var refs []PhotoRef
 	if subfolder == "" {
@@ -756,11 +704,12 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 		}
 	}()
 
-	presentPaths, err := collectFileSet(idx.sourcePath)
+	files, err := collectFiles(idx.sourcePath)
 	if err != nil {
-		progress <- Progress{Error: err.Error(), Finished: true}
+		progress <- Progress{Error: nothingRemoved(err), Finished: true}
 		return
 	}
+	presentPaths := fileSet(files)
 
 	refs, err := idx.store.ListAllPhotoRefs()
 	if err != nil {
@@ -788,33 +737,4 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
 	progress <- Progress{Done: total, Total: total, Finished: true}
-}
-
-func collectFileSet(root string) (map[string]bool, error) {
-	files, err := collectFiles(root)
-	if err != nil {
-		return nil, err
-	}
-	set := make(map[string]bool, len(files))
-	for _, f := range files {
-		set[f] = true
-	}
-	return set, nil
-}
-
-func collectFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil // skip unreadable entries
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if media.IsSupportedImage(d.Name()) {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
 }

@@ -73,7 +73,7 @@ Because it is indexed, a library can be filtered across all of it: date, shutter
 
 #### Sharing a library
 
-Each library is its own folder, anywhere: on this computer, a disk or a NAS. Shared from Edit library, it is the same library on a second installation, which adds the folder and gets its name; each keeps its own index.
+Each library is its own folder, anywhere: on this computer, a disk or a NAS. Shared from Edit library, it is the same library on a second installation, which adds the folder and gets its name; each keeps its own index. Each installation checks its shared libraries against their folders at start and every 30 minutes, so photos added, deleted or edited and titles, fields and galleries changed on the other one show without a scan. A check only reads the folder, so the order in which the two installations look never undoes a change. See [ADR-0052](doc/architecture/adr/0052-the-index-follows-the-folder.md).
 
 ![Edit library with Share with other installations switched on](doc/screenshots/library-sharing.webp)
 

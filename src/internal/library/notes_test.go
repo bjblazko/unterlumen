@@ -73,10 +73,11 @@ func TestWriteNoteChangesNothingWhenTheSidecarCannotBeWritten(t *testing.T) {
 func TestScanTakesNotesFromTheSidecar(t *testing.T) {
 	idx, s := newTestIndexer(t, t.TempDir())
 	path := notePhoto(t, s, "p1")
-	s.SetProp(notesInSidecarProp, "1")          //nolint:errcheck
-	s.UpsertMeta("p1", "people", "Old")         //nolint:errcheck
-	s.UpsertMeta("p1", "built:website", "2025") //nolint:errcheck
-	media.WriteField(path, "mood", "calm")      //nolint:errcheck — written by the other installation
+	s.SetProp(notesInSidecarProp, "1")  //nolint:errcheck
+	s.UpsertMeta("p1", "people", "Old") //nolint:errcheck
+	published := time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)
+	media.AppendPublication(path, media.Publication{Channel: "website", PostID: "a1", PublishedAt: published}) //nolint:errcheck
+	media.WriteField(path, "mood", "calm")                                                                     //nolint:errcheck — written by the other installation
 
 	idx.indexSidecar(path, "p1")
 	got := metaOf(t, s, "p1")
@@ -86,7 +87,7 @@ func TestScanTakesNotesFromTheSidecar(t *testing.T) {
 	if _, ok := got["people"]; ok {
 		t.Errorf("a field the sidecar no longer has is still in the index: %+v", got)
 	}
-	if got["built:website"] != "2025" {
+	if got["built:website"] != "2025-05-01T00:00:00Z" {
 		t.Errorf("a publication key was dropped with the notes: %+v", got)
 	}
 }

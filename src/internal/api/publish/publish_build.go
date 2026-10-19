@@ -197,6 +197,9 @@ func exportExt(ch *channels.Channel) string {
 }
 
 func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts, outDir, thumbDir, photoID string, recordXMP bool) buildResult {
+	// A draft may name the photo by the ID its file had before it was
+	// changed in place; what is built is recorded under today's.
+	photoID = store.CurrentPhotoID(photoID)
 	pathHint, err := store.GetPhotoPathHint(photoID)
 	if err != nil || pathHint == "" {
 		return buildResult{PhotoID: photoID, Error: "photo not found"}

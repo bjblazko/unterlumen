@@ -186,39 +186,6 @@ func (s *Store) ListPhotoRefsInFolder(folderPath string) ([]PhotoRef, error) {
 	return refs, rows.Err()
 }
 
-// statusRef is a photo's last known path and whether an older version left
-// it marked missing.
-type statusRef struct {
-	PhotoRef
-	missing bool
-}
-
-// refsWithStatus lists every photo — ok or left marked missing — whose
-// path_hint lies inside folderPath, or the whole library when it is "".
-func (s *Store) refsWithStatus(folderPath string) ([]statusRef, error) {
-	q, args := `SELECT id, path_hint, status FROM photos`, []any{}
-	if folderPath != "" {
-		q += ` WHERE path_hint LIKE ? ESCAPE '\'`
-		args = append(args, escapeLikePattern(folderPath)+string(filepath.Separator)+"%")
-	}
-	rows, err := s.db.Query(q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var refs []statusRef
-	for rows.Next() {
-		var r statusRef
-		var status string
-		if err := rows.Scan(&r.ID, &r.PathHint, &status); err != nil {
-			return nil, err
-		}
-		r.missing = status == "missing"
-		refs = append(refs, r)
-	}
-	return refs, rows.Err()
-}
-
 // markOK sets the photos ids back to status ok.
 func (s *Store) markOK(ids []string) error {
 	if len(ids) == 0 {
@@ -271,6 +238,9 @@ func (s *Store) GetPhoto(id string) (*Photo, error) {
 		`SELECT id, path_hint, filename, file_size, indexed_at, status FROM photos WHERE id=?`, id,
 	).Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status)
 	if err == sql.ErrNoRows {
+		if current := s.CurrentPhotoID(id); current != id {
+			return s.GetPhoto(current)
+		}
 		return nil, nil
 	}
 	if err != nil {
@@ -325,6 +295,9 @@ func (s *Store) GetPhotoThumbPath(id string) (string, error) {
 	var thumbPath sql.NullString
 	err := s.db.QueryRow(`SELECT thumb_path FROM photos WHERE id=?`, id).Scan(&thumbPath)
 	if err == sql.ErrNoRows {
+		if current := s.CurrentPhotoID(id); current != id {
+			return s.GetPhotoThumbPath(current)
+		}
 		return "", nil
 	}
 	if err != nil {
@@ -351,6 +324,9 @@ func (s *Store) GetPhotoPathHint(id string) (string, error) {
 	var path string
 	err := s.db.QueryRow(`SELECT path_hint FROM photos WHERE id=?`, id).Scan(&path)
 	if err == sql.ErrNoRows {
+		if current := s.CurrentPhotoID(id); current != id {
+			return s.GetPhotoPathHint(current)
+		}
 		return "", nil
 	}
 	return path, err
@@ -426,8 +402,9 @@ func (s *Store) DeleteMeta(photoID, key string) error {
 // without touching exif_json or thumb_path. Used by the fast-path and rename cases.
 func (s *Store) MarkPhotoPresent(id, pathHint, filename string) error {
 	_, err := s.db.Exec(
-		`UPDATE photos SET status='ok', path_hint=?, filename=? WHERE id=?`,
-		pathHint, filename, id,
+		`UPDATE photos SET status='ok', path_hint=?, filename=?
+		 WHERE id=? AND (status<>'ok' OR path_hint<>? OR filename<>?)`,
+		pathHint, filename, id, pathHint, filename,
 	)
 	return err
 }

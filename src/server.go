@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io/fs"
 	"log"
@@ -30,6 +31,7 @@ type server struct {
 	channelsDir   string
 	defaultLibDir string
 	boundary      string // the folder being served
+	stopChecks    func() // ends the checks of shared libraries of the app last built
 }
 
 func newServer(web fs.FS, flags config, fset *flag.FlagSet) *server {
@@ -109,9 +111,15 @@ func (s *server) build(saved installation.Config) (config, error) {
 	h := api.NewRouter(app.boundary, app.start, app.home, s.web, app.serverRole, app.libMgr, app.chStore, Version, hooks)
 	s.handler.Store(&h)
 	if app.libMgr != nil {
+		if s.stopChecks != nil {
+			s.stopChecks() // the app this one replaces
+		}
+		ctx, stop := context.WithCancel(context.Background())
+		s.stopChecks = stop
 		go func() {
 			app.libMgr.MoveAllNotesToSidecars()
-			app.libMgr.AnalyseAllMissing()
+			go app.libMgr.AnalyseAllMissing()
+			app.libMgr.KeepSharedLibrariesCurrent(ctx)
 		}()
 	}
 	return cfg, nil

@@ -61,15 +61,22 @@ func handleDelete(root string, cache *media.ScanCache, libMgr *library.Manager) 
 
 		dirsToInvalidate := make(map[string]struct{})
 		var results []fileOpResult
+		var deleted []string
 		for _, file := range req.Files {
 			result, dir := deleteEntry(root, file, cache)
 			results = append(results, result)
 			if result.Success && dir != "" {
 				dirsToInvalidate[dir] = struct{}{}
+				if abs, ok := pathguard.SafePath(root, file); ok {
+					deleted = append(deleted, abs)
+				}
 			}
 		}
 		for dir := range dirsToInvalidate {
 			cache.Invalidate(dir)
+		}
+		if libMgr != nil {
+			libMgr.ForgetFiles(deleted)
 		}
 		triggerLibraryCleanup(libMgr, dirsToInvalidate)
 
@@ -171,7 +178,7 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 
 	dirsToInvalidate := make(map[string]struct{})
 	srcDirs := make(map[string]struct{})
-	var dstPaths []string
+	var dstPaths, srcPaths []string
 	var results []fileOpResult
 	for _, file := range req.Files {
 		srcPath, ok := pathguard.SafePath(root, file)
@@ -189,6 +196,7 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 			dirsToInvalidate[destDir] = struct{}{}
 			srcDirs[srcDir] = struct{}{}
 			dstPaths = append(dstPaths, dstPath)
+			srcPaths = append(srcPaths, srcPath)
 			results = append(results, fileOpResult{File: file, Success: true})
 		}
 	}
@@ -207,6 +215,9 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 			libraryUpdated = libMgr.IndexFilesSync(lib.ID, dstPaths)
 		}
 		if cleanupSrc {
+			// After the arrivals are indexed: a photo moved within one
+			// library is then known at its new path and stays.
+			libMgr.ForgetFiles(srcPaths)
 			for srcDir := range srcDirs {
 				if srcLib, ok := libMgr.FindLibraryForPath(srcDir); ok {
 					if destLib == nil || srcLib.ID != destLib.ID {
