@@ -67,27 +67,25 @@ func ReadFaceRegions(photoPath string, orientation int) (regions []FaceRegion, f
 // only removes them. orientation, width and height are as for
 // WriteFaceRegions.
 func ChangeFaceRegions(photoPath string, changes []FaceRegion, orientation, width, height int) error {
-	data, err := os.ReadFile(SidecarPath(photoPath))
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-	if hasForeignRegions(data) {
-		return ErrForeignRegions
-	}
-	regions := upright(parseFaceRegions(data), orientation)
-	for _, c := range changes {
-		kept := regions[:0]
-		for _, r := range regions {
-			if Overlap(r, c) < RegionMatch {
-				kept = append(kept, r)
+	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
+		if hasForeignRegions(data) {
+			return nil, ErrForeignRegions
+		}
+		regions := upright(parseFaceRegions(data), orientation)
+		for _, c := range changes {
+			kept := regions[:0]
+			for _, r := range regions {
+				if Overlap(r, c) < RegionMatch {
+					kept = append(kept, r)
+				}
+			}
+			regions = kept
+			if c.Name != "" {
+				regions = append(regions, c)
 			}
 		}
-		regions = kept
-		if c.Name != "" {
-			regions = append(regions, c)
-		}
-	}
-	return WriteFaceRegions(photoPath, regions, orientation, width, height)
+		return withFaceRegions(data, regions, orientation, width, height)
+	})
 }
 
 // RegionMatch is how much a face and a region must overlap to be the same.
@@ -128,25 +126,25 @@ func hasForeignRegions(data []byte) bool {
 // are the stored photo's pixels, before orientation is applied; 0 when
 // unknown, which leaves out the dimensions.
 func WriteFaceRegions(photoPath string, regions []FaceRegion, orientation, width, height int) error {
-	path := SidecarPath(photoPath)
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
+	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
+		return withFaceRegions(data, regions, orientation, width, height)
+	})
+}
+
+// withFaceRegions returns the sidecar data with regions in place of the ones
+// Unterlumen wrote; nil when there is no sidecar and nothing to write.
+func withFaceRegions(data []byte, regions []FaceRegion, orientation, width, height int) ([]byte, error) {
+	if data == nil {
 		if len(regions) == 0 {
-			return nil
+			return nil, nil
 		}
 		data = []byte(emptyXMP)
-	} else if err != nil {
-		return err
 	}
 	stored := make([]FaceRegion, len(regions))
 	for i, r := range regions {
 		stored[i] = uprightToStored(r, orientation)
 	}
-	out, err := spliceRegionsBlock(data, renderRegionsBlock(stored, width, height))
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, out, 0o644)
+	return spliceRegionsBlock(data, renderRegionsBlock(stored, width, height))
 }
 
 // spliceRegionsBlock puts block in place of Unterlumen's regions

@@ -67,45 +67,42 @@ func ReadSidecar(photoPath string) ([]Publication, error) {
 // AppendPublication adds a publication record to the XMP sidecar alongside photoPath.
 // Creates the sidecar if it does not exist. Existing XMP namespaces are preserved.
 func AppendPublication(photoPath string, pub Publication) error {
-	existing, err := ReadSidecar(photoPath)
-	if err != nil {
-		return fmt.Errorf("read sidecar: %w", err)
-	}
-	pubs := append(existing, pub)
-
-	sidecarPath := SidecarPath(photoPath)
-	rawBytes, readErr := os.ReadFile(sidecarPath)
-	if readErr == nil {
-		merged := mergeULBlock(rawBytes, pubs)
-		return os.WriteFile(sidecarPath, merged, 0o644)
-	}
-	return os.WriteFile(sidecarPath, []byte(renderFreshXMP(pubs)), 0o644)
+	return changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
+		if raw == nil {
+			return []byte(renderFreshXMP([]Publication{pub})), nil
+		}
+		pubs, err := parseSidecarPublications(raw)
+		if err != nil {
+			return nil, fmt.Errorf("read sidecar: %w", err)
+		}
+		return mergeULBlock(raw, append(pubs, pub)), nil
+	})
 }
 
 // RemovePublication drops the record of one album (channel and postID) from the
 // photo's sidecar and leaves everything else in it alone. A photo without a
 // sidecar, or one that never was in that album, is not an error.
 func RemovePublication(photoPath, channel, postID string) error {
-	pubs, err := ReadSidecar(photoPath)
-	if err != nil {
-		return fmt.Errorf("read sidecar: %w", err)
-	}
-	kept := make([]Publication, 0, len(pubs))
-	for _, p := range pubs {
-		if p.Channel == channel && p.PostID == postID {
-			continue
+	return changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
+		if raw == nil {
+			return nil, nil
 		}
-		kept = append(kept, p)
-	}
-	if len(kept) == len(pubs) {
-		return nil
-	}
-	sidecarPath := SidecarPath(photoPath)
-	raw, err := os.ReadFile(sidecarPath)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(sidecarPath, mergeULBlock(raw, kept), 0o644)
+		pubs, err := parseSidecarPublications(raw)
+		if err != nil {
+			return nil, fmt.Errorf("read sidecar: %w", err)
+		}
+		kept := make([]Publication, 0, len(pubs))
+		for _, p := range pubs {
+			if p.Channel == channel && p.PostID == postID {
+				continue
+			}
+			kept = append(kept, p)
+		}
+		if len(kept) == len(pubs) {
+			return nil, nil
+		}
+		return mergeULBlock(raw, kept), nil
+	})
 }
 
 // SetPublicationAddress records a site album's slug and Unlisted flag in the
@@ -114,26 +111,28 @@ func RemovePublication(photoPath, channel, postID string) error {
 // never replaced: a slug is a URL that may be shared. It reports whether it
 // changed the sidecar.
 func SetPublicationAddress(photoPath, channel, postID, slug string, unlisted bool) (bool, error) {
-	pubs, err := ReadSidecar(photoPath)
-	if err != nil {
-		return false, fmt.Errorf("read sidecar: %w", err)
-	}
 	changed := false
-	for i := range pubs {
-		if pubs[i].Channel == channel && pubs[i].PostID == postID && pubs[i].Slug == "" {
-			pubs[i].Slug, pubs[i].Unlisted = slug, unlisted
-			changed = true
+	err := changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
+		changed = false
+		if raw == nil {
+			return nil, nil
 		}
-	}
-	if !changed {
-		return false, nil
-	}
-	sidecarPath := SidecarPath(photoPath)
-	raw, err := os.ReadFile(sidecarPath)
-	if err != nil {
-		return false, err
-	}
-	return true, os.WriteFile(sidecarPath, mergeULBlock(raw, pubs), 0o644)
+		pubs, err := parseSidecarPublications(raw)
+		if err != nil {
+			return nil, fmt.Errorf("read sidecar: %w", err)
+		}
+		for i := range pubs {
+			if pubs[i].Channel == channel && pubs[i].PostID == postID && pubs[i].Slug == "" {
+				pubs[i].Slug, pubs[i].Unlisted = slug, unlisted
+				changed = true
+			}
+		}
+		if !changed {
+			return nil, nil
+		}
+		return mergeULBlock(raw, pubs), nil
+	})
+	return changed && err == nil, err
 }
 
 // parseSidecarPublications extracts ul:Publications entries from XMP bytes.
@@ -313,24 +312,17 @@ func ReadTitle(photoPath string) (string, error) {
 }
 
 func WriteTitle(photoPath, title string) error {
-	sidecarPath := SidecarPath(photoPath)
-	data, err := os.ReadFile(sidecarPath)
-	if os.IsNotExist(err) {
-		if title == "" {
-			return nil
+	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
+		switch {
+		case data == nil && title == "":
+			return nil, nil
+		case data == nil:
+			return []byte(renderFreshXMPWithDC(title)), nil
+		case title == "":
+			return clearDCBlock(data), nil
 		}
-		return os.WriteFile(sidecarPath, []byte(renderFreshXMPWithDC(title)), 0o644)
-	}
-	if err != nil {
-		return err
-	}
-	var result []byte
-	if title == "" {
-		result = clearDCBlock(data)
-	} else {
-		result = mergeDCBlock(data, title)
-	}
-	return os.WriteFile(sidecarPath, result, 0o644)
+		return mergeDCBlock(data, title), nil
+	})
 }
 
 func parseDCTitle(data []byte) (string, error) {

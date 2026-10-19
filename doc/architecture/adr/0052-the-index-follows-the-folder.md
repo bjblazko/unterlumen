@@ -98,6 +98,19 @@ destroy data?
    a network share each is a round trip. A photo whose row is already right
    is not written. Measured on 3 218 photos on the NAS from a Mac over SMB,
    nothing changed: 53 s before, 19 s after with a cold cache, 4.5 s warm.
+7. **A sidecar is replaced whole, never rewritten in place.** Every sidecar
+   write goes through `media.changeSidecar`: it reads the sidecar, makes the
+   change from what is there now, writes the result beside it under a hidden
+   name and renames it over the sidecar. A scan on the other installation
+   reads the whole old or the whole new file; rewriting in place left an
+   empty or half file for a moment, which a scan took for "no names" and a
+   writer on the other installation could write back, losing the rest of the
+   sidecar. Just before the rename it reads the sidecar again; if it changed,
+   it starts over from the new content, so a change the other installation
+   made meanwhile stays. There is no lock: locks across SMB and NFS between a
+   Mac and a Linux container are unreliable, and a lock file left by a killed
+   app blocks for good. Two installations writing the same photo's sidecar in
+   the same microseconds can still lose one change, never the file.
 
 ## Consequences
 
@@ -126,6 +139,9 @@ destroy data?
 - **Rewrite the shared drafts and album register on a replacement.** Keeps
   them current without a lookup, but makes a scan write shared files — the
   first rule. Rejected.
+- **A lock file beside each sidecar, or `flock`.** Not honoured across SMB
+  from a Mac and NFS from a container alike, and a lock left by a killed app
+  needs a timeout guess to break. Rejected for replace-and-recheck (rule 7).
 - **Watch the folder for changes.** File system events do not cross SMB or
   NFS reliably, and not at all from the other machine. Rejected for a
   periodic check.

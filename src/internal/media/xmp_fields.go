@@ -38,28 +38,25 @@ func ReadNotes(photoPath string) (Notes, error) {
 // WriteField sets one field in the sidecar beside photoPath, making the
 // sidecar when there is none. An empty value removes the field.
 func WriteField(photoPath, key, value string) error {
-	sidecarPath := SidecarPath(photoPath)
-	raw, err := os.ReadFile(sidecarPath)
-	if errors.Is(err, fs.ErrNotExist) {
+	return changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
+		if raw == nil {
+			if value == "" {
+				return nil, nil
+			}
+			return []byte(renderFreshXMPWith(nil, map[string]string{key: value})), nil
+		}
+		fields := parseSidecarFields(raw)
 		if value == "" {
-			return nil
+			if _, ok := fields[key]; !ok {
+				return nil, nil
+			}
+			delete(fields, key)
+		} else {
+			fields[key] = value
 		}
-		return os.WriteFile(sidecarPath, []byte(renderFreshXMPWith(nil, map[string]string{key: value})), 0o644)
-	}
-	if err != nil {
-		return err
-	}
-	fields := parseSidecarFields(raw)
-	if value == "" {
-		if _, ok := fields[key]; !ok {
-			return nil
-		}
-		delete(fields, key)
-	} else {
-		fields[key] = value
-	}
-	pubs, _ := parseSidecarPublications(raw)
-	return os.WriteFile(sidecarPath, spliceULBlock(raw, pubs, fields), 0o644)
+		pubs, _ := parseSidecarPublications(raw)
+		return spliceULBlock(raw, pubs, fields), nil
+	})
 }
 
 // parseSidecarFields extracts ul:Fields entries from XMP bytes.
