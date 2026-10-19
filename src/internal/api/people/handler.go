@@ -28,6 +28,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}", groupFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))
 	mux.HandleFunc("PATCH /api/library/{id}/people/{pid}", renamePerson(mgr))
+	mux.HandleFunc("DELETE /api/library/{id}/people/{pid}", forgetPerson(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/faces", photoFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/face/{fid}", serveFace(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/unname", changeFaces(mgr, (*lib.Store).UnnameFaces))
@@ -211,6 +213,45 @@ func renamePerson(mgr *lib.Manager) http.HandlerFunc {
 		}
 		skipped, err := store.RenamePerson(pid, body.Name)
 		writeChange(w, skipped, err)
+	}
+}
+
+// forgetPerson takes the person's name away from all their faces.
+func forgetPerson(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		pid, ok2 := pathInt(w, r, "pid")
+		if !ok || !ok2 {
+			return
+		}
+		skipped, err := store.ForgetPerson(pid)
+		writeChange(w, skipped, err)
+	}
+}
+
+// photoFaces answers the faces of one photo and the library's names to
+// choose from, for the info panel.
+func photoFaces(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		if !ok {
+			return
+		}
+		found, err := store.PhotoFaces(r.PathValue("photoID"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		people, err := store.People()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		names := make([]string, len(people))
+		for i, p := range people {
+			names[i] = p.Name
+		}
+		writeJSON(w, map[string]any{"faces": found, "names": names})
 	}
 }
 

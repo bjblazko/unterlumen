@@ -394,3 +394,46 @@ func distinctPhotos(refs []FaceRef) []string {
 	}
 	return photos
 }
+
+// ForgetPerson takes the name away from all the person's faces — in the
+// sidecars first, then in the index — and the faces go back to the groups
+// waiting for a name. skipped is as for NameFaces.
+func (s *Store) ForgetPerson(id int64) (skipped int, err error) {
+	refs, err := s.PersonFaces(id)
+	if err != nil {
+		return 0, err
+	}
+	ids := make([]int64, len(refs))
+	for i, r := range refs {
+		ids[i] = r.ID
+	}
+	return s.UnnameFaces(ids)
+}
+
+// PhotoFace is a face of one photo, as its info panel shows it: where it is
+// and who it is; Hidden for a face the owner said not to name.
+type PhotoFace struct {
+	FaceRef
+	Name   string `json:"name,omitempty"`
+	Hidden bool   `json:"hidden,omitempty"`
+}
+
+// PhotoFaces lists the faces found in a photo, left to right.
+func (s *Store) PhotoFaces(photoID string) ([]PhotoFace, error) {
+	rows, err := s.db.Query(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.name, ''), f.person_id IS NULL AND f.confirmed = 1
+		FROM faces f LEFT JOIN people p ON p.id = f.person_id AND f.confirmed = 1
+		WHERE f.photo_id = ? ORDER BY f.x`, s.CurrentPhotoID(photoID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PhotoFace{}
+	for rows.Next() {
+		var f PhotoFace
+		if err := rows.Scan(&f.ID, &f.PhotoID, &f.X, &f.Y, &f.W, &f.H, &f.Name, &f.Hidden); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}

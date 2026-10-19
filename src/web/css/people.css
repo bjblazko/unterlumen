@@ -86,7 +86,7 @@
 
 /* --- Face in its photo (FacePeek) --- */
 .face-peek {
-    position: fixed; z-index: 50; padding: var(--space-1); background: var(--bg);
+    position: fixed; z-index: 300; padding: var(--space-1); background: var(--bg);
     border-radius: var(--radius-md); box-shadow: var(--shadow-float); pointer-events: none;
     animation: face-peek-in var(--dur) var(--ease);
 }
@@ -100,3 +100,18 @@
 }
 @keyframes face-peek-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .face-peek { animation: none; } }
+
+/* --- Info panel: People --- */
+.info-face { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.info-face-pic { flex: none; width: 40px; height: 40px; padding: 0; border: none; border-radius: var(--radius-sm); background: var(--bg-3); cursor: default; }
+.info-face-pic img { width: 100%; height: 100%; border-radius: var(--radius-sm); object-fit: cover; display: block; }
+.info-face-pic:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.info-face-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-family: var(--font-sans); }
+.info-face-input {
+    flex: 1; min-width: 0; height: var(--control-h-sm); box-sizing: border-box; padding: 0 var(--space-2);
+    border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); font: inherit;
+}
+.info-face-hint { margin: 0; }
+/* The viewer's panel is dark in both themes. */
+.viewer .info-face-input { background: transparent; color: var(--overlay-fg); border-color: var(--overlay-line); }
+.viewer .info-face-pic { background: var(--overlay-line-soft); }

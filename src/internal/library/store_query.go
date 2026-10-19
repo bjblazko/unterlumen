@@ -29,7 +29,7 @@ type ListPhotosOpts struct {
 	MetaFilters    map[string]string        // photo_meta key=value exact matches
 	MetaExists     []string                 // photo_meta keys that must exist (any value)
 	AlbumTitle     string                   // match photos with any built:*:title = value
-	Person         string                   // a person named in the photo (ADR-0051), without regard to case
+	People         []string                 // people named in the photo, all of them (ADR-0051), without regard to case
 	ExtFilter      string                   // file extension (photos.ext)
 	PathPrefix     string                   // absolute folder the photos must be in, as statistics take it
 	Hour           *int                     // hour of the day taken, 0–23
@@ -245,9 +245,9 @@ func (f *photoFilter) addMeta(opts ListPhotosOpts) {
 	if opts.AlbumTitle != "" {
 		f.cond(`EXISTS (SELECT 1 FROM photo_meta pm WHERE pm.photo_id=p.id AND (pm.key LIKE 'built:%:title' OR pm.key LIKE 'published:%:title') AND pm.value=?)`, opts.AlbumTitle)
 	}
-	if opts.Person != "" {
+	for _, name := range opts.People {
 		f.cond(`EXISTS (SELECT 1 FROM faces fa JOIN people pe ON pe.id = fa.person_id
-			WHERE fa.photo_id = p.id AND fa.confirmed = 1 AND pe.name = ?)`, opts.Person)
+			WHERE fa.photo_id = p.id AND fa.confirmed = 1 AND pe.name = ?)`, name)
 	}
 }
 

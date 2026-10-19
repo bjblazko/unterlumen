@@ -108,5 +108,45 @@ test.describe('People', () => {
     await expect(page).toHaveURL(/#libraries/);
     await expect(page.locator('.chip .chip-label')).toHaveText('Person: Anna');
   });
+
+  test("a photo's info panel names a face and takes a name away", async ({ page }) => {
+    const state = { named: null, overview: () => ({ people: [], groups: [{ id: 0, size: 2, faces: [11, 12] }], groupCount: 1, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    let unnamed = null;
+    let faces = [{ id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }, { id: 13, photoId: 'p1', x: 0.1, y: 0.2, w: 0.1, h: 0.15, name: 'Ben' }];
+    await page.route(`**/api/library/${LIB}/photo/p1/faces`, r => r.fulfill({ json: { faces, names: ['Anna', 'Ben'] } }));
+    await page.route(`**/api/library/${LIB}/photo/p1/info`, r => r.fulfill({ json: { name: 'p1.jpg', size: 1000, modTime: '2026-01-01T00:00:00Z' } }));
+    await page.route(`**/api/library/${LIB}/photo/p1`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
+    await page.route(`**/api/library/${LIB}/faces/unname`, async r => { unnamed = r.request().postDataJSON(); await r.fulfill({ json: { skipped: 0 } }); });
+    await page.goto(`/#people/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').first().dblclick();
+    const people = page.locator('.info-people');
+    await expect(people.locator('.info-face')).toHaveCount(2);
+    await expect(people.locator('.info-face-name')).toHaveText('Ben');
+    await people.locator('.info-face-input').fill('Anna');
+    await people.locator('.info-face-input').press('Enter');
+    await expect.poll(() => state.named).toEqual({ faces: [11], name: 'Anna' });
+    await people.locator('.info-face-unname').click();
+    await expect.poll(() => unnamed).toEqual({ faces: [13] });
+  });
+
+  test("a person's name can be taken away from all their faces", async ({ page }) => {
+    let forgotten = false;
+    const state = { named: null, overview: () => ({ people: forgotten ? [] : [{ id: 1, name: 'Anna', faces: 1, photos: 1, cover: 11 }], groups: [], groupCount: 0, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.route(`**/api/library/${LIB}/people/1`, r => {
+      if (r.request().method() !== 'DELETE') return r.fulfill({ json: [{ id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }] });
+      forgotten = true;
+      return r.fulfill({ json: { skipped: 0 } });
+    });
+    await page.goto(`/#people/${LIB}/person/1`);
+    await waitForAppReady(page);
+    await page.getByRole('button', { name: 'Person options' }).click();
+    await page.getByText('Take the name away…').click();
+    await page.locator('.dialog-scrim button', { hasText: 'Take the name away' }).click();
+    await expect(page).toHaveURL(new RegExp(`#people/${LIB}$`));
+    expect(forgotten).toBe(true);
+  });
 });
 

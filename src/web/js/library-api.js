@@ -134,7 +134,9 @@ const LibraryAPI = {
     async search({ ids, limit = 100, offset = 0, scope = [], ...rest } = {}) {
         const params = new URLSearchParams({ limit, offset });
         if (ids) params.set('ids', ids);
-        for (const [k, v] of Object.entries(rest)) params.set(k, v);
+        for (const [k, v] of Object.entries(rest)) {
+            if (Array.isArray(v)) v.forEach(x => params.append(k, x)); else params.set(k, v);
+        }
         for (const [k, v] of scope) params.append(k, v);
         const r = await fetch(`/api/library/search?${params}`);
         if (!r.ok) throw new Error(await r.text());

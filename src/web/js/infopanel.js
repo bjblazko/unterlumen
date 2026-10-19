@@ -25,6 +25,7 @@ class InfoPanel {
         this.onDirNavigate = null;
         this._metaContext = null;
         this._folders = new FolderDashboard(this);
+        this._people = new InfoPeople(this);
         this.render();
     }
 
@@ -64,6 +65,7 @@ class InfoPanel {
         this.loading = true;
         this.error = null;
         this.data = null;
+        this._people.reset();
         // render() prefers folderData over data when both are set, so a stale
         // folderData/libraryStats from a previous loadFolderInfo() call (e.g.
         // the folder was focused before any file was clicked) must be cleared
@@ -96,6 +98,9 @@ class InfoPanel {
         this.data = null;
         this.folderData = null;
         this.libraryStats = null;
+        // A library photo's key is lib:<library>:<photo>; its faces come too.
+        const [kind, lib, photo] = String(key).split(':');
+        if (kind === 'lib' && lib && photo) this._people.load(lib, photo); else this._people.reset();
         this.render();
         const requestKey = key;
         try {
@@ -125,6 +130,7 @@ class InfoPanel {
         this.loading = true;
         this.error = null;
         this._metaContext = null;
+        this._people.reset();
         this.render();
         const requestPath = path;
 
@@ -160,6 +166,7 @@ class InfoPanel {
         this.currentPath = null;
         this.loading = false;
         this._metaContext = null;
+        this._people.reset();
         this.destroyMap();
         this.render();
     }
@@ -259,6 +266,7 @@ class InfoPanel {
 
         if (this._metaContext) this._attachMetaEvents();
         if (this.folderData) this._folders.attachEvents();
+        if (this.data) this._people.attachEvents(this.container);
 
         this.initMap();
     }
@@ -340,6 +348,7 @@ class InfoPanel {
         const used = new Set();
 
         sections.push(this._renderShortList(d, tags, used));
+        sections.push(this._people.render());
         const location = this._renderLocationSection(d, used);
         if (location) sections.push(location);
 

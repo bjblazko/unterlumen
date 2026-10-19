@@ -21,7 +21,7 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		DateMax:        q.Get("date_taken_max"),
 		MetaFilters:    parseMetaFilters(q),
 		AlbumTitle:     q.Get("album_title"),
-		Person:         q.Get("person"),
+		People:         nonEmpty(q["person"]),
 		ExtFilter:      q.Get("ext"),
 		PathPrefix:     q.Get("pathPrefix"),
 		Hour:           parseIntIn(q.Get("hour"), 0, 23),

@@ -104,7 +104,12 @@ sidecar as Metadata Working Group regions; an architecture that is not
    the face framed and the rest dimmed (`FacePeek`), since a small face is
    often recognised by where it is. Show photos opens Libraries filtered to the
    person: the library filter's Person chip (`person=` in the photo query,
-   matched without regard to case) works across libraries.
+   repeated for several people, who must all be in the photo; matched without
+   regard to case) works across libraries. A photo's info panel, wherever it
+   shows a library photo, lists its faces (`InfoPeople`,
+   `GET …/photo/{id}/faces`): a name, or a field to give one, and a × to take
+   it away. Take the name away… on a person's page takes it from all their
+   faces (`DELETE …/people/{id}`).
 
 ## Consequences
 

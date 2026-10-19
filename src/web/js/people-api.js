@@ -32,6 +32,13 @@ const PeopleAPI = {
     async hide(lib, faces) {
         return peoplePost(`/api/library/${lib}/faces/hide`, { faces });
     },
+    // The faces of one photo, with the library's names to choose from.
+    async photoFaces(lib, photo) {
+        return peopleJSON(await fetch(`/api/library/${lib}/photo/${photo}/faces`));
+    },
+    async forget(lib, person) {
+        return peopleJSON(await fetch(`/api/library/${lib}/people/${person}`, { method: 'DELETE' }));
+    },
     async rename(lib, person, name) {
         return peopleJSON(await fetch(`/api/library/${lib}/people/${person}`, {
             method: 'PATCH',

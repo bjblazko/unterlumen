@@ -58,3 +58,6 @@ follow on the same runtime. See [ADR-0051](../../architecture/adr/0051-faces-onn
 - [x] A person's Show photos opens Libraries filtered to that person (instead of a photo column of People's own)
 - [x] The library filter can narrow to a person (Person chip, across libraries)
 - [x] A face can be seen in its whole photo, framed, by resting on it or focusing it
+- [x] Several Person chips narrow to the photos with all of them
+- [x] A photo's info panel (also in the viewer) shows who is in it, names a face and takes a name away
+- [x] A person's name can be taken away from all their faces at once

@@ -327,7 +327,10 @@ class PeoplePane {
             onChange: () => update(),
             onOpen: (i) => this._openPhotos(faces, i),
         });
-        const menu = new Menu({ label: 'Person options', items: () => [{ label: 'Rename…', onSelect: () => this._rename(person) }] });
+        const menu = new Menu({ label: 'Person options', items: () => [
+            { label: 'Rename…', onSelect: () => this._rename(person) },
+            { label: 'Take the name away…', onSelect: () => this._forget(person, faces.length) },
+        ] });
         this._body.innerHTML = `
             <div class="people-page-head">${this._crumb(escapeHtml(person.name))}
                 <span class="people-head-spacer"></span>
@@ -394,6 +397,34 @@ class PeoplePane {
             ],
         });
         dlg.open().querySelector('#people-rename').select();
+    }
+
+    // _forget takes the person's name from all their faces, which go back to
+    // the groups waiting for a name.
+    _forget(person, count) {
+        const faces = count === 1 ? '1 face goes' : `${formatCount(count)} faces go`;
+        new Dialog({
+            title: `Take the name ${person.name} away?`,
+            size: 'sm',
+            className: 'library-dialog',
+            body: `
+                <p>Its ${faces} back to Who is this?, and the name leaves the photos' sidecars, also for your other installation.</p>
+                <p class="people-group-error" hidden></p>`,
+            actions: [
+                { label: 'Cancel', value: null },
+                { label: 'Take the name away', kind: 'accent', onClick: async (d) => {
+                    try {
+                        reportSkipped(await PeopleAPI.forget(this.route.library, person.id));
+                        d.close(true);
+                        this._go({}, { replace: true });
+                    } catch (err) {
+                        const error = d.el.querySelector('.people-group-error');
+                        error.hidden = false;
+                        error.textContent = `${err.message} Nothing was changed.`;
+                    }
+                } },
+            ],
+        }).open();
     }
 
     _backLink() {

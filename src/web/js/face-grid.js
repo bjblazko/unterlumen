@@ -45,23 +45,26 @@ class FacePeek {
 
     static pct(v) { return `${(v * 100).toFixed(2)}%`; }
 
-    constructor(lib, faces, grid) {
+    // grid holds the faces' elements, found by selector, each with the index
+    // of its face in faces as data-index.
+    constructor(lib, faces, grid, selector = '.face-tile') {
         this._lib = lib;
         this._faces = faces;
+        this._sel = selector;
         this._timer = 0;
         this._el = null;
         grid.addEventListener('pointerover', (e) => {
-            const tile = e.target.closest('.face-tile');
+            const tile = e.target.closest(this._sel);
             if (!tile || e.pointerType === 'touch') return;
             clearTimeout(this._timer);
             this._timer = setTimeout(() => this.show(tile), FacePeek.DELAY);
         });
         grid.addEventListener('pointerout', (e) => {
-            const tile = e.target.closest('.face-tile');
+            const tile = e.target.closest(this._sel);
             if (tile && !tile.contains(e.relatedTarget)) this.hide();
         });
         grid.addEventListener('focusin', (e) => {
-            const tile = e.target.closest('.face-tile');
+            const tile = e.target.closest(this._sel);
             if (tile && tile.matches(':focus-visible')) this.show(tile);
         });
         grid.addEventListener('focusout', () => this.hide());

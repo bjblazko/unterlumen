@@ -772,7 +772,10 @@ class LibraryFilterPanel {
         if (this._hues?.length) params.hues = this._hues.join(',');
         for (const chip of (this._chipInput?.getChips() || [])) {
             const p = chipToParam(chip);
-            if (p) params[p.key] = p.value;
+            if (!p) continue;
+            // Several people narrow together: photos with all of them.
+            if (p.key === 'person') (params.person ||= []).push(p.value);
+            else params[p.key] = p.value;
         }
         return params;
     }
