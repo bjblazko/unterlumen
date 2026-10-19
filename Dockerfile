@@ -1,5 +1,8 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────────
-FROM golang:1.27-alpine AS builder
+# A glibc builder: the binary loads ONNX Runtime with dlopen (ADR-0051), so
+# it names the system's loader, and the linker takes the builder's — musl on
+# Alpine, which the Debian runtime below does not have.
+FROM golang:1.27-trixie AS builder
 
 WORKDIR /build/src
 
@@ -54,6 +57,8 @@ RUN useradd -u 1000 -m unterlumen \
 USER unterlumen
 
 COPY --from=builder /unterlumen /unterlumen
+# Fails the build if the binary cannot start here, e.g. for want of its loader.
+RUN /unterlumen -h >/dev/null 2>&1; [ $? -ne 127 ]
 
 # Licenses and where the sources of everything in the image are.
 COPY LICENSE packaging/docker/README.txt /usr/share/doc/unterlumen/
