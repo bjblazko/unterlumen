@@ -21,6 +21,7 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		DateMax:        q.Get("date_taken_max"),
 		MetaFilters:    parseMetaFilters(q),
 		AlbumTitle:     q.Get("album_title"),
+		Person:         q.Get("person"),
 		ExtFilter:      q.Get("ext"),
 		PathPrefix:     q.Get("pathPrefix"),
 		Hour:           parseIntIn(q.Get("hour"), 0, 23),
@@ -99,7 +100,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
 			continue
 		}
-		if k == "channel" || k == "album" || k == "album_title" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
+		if k == "channel" || k == "album" || k == "album_title" || k == "person" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
 		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" {

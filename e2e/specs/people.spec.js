@@ -17,7 +17,10 @@ async function fakePeople(page, state) {
     ? r.fulfill({ json: [{ id: LIB, name: 'Family', sourcePath: '/photos' }] }) : r.continue());
   await page.route(`**/api/library/${LIB}/face/*`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route(`**/api/library/${LIB}/people`, r => r.fulfill({ json: state.overview() }));
-  await page.route(`**/api/library/${LIB}/people/groups/*`, r => r.fulfill({ json: [{ id: 11, photoId: 'p1' }, { id: 12, photoId: 'p2' }] }));
+  await page.route(`**/api/library/${LIB}/people/groups/*`, r => r.fulfill({ json: [
+    { id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }, { id: 12, photoId: 'p2', x: 0.1, y: 0.1, w: 0.2, h: 0.3 }] }));
+  await page.route(`**/api/library/${LIB}/people/1`, r => r.fulfill({ json: [{ id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }] }));
+  await page.route(`**/api/library/${LIB}/thumb/*`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route(`**/api/library/${LIB}/faces/name`, async r => {
     state.named = r.request().postDataJSON();
     await r.fulfill({ json: { skipped: 0 } });
@@ -77,4 +80,33 @@ test.describe('People', () => {
     await expect(page).toHaveURL(new RegExp(`#people/${LIB}$`));
     expect(state.named).toEqual({ faces: [11], name: 'Ben' });
   });
+
+  test('resting on a face shows it framed in its whole photo', async ({ page }) => {
+    const state = { named: null, overview: () => ({ people: [], groups: [{ id: 0, size: 2, faces: [11, 12] }], groupCount: 1, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.goto(`/#people/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').first().hover();
+    const peek = page.locator('.face-peek');
+    await expect(peek).toBeVisible();
+    await expect(peek.locator('img')).toHaveAttribute('src', new RegExp(`/api/library/${LIB}/thumb/p1`));
+    await expect(peek.locator('.face-peek-frame')).toHaveAttribute('style', /left:60\.00%;top:20\.00%;width:10\.00%;height:15\.00%/);
+    await page.mouse.move(0, 0);
+    await expect(peek).toHaveCount(0);
+    // The keyboard gets the same view on the face it is on.
+    await page.locator('.face-tile').first().focus();
+    await page.keyboard.press('Tab');
+    await expect(peek.locator('img')).toHaveAttribute('src', new RegExp(`/thumb/p2`));
+  });
+
+  test("a person's Show photos opens the library filter at that person", async ({ page }) => {
+    const state = { named: null, overview: () => ({ people: [{ id: 1, name: 'Anna', faces: 1, photos: 1, cover: 11 }], groups: [], groupCount: 0, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.goto(`/#people/${LIB}/person/1`);
+    await waitForAppReady(page);
+    await page.locator('.people-show').click();
+    await expect(page).toHaveURL(/#libraries/);
+    await expect(page.locator('.chip .chip-label')).toHaveText('Person: Anna');
+  });
 });
+

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -118,4 +119,33 @@ func (m *Manager) findFacesOnce(id string) {
 func (m *Manager) FindingFaces(id string) bool {
 	_, ok := m.faces.running.Load(id)
 	return ok
+}
+
+// PersonNames lists the people named in the given libraries (every library
+// when ids is empty), each name once, for the library filter's Person.
+func (m *Manager) PersonNames(ids []string) ([]string, error) {
+	libs, err := m.filterLibraries(ids)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		people, err := store.People()
+		if err != nil {
+			continue
+		}
+		for _, p := range people {
+			if key := strings.ToLower(p.Name); !seen[key] {
+				seen[key] = true
+				out = append(out, p.Name)
+			}
+		}
+	}
+	sortStrings(out)
+	return out, nil
 }

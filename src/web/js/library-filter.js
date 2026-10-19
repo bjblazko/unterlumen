@@ -10,6 +10,7 @@ const CHIP_NS_FIXED = [
     { ns: 'wb',      label: 'White balance',  hint: 'White balance',   type: 'exif', param: 'WhiteBalance' },
     { ns: 'channel', label: 'Destination',    hint: 'Published to this destination', type: 'channel', param: 'channel' },
     { ns: 'album',   label: 'Gallery title',  hint: 'Any gallery with this title', type: 'album', param: 'album_title' },
+    { ns: 'person',  label: 'Person',         hint: 'Named in People', type: 'person', param: 'person' },
 ];
 
 // EXIF fields handled by numeric sliders — exclude from chip namespace list to avoid duplication.
@@ -32,6 +33,7 @@ function chipToParam(chip) {
         if (ns.type === 'exif') return { key: ns.param, value: chip.value };
         if (ns.type === 'channel') return { key: 'channel', value: chip.value };
         if (ns.type === 'album') return { key: 'album_title', value: chip.value };
+        if (ns.type === 'person') return { key: 'person', value: chip.value };
         if (ns.type === 'meta') return { key: ns.param, value: chip.value };
     }
     return { key: 'meta_' + chip.ns, value: chip.value };
@@ -169,8 +171,8 @@ class LibraryFilterPanel {
         this.close();
     }
 
-    // Opens the filter already set, one chip per criterion — { channel: slug }
-    // or { gallery: { id: "<slug>:<postID>", title } } — then one query. This is how a gallery or a destination
+    // Opens the filter already set, one chip per criterion — { channel: slug },
+    // { gallery: { id: "<slug>:<postID>", title } } or { person: name } — then one query. This is how a gallery or a destination
     // shows its photos; the host opens it in the overview, so the scope is
     // every library.
     async openWith(criteria) {
@@ -182,6 +184,9 @@ class LibraryFilterPanel {
         }
         if (criteria.gallery) {
             this._chipInput.add(GALLERY_CHIP_NS, criteria.gallery.id, criteria.gallery.title);
+        }
+        if (criteria.person) {
+            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'person'), criteria.person);
         }
         if (criteria.hues) this._setHues(criteria.hues);
         this._suppressQuery = false;
@@ -215,12 +220,13 @@ class LibraryFilterPanel {
 
         const ids = this._initialLibID || undefined;
         // Load libraries, ranges, text field values, channels, meta keys, album titles, and all EXIF fields in parallel.
-        const [libraries, ranges, channels, metaKeys, albumTitles, exifFields, ...textValues] = await Promise.all([
+        const [libraries, ranges, channels, metaKeys, albumTitles, personNames, exifFields, ...textValues] = await Promise.all([
             LibraryAPI.list().catch(() => []),
             this._fetchRanges(this._initialLibID),
             ChannelAPI.list().catch(() => []),
             LibraryAPI.metaKeys(ids).catch(() => []),
             LibraryAPI.albumTitles(ids).catch(() => []),
+            LibraryAPI.personNames(ids).catch(() => []),
             LibraryAPI.exifFields(ids).catch(() => []),
             ...EXIF_TEXT_FILTER_FIELDS.map(f =>
                 LibraryAPI.exifValues(f.field, ids).catch(() => [])
@@ -231,6 +237,7 @@ class LibraryFilterPanel {
         this._channels = channels;
         this._metaKeys = metaKeys;
         this._albumTitles = albumTitles;
+        this._personNames = personNames;
         this._exifFields = exifFields;
         this._textValues = {};
         this._textActive = {};
@@ -667,6 +674,7 @@ class LibraryFilterPanel {
         const channels = this._channels || [];
         const metaKeys = this._metaKeys || [];
         const albumTitles = this._albumTitles || [];
+        const personNames = this._personNames || [];
         const exifFields = this._exifFields || [];
 
         // Params already covered by fixed namespaces — don't add them again as dynamic EXIF entries.
@@ -701,6 +709,7 @@ class LibraryFilterPanel {
                 if (nsDesc) {
                     if (nsDesc.ns === 'channel') return channels.map(c => c.slug);
                     if (nsDesc.ns === 'album') return albumTitles;
+                    if (nsDesc.ns === 'person') return personNames;
                     if (nsDesc.type === 'exif') {
                         const raw = await LibraryAPI.exifValues(nsDesc.param, ids).catch(() => []);
                         return labeledExifValues(nsDesc.param, raw);

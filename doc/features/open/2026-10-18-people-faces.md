@@ -55,5 +55,6 @@ follow on the same runtime. See [ADR-0051](../../architecture/adr/0051-faces-onn
 - [x] Owner decided (2026-10-18): the Linux binary needs glibc's loader; musl and bare NixOS use the container (ADR-0051, Consequences)
 - [x] A name taken away or changed in one installation follows in the other when it reads the sidecar; hiding stays on the installation that hid (2026-10-19, ADR-0052)
 - [x] Names are written sidecar first, changing only the faces concerned, so the other installation's names in the same photo stay
-- [ ] People shows its own photo column on a person's page instead of opening the viewer straight away
-- [ ] The library filter can narrow to a person
+- [x] A person's Show photos opens Libraries filtered to that person (instead of a photo column of People's own)
+- [x] The library filter can narrow to a person (Person chip, across libraries)
+- [x] A face can be seen in its whole photo, framed, by resting on it or focusing it

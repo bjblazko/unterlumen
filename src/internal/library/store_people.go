@@ -27,10 +27,15 @@ type FaceGroup struct {
 	Suggestion *Person `json:"suggestion,omitempty"`
 }
 
-// FaceRef is one face and the photo it is in.
+// FaceRef is one face, the photo it is in, and where in it: fractions of
+// the photo's upright thumbnail, top left.
 type FaceRef struct {
-	ID      int64  `json:"id"`
-	PhotoID string `json:"photoId"`
+	ID      int64   `json:"id"`
+	PhotoID string  `json:"photoId"`
+	X       float64 `json:"x"`
+	Y       float64 `json:"y"`
+	W       float64 `json:"w"`
+	H       float64 `json:"h"`
 }
 
 // unnamed selects the faces still waiting for a name.
@@ -193,11 +198,11 @@ func (s *Store) personCentres() ([]Person, [][]float32, error) {
 // GroupFaces lists the unnamed faces of a group; PersonFaces the confirmed
 // faces of a person. Both put the largest first.
 func (s *Store) GroupFaces(grp int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT id, photo_id FROM faces WHERE grp = ? AND `+unnamed+` ORDER BY w*h DESC`, grp)
+	return s.faceRefs(`SELECT id, photo_id, x, y, w, h FROM faces WHERE grp = ? AND `+unnamed+` ORDER BY w*h DESC`, grp)
 }
 
 func (s *Store) PersonFaces(person int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT id, photo_id FROM faces WHERE person_id = ? AND confirmed = 1 ORDER BY w*h DESC`, person)
+	return s.faceRefs(`SELECT id, photo_id, x, y, w, h FROM faces WHERE person_id = ? AND confirmed = 1 ORDER BY w*h DESC`, person)
 }
 
 func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {
@@ -209,7 +214,7 @@ func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {
 	refs := []FaceRef{}
 	for rows.Next() {
 		var r FaceRef
-		if err := rows.Scan(&r.ID, &r.PhotoID); err != nil {
+		if err := rows.Scan(&r.ID, &r.PhotoID, &r.X, &r.Y, &r.W, &r.H); err != nil {
 			return nil, err
 		}
 		refs = append(refs, r)

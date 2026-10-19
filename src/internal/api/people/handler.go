@@ -23,6 +23,7 @@ const maxGroups = 60
 func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/faces", recognitionStatus(mgr))
 	mux.HandleFunc("POST /api/faces/install", installRecognition(mgr, reg))
+	mux.HandleFunc("GET /api/library/person-names", personNames(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people", overview(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}", groupFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))
@@ -31,6 +32,25 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/unname", changeFaces(mgr, (*lib.Store).UnnameFaces))
 	mux.HandleFunc("POST /api/library/{id}/faces/hide", changeFaces(mgr, (*lib.Store).HideFaces))
+}
+
+// personNames lists the people named in the libraries ids (comma-separated;
+// all when empty), for the library filter's Person chip.
+func personNames(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var ids []string
+		for _, id := range strings.Split(r.URL.Query().Get("ids"), ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		names, err := mgr.PersonNames(ids)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, names)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

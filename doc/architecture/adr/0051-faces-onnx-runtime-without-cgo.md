@@ -99,7 +99,12 @@ sidecar as Metadata Working Group regions; an architecture that is not
 7. **People is a place** (`#people`, key 0) under Explore: one library at a
    time, the named people as cards, the groups waiting for a name below with
    a field each, and pages for a group (switch faces off before naming) and a
-   person (switch faces on to take them away, Show photos, Rename).
+   person (switch faces on to take them away, Show photos, Rename). Resting on
+   a face, or focusing it with the keyboard, shows it in its whole photo with
+   the face framed and the rest dimmed (`FacePeek`), since a small face is
+   often recognised by where it is. Show photos opens Libraries filtered to the
+   person: the library filter's Person chip (`person=` in the photo query,
+   matched without regard to case) works across libraries.
 
 ## Consequences
 

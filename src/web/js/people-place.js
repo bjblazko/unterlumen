@@ -258,7 +258,7 @@ class PeoplePane {
         });
         this._body.innerHTML = `
             <div class="people-page-head">${this._crumb('Who is this?')}</div>
-            <p class="people-hint">Switch off the faces that are someone else; they stay unnamed. Double-click a face to see its photo.</p>
+            <p class="people-hint">Switch off the faces that are someone else; they stay unnamed. Rest the pointer on a face to see it in its photo; double-click to open the photo.</p>
             <div class="people-grid-wrap"></div>
             <form class="people-bar">
                 <label class="people-label" for="people-group-name">Name</label>
@@ -331,9 +331,9 @@ class PeoplePane {
         this._body.innerHTML = `
             <div class="people-page-head">${this._crumb(escapeHtml(person.name))}
                 <span class="people-head-spacer"></span>
-                <button type="button" class="btn people-show">Show photos</button>
+                <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
-            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}. Double-click a face to see its photo.</p>
+            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar" hidden>
                 <div class="people-group-row">
@@ -343,7 +343,7 @@ class PeoplePane {
             </div>`;
         this._body.querySelector('.people-show').after(menu.button);
         this._body.querySelector('.people-grid-wrap').appendChild(grid.el);
-        this._body.querySelector('.people-show').addEventListener('click', () => this._openPhotos(faces, 0));
+        showPhotosLink(this._body.querySelector('.people-show'), { person: person.name });
         const bar = this._body.querySelector('.people-bar');
         const unname = bar.querySelector('.people-unname');
         const update = () => {

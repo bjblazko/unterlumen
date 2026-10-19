@@ -168,3 +168,23 @@ func TestStatusSaysNotInstalled(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// A named person is a filter of the library search: the photos showing them,
+// with their name in any case, and the names to choose from.
+func TestAPersonFiltersTheLibrarySearch(t *testing.T) {
+	h, mgr, id := libraryWithFaces(t)
+	o := readOverview(t, h, id)
+	do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": o.Groups[0].Faces[:1], "name": "Anna"})
+
+	rec := do(t, h, "GET", "/api/library/person-names", nil)
+	var names []string
+	json.Unmarshal(rec.Body.Bytes(), &names) //nolint:errcheck
+	if len(names) != 1 || names[0] != "Anna" {
+		t.Fatalf("names %s", rec.Body)
+	}
+	store, _ := mgr.OpenStore(id)
+	res, err := store.ListPhotos(lib.ListPhotosOpts{Person: "anna", Limit: 10})
+	if err != nil || res.Total != 1 || len(res.Photos) != 1 {
+		t.Fatalf("photos of Anna: %+v, %v", res, err)
+	}
+}

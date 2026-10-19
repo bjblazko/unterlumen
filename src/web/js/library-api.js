@@ -117,6 +117,12 @@ const LibraryAPI = {
         if (!r.ok) return [];
         return r.json();
     },
+    async personNames(ids) {
+        const params = ids ? `?ids=${ids}` : '';
+        const r = await fetch(`/api/library/person-names${params}`);
+        if (!r.ok) return [];
+        return r.json();
+    },
     async exifFields(ids) {
         const params = ids ? `?ids=${ids}` : '';
         const r = await fetch(`/api/library/exif-fields${params}`);
