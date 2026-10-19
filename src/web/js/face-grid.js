@@ -55,6 +55,14 @@ class FacePeek {
         this._sel = selector;
         this._timer = 0;
         this._el = null;
+        this._tile = null;
+        // A page drawn anew (a cover chosen, a pass finished) takes the
+        // tile away without a pointerout or a focusout: the peek checks on
+        // every frame while it shows, and goes with its tile.
+        this._watch = () => {
+            if (!this._tile?.isConnected) { this.hide(); return; }
+            this._frame = requestAnimationFrame(this._watch);
+        };
         grid.addEventListener('pointerover', (e) => {
             const tile = e.target.closest(this._sel);
             if (!tile || e.pointerType === 'touch') return;
@@ -76,7 +84,7 @@ class FacePeek {
 
     show(tile) {
         const f = this._faces[Number(tile.dataset.index)];
-        if (!f) return;
+        if (!f || !tile.isConnected) return;
         this.hide();
         const el = document.createElement('div');
         el.className = 'face-peek';
@@ -88,6 +96,8 @@ class FacePeek {
             </div>`;
         document.body.appendChild(el);
         this._el = el;
+        this._tile = tile;
+        this._frame = requestAnimationFrame(this._watch);
         tile.setAttribute('aria-describedby', 'face-peek');
         el.id = 'face-peek';
         const img = el.querySelector('img');
@@ -98,6 +108,7 @@ class FacePeek {
 
     // Beside the tile, on the side with more room, kept inside the window.
     _place(el, tile) {
+        if (!tile.isConnected) { this.hide(); return; }
         const gap = 8, margin = 16;
         const t = tile.getBoundingClientRect();
         const r = el.getBoundingClientRect();
@@ -111,6 +122,8 @@ class FacePeek {
 
     hide() {
         clearTimeout(this._timer);
+        cancelAnimationFrame(this._frame);
+        this._tile = null;
         if (!this._el) return;
         document.querySelector('[aria-describedby="face-peek"]')?.removeAttribute('aria-describedby');
         this._el.remove();

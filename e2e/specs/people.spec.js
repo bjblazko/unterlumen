@@ -170,5 +170,28 @@ test.describe('People', () => {
     expect(state.cover).toBe(12);
     await expect(page.locator('.face-tile-cover')).toHaveCount(1);
   });
+
+  // The page is drawn anew while the pointer rests on a face: its peek
+  // must not stay behind, stuck to a tile that is gone.
+  test('a face peek goes when the page is drawn anew under it', async ({ page }) => {
+    const state = { cover: null, overview: () => ({ people: [{ id: 1, name: 'Anna', faces: 2, photos: 2, cover: state.cover ?? 11 }], groups: [], groupCount: 0, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.route(`**/api/library/${LIB}/people/1`, r => r.fulfill({ json: [
+      { id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }, { id: 12, photoId: 'p2', x: 0.1, y: 0.1, w: 0.2, h: 0.3 }] }));
+    await page.route(`**/api/library/${LIB}/people/1/cover`, async r => {
+      state.cover = r.request().postDataJSON().face;
+      await r.fulfill({ status: 204 });
+    });
+    await page.goto(`/#people/${LIB}/person/1`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').nth(1).click();
+    // The pointer rests on the other face, which is not clicked: its peek shows.
+    await page.locator('.face-tile').nth(0).hover();
+    await expect(page.locator('.face-peek')).toBeVisible();
+    // The page is drawn anew without the pointer moving.
+    await page.locator('.people-cover').evaluate(b => b.click());
+    await expect(page.locator('.face-tile').nth(1).locator('.face-tile-cover')).toBeVisible();
+    await expect(page.locator('.face-peek')).toHaveCount(0);
+  });
 });
 

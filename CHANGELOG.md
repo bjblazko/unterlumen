@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A face's preview stayed behind on its own.** After choosing a cover, or when People redrew itself after a face pass, the preview of a face in its photo could stay on screen, often in the top left corner, in Safari: the face it belonged to was gone, and Safari does not say so. The preview now goes with its face.
+
 ## [0.17.0] - 2026-10-19
 
 ### Added
