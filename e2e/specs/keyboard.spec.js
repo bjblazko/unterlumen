@@ -27,6 +27,19 @@ test.describe('Keyboard shortcuts', () => {
     }
   });
 
+  test('Escape in a field leaves the field first, the place only next', async ({ page }) => {
+    await page.goto('/#libraries');
+    await waitForAppReady(page);
+    await page.locator('#mode-settings').click();
+    const limit = page.locator('#storage-limit');
+    await limit.focus();
+    await page.keyboard.press('Escape');
+    await expect(limit).not.toBeFocused();
+    await expect(page.locator('#mode-settings')).toHaveAttribute('aria-current', 'page');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
+  });
+
   test('Cmd/Ctrl+A selects every photo, Escape clears the selection', async ({ page }) => {
     await openFolderB(page);
     await page.keyboard.press('ControlOrMeta+a');

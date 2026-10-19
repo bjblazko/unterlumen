@@ -224,6 +224,13 @@ class Viewer {
         if (this._cropTool) return; // crop mode has its own key handler
         // A dialog or the menu opened from here has the keys while it is open.
         if (document.querySelector('.dialog-scrim, .keyboard-owner')) return;
+        // Typing in a field of the info panel — a face's name — is typing:
+        // I, F, H and the arrows stay letters, Backspace does not mark the
+        // photo, and Escape leaves the field rather than the photo.
+        if (App.keyboard._isInputFocused(e)) {
+            if (e.key === 'Escape') { e.preventDefault(); App.keyboard._leaveField(); }
+            return;
+        }
         switch (e.key) {
             case 'ArrowLeft':
                 e.preventDefault();

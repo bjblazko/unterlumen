@@ -40,13 +40,28 @@ class GlobalKeyboard {
         return !!(active && (formTags.has(active.tagName) || active.isContentEditable));
     }
 
+    // _leaveField takes the focus out of the field it is in. A field that
+    // shut itself on Escape has already let go of it.
+    _leaveField() {
+        const el = document.activeElement;
+        if (el && el !== document.body) el.blur();
+        // focusout clears the flag only on the next turn; a quick second
+        // Escape must already find the field left.
+        this._inputActive = false;
+    }
+
     _handle(e) {
         // A dialog owns the keyboard while it is open, Escape included: the
         // Dialog handles its own keys (ADR-0033). The same goes for the crop
         // tool, which draws on the photo and takes the keys with it.
         if (document.querySelector('.dialog-scrim, .keyboard-owner')) return;
 
-        if (e.key !== 'Escape' && this._isInputFocused(e)) return;
+        // Typing is typing. Escape leaves the field and nothing more — not
+        // Settings, not the folder, not the selection; the next Escape does.
+        if (this._isInputFocused(e)) {
+            if (e.key === 'Escape') this._leaveField();
+            return;
+        }
 
         // Organize: the number keys aim at a target, Enter uses the current
         // one, U takes the last move back (ADR-0032). The screen answers for

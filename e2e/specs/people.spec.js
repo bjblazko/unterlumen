@@ -131,6 +131,29 @@ test.describe('People', () => {
     await expect.poll(() => unnamed).toEqual({ faces: [13] });
   });
 
+  test("typing a face's name in the viewer's info panel stays typing", async ({ page }) => {
+    const state = { named: null, overview: () => ({ people: [], groups: [{ id: 0, size: 2, faces: [11, 12] }], groupCount: 1, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.route(`**/api/library/${LIB}/photo/p1/faces`, r => r.fulfill({ json: { faces: [{ id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }], names: [] } }));
+    await page.route(`**/api/library/${LIB}/photo/p1/info`, r => r.fulfill({ json: { name: 'p1.jpg', size: 1000, modTime: '2026-01-01T00:00:00Z' } }));
+    await page.route(`**/api/library/${LIB}/photo/p1`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
+    await page.goto(`/#people/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').first().dblclick();
+    const input = page.locator('.info-people .info-face-input');
+    await input.click();
+    // I opens and closes the panel, F the film strip, H the interface,
+    // Backspace marks the photo — none of them while typing a name.
+    await input.pressSequentially('Iris Hoff');
+    await input.press('Backspace');
+    await expect(input).toHaveValue('Iris Hof');
+    await expect(input).toBeVisible();
+    await expect(page.locator('.viewer')).toBeVisible();
+    await input.press('Escape');
+    await expect(input).not.toBeFocused();
+    await expect(page.locator('.viewer')).toBeVisible();
+  });
+
   test("a person's name can be taken away from all their faces", async ({ page }) => {
     let forgotten = false;
     const state = { named: null, overview: () => ({ people: forgotten ? [] : [{ id: 1, name: 'Anna', faces: 1, photos: 1, cover: 11 }], groups: [], groupCount: 0, pending: 0, finding: false }) };

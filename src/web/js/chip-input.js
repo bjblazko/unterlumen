@@ -290,6 +290,9 @@ class ChipInput {
                 this._selectValue(this._input.value.trim());
             }
         } else if (e.key === 'Escape') {
+            // The first Escape closes the suggestions and keeps the field;
+            // the next one leaves it (app-keyboard.js).
+            if (this._dropdown.style.display !== 'none') e.stopPropagation();
             this._close();
         } else if (e.key === 'Backspace' && this._input.value === '') {
             if (this._phase === 'value') {

@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - **Unterlumen stopped answering after a few pages with a person on a phone.** Looking for a person's photos made the library look through all of that person's faces again for every photo — minutes in a large library — and everything else waited behind it, a page left behind included. The search now finds a person's photos once, picks a page without reading every match's EXIF, and stops when the page that asked for it has gone. On the largest library a person's photos come in 0.2 s instead of minutes, and every search is faster.
+- **Typing a name in the viewer's info panel closed the panel.** The viewer listened to its keys without asking whether you were typing, so I closed the info panel, F switched the film strip, H hid the interface, the arrows changed the photo and Backspace marked it for deletion while you typed a face's name. The viewer now leaves typing alone, as the rest of the app does.
+- **Escape in a field did more than leave the field.** In Settings it left Settings, in Folders and Organize it went up a folder or cleared the selection — also when Escape was meant to close a name field's suggestions or cancel Organize's new folder. Escape in a field now only leaves the field; the next Escape does what it does elsewhere.
 
 ### Changed
 - **A person's faces come newest first.** On a person's page, in a library and in All libraries, the faces are in the order of their photos, from the newest to the oldest, those without a date last — as their photos already were under Show photos and on a phone. They were largest first.
