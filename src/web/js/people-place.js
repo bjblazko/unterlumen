@@ -3,19 +3,20 @@
 //
 // Addresses: #people, #people/<library>, #people/<library>/group/<n> and
 // #people/<library>/person/<n>. Groups are rebuilt after every pass, so a
-// group's address is only good until the next one.
+// group's address is only good until the next one. #people/all is everyone
+// in all libraries (people-everyone.js).
 
 const PEOPLE_LIBRARY_KEY = 'people-library';
 
 function peopleRouteFromHash(hash) {
     const [, library = '', view = '', id = ''] = hash.replace(/^#/, '').split('/');
-    return { library: decodeURIComponent(library), view, id };
+    return { library: decodeURIComponent(library), view, id: decodeURIComponent(id) };
 }
 
 function peopleHash({ library = '', view = '', id = '' } = {}) {
     if (!library) return '#people';
     // Groups are numbered from 0, so an id of 0 is an id.
-    return `#people/${encodeURIComponent(library)}` + (view && String(id) !== '' ? `/${view}/${id}` : '');
+    return `#people/${encodeURIComponent(library)}` + (view && String(id) !== '' ? `/${view}/${encodeURIComponent(id)}` : '');
 }
 
 class PeoplePane {
@@ -24,6 +25,7 @@ class PeoplePane {
         this.route = { library: '' };
         this.libraries = [];
         this.overviewData = null;
+        this._everyone = new PeopleEveryone(this);
         App.statusLine?.onFinished((job) => {
             if (job.place === 'people' && App.mode === 'people') this.show(this.route);
         });
@@ -43,14 +45,19 @@ class PeoplePane {
         if (!status.installed) { this._showInstall(status.plan); return; }
         if (!this.route.library) { this._showNoLibraries(); return; }
         try { localStorage.setItem(PEOPLE_LIBRARY_KEY, this.route.library); } catch { /* private window */ }
-        if (this.route.view === 'group') await this._showGroup(Number(this.route.id));
+        if (this.route.library === PEOPLE_ALL) {
+            if (this.route.view === 'person') await this._everyone.showPerson(this.route.id);
+            else await this._everyone.showOverview();
+        } else if (this.route.view === 'group') await this._showGroup(Number(this.route.id));
         else if (this.route.view === 'person') await this._showPerson(Number(this.route.id));
         else await this._showOverview();
     }
 
-    // The library asked for, else the one shown last, else the first.
+    // The library asked for, else the one shown last, else the first. All
+    // libraries is a choice once there are two.
     _chooseLibrary(asked) {
         const ids = this.libraries.map(l => String(l.id));
+        if (ids.length > 1) ids.push(PEOPLE_ALL);
         let last = '';
         try { last = localStorage.getItem(PEOPLE_LIBRARY_KEY) || ''; } catch { /* private window */ }
         return [asked, last, ids[0] || ''].find(id => id && ids.includes(id)) || '';
@@ -78,7 +85,7 @@ class PeoplePane {
     _head(count = '') {
         const label = this.container.querySelector('.people-library-label');
         label.hidden = this.libraries.length < 2;
-        this._select.innerHTML = this.libraries.map(l =>
+        this._select.innerHTML = `<option value="${PEOPLE_ALL}">All libraries</option>` + this.libraries.map(l =>
             `<option value="${escapeHtml(String(l.id))}">${escapeHtml(l.name)}</option>`).join('');
         this._select.value = this.route.library;
         this.container.querySelector('.people-count').textContent = count;
@@ -307,10 +314,11 @@ class PeoplePane {
 
     async _showPerson(id) {
         const activity = Activity.in(this._body, 'Reading the faces…', { area: true });
-        let faces, person;
+        let faces, person, everyone;
         try {
-            [faces, this.overviewData] = await Promise.all([
-                PeopleAPI.personFaces(this.route.library, id), PeopleAPI.overview(this.route.library)]);
+            [faces, this.overviewData, everyone] = await Promise.all([
+                PeopleAPI.personFaces(this.route.library, id), PeopleAPI.overview(this.route.library),
+                this.libraries.length > 1 ? PeopleAPI.everyone() : []]);
             person = this.overviewData.people.find(p => p.id === id);
         } catch (err) {
             activity.fail(`The faces could not be read: ${err.message}.`);
@@ -322,21 +330,22 @@ class PeoplePane {
         }
         const photos = person.photos === 1 ? '1 photo' : `${formatCount(person.photos)} photos`;
         this._head(`${formatCount(faces.length)} faces in ${photos}`);
+        const elsewhere = this._namedElsewhere(everyone, person.name);
         const grid = new FaceGrid({
             lib: this.route.library, faces,
             onChange: () => update(),
             onOpen: (i) => this._openPhotos(faces, i),
         });
         const menu = new Menu({ label: 'Person options', items: () => [
-            { label: 'Rename…', onSelect: () => this._rename(person) },
-            { label: 'Take the name away…', onSelect: () => this._forget(person, faces.length) },
+            { label: 'Rename…', onSelect: () => this._rename(person, elsewhere) },
+            { label: 'Take the name away…', onSelect: () => this._forget(person, faces.length, elsewhere) },
         ] });
         this._body.innerHTML = `
             <div class="people-page-head">${this._crumb(escapeHtml(person.name))}
                 <span class="people-head-spacer"></span>
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
-            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.</p>
+            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.${this._elsewhereNote(person.name, elsewhere)}</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar" hidden>
                 <div class="people-group-row">
@@ -368,7 +377,26 @@ class PeoplePane {
         });
     }
 
-    _rename(person) {
+    // The libraries other than this one where the name is given, from the
+    // list of everyone.
+    _namedElsewhere(everyone, name) {
+        const someone = everyone.find(p => p.name.toLowerCase() === name.toLowerCase());
+        return (someone?.libraries || []).filter(l => l.library !== this.route.library);
+    }
+
+    _elsewhereNote(name, elsewhere) {
+        if (!elsewhere.length) return '';
+        const links = elsewhere.map(l =>
+            `<a href="${peopleHash({ library: l.library, view: 'person', id: l.person })}">${escapeHtml(l.libraryName)}</a>`);
+        const all = `<a href="${peopleHash({ library: PEOPLE_ALL, view: 'person', id: name })}">${escapeHtml(name)} in all libraries</a>`;
+        return ` ${escapeHtml(name)} is also named in ${sentenceList(links)}; see ${all}.`;
+    }
+
+    _libraryName() {
+        return this.libraries.find(l => String(l.id) === this.route.library)?.name || 'this library';
+    }
+
+    _rename(person, elsewhere) {
         const dlg = new Dialog({
             title: 'Rename',
             subtitle: person.name,
@@ -378,6 +406,7 @@ class PeoplePane {
                 <label class="library-dialog-label" for="people-rename">Name</label>
                 <input class="library-dialog-input" id="people-rename" type="text" autocomplete="off" value="${escapeHtml(person.name)}">
                 <span class="form-hint">If someone else already has this name, the two become one person.</span>
+                ${elsewhere.length ? `<span class="form-hint">This changes the name in ${escapeHtml(this._libraryName())} only. ${escapeHtml(person.name)} is also named in ${escapeHtml(sentenceList(elsewhere.map(l => l.libraryName)))}: rename there too, so they stay one person.</span>` : ''}
                 <p class="people-group-error" hidden></p>`,
             actions: [
                 { label: 'Cancel', value: null },
@@ -401,7 +430,7 @@ class PeoplePane {
 
     // _forget takes the person's name from all their faces, which go back to
     // the groups waiting for a name.
-    _forget(person, count) {
+    _forget(person, count, elsewhere) {
         const faces = count === 1 ? '1 face goes' : `${formatCount(count)} faces go`;
         new Dialog({
             title: `Take the name ${person.name} away?`,
@@ -409,6 +438,7 @@ class PeoplePane {
             className: 'library-dialog',
             body: `
                 <p>Its ${faces} back to Who is this?, and the name leaves the photos' sidecars, also for your other installation.</p>
+                ${elsewhere.length ? `<p>This is ${escapeHtml(this._libraryName())} only: the name stays in ${escapeHtml(sentenceList(elsewhere.map(l => l.libraryName)))}.</p>` : ''}
                 <p class="people-group-error" hidden></p>`,
             actions: [
                 { label: 'Cancel', value: null },

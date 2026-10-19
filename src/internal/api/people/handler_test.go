@@ -26,14 +26,24 @@ func libraryWithFaces(t *testing.T) (http.Handler, *lib.Manager, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	id := addLibraryWithFaces(t, mgr, "Test", 0)
+	mux := http.NewServeMux()
+	Handle(mux, mgr, jobs.NewRegistry())
+	return mux, mgr, id
+}
+
+// addLibraryWithFaces adds a library of two photos showing the same face;
+// faces of libraries made with the same look are the same person's.
+func addLibraryWithFaces(t *testing.T, mgr *lib.Manager, name string, look int) string {
+	t.Helper()
 	source := t.TempDir()
-	l, err := mgr.CreateLibrary("Test", "", source)
+	l, err := mgr.CreateLibrary(name, "", source)
 	if err != nil {
 		t.Fatal(err)
 	}
 	store, _ := mgr.OpenStore(l.ID)
 	emb := make([]float32, 128)
-	emb[0] = 1
+	emb[look] = 1
 	var found []lib.FoundFaces
 	for _, id := range []string{"aa1", "bb2"} {
 		thumb := filepath.Join("thumbs", id[:2], id+".jpg")
@@ -49,9 +59,7 @@ func libraryWithFaces(t *testing.T) (http.Handler, *lib.Manager, string) {
 	if err := store.Regroup(); err != nil {
 		t.Fatal(err)
 	}
-	mux := http.NewServeMux()
-	Handle(mux, mgr, jobs.NewRegistry())
-	return mux, mgr, l.ID
+	return l.ID
 }
 
 func writeJPEG(t *testing.T, path string) {

@@ -24,6 +24,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/faces", recognitionStatus(mgr))
 	mux.HandleFunc("POST /api/faces/install", installRecognition(mgr, reg))
 	mux.HandleFunc("GET /api/library/person-names", personNames(mgr))
+	mux.HandleFunc("GET /api/people", everyone(mgr))
+	mux.HandleFunc("GET /api/people/someone", someone(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people", overview(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}", groupFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))

@@ -24,6 +24,7 @@
 .people-back { font-size: var(--text-md); color: var(--fg-2); }
 .people-crumb-sep { font-size: var(--text-md); color: var(--fg-3); }
 .people-hint { margin: 0 0 var(--space-4); font-size: var(--text-sm); color: var(--fg-2); max-width: 70ch; }
+.people-hint a, .people-note a, .people-elsewhere-text a { color: var(--fg); }
 
 /* --- Sections --- */
 .people-section { margin-bottom: var(--space-8); }
@@ -41,6 +42,7 @@
 .people-card img { width: 96px; height: 96px; border-radius: var(--radius-sm); background: var(--bg-3); object-fit: cover; }
 .people-card-name { font-size: var(--text-sm); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .people-card-count { font: 400 var(--text-xs)/1.4 var(--font-mono); color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.people-card-where { font-size: var(--text-xs); color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* --- Who is this? --- */
 .people-group {
@@ -68,6 +70,17 @@
     position: sticky; bottom: calc(-1 * var(--space-5)); margin: 0 calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
     padding: var(--space-3) var(--space-5); background: var(--bg-2);
 }
+
+/* --- All libraries --- */
+.people-in-head { display: flex; align-items: baseline; gap: var(--space-3); }
+.people-in .face-grid { margin-bottom: var(--space-3); }
+.people-elsewhere {
+    display: grid; grid-template-columns: calc(6 * 64px + 5 * var(--space-1)) 1fr; gap: var(--space-1) var(--space-5); align-items: center;
+    padding: var(--space-4) 0; border-top: 1px solid var(--line);
+}
+.people-elsewhere-title { grid-column: 1 / -1; margin: 0; font-size: var(--text-sm); font-weight: 600; }
+.people-elsewhere .people-group-faces { grid-row: auto; }
+.people-elsewhere-text { grid-column: 2; margin: 0; font-size: var(--text-sm); color: var(--fg-2); max-width: 60ch; }
 
 /* --- Face grid --- */
 .face-grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); gap: var(--space-2); }

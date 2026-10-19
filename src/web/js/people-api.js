@@ -9,6 +9,14 @@ const PeopleAPI = {
         const r = await fetch('/api/faces/install', { method: 'POST' });
         if (!r.ok) throw new Error(await r.text());
     },
+    // Everyone named in any library, put together by name.
+    async everyone() {
+        return peopleJSON(await fetch('/api/people'));
+    },
+    // The person of that name in every library, and who elsewhere may be them.
+    async someone(name) {
+        return peopleJSON(await fetch(`/api/people/someone?name=${encodeURIComponent(name)}`));
+    },
     async overview(lib) {
         return peopleJSON(await fetch(`/api/library/${lib}/people`));
     },

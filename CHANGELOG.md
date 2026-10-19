@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **People in all libraries.** People's library picker has *All libraries*: everyone named in any library, linked by name. A person's page there shows their faces from each library and Show photos across all of them, and for each library without the name, who there looks like them — someone named otherwise, or a group waiting for a name — with a link to name them there. It only reads: names are given and changed in each library, and a person's Rename and Take the name away now say which other libraries have the name.
+
 ### Fixed
 - **A sidecar is never half written.** Names, titles, fields and publication records were written into the XMP sidecar in place, so for a moment the file was empty or half there. A scan on the other installation reading it then briefly lost those names in its index, and the other installation writing the same sidecar at that moment could lose the rest of it, Lightroom's data included. Sidecars are now written beside the old one and put in its place in one step; a change the other installation made while writing is kept.
 

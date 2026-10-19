@@ -168,7 +168,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/pathguard` | `SafePath` — shared security primitive; symlink-aware root-boundary check |
 | `internal/onnx` | Runs ONNX models on ONNX Runtime, loaded from its shared library at run time through purego: float32 tensors in and out, CPU only ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/faces` | Finds faces (YuNet), aligns them and describes each by an embedding (SFace); groups embeddings; pure, no storage ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
-| `internal/api/people` | `/api/faces*` and the People routes of a library: overview, group and person faces, a face's picture, naming, hiding, renaming; writes the names into the sidecars ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `internal/api/people` | `/api/faces*` and the People routes of a library: overview, group and person faces, a face's picture, naming, hiding, renaming; everyone across libraries by name (`/api/people*`); writes the names into the sidecars ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/appearance` | What a photo looks like, measured from an image: mono/tinted/colour, average colour and palette in OKLab, tone, texture, dHash; pure, no storage ([ADR-0044](adr/0044-photo-appearance-from-thumbnails.md)) |
 | `internal/media` | Filesystem scanning, EXIF extraction (exif.go), orientation (orientation.go), thumbnail generation (thumbnail.go), export/conversion (export.go), Fujifilm simulations (fujifilm.go), aspect-ratio labels (aspectratio.go), recursive folder stats (folder_stats.go) |
 
@@ -203,6 +203,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `scope-filter.js` | `ScopeState` and `ScopeFilter` — the one filter of the Map, the Statistics and the Timeline: libraries, months, cameras, lenses, shared and kept in the browser ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
 | `people-place.js` | `PeoplePane` — People: the download, a library's named people and groups of unnamed faces, a group's and a person's page ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `people-everyone.js` | `PeopleEveryone` — People in all libraries: everyone by name, a person across libraries and who elsewhere may be them; reads only |
 | `face-grid.js` | `FaceGrid` — pictures of faces, each a switch, for People's group and person pages |
 | `people-api.js` | `PeopleAPI` — the `/api/faces` and People calls |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |

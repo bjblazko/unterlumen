@@ -111,6 +111,28 @@ sidecar as Metadata Working Group regions; an architecture that is not
    it away. Take the name away… on a person's page takes it from all their
    faces (`DELETE …/people/{id}`).
 
+8. **People in all libraries are linked by name.** Each library keeps its
+   own people, faces and groups; the same name, without regard to case, is
+   the same person in every library — the only thing the sidecars carry, so
+   it needs nothing stored and holds on every installation. The library
+   picker of People has All libraries (`#people/all`, `GET /api/people`):
+   everyone named anywhere, and a person's page
+   (`#people/all/person/<name>`, `GET /api/people/someone?name=`) with their
+   largest faces per library, Show photos across libraries, and the
+   libraries where nobody has the name. For each of those it compares the
+   person's faces, on this computer, with the people and the groups waiting
+   for a name there and suggests the one that looks most like them
+   (`SuggestThreshold`): "Anna Müller there looks like Anna" with a link to
+   rename there, or a group with a link to name it. The page only reads. A
+   name is given, changed and taken away in each library, where it goes into
+   that library's sidecars, so the page says so and links to each library's
+   person page; Rename and Take the name away there say which other
+   libraries have the name and that it stays there. Explicit links between
+   differently named people were rejected: they would need a list of links
+   stored somewhere, local (the other installation would not know them) or
+   shared (a second file two installations can overwrite), and the library
+   filter would have to follow them too.
+
 ## Consequences
 
 - The single binary stays: cgo-free, cross-compiled as before. Face
@@ -135,6 +157,8 @@ sidecar as Metadata Working Group regions; an architecture that is not
   sidecar) would be lost then.
 - A name taken away or changed on one installation leaves or changes on the
   other at its next scan or check of the library.
+- Renaming a person in one library splits them from the same name in the
+  others until they are renamed there too; the dialog says so.
 - The engine stays loaded once used; the download cannot be undone from the
   app. Deleting `<lib-dir>/recognition` and restarting turns it off.
 - Biometric data stays on the machine. "Your data" says what is downloaded and
