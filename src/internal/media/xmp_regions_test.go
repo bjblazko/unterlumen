@@ -38,8 +38,8 @@ func TestWriteThenReadFaceRegions(t *testing.T) {
 	if err := WriteFaceRegions(photo, want, 6, 6000, 4000); err != nil {
 		t.Fatal(err)
 	}
-	got, err := ReadFaceRegions(photo, 6)
-	if err != nil {
+	got, foreign, err := ReadFaceRegions(photo, 6)
+	if err != nil || foreign {
 		t.Fatal(err)
 	}
 	if len(got) != 2 || !sameRegion(got[0], want[0]) || !sameRegion(got[1], want[1]) {
@@ -59,7 +59,7 @@ func TestWriteFaceRegionsKeepsTheRestOfTheSidecar(t *testing.T) {
 		t.Fatal(err)
 	}
 	notes, _ := ReadNotes(photo)
-	regions, _ := ReadFaceRegions(photo, 1)
+	regions, _, _ := ReadFaceRegions(photo, 1)
 	if notes.Fields["Place"] != "Kiel" || len(regions) != 1 || regions[0].Name != "Ben" {
 		t.Fatalf("fields %v, regions %+v", notes.Fields, regions)
 	}
@@ -97,12 +97,68 @@ const lightroomSidecar = `<x:xmpmeta xmlns:x="adobe:ns:meta/">
 func TestForeignRegionsAreReadButNotWritten(t *testing.T) {
 	photo := filepath.Join(t.TempDir(), "a.jpg")
 	os.WriteFile(SidecarPath(photo), []byte(lightroomSidecar), 0o644) //nolint:errcheck
-	got, _ := ReadFaceRegions(photo, 1)
+	got, foreign, _ := ReadFaceRegions(photo, 1)
+	if !foreign {
+		t.Error("Lightroom's regions were not taken as another program's")
+	}
 	if len(got) != 1 || !sameRegion(got[0], FaceRegion{Name: "Dora", X: 0.4, Y: 0.4, W: 0.2, H: 0.2}) {
 		t.Fatalf("got %+v", got)
 	}
 	err := WriteFaceRegions(photo, []FaceRegion{{Name: "Eva", X: 0.1, Y: 0.1, W: 0.1, H: 0.1}}, 1, 100, 100)
 	if !errors.Is(err, ErrForeignRegions) {
 		t.Fatalf("writing over Lightroom's regions: %v", err)
+	}
+}
+
+// A change touches only its own face: a name the other installation wrote
+// since stays, and a name taken away goes.
+func TestChangeFaceRegionsChangesOnlyItsFaces(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "a.jpg")
+	anna := FaceRegion{Name: "Anna", X: 0.1, Y: 0.1, W: 0.2, H: 0.2}
+	ben := FaceRegion{Name: "Ben", X: 0.6, Y: 0.1, W: 0.2, H: 0.2}
+	if err := ChangeFaceRegions(photo, []FaceRegion{anna}, 6, 600, 400); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteFaceRegions(photo, []FaceRegion{anna, ben}, 6, 600, 400); err != nil { // Ben, from the other installation
+		t.Fatal(err)
+	}
+	renamed := anna
+	renamed.Name = "Anne"
+	renamed.X += 0.01 // the same face, found a little differently
+	if err := ChangeFaceRegions(photo, []FaceRegion{renamed}, 6, 600, 400); err != nil {
+		t.Fatal(err)
+	}
+	got, _, _ := ReadFaceRegions(photo, 6)
+	if len(got) != 2 || got[0].Name != "Ben" || got[1].Name != "Anne" {
+		t.Fatalf("after renaming Anna: %+v", got)
+	}
+	gone := ben
+	gone.Name = ""
+	if err := ChangeFaceRegions(photo, []FaceRegion{gone}, 6, 600, 400); err != nil {
+		t.Fatal(err)
+	}
+	if got, _, _ = ReadFaceRegions(photo, 6); len(got) != 1 || got[0].Name != "Anne" {
+		t.Fatalf("after taking Ben's name away: %+v", got)
+	}
+	os.WriteFile(SidecarPath(photo), []byte(lightroomSidecar), 0o644) //nolint:errcheck
+	if err := ChangeFaceRegions(photo, []FaceRegion{anna}, 1, 100, 100); !errors.Is(err, ErrForeignRegions) {
+		t.Fatalf("changing Lightroom's regions: %v", err)
+	}
+}
+
+// A description of another program that starts like Unterlumen's is still
+// another program's.
+func TestALookAlikeDescriptionIsNotTakenForUnterlumens(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "a.jpg")
+	lookAlike := strings.Replace(lightroomSidecar,
+		`xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"`,
+		`xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"`, 1)
+	os.WriteFile(SidecarPath(photo), []byte(lookAlike), 0o644) //nolint:errcheck
+	if _, foreign, _ := ReadFaceRegions(photo, 1); !foreign {
+		t.Error("taken for Unterlumen's own regions")
+	}
+	if err := ChangeFaceRegions(photo, []FaceRegion{{Name: "Eva", X: 0.1, Y: 0.1, W: 0.1, H: 0.1}}, 1, 100, 100); !errors.Is(err, ErrForeignRegions) {
+		t.Fatalf("overwrote them: %v", err)
 	}
 }

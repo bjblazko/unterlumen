@@ -452,6 +452,7 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 	if idx.sidecars != nil && !idx.sidecars[sidecarKey(media.SidecarPath(absPath))] {
 		idx.store.ApplyNotes(photoID, media.Notes{}, idx.notesInSidecars()) //nolint:errcheck
 		idx.store.replaceBuiltMeta(photoID, nil)                            //nolint:errcheck
+		idx.store.ApplyFaceNames(photoID, nil, false)                       //nolint:errcheck
 		return
 	}
 	if notes, err := media.ReadNotes(absPath); err == nil {
@@ -464,16 +465,27 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 }
 
 // notesInSidecars is read once per indexer: a scan asks it for every photo.
-// applyFaceNames names the photo's faces after the regions in its sidecar,
-// which the other installation or another program may have written. Only a
-// photo with a sidecar pays for reading its orientation.
+// applyFaceNames makes the names of the photo's faces what its sidecar
+// says, which the other installation or another program may have written;
+// a photo whose walk showed no sidecar has no names (ADR-0052).
 func (idx *Indexer) applyFaceNames(absPath, photoID string) {
-	if _, err := os.Stat(media.SidecarPath(absPath)); err != nil {
+	if !idx.hasSidecar(absPath) {
+		idx.store.ApplyFaceNames(photoID, nil, false) //nolint:errcheck // the next scan tries again
 		return
 	}
-	if regions, err := media.ReadFaceRegions(absPath, media.ExtractOrientation(absPath)); err == nil {
-		idx.store.ApplyFaceNames(photoID, regions) //nolint:errcheck // the next scan tries again
+	if regions, foreign, err := media.ReadFaceRegions(absPath, media.ExtractOrientation(absPath)); err == nil {
+		idx.store.ApplyFaceNames(photoID, regions, foreign) //nolint:errcheck
 	}
+}
+
+// hasSidecar says whether the photo has a sidecar, from the run's walk when
+// there was one, otherwise from the disk.
+func (idx *Indexer) hasSidecar(absPath string) bool {
+	if idx.sidecars != nil {
+		return idx.sidecars[sidecarKey(media.SidecarPath(absPath))]
+	}
+	_, err := os.Stat(media.SidecarPath(absPath))
+	return err == nil
 }
 
 func (idx *Indexer) notesInSidecars() bool {

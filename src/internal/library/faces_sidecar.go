@@ -6,28 +6,94 @@ import (
 	_ "image/jpeg" // the formats storedSize reads
 	_ "image/png"
 	"os"
+	"strings"
 
+	"huepattl.de/unterlumen/internal/faces"
 	"huepattl.de/unterlumen/internal/media"
 )
 
-// WriteFaceNames writes the confirmed names of the faces in each photo into
-// its sidecar, where the other installation and other programs read them
-// (ADR-0051). A sidecar whose regions another program keeps is left alone
-// and counted in skipped; the names then live in this index only.
-func (s *Store) WriteFaceNames(photoIDs []string) (skipped int, err error) {
-	for _, id := range photoIDs {
-		werr := s.writeFaceNames(id)
+// faceRow is a face about to be changed: where it is and whether it carries
+// a name the sidecar should have.
+type faceRow struct {
+	faceID  int64
+	photoID string
+	box     media.FaceRegion
+	named   bool
+}
+
+func (s *Store) faceRows(ids []int64) ([]faceRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := s.db.Query(`SELECT id, photo_id, x, y, w, h, person_id IS NOT NULL AND confirmed = 1
+		FROM faces WHERE id IN (`+placeholders(len(ids))+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []faceRow
+	for rows.Next() {
+		var r faceRow
+		if err := rows.Scan(&r.faceID, &r.photoID, &r.box.X, &r.box.Y, &r.box.W, &r.box.H, &r.named); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// writeNamesFirst writes the faces' new name — "" takes it away — into their
+// photos' sidecars before the index changes (ADR-0052): each photo's sidecar
+// as it is now, changing only these faces. onlyNamed leaves the sidecar
+// alone for faces that had no name, which it cannot hold. It returns the
+// faces whose index may change: those whose sidecar was written, and those
+// whose regions another program keeps (counted in skipped; their names
+// stay in this index only). A photo whose sidecar cannot be written keeps
+// its faces as they were, and the first such error is returned.
+func (s *Store) writeNamesFirst(rows []faceRow, name string, onlyNamed bool) (ok []int64, skipped int, err error) {
+	byPhoto := map[string][]faceRow{}
+	var order []string
+	for _, r := range rows {
+		if _, seen := byPhoto[r.photoID]; !seen {
+			order = append(order, r.photoID)
+		}
+		byPhoto[r.photoID] = append(byPhoto[r.photoID], r)
+	}
+	for _, photo := range order {
+		var changes []media.FaceRegion
+		for _, r := range byPhoto[photo] {
+			if onlyNamed && !r.named {
+				continue
+			}
+			c := r.box
+			c.Name = name
+			changes = append(changes, c)
+		}
+		werr := s.writeFaceChanges(photo, changes)
 		switch {
 		case errors.Is(werr, media.ErrForeignRegions):
 			skipped++
-		case werr != nil && err == nil:
-			err = werr
+		case werr != nil:
+			if err == nil {
+				err = werr
+			}
+			continue
+		}
+		for _, r := range byPhoto[photo] {
+			ok = append(ok, r.faceID)
 		}
 	}
-	return skipped, err
+	return ok, skipped, err
 }
 
-func (s *Store) writeFaceNames(photoID string) error {
+func (s *Store) writeFaceChanges(photoID string, changes []media.FaceRegion) error {
+	if len(changes) == 0 {
+		return nil
+	}
 	var path string
 	var orientation, width, height int
 	err := s.db.QueryRow(`
@@ -42,11 +108,7 @@ func (s *Store) writeFaceNames(photoID string) error {
 	if width == 0 || height == 0 {
 		width, height = storedSize(path)
 	}
-	regions, err := s.namedFaces(photoID)
-	if err != nil {
-		return err
-	}
-	return media.WriteFaceRegions(path, regions, orientation, width, height)
+	return media.ChangeFaceRegions(path, changes, orientation, width, height)
 }
 
 // storedSize reads the pixel size from the photo's header, for photos
@@ -64,43 +126,58 @@ func storedSize(path string) (int, int) {
 	return cfg.Width, cfg.Height
 }
 
-func (s *Store) namedFaces(photoID string) ([]media.FaceRegion, error) {
-	rows, err := s.db.Query(`SELECT p.name, f.x, f.y, f.w, f.h FROM faces f JOIN people p ON p.id = f.person_id
-		WHERE f.photo_id = ? AND f.confirmed = 1 ORDER BY f.x`, photoID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var regions []media.FaceRegion
-	for rows.Next() {
-		var r media.FaceRegion
-		if err := rows.Scan(&r.Name, &r.X, &r.Y, &r.W, &r.H); err != nil {
-			return nil, err
-		}
-		regions = append(regions, r)
-	}
-	return regions, rows.Err()
-}
-
-// ApplyFaceNames names the faces of a photo after the regions in its
-// sidecar, as indexing reads them when the sidecar changes. A face no
-// region covers keeps what it had.
-func (s *Store) ApplyFaceNames(photoID string, regions []media.FaceRegion) error {
-	if len(regions) == 0 {
-		return nil
-	}
-	refs, boxes, err := s.facesOf(photoID)
-	if err != nil || len(refs) == 0 {
+// ApplyFaceNames makes the names of a photo's faces in the index what the
+// regions in its sidecar say, as a scan reads them (ADR-0052): a face a
+// region covers takes its name, and a named face no region covers loses its
+// name — taken away on the other installation — unless another program
+// keeps regions in the sidecar (foreign), where a name may only have been
+// impossible to write. Hidden faces stay hidden: the sidecar says only who
+// is in a photo. Only the index changes; a scan writes no sidecar.
+func (s *Store) ApplyFaceNames(photoID string, regions []media.FaceRegion, foreign bool) error {
+	current, err := s.faceNamesOf(photoID)
+	if err != nil || len(current) == 0 {
 		return err
 	}
+	boxes := make([]faces.Face, len(current))
+	for i, c := range current {
+		boxes[i] = c.box
+	}
 	names := namesFromRegions(boxes, regions)
-	for i, name := range names {
-		if name == "" {
-			continue
+	for i, c := range current {
+		switch {
+		case names[i] != "" && !strings.EqualFold(names[i], c.name):
+			err = s.nameFacesInIndex([]int64{c.id}, names[i])
+		case names[i] == "" && c.name != "" && !foreign:
+			err = s.unnameFacesInIndex([]int64{c.id})
 		}
-		if _, err := s.NameFaces([]int64{refs[i]}, name); err != nil {
+		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type faceName struct {
+	id   int64
+	box  faces.Face
+	name string // "" for a face nobody named, or one hidden
+}
+
+func (s *Store) faceNamesOf(photoID string) ([]faceName, error) {
+	rows, err := s.db.Query(`SELECT f.id, f.x, f.y, f.w, f.h, COALESCE(p.name, '')
+		FROM faces f LEFT JOIN people p ON p.id = f.person_id AND f.confirmed = 1
+		WHERE f.photo_id = ?`, photoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []faceName
+	for rows.Next() {
+		var f faceName
+		if err := rows.Scan(&f.id, &f.box.X, &f.box.Y, &f.box.W, &f.box.H, &f.name); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

@@ -21,7 +21,10 @@ const (
 	stAreaNS     = "http://ns.adobe.com/xmp/sType/Area#"
 	stDimNS      = "http://ns.adobe.com/xap/1.0/sType/Dimensions#"
 
-	regionsBlockStart = `<rdf:Description rdf:about="" xmlns:mwg-rs="` + mwgRegionsNS + `"`
+	// regionsBlockStart is the whole opening tag of Unterlumen's own regions
+	// description, which is how it is told from another program's.
+	regionsBlockStart = `<rdf:Description rdf:about="" xmlns:mwg-rs="` + mwgRegionsNS +
+		`" xmlns:stArea="` + stAreaNS + `" xmlns:stDim="` + stDimNS + `">`
 )
 
 const emptyXMP = `<?xml version="1.0" encoding="UTF-8"?>
@@ -43,20 +46,81 @@ type FaceRegion struct {
 
 // ReadFaceRegions reads the named faces from the sidecar beside photoPath,
 // from any program. orientation is the photo's EXIF orientation: regions
-// are stored for the photo before it is turned upright.
-func ReadFaceRegions(photoPath string, orientation int) ([]FaceRegion, error) {
+// are stored for the photo before it is turned upright. foreign says
+// another program keeps regions in the sidecar too: names it lacks may then
+// only have been impossible to write, not taken away.
+func ReadFaceRegions(photoPath string, orientation int) (regions []FaceRegion, foreign bool, err error) {
 	data, err := os.ReadFile(SidecarPath(photoPath))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	stored := parseFaceRegions(data)
+	return upright(parseFaceRegions(data), orientation), hasForeignRegions(data), nil
+}
+
+// ChangeFaceRegions changes the faces in changes, and nothing else, in the
+// regions Unterlumen keeps in the sidecar beside photoPath, as the sidecar is
+// now — a name the other installation wrote in the meantime stays. Each
+// change takes the place of the regions over its face; one without a name
+// only removes them. orientation, width and height are as for
+// WriteFaceRegions.
+func ChangeFaceRegions(photoPath string, changes []FaceRegion, orientation, width, height int) error {
+	data, err := os.ReadFile(SidecarPath(photoPath))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if hasForeignRegions(data) {
+		return ErrForeignRegions
+	}
+	regions := upright(parseFaceRegions(data), orientation)
+	for _, c := range changes {
+		kept := regions[:0]
+		for _, r := range regions {
+			if Overlap(r, c) < RegionMatch {
+				kept = append(kept, r)
+			}
+		}
+		regions = kept
+		if c.Name != "" {
+			regions = append(regions, c)
+		}
+	}
+	return WriteFaceRegions(photoPath, regions, orientation, width, height)
+}
+
+// RegionMatch is how much a face and a region must overlap to be the same.
+const RegionMatch = 0.3
+
+// Overlap is the intersection of two boxes over their union.
+func Overlap(a, b FaceRegion) float64 {
+	x1, y1 := max(a.X, b.X), max(a.Y, b.Y)
+	x2, y2 := min(a.X+a.W, b.X+b.W), min(a.Y+a.H, b.Y+b.H)
+	if x2 <= x1 || y2 <= y1 {
+		return 0
+	}
+	inter := (x2 - x1) * (y2 - y1)
+	return inter / (a.W*a.H + b.W*b.H - inter)
+}
+
+func upright(stored []FaceRegion, orientation int) []FaceRegion {
 	for i, r := range stored {
 		stored[i] = storedToUpright(r, orientation)
 	}
-	return stored, nil
+	return stored
+}
+
+// hasForeignRegions says the sidecar holds MWG regions outside Unterlumen's
+// own description.
+func hasForeignRegions(data []byte) bool {
+	s := string(data)
+	if start := strings.Index(s, regionsBlockStart); start >= 0 {
+		if closing := strings.Index(s[start:], "</rdf:Description>"); closing >= 0 {
+			s = s[:start] + s[start+closing+len("</rdf:Description>"):]
+		}
+	}
+	return strings.Contains(s, "xmlns:mwg-rs=") || strings.Contains(s, mwgRegionsNS)
 }
 
 // WriteFaceRegions replaces the face regions Unterlumen wrote into the
@@ -99,11 +163,7 @@ func spliceRegionsBlock(data []byte, block string) ([]byte, error) {
 		}
 		end = start + closing + len("</rdf:Description>")
 	}
-	rest := s
-	if start >= 0 {
-		rest = s[:start] + s[end:]
-	}
-	if strings.Contains(rest, "xmlns:mwg-rs=") || strings.Contains(rest, mwgRegionsNS) {
+	if hasForeignRegions(data) {
 		return nil, ErrForeignRegions
 	}
 	if start >= 0 {
@@ -140,7 +200,7 @@ func renderRegionsBlock(regions []FaceRegion, width, height int) string {
 		dims = `
         <mwg-rs:AppliedToDimensions stDim:w="` + strconv.Itoa(width) + `" stDim:h="` + strconv.Itoa(height) + `" stDim:unit="pixel"/>`
 	}
-	return regionsBlockStart + ` xmlns:stArea="` + stAreaNS + `" xmlns:stDim="` + stDimNS + `">
+	return regionsBlockStart + `
       <mwg-rs:Regions rdf:parseType="Resource">` + dims + `
         <mwg-rs:RegionList>
           <rdf:Bag>` + items.String() + `

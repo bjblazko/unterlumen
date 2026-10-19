@@ -2,6 +2,7 @@ package library
 
 import (
 	"image/color"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -151,24 +152,138 @@ func TestNamesGoIntoTheSidecarAndComeBackFromIt(t *testing.T) {
 	dir := t.TempDir()
 	photosWithFaces(t, s, dir, 0)
 	refs, _ := s.GroupFaces(groups(t, s)[0].ID)
-	photos, _ := s.NameFaces([]int64{refs[0].ID}, "Carla")
-	if skipped, err := s.WriteFaceNames(photos); err != nil || skipped != 0 {
+	if skipped, err := s.NameFaces([]int64{refs[0].ID}, "Carla"); err != nil || skipped != 0 {
 		t.Fatalf("skipped %d, err %v", skipped, err)
 	}
-	regions, err := media.ReadFaceRegions(filepath.Join(dir, "a1photo.jpg"), 1)
-	if err != nil || len(regions) != 1 || regions[0].Name != "Carla" {
-		t.Fatalf("regions %+v, err %v", regions, err)
+	regions, foreign, err := media.ReadFaceRegions(filepath.Join(dir, "a1photo.jpg"), 1)
+	if err != nil || foreign || len(regions) != 1 || regions[0].Name != "Carla" {
+		t.Fatalf("regions %+v, foreign %v, err %v", regions, foreign, err)
 	}
 	// The other installation found the same face and reads the name.
 	other := newTestStore(t)
 	photosWithFaces(t, other, dir, 0)
-	if err := other.ApplyFaceNames("a1photo", regions); err != nil {
+	if err := other.ApplyFaceNames("a1photo", regions, foreign); err != nil {
 		t.Fatal(err)
 	}
 	if people, _ := other.People(); len(people) != 1 || people[0].Name != "Carla" {
 		t.Fatalf("the other installation has %+v", people)
 	}
 }
+
+// Two installations name faces in the same photo: a name taken away on one
+// leaves the other at its next scan, a rename arrives as a rename, and a
+// name written on one while the other names another face is kept by both.
+func TestNamesFollowTheSidecarBetweenInstallations(t *testing.T) {
+	dir := t.TempDir()
+	two := func() *Store {
+		st := newTestStore(t)
+		addPhotoWithThumb(t, st, dir, "a1photo", filepath.Join(dir, "a1photo.jpg"), color.RGBA{})
+		st.SaveFoundFaces([]FoundFaces{{PhotoID: "a1photo", Faces: []faces.Face{face(0.1, 0), face(0.6, 1)}, Names: []string{"", ""}}}) //nolint:errcheck
+		return st
+	}
+	mac, nas := two(), two()
+	faceAt := func(st *Store, x float64) int64 {
+		ids, boxes, _ := st.facesOf("a1photo")
+		for i, b := range boxes {
+			if b.X == x {
+				return ids[i]
+			}
+		}
+		t.Fatalf("no face at %v", x)
+		return 0
+	}
+	read := func(st *Store) {
+		regions, foreign, _ := media.ReadFaceRegions(filepath.Join(dir, "a1photo.jpg"), 1)
+		if err := st.ApplyFaceNames("a1photo", regions, foreign); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func(st *Store) map[string]bool {
+		got := map[string]bool{}
+		people, _ := st.People()
+		for _, p := range people {
+			got[p.Name] = true
+		}
+		return got
+	}
+
+	mac.NameFaces([]int64{faceAt(mac, 0.1)}, "Anna") //nolint:errcheck
+	nas.NameFaces([]int64{faceAt(nas, 0.6)}, "Ben")  //nolint:errcheck — before the NAS read Anna
+	read(mac)
+	read(nas)
+	if !names(mac)["Anna"] || !names(mac)["Ben"] || !names(nas)["Anna"] || !names(nas)["Ben"] {
+		t.Fatalf("a name was lost: mac %v, nas %v", names(mac), names(nas))
+	}
+
+	nas.UnnameFaces([]int64{faceAt(nas, 0.1)}) //nolint:errcheck — "This is not Anna"
+	people, _ := nas.People()
+	var ben int64
+	for _, p := range people {
+		if p.Name == "Ben" {
+			ben = p.ID
+		}
+	}
+	nas.RenamePerson(ben, "Benjamin") //nolint:errcheck
+	read(mac)
+	if got := names(mac); got["Anna"] || got["Ben"] || !got["Benjamin"] {
+		t.Fatalf("after the NAS took Anna away and renamed Ben, the Mac has %v", got)
+	}
+	if p, _ := nas.People(); len(p) != 1 || p[0].ID != ben {
+		t.Errorf("renaming gave the person another ID: %+v", p)
+	}
+}
+
+// A sidecar whose regions Lightroom keeps cannot hold Unterlumen's names, so
+// a name missing from it is not taken away; hidden faces are this
+// installation's own decision and never reach a sidecar.
+func TestNamesStayWhereTheSidecarCannotSayThem(t *testing.T) {
+	dir := t.TempDir()
+	s := newTestStore(t)
+	photosWithFaces(t, s, dir, 0, 0)
+	refs, _ := s.GroupFaces(groups(t, s)[0].ID)
+	photo := filepath.Join(dir, "a1photo.jpg")
+	os.WriteFile(media.SidecarPath(photo), []byte(lightroomSidecar), 0o644) //nolint:errcheck
+	var inA1 int64
+	for _, r := range refs {
+		if r.PhotoID == "a1photo" {
+			inA1 = r.ID
+		}
+	}
+	if skipped, err := s.NameFaces([]int64{inA1}, "Eva"); err != nil || skipped != 1 {
+		t.Fatalf("naming beside Lightroom's regions: skipped %d, err %v", skipped, err)
+	}
+	regions, foreign, _ := media.ReadFaceRegions(photo, 1)
+	s.ApplyFaceNames("a1photo", regions, foreign) //nolint:errcheck
+	if people, _ := s.People(); len(people) != 1 || people[0].Name != "Eva" {
+		t.Fatalf("the name kept in the index was taken away: %+v", people)
+	}
+
+	for _, r := range refs {
+		if r.PhotoID == "b1photo" {
+			s.HideFaces([]int64{r.ID}) //nolint:errcheck
+		}
+	}
+	if _, err := os.Stat(media.SidecarPath(filepath.Join(dir, "b1photo.jpg"))); err == nil {
+		t.Error("hiding a face wrote a sidecar")
+	}
+	s.ApplyFaceNames("b1photo", nil, false) //nolint:errcheck
+	if g := groups(t, s); len(g) != 0 {
+		t.Errorf("a scan brought the hidden face back: %+v", g)
+	}
+}
+
+const lightroomSidecar = `<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"
+    xmlns:stArea="http://ns.adobe.com/xmp/sType/Area#">
+   <mwg-rs:Regions rdf:parseType="Resource"><mwg-rs:RegionList><rdf:Bag>
+    <rdf:li><rdf:Description mwg-rs:Name="Dora" mwg-rs:Type="Face">
+     <mwg-rs:Area stArea:x="0.8" stArea:y="0.8" stArea:w="0.1" stArea:h="0.1" stArea:unit="normalized"/>
+    </rdf:Description></rdf:li>
+   </rdf:Bag></mwg-rs:RegionList></mwg-rs:Regions>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>`
 
 func TestNamesFromRegionsNeedEnoughOverlap(t *testing.T) {
 	found := []faces.Face{face(0.1, 0), face(0.6, 0)}

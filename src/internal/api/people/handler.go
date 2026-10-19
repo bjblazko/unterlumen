@@ -189,8 +189,8 @@ func renamePerson(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, "A name is needed.", http.StatusBadRequest)
 			return
 		}
-		photos, err := store.RenamePerson(pid, body.Name)
-		writeChange(w, store, photos, err)
+		skipped, err := store.RenamePerson(pid, body.Name)
+		writeChange(w, skipped, err)
 	}
 }
 
@@ -223,13 +223,13 @@ func nameFaces(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, "A name is needed.", http.StatusBadRequest)
 			return
 		}
-		photos, err := store.NameFaces(body.Faces, body.Name)
-		writeChange(w, store, photos, err)
+		skipped, err := store.NameFaces(body.Faces, body.Name)
+		writeChange(w, skipped, err)
 	}
 }
 
 // changeFaces serves a change that needs only the faces: unnaming, hiding.
-func changeFaces(mgr *lib.Manager, change func(*lib.Store, []int64) ([]string, error)) http.HandlerFunc {
+func changeFaces(mgr *lib.Manager, change func(*lib.Store, []int64) (int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		store, ok := openStore(mgr, w, r)
 		if !ok {
@@ -239,21 +239,18 @@ func changeFaces(mgr *lib.Manager, change func(*lib.Store, []int64) ([]string, e
 		if !ok {
 			return
 		}
-		photos, err := change(store, body.Faces)
-		writeChange(w, store, photos, err)
+		skipped, err := change(store, body.Faces)
+		writeChange(w, skipped, err)
 	}
 }
 
-// writeChange writes the names of the changed photos into their sidecars
-// and answers with how many were left alone.
-func writeChange(w http.ResponseWriter, store *lib.Store, photos []string, err error) {
+// writeChange answers a change to names: how many photos keep them in this
+// library only, because another program keeps their sidecars' face regions,
+// or why a sidecar could not be written — its photo's faces then stay as
+// they were, since the sidecar is written first (ADR-0052).
+func writeChange(w http.ResponseWriter, skipped int, err error) {
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	skipped, err := store.WriteFaceNames(photos)
-	if err != nil {
-		http.Error(w, "The names are saved in the library, but a sidecar could not be written: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "A photo's sidecar could not be written, so its faces stay as they were: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, changeResult{Skipped: skipped})

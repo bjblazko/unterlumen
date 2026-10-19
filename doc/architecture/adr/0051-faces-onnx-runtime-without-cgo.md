@@ -1,6 +1,6 @@
 # ADR-0051: Faces found on this computer, with ONNX Runtime loaded without cgo
 
-*Last modified: 2026-10-18*
+*Last modified: 2026-10-19*
 
 ## Status
 
@@ -77,16 +77,24 @@ sidecar as Metadata Working Group regions; an architecture that is not
    faces nobody is to name. `faces.person_id` with `confirmed` holds this:
    unnamed (NULL, 0), named (id, 1), hidden (NULL, 1).
 
-6. **Names live in the sidecar.** After every change the photo's confirmed
-   names are written as `mwg-rs:Regions` in an `rdf:Description` of
-   Unterlumen's own, relative to the stored photo before its EXIF orientation,
-   as the MWG asks. A sidecar whose regions sit in another program's
-   description (Lightroom keeps everything in one) is left alone; its names
-   stay in this index and the page says so. Reading takes regions from any
-   program: a face found by the pass, or already found when a scan sees a
-   changed sidecar, takes the name of the region it overlaps most (IoU ≥ 0.3).
-   The other installation, sharing the library, finds the same faces and
-   reads the names.
+6. **Names live in the sidecar, and only names.** Confirmed names are
+   `mwg-rs:Regions` in an `rdf:Description` of Unterlumen's own — told from
+   another program's by its whole opening tag —, relative to the stored photo
+   before its EXIF orientation, as the MWG asks. Following
+   [ADR-0052](0052-the-index-follows-the-folder.md), naming, taking a name
+   away, renaming and hiding a named face write the sidecar first and the
+   index after; a photo whose sidecar cannot be written keeps its faces as
+   they were. A write changes only the faces it is about, in the sidecar as
+   it is on disk (`media.ChangeFaceRegions`), so a name the other installation
+   wrote in the meantime stays. A sidecar whose regions sit in another
+   program's description (Lightroom keeps everything in one) is left alone;
+   its names stay in this index and the page says so. Every scan makes the
+   index's names what the sidecar says (`Store.ApplyFaceNames`): a face takes
+   the name of the region it overlaps most (IoU ≥ 0.3), and a named face no
+   region covers loses its name — taken away on the other installation —
+   unless another program keeps regions there. The sidecar holds only who is
+   in a photo, never a decision of one installation: hidden faces stay
+   hidden on the installation that hid them, and the other may ask again.
 
 7. **People is a place** (`#people`, key 0) under Explore: one library at a
    time, the named people as cards, the groups waiting for a name below with
@@ -115,9 +123,8 @@ sidecar as Metadata Working Group regions; an architecture that is not
 - Faces found by an older `faces.Version` are found again and their names
   read back from the sidecar; names kept in the index only (another program's
   sidecar) would be lost then.
-- Removing a name in one installation is written to the sidecar, but the
-  other installation keeps it until its faces are found again: reading
-  names only adds them. Recorded as a leftover.
+- A name taken away or changed on one installation leaves or changes on the
+  other at its next scan or check of the library.
 - The engine stays loaded once used; the download cannot be undone from the
   app. Deleting `<lib-dir>/recognition` and restarting turns it off.
 - Biometric data stays on the machine. "Your data" says what is downloaded and

@@ -12,10 +12,6 @@ import (
 
 const facesBatchSize = 50 // photos stored per transaction
 
-// regionMatch is how much a face and a region in the sidecar must overlap
-// to be the same face. Other programs draw their boxes a little differently.
-const regionMatch = 0.3
-
 // RunFindFacesMissing finds the faces in every photo that has a thumbnail
 // but was not looked at, or was looked at by an older faces.Version, and
 // then groups the unnamed faces anew. A thumbnail that cannot be read is
@@ -91,7 +87,7 @@ func (idx *Indexer) findFacesIn(engine *faces.Engine, t FaceTask) FoundFaces {
 	if err != nil {
 		return FoundFaces{}
 	}
-	regions, _ := media.ReadFaceRegions(t.PathHint, t.Orientation)
+	regions, _, _ := media.ReadFaceRegions(t.PathHint, t.Orientation)
 	return FoundFaces{PhotoID: t.ID, Faces: found, Names: namesFromRegions(found, regions)}
 }
 
@@ -100,23 +96,13 @@ func (idx *Indexer) findFacesIn(engine *faces.Engine, t FaceTask) FoundFaces {
 func namesFromRegions(found []faces.Face, regions []media.FaceRegion) []string {
 	names := make([]string, len(found))
 	for i, f := range found {
-		best := regionMatch
+		box := media.FaceRegion{X: f.X, Y: f.Y, W: f.W, H: f.H}
+		best := media.RegionMatch
 		for _, r := range regions {
-			if o := overlap(f.X, f.Y, f.W, f.H, r.X, r.Y, r.W, r.H); o >= best {
+			if o := media.Overlap(box, r); o >= best {
 				best, names[i] = o, r.Name
 			}
 		}
 	}
 	return names
-}
-
-// overlap is the intersection of two boxes over their union.
-func overlap(ax, ay, aw, ah, bx, by, bw, bh float64) float64 {
-	x1, y1 := max(ax, bx), max(ay, by)
-	x2, y2 := min(ax+aw, bx+bw), min(ay+ah, by+bh)
-	if x2 <= x1 || y2 <= y1 {
-		return 0
-	}
-	inter := (x2 - x1) * (y2 - y1)
-	return inter / (aw*ah + bw*bh - inter)
 }

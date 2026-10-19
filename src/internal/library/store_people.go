@@ -231,30 +231,66 @@ func (s *Store) FaceBox(id int64) (FaceBox, error) {
 }
 
 // NameFaces confirms the faces as the person called name, adding them when
-// there is nobody of that name. It returns the photos the faces are in.
-func (s *Store) NameFaces(ids []int64, name string) ([]string, error) {
+// there is nobody of that name: the sidecars first, then the index. skipped
+// counts the photos whose regions another program keeps, where the name
+// stays in this index only; a photo whose sidecar cannot be written keeps
+// its faces as they were, and the error says so.
+func (s *Store) NameFaces(ids []int64, name string) (skipped int, err error) {
 	name = strings.TrimSpace(name)
-	return s.changeFaces(ids, func(tx *sql.Tx) (string, []any, error) {
-		id, err := personID(tx, name)
-		return `person_id = ?, confirmed = 1`, []any{id}, err
-	})
+	return s.changeNames(ids, name, false, func(ok []int64) error { return s.nameFacesInIndex(ok, name) })
 }
 
 // UnnameFaces takes the faces back from whoever they were confirmed as, or
-// from being hidden, and puts them together in a group of their own.
-func (s *Store) UnnameFaces(ids []int64) ([]string, error) {
-	return s.changeFaces(ids, func(tx *sql.Tx) (string, []any, error) {
+// from being hidden, and puts them together in a group of their own; their
+// names leave the sidecars.
+func (s *Store) UnnameFaces(ids []int64) (skipped int, err error) {
+	return s.changeNames(ids, "", true, s.unnameFacesInIndex)
+}
+
+// HideFaces marks the faces as ones nobody is to name: strangers, statues.
+// Hiding stays in this index — the sidecar says only who is in a photo — but
+// a name the faces had leaves the sidecar.
+func (s *Store) HideFaces(ids []int64) (skipped int, err error) {
+	return s.changeNames(ids, "", true, func(ok []int64) error {
+		_, err := s.changeFaces(ok, func(*sql.Tx) (string, []any, error) {
+			return `person_id = NULL, confirmed = 1`, nil, nil
+		})
+		return err
+	})
+}
+
+// changeNames writes name for the faces into the sidecars first
+// (writeNamesFirst) and then changes the index of the faces that may change.
+func (s *Store) changeNames(ids []int64, name string, onlyNamed bool, inIndex func([]int64) error) (int, error) {
+	rows, err := s.faceRows(ids)
+	if err != nil {
+		return 0, err
+	}
+	ok, skipped, werr := s.writeNamesFirst(rows, name, onlyNamed)
+	if err := inIndex(ok); err != nil {
+		return skipped, err
+	}
+	return skipped, werr
+}
+
+// nameFacesInIndex confirms the faces as name in the index only, as a scan
+// does when it reads the name from a sidecar.
+func (s *Store) nameFacesInIndex(ids []int64, name string) error {
+	_, err := s.changeFaces(ids, func(tx *sql.Tx) (string, []any, error) {
+		id, err := personID(tx, name)
+		return `person_id = ?, confirmed = 1`, []any{id}, err
+	})
+	return err
+}
+
+// unnameFacesInIndex makes the faces unnamed again, in a group of their own.
+func (s *Store) unnameFacesInIndex(ids []int64) error {
+	_, err := s.changeFaces(ids, func(tx *sql.Tx) (string, []any, error) {
 		var next int64
 		err := tx.QueryRow(`SELECT COALESCE(MAX(grp), -1) + 1 FROM faces`).Scan(&next)
 		return `person_id = NULL, confirmed = 0, grp = ?`, []any{next}, err
 	})
-}
-
-// HideFaces marks the faces as ones nobody is to name: strangers, statues.
-func (s *Store) HideFaces(ids []int64) ([]string, error) {
-	return s.changeFaces(ids, func(*sql.Tx) (string, []any, error) {
-		return `person_id = NULL, confirmed = 1`, nil, nil
-	})
+	return err
 }
 
 // changeFaces sets the columns set returns on the faces ids, removes the
@@ -312,27 +348,34 @@ func photosOfFaces(tx *sql.Tx, in string, ids []any) ([]string, error) {
 	return photos, rows.Err()
 }
 
-// RenamePerson gives a person another name. When someone else already has
-// it, the two become one. It returns the photos of the person's faces.
-func (s *Store) RenamePerson(id int64, name string) ([]string, error) {
-	name = strings.TrimSpace(name)
+// RenamePerson gives a person another name — in the sidecars of their
+// photos first, then in the index. When someone else already has it, the
+// two become one.
+func (s *Store) RenamePerson(id int64, name string) (skipped int, err error) {
 	refs, err := s.PersonFaces(id)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	res, err := s.db.Exec(`UPDATE people SET name = ? WHERE id = ?
-		AND NOT EXISTS (SELECT 1 FROM people WHERE name = ? AND id != ?)`, name, id, name, id)
-	if err != nil {
-		return nil, err
+	ids := make([]int64, len(refs))
+	for i, r := range refs {
+		ids[i] = r.ID
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		ids := make([]int64, len(refs))
-		for i, r := range refs {
-			ids[i] = r.ID
+	name = strings.TrimSpace(name)
+	return s.changeNames(ids, name, false, func(ok []int64) error {
+		if len(ok) == len(ids) {
+			// Everyone renamed: the person keeps its ID, unless the name
+			// is someone else's.
+			res, err := s.db.Exec(`UPDATE people SET name = ? WHERE id = ?
+				AND NOT EXISTS (SELECT 1 FROM people WHERE name = ? AND id != ?)`, name, id, name, id)
+			if err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				return nil
+			}
 		}
-		return s.NameFaces(ids, name)
-	}
-	return distinctPhotos(refs), nil
+		return s.nameFacesInIndex(ok, name)
+	})
 }
 
 func distinctPhotos(refs []FaceRef) []string {

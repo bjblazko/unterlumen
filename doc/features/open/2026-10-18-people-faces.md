@@ -1,6 +1,6 @@
 # People: faces found and named
 
-*Last modified: 2026-10-18*
+*Last modified: 2026-10-19*
 
 ## Summary
 
@@ -27,8 +27,10 @@ follow on the same runtime. See [ADR-0051](../../architecture/adr/0051-faces-onn
   faces off before naming; a person's page switches faces on to take them
   away, shows the photos, renames.
 - **Sidecar:** confirmed names as `mwg-rs:Regions` in Unterlumen's own
-  description, in the stored photo's frame. Regions of other programs are
-  read, never overwritten.
+  description, in the stored photo's frame, written before the index and
+  changing only the faces concerned. Every scan makes the index's names what
+  the sidecar says, removals included. Regions of other programs are read,
+  never overwritten. Hidden faces stay on the installation that hid them.
 - **Measured** on an M-series Mac: about 30 ms per photo with decoding; 186
   faces in 1 500 photos of a real library. On the NAS (Raspberry Pi 5):
   about 140 ms per photo. Public-domain portraits of three
@@ -51,6 +53,7 @@ follow on the same runtime. See [ADR-0051](../../architecture/adr/0051-faces-onn
 - [x] Go tests for the binding, detection decoding, grouping, storage, sidecar regions, download and API; an e2e spec for the place
 - [x] Tried on the NAS (Raspberry Pi 5, aarch64) in a throwaway container from the 0.15.6 image with the branch's binary: 49 MB download, same three groups, about 140 ms per photo
 - [x] Owner decided (2026-10-18): the Linux binary needs glibc's loader; musl and bare NixOS use the container (ADR-0051, Consequences)
-- [ ] A name removed in one installation is removed in the other when it reads the sidecar (today reading only adds names)
+- [x] A name taken away or changed in one installation follows in the other when it reads the sidecar; hiding stays on the installation that hid (2026-10-19, ADR-0052)
+- [x] Names are written sidecar first, changing only the faces concerned, so the other installation's names in the same photo stay
 - [ ] People shows its own photo column on a person's page instead of opening the viewer straight away
 - [ ] The library filter can narrow to a person
