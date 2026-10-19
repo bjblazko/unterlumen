@@ -2,6 +2,7 @@ package library
 
 import (
 	"database/sql"
+	"errors"
 	"strings"
 
 	"huepattl.de/unterlumen/internal/faces"
@@ -86,7 +87,8 @@ func (s *Store) embeddings(query string, args ...any) ([]int64, [][]float32, err
 func (s *Store) People() ([]Person, error) {
 	rows, err := s.db.Query(`
 		SELECT p.id, p.name, COUNT(f.id), COUNT(DISTINCT f.photo_id),
-		       (SELECT c.id FROM faces c WHERE c.person_id = p.id AND c.confirmed = 1 ORDER BY c.w*c.h DESC LIMIT 1)
+		       COALESCE((SELECT c.id FROM faces c WHERE c.id = p.cover AND c.person_id = p.id AND c.confirmed = 1),
+		                (SELECT c.id FROM faces c WHERE c.person_id = p.id AND c.confirmed = 1 ORDER BY c.w*c.h DESC LIMIT 1))
 		FROM people p JOIN faces f ON f.person_id = p.id AND f.confirmed = 1
 		GROUP BY p.id ORDER BY COUNT(f.id) DESC, p.name`)
 	if err != nil {
@@ -351,6 +353,26 @@ func photosOfFaces(tx *sql.Tx, in string, ids []any) ([]string, error) {
 		photos = append(photos, p)
 	}
 	return photos, rows.Err()
+}
+
+// ErrNotTheirFace says a face chosen as a person's cover is not one of
+// their confirmed faces.
+var ErrNotTheirFace = errors.New("the face is not one of this person's")
+
+// ChooseCover makes face the one that shows the person. The choice is this
+// installation's, like hiding a face: the sidecar says who is in a photo,
+// not how one installation likes to show them. Should the face leave the
+// person, they are shown by their largest face again.
+func (s *Store) ChooseCover(person, face int64) error {
+	res, err := s.db.Exec(`UPDATE people SET cover = ? WHERE id = ?
+		AND EXISTS (SELECT 1 FROM faces WHERE id = ? AND person_id = ? AND confirmed = 1)`, face, person, face, person)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotTheirFace
+	}
+	return nil
 }
 
 // RenamePerson gives a person another name — in the sidecars of their

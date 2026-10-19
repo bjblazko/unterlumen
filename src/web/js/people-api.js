@@ -44,6 +44,15 @@ const PeopleAPI = {
     async photoFaces(lib, photo) {
         return peopleJSON(await fetch(`/api/library/${lib}/photo/${photo}/faces`));
     },
+    // The face shown for the person, on this installation only.
+    async chooseCover(lib, person, face) {
+        const r = await fetch(`/api/library/${lib}/people/${person}/cover`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ face }),
+        });
+        if (!r.ok) throw new Error((await r.text()).trim());
+    },
     async forget(lib, person) {
         return peopleJSON(await fetch(`/api/library/${lib}/people/${person}`, { method: 'DELETE' }));
     },

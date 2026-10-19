@@ -236,3 +236,32 @@ func TestSeveralPeopleNarrowTogether(t *testing.T) {
 		t.Fatalf("Anna with Ben: %d photos, want 0", res.Total)
 	}
 }
+
+// A person is shown by the face chosen as their cover, else by their
+// largest; a face that is not theirs is refused.
+func TestChoosingAPersonsCover(t *testing.T) {
+	h, _, id := libraryWithFaces(t)
+	o := readOverview(t, h, id)
+	faces := o.Groups[0].Faces
+	do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": faces, "name": "Anna"})
+	o = readOverview(t, h, id)
+	pid := itoa(o.People[0].ID)
+	other := faces[0]
+	if o.People[0].Cover == other {
+		other = faces[1]
+	}
+	if rec := do(t, h, "PUT", "/api/library/"+id+"/people/"+pid+"/cover", map[string]int64{"face": other}); rec.Code != http.StatusNoContent {
+		t.Fatalf("choose cover: %d %s", rec.Code, rec.Body)
+	}
+	if o = readOverview(t, h, id); o.People[0].Cover != other {
+		t.Fatalf("cover %d, want %d", o.People[0].Cover, other)
+	}
+	if rec := do(t, h, "PUT", "/api/library/"+id+"/people/"+pid+"/cover", map[string]int64{"face": 9999}); rec.Code != http.StatusConflict {
+		t.Errorf("a stranger's face: %d, want 409", rec.Code)
+	}
+	// The face leaves Anna: she is shown by her other face again.
+	do(t, h, "POST", "/api/library/"+id+"/faces/unname", map[string]any{"faces": []int64{other}})
+	if o = readOverview(t, h, id); o.People[0].Cover == other {
+		t.Errorf("cover is still the face taken away")
+	}
+}

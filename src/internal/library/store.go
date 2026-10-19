@@ -103,8 +103,9 @@ CREATE TABLE IF NOT EXISTS photo_faces_found (
 );
 
 CREATE TABLE IF NOT EXISTS people (
-	id   INTEGER PRIMARY KEY,
-	name TEXT NOT NULL UNIQUE COLLATE NOCASE
+	id    INTEGER PRIMARY KEY,
+	name  TEXT NOT NULL UNIQUE COLLATE NOCASE,
+	cover INTEGER -- the face the owner chose to show them; their largest when NULL or no longer theirs
 );
 
 -- A photo whose file was changed in place (a location set, a crop) has new
@@ -170,6 +171,8 @@ func openDB(dbPath string) (*sql.DB, error) {
 	// instead, which counted as a day and passed every upper date bound.
 	db.Exec(`UPDATE photos SET date_taken = NULL WHERE date_taken = ''`)
 	db.Exec(`CREATE INDEX IF NOT EXISTS photos_date_taken_idx ON photos(date_taken)`)
+	// Migration: the face chosen to show a person.
+	db.Exec(`ALTER TABLE people ADD COLUMN cover INTEGER`)
 	// Migration: ext column for fast format distribution queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN ext TEXT NOT NULL DEFAULT ''`)
 	db.Exec(`UPDATE photos SET ext =

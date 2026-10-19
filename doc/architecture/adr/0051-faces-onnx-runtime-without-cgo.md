@@ -109,7 +109,10 @@ sidecar as Metadata Working Group regions; an architecture that is not
    shows a library photo, lists its faces (`InfoPeople`,
    `GET …/photo/{id}/faces`): a name, or a field to give one, and a × to take
    it away. Take the name away… on a person's page takes it from all their
-   faces (`DELETE …/people/{id}`).
+   faces (`DELETE …/people/{id}`). One face switched on can become the
+   person's cover (`PUT …/people/{id}/cover`, `people.cover`); like hiding,
+   it is this installation's choice and stays out of the sidecar, and a
+   cover that is no longer theirs falls back to their largest face.
 
 8. **People in all libraries are linked by name.** Each library keeps its
    own people, faces and groups; the same name, without regard to case, is

@@ -332,7 +332,7 @@ class PeoplePane {
         this._head(`${formatCount(faces.length)} faces in ${photos}`);
         const elsewhere = this._namedElsewhere(everyone, person.name);
         const grid = new FaceGrid({
-            lib: this.route.library, faces,
+            lib: this.route.library, faces, cover: person.cover,
             onChange: () => update(),
             onOpen: (i) => this._openPhotos(faces, i),
         });
@@ -345,10 +345,11 @@ class PeoplePane {
                 <span class="people-head-spacer"></span>
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
-            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.${this._elsewhereNote(person.name, elsewhere)}</p>
+            <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}; switch on one face to use it as the cover. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.${this._elsewhereNote(person.name, elsewhere)}</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar" hidden>
                 <div class="people-group-row">
+                    <button type="button" class="btn people-cover" hidden>Use as cover</button>
                     <button type="button" class="btn people-unname"></button>
                 </div>
                 <p class="people-group-error" hidden></p>
@@ -358,11 +359,25 @@ class PeoplePane {
         showPhotosLink(this._body.querySelector('.people-show'), { person: person.name });
         const bar = this._body.querySelector('.people-bar');
         const unname = bar.querySelector('.people-unname');
+        const cover = bar.querySelector('.people-cover');
         const update = () => {
             const n = grid.selected.size;
             bar.hidden = n === 0;
+            cover.hidden = n !== 1 || grid.selected.has(person.cover);
             unname.textContent = n === 1 ? `This is not ${person.name}` : `These ${formatCount(n)} are not ${person.name}`;
         };
+        cover.addEventListener('click', async () => {
+            cover.disabled = true;
+            try {
+                await PeopleAPI.chooseCover(this.route.library, person.id, [...grid.selected][0]);
+                this.show(this.route);
+            } catch (err) {
+                cover.disabled = false;
+                const error = bar.querySelector('.people-group-error');
+                error.hidden = false;
+                error.textContent = `${err.message} The cover was not changed.`;
+            }
+        });
         unname.addEventListener('click', async () => {
             unname.disabled = true;
             try {

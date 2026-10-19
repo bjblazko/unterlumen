@@ -148,5 +148,27 @@ test.describe('People', () => {
     await expect(page).toHaveURL(new RegExp(`#people/${LIB}$`));
     expect(forgotten).toBe(true);
   });
+  test("one face switched on becomes the person's cover", async ({ page }) => {
+    const state = { cover: null, overview: () => ({ people: [{ id: 1, name: 'Anna', faces: 2, photos: 2, cover: state.cover ?? 11 }], groups: [], groupCount: 0, pending: 0, finding: false }) };
+    await fakePeople(page, state);
+    await page.route(`**/api/library/${LIB}/people/1`, r => r.fulfill({ json: [
+      { id: 11, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15 }, { id: 12, photoId: 'p2', x: 0.1, y: 0.1, w: 0.2, h: 0.3 }] }));
+    await page.route(`**/api/library/${LIB}/people/1/cover`, async r => {
+      state.cover = r.request().postDataJSON().face;
+      await r.fulfill({ status: 204 });
+    });
+    await page.goto(`/#people/${LIB}/person/1`);
+    await waitForAppReady(page);
+    const tiles = page.locator('.face-tile');
+    await expect(tiles.nth(0).locator('.face-tile-cover')).toHaveText('Cover');
+    await tiles.nth(0).click();
+    await expect(page.locator('.people-cover')).toBeHidden();
+    await tiles.nth(0).click();
+    await tiles.nth(1).click();
+    await page.locator('.people-cover').click();
+    await expect(tiles.nth(1).locator('.face-tile-cover')).toHaveText('Cover');
+    expect(state.cover).toBe(12);
+    await expect(page.locator('.face-tile-cover')).toHaveCount(1);
+  });
 });
 

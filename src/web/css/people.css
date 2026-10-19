@@ -96,6 +96,10 @@
 .face-tile-mark rect { fill: var(--fg); }
 .face-tile-mark path { stroke: var(--bg); }
 .face-tile[aria-pressed="true"] .face-tile-mark { display: block; }
+.face-tile-cover {
+    position: absolute; left: var(--space-1); bottom: var(--space-1); padding: 0 var(--space-1);
+    border-radius: var(--radius-sm); background: var(--bg); color: var(--fg); font-size: var(--text-xs); line-height: 1.5;
+}
 
 /* --- Face in its photo (FacePeek) --- */
 .face-peek {

@@ -5,6 +5,7 @@ package apipeople
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))
 	mux.HandleFunc("PATCH /api/library/{id}/people/{pid}", renamePerson(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/people/{pid}", forgetPerson(mgr))
+	mux.HandleFunc("PUT /api/library/{id}/people/{pid}/cover", chooseCover(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/faces", photoFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/face/{fid}", serveFace(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
@@ -228,6 +230,32 @@ func forgetPerson(mgr *lib.Manager) http.HandlerFunc {
 		}
 		skipped, err := store.ForgetPerson(pid)
 		writeChange(w, skipped, err)
+	}
+}
+
+// chooseCover makes the face in the body the one that shows the person.
+func chooseCover(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		pid, ok2 := pathInt(w, r, "pid")
+		if !ok || !ok2 {
+			return
+		}
+		var body struct {
+			Face int64 `json:"face"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Face == 0 {
+			http.Error(w, "A face is needed.", http.StatusBadRequest)
+			return
+		}
+		switch err := store.ChooseCover(pid, body.Face); {
+		case errors.Is(err, lib.ErrNotTheirFace):
+			http.Error(w, "This face is not one of theirs any more. Reload the page.", http.StatusConflict)
+		case err != nil:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
 	}
 }
 

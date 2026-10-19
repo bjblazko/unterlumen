@@ -6,8 +6,9 @@ class FaceGrid {
     // the start. dimOff fades the faces switched off — the ones left out of a
     // group; without it only the switched-on faces are marked. onChange is
     // called with the selection after every switch; onOpen with the index of
-    // a face that is double-clicked.
-    constructor({ lib, faces, selected = [], dimOff = false, onChange = () => {}, onOpen = () => {} }) {
+    // a face that is double-clicked. cover is the face that shows the
+    // person, marked as such.
+    constructor({ lib, faces, selected = [], dimOff = false, cover = 0, onChange = () => {}, onOpen = () => {} }) {
         this.selected = new Set(selected);
         this.el = document.createElement('div');
         this.el.className = dimOff ? 'face-grid face-grid-dim-off' : 'face-grid';
@@ -15,6 +16,7 @@ class FaceGrid {
             <button type="button" class="face-tile" data-face="${f.id}" data-index="${i}"
                 aria-pressed="${this.selected.has(f.id)}" aria-label="Face ${i + 1}">
                 <img src="${PeopleAPI.faceURL(lib, f.id)}" alt="" loading="lazy" width="96" height="96">
+                ${f.id === cover ? '<span class="face-tile-cover">Cover</span>' : ''}
                 <svg class="face-tile-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                     <rect width="16" height="16" rx="2"/><path d="M4 8.5l2.5 2.5L12 5.5" fill="none" stroke-width="1.8"/>
                 </svg>
