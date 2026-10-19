@@ -139,4 +139,9 @@ func TestWhoIsOftenWithSomeone(t *testing.T) {
 	if len(anna.With) != 1 || anna.With[0].Name != "Ben" || anna.With[0].Photos != 1 {
 		t.Fatalf("with Anna: %+v, want Ben in one photo", anna.With)
 	}
+	var with []lib.Companion
+	json.Unmarshal(do(t, h, "GET", "/api/people/with?name=anna", nil).Body.Bytes(), &with) //nolint:errcheck
+	if len(with) != 1 || with[0].Name != "Ben" {
+		t.Errorf("/api/people/with: %+v, want Ben", with)
+	}
 }

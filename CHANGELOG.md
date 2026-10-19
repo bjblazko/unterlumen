@@ -5,7 +5,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Often with, on the computer too.** A person's page, in a library and in All libraries, names who is most often in the same photos, with how many; a click opens Libraries with both as Person chips, showing their photos together.
+
 ### Fixed
+- **On a phone, choosing someone under Often with showed the sentence but no photos.** When a name was tapped while the person's photos were still loading — easily, over a slow network — the new request was turned away and the late answer thrown away as stale. Each choice now loads its own photos, and more come while the end of the page is in view.
 - **A face's preview stayed behind on its own.** After choosing a cover, or when People redrew itself after a face pass, the preview of a face in its photo could stay on screen, often in the top left corner, in Safari: the face it belonged to was gone, and Safari does not say so. The preview now goes with its face.
 
 ## [0.17.0] - 2026-10-19

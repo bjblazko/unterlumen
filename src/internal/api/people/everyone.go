@@ -19,6 +19,23 @@ func everyone(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+// companions lists who is most often with the person of ?name=.
+func companions(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimSpace(r.URL.Query().Get("name"))
+		if name == "" {
+			http.Error(w, "A name is needed.", http.StatusBadRequest)
+			return
+		}
+		with, err := mgr.CompanionsOf(name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, with)
+	}
+}
+
 // someone shows the person of ?name= in every library, and who in the
 // other libraries may be them.
 func someone(mgr *lib.Manager) http.HandlerFunc {

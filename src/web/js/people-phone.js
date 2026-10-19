@@ -158,21 +158,33 @@ class PeoplePhone {
         this._morePhotos(names, this._gen);
     }
 
+    // A load belongs to its choice of people (gen): one still on its way
+    // for an earlier choice neither blocks this one nor adds its photos.
     async _morePhotos(names, gen) {
-        if (this._loading || this._photos.length >= this._total) return;
-        this._loading = true;
+        if (this._loadingGen === gen || gen !== this._gen || this._photos.length >= this._total) return;
+        this._loadingGen = gen;
         try {
             const page = await LibraryAPI.search({ person: names, offset: this._photos.length, limit: PEOPLE_PHONE_PAGE });
             if (gen !== this._gen) return;
-            this._total = page.total;
+            // An empty page ends it, whatever the total says.
+            this._total = page.results.length ? page.total : this._photos.length;
             this._append(page.results.map(r => ({ lib: r.libraryID, id: r.id, name: r.filename, taken: r.dateTaken || '' })));
             if (!this._photos.length) this._grid.innerHTML = '<p class="people-empty">No photos show all of them together.</p>';
         } catch (err) {
+            if (gen !== this._gen) return;
             this._grid.insertAdjacentHTML('beforeend', `<p class="people-group-error">The photos could not be read: ${escapeHtml(err.message)}</p>`);
             this._total = this._photos.length;
         } finally {
-            this._loading = false;
+            if (this._loadingGen === gen) this._loadingGen = null;
         }
+        // The observer only speaks when the end comes into view; when it is
+        // in view already, the next page is asked for here.
+        if (gen === this._gen && this._photos.length < this._total && this._moreInView()) this._morePhotos(names, gen);
+    }
+
+    _moreInView() {
+        const r = this.pane._body.querySelector('.people-phone-more')?.getBoundingClientRect();
+        return !!r && r.top < window.innerHeight + 400;
     }
 
     _append(photos) {

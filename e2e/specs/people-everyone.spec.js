@@ -39,7 +39,9 @@ async function fakeEveryone(page) {
       { library: OTHER, libraryName: 'Other spelling', looksLike: { id: 4, name: 'Anna Müller', faces: 2, photos: 2, cover: 31 } },
       { library: WAITING, libraryName: 'Waiting', group: { id: 3, size: 6, faces: [41, 42] } },
     ],
+    with: [{ name: 'Ben', photos: 2 }],
   } }));
+  await page.route('**/api/people/with?*', r => r.fulfill({ json: [{ name: 'Ben', photos: 2 }] }));
   await page.route(`**/api/library/${FAMILY}/people`, r => r.fulfill({ json: {
     people: [{ id: 1, name: 'Anna', faces: 3, photos: 3, cover: 11 }], groups: [], groupCount: 0, pending: 0, finding: false } }));
   await page.route(`**/api/library/${FAMILY}/people/1`, r => r.fulfill({ json: [{ id: 11, photoId: 'p1', x: 0.1, y: 0.1, w: 0.2, h: 0.2 }] }));
@@ -111,5 +113,17 @@ test.describe('People in all libraries', () => {
     await expect(page.locator('.people-born')).toContainText('Born');
     await expect(page.locator('.people-born')).toContainText('2015');
     expect(birthdays).toEqual({ Anna: '2015-05-12' });
+  });
+  test('Often with leads to the photos of both, from a library and from all libraries', async ({ page }) => {
+    await fakeEveryone(page);
+    for (const address of [`/#people/${FAMILY}/person/1`, '/#people/all/person/Anna']) {
+      await page.goto(address);
+      await waitForAppReady(page);
+      const chip = page.locator('.people-with-chip', { hasText: 'Ben' });
+      await expect(chip).toContainText('2');
+      await chip.click();
+      await expect(page).toHaveURL(/#libraries/);
+      await expect(page.locator('.chip .chip-label')).toHaveText(['Person: Anna', 'Person: Ben']);
+    }
   });
 });

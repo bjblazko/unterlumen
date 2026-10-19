@@ -185,8 +185,9 @@ class LibraryFilterPanel {
         if (criteria.gallery) {
             this._chipInput.add(GALLERY_CHIP_NS, criteria.gallery.id, criteria.gallery.title);
         }
-        if (criteria.person) {
-            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'person'), criteria.person);
+        // One person, or several who must all be in the photo.
+        for (const name of [criteria.person ?? []].flat()) {
+            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'person'), name);
         }
         if (criteria.hues) this._setHues(criteria.hues);
         this._suppressQuery = false;

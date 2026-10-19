@@ -357,6 +357,7 @@ class PeoplePane {
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
             ${bornHTML(birthdayOf(birthdays, person.name))}
+            <div class="people-with-slot"></div>
             <p class="people-hint">Switch on a face that is someone else, then take it away from ${escapeHtml(person.name)}; switch on one face to use it as the cover. Rest the pointer on a face to see it in its photo; Show photos finds ${escapeHtml(person.name)} in every library.${this._elsewhereNote(person.name, elsewhere)}</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar" hidden>
@@ -369,6 +370,7 @@ class PeoplePane {
         this._body.querySelector('.people-show').after(menu.button);
         this._body.querySelector('.people-grid-wrap').appendChild(grid.el);
         showPhotosLink(this._body.querySelector('.people-show'), { person: person.name });
+        this._showOftenWith(person.name);
         const bar = this._body.querySelector('.people-bar');
         const unname = bar.querySelector('.people-unname');
         const cover = bar.querySelector('.people-cover');
@@ -402,6 +404,18 @@ class PeoplePane {
                 error.textContent = `${err.message} Nothing was changed.`;
             }
         });
+    }
+
+    // Who is most often with the person, in all libraries; it comes after
+    // the page, which does not wait for it.
+    async _showOftenWith(name) {
+        const slot = this._body.querySelector('.people-with-slot');
+        try {
+            const withList = await PeopleAPI.oftenWith(name);
+            if (!slot.isConnected) return;
+            slot.innerHTML = oftenWithHTML(withList);
+            wireOftenWith(slot, name);
+        } catch { /* the page stands without it */ }
     }
 
     // The libraries other than this one where the name is given, from the

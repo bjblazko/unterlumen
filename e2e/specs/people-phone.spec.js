@@ -13,7 +13,7 @@ const tinyJPEG = Buffer.from(
   'base64');
 const named = (name, person, photos) => ({ name, faces: photos, photos, libraries: [{ library: LIB, libraryName: 'Family', person, faces: photos, photos, cover: person * 10 }] });
 
-async function fakePeople(page) {
+async function fakePeople(page, { slowFirst = 0 } = {}) {
   const searches = [];
   await page.route('**/api/faces', r => r.fulfill({ json: { installed: true, plan: { supported: true, bytes: 1 } } }));
   await page.route('**/api/library/', r => r.request().method() === 'GET'
@@ -28,9 +28,10 @@ async function fakePeople(page) {
   } }));
   await page.route(`**/api/library/${LIB}/people`, r => r.fulfill({ json: {
     people: [{ id: 1, name: 'Anna', faces: 3, photos: 3, cover: 10 }], groups: [], groupCount: 0, pending: 0, finding: false } }));
-  await page.route('**/api/library/search*', r => {
+  await page.route('**/api/library/search*', async r => {
     const q = new URL(r.request().url()).searchParams;
     searches.push(q.getAll('person'));
+    if (slowFirst && searches.length === 1) await new Promise(res => setTimeout(res, slowFirst));
     const all = [
       { libraryID: LIB, id: 'p1', filename: 'a.jpg', dateTaken: '2024-06-01T10:00:00' },
       { libraryID: LIB, id: 'p2', filename: 'b.jpg', dateTaken: '2023-02-01T10:00:00' },
@@ -77,6 +78,20 @@ test.describe('People on a phone', () => {
 
     await page.locator('.people-phone-photo').first().tap();
     await expect(page.locator('.viewer')).toBeVisible();
+  });
+
+  // On a slow network the first photos are still on their way when a
+  // name under Often with is tapped: the photos of both must still come.
+  test('choosing someone while the first photos load still shows the photos of both', async ({ page }) => {
+    await fakePeople(page, { slowFirst: 1500 });
+    await page.goto('/#people/all/person/Anna');
+    await waitForAppReady(page);
+    await page.locator('.people-with-chip', { hasText: 'Ben' }).tap();
+    await expect(page.locator('.people-phone-subject')).toHaveText('Photos of Anna and Ben together');
+    await expect(page.locator('.people-phone-photo')).toHaveCount(1, { timeout: 5000 });
+    await page.waitForTimeout(2000);
+    // The late answer for Anna alone does not add her other photos.
+    await expect(page.locator('.people-phone-photo')).toHaveCount(1);
   });
 
   test("a library's person page leads to the same page by name", async ({ page }) => {

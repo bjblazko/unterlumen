@@ -29,6 +29,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *bir
 	mux.HandleFunc("GET /api/library/person-names", personNames(mgr))
 	mux.HandleFunc("GET /api/people", everyone(mgr))
 	mux.HandleFunc("GET /api/people/someone", someone(mgr))
+	mux.HandleFunc("GET /api/people/with", companions(mgr))
 	if bdays != nil {
 		mux.HandleFunc("GET /api/people/birthdays", listBirthdays(bdays))
 		mux.HandleFunc("PUT /api/people/birthdays", setBirthday(bdays))

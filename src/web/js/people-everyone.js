@@ -70,6 +70,7 @@ class PeopleEveryone {
                 <a class="btn people-show" href="#libraries">Show photos</a>
             </div>
             ${bornHTML(birthdayOf(birthdays, name))}
+            ${oftenWithHTML(data.with)}
             <p class="people-hint">Names are given and changed in each library. To rename ${escapeHtml(name)} or take the name away, do it on ${escapeHtml(name)}'s page in each library: ${sentenceList(data.in.map(l => this._personLink(l, l.libraryName)))}.</p>
             ${data.in.map(l => this._namedIn(name, l)).join('')}
             ${data.notIn.length ? `
@@ -78,6 +79,7 @@ class PeopleEveryone {
                     ${data.notIn.map(l => this._notNamedIn(name, l)).join('')}
                 </section>` : ''}`;
         showPhotosLink(body.querySelector('.people-show'), { person: name });
+        wireOftenWith(body, name);
         const menu = new Menu({ label: 'Person options', items: () => [
             { label: 'Birthday…', onSelect: () => editBirthday(name, birthdayOf(birthdays, name), () => this.showPerson(name)) },
         ] });
@@ -152,4 +154,16 @@ function countPhotos(n) { return n === 1 ? '1 photo' : `${formatCount(n)} photos
 // sentenceList joins items as a sentence does: "a", "a and b", "a, b and c".
 function sentenceList(items) {
     return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+// The people most often in the same photos as someone, each a link to the
+// photos of both in Libraries (the library filter with two people).
+function oftenWithHTML(withList) {
+    if (!withList?.length) return '';
+    const links = withList.map(c => `<a class="btn btn-sm people-with-chip" href="#libraries" data-name="${escapeHtml(c.name)}">${escapeHtml(c.name)} <span class="people-num">${formatCount(c.photos)}</span></a>`);
+    return `<div class="people-with"><span class="people-label">Often with</span><div class="people-with-row">${links.join('')}</div></div>`;
+}
+
+function wireOftenWith(container, name) {
+    for (const a of container.querySelectorAll('a.people-with-chip')) showPhotosLink(a, { person: [name, a.dataset.name] });
 }

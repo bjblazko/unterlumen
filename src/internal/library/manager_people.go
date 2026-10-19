@@ -155,6 +155,32 @@ func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
 	return out, nil
 }
 
+// CompanionsOf lists who is most often in the same photos as the person of
+// that name, in all libraries together.
+func (m *Manager) CompanionsOf(name string) ([]Companion, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	with := map[string]*Companion{}
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		p, ok, err := store.PersonNamed(name)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			if err := addCompanions(store, p.ID, with); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return topCompanions(with), nil
+}
+
 // addCompanions adds the people in the same photos as person in one
 // library to with, by name in any case.
 func addCompanions(store *Store, person int64, with map[string]*Companion) error {
