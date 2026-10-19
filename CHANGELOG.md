@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.15.7] - 2026-10-19
+
 ### Added
 - **Shared libraries keep up on their own.** At start and every 30 minutes, each shared library is compared with its folder, shown as "Checking …" in the status line: photos the other installation added, deleted or edited, and titles, fields and galleries it changed, show without a click.
 
