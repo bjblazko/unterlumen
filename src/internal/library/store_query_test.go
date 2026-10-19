@@ -1,7 +1,10 @@
 package library
 
 import (
+	"context"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -23,7 +26,7 @@ func listedIDs(t *testing.T, s *Store, opts ListPhotosOpts) ([]string, int) {
 	if opts.Limit == 0 {
 		opts.Limit = 100
 	}
-	res, err := s.ListPhotos(opts)
+	res, err := s.ListPhotos(context.Background(), opts)
 	if err != nil {
 		t.Fatalf("ListPhotos(%+v): %v", opts, err)
 	}
@@ -78,7 +81,7 @@ func TestListPhotosPagesAndKeepsTheTotal(t *testing.T) {
 }
 
 func TestListPhotosCarriesOverlayExif(t *testing.T) {
-	res, err := listFixture(t).ListPhotos(ListPhotosOpts{Limit: 100})
+	res, err := listFixture(t).ListPhotos(context.Background(), ListPhotosOpts{Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +100,7 @@ func TestListPhotosCarriesOverlayExif(t *testing.T) {
 }
 
 func TestListPhotosNoMatchIsAnEmptyList(t *testing.T) {
-	res, err := listFixture(t).ListPhotos(ListPhotosOpts{ExtFilter: "tiff", Limit: 10})
+	res, err := listFixture(t).ListPhotos(context.Background(), ListPhotosOpts{ExtFilter: "tiff", Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,3 +110,36 @@ func TestListPhotosNoMatchIsAnEmptyList(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// A person's photos are listed once per query, not looked for again for
+// every photo: as a correlated subquery, a search for someone with many
+// faces in a large library took minutes and blocked the library.
+func TestPersonFilterIsNotCorrelated(t *testing.T) {
+	s := listFixture(t)
+	fromSQL, whereSQL, args := newPhotoFilter(ListPhotosOpts{People: []string{"Anna", "Ben"}}).sql()
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	if joined := strings.Join(plan, "; "); strings.Contains(joined, "CORRELATED") {
+		t.Fatalf("the person filter runs once per photo: %s", joined)
+	}
+}
+
+func TestListPhotosStopsWhenTheAskerHasGone(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := listFixture(t).ListPhotos(ctx, ListPhotosOpts{Limit: 10}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+}

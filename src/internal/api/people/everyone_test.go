@@ -1,6 +1,7 @@
 package apipeople
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"path/filepath"
@@ -91,10 +92,10 @@ func TestPeopleStatisticsAndTheFacesFilter(t *testing.T) {
 
 	store, _ := mgr.OpenStore(id)
 	one, two := 1, 2
-	if res, _ := store.ListPhotos(lib.ListPhotosOpts{FacesMin: &one, FacesMax: &one, Limit: 10}); res.Total != 2 {
+	if res, _ := store.ListPhotos(context.Background(), lib.ListPhotosOpts{FacesMin: &one, FacesMax: &one, Limit: 10}); res.Total != 2 {
 		t.Errorf("photos with one face: %d, want 2", res.Total)
 	}
-	if res, _ := store.ListPhotos(lib.ListPhotosOpts{FacesMin: &two, Limit: 10}); res.Total != 0 {
+	if res, _ := store.ListPhotos(context.Background(), lib.ListPhotosOpts{FacesMin: &two, Limit: 10}); res.Total != 0 {
 		t.Errorf("photos with two faces or more: %d, want 0", res.Total)
 	}
 }

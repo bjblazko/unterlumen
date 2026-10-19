@@ -117,7 +117,7 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 		}
 		defer store.Close()
 
-		result, err := store.ListPhotos(parseListPhotosOpts(r.URL.Query()))
+		result, err := store.ListPhotos(r.Context(), parseListPhotosOpts(r.URL.Query()))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -129,7 +129,7 @@ func listPhotos(mgr *lib.Manager) http.HandlerFunc {
 func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		result, err := mgr.SearchLibraries(parseIDList(q.Get("ids")), parseListPhotosOpts(q))
+		result, err := mgr.SearchLibraries(r.Context(), parseIDList(q.Get("ids")), parseListPhotosOpts(q))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

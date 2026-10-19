@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math"
@@ -48,21 +49,26 @@ type ListPhotosOpts struct {
 	Limit          int
 }
 
-// ListPhotos returns a filtered, paginated list of photos.
-func (s *Store) ListPhotos(opts ListPhotosOpts) (ListPhotosResult, error) {
+// ListPhotos returns a filtered, paginated list of photos. It stops when ctx
+// ends — whoever asked has gone — so the library's one connection is free
+// again for everyone else.
+func (s *Store) ListPhotos(ctx context.Context, opts ListPhotosOpts) (ListPhotosResult, error) {
 	fromSQL, whereSQL, args := newPhotoFilter(opts).sql()
 
 	var total int
-	if err := s.db.QueryRow(`SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL, args...).Scan(&total); err != nil {
 		return ListPhotosResult{}, err
 	}
 
-	rows, err := s.db.Query(
+	// The page is chosen by id first, from the index on status, date and id;
+	// only its rows are read then. Sorting whole rows read past every match's
+	// EXIF, a second for a person in a large library.
+	const newestFirst = ` ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC, p.id`
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at, p.status, p.date_taken,
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1)
-		 `+fromSQL+` WHERE `+whereSQL+
-			` ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC LIMIT ? OFFSET ?`,
+		 FROM photos p WHERE p.id IN (SELECT p.id `+fromSQL+` WHERE `+whereSQL+newestFirst+` LIMIT ? OFFSET ?)`+newestFirst,
 		append(args, opts.Limit, opts.Offset)...,
 	)
 	if err != nil {
@@ -259,9 +265,12 @@ func (f *photoFilter) addMeta(opts ListPhotosOpts) {
 		f.cond(`(EXISTS (SELECT 1 FROM photo_faces_found ff WHERE ff.photo_id = p.id)
 			AND (SELECT COUNT(*) FROM faces fc WHERE fc.photo_id = p.id) BETWEEN ? AND ?)`, lo, hi)
 	}
+	// A list of the person's photos, made once: as EXISTS on p.id, SQLite
+	// walked all of their faces again for every photo, minutes in a large
+	// library, and the library waited behind it.
 	for _, name := range opts.People {
-		f.cond(`EXISTS (SELECT 1 FROM faces fa JOIN people pe ON pe.id = fa.person_id
-			WHERE fa.photo_id = p.id AND fa.confirmed = 1 AND pe.name = ?)`, name)
+		f.cond(`p.id IN (SELECT fa.photo_id FROM faces fa JOIN people pe ON pe.id = fa.person_id
+			WHERE fa.confirmed = 1 AND pe.name = ?)`, name)
 	}
 }
 

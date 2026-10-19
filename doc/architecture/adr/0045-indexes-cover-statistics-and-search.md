@@ -1,6 +1,6 @@
 # ADR-0045: Indexes cover what the statistics and the search read
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-10-19*
 
 ## Status
 
@@ -34,3 +34,11 @@ Measured on a copy of the owner's largest library (36,000 photos, 1.7 million EX
 - The first start after the update rebuilds the EXIF index of each library, one after the other. For the owner's six libraries that kept the app from answering for 86 s.
 - The timeline (1.5–2 s) and the search by frame shape (1 s) still read every photo's JSON for its width and height. Columns of their own would fix that; this ADR leaves them.
 - One connection per library remains. A slow query still blocks its library, so a new query must be measured on a real library before it ships.
+
+## Addendum 2026-10-19: the person filter, the page and a request that has gone
+
+The NAS stopped answering after a few People, Timeline and Libraries pages on a phone. A goroutine dump showed one library search counting photos for minutes; every request to that library waited behind it.
+
+- **The person filter was a correlated `EXISTS` again** (ADR-0051): for each of 32,000 photos SQLite walked all 3,285 faces of the person with the most faces, about 100 million steps: 90 s per page with the app's SQLite on a Mac (14.7 s in native SQLite), minutes on the NAS. It is now a set, `p.id IN (SELECT fa.photo_id FROM faces fa JOIN people pe … WHERE pe.name = ?)`, 0.04 s. `TestPersonFilterIsNotCorrelated` checks its plan.
+- **The page is chosen by id first.** `ListPhotos` sorted whole rows, so every match's row, EXIF JSON included, was read to sort by `date_taken`. It now picks the page's ids in a subquery that the `(status, date_taken, id)` index covers, sorted with `p.id` as the last key so that pages are stable, and reads only those rows. On the largest library a search with no criterion takes 0.1 s instead of 2.1 s, a person 0.16 s instead of 1.4 s, and no search measured got slower.
+- **A search stops when whoever asked has gone.** `ListPhotos` and `SearchLibraries` take the request's context; SQLite interrupts the query when the phone closes the page or asks again, and a request still waiting for the connection gives up. Before, every abandoned page kept its place in the queue.

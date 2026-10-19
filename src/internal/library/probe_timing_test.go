@@ -8,6 +8,7 @@ package library
 //	PROBE_DB=/path/to/copy/library.db go test -tags probe -run Probe -v ./internal/library/
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -61,7 +62,10 @@ func TestProbeTimings(t *testing.T) {
 	timed("ExposurePoints (filter)", func() error { _, err := filtered.ExposurePoints(""); return err })
 	timed("GeoPoints (filter)", func() error { _, err := filtered.GeoPoints(); return err })
 	timed("DatedPhotos (filter)", func() error { _, err := filtered.DatedPhotos(); return err })
-	timed("search: filter", func() error { _, err := s.ListPhotos(ListPhotosOpts{Scope: xt50, Limit: 200}); return err })
+	timed("search: filter", func() error {
+		_, err := s.ListPhotos(context.Background(), ListPhotosOpts{Scope: xt50, Limit: 200})
+		return err
+	})
 	f := func(v float64) map[string]NumericFilter {
 		return map[string]NumericFilter{"FNumber": {Min: v, Max: v + 0.7}}
 	}
@@ -83,6 +87,27 @@ func TestProbeTimings(t *testing.T) {
 		"search: film sim":    {Filters: map[string]string{"FilmSimulation": "Classic Chrome"}},
 	} {
 		o.Limit = 200
-		timed(name, func() error { _, err := s.ListPhotos(o); return err })
+		timed(name, func() error { _, err := s.ListPhotos(context.Background(), o); return err })
+	}
+	// The person with the most faces, alone and with the next one.
+	var most []string
+	if rows, err := db.Query(`SELECT pe.name FROM people pe JOIN faces f ON f.person_id = pe.id
+		GROUP BY pe.id ORDER BY COUNT(*) DESC LIMIT 2`); err == nil {
+		for rows.Next() {
+			var n string
+			rows.Scan(&n) //nolint:errcheck
+			most = append(most, n)
+		}
+		rows.Close()
+	}
+	if len(most) == 2 {
+		timed("search: person", func() error {
+			_, err := s.ListPhotos(context.Background(), ListPhotosOpts{People: most[:1], Limit: 60})
+			return err
+		})
+		timed("search: two people", func() error {
+			_, err := s.ListPhotos(context.Background(), ListPhotosOpts{People: most, Limit: 60})
+			return err
+		})
 	}
 }

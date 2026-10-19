@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -79,7 +80,7 @@ func TestManagerStatisticsOnlyTheRequestedLibraries(t *testing.T) {
 
 func TestSearchLibrariesMergesNewestFirstAndPages(t *testing.T) {
 	mgr, fixtureID, extraID := managerFixture(t)
-	res, err := mgr.SearchLibraries(nil, ListPhotosOpts{Limit: 100})
+	res, err := mgr.SearchLibraries(context.Background(), nil, ListPhotosOpts{Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,7 @@ func TestSearchLibrariesMergesNewestFirstAndPages(t *testing.T) {
 		}
 	}
 
-	page, err := mgr.SearchLibraries([]string{fixtureID}, ListPhotosOpts{Offset: 1, Limit: 2})
+	page, err := mgr.SearchLibraries(context.Background(), []string{fixtureID}, ListPhotosOpts{Offset: 1, Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +114,7 @@ func TestSearchLibrariesMergesNewestFirstAndPages(t *testing.T) {
 		t.Errorf("page = %v (total %d), want %v (total 4)", got, page.Total, want)
 	}
 
-	past, err := mgr.SearchLibraries(nil, ListPhotosOpts{Offset: 50, Limit: 10})
+	past, err := mgr.SearchLibraries(context.Background(), nil, ListPhotosOpts{Offset: 50, Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -219,7 +220,7 @@ func collectSidecarAlbums(mgr *lib.Manager, ch *channels.Channel) ([]*sidecarAlb
 			continue
 		}
 		for offset := 0; ; offset += 500 {
-			res, err := store.ListPhotos(lib.ListPhotosOpts{MetaExists: []string{"built:" + ch.Slug}, Offset: offset, Limit: 500})
+			res, err := store.ListPhotos(context.Background(), lib.ListPhotosOpts{MetaExists: []string{"built:" + ch.Slug}, Offset: offset, Limit: 500})
 			if err != nil || len(res.Photos) == 0 {
 				break
 			}

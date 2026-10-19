@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -81,7 +82,7 @@ func TestListPhotosFocalLength35Filter(t *testing.T) {
 	// Photo D: no focal length at all → excluded
 	insertPhoto(t, s, "d", nil, nil)
 
-	result, err := s.ListPhotos(ListPhotosOpts{
+	result, err := s.ListPhotos(context.Background(), ListPhotosOpts{
 		NumericFilters: map[string]NumericFilter{"FocalLength35": {Min: 30, Max: 40}},
 		Limit:          100,
 	})
@@ -123,7 +124,7 @@ func TestPurgePhotos(t *testing.T) {
 	}
 
 	// "keep" must still be present with status ok.
-	result, err := s.ListPhotos(ListPhotosOpts{Limit: 10})
+	result, err := s.ListPhotos(context.Background(), ListPhotosOpts{Limit: 10})
 	if err != nil {
 		t.Fatalf("ListPhotos: %v", err)
 	}

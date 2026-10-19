@@ -2,6 +2,7 @@ package apipeople
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"image"
 	"image/jpeg"
@@ -192,7 +193,7 @@ func TestAPersonFiltersTheLibrarySearch(t *testing.T) {
 		t.Fatalf("names %s", rec.Body)
 	}
 	store, _ := mgr.OpenStore(id)
-	res, err := store.ListPhotos(lib.ListPhotosOpts{People: []string{"anna"}, Limit: 10})
+	res, err := store.ListPhotos(context.Background(), lib.ListPhotosOpts{People: []string{"anna"}, Limit: 10})
 	if err != nil || res.Total != 1 || len(res.Photos) != 1 {
 		t.Fatalf("photos of Anna: %+v, %v", res, err)
 	}
@@ -230,10 +231,10 @@ func TestSeveralPeopleNarrowTogether(t *testing.T) {
 	o := readOverview(t, h, id)
 	do(t, h, "POST", "/api/library/"+id+"/faces/name", map[string]any{"faces": o.Groups[0].Faces, "name": "Anna"})
 	store, _ := mgr.OpenStore(id)
-	if res, _ := store.ListPhotos(lib.ListPhotosOpts{People: []string{"Anna"}, Limit: 10}); res.Total != 2 {
+	if res, _ := store.ListPhotos(context.Background(), lib.ListPhotosOpts{People: []string{"Anna"}, Limit: 10}); res.Total != 2 {
 		t.Fatalf("Anna alone: %d photos, want 2", res.Total)
 	}
-	if res, _ := store.ListPhotos(lib.ListPhotosOpts{People: []string{"Anna", "Ben"}, Limit: 10}); res.Total != 0 {
+	if res, _ := store.ListPhotos(context.Background(), lib.ListPhotosOpts{People: []string{"Anna", "Ben"}, Limit: 10}); res.Total != 0 {
 		t.Fatalf("Anna with Ben: %d photos, want 0", res.Total)
 	}
 }

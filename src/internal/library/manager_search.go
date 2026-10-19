@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"sort"
 	"time"
 )
@@ -54,7 +55,8 @@ func (m *Manager) AggregateExifFieldValues(ids []string, field string) ([]string
 // SearchLibraries queries one or more libraries with the given filter opts and
 // returns a merged, date-taken-sorted result. Pass nil ids to search all libraries.
 // At most (Offset + Limit) photos are fetched per library; the total reflects the true match count.
-func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibraryResult, error) {
+// When ctx ends, the search stops and says so.
+func (m *Manager) SearchLibraries(ctx context.Context, ids []string, opts ListPhotosOpts) (CrossLibraryResult, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return CrossLibraryResult{}, err
@@ -68,7 +70,10 @@ func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibra
 	var all []LibraryPhoto
 	total := 0
 	for _, l := range libs {
-		photos, n := m.searchLibrary(l, perLibOpts)
+		photos, n := m.searchLibrary(ctx, l, perLibOpts)
+		if err := ctx.Err(); err != nil {
+			return CrossLibraryResult{}, err
+		}
 		all = append(all, photos...)
 		total += n
 	}
@@ -88,12 +93,12 @@ func (m *Manager) SearchLibraries(ids []string, opts ListPhotosOpts) (CrossLibra
 
 // searchLibrary returns one library's matching photos and their total. A
 // library that cannot be opened or queried contributes nothing.
-func (m *Manager) searchLibrary(l *Library, opts ListPhotosOpts) ([]LibraryPhoto, int) {
+func (m *Manager) searchLibrary(ctx context.Context, l *Library, opts ListPhotosOpts) ([]LibraryPhoto, int) {
 	store, err := m.OpenStore(l.ID)
 	if err != nil {
 		return nil, 0
 	}
-	page, err := store.ListPhotos(opts)
+	page, err := store.ListPhotos(ctx, opts)
 	store.Close()
 	if err != nil {
 		return nil, 0
