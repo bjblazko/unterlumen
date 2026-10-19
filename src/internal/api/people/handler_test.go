@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"huepattl.de/unterlumen/internal/faces"
 	"huepattl.de/unterlumen/internal/birthdays"
+	"huepattl.de/unterlumen/internal/faces"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
 )

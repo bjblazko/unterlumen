@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'published', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
+const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'people', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
 
 const App = {
     mode: 'browse',

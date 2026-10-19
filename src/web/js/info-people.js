@@ -33,6 +33,7 @@ class InfoPeople {
 
     render() {
         if (!this._faces.length) return '';
+        if (matchMedia(INFO_PANEL_PHONE).matches) return this._renderToRead();
         const rows = this._faces.map((f, i) => {
             const pic = `<button type="button" class="info-face-pic" data-index="${i}" aria-label="Face ${i + 1}">` +
                 `<img src="${PeopleAPI.faceURL(this._ref.lib, f.id)}" alt="" width="40" height="40" loading="lazy"></button>`;
@@ -45,6 +46,18 @@ class InfoPeople {
         if (this._faces.some(f => !f.name)) rows.push('<p class="info-label info-face-hint">Type a name beside a face and press Return.</p>');
         const options = this._names.map(n => `<option value="${escapeHtml(n)}">`).join('');
         rows.push(`<datalist id="info-face-names">${options}</datalist>`);
+        return `<div class="info-people">${this._panel.section('People', rows)}</div>`;
+    }
+
+    // On a phone the panel only says who is in the photo: naming is work
+    // for the computer.
+    _renderToRead() {
+        const named = this._faces.map((f, i) => ({ f, i })).filter(({ f }) => f.name);
+        if (!named.length) return '';
+        const rows = named.map(({ f, i }) => `<div class="info-face">` +
+            `<button type="button" class="info-face-pic" data-index="${i}" aria-label="${escapeHtml(f.name)}">` +
+            `<img src="${PeopleAPI.faceURL(this._ref.lib, f.id)}" alt="" width="40" height="40" loading="lazy"></button>` +
+            `<span class="info-value info-face-name">${escapeHtml(f.name)}${f.age !== undefined ? `<span class="info-face-age"> · ${f.age}</span>` : ''}</span></div>`);
         return `<div class="info-people">${this._panel.section('People', rows)}</div>`;
     }
 

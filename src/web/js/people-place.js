@@ -26,6 +26,7 @@ class PeoplePane {
         this.libraries = [];
         this.overviewData = null;
         this._everyone = new PeopleEveryone(this);
+        this._phone = new PeoplePhone(this);
         App.statusLine?.onFinished((job) => {
             if (job.place === 'people' && App.mode === 'people') this.show(this.route);
         });
@@ -44,6 +45,7 @@ class PeoplePane {
         this._head();
         if (!status.installed) { this._showInstall(status.plan); return; }
         if (!this.route.library) { this._showNoLibraries(); return; }
+        if (peopleOnPhone()) { await this._showOnPhone(route); return; }
         try { localStorage.setItem(PEOPLE_LIBRARY_KEY, this.route.library); } catch { /* private window */ }
         if (this.route.library === PEOPLE_ALL) {
             if (this.route.view === 'person') await this._everyone.showPerson(this.route.id);
@@ -51,6 +53,14 @@ class PeoplePane {
         } else if (this.route.view === 'group') await this._showGroup(Number(this.route.id));
         else if (this.route.view === 'person') await this._showPerson(Number(this.route.id));
         else await this._showOverview();
+    }
+
+    // A phone finds people and shows their photos; everything else about
+    // People is work for the computer (people-phone.js).
+    async _showOnPhone(route) {
+        if (route.view === 'person' && route.library === PEOPLE_ALL) await this._phone.showPerson(route.id);
+        else if (route.view === 'person' && route.library) await this._phone.showPersonOf(route.library, Number(route.id));
+        else await this._phone.showOverview();
     }
 
     // The library asked for, else the one shown last, else the first. All

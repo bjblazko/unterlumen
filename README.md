@@ -137,7 +137,7 @@ What Publish builds — a website with its albums, one album of it, and a galler
 
 #### On a phone
 
-On a phone Unterlumen is for looking: libraries, folders, photos, the map, the timeline and your galleries, with a tab bar at the bottom.
+On a phone Unterlumen is for looking: libraries, folders, photos, the map, the timeline and the people in your photos, with a tab bar at the bottom. People on a phone finds a person as you type their name and shows their photos by year, with who is most often in them: tap one to see the photos of both together. Naming and everything else that changes files or settings — Galleries and publishing among them — is desktop work.
 
 | Folders | Map | Timeline |
 |---|---|---|

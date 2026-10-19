@@ -15,7 +15,7 @@
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css?v=63">
     <link rel="stylesheet" href="/css/timeline.css?v=1">
-    <link rel="stylesheet" href="/css/people.css?v=8">
+    <link rel="stylesheet" href="/css/people.css?v=9">
     <link rel="stylesheet" href="/css/statistics.css?v=13">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
     <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
@@ -153,7 +153,7 @@
         <div class="desk-only-notice">
             <h2>This is desktop work</h2>
             <p>Culling, organising and publishing change files and settings, which is not something to do on a phone. Open Unterlumen on your computer for this.</p>
-            <p>On a phone you can browse your libraries and folders, look at photos and their metadata, and see how your galleries are doing.</p>
+            <p>On a phone you can browse your libraries and folders, look at photos and their metadata, and find the people in them.</p>
             <a class="btn" href="#folders" data-mode="browse">Go to Folders</a>
         </div>
         <!-- Phone: the same places, reachable with a thumb. Same hrefs as the
@@ -183,11 +183,11 @@
                 </svg>
                 <span>Timeline</span>
             </a>
-            <a class="tabbar-item" id="tab-published" href="#galleries" data-mode="published">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 11l4-4 3 3 2-2 4 4"/>
+            <a class="tabbar-item" id="tab-people" href="#people" data-mode="people">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="8" cy="5.5" r="3"/><path d="M2.5 14.5c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/>
                 </svg>
-                <span>Galleries</span>
+                <span>People</span>
             </a>
         </nav>
     </div>
@@ -215,7 +215,7 @@
     <script src="/js/viewer-menu.js?v=1"></script>
     <script src="/js/exif-labels.js?v=1"></script>
     <script src="/js/folder-dashboard.js?v=2"></script>
-    <script src="/js/info-people.js?v=3"></script>
+    <script src="/js/info-people.js?v=4"></script>
     <script src="/js/infopanel.js?v=15"></script>
     <script src="/js/dialog.js?v=1"></script>
     <script src="/js/progress-dialog.js?v=5"></script>
@@ -275,7 +275,8 @@
     <script src="/js/people-birthday.js?v=1"></script>
     <script src="/js/face-grid.js?v=4"></script>
     <script src="/js/people-everyone.js?v=2"></script>
-    <script src="/js/people-place.js?v=6"></script>
+    <script src="/js/people-phone.js?v=1"></script>
+    <script src="/js/people-place.js?v=7"></script>
     <script src="/js/stats-place.js?v=13"></script>
     <script src="/js/settings-storage.js?v=1"></script>
     <script src="/js/settings.js?v=9"></script>
@@ -288,6 +289,6 @@
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=6"></script>
     <script src="/js/app-keyboard.js?v=14"></script>
-    <script src="/js/app.js?v=30"></script>
+    <script src="/js/app.js?v=31"></script>
 </body>
 </html>

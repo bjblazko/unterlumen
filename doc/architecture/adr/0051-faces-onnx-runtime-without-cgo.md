@@ -163,6 +163,17 @@ sidecar as Metadata Working Group regions; an architecture that is not
     age in a photo. No model guesses an age from a face: that would be a
     further download, often years off, and a new inference from faces.
 
+11. **People on a phone is for finding.** The phone's tab bar has People in
+    place of Galleries (publishing is desktop work, ADR-0028's phone rule).
+    `PeoplePhone` shows everyone named in any library with a search over
+    the names, and a person by name: their photos across libraries, newest
+    first by year (the library search's `person=`), when they were born,
+    and who is most often with them (`SomeoneEverywhere.With`, from each
+    library's `Store.Companions`); choosing those narrows the photos to all
+    of them together. No groups, naming, hiding, covers or birthdays; the
+    info panel lists named faces only. A library's person address on a
+    phone leads to the person by name.
+
 ## Consequences
 
 - The single binary stays: cgo-free, cross-compiled as before. Face

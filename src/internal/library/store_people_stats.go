@@ -104,3 +104,36 @@ func (s *Store) FacePrints(pathGlob string) ([]FacePrint, error) {
 	})
 	return out, err
 }
+
+// Companion is someone in the same photos as a person, and in how many.
+type Companion struct {
+	Name   string `json:"name"`
+	Photos int    `json:"photos"`
+}
+
+// Companions lists the people named in the same photos as person, those in
+// the most first.
+func (s *Store) Companions(person int64) ([]Companion, error) {
+	rows, err := s.db.Query(`
+		SELECT pe.name, COUNT(DISTINCT f2.photo_id)
+		FROM faces f1
+		JOIN faces f2 ON f2.photo_id = f1.photo_id AND f2.confirmed = 1 AND f2.person_id IS NOT NULL AND f2.person_id != f1.person_id
+		JOIN people pe ON pe.id = f2.person_id
+		JOIN photos p ON p.id = f1.photo_id AND p.status = 'ok'
+		WHERE f1.person_id = ? AND f1.confirmed = 1
+		GROUP BY pe.id ORDER BY 2 DESC, pe.name`, person)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Companion{}
+	err = scanRows(rows, func() error {
+		var c Companion
+		if err := rows.Scan(&c.Name, &c.Photos); err != nil {
+			return err
+		}
+		out = append(out, c)
+		return nil
+	})
+	return out, err
+}

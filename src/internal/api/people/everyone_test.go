@@ -3,9 +3,12 @@ package apipeople
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"huepattl.de/unterlumen/internal/birthdays"
+	"huepattl.de/unterlumen/internal/faces"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
 )
@@ -93,5 +96,47 @@ func TestPeopleStatisticsAndTheFacesFilter(t *testing.T) {
 	}
 	if res, _ := store.ListPhotos(lib.ListPhotosOpts{FacesMin: &two, Limit: 10}); res.Total != 0 {
 		t.Errorf("photos with two faces or more: %d, want 0", res.Total)
+	}
+}
+
+// A person's page across libraries names who is most often in their photos.
+func TestWhoIsOftenWithSomeone(t *testing.T) {
+	mgr, err := lib.NewManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := http.NewServeMux()
+	Handle(h, mgr, jobs.NewRegistry(), nil)
+	source := t.TempDir()
+	l, _ := mgr.CreateLibrary("Family", "", source)
+	store, _ := mgr.OpenStore(l.ID)
+	look := func(i int) []float32 { e := make([]float32, 128); e[i] = 1; return e }
+	for _, id := range []string{"p1", "p2"} {
+		if err := store.UpsertPhoto(id, filepath.Join(source, id+".jpg"), id+".jpg", 1, time.Now(), "{}", "", "", "jpeg"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store.SaveFoundFaces([]lib.FoundFaces{ //nolint:errcheck
+		{PhotoID: "p1", Faces: []faces.Face{{X: 0.1, Y: 0.1, W: 0.2, H: 0.2, Embedding: look(0)}, {X: 0.6, Y: 0.1, W: 0.2, H: 0.2, Embedding: look(1)}}, Names: []string{"", ""}},
+		{PhotoID: "p2", Faces: []faces.Face{{X: 0.1, Y: 0.1, W: 0.2, H: 0.2, Embedding: look(0)}}, Names: []string{""}},
+	})
+	name := func(photo string, x float64, who string) {
+		fs, _ := store.PhotoFaces(photo)
+		for _, f := range fs {
+			if f.X == x {
+				if _, err := store.NameFaces([]int64{f.ID}, who); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	name("p1", 0.1, "Anna")
+	name("p2", 0.1, "Anna")
+	name("p1", 0.6, "Ben")
+
+	var anna lib.SomeoneEverywhere
+	json.Unmarshal(do(t, h, "GET", "/api/people/someone?name=Anna", nil).Body.Bytes(), &anna) //nolint:errcheck
+	if len(anna.With) != 1 || anna.With[0].Name != "Ben" || anna.With[0].Photos != 1 {
+		t.Fatalf("with Anna: %+v, want Ben in one photo", anna.With)
 	}
 }

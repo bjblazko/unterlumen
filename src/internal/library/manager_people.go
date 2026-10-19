@@ -100,13 +100,18 @@ type SomeoneEverywhere struct {
 	Name  string       `json:"name"`
 	In    []SomeoneIn  `json:"in"`
 	NotIn []NotNamedIn `json:"notIn"`
+	With  []Companion  `json:"with"` // who is most often in the same photos, in all libraries together
 }
+
+// companionsShown is how many of the people most often with someone are named.
+const companionsShown = 12
 
 // SomeoneNamed gathers the person of that name from every library. Their
 // faces are compared, on this computer, with the people and groups of the
 // libraries that do not have the name, to suggest who there is them.
 func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
-	out := SomeoneEverywhere{Name: name, In: []SomeoneIn{}, NotIn: []NotNamedIn{}}
+	out := SomeoneEverywhere{Name: name, In: []SomeoneIn{}, NotIn: []NotNamedIn{}, With: []Companion{}}
+	with := map[string]*Companion{}
 	libs, err := m.ListLibraries()
 	if err != nil {
 		return out, err
@@ -133,8 +138,12 @@ func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
 		out.Name = p.Name
 		out.In = append(out.In, in)
 		looks = append(looks, embs...)
+		if err := addCompanions(store, p.ID, with); err != nil {
+			return out, err
+		}
 	}
 	sort.SliceStable(out.In, func(i, j int) bool { return out.In[i].Faces > out.In[j].Faces })
+	out.With = topCompanions(with)
 	centre := faces.Mean(looks)
 	for _, l := range others {
 		not, err := m.whoMayBe(l, centre)
@@ -144,6 +153,40 @@ func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
 		out.NotIn = append(out.NotIn, not)
 	}
 	return out, nil
+}
+
+// addCompanions adds the people in the same photos as person in one
+// library to with, by name in any case.
+func addCompanions(store *Store, person int64, with map[string]*Companion) error {
+	cs, err := store.Companions(person)
+	if err != nil {
+		return err
+	}
+	for _, c := range cs {
+		key := strings.ToLower(c.Name)
+		if with[key] == nil {
+			with[key] = &Companion{Name: c.Name}
+		}
+		with[key].Photos += c.Photos
+	}
+	return nil
+}
+
+func topCompanions(with map[string]*Companion) []Companion {
+	out := make([]Companion, 0, len(with))
+	for _, c := range with {
+		out = append(out, *c)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Photos != out[j].Photos {
+			return out[i].Photos > out[j].Photos
+		}
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	})
+	if len(out) > companionsShown {
+		out = out[:companionsShown]
+	}
+	return out
 }
 
 // someoneIn returns the person p of library l with their largest faces, and

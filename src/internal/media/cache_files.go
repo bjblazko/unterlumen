@@ -133,4 +133,3 @@ func EvictFile(srcPath string) {
 		os.Remove(filepath.Join(dir, cacheKey(srcPath, p)))
 	}
 }
-

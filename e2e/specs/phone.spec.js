@@ -4,7 +4,7 @@ import { navigateToFolder } from '../helpers/fixtures.js';
 import { reindexLibrary } from '../helpers/library.js';
 
 // Phase 8 of the Rams redesign: on a phone Unterlumen is for looking —
-// libraries, folders, photos, metadata and how the galleries are doing.
+// libraries, folders, photos, metadata and the people in them.
 // Everything that changes files or settings is desktop work and is not
 // offered here rather than offered and refused.
 
@@ -28,12 +28,14 @@ test.describe('Phone', () => {
         // The same places as the sidebar, with the same addresses.
         await expect(page.locator('#tab-browse')).toHaveAttribute('href', '#folders');
         await expect(page.locator('#tab-library')).toHaveAttribute('href', '#libraries');
-        await expect(page.locator('#tab-published')).toHaveAttribute('href', '#galleries');
+        await expect(page.locator('#tab-people')).toHaveAttribute('href', '#people');
         await expect(page.locator('#tab-browse')).toHaveAttribute('aria-current', 'page');
 
-        await page.locator('#tab-published').tap();
-        await expect(page).toHaveURL(/#galleries$/);
-        await expect(page.locator('#tab-published')).toHaveAttribute('aria-current', 'page');
+        await page.locator('#tab-people').tap();
+        await expect(page).toHaveURL(/#people$/);
+        await expect(page.locator('#tab-people')).toHaveAttribute('aria-current', 'page');
+        // Publishing is desktop work: Galleries is not among the tabs.
+        await expect(page.locator('.tabbar-item')).toHaveText(['Libraries', 'Folders', 'Map', 'Timeline', 'People']);
     });
 
     // The row height shrinks with the width, so two landscape photos share a

@@ -22,7 +22,7 @@ func TestCacheSegmentsAndClearingOne(t *testing.T) {
 	writeCache(cacheKey("/b.jpg", "thumb-exif-v2"), make([]byte, 100))
 	writeCache(cacheKey("/a.heic", fullJPEGPurpose), make([]byte, 1000))
 	os.WriteFile(filepath.Join(dir, "0123456789abcdef01234567.jpg"), make([]byte, 10), 0o600) //nolint:errcheck
-	os.WriteFile(filepath.Join(dir, "Cache.db"), []byte("macOS"), 0o600)                     //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "Cache.db"), []byte("macOS"), 0o600)                      //nolint:errcheck
 
 	got := map[string]CacheSegment{}
 	for _, s := range CacheSegments() {
