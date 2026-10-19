@@ -197,14 +197,17 @@ func (s *Store) personCentres() ([]Person, [][]float32, error) {
 	return people, centres, nil
 }
 
-// GroupFaces lists the unnamed faces of a group; PersonFaces the confirmed
-// faces of a person. Both put the largest first.
+// GroupFaces lists the unnamed faces of a group, the largest first;
+// PersonFaces the confirmed faces of a person, from the newest photo to the
+// oldest, those without a date last.
 func (s *Store) GroupFaces(grp int64) ([]FaceRef, error) {
 	return s.faceRefs(`SELECT id, photo_id, x, y, w, h FROM faces WHERE grp = ? AND `+unnamed+` ORDER BY w*h DESC`, grp)
 }
 
 func (s *Store) PersonFaces(person int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT id, photo_id, x, y, w, h FROM faces WHERE person_id = ? AND confirmed = 1 ORDER BY w*h DESC`, person)
+	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+		WHERE f.person_id = ? AND f.confirmed = 1
+		ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC, f.w*f.h DESC`, person)
 }
 
 func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {

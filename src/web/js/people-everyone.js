@@ -93,7 +93,7 @@ class PeopleEveryone {
 
     _namedIn(name, l) {
         const more = l.faces > l.shown.length
-            ? `<p class="people-hint">The ${formatCount(l.shown.length)} largest of ${formatCount(l.faces)} faces; ${this._personLink(l, `all of them in ${l.libraryName}`)}.</p>` : '';
+            ? `<p class="people-hint">The ${formatCount(l.shown.length)} newest of ${formatCount(l.faces)} faces; ${this._personLink(l, `all of them in ${l.libraryName}`)}.</p>` : '';
         return `
             <section class="people-section people-in">
                 <div class="people-in-head">

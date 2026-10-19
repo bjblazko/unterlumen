@@ -75,10 +75,10 @@ func (m *Manager) Everyone() ([]Someone, error) {
 }
 
 // facesShown is how many of a person's faces the page across libraries
-// shows per library, the largest first; the library's own page has them all.
+// shows per library, the newest first; the library's own page has them all.
 const facesShown = 24
 
-// SomeoneIn is a person in one library with their largest faces.
+// SomeoneIn is a person in one library with their newest faces.
 type SomeoneIn struct {
 	NamedIn
 	Shown []FaceRef `json:"shown"`
@@ -215,7 +215,7 @@ func topCompanions(with map[string]*Companion) []Companion {
 	return out
 }
 
-// someoneIn returns the person p of library l with their largest faces, and
+// someoneIn returns the person p of library l with their newest faces, and
 // what all their faces look like.
 func someoneIn(store *Store, l *Library, p Person) (SomeoneIn, [][]float32, error) {
 	refs, err := store.PersonFaces(p.ID)

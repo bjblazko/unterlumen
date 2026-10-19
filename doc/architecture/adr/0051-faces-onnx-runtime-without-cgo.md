@@ -121,7 +121,7 @@ sidecar as Metadata Working Group regions; an architecture that is not
    picker of People has All libraries (`#people/all`, `GET /api/people`):
    everyone named anywhere, and a person's page
    (`#people/all/person/<name>`, `GET /api/people/someone?name=`) with their
-   largest faces per library, Show photos across libraries, and the
+   newest faces per library, Show photos across libraries, and the
    libraries where nobody has the name. For each of those it compares the
    person's faces, on this computer, with the people and the groups waiting
    for a name there and suggests the one that looks most like them

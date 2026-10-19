@@ -293,3 +293,30 @@ func TestNamesFromRegionsNeedEnoughOverlap(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestAPersonsFacesComeNewestFirst(t *testing.T) {
+	s := newTestStore(t)
+	photosWithFaces(t, s, t.TempDir(), 0, 0, 0)
+	for id, date := range map[string]string{"a1photo": "2019-06-01T00:00:00", "b1photo": "2024-05-01T00:00:00"} {
+		if _, err := s.db.Exec(`UPDATE photos SET date_taken = ? WHERE id = ?`, date, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	refs, _ := s.GroupFaces(groups(t, s)[0].ID)
+	ids := []int64{refs[0].ID, refs[1].ID, refs[2].ID}
+	if _, err := s.NameFaces(ids, "Anna"); err != nil {
+		t.Fatal(err)
+	}
+	people, _ := s.People()
+	got, err := s.PersonFaces(people[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, r := range got {
+		order = append(order, r.PhotoID)
+	}
+	if len(order) != 3 || order[0] != "b1photo" || order[1] != "a1photo" || order[2] != "c1photo" {
+		t.Fatalf("faces from %v, want b1photo, a1photo, then c1photo without a date", order)
+	}
+}

@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **A person's faces come newest first.** On a person's page, in a library and in All libraries, the faces are in the order of their photos, from the newest to the oldest, those without a date last — as their photos already were under Show photos and on a phone. They were largest first.
+
 ## [0.17.1] - 2026-10-19
 
 ### Added
