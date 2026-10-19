@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-19
+
 ### Added
 - **People on a phone.** The phone's tab bar has People instead of Galleries. It shows everyone named in any library, found as you type a name; a person's page shows their photos by year, when they were born, and who is most often with them — tap one to see the photos of both together. Nothing is named or managed on a phone, and the info panel there only says who is in a photo. Galleries, being publishing, is desktop work on a phone now.
 - **Storage in Settings.** Settings shows what Unterlumen keeps besides the photos, part by part, as bars: the cache's previews and viewer images, each with its own Clear, and in the data folder each library's thumbnails and index, face recognition and destination output, with a link to where they are looked after. The installed app opens the cache or the data folder in Finder or the file manager.
