@@ -63,12 +63,15 @@ function _ffmpegDep(ffmpeg, platform, install) {
 // check reports a mixture of shapes — {available: true} per tool plus plain
 // fields like `platform` — so each tool is read by name.
 function toolsSummary(status) {
+    // Only what this system uses: sips is macOS's own, heif-convert is for
+    // Linux, and WebP export needs ffmpeg with libwebp or cwebp.
     const tools = [
         ['exiftool', status.exiftool?.available, 'reading and writing metadata'],
         ['ffmpeg', status.ffmpeg?.available, 'HEIF and video frames'],
-        ['sips', status.sips?.available, 'HEIF conversion on macOS'],
-        ['heif-convert', status.heifConvert?.available, 'HEIF conversion on Linux'],
     ];
+    if (status.platform === 'darwin') tools.push(['sips', status.sips?.available, 'HEIF conversion']);
+    if (status.platform === 'linux') tools.push(['heif-convert', status.heifConvert?.available, 'HEIF conversion']);
+    if (status.ffmpeg?.available && !status.ffmpeg?.webpSupport) tools.push(['cwebp', status.webpAvailable, 'WebP export']);
     const found = tools.filter(([, ok]) => ok).map(([name]) => name);
     const missing = tools.filter(([, ok]) => !ok);
     return [
@@ -139,7 +142,7 @@ class DepsModal {
 
         const deps = [_ffmpegDep(ffmpeg, platform, install('ffmpeg'))];
         // heif-convert (Linux only) — primary HEIF/HEIC decoder when ffmpeg lacks libheif
-        if (platform !== 'darwin') {
+        if (platform === 'linux') {
             deps.push(_toolDep('heif-convert', 'Required for HEIF/HEIC image display on Linux (from libheif-examples)',
                 heifConvert.available, 'Not installed — HEIF/HEIC images cannot be displayed.', install('heifConvert')));
         }

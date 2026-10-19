@@ -68,6 +68,13 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
 	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))
+	startCacheUpkeep(libMgr)
+	mux.HandleFunc("GET /api/storage", handleStorage(libMgr, setup != nil))
+	mux.HandleFunc("POST /api/storage/clear", handleStorageClear())
+	mux.HandleFunc("PUT /api/storage/limit", handleStorageLimit(libMgr))
+	if setup != nil {
+		mux.HandleFunc("POST /api/storage/reveal", handleStorageReveal(libMgr))
+	}
 
 	browse.Handle(mux, boundary, cache, imageCache, libMgr)
 	apiexport.Handle(mux, boundary, serverRole, jobReg, libMgr)

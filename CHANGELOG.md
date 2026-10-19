@@ -6,12 +6,19 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Storage in Settings.** Settings shows what Unterlumen keeps besides the photos, part by part, as bars: the cache's previews and viewer images, each with its own Clear, and in the data folder each library's thumbnails and index, face recognition and destination output, with a link to where they are looked after. The installed app opens the cache or the data folder in Finder or the file manager.
 - **People in all libraries.** People's library picker has *All libraries*: everyone named in any library, linked by name. A person's page there shows their faces from each library and Show photos across all of them, and for each library without the name, who there looks like them — someone named otherwise, or a group waiting for a name — with a link to name them there. It only reads: names are given and changed in each library, and a person's Rename and Take the name away now say which other libraries have the name.
 - **Birthdays and ages.** A person's ⋯ menu gives them a birthday, kept by name in the folder your installations share, so it holds in every library and on your other installation; it is not written into the photos. The person's page says when they were born, the info panel shows each named face's age in that photo, Statistics has Photos by age (photos per year of life, a click shows them), and Life lines name the age in a photo.
 - **People in Statistics.** A new topic counts named people, put together across libraries by name: who appears most, people over time, who with whom (the photos two people share), and photos by how many faces were found in them, in all and over time. Three 3D views: Face space places every face by what it looks like, in the colour of its person, so people stand apart and look-alikes close together; Circle of people draws people together by the photos they share; Life lines give the eight people with the most photos a lane through time, as high as their photos per period. A click shows the photos, of one person, of two together, or with a number of faces (new search parameters `faces_min` and `faces_max`).
 - **A person's cover.** On a person's page, switch on one face and choose Use as cover; the face is marked Cover and shows the person on their card, also in All libraries. The choice stays on this installation, like hiding a face; if the face leaves the person, their largest face shows them again.
 
+### Changed
+- **The cache keeps within a limit.** 5 GB unless you choose another in Settings → Storage (or no limit); past it, the files used least recently go. Previews and viewer images now have a folder each; what older versions left at the top of the cache folder, never read again and never trimmed, is removed at the first start.
+- **Folder previews** is the new name of Thumbnail quality, Fast and Sharp its choices, with a sentence that says what each does and that it only applies to Folders.
+
 ### Fixed
+- **Clear cache deleted macOS's own cache.** It removed every file in the cache folder, among them the `Cache.db` macOS keeps there; it now removes only Unterlumen's files.
+- **Helper programs named programs this system does not use.** On a Mac, Settings listed heif-convert (for Linux) as missing; it now names only what the system uses, and cwebp when WebP export needs it.
 - **A sidecar is never half written.** Names, titles, fields and publication records were written into the XMP sidecar in place, so for a moment the file was empty or half there. A scan on the other installation reading it then briefly lost those names in its index, and the other installation writing the same sidecar at that moment could lose the rest of it, Lightroom's data included. Sidecars are now written beside the old one and put in its place in one step; a change the other installation made while writing is kept.
 
 ## [0.16.0] - 2026-10-19

@@ -42,9 +42,9 @@ class SettingsPane {
                     </div>
 
                     <div class="form-field">
-                        <span class="form-label">Thumbnail quality</span>
+                        <span class="form-label">Folder previews</span>
                         <div id="settings-thumb-quality-wrap"></div>
-                        <span class="form-hint">High decodes the full image at the size your screen needs; Standard uses the thumbnail stored in the file, which is faster and smaller.</span>
+                        <span class="form-hint">Only for Folders. Fast shows a photo's library thumbnail when it is in a library, otherwise the small preview stored in the file, JPEG and HEIF alike: quick, even over the network. Sharp decodes every photo at the size your screen needs: crisper, slower, and the cache grows faster.</span>
                     </div>
 
                     <div class="form-field">
@@ -53,12 +53,9 @@ class SettingsPane {
                         <span class="form-hint">Hiding the interface leaves only the photos. Press H to bring it back.</span>
                     </div>
 
-                    <div class="form-field">
-                        <span class="form-label">Cache</span>
-                        <span class="settings-cache" id="settings-cache-size">…</span>
-                        <span class="settings-cache settings-cache-path" id="settings-cache-path"></span>
-                        <div><button class="btn btn-sm" id="settings-clear-cache">Clear cache…</button></div>
-                        <div id="settings-cache-confirm"></div>
+                    <div class="form-field" id="settings-storage">
+                        <span class="form-label">Storage</span>
+                        <span class="form-hint">Measuring…</span>
                     </div>
 
                     <div class="form-field">
@@ -72,7 +69,7 @@ class SettingsPane {
 
         this._wireTheme();
         this._wireToggles();
-        this._wireCache();
+        new SettingsStorage(this.container.querySelector('#settings-storage')).load();
         this._wireTools();
         if (App.config?.serverRole) this._wireSharing();
         if (App.config?.canSetup) this._showSharedDir();
@@ -102,8 +99,8 @@ class SettingsPane {
         const savedQuality = localStorage.getItem('thumbnail-quality') || 'standard';
         Toggle.create(this.container.querySelector('#settings-thumb-quality-wrap'), {
             initial: savedQuality === 'high',
-            labelOn: 'High',
-            labelOff: 'Standard',
+            labelOn: 'Sharp',
+            labelOff: 'Fast',
             onChange: (on) => App.theme.setQuality(on ? 'high' : 'standard'),
         });
 
@@ -112,46 +109,6 @@ class SettingsPane {
             labelOn: 'Shown',
             labelOff: 'Hidden',
             onChange: () => App.toggleUIVisibility(),
-        });
-    }
-
-    _wireCache() {
-        const sizeEl = this.container.querySelector('#settings-cache-size');
-        const pathEl = this.container.querySelector('#settings-cache-path');
-        // Thousands of megabytes are hard to read; say what a person would say.
-        const readableSize = (bytes) => bytes >= 1073741824
-            ? (bytes / 1073741824).toFixed(1) + ' GB'
-            : (bytes / 1048576).toFixed(1) + ' MB';
-        const load = () => API.cacheInfo().then(info => {
-            sizeEl.textContent = readableSize(info.bytes);
-            pathEl.textContent = info.path;
-        }).catch(() => {
-            sizeEl.textContent = 'Could not read the cache size.';
-        });
-        load();
-
-        const confirmWrap = this.container.querySelector('#settings-cache-confirm');
-        this.container.querySelector('#settings-clear-cache').addEventListener('click', () => {
-            // Clearing costs nothing but time, so the question is short — but
-            // it is still asked, and asked here rather than in a browser box.
-            confirmWrap.innerHTML = `
-                <p class="gal-danger-question">Clear the cached previews? They are rebuilt as you browse; the photos are untouched.</p>
-                <div class="gal-danger-actions">
-                    <button class="btn btn-sm" id="settings-cache-cancel">Keep them</button>
-                    <button class="btn btn-sm btn-danger" id="settings-cache-confirm-btn">Clear cache</button>
-                </div>`;
-            confirmWrap.querySelector('#settings-cache-cancel').addEventListener('click', () => { confirmWrap.innerHTML = ''; });
-            confirmWrap.querySelector('#settings-cache-confirm-btn').addEventListener('click', async (e) => {
-                confirmWrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
-                Activity.button(e.currentTarget, 'Clearing…');
-                try {
-                    await API.cacheClear();
-                    confirmWrap.innerHTML = '<p class="form-hint">Cache cleared.</p>';
-                } catch (err) {
-                    confirmWrap.innerHTML = `<div class="gal-detail-error">Could not clear the cache: ${escapeHtml(err.message)}</div>`;
-                }
-                load();
-            });
         });
     }
 

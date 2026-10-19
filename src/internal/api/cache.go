@@ -15,28 +15,26 @@ func handleCacheInfo() http.HandlerFunc {
 		Bytes int64  `json:"bytes"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		dir := media.GetCacheDir()
+		var total int64
+		for _, seg := range media.CacheSegments() {
+			total += seg.Bytes
+		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response{Path: dir, Bytes: cacheSize(dir)})
+		json.NewEncoder(w).Encode(response{Path: media.GetCacheDir(), Bytes: total})
 	}
 }
 
+// handleCacheClear clears every part of the cache, and only the cache's own
+// files: the folder may hold the operating system's too.
 func handleCacheClear() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		dir := media.GetCacheDir()
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			http.Error(w, "failed to read cache dir", http.StatusInternalServerError)
+		if err := media.ClearCache(""); err != nil {
+			http.Error(w, "failed to clear the cache", http.StatusInternalServerError)
 			return
-		}
-		for _, e := range entries {
-			if !e.IsDir() {
-				os.Remove(filepath.Join(dir, e.Name()))
-			}
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -84,15 +82,4 @@ func handleCacheEvict(boundary string) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response{Evicted: evicted})
 	}
-}
-
-func cacheSize(dir string) int64 {
-	var total int64
-	filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() {
-			total += info.Size()
-		}
-		return nil
-	})
-	return total
 }

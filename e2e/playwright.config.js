@@ -28,6 +28,9 @@ export default defineConfig({
     timeout: 15_000,
     env: {
       UNTERLUMEN_LIB_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-test'),
+      // A cache of its own: Settings clears and trims the cache, and the
+      // default one is the installed app's.
+      UNTERLUMEN_CACHE_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-test-cache'),
     },
   },
   projects: [

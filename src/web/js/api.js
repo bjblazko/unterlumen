@@ -227,13 +227,23 @@ const API = {
         return fetch('/api/config').then(r => r.json());
     },
 
-    cacheInfo() {
-        return fetch('/api/cache/info').then(r => r.json());
+    // The cache and the data folder, part by part (Settings → Storage).
+    async storage() {
+        const resp = await fetch('/api/storage');
+        if (!resp.ok) throw new Error((await resp.text()).trim());
+        return resp.json();
     },
 
-    async cacheClear() {
-        const resp = await fetch('/api/cache/clear', { method: 'POST' });
-        if (!resp.ok) throw new Error(await resp.text());
+    async storageClear(segment) {
+        await apiSend('POST', '/api/storage/clear', { segment });
+    },
+
+    async storageLimit(bytes) {
+        await apiSend('PUT', '/api/storage/limit', { bytes });
+    },
+
+    async storageReveal(folder) {
+        await apiSend('POST', '/api/storage/reveal', { folder });
     },
 
     async cacheEvict(paths) {
@@ -347,4 +357,10 @@ function absPathRelativeToBoundary(absPath, boundary) {
     if (!b) return p.replace(/^\//, '');
     if (p.startsWith(b + '/')) return p.substring(b.length + 1);
     return null;
+}
+
+// apiSend sends body as JSON and throws the server's words when it fails.
+async function apiSend(method, url, body) {
+    const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!resp.ok) throw new Error((await resp.text()).trim());
 }

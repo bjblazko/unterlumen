@@ -41,6 +41,7 @@ e2e/node_modules/
 e2e/playwright-report/
 e2e/test-results/
 e2e/fixtures/.unterlumen-test/
+e2e/fixtures/.unterlumen-test-cache/
 
 # Local development assets (runtime data)
 src/data/
