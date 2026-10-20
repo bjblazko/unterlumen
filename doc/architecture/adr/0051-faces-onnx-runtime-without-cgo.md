@@ -1,6 +1,6 @@
 # ADR-0051: Faces found on this computer, with ONNX Runtime loaded without cgo
 
-*Last modified: 2026-10-19*
+*Last modified: 2026-10-20*
 
 ## Status
 
@@ -96,45 +96,53 @@ sidecar as Metadata Working Group regions; an architecture that is not
    in a photo, never a decision of one installation: hidden faces stay
    hidden on the installation that hid them, and the other may ask again.
 
-7. **People is a place** (`#people`, key 0) under Explore: one library at a
-   time, the named people as cards, the groups waiting for a name below with
-   a field each, and pages for a group (switch faces off before naming) and a
-   person (switch faces on to take them away, Show photos, Rename). Resting on
-   a face, or focusing it with the keyboard, shows it in its whole photo with
-   the face framed and the rest dimmed (`FacePeek`), since a small face is
-   often recognised by where it is. Show photos opens Libraries filtered to the
-   person: the library filter's Person chip (`person=` in the photo query,
-   repeated for several people, who must all be in the photo; matched without
-   regard to case) works across libraries. A photo's info panel, wherever it
-   shows a library photo, lists its faces (`InfoPeople`,
-   `GET …/photo/{id}/faces`): a name, or a field to give one, and a × to take
-   it away. Take the name away… on a person's page takes it from all their
-   faces (`DELETE …/people/{id}`). One face switched on can become the
-   person's cover (`PUT …/people/{id}/cover`, `people.cover`); like hiding,
-   it is this installation's choice and stays out of the sidecar, and a
-   cover that is no longer theirs falls back to their largest face.
+7. **People is a place** (`#people`, key 0) under Explore, with three kinds
+   of page since 2026-10-20 (feature doc 2026-10-20-people-one-place):
+   everyone named in any library, with a field to find them and a line of
+   the libraries with groups waiting for a name (`GET /api/people/to-name`);
+   the groups waiting in one library (`#people/name/<library>`), one row
+   each with the field for a name beside the faces and a suggested name as a
+   button of its own, and a group's page (`#people/name/<library>/group/<n>`)
+   where nothing is selected at first: Name all, or Name the faces selected;
+   and a person's page by name (`#people/person/<name>`). The explanation of
+   People shows only while nobody is named. Older addresses (`#people/all…`,
+   `#people/<library>…`) lead to their new place. Resting on a face, or
+   focusing it with the keyboard, shows it in its whole photo with the face
+   framed and the rest dimmed (`FacePeek`, after 450 ms, clear of the bar at
+   the bottom), since a small face is often recognised by where it is; a
+   face's picture is cut from inside its photo, off centre at an edge rather
+   than padded. Show photos opens Libraries filtered to the person: the
+   library filter's Person chip (`person=` in the photo query, repeated for
+   several people, who must all be in the photo; matched without regard to
+   case) works across libraries. A photo's info panel, wherever it shows a
+   library photo, lists its faces (`InfoPeople`, `GET …/photo/{id}/faces`): a
+   name, or a field to give one, and a × to take it away. Every name field
+   offers the names of all libraries.
 
-8. **People in all libraries are linked by name.** Each library keeps its
-   own people, faces and groups; the same name, without regard to case, is
-   the same person in every library — the only thing the sidecars carry, so
-   it needs nothing stored and holds on every installation. The library
-   picker of People has All libraries (`#people/all`, `GET /api/people`):
-   everyone named anywhere, and a person's page
-   (`#people/all/person/<name>`, `GET /api/people/someone?name=`) with their
-   newest faces per library, Show photos across libraries, and the
-   libraries where nobody has the name. For each of those it compares the
-   person's faces, on this computer, with the people and the groups waiting
-   for a name there and suggests the one that looks most like them
-   (`SuggestThreshold`): "Anna Müller there looks like Anna" with a link to
-   rename there, or a group with a link to name it. The page only reads. A
-   name is given, changed and taken away in each library, where it goes into
-   that library's sidecars, so the page says so and links to each library's
-   person page; Rename and Take the name away there say which other
-   libraries have the name and that it stays there. Explicit links between
-   differently named people were rejected: they would need a list of links
-   stored somewhere, local (the other installation would not know them) or
-   shared (a second file two installations can overwrite), and the library
-   filter would have to follow them too.
+8. **A person is one page, linked by name across libraries.** Each library
+   keeps its own people, faces and groups; the same name, without regard to
+   case, is the same person in every library — the only thing the sidecars
+   carry, so it needs nothing stored and holds on every installation. A
+   person's page (`GET /api/people/someone?name=`) has a section per library
+   with the name, all their faces newest first, foldable. Faces selected in
+   one library at a time can become the cover (`PUT …/people/{id}/cover`,
+   `people.cover`; this installation's choice, out of the sidecar, falling
+   back to their largest face), be given to someone else in one step (*Is
+   instead*, `POST …/faces/name`), or go back to the groups (`POST
+   …/faces/unname`). Rename… and Take the name away… (`PATCH`/`DELETE
+   …/people/{id}`) list the libraries with the name, all ticked; an untick
+   leaves a library as it is, which is how two different people of one name
+   are kept apart — by giving one of them another name, which is what
+   Lightroom sees too. For each library without the name, the person's faces
+   are compared, on this computer, with the people and the groups waiting
+   for a name there (`SuggestThreshold`): someone named otherwise gets
+   *Rename to Anna in …*, a group *Name them Anna*, both in place, writing
+   that library's sidecars; libraries without a suggestion are one line.
+   Explicit links between differently named people were rejected (again on
+   2026-10-20, by the owner): they would need a list of links stored
+   somewhere, local (the other installation would not know them) or shared
+   (a second file two installations can overwrite), the library filter
+   would have to follow them, and Lightroom would still see two names.
 
 9. **People in the statistics.** A topic of its own (ADR-0043), read from
    `GET /api/library/people-stats` through `aliasCond`, so the folder and

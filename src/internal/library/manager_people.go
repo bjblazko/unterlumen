@@ -74,11 +74,8 @@ func (m *Manager) Everyone() ([]Someone, error) {
 	return out, nil
 }
 
-// facesShown is how many of a person's faces the page across libraries
-// shows per library, the newest first; the library's own page has them all.
-const facesShown = 24
-
-// SomeoneIn is a person in one library with their newest faces.
+// SomeoneIn is a person in one library with all their faces, the newest
+// first: their page manages them there.
 type SomeoneIn struct {
 	NamedIn
 	Shown []FaceRef `json:"shown"`
@@ -215,15 +212,12 @@ func topCompanions(with map[string]*Companion) []Companion {
 	return out
 }
 
-// someoneIn returns the person p of library l with their newest faces, and
-// what all their faces look like.
+// someoneIn returns the person p of library l with their faces, and what
+// they look like.
 func someoneIn(store *Store, l *Library, p Person) (SomeoneIn, [][]float32, error) {
 	refs, err := store.PersonFaces(p.ID)
 	if err != nil {
 		return SomeoneIn{}, nil, err
-	}
-	if len(refs) > facesShown {
-		refs = refs[:facesShown]
 	}
 	embs, err := store.personEmbeddings(p.ID)
 	return SomeoneIn{NamedIn{l.ID, l.Name, p.ID, p.Faces, p.Photos, p.Cover}, refs}, embs, err
@@ -245,4 +239,38 @@ func (m *Manager) whoMayBe(l *Library, centre []float32) (NotNamedIn, error) {
 	}
 	not.Group, err = store.nearestGroup(centre)
 	return not, err
+}
+
+// ToName is what waits for a name in one library.
+type ToName struct {
+	Library     string `json:"library"`
+	LibraryName string `json:"libraryName"`
+	Groups      int    `json:"groups"`  // groups of faces waiting for a name
+	Pending     int    `json:"pending"` // photos whose faces were not looked for yet
+	Finding     bool   `json:"finding"` // a pass is looking for faces now
+}
+
+// ToNameAll lists, for every library, what waits for a name there.
+func (m *Manager) ToNameAll() ([]ToName, error) {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return nil, err
+	}
+	out := []ToName{}
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		groups, err := store.GroupCount()
+		if err != nil {
+			return nil, err
+		}
+		pending, err := store.PhotosNeedingFaces()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ToName{l.ID, l.Name, groups, len(pending), m.FindingFaces(l.ID)})
+	}
+	return out, nil
 }

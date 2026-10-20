@@ -53,3 +53,15 @@ func someone(mgr *lib.Manager) http.HandlerFunc {
 		writeJSON(w, found)
 	}
 }
+
+// toName lists what waits for a name in each library.
+func toName(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		out, err := mgr.ToNameAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, out)
+	}
+}

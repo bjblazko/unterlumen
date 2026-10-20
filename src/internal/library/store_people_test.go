@@ -320,3 +320,25 @@ func TestAPersonsFacesComeNewestFirst(t *testing.T) {
 		t.Fatalf("faces from %v, want b1photo, a1photo, then c1photo without a date", order)
 	}
 }
+
+// "Is instead": a named face given another name moves to that person in one
+// step, without going back to the groups.
+func TestANamedFaceMovesToSomeoneElse(t *testing.T) {
+	s := newTestStore(t)
+	photosWithFaces(t, s, t.TempDir(), 0, 0)
+	refs, _ := s.GroupFaces(groups(t, s)[0].ID)
+	if _, err := s.NameFaces([]int64{refs[0].ID, refs[1].ID}, "Anna"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.NameFaces([]int64{refs[1].ID}, "Ben"); err != nil {
+		t.Fatal(err)
+	}
+	people, _ := s.People()
+	byName := map[string]int{}
+	for _, p := range people {
+		byName[p.Name] = p.Faces
+	}
+	if byName["Anna"] != 1 || byName["Ben"] != 1 || len(groups(t, s)) != 0 {
+		t.Fatalf("people %+v groups %+v, want Anna and Ben with one face each", people, groups(t, s))
+	}
+}

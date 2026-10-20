@@ -37,6 +37,7 @@ type FaceRef struct {
 	Y       float64 `json:"y"`
 	W       float64 `json:"w"`
 	H       float64 `json:"h"`
+	File    string  `json:"file,omitempty"` // the photo's file name, where a page opens the photo
 }
 
 // unnamed selects the faces still waiting for a name.
@@ -201,11 +202,12 @@ func (s *Store) personCentres() ([]Person, [][]float32, error) {
 // PersonFaces the confirmed faces of a person, from the newest photo to the
 // oldest, those without a date last.
 func (s *Store) GroupFaces(grp int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT id, photo_id, x, y, w, h FROM faces WHERE grp = ? AND `+unnamed+` ORDER BY w*h DESC`, grp)
+	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+		WHERE f.grp = ? AND f.person_id IS NULL AND f.confirmed = 0 ORDER BY f.w*f.h DESC`, grp)
 }
 
 func (s *Store) PersonFaces(person int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
 		WHERE f.person_id = ? AND f.confirmed = 1
 		ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC, f.w*f.h DESC`, person)
 }
@@ -219,7 +221,7 @@ func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {
 	refs := []FaceRef{}
 	for rows.Next() {
 		var r FaceRef
-		if err := rows.Scan(&r.ID, &r.PhotoID, &r.X, &r.Y, &r.W, &r.H); err != nil {
+		if err := rows.Scan(&r.ID, &r.PhotoID, &r.X, &r.Y, &r.W, &r.H, &r.File); err != nil {
 			return nil, err
 		}
 		refs = append(refs, r)

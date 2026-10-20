@@ -70,6 +70,27 @@ func TestAPersonAcrossLibraries(t *testing.T) {
 	if rec := do(t, h, "GET", "/api/people/someone", nil); rec.Code != http.StatusBadRequest {
 		t.Errorf("without a name: %d, want 400", rec.Code)
 	}
+
+	// A name field anywhere offers the names of every library.
+	var photo struct {
+		Names []string `json:"names"`
+	}
+	json.Unmarshal(do(t, h, "GET", "/api/library/"+waiting+"/photo/aa1/faces", nil).Body.Bytes(), &photo) //nolint:errcheck
+	if len(photo.Names) != 2 {
+		t.Errorf("names offered in Waiting: %v, want Anna and Anna Müller from the other libraries", photo.Names)
+	}
+
+	// What waits for a name: the groups of Waiting and Strangers, nothing
+	// in the libraries whose faces were all named.
+	var toName []lib.ToName
+	json.Unmarshal(do(t, h, "GET", "/api/people/to-name", nil).Body.Bytes(), &toName) //nolint:errcheck
+	groups := map[string]int{}
+	for _, n := range toName {
+		groups[n.Library] = n.Groups
+	}
+	if len(toName) != 5 || groups[family] != 0 || groups[waiting] == 0 || groups[strangers] == 0 {
+		t.Errorf("to name %+v", toName)
+	}
 }
 
 // The People statistics read a real library: who is in which photo, faces

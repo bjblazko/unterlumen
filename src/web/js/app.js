@@ -118,7 +118,7 @@ const App = {
                 e.preventDefault();
                 if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
                 if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
-                if (mode === 'people') this._peopleRoute = { library: this._peopleRoute.library };
+                if (mode === 'people') this._peopleRoute = {};
                 this.setMode(mode);
             });
         }

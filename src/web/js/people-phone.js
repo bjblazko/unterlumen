@@ -4,8 +4,8 @@
 // their names, and for each person their photos by year and who is most
 // often with them.
 //
-// Addresses as on the computer: #people and #people/all/person/<name>; a
-// library's person page (#people/<library>/person/<n>) shows the same.
+// Addresses as on the computer: #people and #people/person/<name>; the
+// computer's pages for naming lead to everyone here.
 
 const PEOPLE_PHONE = '(max-width: 700px)';
 const PEOPLE_PHONE_PAGE = 60;
@@ -33,6 +33,7 @@ class PeoplePhone {
             return;
         }
         this.pane._head(people.length ? countPeople(people.length) : '');
+        this.pane._lede(!people.length);
         if (!people.length) {
             body.innerHTML = '<div class="people-note"><p>Nobody is named yet. Faces are found and named on your computer; the people named there show here.</p></div>';
             return;
@@ -61,7 +62,7 @@ class PeoplePhone {
     _card(p) {
         const top = p.libraries[0];
         return `
-            <a class="people-card" href="${peopleHash({ library: PEOPLE_ALL, view: 'person', id: p.name })}" data-name="${escapeHtml(p.name.toLowerCase())}">
+            <a class="people-card" href="${peopleHash({ view: 'person', id: p.name })}" data-name="${escapeHtml(p.name.toLowerCase())}">
                 <img src="${PeopleAPI.faceURL(top.library, top.cover)}" alt="" loading="lazy" width="96" height="96">
                 <span class="people-card-name">${escapeHtml(p.name)}</span>
                 <span class="people-card-count">${countPhotos(p.photos)}</span>
@@ -69,20 +70,6 @@ class PeoplePhone {
     }
 
     // —— Someone ——
-
-    // showPersonOf shows a library's person by their number, under their
-    // name, as every person is on a phone.
-    async showPersonOf(library, id) {
-        try {
-            const { people } = await PeopleAPI.overview(library);
-            const person = people.find(p => p.id === id);
-            if (person) {
-                App.openPeople({ library: PEOPLE_ALL, view: 'person', id: person.name }, { replace: true });
-                return;
-            }
-        } catch { /* falls through to everyone */ }
-        App.openPeople({ library: PEOPLE_ALL }, { replace: true });
-    }
 
     async showPerson(name) {
         const body = this.pane._body;

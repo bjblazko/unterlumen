@@ -30,6 +30,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *bir
 	mux.HandleFunc("GET /api/people", everyone(mgr))
 	mux.HandleFunc("GET /api/people/someone", someone(mgr))
 	mux.HandleFunc("GET /api/people/with", companions(mgr))
+	mux.HandleFunc("GET /api/people/to-name", toName(mgr))
 	if bdays != nil {
 		mux.HandleFunc("GET /api/people/birthdays", listBirthdays(bdays))
 		mux.HandleFunc("PUT /api/people/birthdays", setBirthday(bdays))
@@ -266,8 +267,8 @@ func chooseCover(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
-// photoFaces answers the faces of one photo and the library's names to
-// choose from, for the info panel.
+// photoFaces answers the faces of one photo and the names to choose from,
+// those of all libraries, for the info panel.
 func photoFaces(mgr *lib.Manager, bdays *birthdays.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		store, ok := openStore(mgr, w, r)
@@ -279,14 +280,12 @@ func photoFaces(mgr *lib.Manager, bdays *birthdays.Store) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		people, err := store.People()
+		// The names of every library: someone named in one is offered in
+		// all, so a name is not typed a second, slightly different way.
+		names, err := mgr.PersonNames(nil)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-		names := make([]string, len(people))
-		for i, p := range people {
-			names[i] = p.Name
 		}
 		addAges(store, bdays, r.PathValue("photoID"), found)
 		writeJSON(w, map[string]any{"faces": found, "names": names})

@@ -2,19 +2,17 @@
 // the next action does. People's group and person pages are built on it.
 
 class FaceGrid {
-    // faces: [{ id, photoId, x, y, w, h }]; selected: the ids switched on at
-    // the start. dimOff fades the faces switched off — the ones left out of a
-    // group; without it only the switched-on faces are marked. onChange is
-    // called with the selection after every switch; onOpen with the index of
-    // a face that is double-clicked. cover is the face that shows the
-    // person, marked as such.
-    constructor({ lib, faces, selected = [], dimOff = false, cover = 0, onChange = () => {}, onOpen = () => {} }) {
-        this.selected = new Set(selected);
+    // faces: [{ id, photoId, x, y, w, h }], none of them switched on at the
+    // start. onChange is called with the selection after every switch;
+    // onOpen with the index of a face that is double-clicked. cover is the
+    // face that shows the person, marked as such.
+    constructor({ lib, faces, cover = 0, onChange = () => {}, onOpen = () => {} }) {
+        this.selected = new Set();
         this.el = document.createElement('div');
-        this.el.className = dimOff ? 'face-grid face-grid-dim-off' : 'face-grid';
+        this.el.className = 'face-grid';
         this.el.innerHTML = faces.map((f, i) => `
             <button type="button" class="face-tile" data-face="${f.id}" data-index="${i}"
-                aria-pressed="${this.selected.has(f.id)}" aria-label="Face ${i + 1}">
+                aria-pressed="false" aria-label="Face ${i + 1}">
                 <img src="${PeopleAPI.faceURL(lib, f.id)}" alt="" loading="lazy" width="96" height="96">
                 ${f.id === cover ? '<span class="face-tile-cover">Cover</span>' : ''}
                 <svg class="face-tile-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -36,6 +34,12 @@ class FaceGrid {
         });
         this._peek = new FacePeek(lib, faces, this.el);
     }
+
+    // clear switches every face off, without telling onChange.
+    clear() {
+        this.selected.clear();
+        for (const tile of this.el.querySelectorAll('.face-tile[aria-pressed="true"]')) tile.setAttribute('aria-pressed', 'false');
+    }
 }
 
 // FacePeek shows a face in its whole photo, the face framed and the rest
@@ -43,7 +47,8 @@ class FaceGrid {
 // focus: a small face is often recognised only by where it is, and in a
 // group photo the frame says which of the people is meant.
 class FacePeek {
-    static DELAY = 300;
+    // Long enough that a pointer passing on its way to a face shows nothing.
+    static DELAY = 450;
 
     static pct(v) { return `${(v * 100).toFixed(2)}%`; }
 
@@ -106,16 +111,19 @@ class FacePeek {
         place();
     }
 
-    // Beside the tile, on the side with more room, kept inside the window.
+    // Beside the tile, on the side with more room, kept inside the window
+    // and clear of a bar at the bottom of the page, where the work is.
     _place(el, tile) {
         if (!tile.isConnected) { this.hide(); return; }
         const gap = 8, margin = 16;
         const t = tile.getBoundingClientRect();
         const r = el.getBoundingClientRect();
+        const bar = [...document.querySelectorAll('.people-bar')].find(b => !b.hidden && b.offsetParent);
+        const bottom = Math.min(window.innerHeight, bar ? bar.getBoundingClientRect().top : Infinity) - margin;
         const right = window.innerWidth - t.right;
         let left = right >= r.width + gap + margin || right >= t.left ? t.right + gap : t.left - gap - r.width;
         left = Math.max(margin, Math.min(left, window.innerWidth - r.width - margin));
-        const top = Math.max(margin, Math.min(t.top + t.height / 2 - r.height / 2, window.innerHeight - r.height - margin));
+        const top = Math.max(margin, Math.min(t.top + t.height / 2 - r.height / 2, bottom - r.height));
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
     }

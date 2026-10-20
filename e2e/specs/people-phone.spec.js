@@ -64,7 +64,7 @@ test.describe('People on a phone', () => {
     await page.goto('/#people');
     await waitForAppReady(page);
     await page.locator('.people-card', { hasText: 'Anna' }).tap();
-    await expect(page).toHaveURL(/#people\/all\/person\/Anna$/);
+    await expect(page).toHaveURL(/#people\/person\/Anna$/);
     await expect(page.locator('.people-phone-hero .people-page-title')).toHaveText('Anna');
     await expect(page.locator('.people-phone-hero .people-born')).toContainText('2015');
     await expect(page.locator('.people-year')).toHaveText(['2024', '2023']);
@@ -84,7 +84,7 @@ test.describe('People on a phone', () => {
   // name under Often with is tapped: the photos of both must still come.
   test('choosing someone while the first photos load still shows the photos of both', async ({ page }) => {
     await fakePeople(page, { slowFirst: 1500 });
-    await page.goto('/#people/all/person/Anna');
+    await page.goto('/#people/person/Anna');
     await waitForAppReady(page);
     await page.locator('.people-with-chip', { hasText: 'Ben' }).tap();
     await expect(page.locator('.people-phone-subject')).toHaveText('Photos of Anna and Ben together');
@@ -98,7 +98,7 @@ test.describe('People on a phone', () => {
     await fakePeople(page);
     await page.goto(`/#people/${LIB}/person/1`);
     await waitForAppReady(page);
-    await expect(page).toHaveURL(/#people\/all\/person\/Anna$/);
+    await expect(page).toHaveURL(/#people\/person\/Anna$/);
     await expect(page.locator('.people-phone-hero .people-page-title')).toHaveText('Anna');
   });
 

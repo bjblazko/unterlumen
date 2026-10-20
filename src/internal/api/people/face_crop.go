@@ -60,26 +60,19 @@ func cropFace(thumbPath string, box lib.FaceBox) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := src.Bounds()
-	w, h := float64(b.Dx()), float64(b.Dy())
-	side := math.Max(box.W*w, box.H*h) * (1 + 2*cropMargin)
-	cx, cy := (box.X+box.W/2)*w, (box.Y+box.H/2)*h
-	r := image.Rect(int(cx-side/2), int(cy-side/2), int(cx+side/2), int(cy+side/2)).Add(b.Min).Intersect(b)
 	out := image.NewRGBA(image.Rect(0, 0, cropSize, cropSize))
-	draw.CatmullRom.Scale(out, squareIn(out.Bounds(), r), src, r, draw.Src, nil)
+	draw.CatmullRom.Scale(out, out.Bounds(), src, faceSquare(src.Bounds(), box), draw.Src, nil)
 	return out, nil
 }
 
-// squareIn is where r, cut short at a photo's edge, goes in the square dst
-// so the face keeps its proportions.
-func squareIn(dst, r image.Rectangle) image.Rectangle {
-	if r.Dx() == r.Dy() || r.Dx() == 0 || r.Dy() == 0 {
-		return dst
-	}
-	if r.Dx() > r.Dy() {
-		h := dst.Dx() * r.Dy() / r.Dx()
-		return image.Rect(0, (dst.Dy()-h)/2, dst.Dx(), (dst.Dy()+h)/2)
-	}
-	w := dst.Dy() * r.Dx() / r.Dy()
-	return image.Rect((dst.Dx()-w)/2, 0, (dst.Dx()+w)/2, dst.Dy())
+// faceSquare is the square of a face picture in the thumbnail b: the face
+// with a margin around it, moved inside the photo where the face is near an
+// edge — a little off centre rather than padded with black — and no larger
+// than the photo's shorter side.
+func faceSquare(b image.Rectangle, box lib.FaceBox) image.Rectangle {
+	w, h := float64(b.Dx()), float64(b.Dy())
+	side := math.Min(math.Max(box.W*w, box.H*h)*(1+2*cropMargin), math.Min(w, h))
+	x := math.Max(0, math.Min((box.X+box.W/2)*w-side/2, w-side))
+	y := math.Max(0, math.Min((box.Y+box.H/2)*h-side/2, h-side))
+	return image.Rect(int(x), int(y), int(x+side), int(y+side)).Add(b.Min)
 }

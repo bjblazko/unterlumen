@@ -29,9 +29,17 @@ const PeopleAPI = {
         });
         if (!r.ok) throw new Error((await r.text()).trim());
     },
+    // What waits for a name in each library: groups, photos to look at.
+    async toName() {
+        return peopleJSON(await fetch('/api/people/to-name'));
+    },
     // Who is most often in the same photos as the person of that name.
     async oftenWith(name) {
         return peopleJSON(await fetch(`/api/people/with?name=${encodeURIComponent(name)}`));
+    },
+    // The names given in any library, for name fields to offer.
+    async allNames() {
+        return peopleJSON(await fetch('/api/library/person-names'));
     },
     async overview(lib) {
         return peopleJSON(await fetch(`/api/library/${lib}/people`));
