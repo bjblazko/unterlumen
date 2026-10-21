@@ -152,7 +152,7 @@ func peopleIndex(ps *PeopleStats, libs []LibraryPeople) map[string]int {
 	photos := map[string]map[string]bool{}
 	display := map[string]string{}
 	cover := map[string]PeopleStatsPerson{}
-	coverFaces := map[string]int{}
+	best := map[string]Person{}
 	for li, l := range libs {
 		for _, a := range l.Appearances {
 			key := strings.ToLower(a.Name)
@@ -164,8 +164,8 @@ func peopleIndex(ps *PeopleStats, libs []LibraryPeople) map[string]int {
 		}
 		for _, p := range l.People {
 			key := strings.ToLower(p.Name)
-			if p.Faces > coverFaces[key] {
-				coverFaces[key] = p.Faces
+			if b, ok := best[key]; !ok || showsBetter(p.CoverChosen, p.Faces, b.CoverChosen, b.Faces) {
+				best[key] = p
 				cover[key] = PeopleStatsPerson{Lib: li, Cover: p.Cover}
 			}
 		}

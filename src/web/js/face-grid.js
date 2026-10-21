@@ -1,44 +1,77 @@
 // face-grid.js — pictures of faces, each one a switch: in or out of what
-// the next action does. People's group and person pages are built on it.
+// the next action does, with Select all and Select none above them.
+// People's group and person pages are built on it.
 
 class FaceGrid {
-    // faces: [{ id, photoId, x, y, w, h }], none of them switched on at the
-    // start. onChange is called with the selection after every switch;
-    // onOpen with the index of a face that is double-clicked. cover is the
-    // face that shows the person, marked as such.
-    constructor({ lib, faces, cover = 0, onChange = () => {}, onOpen = () => {} }) {
-        this.selected = new Set();
+    // faces: [{ id, photoId, x, y, w, h, library? }], none of them switched
+    // on at the start; a face without a library is in lib. onChange is
+    // called after every change of the selection; onOpen with the index of a
+    // face that is double-clicked. cover ({ library, face }) is the face
+    // that shows the person, marked as such. Above the faces, Select all and
+    // Select none.
+    constructor({ lib, faces, cover = null, onChange = () => {}, onOpen = () => {} }) {
+        this._faces = faces.map(f => ({ ...f, library: f.library || lib }));
+        this._on = new Set();
+        this._onChange = onChange;
         this.el = document.createElement('div');
-        this.el.className = 'face-grid';
-        this.el.innerHTML = faces.map((f, i) => `
-            <button type="button" class="face-tile" data-face="${f.id}" data-index="${i}"
+        this.el.className = 'face-collection';
+        this._select = new SelectAll({
+            onAll: () => this._setAll(true),
+            onNone: () => this._setAll(false),
+            label: (total, n) => (n ? `${countFaces(total)} · ${formatCount(n)} selected` : countFaces(total)),
+        });
+        this._grid = document.createElement('div');
+        this._grid.className = 'face-grid';
+        this._grid.innerHTML = this._faces.map((f, i) => `
+            <button type="button" class="face-tile" data-face="${f.id}" data-library="${escapeHtml(String(f.library))}" data-index="${i}"
                 aria-pressed="false" aria-label="Face ${i + 1}">
-                <img src="${PeopleAPI.faceURL(lib, f.id)}" alt="" loading="lazy" width="96" height="96">
-                ${f.id === cover ? '<span class="face-tile-cover">Cover</span>' : ''}
+                <img src="${PeopleAPI.faceURL(f.library, f.id)}" alt="" loading="lazy" width="96" height="96">
+                ${cover && f.id === cover.face && String(f.library) === String(cover.library) ? '<span class="face-tile-cover">Cover</span>' : ''}
                 <svg class="face-tile-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                     <rect width="16" height="16" rx="2"/><path d="M4 8.5l2.5 2.5L12 5.5" fill="none" stroke-width="1.8"/>
                 </svg>
             </button>`).join('');
-        this.el.addEventListener('click', (e) => {
+        this.el.append(this._select.el, this._grid);
+        this._select.update(0, faces.length);
+        this._grid.addEventListener('click', (e) => {
             const tile = e.target.closest('.face-tile');
             if (!tile) return;
-            const id = Number(tile.dataset.face);
-            const on = !this.selected.has(id);
-            if (on) this.selected.add(id); else this.selected.delete(id);
-            tile.setAttribute('aria-pressed', String(on));
-            onChange(this.selected);
+            const i = Number(tile.dataset.index);
+            this._set(tile, i, !this._on.has(i));
+            this._changed();
         });
-        this.el.addEventListener('dblclick', (e) => {
+        this._grid.addEventListener('dblclick', (e) => {
             const tile = e.target.closest('.face-tile');
             if (tile) onOpen(Number(tile.dataset.index));
         });
-        this._peek = new FacePeek(lib, faces, this.el);
+        this._peek = new FacePeek(lib, this._faces, this._grid);
     }
 
-    // clear switches every face off, without telling onChange.
-    clear() {
-        this.selected.clear();
-        for (const tile of this.el.querySelectorAll('.face-tile[aria-pressed="true"]')) tile.setAttribute('aria-pressed', 'false');
+    get count() { return this._on.size; }
+
+    // selectedIndexes lists where in faces the faces switched on are;
+    // selectedFaces lists those faces, each with its library.
+    selectedIndexes() {
+        return [...this._on].sort((a, b) => a - b);
+    }
+
+    selectedFaces() {
+        return this.selectedIndexes().map(i => this._faces[i]);
+    }
+
+    _set(tile, i, on) {
+        if (on) this._on.add(i); else this._on.delete(i);
+        tile.setAttribute('aria-pressed', String(on));
+    }
+
+    _setAll(on) {
+        for (const tile of this._grid.querySelectorAll('.face-tile')) this._set(tile, Number(tile.dataset.index), on);
+        this._changed();
+    }
+
+    _changed() {
+        this._select.update(this._on.size, this._faces.length);
+        this._onChange();
     }
 }
 
@@ -53,7 +86,7 @@ class FacePeek {
     static pct(v) { return `${(v * 100).toFixed(2)}%`; }
 
     // grid holds the faces' elements, found by selector, each with the index
-    // of its face in faces as data-index.
+    // of its face in faces as data-index; a face without a library is in lib.
     constructor(lib, faces, grid, selector = '.face-tile') {
         this._lib = lib;
         this._faces = faces;
@@ -96,7 +129,7 @@ class FacePeek {
         el.setAttribute('role', 'tooltip');
         el.innerHTML = `
             <div class="face-peek-photo">
-                <img src="${LibraryAPI.thumbURL(this._lib, f.photoId)}" alt="">
+                <img src="${LibraryAPI.thumbURL(f.library || this._lib, f.photoId)}" alt="">
                 <span class="face-peek-frame" style="left:${FacePeek.pct(f.x)};top:${FacePeek.pct(f.y)};width:${FacePeek.pct(f.w)};height:${FacePeek.pct(f.h)}"></span>
             </div>`;
         document.body.appendChild(el);

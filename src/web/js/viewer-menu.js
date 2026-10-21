@@ -29,7 +29,7 @@ class ViewerMenu {
             { id: 'location', label: 'Set location…', onSelect: () => this._withPhoto(ref, p => this._tool('set-location', p.path)) },
             { id: 'organize', label: 'Show in Organize', onSelect: () => this._withPhoto(ref, p => this._leave(() => App.openCommanderAt(dirOf(p.path), [p.name]))) },
             'separator',
-            { id: 'library', label: 'Show in library', onSelect: () => this._withPhoto(ref, p => this._showInLibrary(ref, p)) },
+            { id: 'library', label: 'Show in library', onSelect: () => showPhotoInLibrary(ref, () => this._viewer.close()) },
         ];
     }
 
@@ -65,17 +65,6 @@ class ViewerMenu {
         }).open();
     }
 
-    _showInLibrary(ref, photo) {
-        const source = (photo.sourcePath || '').replace(/\/$/, '');
-        const dir = dirOf(photo.path);
-        const relDir = dir === source ? '' : dir.startsWith(source + '/') ? dir.slice(source.length + 1) : null;
-        if (relDir === null) {
-            App.showToast('This photo is no longer inside its library\'s folder. Scan the library to find it again.');
-            return;
-        }
-        this._leave(() => App.showInLibrary(ref.lib, relDir, photo.name));
-    }
-
     // Going to another place closes the viewer first: it lies over the place
     // it was opened from.
     _leave(go) {
@@ -83,26 +72,47 @@ class ViewerMenu {
         go();
     }
 
-    // Where a library photo is now: its absolute path and name, and its
-    // library's folder. Read when an action is chosen, since a rename moves it.
     async _withPhoto(ref, fn) {
-        let photo;
-        try {
-            const [info, libs] = await Promise.all([
-                fetch(`/api/library/${ref.lib}/photo/${ref.id}/info`).then(async r => {
-                    if (!r.ok) throw new Error(await r.text() || `the server answered ${r.status}`);
-                    return r.json();
-                }),
-                LibraryAPI.list(),
-            ]);
-            const lib = libs.find(l => String(l.id) === String(ref.lib));
-            photo = { path: info.path, name: info.name, sourcePath: lib?.sourcePath ?? '' };
-        } catch (err) {
-            App.showToast(`This photo could not be found in its library: ${err.message}`);
-            return;
-        }
-        fn(photo);
+        const photo = await readLibraryPhoto(ref);
+        if (photo) fn(photo);
     }
+}
+
+// readLibraryPhoto says where a library photo ({ lib, id }) is now: its
+// absolute path and name, and its library's folder. It is read when an
+// action is chosen, since a rename moves it; null, said in a toast, when the
+// photo cannot be found.
+async function readLibraryPhoto(ref) {
+    try {
+        const [info, libs] = await Promise.all([
+            fetch(`/api/library/${ref.lib}/photo/${ref.id}/info`).then(async r => {
+                if (!r.ok) throw new Error(await r.text() || `the server answered ${r.status}`);
+                return r.json();
+            }),
+            LibraryAPI.list(),
+        ]);
+        const lib = libs.find(l => String(l.id) === String(ref.lib));
+        return { path: info.path, name: info.name, sourcePath: lib?.sourcePath ?? '' };
+    } catch (err) {
+        App.showToast(`This photo could not be found in its library: ${err.message}`);
+        return null;
+    }
+}
+
+// showPhotoInLibrary opens a library photo's library at its folder, the
+// photo selected. leave runs just before, to close what lies over the place.
+async function showPhotoInLibrary(ref, leave = () => {}) {
+    const photo = await readLibraryPhoto(ref);
+    if (!photo) return;
+    const source = photo.sourcePath.replace(/\/$/, '');
+    const dir = dirOf(photo.path);
+    const relDir = dir === source ? '' : dir.startsWith(source + '/') ? dir.slice(source.length + 1) : null;
+    if (relDir === null) {
+        App.showToast('This photo is no longer inside its library\'s folder. Scan the library to find it again.');
+        return;
+    }
+    leave();
+    App.showInLibrary(ref.lib, relDir, photo.name);
 }
 
 function dirOf(path) {

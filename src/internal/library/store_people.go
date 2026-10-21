@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"huepattl.de/unterlumen/internal/faces"
 )
@@ -16,6 +17,9 @@ type Person struct {
 	Faces  int    `json:"faces"`
 	Photos int    `json:"photos"`
 	Cover  int64  `json:"cover"`
+	// CoverChosen is when the owner chose Cover, empty when it is their
+	// largest face because nobody chose one or the chosen face left them.
+	CoverChosen string `json:"coverChosen,omitempty"`
 }
 
 // FaceGroup is a set of unnamed faces that look alike. Faces holds a few,
@@ -38,6 +42,7 @@ type FaceRef struct {
 	W       float64 `json:"w"`
 	H       float64 `json:"h"`
 	File    string  `json:"file,omitempty"` // the photo's file name, where a page opens the photo
+	Date    string  `json:"date,omitempty"` // when the photo was taken, empty when nobody knows
 }
 
 // unnamed selects the faces still waiting for a name.
@@ -89,7 +94,9 @@ func (s *Store) People() ([]Person, error) {
 	rows, err := s.db.Query(`
 		SELECT p.id, p.name, COUNT(f.id), COUNT(DISTINCT f.photo_id),
 		       COALESCE((SELECT c.id FROM faces c WHERE c.id = p.cover AND c.person_id = p.id AND c.confirmed = 1),
-		                (SELECT c.id FROM faces c WHERE c.person_id = p.id AND c.confirmed = 1 ORDER BY c.w*c.h DESC LIMIT 1))
+		                (SELECT c.id FROM faces c WHERE c.person_id = p.id AND c.confirmed = 1 ORDER BY c.w*c.h DESC LIMIT 1)),
+		       CASE WHEN EXISTS (SELECT 1 FROM faces c WHERE c.id = p.cover AND c.person_id = p.id AND c.confirmed = 1)
+		            THEN COALESCE(p.cover_chosen, '') ELSE '' END
 		FROM people p JOIN faces f ON f.person_id = p.id AND f.confirmed = 1
 		GROUP BY p.id ORDER BY COUNT(f.id) DESC, p.name`)
 	if err != nil {
@@ -99,7 +106,7 @@ func (s *Store) People() ([]Person, error) {
 	people := []Person{}
 	for rows.Next() {
 		var p Person
-		if err := rows.Scan(&p.ID, &p.Name, &p.Faces, &p.Photos, &p.Cover); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Faces, &p.Photos, &p.Cover, &p.CoverChosen); err != nil {
 			return nil, err
 		}
 		people = append(people, p)
@@ -202,12 +209,12 @@ func (s *Store) personCentres() ([]Person, [][]float32, error) {
 // PersonFaces the confirmed faces of a person, from the newest photo to the
 // oldest, those without a date last.
 func (s *Store) GroupFaces(grp int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, ''), COALESCE(p.date_taken, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
 		WHERE f.grp = ? AND f.person_id IS NULL AND f.confirmed = 0 ORDER BY f.w*f.h DESC`, grp)
 }
 
 func (s *Store) PersonFaces(person int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, ''), COALESCE(p.date_taken, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
 		WHERE f.person_id = ? AND f.confirmed = 1
 		ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC, f.w*f.h DESC`, person)
 }
@@ -221,7 +228,7 @@ func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {
 	refs := []FaceRef{}
 	for rows.Next() {
 		var r FaceRef
-		if err := rows.Scan(&r.ID, &r.PhotoID, &r.X, &r.Y, &r.W, &r.H, &r.File); err != nil {
+		if err := rows.Scan(&r.ID, &r.PhotoID, &r.X, &r.Y, &r.W, &r.H, &r.File, &r.Date); err != nil {
 			return nil, err
 		}
 		refs = append(refs, r)
@@ -360,6 +367,9 @@ func photosOfFaces(tx *sql.Tx, in string, ids []any) ([]string, error) {
 	return photos, rows.Err()
 }
 
+// coverChosenLayout has a fixed width, so later choices sort after earlier ones.
+const coverChosenLayout = "2006-01-02T15:04:05.000000000Z"
+
 // ErrNotTheirFace says a face chosen as a person's cover is not one of
 // their confirmed faces.
 var ErrNotTheirFace = errors.New("the face is not one of this person's")
@@ -367,10 +377,12 @@ var ErrNotTheirFace = errors.New("the face is not one of this person's")
 // ChooseCover makes face the one that shows the person. The choice is this
 // installation's, like hiding a face: the sidecar says who is in a photo,
 // not how one installation likes to show them. Should the face leave the
-// person, they are shown by their largest face again.
+// person, they are shown by their largest face again. When it was chosen
+// is kept: across libraries, the cover chosen last shows the person.
 func (s *Store) ChooseCover(person, face int64) error {
-	res, err := s.db.Exec(`UPDATE people SET cover = ? WHERE id = ?
-		AND EXISTS (SELECT 1 FROM faces WHERE id = ? AND person_id = ? AND confirmed = 1)`, face, person, face, person)
+	now := time.Now().UTC().Format(coverChosenLayout)
+	res, err := s.db.Exec(`UPDATE people SET cover = ?, cover_chosen = ? WHERE id = ?
+		AND EXISTS (SELECT 1 FROM faces WHERE id = ? AND person_id = ? AND confirmed = 1)`, face, now, person, face, person)
 	if err != nil {
 		return err
 	}

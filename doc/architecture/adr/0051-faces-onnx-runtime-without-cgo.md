@@ -1,6 +1,6 @@
 # ADR-0051: Faces found on this computer, with ONNX Runtime loaded without cgo
 
-*Last modified: 2026-10-20*
+*Last modified: 2026-10-21*
 
 ## Status
 
@@ -123,11 +123,17 @@ sidecar as Metadata Working Group regions; an architecture that is not
    keeps its own people, faces and groups; the same name, without regard to
    case, is the same person in every library — the only thing the sidecars
    carry, so it needs nothing stored and holds on every installation. A
-   person's page (`GET /api/people/someone?name=`) has a section per library
-   with the name, all their faces newest first, foldable. Faces selected in
-   one library at a time can become the cover (`PUT …/people/{id}/cover`,
+   person's page (`GET /api/people/someone?name=`) has all their faces of
+   every library with the name in one grid, by the date of their photos,
+   newest first and undated last, whichever library they are in. Faces
+   selected in one library at a time — a face's number means something only
+   in its own — can become the cover (`PUT …/people/{id}/cover`,
    `people.cover`; this installation's choice, out of the sidecar, falling
-   back to their largest face), be given to someone else in one step (*Is
+   back to their largest face). Across libraries — the overview, the
+   person's page, Often with, the statistics — the cover chosen last shows
+   the person (`people.cover_chosen`, only while the face is still theirs);
+   where nobody chose one, the cover of the library with most of their
+   faces. They can also be given to someone else in one step (*Is
    instead*, `POST …/faces/name`), or go back to the groups (`POST
    …/faces/unname`). Rename… and Take the name away… (`PATCH`/`DELETE
    …/people/{id}`) list the libraries with the name, all ticked; an untick

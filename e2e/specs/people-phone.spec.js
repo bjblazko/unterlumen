@@ -11,7 +11,7 @@ const LIB = 'lib-family';
 const tinyJPEG = Buffer.from(
   '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
   'base64');
-const named = (name, person, photos) => ({ name, faces: photos, photos, libraries: [{ library: LIB, libraryName: 'Family', person, faces: photos, photos, cover: person * 10 }] });
+const named = (name, person, photos) => ({ name, faces: photos, photos, libraries: [{ library: LIB, libraryName: 'Family', person, faces: photos, photos, cover: person * 10 }], cover: { library: LIB, face: person * 10 } });
 
 async function fakePeople(page, { slowFirst = 0 } = {}) {
   const searches = [];
@@ -23,8 +23,8 @@ async function fakePeople(page, { slowFirst = 0 } = {}) {
   await page.route('**/api/people', r => r.fulfill({ json: [named('Anna', 1, 3), named('Ben', 2, 2), named('Cleo', 3, 1)] }));
   await page.route('**/api/people/birthdays', r => r.fulfill({ json: { Anna: '2015-05-12' } }));
   await page.route('**/api/people/someone?*', r => r.fulfill({ json: {
-    name: 'Anna', in: [{ ...named('Anna', 1, 3).libraries[0], shown: [] }], notIn: [],
-    with: [{ name: 'Ben', photos: 1 }],
+    name: 'Anna', in: named('Anna', 1, 3).libraries, cover: { library: LIB, face: 10 }, faces: [], notIn: [],
+    with: [{ name: 'Ben', photos: 1, cover: { library: LIB, face: 20 } }],
   } }));
   await page.route(`**/api/library/${LIB}/people`, r => r.fulfill({ json: {
     people: [{ id: 1, name: 'Anna', faces: 3, photos: 3, cover: 10 }], groups: [], groupCount: 0, pending: 0, finding: false } }));

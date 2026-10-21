@@ -12,7 +12,8 @@ test.describe('Browse', () => {
     await expect(page).toHaveTitle('Unterlumen');
     await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.breadcrumb')).toBeVisible();
-    await expect(page.locator('.status-bar')).toBeVisible();
+    // The root holds only folders: nothing to select, so no Select all.
+    await expect(page.locator('.browse-select-all .select-all')).toBeHidden();
   });
 
   test('root shows folder-a and folder-b directories', async ({ page }) => {
@@ -45,7 +46,7 @@ test.describe('Browse', () => {
   test('status bar shows image count', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    const statusText = await page.locator('.status-bar').textContent();
+    const statusText = await page.locator('.select-all-count').textContent();
     expect(statusText).toMatch(/\d+\s*(image|photo)/i);
   });
 
@@ -164,7 +165,7 @@ test.describe('Browse', () => {
     await second.click({ modifiers: ['Meta'] });
     await expect(first).toHaveClass(/selected/);
     await expect(second).toHaveClass(/selected/);
-    const statusText = await page.locator('.status-bar').textContent();
+    const statusText = await page.locator('.select-all-count').textContent();
     expect(statusText).toMatch(/2\s*selected/i);
   });
 

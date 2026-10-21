@@ -3,6 +3,7 @@ package apipeople
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -48,8 +49,25 @@ func TestAPersonAcrossLibraries(t *testing.T) {
 	rec := do(t, h, "GET", "/api/people/someone?name=ANNA", nil)
 	var anna lib.SomeoneEverywhere
 	json.Unmarshal(rec.Body.Bytes(), &anna) //nolint:errcheck
-	if len(anna.In) != 2 || len(anna.In[0].Shown) != 2 || len(anna.NotIn) != 3 {
+	if len(anna.In) != 2 || len(anna.Faces) != 4 || len(anna.NotIn) != 3 {
 		t.Fatalf("Anna %s", rec.Body)
+	}
+
+	// The cover chosen last, in whichever library, shows her everywhere.
+	for _, in := range anna.In {
+		face := int64(0)
+		for _, f := range anna.Faces {
+			if f.Library == in.Library && f.ID != in.Cover {
+				face = f.ID
+			}
+		}
+		if rec := do(t, h, "PUT", fmt.Sprintf("/api/library/%s/people/%d/cover", in.Library, in.Person), map[string]any{"face": face}); rec.Code >= 300 {
+			t.Fatalf("choose cover in %s: %d %s", in.LibraryName, rec.Code, rec.Body)
+		}
+		json.Unmarshal(do(t, h, "GET", "/api/people", nil).Body.Bytes(), &everyone) //nolint:errcheck
+		if want := (lib.CoverRef{Library: in.Library, Face: face}); everyone[0].Cover != want {
+			t.Errorf("after choosing in %s: cover %+v, want %+v", in.LibraryName, everyone[0].Cover, want)
+		}
 	}
 	for _, n := range anna.NotIn {
 		switch n.Library {
@@ -160,6 +178,9 @@ func TestWhoIsOftenWithSomeone(t *testing.T) {
 	json.Unmarshal(do(t, h, "GET", "/api/people/someone?name=Anna", nil).Body.Bytes(), &anna) //nolint:errcheck
 	if len(anna.With) != 1 || anna.With[0].Name != "Ben" || anna.With[0].Photos != 1 {
 		t.Fatalf("with Anna: %+v, want Ben in one photo", anna.With)
+	}
+	if anna.With[0].Cover.Face == 0 || anna.With[0].Cover.Library == "" {
+		t.Errorf("Ben shows no face: %+v", anna.With[0])
 	}
 	var with []lib.Companion
 	json.Unmarshal(do(t, h, "GET", "/api/people/with?name=anna", nil).Body.Bytes(), &with) //nolint:errcheck

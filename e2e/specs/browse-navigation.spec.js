@@ -20,7 +20,7 @@ test.describe('Folder navigation', () => {
 
   test('status bar at root reflects zero images', async ({ page }) => {
     await page.waitForSelector('.folder-tile.dir-item', { timeout: 5_000 });
-    const statusText = await page.locator('.status-bar').textContent();
+    const statusText = await page.locator('.select-all-count').textContent();
     // Either shows "0 images" or only shows directories
     expect(statusText).toMatch(/0\s*(image|photo)|director/i);
   });
@@ -51,7 +51,7 @@ test.describe('Folder navigation', () => {
   test('status bar inside folder-b shows 50 images', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    const statusText = await page.locator('.status-bar').textContent();
+    const statusText = await page.locator('.select-all-count').textContent();
     expect(statusText).toMatch(new RegExp(`${FOLDER_B_IMAGE_COUNT}\\s*(image|photo)`, 'i'));
   });
 

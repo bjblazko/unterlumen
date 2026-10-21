@@ -20,15 +20,53 @@ type NamedIn struct {
 	Faces       int    `json:"faces"`
 	Photos      int    `json:"photos"`
 	Cover       int64  `json:"cover"`
+	CoverChosen string `json:"-"`
+}
+
+func namedIn(l *Library, p Person) NamedIn {
+	return NamedIn{l.ID, l.Name, p.ID, p.Faces, p.Photos, p.Cover, p.CoverChosen}
+}
+
+// CoverRef is the face that shows a person across libraries.
+type CoverRef struct {
+	Library string `json:"library"`
+	Face    int64  `json:"face"`
+}
+
+// showsBetter says whether a person's cover in one library, chosen at
+// aChosen with aFaces of their faces there, shows them across libraries
+// rather than the cover in another: the cover chosen last wins; between
+// covers nobody chose, the library with more of their faces.
+func showsBetter(aChosen string, aFaces int, bChosen string, bFaces int) bool {
+	if aChosen != bChosen {
+		return aChosen > bChosen
+	}
+	return aFaces > bFaces
+}
+
+// coverAmong is the cover that shows the person known as ins.
+func coverAmong(ins []NamedIn) CoverRef {
+	var best *NamedIn
+	for i := range ins {
+		if best == nil || showsBetter(ins[i].CoverChosen, ins[i].Faces, best.CoverChosen, best.Faces) {
+			best = &ins[i]
+		}
+	}
+	if best == nil {
+		return CoverRef{}
+	}
+	return CoverRef{best.Library, best.Cover}
 }
 
 // Someone is everyone of one name, in all the libraries that have them,
-// the library with the most of their faces first.
+// the library with the most of their faces first, and the face that shows
+// them.
 type Someone struct {
 	Name      string    `json:"name"`
 	Faces     int       `json:"faces"`
 	Photos    int       `json:"photos"`
 	Libraries []NamedIn `json:"libraries"`
+	Cover     CoverRef  `json:"cover"`
 }
 
 // Everyone lists the people named in any library, those with the most
@@ -57,12 +95,13 @@ func (m *Manager) Everyone() ([]Someone, error) {
 			}
 			s.Faces += p.Faces
 			s.Photos += p.Photos
-			s.Libraries = append(s.Libraries, NamedIn{l.ID, l.Name, p.ID, p.Faces, p.Photos, p.Cover})
+			s.Libraries = append(s.Libraries, namedIn(l, p))
 		}
 	}
 	out := make([]Someone, 0, len(byName))
 	for _, s := range byName {
 		sort.SliceStable(s.Libraries, func(i, j int) bool { return s.Libraries[i].Faces > s.Libraries[j].Faces })
+		s.Cover = coverAmong(s.Libraries)
 		out = append(out, *s)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -74,11 +113,10 @@ func (m *Manager) Everyone() ([]Someone, error) {
 	return out, nil
 }
 
-// SomeoneIn is a person in one library with all their faces, the newest
-// first: their page manages them there.
-type SomeoneIn struct {
-	NamedIn
-	Shown []FaceRef `json:"shown"`
+// FaceIn is a face of a person and the library it is in.
+type FaceIn struct {
+	FaceRef
+	Library string `json:"library"`
 }
 
 // NotNamedIn is a library where nobody has the name. LooksLike is someone
@@ -92,10 +130,13 @@ type NotNamedIn struct {
 }
 
 // SomeoneEverywhere is a person across all libraries: where they are named,
-// and in each other library who there may be them.
+// all their faces from the newest photo to the oldest, whichever library
+// they are in, and in each other library who there may be them.
 type SomeoneEverywhere struct {
 	Name  string       `json:"name"`
-	In    []SomeoneIn  `json:"in"`
+	In    []NamedIn    `json:"in"`
+	Cover CoverRef     `json:"cover"`
+	Faces []FaceIn     `json:"faces"`
 	NotIn []NotNamedIn `json:"notIn"`
 	With  []Companion  `json:"with"` // who is most often in the same photos, in all libraries together
 }
@@ -107,7 +148,7 @@ const companionsShown = 12
 // faces are compared, on this computer, with the people and groups of the
 // libraries that do not have the name, to suggest who there is them.
 func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
-	out := SomeoneEverywhere{Name: name, In: []SomeoneIn{}, NotIn: []NotNamedIn{}, With: []Companion{}}
+	out := SomeoneEverywhere{Name: name, In: []NamedIn{}, Faces: []FaceIn{}, NotIn: []NotNamedIn{}, With: []Companion{}}
 	with := map[string]*Companion{}
 	libs, err := m.ListLibraries()
 	if err != nil {
@@ -128,19 +169,24 @@ func (m *Manager) SomeoneNamed(name string) (SomeoneEverywhere, error) {
 			others = append(others, l)
 			continue
 		}
-		in, embs, err := someoneIn(store, l, p)
+		refs, embs, err := someoneIn(store, l, p)
 		if err != nil {
 			return out, err
 		}
 		out.Name = p.Name
-		out.In = append(out.In, in)
+		out.In = append(out.In, namedIn(l, p))
+		out.Faces = append(out.Faces, refs...)
 		looks = append(looks, embs...)
 		if err := addCompanions(store, p.ID, with); err != nil {
 			return out, err
 		}
 	}
 	sort.SliceStable(out.In, func(i, j int) bool { return out.In[i].Faces > out.In[j].Faces })
-	out.With = topCompanions(with)
+	out.Cover = coverAmong(out.In)
+	newestFirst(out.Faces)
+	if out.With, err = m.topCompanions(with); err != nil {
+		return out, err
+	}
 	centre := faces.Mean(looks)
 	for _, l := range others {
 		not, err := m.whoMayBe(l, centre)
@@ -175,7 +221,7 @@ func (m *Manager) CompanionsOf(name string) ([]Companion, error) {
 			}
 		}
 	}
-	return topCompanions(with), nil
+	return m.topCompanions(with)
 }
 
 // addCompanions adds the people in the same photos as person in one
@@ -195,7 +241,9 @@ func addCompanions(store *Store, person int64, with map[string]*Companion) error
 	return nil
 }
 
-func topCompanions(with map[string]*Companion) []Companion {
+// topCompanions lists the people most often with someone, each with the
+// face that shows them across libraries.
+func (m *Manager) topCompanions(with map[string]*Companion) ([]Companion, error) {
 	out := make([]Companion, 0, len(with))
 	for _, c := range with {
 		out = append(out, *c)
@@ -209,18 +257,48 @@ func topCompanions(with map[string]*Companion) []Companion {
 	if len(out) > companionsShown {
 		out = out[:companionsShown]
 	}
-	return out
+	if len(out) == 0 {
+		return out, nil
+	}
+	everyone, err := m.Everyone()
+	if err != nil {
+		return nil, err
+	}
+	covers := make(map[string]CoverRef, len(everyone))
+	for _, s := range everyone {
+		covers[strings.ToLower(s.Name)] = s.Cover
+	}
+	for i := range out {
+		out[i].Cover = covers[strings.ToLower(out[i].Name)]
+	}
+	return out, nil
 }
 
-// someoneIn returns the person p of library l with their faces, and what
-// they look like.
-func someoneIn(store *Store, l *Library, p Person) (SomeoneIn, [][]float32, error) {
+// someoneIn returns the faces of person p in library l, and what they
+// look like.
+func someoneIn(store *Store, l *Library, p Person) ([]FaceIn, [][]float32, error) {
 	refs, err := store.PersonFaces(p.ID)
 	if err != nil {
-		return SomeoneIn{}, nil, err
+		return nil, nil, err
+	}
+	in := make([]FaceIn, len(refs))
+	for i, r := range refs {
+		in[i] = FaceIn{r, l.ID}
 	}
 	embs, err := store.personEmbeddings(p.ID)
-	return SomeoneIn{NamedIn{l.ID, l.Name, p.ID, p.Faces, p.Photos, p.Cover}, refs}, embs, err
+	return in, embs, err
+}
+
+// newestFirst orders faces from the newest photo to the oldest, those
+// without a date last; faces of one date keep their order.
+func newestFirst(fs []FaceIn) {
+	sort.SliceStable(fs, func(i, j int) bool {
+		a, b := fs[i].Date, fs[j].Date
+		if (a == "") != (b == "") {
+			return b == ""
+		}
+		return a > b
+	})
 }
 
 // whoMayBe looks in library l for someone who looks like centre: a person

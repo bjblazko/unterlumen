@@ -39,6 +39,12 @@ class BrowsePane {
 
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
+        }, () => this._syncSelectAll());
+        // Select all takes the photos, as ⌘A does; Select none also the folders.
+        this._selectAll = new SelectAll({
+            onAll: () => this.selectAll(),
+            onNone: () => this._clearAllSelection(),
+            label: (total, selected) => (this._loading ? '' : imageCountLabel(total, selected)),
         });
         this.keyboard = new BrowseKeyboard(this);
         this._gridRenderer = new GridRenderer(this);
@@ -380,6 +386,8 @@ class BrowsePane {
             `<div class="browse-header">${header.join('')}</div>` +
             `<div class="browse-content">${content.join('')}</div>`;
         this._contentEl = this.container.querySelector('.browse-content');
+        this.container.querySelector('.browse-select-all')?.appendChild(this._selectAll.el);
+        this._syncSelectAll();
         const loadingEl = this._contentEl.querySelector('.browse-loading');
         if (loadingEl) Activity.in(loadingEl, 'Reading the folder…', { area: true });
         this.attachEvents();
@@ -451,13 +459,11 @@ class BrowsePane {
         return `<button class="btn btn-sm browse-slideshow-btn" aria-label="Slideshow"${noPhotos ? ' disabled title="This folder holds no photos"' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M5.25 4.75v3.5l3-1.75z" fill="currentColor"/></svg><span class="browse-slideshow-label">Slideshow</span></button>`;
     }
 
-    _renderControls() {
-        const imageCount = this.getImageEntries().length;
-        const selectedCount = this.selection.selected.size;
-        // While the folder is read, the count is not known yet.
-        const statusText = this._loading ? ''
-            : imageCountLabel(imageCount, selectedCount);
+    _syncSelectAll() {
+        this._selectAll.update(this.selection.selected.size, this._loading ? 0 : this.getImageEntries().length);
+    }
 
+    _renderControls() {
         return `<div class="controls">
             <div class="controls-left">
             <!-- The layout is a view you switch while looking at photos, so
@@ -472,7 +478,7 @@ class BrowsePane {
             </select>
             <button class="btn btn-sm sort-order" title="${this.order === 'asc' ? 'Sorting oldest first' : 'Sorting newest first'}" aria-label="Reverse the order">${this.order === 'asc' ? '↑' : '↓'}</button>
             </div>
-            <span class="status-bar">${statusText}</span>
+            <span class="browse-select-all"></span>
         </div>`;
     }
 

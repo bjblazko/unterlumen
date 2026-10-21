@@ -65,7 +65,7 @@ test.describe('Activity and the status line', () => {
         await expect(activity).toBeVisible({ timeout: 2_000 });
         await expect(activity).toContainText('Reading the folder');
         // The count is not known while the folder is read.
-        await expect(page.locator('.status-bar')).toHaveText('');
+        await expect(page.locator('.select-all-count')).toHaveText('');
     });
 
     test('filter results a newer filter replaces are marked as stale', async ({ page }) => {

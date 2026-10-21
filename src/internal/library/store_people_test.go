@@ -321,6 +321,34 @@ func TestAPersonsFacesComeNewestFirst(t *testing.T) {
 	}
 }
 
+// A chosen cover says when it was chosen, for as long as it is theirs.
+func TestAChosenCoverSaysWhenItWasChosen(t *testing.T) {
+	s := newTestStore(t)
+	photosWithFaces(t, s, t.TempDir(), 0, 0)
+	refs, _ := s.GroupFaces(groups(t, s)[0].ID)
+	if _, err := s.NameFaces([]int64{refs[0].ID, refs[1].ID}, "Anna"); err != nil {
+		t.Fatal(err)
+	}
+	people, _ := s.People()
+	if people[0].CoverChosen != "" {
+		t.Fatalf("chosen %q before anyone chose", people[0].CoverChosen)
+	}
+	if err := s.ChooseCover(people[0].ID, refs[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	people, _ = s.People()
+	if people[0].Cover != refs[1].ID || people[0].CoverChosen == "" {
+		t.Fatalf("after choosing: %+v", people[0])
+	}
+	if _, err := s.UnnameFaces([]int64{refs[1].ID}); err != nil {
+		t.Fatal(err)
+	}
+	people, _ = s.People()
+	if people[0].Cover != refs[0].ID || people[0].CoverChosen != "" {
+		t.Fatalf("after the chosen face left them: %+v, want their largest face and no choice", people[0])
+	}
+}
+
 // "Is instead": a named face given another name moves to that person in one
 // step, without going back to the groups.
 func TestANamedFaceMovesToSomeoneElse(t *testing.T) {

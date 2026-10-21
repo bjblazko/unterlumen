@@ -1,10 +1,12 @@
 // SelectionManager — owns image selection state for a BrowsePane
 
 class SelectionManager {
-    constructor(onSelectionChange) {
+    // onRedraw is called whenever the selection is drawn anew.
+    constructor(onSelectionChange, onRedraw = () => {}) {
         this.selected = new Set();
         this.lastClickedIndex = -1;
         this._onSelectionChange = onSelectionChange;
+        this._onRedraw = onRedraw;
     }
 
     getSelectedFiles() {
@@ -52,13 +54,7 @@ class SelectionManager {
         container.querySelectorAll('[data-type="image"]').forEach(el => {
             el.classList.toggle('selected', this.selected.has(el.dataset.path));
         });
-        const statusEl = container.querySelector('.status-bar');
-        if (!statusEl) return;
-        const imageCount = container.querySelectorAll('[data-type="image"]').length;
-        const selectedCount = this.selected.size;
-        // Clearing the selection belongs to the selection bar, which is where
-        // every other action on a selection is; the status bar only counts.
-        statusEl.textContent = imageCountLabel(imageCount, selectedCount);
+        this._onRedraw();
     }
 }
 

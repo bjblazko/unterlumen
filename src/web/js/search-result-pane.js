@@ -184,13 +184,8 @@ class SearchResultPane extends BrowsePane {
                 this._setupObserver();
             }
 
-            // Update status bar count without a full re-render
-            const statusBar = this.container.querySelector('.status-bar');
-            if (statusBar) {
-                const imageCount = this.getImageEntries().length;
-                const selectedCount = this.selection.selected.size;
-                statusBar.textContent = imageCountLabel(imageCount, selectedCount);
-            }
+            // The count grows without a full re-render.
+            this._syncSelectAll();
         } catch { /* ignore transient errors */ }
         finally {
             more.remove();

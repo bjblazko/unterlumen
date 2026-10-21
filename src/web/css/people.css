@@ -84,16 +84,8 @@
     padding: var(--space-3) var(--space-5); background: var(--bg-2);
 }
 
-/* --- A person: a section per library --- */
-.people-in-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
-.people-in-head .people-section-title { margin: 0; }
-.people-fold {
-    display: inline-flex; align-items: center; gap: var(--space-2); padding: 0; border: none; background: none;
-    color: var(--fg); cursor: pointer; font: inherit;
-}
-.people-fold svg { transition: transform var(--dur) var(--ease); }
-.people-fold[aria-expanded="false"] svg { transform: rotate(-90deg); }
-.people-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* --- A person: their faces from all libraries --- */
+.people-bar-where { font-size: var(--text-sm); color: var(--fg-2); margin-right: var(--space-2); }
 .people-instead-label { font-size: var(--text-sm); color: var(--fg-2); margin-left: var(--space-3); }
 .people-libraries { margin: var(--space-3) 0 0; padding: 0; border: none; display: flex; flex-direction: column; gap: var(--space-2); }
 .people-library-choice { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
@@ -116,6 +108,8 @@
 .people-with { margin-bottom: var(--space-3); }
 .people-with-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .people-with-chip { flex: none; height: var(--control-h-sm); box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-1); text-decoration: none; }
+.people-with-chip:has(.people-with-face) { padding-left: var(--space-1); }
+.people-with-face { flex: none; width: var(--space-6); height: var(--space-6); border-radius: var(--radius-full); background: var(--bg-3); object-fit: cover; margin-right: var(--space-1); }
 .people-with-chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .people-phone-subject { margin: 0; font-size: var(--text-sm); color: var(--fg-2); }
 .people-phone-subject:empty { display: none; }
@@ -132,6 +126,7 @@
 }
 
 /* --- Face grid --- */
+.face-collection .select-all { margin-bottom: var(--space-3); }
 .face-grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); gap: var(--space-2); }
 .face-tile {
     position: relative; width: 96px; height: 96px; padding: 0; border: none; border-radius: var(--radius-sm);

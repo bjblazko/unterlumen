@@ -31,14 +31,17 @@ async function fakePeople(page, state) {
   await page.route('**/api/people/birthdays', r => r.fulfill({ json: {} }));
   await page.route('**/api/people', r => r.fulfill({ json: people().map(p => ({
     name: p.name, faces: p.faces, photos: p.photos,
-    libraries: [{ library: LIB, libraryName: 'Family', person: p.id, faces: p.faces, photos: p.photos, cover: p.cover }] })) }));
+    libraries: [{ library: LIB, libraryName: 'Family', person: p.id, faces: p.faces, photos: p.photos, cover: p.cover }],
+    cover: { library: LIB, face: p.cover } })) }));
   await page.route('**/api/people/someone?*', r => {
     const p = people().find(x => x.name === 'Anna');
     return r.fulfill({ json: p ? {
       name: 'Anna',
-      in: [{ library: LIB, libraryName: 'Family', person: 1, faces: p.faces, photos: p.photos, cover: p.cover, shown: state.anna || [FACE_11] }],
+      in: [{ library: LIB, libraryName: 'Family', person: 1, faces: p.faces, photos: p.photos, cover: p.cover }],
+      cover: { library: LIB, face: p.cover },
+      faces: (state.anna || [FACE_11]).map(f => ({ ...f, library: LIB })),
       notIn: [], with: [],
-    } : { name: 'Anna', in: [], notIn: [], with: [] } });
+    } : { name: 'Anna', in: [], faces: [], notIn: [], with: [] } });
   });
   await page.route('**/api/people/with?*', r => r.fulfill({ json: [] }));
   await page.route(`**/api/library/${LIB}/faces/name`, async r => {

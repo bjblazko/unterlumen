@@ -124,9 +124,9 @@ class PeopleNaming {
         const submit = bar.querySelector('.people-submit');
         const hide = bar.querySelector('.people-hide');
         // Nothing selected is the whole group; a selection is only those.
-        const chosen = () => (grid.selected.size ? [...grid.selected] : faces.map(f => f.id));
+        const chosen = () => (grid.count ? grid.selectedFaces().map(f => f.id) : faces.map(f => f.id));
         const update = () => {
-            const n = grid.selected.size;
+            const n = grid.count;
             submit.textContent = n ? `Name ${formatCount(n)}` : `Name all ${formatCount(faces.length)}`;
             hide.textContent = n ? `Hide ${formatCount(n)}` : `Hide all ${formatCount(faces.length)}`;
         };

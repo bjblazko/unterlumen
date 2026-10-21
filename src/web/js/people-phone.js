@@ -60,10 +60,9 @@ class PeoplePhone {
     }
 
     _card(p) {
-        const top = p.libraries[0];
         return `
             <a class="people-card" href="${peopleHash({ view: 'person', id: p.name })}" data-name="${escapeHtml(p.name.toLowerCase())}">
-                <img src="${PeopleAPI.faceURL(top.library, top.cover)}" alt="" loading="lazy" width="96" height="96">
+                <img src="${PeopleAPI.faceURL(p.cover.library, p.cover.face)}" alt="" loading="lazy" width="96" height="96">
                 <span class="people-card-name">${escapeHtml(p.name)}</span>
                 <span class="people-card-count">${countPhotos(p.photos)}</span>
             </a>`;
@@ -87,14 +86,13 @@ class PeoplePhone {
         }
         this._name = data.name;
         this._with = new Set();
-        const top = data.in[0];
         const photos = data.in.reduce((n, l) => n + l.photos, 0);
         this.pane._head('');
         body.innerHTML = `
             <div class="people-phone">
                 <a class="people-back" href="#people">People</a>
                 <div class="people-phone-hero">
-                    <img src="${PeopleAPI.faceURL(top.library, top.cover)}" alt="" width="88" height="88">
+                    <img src="${PeopleAPI.faceURL(data.cover.library, data.cover.face)}" alt="" width="88" height="88">
                     <div>
                         <h2 class="people-page-title">${escapeHtml(data.name)}</h2>
                         ${bornHTML(birthdayOf(birthdays, data.name))}
@@ -103,9 +101,9 @@ class PeoplePhone {
                 </div>
                 ${data.with.length ? `
                 <div class="people-with">
-                    <span class="people-label">Often with</span>
+                    <span class="people-label">${OFTEN_WITH_LABEL}</span>
                     <div class="people-with-row">${data.with.map(c => `
-                        <button type="button" class="btn btn-sm people-with-chip" aria-pressed="false" data-name="${escapeHtml(c.name)}">${escapeHtml(c.name)} <span class="people-num">${formatCount(c.photos)}</span></button>`).join('')}
+                        <button type="button" class="btn btn-sm people-with-chip" aria-pressed="false" data-name="${escapeHtml(c.name)}">${withChipHTML(c)}</button>`).join('')}
                     </div>
                 </div>` : ''}
                 <p class="people-phone-subject"></p>

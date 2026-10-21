@@ -30,8 +30,8 @@ async function fakeEveryone(page) {
   await page.route('**/api/library/*/face/*', r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route('**/api/library/*/thumb/*', r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route('**/api/people', r => r.fulfill({ json: [
-    { name: 'Anna', faces: 5, photos: 5, libraries: [anna(FAMILY, 'Family', 1, 3), anna(NAS, 'NAS', 7, 2)] },
-    { name: 'Ben', faces: 1, photos: 1, libraries: [anna(FAMILY, 'Family', 2, 1)] },
+    { name: 'Anna', faces: 5, photos: 5, libraries: [anna(FAMILY, 'Family', 1, 3), anna(NAS, 'NAS', 7, 2)], cover: { library: NAS, face: 21 } },
+    { name: 'Ben', faces: 1, photos: 1, libraries: [anna(FAMILY, 'Family', 2, 1)], cover: { library: FAMILY, face: 11 } },
   ] }));
   await page.route('**/api/people/to-name', r => r.fulfill({ json: [
     { library: FAMILY, libraryName: 'Family', groups: 0, pending: 0, finding: false },
@@ -39,16 +39,20 @@ async function fakeEveryone(page) {
   ] }));
   await page.route('**/api/people/someone?*', r => r.fulfill({ json: {
     name: 'Anna',
-    in: [
-      { ...anna(FAMILY, 'Family', 1, 3), shown: [{ id: 11, photoId: 'p1', x: 0.1, y: 0.1, w: 0.2, h: 0.2 }] },
-      { ...anna(NAS, 'NAS', 7, 2), shown: [{ id: 21, photoId: 'q1', x: 0.1, y: 0.1, w: 0.2, h: 0.2 }] },
+    in: [anna(FAMILY, 'Family', 1, 3), anna(NAS, 'NAS', 7, 2)],
+    cover: { library: NAS, face: 21 },
+    // Newest first, whichever library: the same face number in two libraries is two faces.
+    faces: [
+      { library: NAS, id: 21, photoId: 'q1', date: '2025-01-01T00:00:00', x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      { library: FAMILY, id: 11, photoId: 'p1', date: '2024-01-01T00:00:00', x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
+      { library: NAS, id: 11, photoId: 'q2', date: '2023-01-01T00:00:00', x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
     ],
     notIn: [
       { library: OTHER, libraryName: 'Other spelling', looksLike: { id: 4, name: 'Anna Müller', faces: 2, photos: 2, cover: 31 } },
       { library: WAITING, libraryName: 'Waiting', group: { id: 3, size: 6, faces: [41, 42] } },
       { library: PROJECTS, libraryName: 'Projects' },
     ],
-    with: [{ name: 'Ben', photos: 2 }],
+    with: [{ name: 'Ben', photos: 2, cover: { library: FAMILY, face: 11 } }],
   } }));
   await page.route('**/api/people/with?*', r => r.fulfill({ json: [{ name: 'Ben', photos: 2 }] }));
   await page.route('**/api/library/*/people/*', r => {
@@ -86,18 +90,29 @@ test.describe('People across libraries', () => {
     await expect(page.locator('.people-none')).toBeVisible();
   });
 
-  test('a person has one page with a section per library, and who elsewhere may be them', async ({ page }) => {
+  test('a person has one page with all their faces, and who elsewhere may be them', async ({ page }) => {
     await fakeEveryone(page);
     await page.goto('/#people');
     await waitForAppReady(page);
     await page.locator('.people-card', { hasText: 'Anna' }).click();
     await expect(page).toHaveURL(/#people\/person\/Anna$/);
     await expect(page.locator('.people-page-title')).toHaveText('Anna');
-    await expect(page.locator('.people-in .people-section-title')).toHaveText(['Family', 'NAS']);
-    await expect(page.locator('.people-in .face-tile')).toHaveCount(2);
-    // A library's section folds.
-    await page.locator('.people-fold').first().click();
-    await expect(page.locator('.people-in').first().locator('.face-grid')).toBeHidden();
+    await expect(page.locator('.people-faces .people-hint')).toHaveText('3 faces in Family and 2 faces in NAS.');
+    const tiles = page.locator('.people-faces .face-tile');
+    await expect(tiles).toHaveCount(3);
+    await expect(tiles.nth(0)).toHaveAttribute('data-library', NAS);
+    await expect(tiles.nth(1)).toHaveAttribute('data-library', FAMILY);
+    // The cover the overview shows is the one marked.
+    await expect(page.locator('.face-tile-cover')).toHaveCount(1);
+    await expect(tiles.nth(0).locator('.face-tile-cover')).toBeVisible();
+    // The bar says which libraries the selected faces are in.
+    await tiles.nth(0).click();
+    await expect(page.locator('.people-bar-where')).toHaveText('In NAS');
+    await tiles.nth(1).click();
+    await expect(page.locator('.people-bar-where')).toHaveText('In 2 libraries');
+    await expect(page.locator('.people-unname')).toHaveText('2 are not Anna');
+    await page.locator('.people-faces .select-all-none').click();
+    await expect(page.locator('.people-bar')).toBeHidden();
     await page.getByRole('button', { name: 'Person options' }).click();
     await expect(page.getByRole('menuitem')).toHaveText(['Rename…', 'Birthday…', 'Take the name away…']);
     await page.keyboard.press('Escape');
@@ -110,6 +125,48 @@ test.describe('People across libraries', () => {
     await expect(elsewhere.nth(1).locator('.people-name-there')).toHaveText('Name them Anna');
     // A library where nobody looks like her is one line.
     await expect(page.locator('.people-hint', { hasText: 'Not in Projects.' })).toBeVisible();
+  });
+
+  test('Select all takes every face, and a change goes to each library', async ({ page }) => {
+    await fakeEveryone(page);
+    const unnamed = [];
+    await page.route('**/api/library/*/faces/unname', r => {
+      unnamed.push({ lib: r.request().url().split('/api/library/')[1].split('/')[0], ...r.request().postDataJSON() });
+      return r.fulfill({ json: { skipped: 0 } });
+    });
+    await page.goto('/#people/person/Anna');
+    await waitForAppReady(page);
+    const select = page.locator('.people-faces .select-all');
+    await expect(select.locator('.select-all-count')).toHaveText('3 faces');
+    await expect(select.locator('.select-all-none')).toBeHidden();
+    await select.locator('.select-all-all').click();
+    await expect(select.locator('.select-all-count')).toHaveText('3 faces · 3 selected');
+    await expect(select.locator('.select-all-all')).toBeHidden();
+    await expect(page.locator('.people-faces .face-tile[aria-pressed="true"]')).toHaveCount(3);
+    await expect(page.locator('.people-unname')).toHaveText('3 are not Anna');
+    await page.locator('.people-unname').click();
+    await expect.poll(() => unnamed).toEqual([{ lib: NAS, faces: [21, 11] }, { lib: FAMILY, faces: [11] }]);
+  });
+
+  test("one face selected opens its photo, or shows it in its library's folder", async ({ page }) => {
+    await fakeEveryone(page);
+    await page.route('**/api/library/*/photo/*/info', r => r.fulfill({ json: { path: '/b/2025/q1.jpg', name: 'q1.jpg' } }));
+    await page.goto('/#people/person/Anna');
+    await waitForAppReady(page);
+    await page.evaluate(() => { window.__shown = []; App.showInLibrary = (...a) => window.__shown.push(a); });
+    const tiles = page.locator('.people-faces .face-tile');
+    await tiles.nth(0).click();
+    await expect(page.locator('.people-open')).toBeVisible();
+    await expect(page.locator('.people-in-library')).toBeVisible();
+    await tiles.nth(2).click();
+    await expect(page.locator('.people-open')).toBeHidden();
+    await tiles.nth(2).click();
+
+    await page.locator('.people-in-library').click();
+    await expect.poll(() => page.evaluate(() => window.__shown)).toEqual([[NAS, '2025', 'q1.jpg']]);
+
+    await page.locator('.people-open').click();
+    await expect(page.locator('.viewer')).toBeVisible();
   });
 
   test('someone named otherwise elsewhere is renamed there in place', async ({ page }) => {
@@ -158,7 +215,8 @@ test.describe('People across libraries', () => {
     await waitForAppReady(page);
     const chip = page.locator('.people-with-chip', { hasText: 'Ben' });
     await expect(chip).toContainText('2');
-    await expect(page.locator('.people-with .people-label')).toHaveText('Often with · photos together');
+    await expect(chip.locator('img.people-with-face')).toHaveAttribute('src', `/api/library/${FAMILY}/face/11`);
+    await expect(page.locator('.people-with .people-label')).toHaveText('Often in photos together with · number of photos');
     await chip.click();
     await expect(page).toHaveURL(/#libraries/);
     await expect(page.locator('.chip .chip-label')).toHaveText(['Person: Anna', 'Person: Ben']);

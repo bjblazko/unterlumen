@@ -107,8 +107,9 @@ func (s *Store) FacePrints(pathGlob string) ([]FacePrint, error) {
 
 // Companion is someone in the same photos as a person, and in how many.
 type Companion struct {
-	Name   string `json:"name"`
-	Photos int    `json:"photos"`
+	Name   string   `json:"name"`
+	Photos int      `json:"photos"`
+	Cover  CoverRef `json:"cover"` // the face that shows them across libraries
 }
 
 // Companions lists the people named in the same photos as person, those in

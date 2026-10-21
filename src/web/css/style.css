@@ -275,7 +275,6 @@ body {
 }
 
 /* Digits that change in place must not shift the layout around them. */
-.status-bar,
 .info-panel-title {
     font-variant-numeric: tabular-nums;
 }
@@ -864,20 +863,6 @@ button.toggle {
     display: flex;
     align-items: center;
     gap: 0;
-}
-
-.status-bar {
-    font-size: 11px;
-    color: var(--fg-2);
-    letter-spacing: 0.02em;
-    user-select: none;
-}
-
-.status-bar .btn {
-    vertical-align: middle;
-    margin-left: 8px;
-    font-size: 11px;
-    padding: 2px 8px;
 }
 
 .view-menu select {
@@ -1670,7 +1655,7 @@ button.toggle {
     padding: 0 var(--space-6); /* the same margin as Folders and a library */
 }
 
-.organize-source .status-bar {
+.organize-source .select-all-count {
     display: none;
 }
 
@@ -6570,11 +6555,31 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: inherit;
 }
 
-.controls .status-bar {
+/* --- Select all: beside the count of a collection --- */
+
+.select-all {
+    display: flex;
     flex: none;
-    align-self: center;
+    align-items: center;
+    gap: var(--space-2);
     white-space: nowrap;
 }
+
+.select-all-count {
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+}
+
+.select-all .btn {
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+}
+
+.select-all-count + .btn { margin-left: var(--space-2); }
+
+.wastebin-select { margin-bottom: var(--space-4); }
 
 /* --- Libraries: one row per library, the row itself opens it --- */
 

@@ -53,9 +53,8 @@ test.describe('Selection bar', () => {
         }
     });
 
-    test('the status bar counts, and no longer carries its own Deselect', async ({ page }) => {
+    test('the count beside Select all says how many are selected', async ({ page }) => {
         await page.locator('[data-type="image"]').first().click();
-        await expect(page.locator('.status-bar')).toContainText('1 selected');
-        await expect(page.locator('.status-bar .btn')).toHaveCount(0);
+        await expect(page.locator('.select-all-count')).toContainText('1 selected');
     });
 });

@@ -133,7 +133,6 @@ class Wastebin {
         const header = `
             <div class="page-title-row">
                 <h1>Marked for deletion</h1>
-                <span class="folder-title-meta">${items.length} file${items.length !== 1 ? 's' : ''}</span>
                 <span class="page-title-spacer"></span>
                 <div class="wastebin-actions" id="wb-actions">
                     <button class="btn btn-sm" id="wb-restore">${selectedCount > 0 ? `Restore ${selectedCount}` : 'Restore all'}</button>
@@ -141,6 +140,7 @@ class Wastebin {
                 </div>
             </div>
             <p class="wastebin-note">These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.</p>
+            <div class="wastebin-select"></div>
             ${(this._lastFailures && this._lastFailures.length) ? `
             <div class="wastebin-failures">
                 <strong>${this._lastFailures.length} file${this._lastFailures.length !== 1 ? 's' : ''} could not be deleted</strong>
@@ -171,6 +171,14 @@ class Wastebin {
         });
 
         containerEl.innerHTML = `<div class="browse-container"><div class="browse-header">${header}${actions}</div><div class="browse-content"><div class="grid">${gridItems.join('')}</div></div></div>`;
+
+        const select = new SelectAll({
+            onAll: () => { this.selectAll(); this.render(containerEl, onRefresh); },
+            onNone: () => { this.selected.clear(); this.render(containerEl, onRefresh); },
+            label: (total, n) => `${total} file${total !== 1 ? 's' : ''}${n ? ` · ${n} selected` : ''}`,
+        });
+        select.update(selectedCount, items.length);
+        containerEl.querySelector('.wastebin-select').appendChild(select.el);
 
         containerEl.querySelector('#wb-restore').addEventListener('click', () => {
             const paths = this.selected.size > 0 ? new Set(this.selected) : new Set(items.map(([path]) => path));

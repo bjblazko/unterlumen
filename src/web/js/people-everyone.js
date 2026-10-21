@@ -36,11 +36,10 @@ class PeopleEveryone {
     }
 
     _card(p) {
-        const top = p.libraries[0];
-        const where = this.pane.libraries.length < 2 ? '' : p.libraries.length === 1 ? top.libraryName : `in ${countLibraries(p.libraries.length)}`;
+        const where = this.pane.libraries.length < 2 ? '' : p.libraries.length === 1 ? p.libraries[0].libraryName : `in ${countLibraries(p.libraries.length)}`;
         return `
             <a class="people-card" href="${peopleHash({ view: 'person', id: p.name })}" data-name="${escapeHtml(p.name.toLowerCase())}">
-                <img src="${PeopleAPI.faceURL(top.library, top.cover)}" alt="" loading="lazy" width="96" height="96">
+                <img src="${PeopleAPI.faceURL(p.cover.library, p.cover.face)}" alt="" loading="lazy" width="96" height="96">
                 <span class="people-card-name">${escapeHtml(p.name)}</span>
                 <span class="people-card-count">${countPhotos(p.photos)}</span>
                 ${where ? `<span class="people-card-where">${escapeHtml(where)}</span>` : ''}
@@ -93,8 +92,17 @@ function sentenceList(items) {
 // with two people).
 function oftenWithHTML(withList) {
     if (!withList?.length) return '';
-    const links = withList.map(c => `<a class="btn btn-sm people-with-chip" href="#libraries" data-name="${escapeHtml(c.name)}" title="${escapeHtml(countPhotos(c.photos))} together">${escapeHtml(c.name)} <span class="people-num">${formatCount(c.photos)}</span></a>`);
-    return `<div class="people-with"><span class="people-label">Often with · photos together</span><div class="people-with-row">${links.join('')}</div></div>`;
+    const links = withList.map(c => `<a class="btn btn-sm people-with-chip" href="#libraries" data-name="${escapeHtml(c.name)}" title="${escapeHtml(countPhotos(c.photos))} together">${withChipHTML(c)}</a>`);
+    return `<div class="people-with"><span class="people-label">${OFTEN_WITH_LABEL}</span><div class="people-with-row">${links.join('')}</div></div>`;
+}
+
+const OFTEN_WITH_LABEL = 'Often in photos together with · number of photos';
+
+// withChipHTML is what a chip of Often with shows: the person's face, their
+// name, and in how many photos they are together.
+function withChipHTML(c) {
+    const face = c.cover?.face ? `<img class="people-with-face" src="${PeopleAPI.faceURL(c.cover.library, c.cover.face)}" alt="" loading="lazy" width="24" height="24">` : '';
+    return `${face}${escapeHtml(c.name)} <span class="people-num">${formatCount(c.photos)}</span>`;
 }
 
 function wireOftenWith(container, name) {

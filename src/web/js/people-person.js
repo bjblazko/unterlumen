@@ -1,6 +1,7 @@
 // people-person.js — A person's page on the computer, by name (ADR-0051):
-// their faces in each library that has the name, managed there — cover,
-// faces that are someone else, rename, take the name away — and in the
+// their faces from all libraries that have the name, newest photo first,
+// each managed in its own library — cover, faces that are someone else,
+// rename, take the name away — and in the
 // libraries without the name, who there looks like them, put right in place.
 //
 // Address: #people/person/<name>.
@@ -37,11 +38,14 @@ class PeoplePerson {
             </div>
             ${bornHTML(birthdayOf(birthdays, name))}
             ${oftenWithHTML(data.with)}
-            <p class="people-hint">Select faces to give them to someone else or to choose the cover. Rest the pointer on a face to see it in its photo; double-click opens the photo.</p>
-            ${data.in.map(l => this._sectionHTML(l)).join('')}
+            <p class="people-hint">Select a face to open its photo, show it in its library or make it the cover; select several to give them to someone else. Rest the pointer on a face to see it in its photo; double-click opens the photo.</p>
+            ${this._facesHTML()}
             ${this._notInHTML(name, data.notIn)}
             <div class="people-bar" hidden>
                 <div class="people-group-row">
+                    <span class="people-bar-where" hidden></span>
+                    <button type="button" class="btn people-open" hidden>Open photo</button>
+                    <button type="button" class="btn people-in-library" hidden>Show in library</button>
                     <button type="button" class="btn people-cover" hidden>Use as cover</button>
                     <label class="people-instead-label" for="people-instead">Is instead</label>
                     <input class="form-input people-input" id="people-instead" type="text" list="people-names" autocomplete="off">
@@ -59,83 +63,102 @@ class PeoplePerson {
         body.querySelector('.people-show').after(menu.button);
         showPhotosLink(body.querySelector('.people-show'), { person: name });
         wireOftenWith(body, name);
-        this._wireSections(name);
+        this._wireFaces(name);
         this._wireNotIn(name);
     }
 
-    _sectionHTML(l) {
-        return `
-            <section class="people-section people-in" data-library="${escapeHtml(l.library)}">
-                <div class="people-in-head">
-                    <button type="button" class="people-fold" aria-expanded="true">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 4.5 6 7.5 9 4.5"/></svg>
-                        <h3 class="people-section-title">${escapeHtml(l.libraryName)}</h3>
-                    </button>
-                    <span class="people-count">${countFaces(l.faces)} in ${countPhotos(l.photos)}</span>
-                </div>
-                <div class="people-in-faces"></div>
-            </section>`;
+    // One grid of all their faces, newest photo first; where they are in
+    // several libraries, how many faces each holds.
+    _facesHTML() {
+        const where = this.data.in.length < 2 ? ''
+            : `<p class="people-hint">${escapeHtml(sentenceList(this.data.in.map(l => `${countFaces(l.faces)} in ${l.libraryName}`)))}.</p>`;
+        return `<section class="people-section people-faces">${where}</section>`;
     }
 
-    // Each library's faces are a FaceGrid; a selection is in one library at
-    // a time, since a face's number means something only in its own.
-    _wireSections(name) {
+    // A change applies in the library of the selection: the grid keeps the
+    // selection in one library at a time.
+    _wireFaces(name) {
         const bar = this.pane._body.querySelector('.people-bar');
-        this._grids = new Map();
-        for (const l of this.data.in) {
-            const section = this.pane._body.querySelector(`.people-in[data-library="${CSS.escape(l.library)}"]`);
-            const grid = new FaceGrid({
-                lib: l.library, faces: l.shown, cover: l.cover,
-                onChange: () => {
-                    for (const [other, g] of this._grids) if (other !== l.library && g.selected.size) g.clear();
-                    this._selected = { l, grid };
-                    this._updateBar(name);
-                },
-                onOpen: (i) => openFacePhotos(l.library, l.shown, i),
-            });
-            this._grids.set(l.library, grid);
-            section.querySelector('.people-in-faces').appendChild(grid.el);
-            const fold = section.querySelector('.people-fold');
-            fold.addEventListener('click', () => {
-                const open = fold.getAttribute('aria-expanded') !== 'true';
-                fold.setAttribute('aria-expanded', String(open));
-                grid.el.hidden = !open;
-            });
-        }
+        const faces = this.data.faces;
+        this._grid = new FaceGrid({
+            faces, cover: this.data.cover,
+            onChange: () => this._updateBar(name),
+            onOpen: (i) => openFacePhotos(null, faces, i),
+        });
+        this.pane._body.querySelector('.people-faces').appendChild(this._grid.el);
+        const one = () => this._grid.selectedFaces()[0];
+        bar.querySelector('.people-open').addEventListener('click', () => openFacePhotos(null, faces, this._grid.selectedIndexes()[0]));
+        bar.querySelector('.people-in-library').addEventListener('click', () => showPhotoInLibrary({ lib: one().library, id: one().photoId }));
         bar.querySelector('.people-cover').addEventListener('click', (e) => this._act(e.currentTarget, 'The cover was not changed.',
-            ({ l, grid }) => PeopleAPI.chooseCover(l.library, l.person, [...grid.selected][0])));
+            ({ l, ids }) => PeopleAPI.chooseCover(l.library, l.person, ids[0])));
         bar.querySelector('.people-unname').addEventListener('click', (e) => this._act(e.currentTarget, 'Nothing was changed.',
-            ({ l, grid }) => PeopleAPI.unname(l.library, [...grid.selected])));
+            ({ l, ids }) => PeopleAPI.unname(l.library, ids)));
         const move = () => {
             const other = bar.querySelector('#people-instead').value.trim();
             if (!other) { bar.querySelector('#people-instead').focus(); return; }
-            this._act(bar.querySelector('.people-move'), 'Nothing was changed.', ({ l, grid }) => PeopleAPI.name(l.library, [...grid.selected], other));
+            this._act(bar.querySelector('.people-move'), 'Nothing was changed.', ({ l, ids }) => PeopleAPI.name(l.library, ids, other));
         };
         bar.querySelector('.people-move').addEventListener('click', move);
         bar.querySelector('#people-instead').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); move(); } });
     }
 
+    // _byLibrary groups the selected faces by their library: a face's
+    // number, and the person, mean something only there.
+    _byLibrary() {
+        const by = new Map();
+        for (const f of this._grid.selectedFaces()) {
+            const key = String(f.library);
+            if (!by.has(key)) by.set(key, { l: this.data.in.find(l => String(l.library) === key), ids: [] });
+            by.get(key).ids.push(f.id);
+        }
+        return [...by.values()];
+    }
+
     _updateBar(name) {
         const bar = this.pane._body.querySelector('.people-bar');
-        const { l, grid } = this._selected;
-        const n = grid.selected.size;
+        const n = this._grid.count;
+        const libs = this._byLibrary();
+        const first = this._grid.selectedFaces()[0];
+        const cover = this.data.cover;
         bar.hidden = n === 0;
-        bar.querySelector('.people-cover').hidden = n !== 1 || grid.selected.has(l.cover);
+        if (!n) return;
+        const where = bar.querySelector('.people-bar-where');
+        where.hidden = this.data.in.length < 2;
+        where.textContent = libs.length === 1 ? `In ${libs[0].l.libraryName}` : `In ${countLibraries(libs.length)}`;
+        bar.querySelector('.people-open').hidden = n !== 1;
+        bar.querySelector('.people-in-library').hidden = n !== 1;
+        bar.querySelector('.people-cover').hidden = n !== 1 || (String(cover.library) === String(first.library) && cover.face === first.id);
         bar.querySelector('.people-unname').textContent = n === 1 ? `Not ${name}` : `${formatCount(n)} are not ${name}`;
     }
 
-    // _act runs a change on the selection and shows the page again; a
-    // failure says so in the bar and changes nothing on the page.
+    // _act runs a change on the selected faces of each library and shows
+    // the page again. A library where it fails is named; when nothing
+    // changed anywhere, the page stays as it is and says so in the bar.
     async _act(btn, unchanged, change) {
         const bar = this.pane._body.querySelector('.people-bar');
         const restore = Activity.button(btn, btn.textContent);
-        try {
-            reportSkipped(await change(this._selected));
-            await this.show(this.data.name);
-        } catch (err) {
-            restore();
-            showPeopleError(bar.querySelector('.people-group-error'), `${err.message} ${unchanged}`);
+        const groups = this._byLibrary();
+        const failed = [];
+        let skipped = 0;
+        for (const g of groups) {
+            try {
+                skipped += (await change(g))?.skipped || 0;
+            } catch (err) {
+                failed.push(groups.length > 1 ? `In ${g.l.libraryName}: ${err.message}` : err.message);
+            }
         }
+        reportSkipped({ skipped });
+        if (!failed.length) {
+            await this.show(this.data.name);
+            return;
+        }
+        if (failed.length < groups.length) {
+            await this.show(this.data.name);
+            App.showToast(`${failed.join(' ')} Nothing was changed there; the other libraries were.`);
+            return;
+        }
+        restore();
+        showPeopleError(bar.querySelector('.people-group-error'), `${failed.join(' ')} ${unchanged}`);
     }
 
     // —— Not named in ——

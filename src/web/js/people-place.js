@@ -170,13 +170,13 @@ class PeoplePane {
     }
 }
 
-// openFacePhotos opens the photos of faces of one library, each once, in
-// the viewer, at the photo of faces[index].
+// openFacePhotos opens the photos of faces, each once, in the viewer, at
+// the photo of faces[index]; a face without a library is in lib.
 function openFacePhotos(lib, faces, index) {
+    const key = (f) => `${f.library || lib}/${f.photoId}`;
     const seen = new Map();
-    for (const f of faces) if (!seen.has(f.photoId)) seen.set(f.photoId, { lib, id: f.photoId, name: f.file || f.photoId });
-    const ids = [...seen.keys()];
-    openLibraryPhotos([...seen.values()], ids.indexOf(faces[index].photoId));
+    for (const f of faces) if (!seen.has(key(f))) seen.set(key(f), { lib: f.library || lib, id: f.photoId, name: f.file || f.photoId });
+    openLibraryPhotos([...seen.values()], [...seen.keys()].indexOf(key(faces[index])));
 }
 
 // reportSkipped says when names could not go into some sidecars.

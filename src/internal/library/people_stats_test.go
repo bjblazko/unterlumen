@@ -36,6 +36,11 @@ func TestPeopleStatsAcrossLibraries(t *testing.T) {
 	if ps.People[0].Lib != 1 || ps.People[0].Cover != 51 {
 		t.Errorf("Anna's cover %+v, want the library with most of her faces", ps.People[0])
 	}
+	libs[0].People[0].CoverChosen = "2026-10-21T08:00:00.000000000Z"
+	if c := BuildPeopleStats(libs, "year").People[0]; c.Lib != 0 || c.Cover != 11 {
+		t.Errorf("Anna's cover %+v, want the one chosen, though in the library with fewer of her faces", c)
+	}
+	libs[0].People[0].CoverChosen = ""
 	if got := len(ps.Appearances.Person); got != 4 {
 		t.Errorf("%d appearances, want 4", got)
 	}

@@ -1,9 +1,16 @@
 # Changelog
 
-*Last modified: 2026-10-19*
+*Last modified: 2026-10-21*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+- **A person's faces are one list, newest photo first, across all libraries.** Their page showed a section per library, each newest first on its own; it is one grid now, by the date of the photo, whichever library it is in. Where they are in several libraries, a line says how many faces each holds, and the bar says which library a selection is in — a selection stays in one library, so a face of another starts a new one.
+- **Which cover shows a person is settled.** Where a person is in several libraries, the cover chosen last, in whichever library, shows them on People, their page, on a phone, under Often with and in the statistics. Where nobody chose one, it is still the cover of the library with most of their faces. The face that shows them is the one marked Cover on their page.
+- **Select all and Select none everywhere a selection is made.** Folders, Organize, a library, the filter's results, Marked for deletion, a person's faces and a group waiting for a name show both beside the count, which says how many are selected. Before, selecting all took ⌘A and worked only where photos are, and faces could not be selected all at once. On a person's page a selection may now span libraries; a change goes to each library, and one that fails is named.
+- **A face leads to its photo and to where it is kept.** On a person's page, one face selected offers *Open photo* and *Show in library*, which opens the photo's library at its folder with the photo selected. Before, only a double-click opened the photo, and the way to its folder was hidden in the viewer's ⋯ menu.
+- **Often with shows each person's face** beside the name, and says what the number means: *Often in photos together with · number of photos*.
 
 ## [0.17.2] - 2026-10-20
 
