@@ -75,16 +75,18 @@ class StatsPane {
     _buildShell() {
         this.container.innerHTML = `
             <div class="stats-place">
-                <div class="stats-head"></div>
                 <div class="stats-body">
-                    <div class="stats-main"></div>
-                    <div class="stats-note" hidden></div>
+                    <div class="place-main">
+                        <div class="stats-head"></div>
+                        <div class="stats-main"></div>
+                        <div class="stats-note" hidden></div>
+                    </div>
                 </div>
             </div>`;
         this._head = this.container.querySelector('.stats-head');
         // The shared filter (ADR-0050): one for the place, moved into each
         // new head. A change counts again, once the choice rests a moment.
-        this._filter = new ScopeFilter();
+        this._filter = new ScopeFilter({ onOpen: () => this._hidePhotos() });
         ScopeState.onChange(() => {
             if (App.mode !== 'statistics') return;
             const lib = this._route.library;
@@ -111,7 +113,13 @@ class StatsPane {
         });
         this._photos.el.id = 'stats-photos';
         this._photos.el.hidden = true;
-        this.container.querySelector('.stats-body').appendChild(this._photos.el);
+        // Photos opens the column with every photo counted, as the head's
+        // count does; a value picked in a chart fills it with its own.
+        this._photosBtn = panelToggleButton('Photos');
+        this._photosBtn.addEventListener('click', () => {
+            if (this._photos.el.hidden) { keepPhotoColumnOpen(STATS_PHOTOS_KEY, true); this._showAllPhotos(); } else this.closePhotos();
+        });
+        this.container.querySelector('.stats-body').append(this._filter.panel, this._photos.el, toolStrip(this._filter.toggle, this._photosBtn));
         // Cards, the way back and the links in a note are addresses; go there
         // as the sidebar does, without a reload.
         this.container.addEventListener('click', (e) => {
@@ -126,18 +134,16 @@ class StatsPane {
 
     _drawHead(topic) {
         const hasTimeline = topic ? topic.charts.some(c => ['tl', 'colour', 'colourSpace', 'exposureSpace', 'people'].includes(c.source) && c.periods !== false) : false;
-        this._head.innerHTML = `
-            ${topic ? `<a class="btn btn-sm stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2L3 6l4 4"/></svg>
-                Statistics</a>` : ''}
-            <h1 class="stats-title">${topic ? escapeHtml(topic.label) : 'Statistics'}</h1>
-            <span class="stats-count"></span>
-            <span class="stats-head-spacer"></span>
-            <div class="stats-scope">
-                ${this._lib && this._route.path ? this._folderHTML() : ''}
-            </div>
-            ${hasTimeline ? this._granularitySelectHTML() : ''}
-            ${placeLede(`What the photos in your ${placeLink('library', 'libraries', 'libraries')} have in common, and how that changed. Click a bar, a slice or a point to see its photos.`)}`;
+        // A topic's title is the way back and its name, as a detail page's is.
+        const title = topic
+            ? `<nav class="gal-crumbs" aria-label="Breadcrumb"><a class="link-btn stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">Statistics</a><span class="gal-crumb-sep">/</span><span class="gal-crumb-here stats-title">${escapeHtml(topic.label)}</span></nav>`
+            : '<span class="stats-title">Statistics</span>';
+        this._head.innerHTML = placeHeaderHTML({
+            title,
+            meta: '<span class="stats-count"></span>',
+            actions: `<div class="stats-scope">${this._lib && this._route.path ? this._folderHTML() : ''}</div>${hasTimeline ? this._granularitySelectHTML() : ''}`,
+            lede: placeLede(`What the photos in your ${placeLink('library', 'libraries', 'libraries')} have in common, and how that changed. Click a bar, a slice or a point to see its photos.`),
+        });
         this._head.querySelector('.stats-scope').appendChild(this._filter.el);
         this._head.querySelector('.stats-whole-library')?.addEventListener('click', () => {
             App.openStatistics({ ...this._route, path: '' });
@@ -163,7 +169,7 @@ class StatsPane {
 
     _drawCount(snap) {
         const n = snap.totalPhotos;
-        this._head.querySelector('.stats-count').textContent = `${formatCount(n)} ${n === 1 ? 'photo' : 'photos'}`;
+        this._head.querySelector('.stats-count').innerHTML = countHTML(n, 'photo');
     }
 
     _nothingCounted(snap) {
@@ -412,7 +418,9 @@ class StatsPane {
             return;
         }
         if (generation !== this._pickGeneration) return;
+        this._filter.close();
         this._photos.el.hidden = false;
+        setPanelToggle(this._photosBtn, true);
         this._photos.show(first.photos, {
             subject,
             total: first.total,
@@ -432,6 +440,7 @@ class StatsPane {
         this._pickGeneration++;
         if (!this._photos || this._photos.el.hidden) return false;
         this._photos.el.hidden = true;
+        setPanelToggle(this._photosBtn, false);
         return true;
     }
 }

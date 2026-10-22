@@ -115,7 +115,7 @@ class Wastebin {
         if (items.length === 0) {
             containerEl.innerHTML = `
                 <div class="browse-container">
-                    <div class="page-title-row"><h1>Marked for deletion</h1></div>
+                    ${placeHeaderHTML({ title: 'Marked for deletion' })}
                     <div class="wastebin-empty-box">
                         <strong>Nothing marked</strong>
                         <span>Select photos in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.</span>
@@ -131,16 +131,16 @@ class Wastebin {
         // Say what marking means, because "marked" is not "deleted" — nothing
         // leaves the disk until it is deleted here.
         const header = `
-            <div class="page-title-row">
-                <h1>Marked for deletion</h1>
-                <span class="page-title-spacer"></span>
-                <div class="wastebin-actions" id="wb-actions">
+            ${placeHeaderHTML({
+                title: 'Marked for deletion',
+                meta: markedCount(items),
+                actions: `<div class="wastebin-actions" id="wb-actions">
                     <button class="btn btn-sm" id="wb-restore">${selectedCount > 0 ? `Restore ${selectedCount}` : 'Restore all'}</button>
                     <button class="btn btn-sm btn-danger" id="wb-delete">Delete ${deleteCount} permanently…</button>
-                </div>
-            </div>
-            <p class="wastebin-note">These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.</p>
-            <div class="wastebin-select"></div>
+                </div>`,
+                lede: '<p class="place-lede">These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.</p>',
+            })}
+            <div class="browse-bar"><span class="browse-bar-spacer"></span><div class="wastebin-select"></div></div>
             ${(this._lastFailures && this._lastFailures.length) ? `
             <div class="wastebin-failures">
                 <strong>${this._lastFailures.length} file${this._lastFailures.length !== 1 ? 's' : ''} could not be deleted</strong>
@@ -175,7 +175,6 @@ class Wastebin {
         const select = new SelectAll({
             onAll: () => { this.selectAll(); this.render(containerEl, onRefresh); },
             onNone: () => { this.selected.clear(); this.render(containerEl, onRefresh); },
-            label: (total, n) => `${total} file${total !== 1 ? 's' : ''}${n ? ` · ${n} selected` : ''}`,
         });
         select.update(selectedCount, items.length);
         containerEl.querySelector('.wastebin-select').appendChild(select.el);
@@ -239,6 +238,14 @@ class Wastebin {
     }
 }
 
+
+// markedCount says what is marked, as counts: photos, and folders when
+// there are any.
+function markedCount(items) {
+    const dirs = items.filter(([, e]) => e.type === 'dir').length;
+    const files = items.length - dirs;
+    return [files ? countHTML(files, 'photo') : '', dirs ? countHTML(dirs, 'folder') : ''].filter(Boolean).join(' and ');
+}
 
 // "3 photos and 1 folder" — the question has to say what it is about to do,
 // because a folder takes its contents with it.

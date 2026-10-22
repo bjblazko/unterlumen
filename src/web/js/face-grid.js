@@ -18,7 +18,6 @@ class FaceGrid {
         this._select = new SelectAll({
             onAll: () => this._setAll(true),
             onNone: () => this._setAll(false),
-            label: (total, n) => (n ? `${countFaces(total)} · ${formatCount(n)} selected` : countFaces(total)),
         });
         this._grid = document.createElement('div');
         this._grid.className = 'face-grid';

@@ -7,9 +7,7 @@
 // behind a round "i" button there; the desk shows it as it is.
 function placeLede(text) {
     return `<p class="place-lede">` +
-        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" aria-label="What this place is">` +
-        `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M8 7v5"/><circle cx="8" cy="4.25" r="0.75" fill="currentColor" stroke="none"/></svg>` +
-        `</button>` +
+        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" title="What this place is">Explain</button>` +
         `<span class="place-lede-text">${text} ${placeLink('guide', 'guide', 'How Unterlumen works')}</span></p>`;
 }
 

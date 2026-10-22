@@ -7,6 +7,7 @@
 //
 // Usage: const path = await new FolderPicker().open(startPath, { title });
 //        Resolves with the chosen path relative to the browse root, or null.
+//        { create: true } offers New folder… in the folder shown.
 //
 // The setup chooses the shared folder anywhere, so it walks the whole disk
 // instead: { disk: true } lists folders through /api/setup/dirs, whose paths
@@ -50,9 +51,10 @@ class FolderPicker {
         });
     }
 
-    _openHere(startPath, { title = 'Choose folder', disk = false, home = null, notice = '' } = {}) {
+    _openHere(startPath, { title = 'Choose folder', disk = false, home = null, notice = '', create = false } = {}) {
         return new Promise((resolve) => {
             this._notice = notice;
+            this._create = create && !disk;
             this._resolve = resolve;
             this._currentPath = startPath;
             this._disk = disk;
@@ -100,6 +102,12 @@ class FolderPicker {
                 </div>
                 ${this._notice ? `<p class="fp-msg fp-msg-error fp-notice">${escapeHtml(this._notice)}</p>` : ''}
                 <div class="fp-crumbs" aria-label="Path"></div>
+                <div class="fp-new" hidden>
+                    <label class="form-label" for="fp-new-name">Name of the new folder</label>
+                    <input class="form-input" id="fp-new-name" type="text" autocomplete="off">
+                    <button type="button" class="btn btn-sm" id="fp-new-create">Create</button>
+                    <p class="fp-msg fp-msg-error" hidden></p>
+                </div>
                 <div class="fp-body"></div>`,
             actions: [
                 { label: 'Cancel', id: 'fp-cancel', onClick: () => this._close(null) },
@@ -112,6 +120,37 @@ class FolderPicker {
         this._overlay.querySelector('.fp-sources').addEventListener('click', (e) => {
             const btn = e.target.closest('[data-source]');
             if (btn) this._showSource(btn.dataset.source);
+        });
+        this._wireNewFolder();
+    }
+
+    // New folder… makes a folder in the one shown and goes into it, so
+    // Select takes it.
+    _wireNewFolder() {
+        const box = this._overlay.querySelector('.fp-new');
+        const input = box.querySelector('#fp-new-name');
+        const error = box.querySelector('.fp-msg-error');
+        const create = async () => {
+            const name = input.value.trim();
+            if (!name) { input.focus(); return; }
+            const path = this._currentPath ? `${this._currentPath}/${name}` : name;
+            try {
+                await API.mkdir(path);
+            } catch (err) {
+                error.hidden = false;
+                error.textContent = `${path} could not be made: ${err.message}`;
+                return;
+            }
+            box.hidden = true;
+            input.value = '';
+            this._loadDir(path);
+        };
+        box.querySelector('#fp-new-create').addEventListener('click', create);
+        input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            e.stopPropagation();
+            create();
         });
     }
 
@@ -183,9 +222,15 @@ class FolderPicker {
         const up = (parent !== null && parent !== undefined)
             ? `<button class="btn btn-sm fp-up" data-crumb="${escapeHtml(String(parent))}">Up</button>`
             : '';
-        el.innerHTML = `${homeBtn}${up}<nav class="fp-crumb-list">${crumbs.join('')}</nav>`;
+        const newBtn = this._create ? '<button type="button" class="btn btn-sm fp-new-btn">New folder…</button>' : '';
+        el.innerHTML = `${homeBtn}${up}<nav class="fp-crumb-list">${crumbs.join('')}</nav>${newBtn}`;
         el.querySelectorAll('[data-crumb]').forEach(btn => {
             btn.addEventListener('click', () => this._loadDir(btn.dataset.crumb));
+        });
+        el.querySelector('.fp-new-btn')?.addEventListener('click', () => {
+            const box = this._overlay.querySelector('.fp-new');
+            box.hidden = false;
+            box.querySelector('input').focus();
         });
     }
 

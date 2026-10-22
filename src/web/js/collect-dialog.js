@@ -138,7 +138,7 @@ class CollectDialog {
                     data-label="${escapeHtml(galleryTitle(g))}"
                     data-search="${escapeHtml(search)}">
                 <span class="collect-item-title">${escapeHtml(galleryTitle(g))}</span>
-                <span class="collect-item-meta">${escapeHtml(ch?.name || g.channelName)} · ${escapeHtml(state.label)} · ${g.status === 'draft' ? g.pendingCount : g.photoCount} photo${(g.status === 'draft' ? g.pendingCount : g.photoCount) !== 1 ? 's' : ''}</span>
+                <span class="collect-item-meta">${escapeHtml(ch?.name || g.channelName)} · ${escapeHtml(stateWords(state))} · ${g.status === 'draft' ? g.pendingCount : g.photoCount} photo${(g.status === 'draft' ? g.pendingCount : g.photoCount) !== 1 ? 's' : ''}</span>
             </button>`;
     }
 

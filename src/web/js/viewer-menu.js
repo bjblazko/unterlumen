@@ -1,5 +1,6 @@
-// viewer-menu.js — the full view's ⋯ menu: what an overview does to a
-// selection, done to the photo on screen. A library photo — opened from a
+// viewer-menu.js — the full view's ⋯ menu: the film strip, full screen and
+// the original file, then what an overview does to a selection, done to the
+// photo on screen. A library photo — opened from a
 // library, the filter, the Map, Statistics or the Timeline — can be added to a
 // gallery, exported, renamed, located, shown in Organize and shown in its
 // library's folder. A photo opened from Folders or Organize has what Folders
@@ -17,7 +18,17 @@ class ViewerMenu {
     _items() {
         const key = this._viewer.currentPath;
         const ref = this._libraryRef(key);
-        return ref ? this._libraryItems(ref) : this._folderItems(key);
+        return [...this._viewItems(), 'separator', ...(ref ? this._libraryItems(ref) : this._folderItems(key))];
+    }
+
+    // How the photo is shown, and its file: rare enough for the menu, and
+    // each has its key.
+    _viewItems() {
+        const v = this._viewer;
+        const items = [{ id: 'filmstrip', label: 'Film strip (F)', switch: { on: v.filmStripVisible, labelOn: 'Shown', labelOff: 'Hidden' }, onChange: (on) => v.setFilmStrip(on) }];
+        if (Fullscreen.available()) items.push({ id: 'fullscreen', label: Fullscreen.active() ? 'Leave full screen' : 'Full screen', onSelect: () => v.toggleFullscreen() });
+        items.push({ id: 'download', label: 'Download original', onSelect: () => v.downloadOriginal() });
+        return items;
     }
 
     _libraryItems(ref) {

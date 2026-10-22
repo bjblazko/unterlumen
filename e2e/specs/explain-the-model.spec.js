@@ -5,13 +5,13 @@ import { waitForAppReady } from '../helpers/wait.js';
 // and the places it names are links (feature doc 2026-09-28-explain-the-model).
 
 const PLACES = [
-  ['#folders', '.folder-title', 'on disk'],
-  ['#organize', '.organize-head', 'move on disk'],
-  ['#libraries', '.library-list-body', 'every folder inside it'],
-  ['#map', '.map-head', 'from all'],
-  ['#timeline', '.timeline-head', 'one time axis'],
-  ['#galleries', '.gal-head', 'published together'],
-  ['#destinations', '.gal-head', 'where galleries go'],
+  ['#folders', '.place-header', 'on disk'],
+  ['#organize', '.place-header', 'move on disk'],
+  ['#libraries', '.place-header', 'every folder inside it'],
+  ['#map', '.place-header', 'from all'],
+  ['#timeline', '.place-header', 'one time axis'],
+  ['#galleries', '.place-header', 'published together'],
+  ['#destinations', '.place-header', 'where galleries go'],
 ];
 
 test.describe('Explaining the model', () => {
@@ -26,7 +26,7 @@ test.describe('Explaining the model', () => {
   test('a place named in a sentence is a link that goes there, and back returns', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
-    await page.locator('.folder-title .place-link[data-mode="library"]').click();
+    await page.locator('.place-header .place-link[data-mode="library"]').click();
     await expect(page).toHaveURL(/#libraries$/);
     await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
     await page.goBack();
@@ -36,10 +36,10 @@ test.describe('Explaining the model', () => {
   test('a subfolder does not repeat the sentence', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
-    await expect(page.locator('.folder-title .place-lede')).toBeVisible();
+    await expect(page.locator('.place-header .place-lede')).toBeVisible();
     await page.locator('.folder-row [data-type="dir"], [data-type="dir"]').first().dblclick();
-    await expect(page.locator('.folder-title h1')).not.toHaveText('Root');
-    await expect(page.locator('.folder-title .place-lede')).toHaveCount(0);
+    await expect(page.locator('.place-title:visible')).not.toHaveText('Folders');
+    await expect(page.locator('.place-header .place-lede')).toHaveCount(0);
   });
 
   test('#guide opens directly and its boxes lead to the places', async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe('Explaining the model', () => {
   test('every sentence leads to the guide', async ({ page }) => {
     await page.goto('/#map');
     await waitForAppReady(page);
-    await page.locator('.map-head .place-link[data-mode="guide"]').click();
+    await page.locator('.place-header .place-link[data-mode="guide"]').click();
     await expect(page).toHaveURL(/#guide$/);
     await expect(page.locator('.guide-pane')).toBeVisible();
     await page.goBack();
@@ -123,18 +123,20 @@ test.describe('Explaining the model', () => {
       const badge = page.locator('.browse-library-badge');
       await expect(badge).toContainText(/^In librar(y|ies) /);
       await badge.locator('.library-link', { hasText: LIB_NAME }).click();
-      await expect(page.locator('.library-detail-name')).toHaveText(LIB_NAME);
+      await expect(page.locator('.place-title:visible')).toHaveText(LIB_NAME);
 
-      await page.locator('.library-detail-folder .folder-link').click();
+      // Open in Folders is in the library's ⋯.
+      await page.locator('.place-header:visible .menu-btn').click();
+      await page.locator('.menu [data-id="open-in-folders"]').click();
       await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
-      await expect(page.locator('.folder-title h1')).toHaveText('folder-a');
+      await expect(page.locator('.place-title:visible')).toHaveText('folder-a');
     });
   });
 
   test('Galleries points at Destinations', async ({ page }) => {
     await page.goto('/#galleries');
     await waitForAppReady(page);
-    await page.locator('.gal-head .place-link[data-mode="destinations"]').click();
+    await page.locator('.place-header .place-link[data-mode="destinations"]').click();
     await expect(page.locator('#mode-destinations')).toHaveAttribute('aria-current', 'page');
   });
 });

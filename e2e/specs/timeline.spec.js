@@ -40,15 +40,17 @@ test.describe('Timeline', () => {
         await expect(entry).toHaveAttribute('href', '#timeline');
         await entry.click();
         await expect(entry).toHaveAttribute('aria-current', 'page');
-        await expect(page.locator('.timeline-title')).toHaveText('Timeline');
+        await expect(page.locator('.place-title:visible')).toHaveText('Timeline');
     });
 
     test('shows the photos in rows over a graph with a frame', async ({ page }) => {
         await openTimeline(page);
         await expect(page.locator('.timeline-count')).toContainText('photos');
         await expect(page.locator('.timeline-frame')).toBeVisible();
+        // The axis runs the width of its column, whatever the panels beside it take.
         const box = await page.locator('.timeline-axis canvas').boundingBox();
-        expect(box.width).toBeGreaterThan(200);
+        const main = await page.locator('.timeline-place .place-main').boundingBox();
+        expect(box.width).toBeGreaterThan(main.width - 80);
     });
 
     test('scrolling the band moves the frame, dragging the frame scrolls the band', async ({ page }) => {
@@ -64,7 +66,7 @@ test.describe('Timeline', () => {
 
     test('Rows in the menu changes the band and is remembered', async ({ page }) => {
         await openTimeline(page);
-        await page.locator('.timeline-head .menu-btn').click();
+        await page.locator('.timeline-place .place-header .menu-btn').click();
         await page.getByRole('menuitem', { name: '2 rows' }).click();
         await expect.poll(() => page.evaluate(() => localStorage.getItem('timeline-rows'))).toBe('2');
     });

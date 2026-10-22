@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { libraryMenu } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
 
 // What a photo looks like is measured from its thumbnail after every scan
@@ -50,7 +51,7 @@ test.describe('Photo appearance', () => {
         expect(lastEvent(await res.text()).error).toBe('invalid subfolder path');
     });
 
-    test('Edit library runs Analyse photos again and says when it is finished', async ({ page }) => {
+    test('Edit library reads everything again and says when it is finished', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -58,13 +59,15 @@ test.describe('Photo appearance', () => {
         await page.locator('.library-card', { hasText: LIB_NAME }).locator('.lib-open').click();
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
-        await page.locator('#lib-edit-btn').click();
+        await libraryMenu(page, 'edit-library');
         const dialog = page.locator('.library-dialog');
         await expect(dialog).toBeVisible({ timeout: 5_000 });
 
-        const button = dialog.locator('[data-maint="analyseAgain"]');
-        await expect(button).toHaveText('Analyse photos again');
+        // Analysing again is part of reading everything again, which asks first.
+        const button = dialog.locator('[data-maint="again"]');
+        await expect(button).toHaveText('Read everything again…');
         await button.click();
+        await dialog.locator('[data-maint-confirm="yes"]').click();
         await expect(dialog.locator('#lib-edit-maint-progress')).toContainText(/Finished\. \d+ photos?\./, { timeout: 60_000 });
         await expect(button).toBeEnabled();
 

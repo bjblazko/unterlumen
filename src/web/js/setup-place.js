@@ -30,9 +30,7 @@ class SetupPane {
     _draw() {
         this.container.innerHTML = `
             <div class="settings-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Sharing and data folder</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'Sharing and data folder' })}
                 <div class="gal-body settings-body">
                     <p class="setup-lede">Each library names its own folder; add them in ${placeLink('library', 'libraries', 'Libraries')}. ${placeLink('guide', 'guide', 'How Unterlumen works')} explains the rest.</p>
 

@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-20*
+*Last modified: 2026-10-22*
 
 ## 1. Introduction and Goals
 
@@ -412,6 +412,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0050](adr/0050-shared-scope-filter.md) — One filter for the Map, the Statistics and the Timeline
 - [ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md) — Faces found on this computer, with ONNX Runtime loaded without cgo
 - [ADR-0052](adr/0052-the-index-follows-the-folder.md) — The index follows the folder; a scan only reads it
+- [ADR-0053](adr/0053-one-system-for-every-place.md) — One system for every place: one head, one count, panels that hide, one filter interface
 
 ## 10. Quality Requirements
 

@@ -216,13 +216,9 @@ test.describe('Export modes', () => {
         await page.waitForSelector('#lib-filter-panel.visible', { timeout: 5_000 });
         await page.waitForSelector('#lib-filter-panel .lib-filter-select', { timeout: 20_000 });
         await page.locator('#lib-filter-panel .lib-filter-select').first().selectOption(String(libID));
-        await page.waitForSelector('.search-breadcrumb', { timeout: 15_000 });
+        await expect(page.locator('#lib-results-pane .place-title')).toHaveText('Results', { timeout: 15_000 });
         await page.waitForSelector('#lib-results-pane [data-type="image"]', { timeout: 15_000 });
 
-        // Done closes the panel and keeps the results: the photos widen back
-        // out and stay exactly the ones the filter found.
-        await page.locator('.lib-filter-close').click();
-        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/, { timeout: 3_000 });
 
         const images = page.locator('#lib-results-pane [data-type="image"]');
         await images.nth(0).click();

@@ -7,7 +7,7 @@ import { waitForAppReady, waitForThumbnailsLoaded } from '../helpers/wait.js';
 import { reindexLibrary } from '../helpers/library.js';
 import { GPS_IMAGE, GPS_PATH, HIF_IMAGE, HIF_PATH } from '../helpers/fixtures.js';
 
-// The viewer's download button saves the original file under its own name,
+// The viewer's Download original (in its ⋯ on a computer) saves the original file under its own name,
 // wherever the viewer was opened from — a HEIF included, which the viewer
 // itself shows as JPEG.
 
@@ -16,7 +16,7 @@ const PHOTOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fi
 async function downloadFromViewer(page) {
     const [download] = await Promise.all([
         page.waitForEvent('download'),
-        page.locator('.viewer-download-btn').click(),
+        page.locator('.viewer .menu-btn').click().then(() => page.locator('.menu [data-id="download"]').click()),
     ]);
     return { name: download.suggestedFilename(), bytes: readFileSync(await download.path()) };
 }
@@ -50,7 +50,6 @@ async function openInFolder(page, folderPath, name) {
 test.describe('Download the original from the viewer', () => {
     test('from Folders, the file as it is on disk', async ({ page }) => {
         await openInFolder(page, GPS_PATH, GPS_IMAGE);
-        await expect(page.locator('.viewer-download-btn')).toHaveAttribute('aria-label', 'Download the original file');
         const { name, bytes } = await downloadFromViewer(page);
         expect(name).toBe(GPS_IMAGE);
         expect(bytes.length).toBe(statSync(path.join(PHOTOS, GPS_PATH)).size);
@@ -158,7 +157,7 @@ test.describe('Download the original from the viewer', () => {
             expect(est.photos).toHaveLength(2);
             expect(est.photos.every(p => p.key && p.id && p.library)).toBe(true);
             await expect(page.locator('.export-total-in')).not.toHaveText(/…|—/);
-            await page.locator('.export-dialog input[name="output-mode"][value="zip"]').check();
+            await page.locator('.export-dialog label:has(input[name="output-mode"][value="zip"])').click();
             const [request] = await Promise.all([
                 page.waitForRequest('**/api/export/zip-stream'),
                 page.waitForEvent('download', { timeout: 30_000 }),
@@ -210,7 +209,6 @@ test.describe('Download the original from the viewer', () => {
             await waitForAppReady(page);
             await page.locator('.folder-tile[data-name="folder-a"]').click();
             // Only folders: Download works, the photo-only actions say why not.
-            await expect(page.locator('.selection-bar-count')).toHaveText('1 selected');
             await expect(page.locator('.selection-bar [data-action="export"]')).toBeDisabled();
             await expect(page.locator('.selection-bar [data-action="export"]')).toHaveAttribute('title', /Works on photos/);
             const { name, file } = await downloadSelection(page);

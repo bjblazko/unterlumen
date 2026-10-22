@@ -173,6 +173,14 @@ class Activity {
 }
 
 // Thin space as thousands separator: "1 280", readable in mono and in any locale.
+// countHTML is how many of something, the same everywhere: the number in
+// its pill, then the word — "[31 923] photos".
+function countHTML(n, one, many = `${one}s`) {
+    return `<span class="count">${formatCount(n)}</span> ${n === 1 ? one : many}`;
+}
+
+// formatCount groups thousands with a narrow no-break space: 15 832, never
+// split across two lines.
 function formatCount(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
 }

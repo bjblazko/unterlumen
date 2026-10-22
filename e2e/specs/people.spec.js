@@ -60,7 +60,7 @@ test.describe('People', () => {
     await page.keyboard.press('0');
     await expect(page).toHaveURL(/#people/);
     await expect(page.locator('#mode-people')).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('.people-title')).toHaveText('People');
+    await expect(page.locator('.place-title:visible')).toHaveText('People');
     await expect(page.locator('.people-install')).toHaveText('Download and turn on');
     await expect(page.locator('.people-note')).toContainText('no photo and no face leaves this computer');
   });

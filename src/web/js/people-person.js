@@ -30,7 +30,7 @@ class PeoplePerson {
         name = data.name;
         const faces = data.in.reduce((n, l) => n + l.faces, 0);
         const photos = data.in.reduce((n, l) => n + l.photos, 0);
-        this.pane._head(`${countFaces(faces)} in ${countPhotos(photos)}`);
+        this.pane._head(`${countHTML(faces, 'face')} in ${countHTML(photos, 'photo')}`);
         body.innerHTML = `
             <div class="people-page-head">${this.pane.crumb(escapeHtml(name))}
                 <span class="people-head-spacer"></span>
@@ -237,7 +237,7 @@ class PeoplePerson {
         if (this.data.in.length < 2) return '';
         return `<fieldset class="people-libraries"><legend class="library-dialog-label">In</legend>${this.data.in.map(l => `
             <label class="people-library-choice"><input type="checkbox" value="${escapeHtml(l.library)}" checked>
-                ${escapeHtml(l.libraryName)} <span class="people-num">${escapeHtml(countPhotos(l.photos))}</span></label>`).join('')}
+                ${escapeHtml(l.libraryName)}<span class="count">${formatCount(l.photos)}</span></label>`).join('')}
             <span class="form-hint">Untick a library where someone else has this name.</span></fieldset>`;
     }
 

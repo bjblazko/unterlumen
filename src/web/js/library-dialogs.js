@@ -34,14 +34,13 @@ class LibraryDialogs {
                 <div class="library-dialog-field">
                     <span class="library-dialog-label">Maintenance</span>
                     <div class="lib-maint-actions" id="lib-edit-maint-actions">
-                        <button class="btn btn-sm" data-maint="scanNew">Scan for new photos</button>
-                        <button class="btn btn-sm" data-maint="reindex">Rebuild metadata &amp; previews</button>
-                        <button class="btn btn-sm" data-maint="regenMissingPreviews">Generate missing previews</button>
-                        <button class="btn btn-sm" data-maint="rebuildAllPreviews">Rebuild all previews</button>
-                        <button class="btn btn-sm" data-maint="analyseAgain">Analyse photos again</button>
-                        <button class="btn btn-sm" data-maint="cleanup">Remove deleted photos</button>
+                        <button class="btn btn-sm" data-maint="scan">Scan for new photos</button>
+                        <button class="btn btn-sm" data-maint="again">Read everything again…</button>
                     </div>
-                    <span class="form-hint">Rarely needed. Scanning finds new files; the others re-read what is already indexed.</span>
+                    <span class="form-hint">Scanning adds new photos, drops those whose files are gone and makes missing previews. Reading everything again reads every photo anew — details, previews, colours and faces — for when they look wrong; it takes as long as the first scan.</span>
+                    <p class="lib-maint-confirm" hidden>Read every photo of ${escapeHtml(lib.name)} again? This takes as long as its first scan; the library stays usable meanwhile.
+                        <button class="btn btn-sm" data-maint-confirm="no">Cancel</button>
+                        <button class="btn btn-sm" data-maint-confirm="yes">Read everything again</button></p>
                     <span class="library-dialog-progress" id="lib-edit-maint-progress" hidden></span>
                 </div>
                 <div class="library-dialog-danger" id="lib-edit-danger"></div>
@@ -127,32 +126,46 @@ class LibraryDialogs {
     _wireMaintenance(dlg, lib) {
         const actions = dlg.querySelector('#lib-edit-maint-actions');
         const progress = dlg.querySelector('#lib-edit-maint-progress');
+        const confirm = dlg.querySelector('.lib-maint-confirm');
         const buttons = [...actions.querySelectorAll('[data-maint]')];
-        const labels = {
-            scanNew: 'Scanning',
-            reindex: 'Indexing',
-            regenMissingPreviews: 'Generating',
-            rebuildAllPreviews: 'Rebuilding',
-            analyseAgain: 'Analysing',
-            cleanup: 'Checking',
+        // Each button is a few library jobs, one after the other.
+        const steps = {
+            scan: [['scanNew', 'Scanning'], ['cleanup', 'Checking for photos that are gone'], ['regenMissingPreviews', 'Making missing previews']],
+            again: [['reindex', 'Reading every photo'], ['analyseAgain', 'Analysing']],
         };
-
-        for (const btn of buttons) {
-            btn.addEventListener('click', async () => {
-                const run = btn.dataset.maint;
-                buttons.forEach(b => { b.disabled = true; });
-                progress.hidden = false;
-                const activity = Activity.in(progress, `${labels[run]}…`);
-                try {
-                    await LibraryAPI[run](lib.id, (p) => showLibraryProgress(activity, p, `${labels[run]}…`));
-                    this.tab._cachedLibs = null;
-                } catch (err) {
-                    activity.fail(`It stopped: ${err.message}`);
-                } finally {
-                    buttons.forEach(b => { b.disabled = false; });
+        const run = async (which) => {
+            buttons.forEach(b => { b.disabled = true; });
+            progress.hidden = false;
+            const activity = Activity.in(progress, `${steps[which][0][1]}…`);
+            try {
+                // Only the last job's end ends the line; a job that fails
+                // ends it and the rest.
+                for (const [i, [job, words]] of steps[which].entries()) {
+                    const last = i === steps[which].length - 1;
+                    let failed = false;
+                    activity.busy(`${words}…`);
+                    await LibraryAPI[job](lib.id, (p) => {
+                        if (p.error) failed = true;
+                        if (p.finished && !p.error && !last) return;
+                        showLibraryProgress(activity, p, `${words}…`);
+                    });
+                    if (failed) break;
                 }
-            });
-        }
+                this.tab._cachedLibs = null;
+            } catch (err) {
+                activity.fail(`It stopped: ${err.message}`);
+            } finally {
+                buttons.forEach(b => { b.disabled = false; });
+            }
+        };
+        actions.querySelector('[data-maint="scan"]').addEventListener('click', () => run('scan'));
+        actions.querySelector('[data-maint="again"]').addEventListener('click', () => { confirm.hidden = false; });
+        confirm.addEventListener('click', (e) => {
+            const answer = e.target.closest('[data-maint-confirm]')?.dataset.maintConfirm;
+            if (!answer) return;
+            confirm.hidden = true;
+            if (answer === 'yes') run('again');
+        });
     }
 
     _renderLibraryDanger(dlg, lib, closeDialog) {

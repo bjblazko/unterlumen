@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { libraryMenu } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
 
 // Tests for the five library scan operations:
@@ -96,17 +97,13 @@ test.describe('Library scan operations', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
-        await page.locator('#lib-edit-btn').click();
+        await libraryMenu(page, 'edit-library');
         const dialog = page.locator('.library-dialog');
         await expect(dialog).toBeVisible({ timeout: 5_000 });
 
         const actions = dialog.locator('#lib-edit-maint-actions');
-        await expect(actions.locator('[data-maint="scanNew"]')).toContainText('Scan for new photos');
-        await expect(actions.locator('[data-maint="reindex"]')).toContainText('Rebuild metadata & previews');
-        await expect(actions.locator('[data-maint="regenMissingPreviews"]')).toContainText('Generate missing previews');
-        await expect(actions.locator('[data-maint="rebuildAllPreviews"]')).toContainText('Rebuild all previews');
-        await expect(actions.locator('[data-maint="analyseAgain"]')).toContainText('Analyse photos again');
-        await expect(actions.locator('[data-maint="cleanup"]')).toContainText('Remove deleted photos');
+        // Two runs cover what six buttons did (ADR-0053).
+        await expect(actions.locator('[data-maint]')).toHaveText(['Scan for new photos', 'Read everything again…']);
 
         await dialog.locator('#lib-edit-cancel').click();
     });

@@ -27,8 +27,8 @@ class SelectionBar {
     // container: the element the bar is appended to (it renders nothing until
     //            something is selected).
     // actions:   ordered list of keys from SELECTION_ACTIONS.
-    // onAction:  (key) => void. "clear" is handled by the caller too, so Esc
-    //            and the button end up in the same place.
+    // onAction:  (key) => void. How many are selected, and Select none,
+    //            are beside Select all at the top of the collection.
     constructor(container, { actions, onAction }) {
         this.container = container;
         this.actions = actions;
@@ -64,14 +64,11 @@ class SelectionBar {
             });
         }
         this._el.innerHTML = `
-            <span class="selection-bar-count">${count} selected</span>
             ${this.actions.map(key => {
                 const a = SELECTION_ACTIONS[key];
                 const why = disabled[key];
                 return `<button class="btn btn-sm${a.primary ? ' btn-accent' : ''}" data-action="${key}"${why ? ` disabled title="${escapeHtml(why)}"` : ''}>${escapeHtml(a.label)}</button>`;
-            }).join('')}
-            <span class="selection-bar-spacer"></span>
-            <button class="btn btn-sm" data-action="clear" title="Clear the selection (Esc)">Clear selection</button>`;
+            }).join('')}`;
     }
 
     destroy() {

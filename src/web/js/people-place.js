@@ -90,19 +90,14 @@ class PeoplePane {
     _buildShell() {
         this.container.innerHTML = `
             <div class="people-place">
-                <div class="people-head">
-                    <h1 class="people-title">People</h1>
-                    <span class="people-count"></span>
-                    <span class="people-head-spacer"></span>
-                    <div class="people-lede"></div>
-                </div>
+                ${placeHeaderHTML({ title: 'People', below: '<div class="people-lede"></div>' })}
                 <div class="people-body"></div>
             </div>`;
         this._body = this.container.querySelector('.people-body');
     }
 
     _head(count = '') {
-        this.container.querySelector('.people-count').textContent = count;
+        this.container.querySelector('.place-meta').innerHTML = count;
     }
 
     // What People is and what it writes shows until someone is named; after

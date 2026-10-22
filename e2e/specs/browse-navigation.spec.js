@@ -18,11 +18,10 @@ test.describe('Folder navigation', () => {
     await expect(page.locator('[data-type="image"]')).toHaveCount(0);
   });
 
-  test('status bar at root reflects zero images', async ({ page }) => {
+  test('the head at root counts no photos and the folders', async ({ page }) => {
     await page.waitForSelector('.folder-tile.dir-item', { timeout: 5_000 });
-    const statusText = await page.locator('.select-all-count').textContent();
-    // Either shows "0 images" or only shows directories
-    expect(statusText).toMatch(/0\s*(image|photo)|director/i);
+    await expect(page.locator('.place-header:visible .place-meta')).toContainText('0 photos');
+    await expect(page.locator('.place-header:visible .place-meta')).toContainText('folder');
   });
 
   // ── folder-b (flat, images only) ─────────────────────────────────────────
@@ -51,8 +50,7 @@ test.describe('Folder navigation', () => {
   test('status bar inside folder-b shows 50 images', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    const statusText = await page.locator('.select-all-count').textContent();
-    expect(statusText).toMatch(new RegExp(`${FOLDER_B_IMAGE_COUNT}\\s*(image|photo)`, 'i'));
+    await expect(page.locator('.place-header:visible .place-meta')).toContainText(`${FOLDER_B_IMAGE_COUNT} photos`);
   });
 
   // ── folder-a (directory-only at top level) ───────────────────────────────
@@ -134,7 +132,7 @@ test.describe('Home button', () => {
         await expect(page.locator('.crumb-current')).toHaveText('folder-a');
 
         await page.locator('.home-btn').click();
-        await expect(page.locator('.crumb-current')).toHaveText('Root');
+        await expect(page.locator('.crumb-current')).toHaveText('Folders');
         await expect(page.locator('.home-btn')).toBeDisabled();
     });
 });

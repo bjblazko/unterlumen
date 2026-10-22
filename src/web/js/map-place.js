@@ -48,58 +48,42 @@ class MapPane {
     _buildLayout() {
         this.container.innerHTML = `
             <div class="map-pane">
-                <div class="map-head">
-                    <h1 class="map-title">Map</h1>
-                    <span class="map-count"></span>
-                    <span class="map-head-spacer"></span>
-                    <button class="btn btn-sm map-options-toggle" aria-expanded="false" aria-controls="map-options">Options</button>
-                    <span class="map-options" id="map-options">
-                        <span class="map-style" hidden><span class="map-style-label">Style</span></span>
-                    </span>
-                    <button class="btn btn-sm lib-filter-toggle map-photos-toggle" aria-expanded="false" aria-controls="map-photos" data-state="off" hidden>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <rect x="1.5" y="2.5" width="13" height="11"/><path d="M10.5 2.5v11"/>
-                            <path class="collapse-chevron" d="M7.5 6l-2 2 2 2"/>
-                        </svg>
-                        Photos
-                        <span class="lib-filter-btn-count"></span>
-                    </button>
-                    ${placeLede(`Every photo with a location, from all ${placeLink('library', 'libraries', 'libraries')}. A folder no library catalogs does not appear.`)}
-                </div>
                 <div class="map-body">
+                    <div class="place-main">
+                ${placeHeaderHTML({
+                    title: 'Map',
+                    meta: '<span class="map-count"></span>',
+                    actions: `<span class="map-filter-slot"></span><span class="map-more"></span>`,
+                    lede: placeLede(`Every photo with a location, from all ${placeLink('library', 'libraries', 'libraries')}. A folder no library catalogs does not appear.`),
+                })}
                     <div class="map-view">
                         <div class="map-canvas"></div>
                         <div class="map-note" hidden></div>
                     </div>
+                    </div>
                 </div>
             </div>`;
-        this._head = this.container.querySelector('.map-head');
-        // The shared filter (ADR-0050) replaces the Map's own span of months;
-        // the server sends only the photos within it.
-        this._filter = new ScopeFilter();
-        this._head.querySelector('.map-head-spacer').after(this._filter.el);
+        this._head = this.container.querySelector('.place-header');
+        // The shared filter (ADR-0050): the server sends only the photos
+        // within it. Its column and the photos' share the right edge.
+        this._filter = new ScopeFilter({
+            onOpen: () => { if (this._photosOpen) this._setPhotosOpen(false); this._map?.resize(); },
+            onClose: () => this._map?.resize(),
+        });
+        this._head.querySelector('.map-filter-slot').replaceWith(this._filter.el);
         ScopeState.onChange(() => {
             if (App.mode !== 'map') return;
             clearTimeout(this._filterTimer);
             this._filterTimer = setTimeout(() => this.render(), 250);
         });
-        this._photosBtn = this.container.querySelector('.map-photos-toggle');
-        this._styleEl = this.container.querySelector('.map-style');
-        Toggle.create(this._styleEl, {
-            initial: this._colour,
-            labelOn: 'Colour',
-            labelOff: 'Grey',
-            onChange: (on) => this._setColour(on),
-        });
+        this._photosBtn = panelToggleButton('Photos', 'map-photos-toggle');
+        this._photosBtn.setAttribute('aria-controls', 'map-photos');
+        this._photosBtn.hidden = true;
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
-        // On a phone the period and the style fold away, so the map keeps its height.
-        const optionsBtn = this._optionsBtn = this.container.querySelector('.map-options-toggle');
-        optionsBtn.addEventListener('click', () => {
-            const open = optionsBtn.getAttribute('aria-expanded') !== 'true';
-            optionsBtn.setAttribute('aria-expanded', String(open));
-            this._head.classList.toggle('map-options-open', open);
-            this._map?.resize();
-        });
+        this._menu = new Menu({ label: 'Map options', items: () => [
+            { id: 'colour', label: 'Map', switch: { on: this._colour, labelOn: 'Colour', labelOff: 'Grey' }, onChange: (on) => this._setColour(on) },
+        ] });
+        this._head.querySelector('.map-more').replaceWith(this._menu.button);
         this._photos = new PhotoColumn({
             onOpen: (photos, index) => openLibraryPhotos(photos, index),
             onClose: () => this._setPhotosOpen(false),
@@ -107,7 +91,8 @@ class MapPane {
             emptyText: 'No photos in this part of the map. Move the map or zoom out.',
         });
         this._photos.el.id = 'map-photos';
-        this.container.querySelector('.map-body').appendChild(this._photos.el);
+        const body = this.container.querySelector('.map-body');
+        body.append(this._filter.panel, this._photos.el, toolStrip(this._filter.toggle, this._photosBtn));
         this._countEl = this.container.querySelector('.map-count');
         this._canvas = this.container.querySelector('.map-canvas');
         this._noteEl = this.container.querySelector('.map-note');
@@ -147,8 +132,6 @@ class MapPane {
         this._canvas.hidden = true;
         this._countEl.textContent = '';
         this._photosBtn.hidden = true;
-        this._styleEl.hidden = true;
-        this._optionsBtn.hidden = true;
         this._photos.el.hidden = true;
         return true;
     }
@@ -163,8 +146,6 @@ class MapPane {
         this._canvas.hidden = false;
         this._noteEl.hidden = true;
         this._photosBtn.hidden = false;
-        this._styleEl.hidden = false;
-        this._optionsBtn.hidden = false;
         this._drawPhotosOpen();
         if (!this._map) {
             this._buildMap();
@@ -213,7 +194,7 @@ class MapPane {
         this._shown = this._points;
         const n = formatCount(this._points.length);
         const noun = this._points.length === 1 ? 'photo' : 'photos';
-        this._countEl.textContent = ScopeState.narrowed() ? `${n} ${noun} within the filter` : `${n} ${noun}`;
+        this._countEl.innerHTML = countHTML(this._points.length, 'photo');
         if (this._styleLoaded) this._markers.show(this._points);
         this._noteEl.hidden = true;
         this._updateInView();
@@ -236,6 +217,7 @@ class MapPane {
 
     _setPhotosOpen(open) {
         this._photosOpen = open;
+        if (open) this._filter.close();
         keepPhotoColumnOpen('map-photos-open', open);
         this._drawPhotosOpen();
         this._updateInView();
@@ -244,8 +226,7 @@ class MapPane {
     _drawPhotosOpen() {
         const open = this._photosOpen;
         this._photos.el.hidden = !open;
-        this._photosBtn.dataset.state = open ? 'on' : 'off';
-        this._photosBtn.setAttribute('aria-expanded', String(open));
+        setPanelToggle(this._photosBtn, open);
         this._map?.resize();
     }
 

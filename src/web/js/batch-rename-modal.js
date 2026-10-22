@@ -51,12 +51,12 @@ function renameSegments(text) {
     return segments;
 }
 
-// highlightedPatternHTML colours each token of a rename pattern by its
-// category and, while a token is dragged over it, marks where it would drop
-// (insertPos, or -1 for none).
+// highlightedPatternHTML marks each token of a rename pattern and, while a
+// token is dragged over it, where it would drop (insertPos, or -1 for none).
+// The marks are neutral: which kind a token is, its group says.
 function highlightedPatternHTML(text, insertPos, esc) {
     const CARET = '<span class="batch-rename-drop-marker"></span>';
-    const wrap = (cat, part) => cat ? `<span class="batch-rename-hl-${cat}">${esc(part)}</span>` : esc(part);
+    const wrap = (cat, part) => cat ? `<span class="batch-rename-hl">${esc(part)}</span>` : esc(part);
     let html = '';
     let caretInserted = false;
     for (const seg of renameSegments(text)) {
@@ -78,6 +78,22 @@ function highlightedPatternHTML(text, insertPos, esc) {
         html += CARET;
     }
     return html;
+}
+
+// The pattern used last is the one offered next.
+const RENAME_PATTERN_KEY = 'rename.pattern';
+
+function lastRenamePattern() {
+    try { return localStorage.getItem(RENAME_PATTERN_KEY) || '{YYYY}-{MM}-{DD}_{original}'; } catch { return '{YYYY}-{MM}-{DD}_{original}'; }
+}
+
+function keepRenamePattern(pattern) {
+    try { localStorage.setItem(RENAME_PATTERN_KEY, pattern); } catch { /* offered again next time anyway */ }
+}
+
+// dateTwice says whether a name holds the same day twice, as 2005-05-19_2005-05-19_….
+function dateTwice(name) {
+    return /(\d{4}-\d{2}-\d{2}).*\1/.test(name);
 }
 
 class BatchRenameModal {
@@ -103,13 +119,17 @@ class BatchRenameModal {
     }
 
     _buildDOM() {
-        const tokenButtons = BATCH_RENAME_TOKENS.map(t =>
-            `<button class="btn btn-sm batch-rename-token batch-rename-cat-${t.category}" data-token="${t.token}" title="${t.label} — e.g. ${t.example}" draggable="true">${t.token}</button>`
-        ).join('');
+        const groups = [['date', 'Date'], ['camera', 'Camera'], ['exposure', 'Exposure'], ['file', 'File']];
+        const tokenButtons = groups.map(([cat, name]) => `
+            <div class="batch-rename-token-group" role="group" aria-label="${name}">
+                <span class="batch-rename-token-label">${name}</span>
+                ${BATCH_RENAME_TOKENS.filter(t => t.category === cat).map(t =>
+                    `<button class="btn btn-sm batch-rename-token" data-token="${t.token}" title="${t.label} — e.g. ${t.example}" draggable="true">${t.token}</button>`).join('')}
+            </div>`).join('');
 
         this._dialog = new Dialog({
-            title: 'Batch rename',
-            subtitle: `${this.files.length} file${this.files.length !== 1 ? 's' : ''}`,
+            title: 'Rename',
+            subtitle: `${this.files.length} photo${this.files.length !== 1 ? 's' : ''}`,
             size: 'lg',
             className: 'batch-rename-dialog',
             body: `
@@ -117,7 +137,7 @@ class BatchRenameModal {
                         <label class="field-label-inline">Pattern</label>
                         <div class="batch-rename-input-wrap">
                             <div class="batch-rename-highlight" aria-hidden="true"></div>
-                            <input type="text" class="batch-rename-input" value="{YYYY}-{MM}-{DD}_{original}" placeholder="{YYYY}_{original}">
+                            <input type="text" class="batch-rename-input" value="${this._esc(lastRenamePattern())}" aria-label="Pattern">
                         </div>
                     </div>
                     <div class="batch-rename-tokens">${tokenButtons}</div>
@@ -292,7 +312,12 @@ class BatchRenameModal {
 
             const header = this.overlay.querySelector('.batch-rename-preview-header');
             const conflictNote = result.conflicts > 0 ? ` — ${result.conflicts} conflict${result.conflicts !== 1 ? 's' : ''} resolved` : '';
-            header.textContent = `Preview (${this.files.length} file${this.files.length !== 1 ? 's' : ''})${conflictNote}`;
+            // A name that already starts with its date gets it twice from a
+            // pattern that adds it; the preview says so before anything moves.
+            const twice = result.mappings.filter(m => !m.error && dateTwice(m.newName)).length;
+            const twiceNote = twice ? ` — the date twice in ${twice} name${twice !== 1 ? 's' : ''}; take {YYYY}-{MM}-{DD} out, or {original}` : '';
+            header.textContent = `Preview (${this.files.length} photo${this.files.length !== 1 ? 's' : ''})${conflictNote}${twiceNote}`;
+            header.classList.toggle('batch-rename-preview-header--warn', twice > 0);
 
             let hasErrors = false;
             const rows = result.mappings.map(m => {
@@ -304,7 +329,7 @@ class BatchRenameModal {
                         <span class="batch-rename-error">${this._esc(m.error)}</span>
                     </div>`;
                 }
-                const conflictClass = result.conflicts > 0 && m.newName.match(/_\d{3}\.[^.]+$/) ? ' batch-rename-row-conflict' : '';
+                const conflictClass = (result.conflicts > 0 && m.newName.match(/_\d{3}\.[^.]+$/)) || dateTwice(m.newName) ? ' batch-rename-row-conflict' : '';
                 return `<div class="batch-rename-row${conflictClass}">
                     <span class="batch-rename-old">${this._esc(oldName)}</span>
                     <span class="batch-rename-arrow">&rarr;</span>
@@ -346,6 +371,7 @@ class BatchRenameModal {
                 activity.done(`Renamed ${successes} of ${total} file${total !== 1 ? 's' : ''}.`);
             }
 
+            if (successes > 0) keepRenamePattern(pattern);
             if (successes > 0 && this._onSuccess) this._onSuccess(result.libraryUpdated);
 
             this._dialog.setActions([{ label: 'Close', kind: 'primary', id: 'batch-rename-done', onClick: () => this.close() }]);

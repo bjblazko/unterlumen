@@ -107,9 +107,7 @@ class GuidePane {
         if (this.container.firstChild) return; // nothing on it changes
         this.container.innerHTML = `
             <div class="guide-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">How Unterlumen works</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'How Unterlumen works' })}
                 <div class="guide-body">
                     ${guideDiagram()}
                     <div class="guide-text">${guideText()}</div>

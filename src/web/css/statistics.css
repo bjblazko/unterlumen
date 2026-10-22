@@ -10,39 +10,7 @@
     flex-direction: column;
 }
 
-.stats-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-6);
-    padding: var(--space-4) var(--space-6);
-    border-bottom: 1px solid var(--line);
-}
-
-.stats-back { gap: var(--space-1); }
-
-.stats-title {
-    font-size: var(--text-lg);
-    font-weight: 600;
-}
-
-.stats-count {
-    font-size: var(--text-sm);
-    color: var(--fg-3);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-}
-
-.stats-head-spacer { flex: 1; }
-
-.stats-head .place-lede { flex-basis: 100%; }
-
-/* On a phone the closed "i" follows the title, before the scope. */
-@media (max-width: 700px) {
-    .stats-back { order: -3; }
-    .stats-title { order: -2; }
-    .stats-head .place-lede:not(.place-lede-open) { flex-basis: auto; order: -1; }
-}
+.stats-head { flex-shrink: 0; }
 
 /* What is counted: a library, and within it perhaps one folder. */
 .stats-scope,

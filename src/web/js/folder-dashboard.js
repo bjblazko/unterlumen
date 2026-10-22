@@ -24,8 +24,8 @@ class FolderDashboard {
         // Contents section
         const contRows = [];
         contRows.push(this.panel.row('Total size', formatSize(d.totalSize)));
-        contRows.push(this.panel.row('Files', d.fileCount.toLocaleString()));
-        contRows.push(this.panel.row('Subfolders', d.dirCount.toLocaleString()));
+        contRows.push(this.panel.row('Files', formatCount(d.fileCount)));
+        contRows.push(this.panel.row('Subfolders', formatCount(d.dirCount)));
         contRows.push(this.panel.row('Max depth', d.maxDepth + (d.maxDepth === 1 ? ' level' : ' levels')));
         sections.push(this.panel.section('Contents', contRows));
 
@@ -67,7 +67,7 @@ class FolderDashboard {
         // Contents section
         const contRows = [];
         contRows.push(this.panel.row('Total size', formatSize(d.totalSize)));
-        contRows.push(this.panel.row('Photos', d.photoCount.toLocaleString()));
+        contRows.push(this.panel.row('Photos', formatCount(d.photoCount)));
         if (d.dateFirst && d.dateLast) {
             const first = d.dateFirst.slice(0, 10);
             const last = d.dateLast.slice(0, 10);
@@ -248,8 +248,8 @@ class FolderDashboard {
             const rows = [];
             rows.push(this.panel.row('First shot', first));
             rows.push(this.panel.row('Last shot', last));
-            rows.push(this.panel.row('Active days', totalDays.toLocaleString()));
-            rows.push(this.panel.row('Total photos', (stats.totalPhotos || 0).toLocaleString()));
+            rows.push(this.panel.row('Active days', formatCount(totalDays)));
+            rows.push(this.panel.row('Total photos', formatCount(stats.totalPhotos || 0)));
             sections.push(this.panel.section('Photos', rows));
         }
 

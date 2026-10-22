@@ -12,11 +12,7 @@ class SettingsPane {
     render() {
         this.container.innerHTML = `
             <div class="settings-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Settings</h1>
-                    <span class="gal-group-spacer"></span>
-                    <button class="btn btn-sm" id="settings-done">Done</button>
-                </div>
+                ${placeHeaderHTML({ title: 'Settings' })}
                 <div class="gal-body settings-body">
                     <p class="settings-guide">New to Unterlumen, or not sure what a library or a destination is? ${placeLink('guide', 'guide', 'How Unterlumen works')} explains it on one page.</p>
                     ${App.config?.canSetup ? `
@@ -47,12 +43,6 @@ class SettingsPane {
                         <span class="form-hint">Only for Folders. Fast shows a photo's library thumbnail when it is in a library, otherwise the small preview stored in the file, JPEG and HEIF alike: quick, even over the network. Sharp decodes every photo at the size your screen needs: crisper, slower, and the cache grows faster.</span>
                     </div>
 
-                    <div class="form-field">
-                        <span class="form-label">Interface</span>
-                        <div id="settings-hide-ui-wrap"></div>
-                        <span class="form-hint">Hiding the interface leaves only the photos. Press H to bring it back.</span>
-                    </div>
-
                     <div class="form-field" id="settings-storage">
                         <span class="form-label">Storage</span>
                         <span class="form-hint">Measuring…</span>
@@ -73,7 +63,6 @@ class SettingsPane {
         this._wireTools();
         if (App.config?.serverRole) this._wireSharing();
         if (App.config?.canSetup) this._showSharedDir();
-        this.container.querySelector('#settings-done').addEventListener('click', () => App.leaveSettings());
     }
 
     _wireTheme() {
@@ -104,12 +93,6 @@ class SettingsPane {
             onChange: (on) => App.theme.setQuality(on ? 'high' : 'standard'),
         });
 
-        App._hideUiToggle = Toggle.create(this.container.querySelector('#settings-hide-ui-wrap'), {
-            initial: !App.uiHidden,
-            labelOn: 'Shown',
-            labelOff: 'Hidden',
-            onChange: () => App.toggleUIVisibility(),
-        });
     }
 
     // The installed app's shared folder, shown here and changed in the setup.

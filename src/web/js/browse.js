@@ -21,6 +21,11 @@ class BrowsePane {
         this.showOverlays = true;
         this.onToolInvoke = options.onToolInvoke || null;
         this.onSlideshowInvoke = options.onSlideshowInvoke || null;
+        // The pane draws the place's head unless its host has one (Organize).
+        this.placeHeader = options.placeHeader ?? true;
+        this.rootLabel = options.rootLabel || 'Folders';
+        // onHeader(slot): the host puts buttons of its own into the head.
+        this.onHeader = options.onHeader || null;
         this._toolsChecked = null;
         this._loading = false;
         this._loadController = null;
@@ -34,6 +39,8 @@ class BrowsePane {
         this._resizeHandler = null;
         this._contentEl = null;
         this.selectedDirs = new Set();
+        this._folderPreviews = new Map(); // subfolder name → what a library knows of it
+        this._previewLibID = null;
         this._pendingPreselect = null;
         this._libraries = [];
 
@@ -44,7 +51,6 @@ class BrowsePane {
         this._selectAll = new SelectAll({
             onAll: () => this.selectAll(),
             onNone: () => this._clearAllSelection(),
-            label: (total, selected) => (this._loading ? '' : imageCountLabel(total, selected)),
         });
         this.keyboard = new BrowseKeyboard(this);
         this._gridRenderer = new GridRenderer(this);
@@ -167,6 +173,7 @@ class BrowsePane {
         this._metaPollPath = null;
         this._entryMeta = {};
         this._aspectRatios = {};
+        this._folderPreviews = new Map();
         this.render();
 
         let data;
@@ -336,6 +343,11 @@ class BrowsePane {
             if (this.path === path && data?.libraries?.length) {
                 this._libraries = data.libraries;
                 this._updateLibraryBadge();
+                const covering = data.libraries[0];
+                if (this.entries.some(e => e.type === 'dir')) {
+                    this._previewLibID = covering.id;
+                    this._loadFolderPreviews(path, covering.path || '');
+                }
             }
         } catch { /* ignore */ }
     }
@@ -360,12 +372,11 @@ class BrowsePane {
         this._renderedCount = 0;
 
         const header = [];
+        if (this.placeHeader) header.push(this._renderPlaceHeader());
         if (this.warnings && this.warnings.length > 0) header.push(this._renderWarnings());
-        header.push(this._renderBreadcrumb());
-        header.push(this._renderControls());
+        header.push(`<div class="browse-bar">${this._renderBreadcrumb()}${this._renderControls()}</div>`);
 
         const content = [];
-        if (!this._loading && this.entries.length > 0) content.push(this._renderFolderTitle());
         if (this._loading) {
             content.push('<div class="browse-loading"></div>');
         } else if (this.entries.length === 0) {
@@ -387,7 +398,10 @@ class BrowsePane {
             `<div class="browse-content">${content.join('')}</div>`;
         this._contentEl = this.container.querySelector('.browse-content');
         this.container.querySelector('.browse-select-all')?.appendChild(this._selectAll.el);
+        this.onHeader?.(this.container.querySelector('.browse-header-extra'));
         this._syncSelectAll();
+        // A new layout draws the breadcrumb anew; the libraries found stay.
+        this._updateLibraryBadge();
         const loadingEl = this._contentEl.querySelector('.browse-loading');
         if (loadingEl) Activity.in(loadingEl, 'Reading the folder…', { area: true });
         this.attachEvents();
@@ -400,23 +414,33 @@ class BrowsePane {
         }
     }
 
-    // The folder's name, and what is in it. The counts are what the pane
-    // already knows; nothing is fetched for this.
-    _renderFolderTitle() {
-        const name = this.path ? this.path.split('/').filter(Boolean).pop() : 'Root';
+    // The place's head: the folder's name and what is in it, the slideshow
+    // and ⋯, and at the top folder what the place is. The counts are what
+    // the pane already knows; nothing is fetched for this.
+    _renderPlaceHeader() {
+        return placeHeaderHTML({
+            title: escapeHtml(this.title()),
+            meta: this._loading ? '' : this._folderMeta(),
+            actions: `<span class="browse-header-extra"></span>${this._slideshowButtonHTML()}<span class="browse-more"></span>`,
+            lede: this.path ? '' : this.lede,
+        });
+    }
+
+    // title is what the head calls the folder: its name, or the place's own
+    // name at the top.
+    title() {
+        return this.path ? this.path.split('/').filter(Boolean).pop() : this.rootLabel;
+    }
+
+    _folderMeta() {
         const images = this.getImageEntries().length;
         const dirs = this.entries.filter(e => e.type === 'dir').length;
         const bytes = this.entries.reduce((sum, e) => sum + (e.size || 0), 0);
-        const parts = [
-            `${images} photo${images !== 1 ? 's' : ''}`,
-            dirs > 0 ? `${dirs} folder${dirs !== 1 ? 's' : ''}` : null,
+        return [
+            countHTML(images, 'photo'),
+            dirs > 0 ? countHTML(dirs, 'folder') : null,
             bytes > 0 ? formatSize(bytes) : null,
-        ].filter(Boolean);
-        return `<div class="folder-title">
-            <h1>${escapeHtml(name)}</h1>
-            <span class="folder-title-meta">${parts.join(' · ')}</span>
-            ${this.path ? '' : this.lede}
-        </div>`;
+        ].filter(Boolean).join(' · ');
     }
 
     _renderChunk(start, end) {
@@ -440,15 +464,24 @@ class BrowsePane {
         const isAtHome = this.path === this.homeTarget();
         const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6.5" y1="10.5" x2="6.5" y2="2.5"/><polyline points="3 6 6.5 2.5 10 6"/></svg></button>`;
         const homeBtn = `<button class="btn btn-sm home-btn" title="${escapeHtml(this.homeLabel())}" aria-label="${escapeHtml(this.homeLabel())}"${isAtHome ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.5 6.5 6.5 1.5 11.5 6.5"/><path d="M3 6V11H10V6"/></svg></button>`;
-        let crumbs = `<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">Root</a>`;
+        let crumbs = `${this.crumbsBefore()}<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">${escapeHtml(this.rootLabel)}</a>`;
         let accumulated = '';
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             accumulated = accumulated ? `${accumulated}/${part}` : part;
             const isCurrent = i === parts.length - 1;
-            crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${accumulated}">${part}</a>`;
+            crumbs += `<span class="crumb-sep"> / </span><a href="#" class="crumb${isCurrent ? ' crumb-current' : ''}" data-path="${escapeHtml(accumulated)}">${escapeHtml(part)}</a>`;
         }
-        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span><span class="browse-row-end">${this._slideshowButtonHTML()}<span class="browse-more"></span></span></div>`;
+        // Without a head of its own (Organize), the pane keeps its slideshow
+        // and ⋯ at the end of this row.
+        const end = this.placeHeader ? '' : `<span class="browse-row-end">${this._slideshowButtonHTML()}<span class="browse-more"></span></span>`;
+        return `<div class="breadcrumb-row">${homeBtn}${upBtn}<nav class="breadcrumb">${crumbs}</nav><span class="browse-library-badge" style="display:none"></span>${end}</div>`;
+    }
+
+    // crumbsBefore is what leads to the top folder from outside it: nothing
+    // in Folders, the list of libraries in a library.
+    crumbsBefore() {
+        return '';
     }
 
     // The slideshow is always on screen where a pane offers one, beside the
@@ -647,7 +680,7 @@ class BrowsePane {
 
     // _menuItems is what the ⋯ menu offers now: how photos are shown, and on
     // a desk the rarer folder work. The slideshow has its own button. A phone looks; it does
-    // not scan, index or clear caches. A pane offers only what its host wired
+    // not scan or index. The cache is cleared in Settings › Storage. A pane offers only what its host wired
     // up — Organize's source pane has no folder tools.
     _menuItems() {
         const items = [
@@ -660,7 +693,13 @@ class BrowsePane {
                 onChange: (on) => { this.showOverlays = on; this.render(); },
             },
         ];
-        if (!this.onToolInvoke || window.matchMedia('(max-width: 700px)').matches) return items;
+        // A phone has no key to bring a hidden interface back.
+        if (window.matchMedia('(max-width: 700px)').matches) return items;
+        items.push({
+            id: 'interface', label: 'Interface (H)', switch: { on: !App.uiHidden, labelOn: 'Shown', labelOff: 'Hidden' },
+            onChange: () => App.toggleUIVisibility(),
+        });
+        if (!this.onToolInvoke) return items;
         items.push('separator');
         const dir = this.getFocusedDir();
         if (dir && App.mode !== 'library') {
@@ -669,20 +708,7 @@ class BrowsePane {
         if (App.mode === 'library') {
             items.push({ id: 'scan', label: 'Scan for new photos', onSelect: () => this._runFolderTool('lib-scan-new') });
         }
-        items.push({ id: 'clear-cache', ...this._clearCacheLabel(), onSelect: () => this._runFolderTool('clear-cache') });
         return items;
-    }
-
-    // _clearCacheLabel says what Clear cache would clear, or why it cannot.
-    _clearCacheLabel() {
-        const files = this.getActionableFiles();
-        if (files.length > 0) {
-            return { label: `Clear cache · ${files.length} file${files.length !== 1 ? 's' : ''}`, title: 'Clear the cached previews of the selected files' };
-        }
-        if (this.getFocusedDir()) {
-            return { label: 'Clear cache · folder', title: 'Clear the cached previews of the focused folder' };
-        }
-        return { label: 'Clear cache', disabled: true, title: 'Select photos or a folder whose cached previews to clear' };
     }
 
     // _runFolderTool runs one of the folder tools of the ⋯ menu.
@@ -690,13 +716,6 @@ class BrowsePane {
         if (tool === 'make-library') {
             const dir = this.getFocusedDir();
             if (dir) this.onToolInvoke({ tool, path: dir });
-            return;
-        }
-        if (tool === 'clear-cache') {
-            const files = this.getActionableFiles();
-            const dir = this.getFocusedDir();
-            if (files.length === 0 && !dir) return;
-            this.onToolInvoke({ tool, files, path: dir || this.path, onDone: () => {} });
             return;
         }
         if (tool === 'lib-scan-new') {
@@ -712,16 +731,50 @@ class BrowsePane {
     // --- Focus change notification ---
 
     // A folder is a tile in the row above the photos, the same tile a
-    // library draws. A plain folder has no index to say what it holds, so it
-    // shows the folder sign where a library shows four photos.
+    // library draws. A folder a library covers shows what the library knows
+    // of it — four photos, how many and the years — once that has come; a
+    // folder no library covers shows the folder sign.
     _folderItemHTML(idx, name, focusedClass) {
+        const preview = this._folderPreviews.get(name);
+        const body = preview ? this._folderTileBody(name, preview) : `
+                <span class="folder-tile-icon" aria-hidden="true"><svg width="40" height="32" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg></span>
+                <span class="item-name">${escapeHtml(name)}</span>`;
+        return this._folderTileHTML(idx, name, focusedClass, body);
+    }
+
+    _folderTileHTML(idx, name, focusedClass, body) {
         const markedClass = this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : '';
         return `<button class="folder-tile dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
-            <span class="folder-tile-body">
-                <span class="folder-tile-icon" aria-hidden="true"><svg width="40" height="32" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg></span>
-                <span class="item-name">${escapeHtml(name)}</span>
-            </span>
+            <span class="folder-tile-body">${body}</span>
         </button>`;
+    }
+
+    _folderTileBody(name, preview) {
+        const ids = preview?.photoIds || [];
+        const cells = [0, 1, 2, 3].map(i => ids[i]
+            ? `<img src="${LibraryAPI.thumbURL(this._previewLibID, ids[i])}" alt="" loading="lazy">`
+            : '<span></span>').join('');
+        return `<span class="folder-tile-mosaic${ids.length === 1 ? ' folder-tile-mosaic--one' : ''}" aria-hidden="true">${cells}</span>
+            <span class="item-name">${escapeHtml(name)}</span>
+            <span class="folder-tile-meta">${preview ? folderTileMeta(preview) : '&nbsp;'}</span>`;
+    }
+
+    // The tiles appear with the folder names at once; what each folder holds
+    // follows from the library's index and fills them in place. path is the
+    // pane's folder when asked, libPath the same folder inside the library.
+    async _loadFolderPreviews(path, libPath) {
+        let previews;
+        try {
+            const r = await fetch(`/api/library/${this._previewLibID}/folder-previews?path=${encodeURIComponent(libPath)}`);
+            if (!r.ok) return;
+            previews = await r.json();
+        } catch { return; }
+        if (path !== this.path) return;
+        for (const p of previews) this._folderPreviews.set(p.name, p);
+        for (const el of this.container.querySelectorAll('.folder-tile[data-name]')) {
+            const p = this._folderPreviews.get(el.dataset.name);
+            if (p) el.querySelector('.folder-tile-body').innerHTML = this._folderTileBody(el.dataset.name, p);
+        }
     }
 
     _notifyFocusChange() {
@@ -879,11 +932,6 @@ class BrowsePane {
         });
         this.render();
     }
-}
-
-function formatDate(iso) {
-    if (!iso) return '';
-    return iso.replace('T', ' ').replace(/Z$/, '').replace(/([+-]\d{2}:\d{2})$/, ' $1').trim();
 }
 
 function formatSize(bytes) {

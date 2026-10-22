@@ -21,7 +21,7 @@ test.describe('Select all', () => {
     await expect(page.locator('[data-type="image"].selected')).toHaveCount(photos);
     await expect(select.locator('.select-all-count')).toContainText(`${photos} selected`);
     await expect(select.locator('.select-all-all')).toBeHidden();
-    await expect(page.locator('.selection-bar-count')).toHaveText(`${photos} selected`);
+    await expect(page.locator('.selection-bar')).toBeVisible();
 
     await select.locator('.select-all-none').click();
     await expect(page.locator('[data-type="image"].selected')).toHaveCount(0);
@@ -44,10 +44,10 @@ test.describe('Select all', () => {
     }
     await page.locator('#mode-wastebin').click();
     const select = page.locator('.wastebin-select .select-all');
-    await expect(select.locator('.select-all-count')).toHaveText('2 files');
+    await expect(page.locator('.place-header:visible .place-meta')).toHaveText('2 photos');
     await select.locator('.select-all-all').click();
     await expect(page.locator('#wb-restore')).toHaveText('Restore 2');
-    await expect(select.locator('.select-all-count')).toHaveText('2 files · 2 selected');
+    await expect(select.locator('.select-all-count')).toHaveText('2 selected');
     await page.locator('.wastebin-select .select-all-none').click();
     await expect(page.locator('#wb-restore')).toHaveText('Restore all');
   });

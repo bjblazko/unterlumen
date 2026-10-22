@@ -19,7 +19,7 @@ test.describe('Folder info panel — browse mode', () => {
         // With a mouse, one click selects the folder and stays here, so its
         // info can be read; a double click goes in.
         await folderA.click();
-        await expect(page.locator('.crumb-current')).toHaveText('Root');
+        await expect(page.locator('.crumb-current')).toHaveText('Folders');
 
         await page.waitForSelector('.info-panel .info-section', { timeout: 8_000 });
 

@@ -53,7 +53,8 @@ test.describe('Full view menu', () => {
         await openFromMap(page);
         await page.locator('.viewer .menu-btn').click();
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-        expect(ids).toEqual(['collect', 'export', 'rename', 'location', 'organize', 'library']);
+        // The view and the file first, then what an overview does to a selection.
+        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'collect', 'export', 'rename', 'location', 'organize', 'library']);
     });
 
     test('Show in library opens its folder with the photo selected', async ({ page }) => {
@@ -106,7 +107,7 @@ test.describe('Full view menu', () => {
         await expect(page.locator('.viewer')).toBeVisible();
         await page.locator('.viewer .menu-btn').click();
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-        expect(ids).toEqual(['export', 'rename', 'location', 'organize']);
+        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'export', 'rename', 'location', 'organize']);
         await page.locator('.menu .menu-item[data-id="organize"]').click();
         await expect(page.locator('.viewer')).toHaveCount(0);
         await expect(page).toHaveURL(/#organize$/);

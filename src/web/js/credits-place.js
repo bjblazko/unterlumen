@@ -43,9 +43,7 @@ class CreditsPane {
         if (this.container.firstChild) return; // nothing on it changes
         this.container.innerHTML = `
             <div class="guide-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Licenses and thanks</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'Licenses and thanks' })}
                 <div class="reading-body">
                     <p class="reading-intro">Unterlumen stands on the work of the projects below. Each keeps its own license; Unterlumen itself is under the ${creditsLink('https://github.com/bjblazko/unterlumen/blob/main/LICENSE', 'Apache License 2.0')}. Thank you to everyone who makes them. If Unterlumen is useful to you, consider supporting them too — where a project takes support, its entry links there.</p>
                     <div class="reading-text"></div>

@@ -44,16 +44,21 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
     expect(panelText).toMatch(/location|latitude|lat/i);
   });
 
-  // Closed by a framed Done, like the Map's and Statistics' photo columns.
-  test('Done closes the info panel', async ({ page }) => {
+  // Hidden by a framed button with the panel glyph, like the Map's and
+  // Statistics' photo columns (ADR-0053).
+  test('Hide info closes the info panel', async ({ page }) => {
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
     await openInfoPanel(page);
     const done = page.locator('.info-panel.expanded .info-collapse-btn');
-    await expect(done).toHaveText('Done');
+    await expect(done).toHaveAccessibleName('Hide info');
     await expect(done).toHaveClass(/\bbtn\b/);
     await done.click();
     await expect(page.locator('.info-panel.expanded')).toHaveCount(0);
-    await expect(page.locator('.info-panel.collapsed')).toBeVisible();
+    // The Info button in the head opens it again.
+    const info = page.locator('.info-head-toggle:visible');
+    await expect(info).toHaveAttribute('aria-pressed', 'false');
+    await info.click();
+    await expect(page.locator('.info-panel.expanded:visible')).toHaveCount(1);
   });
 
   test('info panel has no Location section for non-GPS JPEG', async ({ page }) => {

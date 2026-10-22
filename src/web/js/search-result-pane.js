@@ -12,7 +12,6 @@ class SearchResultPane extends BrowsePane {
         this._serverFetchPage = null;
         this._isFetching = false;
         this._fetchGeneration = 0;
-        this._onClose = options.onClose || null;
     }
 
     // Load an array of LibraryPhoto objects (from cross- or single-library search).
@@ -128,21 +127,13 @@ class SearchResultPane extends BrowsePane {
     _pollExifDates() {}
     _pollOverlayMeta() {}
 
-    _renderBreadcrumb() {
-        const n = this._serverTotal || this.entries.length;
-        const closeBtn = this._onClose
-            ? `<button class="search-close-btn" title="Close filter results">×</button>`
-            : '';
-        return `<nav class="breadcrumb search-breadcrumb"><span class="crumb-current">Filter results · ${n} photo${n !== 1 ? 's' : ''}</span>${closeBtn}</nav>`;
-    }
+    // The results are no folder: no way up or home, and their head says
+    // what they are. The count is the server's, not what is loaded so far.
+    _renderBreadcrumb() { return ''; }
 
-    attachEvents() {
-        super.attachEvents();
-        const btn = this.container.querySelector('.search-close-btn');
-        if (btn && this._onClose) {
-            btn.addEventListener('click', () => this._onClose());
-        }
-    }
+    title() { return 'Results'; }
+
+    _folderMeta() { return countHTML(this._serverTotal || this.entries.length, 'photo'); }
 
     // --- Lazy loading from server ---
 

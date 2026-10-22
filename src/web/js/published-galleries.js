@@ -75,7 +75,7 @@ function recordedTime(value) {
 function galleryTitle(g) {
     if (g.title) return g.title;
     if (g.status !== 'draft' && g.publishedAt) {
-        return 'Post of ' + new Date(g.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        return 'Post of ' + formatDay(g.publishedAt);
     }
     return '(untitled)';
 }
@@ -86,20 +86,21 @@ function isFilesDestination(channel) {
     return !!channel && !channel.galleryExport && !channel.siteExport;
 }
 
+// A gallery is published or not; where it needs something, a note says
+// what (ADR-0029). key tells the states apart for what can be done next;
+// label is what the owner reads, note what follows it, warn whether the
+// note needs attention.
 function galleryState(row, channel) {
-    // A Files destination puts image files in a folder; nothing of it is
-    // ever online, so its draft is "not exported" rather than "not online".
-    if (row.status === 'draft') {
-        return { key: 'draft', label: channel && !channel.galleryExport && !channel.siteExport ? 'Not exported yet' : 'Not online yet' };
-    }
+    const published = `Published ${formatDay(row.publishedAt)}`;
+    if (row.status === 'draft') return { key: 'draft', label: 'Not published', published: false };
     if (row.status === 'live-pending') {
-        return { key: 'pending', label: isFilesDestination(channel) ? 'Photos waiting' : 'Changes not online' };
+        return { key: 'pending', label: published, published: true, note: `${row.pendingCount} waiting` };
     }
 
     // A files destination builds no pages and has nowhere to upload to: the
     // files are ready in a folder, and posting them is the user's own job.
     const buildsPages = !!(row.galleryExport || channel?.siteExport);
-    if (!buildsPages) return { key: 'exported', label: 'Exported to folder' };
+    if (!buildsPages) return { key: 'exported', label: published, published: true };
 
     // Built after the last upload — or never uploaded at all. Only decidable
     // for galleries built since these timestamps were recorded; for older
@@ -107,10 +108,16 @@ function galleryState(row, channel) {
     const generated = recordedTime(row.generatedAt);
     const deployed = recordedTime(row.deployedAt);
     if (generated && (!deployed || deployed < generated)) {
-        return { key: 'built', label: 'Built, not uploaded' };
+        return { key: 'built', label: deployed ? `Published ${formatDay(deployed)}` : 'Not published', published: !!deployed, note: 'built, upload missing', warn: true };
     }
-    if (!row.url) return { key: 'built', label: 'Built, no address configured' };
-    return { key: 'online', label: 'Online' };
+    if (!row.url) return { key: 'built', label: published, published: true, note: 'no address set' };
+    return { key: 'online', label: published, published: true };
+}
+
+// stateWords is the state as one line of text, where there is no room for
+// its marks (the gallery list of Add to gallery).
+function stateWords(state) {
+    return state.note ? `${state.label}, ${state.note}` : state.label;
 }
 
 // The one thing worth doing to this gallery right now, if there is one.
@@ -127,7 +134,7 @@ function galleryAction(row, check, channel) {
 }
 
 function formatTime(date) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatDateTime(date).slice(11, 16);
 }
 
 /* --- GalleriesPane --- */
@@ -135,8 +142,8 @@ function formatTime(date) {
 // galleryStateLine is the sentence under a gallery's title that says where
 // it stands.
 function galleryStateLine(row, ch, state, check) {
-    const published = new Date(row.publishedAt).toLocaleDateString();
-    const built = recordedTime(row.generatedAt) ? ' on ' + recordedTime(row.generatedAt).toLocaleDateString() : '';
+    const published = formatDay(row.publishedAt);
+    const built = recordedTime(row.generatedAt) ? ' on ' + formatDay(recordedTime(row.generatedAt)) : '';
     switch (state.key) {
         case 'draft':
             return ch && !ch.galleryExport && !ch.siteExport
@@ -255,11 +262,12 @@ class GalleriesPane {
                 <section class="gal-group" aria-label="${escapeHtml(name)}">
                     <div class="gal-group-head">
                         <h2 class="gal-group-name">${escapeHtml(name)}</h2>
-                        <span class="gal-group-meta">${escapeHtml(this._destinationType(ch))} · ${(() => {
+                        <span class="gal-group-meta">${(() => {
+                            // The type only where the name does not say it already.
+                            const type = this._destinationType(ch);
                             const addr = this._destinationAddress(ch);
-                            return addr.isAddress
-                                ? `<span class="gal-group-addr">${escapeHtml(addr.text)}</span>`
-                                : escapeHtml(addr.text);
+                            const where = addr.isAddress ? `<span class="gal-group-addr">${escapeHtml(addr.text)}</span>` : escapeHtml(addr.text);
+                            return type && type.toLowerCase() !== name.toLowerCase() ? `${escapeHtml(type)} · ${where}` : where;
                         })()}</span>
                         <span class="gal-group-spacer"></span>
                         <button class="btn btn-sm gal-dest-settings" data-slug="${escapeHtml(slug)}">Destination settings</button>
@@ -270,16 +278,15 @@ class GalleriesPane {
 
         this.container.innerHTML = `
             <div class="gal-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Galleries</h1>
-                    <span class="gal-head-count">${filtered.length} ${filtered.length === 1 ? 'gallery' : 'galleries'}${todo ? ` · ${todo} to publish` : ''}</span>
-                    <span class="gal-group-spacer"></span>
-                    ${this._filterChannel
+                ${placeHeaderHTML({
+                    title: 'Galleries',
+                    meta: `${filtered.length} ${filtered.length === 1 ? 'gallery' : 'galleries'}${todo ? ` · ${todo} to publish` : ''}`,
+                    actions: this._filterChannel
                         ? `<span class="gal-filter" id="gal-filter">Showing ${escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel)}</span>
                            <button class="btn btn-sm gal-clear-filter">Show all destinations</button>`
-                        : ''}
-                    ${placeLede(`A gallery is a set of photos collected from libraries and published together to a ${placeLink('destinations', 'destinations', 'destination')}.`)}
-                </div>
+                        : '',
+                    lede: placeLede(`A gallery is a set of photos collected from libraries and published together to a ${placeLink('destinations', 'destinations', 'destination')}.`),
+                })}
                 <div class="gal-body">
                     ${filtered.length === 0
                         ? `<p class="gal-empty">${this._filterChannel
@@ -331,8 +338,8 @@ class GalleriesPane {
         const sub = state.key === 'draft'
             ? `${row.pendingCount} photo${row.pendingCount !== 1 ? 's' : ''} collected`
             : state.key === 'pending'
-                ? `${row.photoCount} online · ${row.pendingCount} added since ${new Date(row.publishedAt).toLocaleDateString()}`
-                : `${row.photoCount} photo${row.photoCount !== 1 ? 's' : ''} · ${new Date(row.publishedAt).toLocaleDateString()}`;
+                ? `${row.photoCount} online · ${row.pendingCount} added since ${formatDay(row.publishedAt)}`
+                : `${row.photoCount} photo${row.photoCount !== 1 ? 's' : ''} · ${formatDay(row.publishedAt)}`;
         return `
             <div class="gal-row" role="link" tabindex="0" data-rowkey="${escapeHtml(row.rowKey)}" data-postid="${escapeHtml(row.postID || '')}">
                 <span class="gal-row-main">
@@ -356,7 +363,7 @@ class GalleriesPane {
         const unreachable = check && check.reachable === false;
         const pill = (unreachable && state.key === 'online')
             ? ''
-            : `<span class="gal-state gal-state--${state.key}">${escapeHtml(state.label)}</span>`;
+            : `<span class="gal-state gal-state--${state.published ? 'published' : 'draft'}">${escapeHtml(state.label)}</span>${state.note ? `<span class="gal-state-note${state.warn ? ' gal-state-note--warn' : ''}">${escapeHtml(state.note)}</span>` : ''}`;
         return pill + this._checkHTML(row);
     }
 
@@ -442,22 +449,14 @@ class GalleriesPane {
 
         this.container.innerHTML = `
             <div class="gal-pane gal-detail">
-                <div class="gal-head">
-                    <nav class="gal-crumbs" aria-label="Breadcrumb">
-                        <button class="link-btn gal-back">Galleries</button>
-                        <span class="gal-crumb-sep">/</span>
-                        <span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span>
-                    </nav>
-                    <span class="gal-group-spacer"></span>
-                    ${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">Show photos</a>' : ''}
-                    ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open in browser</a>` : ''}
-                </div>
+                ${placeHeaderHTML({
+                    title: `<nav class="gal-crumbs" aria-label="Breadcrumb"><button class="link-btn gal-back">Galleries</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span></nav>`,
+                    actions: `${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">Show photos</a>' : ''}
+                        ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open in browser</a>` : ''}`,
+                })}
                 <div class="gal-detail-body">
                     <div class="gal-detail-main">
-                        <div class="gal-detail-title-row">
-                            <h1 class="gal-title">${escapeHtml(galleryTitle(row))}</h1>
-                            ${this._stateHTML(row, state)}
-                        </div>
+                        <div class="gal-detail-title-row">${this._stateHTML(row, state)}</div>
                         <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
                         ${this._detailActionHTML(row, action)}
                         <section class="gal-pending" id="gal-pending"></section>
@@ -520,7 +519,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                         ${isFilesDestination(ch) && state.key !== 'draft' ? `
                         <div class="form-field">
                             <span class="form-label">Date</span>
-                            <span class="gal-detail-value">${escapeHtml(new Date(row.publishedAt).toLocaleDateString())}</span>
+                            <span class="gal-detail-value">${escapeHtml(formatDay(row.publishedAt))}</span>
                             <span class="form-hint">A post's files are in this destination's folder; its title and date are kept in its photos' sidecars, so they cannot be changed here.</span>
                         </div>` : this._pageFieldsHTML(row, state, canEditVisibility)}
                         <dl class="gal-detail-kv">
@@ -544,7 +543,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                         </div>
                         <div class="form-field">
                             <span class="form-label">Date shown on the gallery</span>
-                            <span class="gal-detail-value">${state.key === 'draft' ? 'Set on first publish' : escapeHtml(new Date(row.publishedAt).toLocaleDateString())}</span>
+                            <span class="gal-detail-value">${state.key === 'draft' ? 'Set on first publish' : escapeHtml(formatDay(row.publishedAt))}</span>
                             <span class="form-hint">Stays as it is when you publish changes.</span>
                         </div>
                         <div class="form-field">
@@ -682,7 +681,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         wrap.innerHTML = `
             <h2 class="gal-section-title">${galleryState(row, this._channelBySlug(row.channelSlug)).key === 'draft'
                 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''} collected`
-                : `Not online yet: ${photos.length} added`}</h2>
+                : `Not published: ${photos.length} added`}</h2>
             <div class="gal-pending-photos">
                 ${photos.map(p => `
                     <div class="gal-pending-photo" data-lib="${escapeHtml(p.libraryID)}" data-photo="${escapeHtml(p.photoID)}">

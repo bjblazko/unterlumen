@@ -41,7 +41,7 @@ test.describe('Wastebin (non-destructive)', () => {
 
     await page.locator('#mode-wastebin').click();
 
-    await expect(page.locator('.wastebin-select')).toContainText('2 files', { timeout: 3_000 });
+    await expect(page.locator('.place-header:visible .place-meta')).toHaveText('2 photos', { timeout: 3_000 });
 
     const items = page.locator('.grid-item.image-item');
     await expect(items).toHaveCount(2);
@@ -57,7 +57,7 @@ test.describe('Wastebin (non-destructive)', () => {
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.page-title-row')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.place-header:visible')).toBeVisible({ timeout: 3_000 });
 
     const item = page.locator('.grid-item.image-item').first();
     await item.click();
@@ -74,12 +74,12 @@ test.describe('Wastebin (non-destructive)', () => {
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.wastebin-select')).toContainText('2 files', { timeout: 3_000 });
+    await expect(page.locator('.place-header:visible .place-meta')).toHaveText('2 photos', { timeout: 3_000 });
 
     await page.locator('.grid-item.image-item').first().click();
     await page.locator('#wb-restore').click();
 
-    await expect(page.locator('.wastebin-select')).toContainText('1 file', { timeout: 3_000 });
+    await expect(page.locator('.place-header:visible .place-meta')).toHaveText('1 photo', { timeout: 3_000 });
     await expect(page.locator('#wastebin-count')).toHaveText('1');
   });
 
@@ -88,7 +88,7 @@ test.describe('Wastebin (non-destructive)', () => {
     await page.keyboard.press('Delete');
 
     await page.locator('#mode-wastebin').click();
-    await expect(page.locator('.page-title-row')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('.place-header:visible')).toBeVisible({ timeout: 3_000 });
 
     await page.locator('.grid-item.image-item').first().click();
     await page.locator('#wb-restore').click();

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-10-21*
+*Last modified: 2026-10-22*
 
 ## Project
 
@@ -46,7 +46,7 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0052)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0053)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 - `doc/ideas/` — collections of ideas, not plans; an idea taken up gets its own feature document
@@ -85,7 +85,11 @@ These rules apply automatically on every bug fix, refactor, or new feature — n
 - **CSS** — group rules by component with a `/* --- Component --- */` section comment. No speculative utility classes.
 - **Dialogs** — one component builds all of them: `new Dialog({ title, subtitle, size, body, actions })` from `src/web/js/dialog.js` ([ADR-0033](doc/architecture/adr/0033-dialogs-and-places.md)). It owns the scrim, the header, the scrolling body, the footer, Escape, the scrim click and the focus trap, so a dialog file only writes its own body and actions. No closing cross — Cancel does that. At most one `btn-accent` action, and it comes last. `app-keyboard.js` defers to anything with `.dialog-scrim` or `.keyboard-owner` (the crop tool), which is the only guard left.
 - **Menus** — one component builds the ⋯ menu of a place: `new Menu({ items })` from `src/web/js/menu.js`. `items` is a function read on every open; an item is an action (`onSelect`, closes the menu), a switch (`switch: { on, labelOn, labelOff }` + `onChange`, drawn by `Toggle`, leaves the menu open) or `'separator'`. Rare actions go there rather than into a toolbar; the one primary action of a screen never does.
-- **Selections** — anything whose items can be selected several at a time carries `new SelectAll({ onAll, onNone, label })` from `src/web/js/select-all.js` beside its count: Select all, Select none, and "N … · M selected". `BrowsePane` (Folders, Organize, a library, the filter's results), `FaceGrid` (People) and Marked for deletion have it; a new selectable collection gets it too. The owner calls `update(selected, total)` after every change of the selection, its own or these.
+- **Place header** — every place opens with `placeHeaderHTML({ title, meta, actions, lede })` from `src/web/js/place-header.js` ([ADR-0053](doc/architecture/adr/0053-one-system-for-every-place.md)): title and count left, actions and ⋯ right, the lede below. A count stands there once, in "photos"; a detail page's title is its way back and its name. A place has no Done — you leave it by going elsewhere.
+- **Panels** — a panel of the right-hand column opens from the place's tool strip at the right edge (`toolStrip(...)` with `panelToggleButton(label)` from `src/web/js/panel-icon.js`, as in IntelliJ), never from a button in the head. One is open at a time. Its head names it and hides it with `panelHideButtonHTML(cls, label, key)`, never with Done or ×.
+- **Counts** — a count beside a word is `countHTML(n, one, many)` (the number in its pill, then the word); a bare number is `formatCount(n)`. Never `toLocaleString()` for a count.
+- **Dates** — write them with `formatDateTime`/`formatDay` from `src/web/js/dates.js`: ISO, to the second, no fractions, no zone. Never `toLocaleDateString()`.
+- **Selections** — anything whose items can be selected several at a time carries `new SelectAll({ onAll, onNone })` from `src/web/js/select-all.js` beside the selection: Select all, Select none, and "N selected" (the total is the place header's). `BrowsePane` (Folders, Organize, a library, the filter's results), `FaceGrid` (People) and Marked for deletion have it; a new selectable collection gets it too. The owner calls `update(selected, total)` after every change of the selection, its own or these.
 - **Dialog or place?** A dialog is one decision about what is on the screen, fits on one screen, and ends in an action or a cancel. Anything you read, compare or work in for a while is a place with an address. Something that blocks without needing the context goes inline on the screen that raised it. The rule and the verdict for each of today's dialogs are in ADR-0033.
 - **Input focus guard** — `GlobalKeyboard._isInputFocused(e)` in `app-keyboard.js` is the single place that blocks all non-Escape shortcuts when any `INPUT`, `TEXTAREA`, `SELECT`, or `contenteditable` is active. It uses three complementary mechanisms: a `_inputActive` flag maintained by `focusin`/`focusout` listeners, plus `e.composedPath()` to detect events that bubble from inside shadow DOMs (e.g. `input[type="date"]`'s year segment in Safari bubbles keydown to the document while month/day don't). **Do not add per-shortcut `e.target.tagName` checks** — they don't survive shadow DOM retargeting and will silently fail. New form fields anywhere in the app are automatically covered. A key handler of its own on `document` (the viewer has one) is not: it must ask `App.keyboard._isInputFocused(e)` first, or it types into the photo — the viewer's I closed its info panel while a face's name was typed, and Backspace marked the photo. Escape in a field only leaves it (`_leaveField`); the next Escape does the place's job.
 

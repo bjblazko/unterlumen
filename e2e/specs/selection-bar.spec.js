@@ -19,12 +19,13 @@ test.describe('Selection bar', () => {
 
         await page.locator('[data-type="image"]').first().click();
         await expect(page.locator('.selection-bar')).toBeVisible();
-        await expect(page.locator('.selection-bar-count')).toHaveText('1 selected');
+        await expect(page.locator('.select-all-count')).toHaveText('1 selected');
 
         await page.locator('[data-type="image"]').nth(1).click({ modifiers: ['Meta'] });
-        await expect(page.locator('.selection-bar-count')).toHaveText('2 selected');
+        await expect(page.locator('.select-all-count')).toHaveText('2 selected');
 
-        await page.locator('.selection-bar [data-action="clear"]').click();
+        // Select none, beside the count, ends the selection and the bar.
+        await page.locator('.select-all-none').click();
         await expect(page.locator('.selection-bar')).toHaveCount(0);
     });
 
@@ -47,7 +48,8 @@ test.describe('Selection bar', () => {
         // the folder, and says what it would act on.
         await expect(page.locator('.tools-menu-btn')).toHaveCount(0);
         await page.locator('.browse-more .menu-btn').click();
-        await expect(page.locator('.menu [data-id="clear-cache"]')).toHaveText('Clear cache · 1 file');
+        // The cache is cleared in Settings › Storage, not here.
+        await expect(page.locator('.menu [data-id="clear-cache"]')).toHaveCount(0);
         for (const tool of ['export', 'batch-rename', 'rename', 'set-location', 'remove-location']) {
             await expect(page.locator(`.menu [data-id="${tool}"]`)).toHaveCount(0);
         }

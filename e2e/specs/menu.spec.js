@@ -14,8 +14,8 @@ test.describe('The ⋯ menu', () => {
         await waitForThumbnailsLoaded(page, 2);
     });
 
-    test('closes the breadcrumb row and names itself', async ({ page }) => {
-        const btn = page.locator('.breadcrumb-row .menu-btn');
+    test('closes the head and names itself', async ({ page }) => {
+        const btn = page.locator('.place-header:visible .menu-btn');
         await expect(btn).toHaveAccessibleName('More');
         await expect(btn).toHaveAttribute('aria-expanded', 'false');
         await btn.click();
@@ -27,7 +27,7 @@ test.describe('The ⋯ menu', () => {
     });
 
     test('the slideshow has its own button beside the menu', async ({ page }) => {
-        const btn = page.locator('.breadcrumb-row .browse-slideshow-btn');
+        const btn = page.locator('.place-header .browse-slideshow-btn');
         await expect(btn).toHaveAccessibleName('Slideshow');
         await expect(btn.locator('svg')).toBeVisible();
         await btn.click();
@@ -46,10 +46,12 @@ test.describe('The ⋯ menu', () => {
     });
 
     test('an action closes the menu', async ({ page }) => {
-        await page.locator('[data-type="image"]').first().click();
+        await page.locator('.crumb[data-path=""]').click();
+        await page.locator('.folder-tile.dir-item').first().click();
         await page.locator('.browse-more .menu-btn').click();
-        await page.getByRole('menuitem', { name: /Clear cache/ }).click();
+        await page.getByRole('menuitem', { name: /Make library/ }).click();
         await expect(page.getByRole('menu')).toHaveCount(0);
+        await page.keyboard.press('Escape');
     });
 
     test('keys move through it, and Escape closes only the menu', async ({ page }) => {
@@ -81,12 +83,6 @@ test.describe('The ⋯ menu', () => {
         await page.locator('.breadcrumb').click();
         await expect(page.getByRole('menu')).toHaveCount(0);
     });
-
-    test('Clear cache says what it would clear', async ({ page }) => {
-        await page.locator('[data-type="image"]').nth(1).click({ modifiers: ['Shift'] });
-        await page.locator('.browse-more .menu-btn').click();
-        await expect(page.locator('.menu [data-id="clear-cache"]')).toHaveText(/^Clear cache · \d+ files?$/);
-    });
 });
 
 test('Organize\'s source offers only the switches', async ({ page }) => {
@@ -95,5 +91,5 @@ test('Organize\'s source offers only the switches', async ({ page }) => {
     await page.waitForSelector('.organize-source .browse-header', { timeout: 10_000 });
     await page.locator('.organize-source .menu-btn').click();
     const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-    expect(ids).toEqual(['names', 'details']);
+    expect(ids).toEqual(['names', 'details', 'interface']);
 });

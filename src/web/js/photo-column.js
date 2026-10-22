@@ -23,7 +23,7 @@ function keepPhotoColumnOpen(key, open) {
 
 class PhotoColumn {
     // onOpen(photos, index): open these photos in the viewer at index.
-    // onClose(): Done was pressed.
+    // onClose(): Hide was pressed.
     // label: what the column holds, for assistive technology.
     // emptyText: the sentence shown when there is nothing to show.
     constructor({ onOpen, onClose, label, emptyText }) {
@@ -43,7 +43,7 @@ class PhotoColumn {
                     <span class="photo-column-subject" hidden></span>
                     <span class="photo-column-title"></span>
                 </div>
-                <button class="btn btn-sm photo-column-close">Done</button>
+                ${panelHideButtonHTML('photo-column-close', 'Hide photos')}
             </div>
             <div class="photo-column-body">
                 <div class="photo-column-grid"></div>
@@ -80,7 +80,7 @@ class PhotoColumn {
         this._body.scrollTop = 0;
         this._subject.hidden = !subject;
         this._subject.textContent = subject;
-        this._title.textContent = `${formatCount(total)} ${total === 1 ? 'photo' : 'photos'}`;
+        this._title.innerHTML = countHTML(total, 'photo');
         this._empty.hidden = total > 0;
         this._renderChunk();
     }

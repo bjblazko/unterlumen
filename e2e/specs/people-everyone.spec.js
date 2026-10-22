@@ -81,7 +81,7 @@ test.describe('People across libraries', () => {
     await expect(cards).toHaveCount(2);
     await expect(cards.first().locator('.people-card-where')).toHaveText('in 2 libraries');
     await expect(cards.last().locator('.people-card-where')).toHaveText('Family');
-    await expect(page.locator('.people-count')).toHaveText('2 people');
+    await expect(page.locator('.place-header:visible .place-meta')).toHaveText('2 people');
     await expect(page.locator('.people-to-name')).toContainText('Groups waiting for a name');
     await expect(page.locator('.people-to-name-link')).toHaveText(['Waiting 1']);
     await page.locator('#people-find').fill('be');
@@ -137,10 +137,10 @@ test.describe('People across libraries', () => {
     await page.goto('/#people/person/Anna');
     await waitForAppReady(page);
     const select = page.locator('.people-faces .select-all');
-    await expect(select.locator('.select-all-count')).toHaveText('3 faces');
+    await expect(select.locator('.select-all-count')).toHaveText('');
     await expect(select.locator('.select-all-none')).toBeHidden();
     await select.locator('.select-all-all').click();
-    await expect(select.locator('.select-all-count')).toHaveText('3 faces · 3 selected');
+    await expect(select.locator('.select-all-count')).toHaveText('3 selected');
     await expect(select.locator('.select-all-all')).toBeHidden();
     await expect(page.locator('.people-faces .face-tile[aria-pressed="true"]')).toHaveCount(3);
     await expect(page.locator('.people-unname')).toHaveText('3 are not Anna');

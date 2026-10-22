@@ -283,7 +283,7 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         const keyTwo = await rowTwo.getAttribute('data-rowkey');
         expect(keyOne).toBeTruthy();
         expect(keyOne).not.toBe(keyTwo);
-        await expect(rowOne.locator('.gal-state')).toHaveText('Not online yet');
+        await expect(rowOne.locator('.gal-state')).toHaveText('Not published');
 
         // A draft has no address of its own yet; where it is headed is the
         // destination's address, which the group heading carries once for all

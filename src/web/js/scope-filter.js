@@ -76,30 +76,41 @@ function plainExif(value) {
     return value.length >= 2 && value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
 }
 
+// ScopeFilter is the same kind of filter as a library's: the conditions as
+// chips in the place's head, each dropping its own, a Filter toggle with
+// their number in the place's tool strip, and a column on the right to set
+// them (ADR-0050 shares the filter itself between the three places).
 class ScopeFilter {
     // time: whether the span of months is offered (not on the Timeline,
-    // whose axis is time). The element is mounted by the place; on a phone it
-    // folds behind its Filter button.
-    constructor({ time = true } = {}) {
+    // whose axis is time). onOpen/onClose: the column came or went, so the
+    // place can make room or take its own column back.
+    constructor({ time = true, onOpen = () => {}, onClose = () => {} } = {}) {
         this._time = time;
-        this.el = document.createElement('div');
+        this._onOpen = onOpen;
+        this._onClose = onClose;
+        this.el = document.createElement('span');
         this.el.className = 'scope-filter';
-        this.el.innerHTML = `
-            <button type="button" class="btn btn-sm scope-filter-toggle" aria-expanded="false">Filter<span class="scope-filter-count"></span></button>
-            <div class="scope-filter-controls">
-                <span class="scope-filter-libraries"></span>
-                <span class="scope-filter-time"></span>
-                <span class="scope-filter-cameras"></span>
-                <span class="scope-filter-lenses"></span>
-                <button type="button" class="btn btn-sm scope-filter-reset" hidden>Reset</button>
+        this.el.innerHTML = '<span class="scope-filter-chips"></span>';
+        // The toggle stands in the place's tool strip; the chips in its head.
+        this.toggle = panelToggleButton('Filter', 'scope-filter-toggle');
+        this.panel = document.createElement('div');
+        this.panel.className = 'lib-filter-panel scope-filter-panel';
+        this.panel.innerHTML = `
+            <div class="lib-filter-head">
+                <span class="lib-filter-title">Filter</span>
+                <button type="button" class="btn btn-sm scope-filter-reset" hidden>Reset filters</button>
+                ${panelHideButtonHTML('lib-filter-close', 'Hide filter')}
+            </div>
+            <div class="lib-filter-groups">
+                <div class="lib-filter-group"><div class="lib-filter-label">Libraries</div><span class="scope-filter-libraries"></span></div>
+                <div class="lib-filter-group scope-filter-time-group"${time ? '' : ' hidden'}><div class="lib-filter-label">Taken</div><span class="scope-filter-time"></span></div>
+                <div class="lib-filter-group"><div class="lib-filter-label">Cameras</div><span class="scope-filter-cameras"></span></div>
+                <div class="lib-filter-group"><div class="lib-filter-label">Lenses</div><span class="scope-filter-lenses"></span></div>
             </div>`;
-        this._toggle = this.el.querySelector('.scope-filter-toggle');
-        this._toggle.addEventListener('click', () => {
-            const open = this._toggle.getAttribute('aria-expanded') !== 'true';
-            this._toggle.setAttribute('aria-expanded', String(open));
-            this.el.classList.toggle('scope-filter--open', open);
-        });
-        this._resetBtn = this.el.querySelector('.scope-filter-reset');
+        this._toggle = this.toggle;
+        this._toggle.addEventListener('click', () => (this.isOpen() ? this.close() : this.open()));
+        this.panel.querySelector('.lib-filter-close').addEventListener('click', () => this.close());
+        this._resetBtn = this.panel.querySelector('.scope-filter-reset');
         this._resetBtn.addEventListener('click', () => {
             ScopeState.reset();
             this.sync();
@@ -113,6 +124,24 @@ class ScopeFilter {
     }
 
     destroy() { this._unsubscribe(); }
+
+    isOpen() { return this.panel.classList.contains('visible'); }
+
+    open() {
+        if (this.isOpen()) return;
+        this.panel.classList.add('visible');
+        this._setPressed(true);
+        this._onOpen();
+    }
+
+    close() {
+        if (!this.isOpen()) return;
+        this.panel.classList.remove('visible');
+        this._setPressed(false);
+        this._onClose();
+    }
+
+    _setPressed(on) { setPanelToggle(this._toggle, on); }
 
     // Takes the shared state again: after a reset, or when its place is shown
     // after another place changed it.
@@ -135,7 +164,7 @@ class ScopeFilter {
                 if (key !== 'lenses') this._load();
             },
         });
-        this.el.querySelector(`.scope-filter-${slot}`).appendChild(select.el);
+        this.panel.querySelector(`.scope-filter-${slot}`).appendChild(select.el);
         return select;
     }
 
@@ -157,6 +186,7 @@ class ScopeFilter {
             return; // the place says what it cannot read; the filter stays as it was
         }
         if (gen !== this._gen) return;
+        this._libNames = new Map(libs.map(l => [String(l.id), l.name]));
         this._libraries.setOptions(libs.map(l => ({ value: String(l.id), label: l.name, count: l.photoCount })));
         this._cameras.setOptions(values.cameras.map(c => ({ value: c.name, label: plainExif(c.name), count: c.count })));
         // A chosen lens the chosen cameras never used falls away.
@@ -164,10 +194,11 @@ class ScopeFilter {
             ScopeState.set({ lenses: this._lenses.selected });
         }
         this._drawTime(values.firstMonth, values.lastMonth);
+        this._showNarrowed();
     }
 
     _drawTime(firstMonth, lastMonth) {
-        const slot = this.el.querySelector('.scope-filter-time');
+        const slot = this.panel.querySelector('.scope-filter-time');
         slot.innerHTML = '';
         const first = monthNumber(firstMonth), last = monthNumber(lastMonth);
         if (!this._time || first === null || last === null || first === last) return;
@@ -180,13 +211,38 @@ class ScopeFilter {
         slot.appendChild(range.el);
     }
 
-    // Reset shows only when there is something to reset; the Filter button
-    // of a phone counts what is narrowed.
-    _showNarrowed() {
+    // conditions lists what narrows the photos, each with what drops it.
+    _conditions() {
         const v = ScopeState.value;
-        const parts = [v.libraries, v.models, v.lenses].filter(x => x !== null).length + (this._time && (v.from || v.until) ? 1 : 0);
-        this._resetBtn.hidden = parts === 0;
-        this._toggle.querySelector('.scope-filter-count').textContent = parts ? ` · ${parts}` : '';
-        this.el.classList.toggle('scope-filter--narrowed', parts > 0);
+        const some = (label, values, name) => `${label}: ${values.length === 1 ? name(values[0]) : values.length ? `${values.length}` : 'none'}`;
+        const out = [];
+        if (v.libraries !== null) out.push({ label: some('Libraries', v.libraries, id => this._libNames?.get(id) || id), drop: { libraries: null } });
+        if (this._time && (v.from || v.until)) out.push({ label: `Taken: ${v.from || '…'} – ${v.until || '…'}`, drop: { from: '', until: '' } });
+        if (v.models !== null) out.push({ label: some('Camera', v.models, plainExif), drop: { models: null } });
+        if (v.lenses !== null) out.push({ label: some('Lens', v.lenses, plainExif), drop: { lenses: null } });
+        return out;
+    }
+
+    // The head shows each condition as a chip that drops it, and the Filter
+    // button counts them, so a hidden column never hides why fewer photos show.
+    _showNarrowed() {
+        const conditions = this._conditions();
+        this._resetBtn.hidden = conditions.length === 0;
+        const badge = this._toggle.querySelector('.lib-filter-btn-count');
+        badge.textContent = conditions.length ? String(conditions.length) : '';
+        const chips = this.el.querySelector('.scope-filter-chips');
+        chips.innerHTML = '';
+        for (const c of conditions) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'lib-filter-chip';
+            chip.innerHTML = `${escapeHtml(c.label)}<span aria-hidden="true">×</span>`;
+            chip.title = `Drop "${c.label}"`;
+            chip.addEventListener('click', () => {
+                ScopeState.set(c.drop);
+                this.sync();
+            });
+            chips.appendChild(chip);
+        }
     }
 }

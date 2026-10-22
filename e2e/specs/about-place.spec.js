@@ -6,24 +6,19 @@ import { waitForAppReady } from '../helpers/wait.js';
 // that Unterlumen comes without warranty (feature doc 2026-10-04-about-place).
 
 test.describe('About', () => {
-  test('the logo and the sidebar entry open About, whose topics show under it', async ({ page }) => {
+  test('the logo and the sidebar entry open About, whose page lists its topics', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
-    await expect(page.locator('#nav-about')).toBeHidden();
 
     await page.locator('#about-trigger').click();
     await expect(page).toHaveURL(/#about$/);
     await expect(page.locator('#mode-about')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.guide-pane h1')).toHaveText('About Unterlumen');
-    await expect(page.locator('#nav-about')).toBeVisible();
 
-    await page.locator('#nav-about [data-about-topic="privacy"]').click();
+    // The topics are on the page, not in the sidebar; About stands for them.
+    await page.locator('.guide-pane a[href="#privacy"]').first().click();
     await expect(page).toHaveURL(/#privacy$/);
-    await expect(page.locator('#nav-about [data-about-topic="privacy"]')).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('#nav-about')).toBeVisible();
-
-    await page.locator('#mode-browse').click();
-    await expect(page.locator('#nav-about')).toBeHidden();
+    await expect(page.locator('#mode-about')).toHaveAttribute('aria-current', 'page');
   });
 
   test('Your data says what leaves and that nothing checks for updates', async ({ page }) => {

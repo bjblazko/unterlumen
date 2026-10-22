@@ -259,7 +259,6 @@ class Viewer {
             case 'F':
                 e.preventDefault();
                 this.filmStripVisible = !this.filmStripVisible;
-                if (this._filmToggle) this._filmToggle.setState(this.filmStripVisible);
                 this.updateFilmStrip();
                 break;
             case 'h':
@@ -285,38 +284,26 @@ class Viewer {
         this.container.innerHTML = `
             <div class="viewer">
                 <div class="viewer-toolbar">
-                    <button class="btn viewer-back" title="Back (Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> Back</button>
-                    <span class="viewer-filename">${filename}</span>
-                    <span class="viewer-filmstrip-label desk-only">Film strip</span>
-                    <div class="viewer-filmstrip-toggle-wrap desk-only" title="Film strip (F)"></div>
-                    <span class="viewer-counter">${counter}</span>
-                    ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn"></button>' : ''}
-                    <a class="btn viewer-download-btn" href="${escapeHtml(this._downloadURL())}" download title="Download the original file" aria-label="Download the original file"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
-                    <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
-                    <div class="viewer-zoom-group desk-only">
-                        <button class="btn viewer-zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
-                        <select class="viewer-zoom-select" title="Zoom level">
-                            <option value="fit">Fit</option>
-                            <option value="5">5%</option>
-                            <option value="10">10%</option>
-                            <option value="15">15%</option>
-                            <option value="25">25%</option>
-                            <option value="50">50%</option>
-                            <option value="75">75%</option>
-                            <option value="100">100%</option>
-                            <option value="150">150%</option>
-                            <option value="200">200%</option>
-                            <option value="300">300%</option>
-                            <option value="400">400%</option>
-                        </select>
-                        <button class="btn viewer-zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
-                        <button class="btn viewer-zoom-reset" title="Reset to fit" disabled>↺</button>
+                    <div class="viewer-group viewer-group-start">
+                        <button class="btn viewer-back" title="Back (Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> Back</button>
+                        <span class="viewer-filename">${filename}</span>
+                        <span class="viewer-counter">${counter}</span>
                     </div>
-                    ${this._readOnly ? '' : `<div class="viewer-action-group desk-only">
-                        <button class="btn viewer-crop-btn" title="${preview ? 'Crop works on the full-size photo, which is still being prepared' : 'Crop'}" ${preview ? 'disabled' : ''}>Crop</button>
-                        <button class="btn viewer-delete" title="Mark for deletion (Delete)">Delete</button>
-                    </div>`}
-                    <div class="viewer-menu-wrap desk-only"></div>
+                    <div class="viewer-zoom-group desk-only">
+                        <button class="btn viewer-zoom-out" title="Zoom out" aria-label="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                        <select class="viewer-zoom-select" title="Zoom level" aria-label="Zoom level">
+                            ${['fit', 5, 10, 15, 25, 50, 75, 100, 150, 200, 300, 400].map(v => `<option value="${v}">${v === 'fit' ? 'Fit' : `${v}%`}</option>`).join('')}
+                        </select>
+                        <button class="btn viewer-zoom-in" title="Zoom in" aria-label="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                    </div>
+                    <div class="viewer-group viewer-group-end">
+                        ${this._readOnly ? '' : `<button class="btn viewer-crop-btn desk-only" title="${preview ? 'Crop works on the full-size photo, which is still being prepared' : 'Crop'}" ${preview ? 'disabled' : ''}>Crop</button>
+                        <button class="btn viewer-delete desk-only" title="Mark for deletion (Delete)">Mark for deletion</button>`}
+                        ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn phone-only"></button>' : ''}
+                        <a class="btn viewer-download-btn phone-only" href="${escapeHtml(this._downloadURL())}" download title="Download the original file" aria-label="Download the original file"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
+                        <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
+                        <div class="viewer-menu-wrap desk-only"></div>
+                    </div>
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
@@ -345,7 +332,6 @@ class Viewer {
 
         this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
         this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
-        this.container.querySelector('.viewer-zoom-reset').addEventListener('click', () => this._zoomTool.reset());
         this.container.querySelector('.viewer-zoom-select').addEventListener('change', (e) => {
             const v = e.target.value;
             this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
@@ -367,16 +353,6 @@ class Viewer {
             this.updateFilmStrip(true);
         }
 
-        const filmToggleWrap = this.container.querySelector('.viewer-filmstrip-toggle-wrap');
-        if (filmToggleWrap) {
-            this._filmToggle = Toggle.create(filmToggleWrap, {
-                initial: this.filmStripVisible,
-                onChange: (on) => {
-                    this.filmStripVisible = on;
-                    this.updateFilmStrip();
-                }
-            });
-        }
 
         if (this.infoPanel) {
             this.infoPanel.container = this.container.querySelector('.viewer-info-container');
@@ -393,11 +369,9 @@ class Viewer {
         const select = this.container.querySelector('.viewer-zoom-select');
         const outBtn = this.container.querySelector('.viewer-zoom-out');
         const inBtn  = this.container.querySelector('.viewer-zoom-in');
-        const reset  = this.container.querySelector('.viewer-zoom-reset');
         if (select) select.value = String(level);
         if (outBtn) outBtn.disabled = this._zoomTool.isAtMin();
         if (inBtn)  inBtn.disabled  = this._zoomTool.isAtMax();
-        if (reset)  reset.disabled  = (level === 'fit');
     }
 
     // A large HEIC or RAW takes a moment to convert. A quick load shows
@@ -479,6 +453,24 @@ class Viewer {
     // One button, two states: the icon and the name say what a press does.
     // The file as it is on disk, under its own name: the image routes serve
     // it untouched with ?download=1, even a HEIF shown here as JPEG.
+    // The film strip, full screen and the download of the original are in
+    // the ⋯ menu on a computer; their keys stay.
+    setFilmStrip(on) {
+        this.filmStripVisible = on;
+        this.updateFilmStrip();
+    }
+
+    toggleFullscreen() { return this._toggleFullscreen(); }
+
+    downloadOriginal() {
+        const a = document.createElement('a');
+        a.href = this._downloadURL();
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
     _downloadURL() {
         const url = this._imageURLFn(this.currentPath);
         return url + (url.includes('?') ? '&' : '?') + 'download=1';

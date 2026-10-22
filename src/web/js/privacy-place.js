@@ -12,9 +12,7 @@ class PrivacyPane {
         const link = (href, label) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
         this.container.innerHTML = `
             <div class="guide-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Your data</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'Your data' })}
                 <div class="reading-body">
                     <p class="reading-intro">Unterlumen runs on your computer, or on your own server. It has no account, collects no usage data and does not check for updates: it never reports what you do, and it never looks for a new version — you update it yourself.</p>
                     <div class="reading-text">

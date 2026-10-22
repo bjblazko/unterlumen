@@ -22,6 +22,9 @@ class InfoPanel {
         // bury the short list again on the next photo.
         this.metadataOpen = localStorage.getItem('info-all-metadata-open') === '1';
         this.onToggle = null;
+        // toggleButton: the Info button in the place's head. With one, the
+        // closed panel leaves no rail behind; the button opens it.
+        this.toggleButton = null;
         this.onDirNavigate = null;
         this._metaContext = null;
         this._folders = new FolderDashboard(this);
@@ -48,6 +51,14 @@ class InfoPanel {
             if (!other.container?.isConnected) { InfoPanel._live.delete(other); continue; }
             if (other.expanded !== this.expanded) other._setExpanded(this.expanded);
         }
+    }
+
+    // attachToggle makes btn, in the place's head, the way to open the panel.
+    // A panel built anew (the Timeline's) takes the button over.
+    attachToggle(btn) {
+        this.toggleButton = btn;
+        btn.onclick = () => this.toggle();
+        this.render();
     }
 
     _setExpanded(on) {
@@ -200,16 +211,15 @@ class InfoPanel {
     render() {
         this.destroyMap();
 
+        setPanelToggle(this.toggleButton, this.expanded);
+        if (!this.expanded && this.toggleButton) {
+            this.container.innerHTML = '';
+            return;
+        }
         if (!this.expanded) {
             this.container.innerHTML =
                 '<div class="info-panel collapsed">' +
-                    '<button class="info-toggle-btn" title="Show info (I)" aria-label="Show info">' +
-                    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">' +
-                        '<circle cx="8" cy="8" r="6.5"/>' +
-                        '<line x1="8" y1="7.5" x2="8" y2="11"/>' +
-                        '<circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none"/>' +
-                    '</svg>' +
-                '</button>' +
+                    '<button class="info-toggle-btn" title="Show info (I)" aria-label="Show info">' + panelIconSVG(false) + '</button>' +
                 '</div>';
             this.container.querySelector('.info-toggle-btn')
                 .addEventListener('click', () => this.toggle());
@@ -233,13 +243,14 @@ class InfoPanel {
             '<div class="info-panel expanded">' +
                 '<div class="info-panel-header">' +
                     '<span class="info-panel-title">Info</span>' +
-                    '<button class="btn btn-sm info-collapse-btn" title="Hide info (I)">Done</button>' +
+                    panelHideButtonHTML('info-collapse-btn', 'Hide info', 'I') +
                 '</div>' +
                 '<div class="info-panel-body">' + body + '</div>' +
             '</div>';
 
         this.container.querySelector('.info-collapse-btn')
             .addEventListener('click', () => this.toggle());
+
 
         const loadingEl = this.container.querySelector('.info-loading');
         if (loadingEl) Activity.in(loadingEl, 'Reading the details…');
@@ -712,6 +723,7 @@ class InfoPanel {
         used.add(tagName);
         let val = this.stripQuotes(tags[tagName]);
         if (decoder) val = decoder(val);
+        if (val == null) return;
         rows.push(this.row(label, val));
     }
 
@@ -724,13 +736,11 @@ class InfoPanel {
     }
 
     formatDate(iso) {
-        if (!iso) return '\u2014';
-        return iso.replace('T', ' ').replace(/Z$/, '').replace(/([+-]\d{2}:\d{2})$/, ' $1').trim();
+        return iso ? formatDateTime(iso) : '\u2014';
     }
 
     formatExifDate(iso) {
-        if (!iso) return '\u2014';
-        return iso.replace('T', ' ').replace(/([+-]\d{2}:\d{2})$/, ' $1');
+        return iso ? formatDateTime(iso) : '\u2014';
     }
 
     parseRational(s) {
@@ -745,9 +755,11 @@ class InfoPanel {
         return isNaN(v) ? null : v;
     }
 
+    // An aperture of 0 (written 0/1) means the lens did not say.
     decodeFNumber(s) {
         const v = this.parseRational(s);
-        if (v === null || v <= 0) return s;
+        if (v === null) return s;
+        if (v <= 0) return null;
         return `f/${v.toFixed(1)}`;
     }
 

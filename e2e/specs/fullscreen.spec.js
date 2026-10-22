@@ -26,29 +26,31 @@ test.describe('Full screen', () => {
         await expect.poll(() => isFullscreen(page)).toBe(false);
     });
 
-    test('the viewer\'s button enters and leaves full screen', async ({ page }) => {
-        await page.locator('[data-type="image"]').first().dblclick();
-        const btn = page.locator('.viewer-fullscreen-btn');
-        await expect(btn).toHaveAccessibleName('Full screen');
-        await expect(btn).toHaveAttribute('aria-pressed', 'false');
+    // On a computer full screen is in the viewer's ⋯; its entry says which
+    // way it goes.
+    const fullScreenItem = async (page) => {
+        await page.locator('.viewer .menu-btn').click();
+        return page.locator('.menu [data-id="fullscreen"]');
+    };
 
-        await btn.click();
+    test('the viewer\'s menu enters and leaves full screen', async ({ page }) => {
+        await page.locator('[data-type="image"]').first().dblclick();
+        let item = await fullScreenItem(page);
+        await expect(item).toHaveText('Full screen');
+        await item.click();
         await expect.poll(() => isFullscreen(page)).toBe(true);
-        await expect(btn).toHaveAccessibleName('Leave full screen');
-        await expect(btn).toHaveAttribute('aria-pressed', 'true');
 
         // Moving to the next photo re-renders the viewer; the state holds.
         await page.keyboard.press('ArrowRight');
-        await expect(page.locator('.viewer-fullscreen-btn')).toHaveAttribute('aria-pressed', 'true');
-
-        await page.locator('.viewer-fullscreen-btn').click();
+        item = await fullScreenItem(page);
+        await expect(item).toHaveText('Leave full screen');
+        await item.click();
         await expect.poll(() => isFullscreen(page)).toBe(false);
-        await expect(page.locator('.viewer-fullscreen-btn')).toHaveAccessibleName('Full screen');
     });
 
     test('leaving the viewer leaves the full screen it entered', async ({ page }) => {
         await page.locator('[data-type="image"]').first().dblclick();
-        await page.locator('.viewer-fullscreen-btn').click();
+        await (await fullScreenItem(page)).click();
         await expect.poll(() => isFullscreen(page)).toBe(true);
         await page.locator('.viewer-back').click();
         await expect(page.locator('.viewer')).toHaveCount(0);

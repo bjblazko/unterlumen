@@ -436,44 +436,45 @@ class DestinationsPane {
         return ch.outputDir || ch.outputPath || '—';
     }
 
+    // One row per destination, in the grid of the galleries: what it is
+    // and where it goes, how its files are made, and its galleries.
     _renderList() {
-        const rows = (this._channels || []).map(ch => `
-            <tr class="dest-row" data-slug="${escapeHtml(ch.slug)}" tabindex="0" role="link">
-                <td class="dest-name">${escapeHtml(ch.name)}</td>
-                <td>${escapeHtml(destinationTypeLabel(ch))}</td>
-                <td class="dest-mono">${(() => {
-                    const base = _deployBaseURL(ch);
-                    return base
-                        ? `<a href="${escapeHtml(base.url)}" target="_blank" rel="noopener" class="dest-visit">${escapeHtml(this._addressDesc(ch))}</a>`
-                        : escapeHtml(this._addressDesc(ch));
-                })()}</td>
-                <td class="${ch.handler || destinationType(ch) === 'files' ? '' : 'dest-quiet'}">${escapeHtml(this._uploadDesc(ch))}</td>
-                <td class="dest-mono dest-quiet">${escapeHtml(_scaleDesc(ch.scale) ? `${ch.format.toUpperCase()} · q${ch.quality} · ${_scaleDesc(ch.scale)}` : `${ch.format.toUpperCase()} · q${ch.quality}`)}</td>
-                <td class="dest-num">${this._galleryCount(ch.slug) > 0
-                    ? `<button class="link-btn dest-galleries-link" data-slug="${escapeHtml(ch.slug)}">${this._galleryCount(ch.slug)}</button>`
-                    : '0'}</td>
-            </tr>`).join('');
+        const rows = (this._channels || []).map(ch => {
+            const type = destinationTypeLabel(ch);
+            const base = _deployBaseURL(ch);
+            const address = base
+                ? `<a href="${escapeHtml(base.url)}" target="_blank" rel="noopener" class="dest-visit">${escapeHtml(this._addressDesc(ch))}</a>`
+                : escapeHtml(this._addressDesc(ch));
+            const files = _scaleDesc(ch.scale) ? `${ch.format.toUpperCase()} · q${ch.quality} · ${_scaleDesc(ch.scale)}` : `${ch.format.toUpperCase()} · q${ch.quality}`;
+            const n = this._galleryCount(ch.slug);
+            return `
+            <div class="gal-row dest-row" data-slug="${escapeHtml(ch.slug)}" tabindex="0" role="link">
+                <span class="gal-row-main">
+                    <span class="gal-row-title">${escapeHtml(ch.name)}</span>
+                    <span class="gal-row-sub">${type.toLowerCase() !== ch.name.toLowerCase() ? `${escapeHtml(type)} · ` : ''}<span class="dest-mono">${address}</span></span>
+                </span>
+                <span class="gal-row-state">
+                    <span class="gal-row-sub">${escapeHtml(this._uploadDesc(ch))}</span>
+                    <span class="gal-row-sub dest-mono">${escapeHtml(files)}</span>
+                </span>
+                <span class="gal-row-actions">${n > 0
+                    ? `<button class="btn btn-sm dest-galleries-link" data-slug="${escapeHtml(ch.slug)}">${n} ${n === 1 ? 'gallery' : 'galleries'}</button>`
+                    : '<span class="gal-row-sub">No galleries</span>'}</span>
+            </div>`;
+        }).join('');
 
         this.container.innerHTML = `
             <div class="dest-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">Destinations</h1>
-                    <span class="gal-group-spacer"></span>
-                    <button class="btn btn-sm" id="dest-new">New destination…</button>
-                    ${placeLede(`A destination is where ${placeLink('published', 'galleries', 'galleries')} go — a website, share links for family and friends, or plain files you post yourself — and how their files are made.`)}
-                </div>
+                ${placeHeaderHTML({
+                    title: 'Destinations',
+                    meta: `${(this._channels || []).length} ${(this._channels || []).length === 1 ? 'destination' : 'destinations'}`,
+                    actions: '<button class="btn btn-sm" id="dest-new">New destination…</button>',
+                    lede: placeLede(`A destination is where ${placeLink('published', 'galleries', 'galleries')} go — a website, share links for family and friends, or plain files you post yourself — and how their files are made.`),
+                })}
                 <div class="gal-body">
                     ${(this._channels || []).length === 0
                         ? '<p class="gal-empty">No destinations yet. Choose New destination… to say where your first gallery should go.</p>'
-                        : `<table class="dest-table">
-                            <thead>
-                                <tr>
-                                    <th>Destination</th><th>Type</th><th>Address</th>
-                                    <th>Upload</th><th>Image files</th><th class="dest-num">Galleries</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>`}
+                        : `<div class="dest-list">${rows}</div>`}
                 </div>
             </div>`;
 
@@ -517,17 +518,12 @@ class DestinationsPane {
 
         this.container.innerHTML = `
             <div class="dest-pane dest-form-pane">
-                <div class="gal-head">
-                    <nav class="gal-crumbs" aria-label="Breadcrumb">
-                        <button class="link-btn" id="dest-back">Destinations</button>
-                        <span class="gal-crumb-sep">/</span>
-                        <span class="gal-crumb-here">${isNew ? 'New destination' : escapeHtml(ch.name)}</span>
-                    </nav>
-                    <span class="gal-group-spacer"></span>
-                    ${isNew ? '' : '<a class="btn btn-sm" id="dest-show-photos" href="#libraries">Show photos</a>'}
-                    <button class="btn btn-sm" id="dest-cancel">Cancel</button>
-                    <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? 'Create destination' : 'Save'}</button>
-                </div>
+                ${placeHeaderHTML({
+                    title: `<nav class="gal-crumbs" aria-label="Breadcrumb"><button class="link-btn" id="dest-back">Destinations</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${isNew ? 'New destination' : escapeHtml(ch.name)}</span></nav>`,
+                    actions: `${isNew ? '' : '<a class="btn btn-sm" id="dest-show-photos" href="#libraries">Show photos</a>'}
+                        <button class="btn btn-sm" id="dest-cancel">Cancel</button>
+                        <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? 'Create destination' : 'Save'}</button>`,
+                })}
                 <div class="gal-body dest-form" id="dest-form" data-type="${type}">
 ${_destTypeFieldsetHTML(isNew, type)}
 

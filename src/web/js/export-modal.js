@@ -44,25 +44,15 @@ class ExportModal {
         const exiftoolAvailable = this._exiftoolAvailable;
         const webpSupport = this._webpSupport;
 
-        const gpsNote = exiftoolAvailable ? '' : ' <span class="export-note">(requires exiftool)</span>';
-        const gpsDisabled = exiftoolAvailable ? '' : ' disabled';
+        // Keeping the EXIF without the GPS needs exiftool; without it the
+        // photos leave with nothing rather than with where they were taken.
+        const canDropGPS = exiftoolAvailable;
         const webpDisabled = webpSupport ? '' : ' disabled title="WebP encoder not available — install cwebp (brew install webp) or ffmpeg with libwebp"';
-
-        const folderPlaceholder = serverRole ? 'relative path, e.g. exports/batch' : '/path/to/folder or relative/subfolder';
-        const outputSection = `
-            <div class="export-section">
-                <div class="export-section-title">Output</div>
-                <label class="export-radio-row">
-                    <input type="radio" name="output-mode" value="folder" checked> Save to folder
-                </label>
-                <div class="export-destination-wrap">
-                    <input type="text" class="export-destination-input" placeholder="${folderPlaceholder}">
-                    <button type="button" class="btn btn-sm export-destination-btn" title="Browse folders">…</button>
-                </div>
-                <label class="export-radio-row">
-                    <input type="radio" name="output-mode" value="zip"> Download as ZIP
-                </label>
-            </div>`;
+        const folderPlaceholder = serverRole ? 'exports/batch' : '/path/to/folder';
+        // A segment of radio buttons: one choice, drawn as the segments
+        // everywhere else; the radios stay underneath for the keyboard.
+        const seg = (name, label, options) => `<div class="seg seg-radio" role="radiogroup" aria-label="${label}">${options.map(o => `
+            <label${o.title ? ` title="${o.title}"` : ''}><input type="radio" name="${name}" value="${o.value}"${o.checked ? ' checked' : ''}${o.disabled ? ' disabled' : ''}><span>${o.text}</span></label>`).join('')}</div>`;
 
         this._dialog = new Dialog({
             title: 'Export',
@@ -70,64 +60,67 @@ class ExportModal {
             size: 'md',
             className: 'export-dialog',
             body: `
-
-                    <div class="export-section">
-                        <div class="export-row">
-                            <span class="export-label">Format</span>
-                            <div class="export-format-tabs">
-                                <button class="btn btn-sm active" data-format="jpeg">JPEG</button>
-                                <button class="btn btn-sm" data-format="png">PNG</button>
-                                <button class="btn btn-sm" data-format="webp"${webpDisabled}>WebP</button>
-                            </div>
+                    <div class="export-grid">
+                        <span class="export-label">Format</span>
+                        <div class="seg export-format-tabs" role="group" aria-label="Format">
+                            <button type="button" class="active" aria-pressed="true" data-format="jpeg">JPEG</button>
+                            <button type="button" aria-pressed="false" data-format="png">PNG</button>
+                            <button type="button" aria-pressed="false" data-format="webp"${webpDisabled}>WebP</button>
                         </div>
-                        <div class="export-row export-quality-row">
-                            <span class="export-label">Quality</span>
-                            <input type="range" class="export-quality-slider" min="1" max="100" value="85">
+
+                        <span class="export-label export-quality-row">Quality</span>
+                        <div class="export-quality-row export-quality">
+                            <input type="range" class="export-quality-slider" min="1" max="100" value="85" aria-label="Quality">
                             <span class="export-quality-value">85</span>
                         </div>
-                    </div>
 
-                    <div class="export-section">
-                        <div class="export-section-title">Scale</div>
-                        <label class="export-radio-row">
-                            <input type="radio" name="scale-mode" value="none" checked> Original size
-                        </label>
-                        <label class="export-radio-row">
-                            <input type="radio" name="scale-mode" value="percent"> Percentage
+                        <span class="export-label">Size</span>
+                        <div class="export-choice">
+                            ${seg('scale-mode', 'Size', [
+                                { value: 'none', text: 'Original', checked: true },
+                                { value: 'percent', text: 'Percentage' },
+                                { value: 'max_dim', text: 'At most' },
+                            ])}
                             <span class="export-sub-input export-percent-input" style="display:none">
-                                <input type="number" class="export-input export-percent-val" min="1" max="400" value="50"> %
+                                <input type="number" class="export-input export-percent-val" min="1" max="400" value="50" aria-label="Percentage"> %
                             </span>
-                        </label>
-                        <label class="export-radio-row">
-                            <input type="radio" name="scale-mode" value="max_dim"> Maximum dimension
                             <span class="export-sub-input export-maxdim-input" style="display:none">
-                                <label class="export-ar-label"><input type="radio" name="max-dim-axis" value="width" checked> Width</label>
-                                <label class="export-ar-label"><input type="radio" name="max-dim-axis" value="height"> Height</label>
-                                <input type="number" class="export-input export-maxdim-val" placeholder="px" min="1" style="width:70px">
+                                <input type="number" class="export-input export-maxdim-val" min="1" aria-label="Pixels"> px
+                                ${seg('max-dim-axis', 'Side', [
+                                    { value: 'width', text: 'wide', checked: true },
+                                    { value: 'height', text: 'high' },
+                                ])}
                             </span>
-                        </label>
-                    </div>
+                        </div>
 
-                    <div class="export-section">
-                        <div class="export-section-title">Metadata</div>
-                        <label class="export-radio-row">
-                            <input type="radio" name="exif-mode" value="strip" checked> Strip all EXIF
-                        </label>
-                        <label class="export-radio-row">
-                            <input type="radio" name="exif-mode" value="keep"> Keep all EXIF
-                        </label>
-                        <label class="export-radio-row">
-                            <input type="radio" name="exif-mode" value="keep_no_gps"${gpsDisabled}> Keep EXIF, remove GPS${gpsNote}
-                        </label>
+                        <span class="export-label">Metadata</span>
+                        ${seg('exif-mode', 'Metadata', [
+                            { value: 'keep_no_gps', text: 'Keep, without GPS', checked: canDropGPS, disabled: !canDropGPS, title: canDropGPS ? '' : 'Needs exiftool' },
+                            { value: 'keep', text: 'Keep all' },
+                            { value: 'strip', text: 'Strip all', checked: !canDropGPS },
+                        ])}
+
+                        <span class="export-label">To</span>
+                        <div class="export-choice">
+                            ${seg('output-mode', 'To', [
+                                { value: 'folder', text: 'A folder', checked: true },
+                                { value: 'zip', text: 'A ZIP download' },
+                            ])}
+                            <div class="export-destination-wrap">
+                                <input type="text" class="export-destination-input" placeholder="${folderPlaceholder}" aria-label="Folder">
+                                <button type="button" class="btn btn-sm export-destination-btn">Choose…</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="export-section">
                         <div class="export-section-header">
                             <span class="export-section-title">Files</span>
                             <div class="export-estimate-controls">
-                                <div class="export-estimate-toggle">
-                                    <button class="btn btn-sm active" data-estimate="heuristic" title="Fast estimate">~</button>
-                                    <button class="btn btn-sm" data-estimate="encode" title="Exact encode">&#9702;</button>
+                                <span class="export-label">Sizes</span>
+                                <div class="seg export-estimate-toggle" role="group" aria-label="Sizes">
+                                    <button type="button" class="active" aria-pressed="true" data-estimate="heuristic" title="Quick: worked out from the settings">Estimated</button>
+                                    <button type="button" aria-pressed="false" data-estimate="encode" title="Slow: each photo is encoded to measure it">Exact</button>
                                 </div>
                                 <button type="button" class="btn btn-sm export-estimate-abort" style="display:none">Abort</button>
                             </div>
@@ -141,9 +134,6 @@ class ExportModal {
                             <span class="export-total-out">—</span>
                         </div>
                     </div>
-
-                    ${outputSection}
-
 `,
             actions: [
                 { label: 'Cancel', id: 'export-cancel-btn', onClick: () => this.close() },
@@ -157,10 +147,11 @@ class ExportModal {
         this.overlay.querySelectorAll('[data-format]').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (btn.disabled) return;
-                this.overlay.querySelectorAll('[data-format]').forEach(b => b.classList.remove('active'));
+                this.overlay.querySelectorAll('[data-format]').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
                 btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
                 const isPNG = btn.dataset.format === 'png';
-                this.overlay.querySelector('.export-quality-row').style.display = isPNG ? 'none' : '';
+                this.overlay.querySelectorAll('.export-quality-row').forEach(el => { el.style.display = isPNG ? 'none' : ''; });
                 this._scheduleEstimate();
             });
         });
@@ -189,8 +180,9 @@ class ExportModal {
         // Estimate method toggle
         this.overlay.querySelectorAll('[data-estimate]').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.overlay.querySelectorAll('[data-estimate]').forEach(b => b.classList.remove('active'));
+                this.overlay.querySelectorAll('[data-estimate]').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
                 btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
                 this._refreshEstimates();
             });
         });
@@ -216,7 +208,10 @@ class ExportModal {
             });
         }
 
-        // Export button
+        // The folder field belongs to "A folder".
+        this.overlay.querySelectorAll('[name="output-mode"]').forEach(r => r.addEventListener('change', () => {
+            this.overlay.querySelector('.export-destination-wrap').hidden = this._getOutputMode() !== 'folder';
+        }));
 
         // Build initial file list
         this._buildFileList();

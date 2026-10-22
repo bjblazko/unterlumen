@@ -1,13 +1,13 @@
 // select-all.js — Select all and Select none for a collection whose items
-// can be selected, beside how many there are and how many are selected.
+// can be selected, beside how many are selected. How many there are is the
+// place's title's to say.
 // One component wherever a selection is made: Folders, Organize, a library
 // and the filter's results, Marked for deletion, and faces in People.
 
 class SelectAll {
     // onAll and onNone change the selection; the owner calls update after
-    // every change, theirs or these. label(total, selected) is the count.
-    constructor({ onAll, onNone, label }) {
-        this._label = label;
+    // every change, theirs or these.
+    constructor({ onAll, onNone }) {
         this.el = document.createElement('div');
         this.el.className = 'select-all';
         this.el.innerHTML = `
@@ -26,7 +26,7 @@ class SelectAll {
     // change something.
     update(selected, total) {
         this.el.hidden = total === 0;
-        this._count.textContent = this._label(total, selected);
+        this._count.textContent = selected ? `${formatCount(selected)} selected` : '';
         this._all.hidden = selected >= total;
         this._none.hidden = selected === 0;
     }

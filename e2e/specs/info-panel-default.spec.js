@@ -24,7 +24,8 @@ test.describe('Info panel default', () => {
 
     await page.reload();
     await waitForAppReady(page);
-    await expect(page.locator('.info-panel.collapsed:visible')).toHaveCount(1);
+    // Closed, the panel leaves no rail; the Info button in the head says so.
+    await expect(page.locator('.info-head-toggle:visible')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('.info-panel.expanded:visible')).toHaveCount(0);
   });
 

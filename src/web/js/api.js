@@ -246,16 +246,6 @@ const API = {
         await apiSend('POST', '/api/storage/reveal', { folder });
     },
 
-    async cacheEvict(paths) {
-        const resp = await fetch('/api/cache/evict', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths }),
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        return resp.json();
-    },
-
     async exportEstimate(payload, signal) {
         const resp = await fetch('/api/export/estimate', {
             method: 'POST',

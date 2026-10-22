@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	lib "huepattl.de/unterlumen/internal/library"
@@ -48,21 +49,24 @@ func listLibraries(mgr *lib.Manager, root string) http.HandlerFunc {
 	}
 }
 
-// libraryRef names a library for a link to it.
+// libraryRef names a library for a link to it, and where in it the asked
+// path is (slash-separated, "" for its top), so Folders can show what the
+// library knows of the folders there.
 type libraryRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
-// detectLibrary returns every library (id + name) whose source path covers
-// the requested path — libraries may overlap — as {"libraries": [...]}, empty
+// detectLibrary returns every library whose source path covers the
+// requested path — libraries may overlap — as {"libraries": [...]}, empty
 // when none does.
 func detectLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		refs := []libraryRef{}
 		if absPath, ok := pathguard.SafePath(root, r.URL.Query().Get("path")); ok {
 			for _, l := range mgr.LibrariesForPath(absPath) {
-				refs = append(refs, libraryRef{ID: l.ID, Name: l.Name})
+				refs = append(refs, libraryRef{ID: l.ID, Name: l.Name, Path: pathInLibrary(l.SourcePath, absPath)})
 			}
 		}
 		writeJSON(w, struct {
@@ -214,4 +218,14 @@ func patchSettings(mgr *lib.Manager) http.HandlerFunc {
 		}
 		writeJSON(w, current)
 	}
+}
+
+// pathInLibrary is absPath relative to a library's folder, "" for the folder
+// itself.
+func pathInLibrary(source, absPath string) string {
+	rel, err := filepath.Rel(source, absPath)
+	if err != nil || rel == "." {
+		return ""
+	}
+	return filepath.ToSlash(rel)
 }

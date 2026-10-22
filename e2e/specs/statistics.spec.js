@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/wait.js';
-import { reindexLibrary } from '../helpers/library.js';
+import { reindexLibrary, libraryMenu } from '../helpers/library.js';
 
 // The Statistics place (ADR-0043): an overview with a card per topic, the
 // topics as sidebar sub-entries, a scope in the address, and the photos of a
@@ -130,7 +130,7 @@ test.describe('Statistics', () => {
         const card = page.locator('.library-card', { hasText: LIB_NAME });
         await card.waitFor({ timeout: 15_000 });
         await card.locator('.lib-open').click();
-        await page.locator('#lib-detail-stats-btn').click();
+        await libraryMenu(page, 'statistics');
         await expect(page).toHaveURL(new RegExp(`#statistics\\?library=${lib.id}$`));
         // The library is the shared filter's now (ADR-0050).
         await expect(page.locator('.stats-place .scope-filter-libraries .multi-select-btn')).toHaveText(`Libraries: ${LIB_NAME}`);

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { libraryMenu } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
 
 test.describe('Library list view', () => {
@@ -52,14 +53,14 @@ test.describe('Library list view', () => {
 
     // The overview has the same filter as a library, starting with every
     // library in scope: opening it sets nothing, so the list stays until a
-    // criterion is set, and Done closes it from its own head.
+    // criterion is set, and it hides from its own head.
     test('the filter opens beside the list of libraries and closes itself', async ({ page }) => {
         const panel = page.locator('#lib-filter-panel');
         await expect(panel).not.toHaveClass(/visible/);
 
         await page.locator('#lib-filter-btn').click();
         await expect(panel).toHaveClass(/visible/);
-        await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
+        await expect(page.locator('#lib-filter-btn')).toHaveAttribute('aria-pressed', 'true');
         await expect(page.locator('.lib-filter-select').first()).toHaveValue('');
         await expect(page.locator('#lib-list-body')).toBeVisible();
         await expect(page.locator('#lib-results-pane')).toBeHidden();
@@ -73,21 +74,22 @@ test.describe('Library list view', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
         await expect(page.locator('.library-detail')).toBeVisible();
-        await expect(page.locator('#lib-back')).toBeVisible();
-        await expect(page.locator('.library-detail-name')).toContainText('E2E Library UI');
+        // The way back is the first crumb; the library's name is the title.
+        await expect(page.locator('#lib-pane .crumb-out')).toHaveText('Libraries');
+        await expect(page.locator('#lib-pane .place-title')).toContainText('E2E Library UI');
     });
 
     test('Back button returns to library list from detail view', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
-        await page.locator('#lib-back').click();
+        await page.locator('#lib-pane .crumb-out').click();
         await expect(page.locator('.library-list-view')).toBeVisible({ timeout: 5_000 });
     });
 
     // The filter is a panel: a button in the head opens the column beside
-    // the photos, Done closes it again.
-    test('the filter opens from the head and gives the room back on Done', async ({ page }) => {
+    // the photos, its Hide button closes it again.
+    test('the filter opens from the head and gives the room back on Hide', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
@@ -95,7 +97,12 @@ test.describe('Library list view', () => {
 
         await page.locator('#lib-filter-btn').click();
         await expect(page.locator('#lib-filter-panel')).toHaveClass(/visible/);
-        await expect(page.locator('.lib-filter-title')).toHaveText('Filter');
+        await expect(page.locator('#lib-filter-btn')).toHaveAttribute('aria-pressed', 'true');
+        // Info has its own button beside it; one panel is open at a time.
+        await page.locator('.lib-filter-body .info-head-toggle').click();
+        await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
+        await expect(page.locator('#lib-info-panel .info-panel.expanded')).toBeVisible();
+        await page.locator('#lib-filter-btn').click();
 
         await page.locator('.lib-filter-close').click();
         await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
@@ -122,7 +129,7 @@ test.describe('Library list view', () => {
         await card.locator('.lib-open').click();
         await page.waitForSelector('.library-detail', { timeout: 8_000 });
 
-        await page.locator('#lib-edit-btn').click();
+        await libraryMenu(page, 'edit-library');
         await page.locator('#lib-delete-start').click();
         await expect(page.locator('.gal-danger-question')).toContainText('To Delete');
         await page.locator('#lib-delete-confirm').click();

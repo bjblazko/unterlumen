@@ -153,8 +153,9 @@ test.describe('Published Galleries overview', () => {
         // Neither test channel has an upload configured, so both galleries are
         // built and not uploaded — the state says so instead of claiming they
         // are online (ADR-0029).
-        await expect(galRow.locator('.gal-state')).toHaveText('Built, not uploaded');
-        await expect(siteRow.locator('.gal-state')).toHaveText('Built, not uploaded');
+        await expect(galRow.locator('.gal-state')).toHaveText('Not published');
+        await expect(galRow.locator('.gal-state-note')).toHaveText('built, upload missing');
+        await expect(siteRow.locator('.gal-state-note')).toHaveText('built, upload missing');
 
         // A deliberately dead SiteURL: the failed check is reported next to
         // the state rather than replacing it (ADR-0029).

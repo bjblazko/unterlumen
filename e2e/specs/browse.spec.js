@@ -46,8 +46,7 @@ test.describe('Browse', () => {
   test('status bar shows image count', async ({ page }) => {
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
-    const statusText = await page.locator('.select-all-count').textContent();
-    expect(statusText).toMatch(/\d+\s*(image|photo)/i);
+    await expect(page.locator('.place-header:visible .place-meta')).toContainText(/\d+ photos/);
   });
 
   test('navigate folder-a → a1 → back via breadcrumb', async ({ page }) => {

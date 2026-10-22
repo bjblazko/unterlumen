@@ -21,7 +21,7 @@ class PeopleNaming {
             activity.fail(`The faces could not be read: ${err.message}.`);
             return;
         }
-        this.pane._head(data.groupCount ? `${formatCount(data.groupCount)} ${data.groupCount === 1 ? 'group' : 'groups'}` : '');
+        this.pane._head(data.groupCount ? countHTML(data.groupCount, 'group') : '');
         body.innerHTML = `
             <div class="people-page-head">${this.pane.crumb(`Waiting for a name in ${escapeHtml(this.pane.libraryName(lib))}`)}</div>
             ${this.pane.libraries.length > 1 ? toNameHTML(toName, lib) : ''}
@@ -103,7 +103,7 @@ class PeopleNaming {
             body.innerHTML = `<div class="people-note"><p>This group is gone: its faces were named, or the faces were grouped anew since. ${back}</p></div>`;
             return;
         }
-        this.pane._head(countFaces(faces.length));
+        this.pane._head(countHTML(faces.length, 'face'));
         const grid = new FaceGrid({ lib, faces, onChange: () => update(), onOpen: (i) => openFacePhotos(lib, faces, i) });
         body.innerHTML = `
             <div class="people-page-head">${this.pane.crumb('Who is this?', back)}</div>

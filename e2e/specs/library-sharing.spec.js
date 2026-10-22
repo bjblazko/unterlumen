@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { libraryMenu } from '../helpers/library.js';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -63,7 +64,7 @@ test.describe('Sharing a library between two installations', () => {
         const lib = await createLibrary(NAS, 'Travel', 'Travel');
         await page.goto(url(NAS) + '/#libraries');
         await page.locator('.library-card-name', { hasText: 'Travel' }).click();
-        await page.locator('#lib-edit-btn').click();
+        await libraryMenu(page, 'edit-library');
         await expect(page.locator('#lib-edit-share .toggle')).toHaveAttribute('aria-checked', 'false');
         await page.locator('#lib-edit-share .toggle').click();
         await expect(page.locator('#lib-edit-share-hint')).toContainText('.unterlumen-library.json');
@@ -83,7 +84,7 @@ test.describe('Sharing a library between two installations', () => {
         await expect(page.locator('.library-dialog-note')).toContainText('Another installation shares this folder');
         await page.locator('#lib-dlg-create').click();
         // The dialog reads the photos before it opens the library.
-        await expect(page.locator('.library-detail-name')).toHaveText('Travel', { timeout: 50_000 });
+        await expect(page.locator('#lib-pane .place-title')).toHaveText('Travel', { timeout: 50_000 });
 
         const nasLibs = await (await fetch(url(NAS) + '/api/library/')).json();
         const macLibs = await (await fetch(url(MAC) + '/api/library/')).json();
@@ -101,7 +102,7 @@ test.describe('Sharing a library between two installations', () => {
         await page.locator('.library-card-name', { hasText: 'My projects' }).click();
         await expect(page.locator('.library-notice')).toContainText('Another installation shares this folder as “Projects”');
         await page.locator('#lib-join-btn').click();
-        await expect(page.locator('.library-detail-name')).toHaveText('Projects');
+        await expect(page.locator('#lib-pane .place-title')).toHaveText('Projects');
         await expect(page.locator('.library-notice')).toHaveCount(0);
 
         const macLibs = await (await fetch(url(MAC) + '/api/library/')).json();

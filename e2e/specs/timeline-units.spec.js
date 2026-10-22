@@ -82,21 +82,25 @@ test.describe('Timeline units', () => {
         expect(r.one).toEqual({ x: 0, end: 1000, back: 10 });
     });
 
-    test('the range snaps to whole months', async ({ page }) => {
+    // The span shown is the shared filter's Taken, in whole months
+    // (ADR-0053); without it, every day there is.
+    test('the filter\'s Taken limits the span to whole months', async ({ page }) => {
         const r = await page.evaluate(() => {
             const s = new TimelineStream();
             s.adopt({ version: 'v', start: '2024-01-01', days: [0, 400], ratios: [1.5, 1.5], undated: 0 });
-            let limit = null;
-            const range = new TimelineRange(s, { height: 40, onLimit: (a, b) => { limit = [a, b]; } });
-            range.el.style.width = '800px';
-            document.body.appendChild(range.el);
-            range.redraw();
-            range.set(40, 70);
-            range.el.remove();
-            return { limit, from: s.calendar.formatDay(limit[0]), until: s.calendar.formatDay(limit[1]) };
+            const pane = Object.create(TimelinePane.prototype);
+            pane.stream = s;
+            const saved = { ...ScopeState.value };
+            ScopeState.value = { ...saved, from: '2024-02', until: '2024-03' };
+            const [a, b] = pane._span();
+            ScopeState.value = { ...saved, from: '', until: '' };
+            const all = pane._span();
+            ScopeState.value = saved;
+            return { from: s.calendar.formatDay(a), until: s.calendar.formatDay(b), all };
         });
         expect(r.from).toBe('Thu 1 Feb 2024');
         expect(r.until).toBe('Sun 31 Mar 2024');
+        expect(r.all).toEqual([0, 400]);
     });
 
     test('tiles are created near the screen and released when they leave', async ({ page }) => {

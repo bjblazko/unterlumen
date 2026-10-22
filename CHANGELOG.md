@@ -1,16 +1,36 @@
 # Changelog
 
-*Last modified: 2026-10-21*
+*Last modified: 2026-10-22*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-10-22
+
 ### Changed
-- **A person's faces are one list, newest photo first, across all libraries.** Their page showed a section per library, each newest first on its own; it is one grid now, by the date of the photo, whichever library it is in. Where they are in several libraries, a line says how many faces each holds, and the bar says which library a selection is in — a selection stays in one library, so a face of another starts a new one.
+- **One system for every place** ([ADR-0053](doc/architecture/adr/0053-one-system-for-every-place.md)). Every place opens with the same head: its title and how many there are, its actions and ⋯ on the right, what it is below. Folders and a library show the folder's name there, with *Libraries / Pictures / 2017* and the view in one row under it; a library no longer has a toolbar of its own and is no longer called Root — Statistics, Edit library… and Open in Folders are in its ⋯. A count stands once, in photos; the selection bar holds only actions.
+- **A tool strip at the right edge of every place**, as in IntelliJ: one toggle per panel of the right-hand column — Filter, Info, Photos — with its glyph, its word and a count where it helps. The panel opens beside it, one at a time; its own head names it and hides it with the sidebar's panel glyph, where Done was. The heads hold actions only. Settings has no Done; the filter's results have no ×: they go when the filter has nothing set. Statistics gains a Photos toggle that shows every photo counted. On a phone the toggles float above the tab bar.
+- **Counts look alike everywhere**: the number in a pill, then the word — "31 923 photos" in a library's row, a folder's tile, every head; thousands grouped with a narrow space that never breaks.
+- **Map, Timeline and Statistics filter like a library**: the conditions as chips in the head, each dropping its own, the Filter toggle with their number, and the column to set them. The Timeline takes its span from the filter's Taken and has one band instead of two; the Map's style is in its ⋯.
+- **Folders show what a library knows of them**: a folder a library covers shows its four photos, how many and the years, as in the library.
+- **Dates read 2026-10-21 everywhere**, times without fractions of a second or zone (the zone is in All metadata); the filter's date fields take the same form.
+- **A gallery is published or not**: "Not published" or "Published 2026-10-21", with a note where something is left ("built, upload missing" in the warning colour). Destinations is a list like Galleries.
+- **The viewer's toolbar has three groups**: Back, the name and where you are; the zoom; Crop, Mark for deletion and ⋯. Film strip, full screen and the download are in ⋯; their keys stay. Its Delete button is called Mark for deletion, which is what it does.
+- **Library maintenance is two buttons**: Scan for new photos (new photos, photos gone, missing previews) and Read everything again….
+- **Export chooses in segments**, one row each for format, quality, size, metadata and where to; it keeps the EXIF without GPS by default where exiftool is there. Rename groups its tokens by kind without colours, offers the pattern used last and warns when a name would carry its date twice. Organize has one Add target… — the folder dialog makes new folders — and its keys are listed under the targets.
+- **About has no sidebar entries of its own**; its page lists its topics. Only the most specific sidebar entry is filled. On a phone the place's explanation opens with Explain.
+- **A person's faces are one list, newest photo first, across all libraries.** Their page showed a section per library, each newest first on its own; it is one grid now, by the date of the photo, whichever library it is in. Where they are in several libraries, a line says how many faces each holds, and the bar says which libraries a selection is in.
 - **Which cover shows a person is settled.** Where a person is in several libraries, the cover chosen last, in whichever library, shows them on People, their page, on a phone, under Often with and in the statistics. Where nobody chose one, it is still the cover of the library with most of their faces. The face that shows them is the one marked Cover on their page.
 - **Select all and Select none everywhere a selection is made.** Folders, Organize, a library, the filter's results, Marked for deletion, a person's faces and a group waiting for a name show both beside the count, which says how many are selected. Before, selecting all took ⌘A and worked only where photos are, and faces could not be selected all at once. On a person's page a selection may now span libraries; a change goes to each library, and one that fails is named.
 - **A face leads to its photo and to where it is kept.** On a person's page, one face selected offers *Open photo* and *Show in library*, which opens the photo's library at its folder with the photo selected. Before, only a double-click opened the photo, and the way to its folder was hidden in the viewer's ⋯ menu.
 - **Often with shows each person's face** beside the name, and says what the number means: *Often in photos together with · number of photos*.
+
+### Fixed
+- **An aperture the lens did not report showed as 0/1**; it is left out now.
+- **A folder's info showed nanoseconds and a time zone** in Modified.
+- **The list view cut file names short** with room to spare, and lost "In library …" when the layout changed.
+- **Help text came in three sizes**; it has one now.
+- **The viewer's zoom level had its arrow against its frame** and stood close to the photo counter; it has the arrow of every other choice in a row of buttons now, and room around it.
 
 ## [0.17.2] - 2026-10-20
 

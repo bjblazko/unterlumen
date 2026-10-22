@@ -23,9 +23,7 @@ class AboutPane {
         const version = App.config?.version;
         this.container.innerHTML = `
             <div class="guide-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">About Unterlumen</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'About Unterlumen' })}
                 <div class="reading-body">
                     <div class="about-logo-row">
                         <svg class="about-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

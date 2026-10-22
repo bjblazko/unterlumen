@@ -27,15 +27,12 @@ class OrganizePane {
     init() {
         this.container.innerHTML = `
             <div class="organize">
-                <div class="organize-head">
-                    <h1 class="organize-title">Organize</h1>
-                    <span class="organize-path mono" id="org-path"></span>
-                    <span class="organize-session num" id="org-session"></span>
-                    <span class="organize-spacer"></span>
-                    <button class="btn btn-sm" id="org-change">Change folder…</button>
-                    <span class="organize-keys"><span class="key">Space</span> select · <span class="key">1</span>–<span class="key">9</span> send to target · <span class="key">Enter</span> current target · <span class="key">U</span> undo</span>
-                    ${placeLede('Sort one folder into others: select photos and press a target’s number to move them there. The files move on disk.')}
-                </div>
+                ${placeHeaderHTML({
+                    title: 'Organize',
+                    meta: '<span class="organize-path mono" id="org-path"></span> <span class="organize-session num" id="org-session"></span>',
+                    actions: '<button class="btn btn-sm" id="org-change">Change folder…</button>',
+                    lede: placeLede('Sort one folder into others: select photos and press a target’s number to move them there. The files move on disk.'),
+                })}
                 <div class="organize-body">
                     <div class="organize-source" id="org-source"></div>
                     <aside class="organize-targets" id="org-targets" aria-label="Targets"></aside>
@@ -48,6 +45,7 @@ class OrganizePane {
             onSelectionChange: () => this._updateSelectionBar(),
             onFocusChange: () => this._updateSelectionBar(),
             onNavigate: () => this._renderPath(),
+            placeHeader: false,
         });
         this.pane.view = 'justified';
 
@@ -125,9 +123,13 @@ class OrganizePane {
             </button>
             <div class="org-target-actions">
                 <button class="btn btn-sm" data-org="add">Add target…</button>
-                <button class="btn btn-sm" data-org="new">New target…</button>
             </div>
-            <p class="form-hint">Moving is what a target does. Hold ⌥ to copy instead. The orange one is where <span class="key">Enter</span> sends the selection.</p>
+            <ul class="org-keys">
+                <li><span class="key">Space</span> selects the photo in focus</li>
+                <li><span class="key">1</span>–<span class="key">9</span> move the selection to that target; hold <span class="key">⌥</span> to copy</li>
+                <li><span class="key">Enter</span> sends it to the orange one</li>
+                <li><span class="key">U</span> undoes the last move</li>
+            </ul>
             ${this.targets.some(t => t.missing) ? '<button class="btn btn-sm" data-org="forget">Forget the missing folders</button>' : ''}`;
     }
 
@@ -135,7 +137,6 @@ class OrganizePane {
         const action = e.target.closest('[data-org]');
         if (action) {
             if (action.dataset.org === 'add') this._addTarget();
-            else if (action.dataset.org === 'new') this._newTarget();
             else if (action.dataset.org === 'forget') this._forgetMissing();
             return;
         }
@@ -147,7 +148,7 @@ class OrganizePane {
     }
 
     async _addTarget() {
-        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to add as a target' });
+        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to add as a target', create: true });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
             this._say(`${targetName(picked)} is already a target.`);
@@ -156,25 +157,6 @@ class OrganizePane {
         this.targets.push({ path: picked });
         saveTargets(this.targets);
         this._renderTargets();
-    }
-
-    async _newTarget() {
-        const parent = await new FolderPicker().open(this.pane.path, { title: 'Where the new folder goes' });
-        if (parent === null) return;
-        const name = await promptForName(this.container, 'Name of the new folder');
-        if (!name) return;
-        const path = parent ? `${parent}/${name}` : name;
-        this._say(`Creating ${path}…`);
-        try {
-            await API.mkdir(path);
-        } catch (err) {
-            this._say(`Could not create ${path}: ${err.message}`, 'error');
-            return;
-        }
-        this.targets.push({ path });
-        saveTargets(this.targets);
-        this._renderTargets();
-        this._say(`Created ${path}.`);
     }
 
     _forgetMissing() {
@@ -315,13 +297,6 @@ class OrganizePane {
     }
 
     _runSelectionAction(action) {
-        if (action === 'clear') {
-            this.pane.selection.clear();
-            this.pane.selectedDirs.clear();
-            this.pane.render();
-            this._updateSelectionBar();
-            return;
-        }
         if (action === 'download') {
             Originals.download(this.pane.getSelectedFiles(), this.pane, { dirs: [...this.pane.selectedDirs] });
             return;
@@ -384,27 +359,4 @@ function targetName(path) {
 
 function countLabel(n) {
     return `${n} ${n === 1 ? 'item' : 'items'}`;
-}
-
-// Asks for a name on the screen that needs it, not in a browser prompt.
-function promptForName(container, question) {
-    return new Promise((resolve) => {
-        const el = document.createElement('div');
-        el.className = 'organize-ask';
-        el.innerHTML = `
-            <label class="form-label" for="org-ask-name">${escapeHtml(question)}</label>
-            <input id="org-ask-name" class="organize-ask-input" type="text" autocomplete="off">
-            <button class="btn btn-sm" id="org-ask-ok">Create</button>
-            <button class="btn btn-sm" id="org-ask-cancel">Cancel</button>`;
-        container.querySelector('.organize').appendChild(el);
-        const input = el.querySelector('#org-ask-name');
-        input.focus();
-        const done = (value) => { el.remove(); resolve(value); };
-        el.querySelector('#org-ask-ok').addEventListener('click', () => done(input.value.trim()));
-        el.querySelector('#org-ask-cancel').addEventListener('click', () => done(null));
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') done(input.value.trim());
-            if (e.key === 'Escape') done(null);
-        });
-    });
 }

@@ -67,7 +67,6 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	}
 	mux.HandleFunc("/api/cache/info", handleCacheInfo())
 	mux.HandleFunc("/api/cache/clear", handleCacheClear())
-	mux.HandleFunc("/api/cache/evict", handleCacheEvict(boundary))
 	startCacheUpkeep(libMgr)
 	mux.HandleFunc("GET /api/storage", handleStorage(libMgr, setup != nil))
 	mux.HandleFunc("POST /api/storage/clear", handleStorageClear())

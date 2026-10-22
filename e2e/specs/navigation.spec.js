@@ -94,30 +94,16 @@ test.describe('Navigation — places, not steps', () => {
   });
 });
 
+// Settings is a place: it has no Done (ADR-0053). Escape still goes back
+// to where it was opened from.
 test.describe('Leaving Settings', () => {
-  test('Done returns to the place Settings was opened from', async ({ page }) => {
-    await page.goto('/#libraries');
-    await waitForAppReady(page);
-    await page.locator('#mode-settings').click();
-    await expect(page.locator('#mode-settings')).toHaveAttribute('aria-current', 'page');
-    await page.locator('#settings-done').click();
-    await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
-    await expect(page).toHaveURL(/#libraries$/);
-  });
-
-  test('Escape does the same as Done', async ({ page }) => {
+  test('Settings has no Done, and Escape returns to the place it was opened from', async ({ page }) => {
     await page.goto('/#galleries');
     await waitForAppReady(page);
     await page.locator('#mode-settings').click();
-    await expect(page.locator('#settings-done')).toBeVisible();
+    await expect(page.locator('#mode-settings')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: 'Done' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.locator('#mode-published')).toHaveAttribute('aria-current', 'page');
-  });
-
-  test('opened directly, Done leads to Folders', async ({ page }) => {
-    await page.goto('/#settings');
-    await waitForAppReady(page);
-    await page.locator('#settings-done').click();
-    await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
   });
 });

@@ -128,6 +128,7 @@ class LibraryFilterPanel {
         this._container = container;
         this._toggleBtn = toggleBtn;
         this._initialLibID = initialLibID;
+        this._startLibID = initialLibID;
         this._options = options;
         this._ranges = {};
         this._active = {};
@@ -157,18 +158,21 @@ class LibraryFilterPanel {
         this._toggleBtn.setAttribute('aria-pressed', 'false');
         this._toggleBtn.setAttribute('aria-expanded', 'false');
         if (this._options.onClose) this._options.onClose();
+        // With nothing set, a hidden filter has no results: the place shows
+        // what they replaced again.
+        if (this._narrowsNothing()) {
+            clearTimeout(this._debounceTimer);
+            this._queryGen++;
+            this._options.onCleared?.();
+        }
     }
 
-    // The × on the results goes back to the library itself: the criteria are
-    // dropped and the panel goes with them, without running one last query
-    // for a filter nobody set any more — not even a debounced one, which
-    // would bring the results back 300 ms after they were closed.
-    clearAndHide() {
-        this._suppressQuery = true;
-        if (this._built) this._reset();
-        this._suppressQuery = false;
-        this._renderActiveFilters();
-        this.close();
+    isOpen() { return this._container.classList.contains('visible'); }
+
+    // Nothing is set when no criterion is on and the libraries are the ones
+    // the filter started with — another library chosen is a choice.
+    _narrowsNothing() {
+        return this.activeCount() === 0 && String(this._initialLibID ?? '') === String(this._startLibID ?? '');
     }
 
     // Opens the filter already set, one chip per criterion — { channel: slug },
@@ -270,11 +274,9 @@ class LibraryFilterPanel {
         head.className = 'lib-filter-head';
         head.innerHTML = `
             <span class="lib-filter-title">Filter</span>
-            <span class="lib-filter-count" hidden></span>
-            <button class="btn btn-sm lib-filter-close">Done</button>`;
+            ${panelHideButtonHTML('lib-filter-close', 'Hide filter')}`;
         head.querySelector('.lib-filter-close').addEventListener('click', () => this.close());
         this._container.appendChild(head);
-        this._countEl = head.querySelector('.lib-filter-count');
 
         const active = document.createElement('div');
         active.className = 'lib-filter-active';
@@ -381,10 +383,6 @@ class LibraryFilterPanel {
             chip.title = `Drop "${filter.label}"`;
             chip.addEventListener('click', () => filter.clear());
             this._activeEl.appendChild(chip);
-        }
-        if (this._countEl) {
-            this._countEl.textContent = active.length ? `${active.length} on` : '';
-            this._countEl.hidden = active.length === 0;
         }
         if (this._options.onActiveCount) this._options.onActiveCount(active.length);
     }
@@ -628,11 +626,22 @@ class LibraryFilterPanel {
             const lbl = document.createElement('span');
             lbl.className = 'lib-date-row-label';
             lbl.textContent = labelText;
+            // A text field, so the day reads 2026-10-21 as everywhere else,
+            // not in the browser's own order.
             const input = document.createElement('input');
-            input.type = 'date';
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.placeholder = 'YYYY-MM-DD';
+            input.autocomplete = 'off';
             input.className = 'lib-date-input';
             input.value = initVal;
-            input.addEventListener('change', () => onChange(input.value));
+            input.addEventListener('change', () => {
+                const v = input.value.trim();
+                const ok = v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v)));
+                input.toggleAttribute('aria-invalid', !ok);
+                input.title = ok ? '' : 'Write the day as 2026-10-21';
+                if (ok) onChange(v);
+            });
             // Escape blurs without changing value, restoring keyboard navigation.
             input.addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
             row.appendChild(lbl);
@@ -788,6 +797,13 @@ class LibraryFilterPanel {
         if (this._suppressQuery) return;
         clearTimeout(this._debounceTimer);
         this._renderActiveFilters();
+        // The last condition taken away while the panel is hidden ends the
+        // results.
+        if (!this.isOpen() && this._narrowsNothing()) {
+            this._queryGen++;
+            this._options.onCleared?.();
+            return;
+        }
         const params = this._buildParams();
         this._lastParams = params;
         const gen = ++this._queryGen;
@@ -808,7 +824,8 @@ class LibraryFilterPanel {
         clearTimeout(this._searchingTimer);
         if (on) {
             this._searchingTimer = setTimeout(() => {
-                if (this._statusEl && this._statusEl.style.display !== 'none') {
+                if (this._statusEl) {
+                    this._statusEl.style.display = '';
                     this._statusEl.textContent = 'Searching…';
                 }
             }, ACTIVITY_DELAY_MS);
@@ -829,10 +846,9 @@ class LibraryFilterPanel {
         const { results, total } = result;
         const multiLib = !this._initialLibID && this._libraries.length > 1;
 
-        if (this._statusEl) {
-            this._statusEl.style.display = '';
-            this._statusEl.innerHTML = `<strong>${total}</strong> photo${total !== 1 ? 's' : ''} match`;
-        }
+        // The results' head says how many; the panel says only what is slow
+        // or wrong.
+        if (this._statusEl) this._statusEl.style.display = 'none';
 
         const fetchPage = async (offset, limit) => {
             const r = await LibraryAPI.search({ limit, offset, ...params });

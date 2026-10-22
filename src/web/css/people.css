@@ -2,16 +2,10 @@
 
 /* --- Place --- */
 .people-place { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.people-head {
-    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4);
-    padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--line);
-}
-.people-title { margin: 0; font-size: var(--text-lg); font-weight: 600; }
 .people-count { font: 400 var(--text-xs)/1.4 var(--font-mono); color: var(--fg-3); font-variant-numeric: tabular-nums; }
 .people-head-spacer { flex: 1; }
-.people-lede { flex-basis: 100%; }
 .people-lede:empty { display: none; }
-.people-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-5); }
+.people-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-6); }
 .people-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* --- Notes and empty states --- */
@@ -51,7 +45,6 @@
 .people-to-name .people-label { margin: 0; }
 .people-to-name-link { color: var(--fg); }
 .people-to-name-link[aria-current="page"] { font-weight: 600; text-decoration: none; }
-.people-to-name-link .people-num { color: var(--fg-3); }
 
 /* --- Who is this? --- */
 .people-group {

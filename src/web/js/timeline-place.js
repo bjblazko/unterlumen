@@ -40,28 +40,40 @@ class TimelinePane {
     _buildShell() {
         this.container.innerHTML = `
             <div class="timeline-place">
-                <div class="timeline-head">
-                    <h1 class="timeline-title">Timeline</h1>
-                    <span class="timeline-count"></span>
-                    <span class="timeline-undated"></span>
-                    <span class="timeline-head-spacer"></span>
-                    ${placeLede(`Every dated photo from all ${placeLink('library', 'libraries', 'libraries')} on one time axis. A folder no library catalogs does not appear.`)}
+                <div class="timeline-split">
+                    <div class="place-main">
+                ${placeHeaderHTML({
+                    title: 'Timeline',
+                    meta: '<span class="timeline-count"></span> <span class="timeline-undated"></span>',
+                    actions: '<span class="timeline-actions"></span>',
+                    lede: placeLede(`Every dated photo from all ${placeLink('library', 'libraries', 'libraries')} on one time axis. A folder no library catalogs does not appear.`),
+                })}
+                    <div class="timeline-body"></div>
+                    <div class="timeline-note" hidden></div>
+                    </div>
                 </div>
-                <div class="timeline-body"></div>
-                <div class="timeline-note" hidden></div>
             </div>`;
         this._body = this.container.querySelector('.timeline-body');
         this._noteEl = this.container.querySelector('.timeline-note');
         this._menu = new Menu({ label: 'Timeline options', items: () => this._menuItems() });
-        // The shared filter (ADR-0050) without its months: time is this
-        // place's axis, and its own span chooses within it.
-        this._filter = new ScopeFilter({ time: false });
-        const head = this.container.querySelector('.timeline-head');
-        head.querySelector('.timeline-head-spacer').after(this._filter.el, this._menu.button);
+        // The shared filter (ADR-0050). Its months are not asked of the
+        // server: the stream is read whole and its axis and band show the
+        // span, so a change of span only moves them. Its column and the info
+        // panel share the right edge.
+        this._filter = new ScopeFilter({
+            onOpen: () => { if (this.infoPanel?.expanded) this.infoPanel._setExpanded(false); },
+        });
+        this._infoBtn = panelToggleButton('Info');
+        this.container.querySelector('.timeline-actions').replaceWith(this._filter.el, this._menu.button);
+        // The filter and the info panel stand beside the place's whole
+        // height, as the tool strip does.
+        this._infoEl = document.createElement('div');
+        this._infoEl.className = 'lib-info-panel-container timeline-info';
+        this.container.querySelector('.timeline-split').append(this._filter.panel, this._infoEl, toolStrip(this._filter.toggle, this._infoBtn));
         ScopeState.onChange(() => {
             if (App.mode !== 'timeline') return;
             const scope = ScopeState.query({ time: false });
-            if (scope === this.stream.scope) return;
+            if (scope === this.stream.scope) { this._applySpan(); return; }
             this.stream.scope = scope;
             this._reloadSoon();
         });
@@ -121,8 +133,8 @@ class TimelinePane {
 
     _head() {
         const s = this.stream, cal = s.calendar;
-        this.container.querySelector('.timeline-count').textContent = s.count
-            ? `${formatCount(s.count)} photos · ${cal.formatMonth(0)} – ${cal.formatMonth(s.span - 1)}` : '';
+        this.container.querySelector('.timeline-count').innerHTML = s.count
+            ? `${countHTML(s.count, 'photo')} <span class="nowrap">· ${cal.formatMonth(0)} – ${cal.formatMonth(s.span - 1)}</span>` : '';
         this.container.querySelector('.timeline-undated').textContent = s.undated
             ? `${formatCount(s.undated)} without a date are not shown` : '';
         this._menu.button.hidden = this._phone.matches || !s.count;
@@ -133,17 +145,21 @@ class TimelinePane {
         this._parts = [];
         this._lane = null;
         this.infoPanel = null;
+        this._axis = null;
+        if (this._infoEl) this._infoEl.innerHTML = '';
         this._body.innerHTML = '';
         this._head();
-        if (!this.stream.count) { this._explainEmpty(); return; }
+        if (!this.stream.count) { this._infoBtn.hidden = true; this._explainEmpty(); return; }
         const last = this.stream.span - 1;
         const day = atMs == null ? last : tlClamp(this.stream.calendar.dayAt(atMs), 0, last);
         if (this._phone.matches) this._buildPhone(day); else this._buildDesk(day);
+        // Info belongs to the desk's band; without one there is nothing to describe.
+        this._infoBtn.hidden = !this.infoPanel;
     }
 
     _explainEmpty() {
         this._noteEl.hidden = false;
-        this._noteEl.innerHTML = ScopeState.narrowed({ time: false })
+        this._noteEl.innerHTML = ScopeState.narrowed()
             ? 'No dated photo matches the filter. Widen it, or reset it.'
             : this.stream.undated
             ? 'None of the photos in the libraries has a date taken, so there is nothing to place on the timeline.'
@@ -154,10 +170,10 @@ class TimelinePane {
         const grid = document.createElement('div');
         grid.className = 'timeline-desk';
         grid.innerHTML = `
-            <div class="timeline-main"><div class="timeline-band-wrap"></div><div class="timeline-bar"></div></div>
-            <div class="lib-info-panel-container timeline-info"></div>`;
+            <div class="timeline-main"><div class="timeline-band-wrap"></div><div class="timeline-bar"></div></div>`;
         this._body.appendChild(grid);
-        this.infoPanel = new InfoPanel(grid.querySelector('.timeline-info'));
+        this.infoPanel = new InfoPanel(this._infoEl);
+        this.infoPanel.attachToggle(this._infoBtn);
         const band = new TimelineBand(this.stream, {
             rows: this._rows,
             onView: (a, b) => axis.setView(a, b),
@@ -165,40 +181,40 @@ class TimelinePane {
             onOpen: (i) => this._open(i),
         });
         band.startDay = day;
-        this.infoPanel.onToggle = () => { if (band.selected >= 0) this._showInfo(band.selected); };
+        this.infoPanel.onToggle = () => {
+            if (!this.infoPanel.expanded) return;
+            this._filter.close();
+            if (band.selected >= 0) this._showInfo(band.selected);
+        };
         const axis = new TimelineAxis(this.stream, {
             height: 92,
             onSeek: (d) => band.scrollToDay(d),
             onRelease: () => band.render(),
         });
         grid.querySelector('.timeline-band-wrap').appendChild(band.el);
-        grid.querySelector('.timeline-bar').append(...this._barRows(band, axis), axis.el);
+        grid.querySelector('.timeline-bar').append(axis.el);
         this._lane = band;
+        this._axis = axis;
         this._parts.push(band, axis);
+        // A span set before keeps the band where it was unless it limits it.
+        if (ScopeState.value.from || ScopeState.value.until) this._applySpan();
     }
 
-    _barRows(band, axis) {
-        const cal = this.stream.calendar;
-        const text = document.createElement('span');
-        text.className = 'timeline-range-text';
-        const range = new TimelineRange(this.stream, {
-            height: 40,
-            onLimit: (a, b) => { axis.setDomain(a, b); band.setRange(a, b); },
-            onText: (a, b) => { text.textContent = `${cal.formatMonth(a)} – ${cal.formatMonth(b)}`; },
-        });
-        const all = document.createElement('button');
-        all.type = 'button';
-        all.className = 'btn btn-sm';
-        all.textContent = 'Show all';
-        all.addEventListener('click', () => range.set(0, this.stream.span - 1));
-        this._parts.push(range);
-        const label = document.createElement('span');
-        label.className = 'timeline-bar-label';
-        label.textContent = 'Shown';
-        const shown = document.createElement('div');
-        shown.className = 'timeline-bar-row';
-        shown.append(label, text, all);
-        return [range.el, shown];
+    // The filter's Taken limits the axis and the band to its months; without
+    // it they show every day there is.
+    _applySpan() {
+        if (!this._axis || !this.stream.count) return;
+        const [a, b] = this._span();
+        this._axis.setDomain(a, b);
+        this._lane.setRange(a, b);
+    }
+
+    _span() {
+        const v = ScopeState.value, cal = this.stream.calendar, last = this.stream.span - 1;
+        const from = monthNumber(v.from), until = monthNumber(v.until);
+        const a = from === null || from <= cal.firstMonth ? 0 : from > cal.lastMonth ? last : cal.monthStart(from);
+        const b = until === null || until >= cal.lastMonth ? last : until < cal.firstMonth ? 0 : cal.monthEnd(until) - 1;
+        return a <= b ? [a, b] : [0, last];
     }
 
     _buildPhone(day) {

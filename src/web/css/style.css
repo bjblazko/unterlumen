@@ -259,7 +259,6 @@ body {
 .info-value,
 .cache-info-path,
 .library-card-meta,
-.library-detail-path,
 .ch-path-item,
 .location-input,
 .location-confirm-coords,
@@ -375,6 +374,14 @@ body {
     color: var(--bg);
 }
 
+/* Only the most specific entry is filled: a place whose sub-entry is
+   current is only named in the foreground colour. */
+.nav-item[aria-current="page"]:has(+ * .nav-sub[aria-current="page"]) {
+    background: none;
+    color: var(--fg);
+    font-weight: 600;
+}
+
 .nav-item svg { flex-shrink: 0; }
 
 .nav-text {
@@ -384,11 +391,7 @@ body {
 }
 
 /* Counts appear only where something is waiting for the user. */
-.nav-count {
-    margin-left: auto;
-    font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
-}
+.nav-item .nav-count { margin-left: auto; }
 
 .nav-count:empty { display: none; }
 
@@ -678,11 +681,6 @@ button.toggle {
     color: var(--overlay-fg);
 }
 
-.viewer-filmstrip-label {
-    font-size: 12px;
-    color: var(--overlay-fg-3);
-}
-
 /* —— Buttons —— */
 
 .btn {
@@ -779,20 +777,34 @@ button.toggle {
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 0 var(--space-6);
 }
 
 .browse-header {
     flex-shrink: 0;
-    padding-top: var(--space-4);
 }
 
 .browse-content {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-    padding-bottom: var(--space-4);
+    padding: 0 var(--space-6) var(--space-4);
 }
+
+/* Under the head, one row: where you are on the left, how the photos are
+   shown and Select all on the right. */
+.browse-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-6);
+}
+
+.browse-bar .breadcrumb-row { flex: 1 1 0; min-width: 16rem; }
+.browse-bar-spacer { flex: 1; }
+.browse-bar:not(:has(.breadcrumb-row)) .controls { flex: 1; }
+.breadcrumb .crumb-out { color: var(--fg-2); }
+.breadcrumb .crumb-out:hover { color: var(--fg); }
 
 /* —— Breadcrumb —— */
 
@@ -853,10 +865,10 @@ button.toggle {
 
 .controls {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-2) 0 var(--space-4);
-    gap: var(--space-4);
+    gap: var(--space-2) var(--space-4);
 }
 
 .controls-left {
@@ -936,7 +948,7 @@ button.toggle {
 .dep-note {
     padding: var(--space-3) var(--space-3);
     border-top: 1px solid var(--line);
-    font-size: 12px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
     background: var(--bg);
 }
@@ -1391,7 +1403,7 @@ button.toggle {
 .list-view {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
 .list-view th {
@@ -1436,12 +1448,18 @@ button.toggle {
     image-orientation: from-image;
 }
 
+/* The name takes the room the other columns leave, and is cut only when
+   that room runs out. */
 .list-name {
-    max-width: 300px;
+    width: 100%;
+    max-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.list-date,
+.list-size { white-space: nowrap; }
 
 .dir-row .list-name {
     font-weight: 500;
@@ -1603,22 +1621,6 @@ button.toggle {
     min-height: 0;
 }
 
-.organize-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-4);
-    padding: var(--space-4) var(--space-6);
-    border-bottom: 1px solid var(--line);
-    flex-shrink: 0;
-}
-
-.organize-title {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    margin: 0;
-}
-
 .organize-path {
     font-size: var(--text-sm);
     color: var(--fg-3);
@@ -1630,11 +1632,16 @@ button.toggle {
     color: var(--fg-2);
 }
 
-.organize-spacer { flex: 1; }
-
-.organize-keys {
+/* The keys of Organize, where they are used: under the targets. */
+.org-keys {
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
     font-size: var(--text-sm);
-    color: var(--fg-3);
+    color: var(--fg-2);
 }
 
 .organize-body {
@@ -1652,11 +1659,6 @@ button.toggle {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 0 var(--space-6); /* the same margin as Folders and a library */
-}
-
-.organize-source .select-all-count {
-    display: none;
 }
 
 .organize-targets {
@@ -1717,7 +1719,7 @@ button.toggle {
 
 .org-target-note {
     grid-column: 1;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--fg-2);
 }
 
@@ -1756,25 +1758,20 @@ button.toggle {
     color: var(--warning-ink);
 }
 
-.organize-ask {
+/* —— Folder picker: New folder —— */
+
+.fp-new {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-6);
-    border-top: 1px solid var(--line-strong);
-    background: var(--bg-2);
+    margin: var(--space-2) 0;
 }
 
-.organize-ask-input {
-    height: var(--control-h-sm);
-    min-width: 12rem;
-    padding: 0 var(--space-2);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-sm);
-    background: var(--bg);
-    color: var(--fg);
-}
+.fp-new .form-label { flex-basis: 100%; }
+.fp-new .form-input { flex: 1; height: var(--control-h-sm); box-sizing: border-box; }
+.fp-new .fp-msg { flex-basis: 100%; }
+.fp-crumbs .fp-new-btn { margin-left: auto; }
 
 /* —— Viewer —— */
 
@@ -1788,7 +1785,8 @@ button.toggle {
 .viewer-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--space-4);
+    /* The three groups stand apart; the counter never touches the zoom. */
+    gap: var(--space-8);
     padding: var(--space-2) var(--space-6);
     background: var(--overlay-raise);
     border-bottom: none;
@@ -1825,7 +1823,9 @@ button.toggle {
 }
 
 .viewer-counter {
-    font-size: 12px;
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
     color: var(--overlay-fg-3);
     white-space: nowrap;
 }
@@ -2201,11 +2201,15 @@ body.ui-hidden .viewer-filmstrip {
 .browse-layout > .selection-bar {
     position: absolute;
     left: 0;
-    right: 300px;
+    right: calc(320px + var(--space-16));
     bottom: 0;
 }
 
-.browse-layout:has(.info-panel.collapsed) > .selection-bar { right: var(--space-10); }
+.browse-layout:not(:has(.info-panel.expanded)) > .selection-bar { right: var(--space-16); }
+
+@media (max-width: 700px) {
+    .browse-layout > .selection-bar { right: 0; }
+}
 
 /* —— Info panel —— */
 
@@ -2260,7 +2264,7 @@ body.ui-hidden .viewer-filmstrip {
 
 .info-panel-title {
     font-size: var(--text-sm);
-    color: var(--fg-2);
+    color: var(--fg);
     font-weight: 600;
 }
 
@@ -2571,23 +2575,29 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     50% { opacity: 0; }
 }
 
-/* A token's colour says which kind it is, and the same colour marks it inside
-   the pattern — that is identity, so it comes from the chart ramp (ADR-0034)
-   and is designed for both themes instead of being four fixed hexes. */
-.batch-rename-cat-date     { border-color: var(--chart-1) !important; color: var(--chart-1) !important; }
-.batch-rename-cat-camera   { border-color: var(--chart-3) !important; color: var(--chart-3) !important; }
-.batch-rename-cat-exposure { border-color: var(--chart-2) !important; color: var(--chart-2) !important; }
-.batch-rename-cat-file     { border-color: var(--chart-4) !important; color: var(--chart-4) !important; }
+/* A token in the pattern is marked, all alike: which kind it is, its group
+   under the field says. */
+.batch-rename-hl { background: var(--bg-3); border-radius: var(--radius-sm); color: transparent; }
 
-.batch-rename-hl-date     { background: color-mix(in oklch, var(--chart-1) 18%, transparent); border-radius: var(--radius-sm); color: transparent; }
-.batch-rename-hl-camera   { background: color-mix(in oklch, var(--chart-3) 18%, transparent); border-radius: var(--radius-sm); color: transparent; }
-.batch-rename-hl-exposure { background: color-mix(in oklch, var(--chart-2) 18%, transparent); border-radius: var(--radius-sm); color: transparent; }
-.batch-rename-hl-file     { background: color-mix(in oklch, var(--chart-4) 18%, transparent); border-radius: var(--radius-sm); color: transparent; }
+.batch-rename-token-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.batch-rename-token-label {
+    min-width: 5rem;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.batch-rename-preview-header--warn { color: var(--warning-ink); }
 
 .batch-rename-tokens {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    flex-direction: column;
+    gap: var(--space-2);
     margin-bottom: var(--space-4);
 }
 
@@ -2708,29 +2718,33 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .export-label {
-    font-size: 12px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
     min-width: 52px;
 }
 
-.export-format-tabs {
+/* Every choice of the export on one grid: its name, then its segment. */
+.export-grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-2) 0 var(--space-4);
+    border-bottom: 1px solid var(--line);
+}
+
+.export-quality { display: flex; align-items: center; gap: var(--space-3); }
+.export-grid > .seg { justify-self: start; }
+.export-grid > .export-label { align-self: start; line-height: var(--control-h-sm); }
+
+.export-choice {
     display: flex;
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
 }
 
-.export-format-tabs .btn {
-    border-radius: 0;
-    border: none;
-}
-
-.export-format-tabs .btn.active {
-    background: var(--fg);
-    color: var(--bg-2);
-}
+.export-choice .export-destination-wrap { flex-basis: 100%; }
 
 .export-quality-slider {
     flex: 1;
@@ -2851,7 +2865,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 
 .export-note {
-    font-size: 11px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
 }
 
@@ -2859,27 +2873,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     display: flex;
     align-items: center;
     gap: var(--space-2);
-}
-
-.export-estimate-toggle {
-    display: flex;
-    gap: 1px;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.export-estimate-toggle .btn {
-    font-size: 13px;
-    padding: 1px 8px;
-    border-radius: 0;
-    border: none;
-}
-
-.export-estimate-toggle .btn.active {
-    background: var(--fg);
-    color: var(--bg-2);
 }
 
 .export-activity .activity {
@@ -3135,7 +3128,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .fp-row-note {
     grid-column: 2;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--fg-3);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3456,44 +3449,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     overflow: hidden;
 }
 
-.library-list-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    height: var(--space-12);
-    padding: 0 var(--space-6);
-    border-bottom: 1px solid var(--line);
-    background: var(--bg-2);
-    flex-shrink: 0;
-}
-
-.library-list-title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.library-list-header-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-left: auto;
-}
-
-
-.header-actions-sep {
-    width: 1px;
-    height: 16px;
-    background: var(--line);
-    flex-shrink: 0;
-}
-
-/* A separator with nothing after it separates nothing — this happens when the
-   buttons behind it are hidden, as they are on a phone. */
-.header-actions-sep:last-child {
-    display: none;
-}
-
 .btn-toggle::after {
     content: '·';
     margin-left: 4px;
@@ -3518,10 +3473,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex: 1;
     min-width: 0;
     overflow-y: auto;
-    padding: var(--space-6) var(--space-8);
+    padding: var(--space-2) var(--space-6) var(--space-6);
     display: flex;
     flex-direction: column;
-    gap: var(--space-8);
+    gap: var(--space-2);
 }
 
 /* A list of libraries is a list, not a deck of cards: one hairline between
@@ -3540,7 +3495,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-4);
-    padding: var(--space-4) var(--space-6);
+    padding: var(--space-4) 0;
 }
 
 .library-card-filmstrip {
@@ -3548,7 +3503,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     overflow: hidden;
     height: 48px;
     flex-shrink: 0;
-    margin: 0 var(--space-6) var(--space-4);
+    margin: 0 0 var(--space-4);
 }
 
 .library-card-filmstrip img {
@@ -3640,56 +3595,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     overflow: hidden;
 }
 
-.library-detail-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: 0 var(--space-6);
-    height: var(--space-12);
-    border-bottom: 1px solid var(--line);
-    background: var(--bg-2);
-    flex-shrink: 0;
-}
-
-.library-back-btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-}
-
-.library-detail-title {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
-    overflow: hidden;
-}
-
-.library-detail-name {
-    font-size: 13px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.library-detail-path {
-    font-size: 11px;
-    color: var(--fg-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.library-detail-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-shrink: 0;
-}
-
 .library-search-input {
     height: 28px;
     padding: 0 var(--space-3);
@@ -3714,37 +3619,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    padding: 0 var(--space-6);
 }
+
+.lib-info-panel-container:empty,
+#info-panel-container:empty { display: none; }
 
 .lib-info-panel-container {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--line);
-}
-
-/* --- Search Result Pane --- */
-
-.search-breadcrumb {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.search-close-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--fg-2);
-    font-size: 16px;
-    line-height: 1;
-    padding: 2px 4px;
-    border-radius: var(--radius-sm);
-}
-
-.search-close-btn:hover {
-    color: var(--fg);
 }
 
 /* --- Library filter ------------------------------------------------------
@@ -3772,15 +3656,20 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     display: none;
     flex-direction: column;
     flex-shrink: 0;
-    width: 280px;
+    width: 320px;
     overflow-x: hidden;
     overflow-y: auto;
     background: var(--bg-2);
+    border-left: 1px solid var(--line);
 }
 
 .lib-filter-panel.visible {
     display: flex;
 }
+
+/* The filter and the info panel share the column on the right: open, the
+   filter has it to itself. */
+.lib-filter-body:has(> .lib-filter-panel.visible) > .lib-info-panel-container { display: none; }
 
 /* --- Filter: a panel you open and close, like the sidebar ---------------
    The button stands at the left end of the library's head, directly above
@@ -3808,21 +3697,111 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     transform: scaleX(-1);
 }
 
-.lib-filter-btn-count {
-    font-size: var(--text-xs);
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    color: var(--bg);
-    background: var(--fg);
-    border-radius: var(--radius-full);
-    padding: 1px 5px;
+/* --- Tool strip: the panels of the right-hand column, at the edge --- */
+
+/* As in IntelliJ: one narrow column at the right edge of a place, a toggle
+   per panel — its glyph, its word, its count. The panel opens beside it. */
+.tool-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+    width: var(--space-16);
+    box-sizing: border-box;
+    padding: var(--space-2) var(--space-1);
+    border-left: 1px solid var(--line);
+    background: var(--bg-2);
+    flex-shrink: 0;
 }
+
+.panel-toggle {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--fg-2);
+    font: 500 var(--text-xs)/1.2 var(--font-sans);
+    cursor: pointer;
+}
+
+.panel-toggle:hover { background: var(--hover-overlay); color: var(--fg); }
+.panel-toggle[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.panel-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The count sits on the glyph's corner, as a badge. */
+.panel-toggle .lib-filter-btn-count {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    margin: 0;
+    height: 16px;
+    padding: 0 var(--space-1);
+}
+
+.panel-toggle[aria-pressed="true"] .lib-filter-btn-count { background: var(--bg); color: var(--fg); }
+
+@media (max-width: 700px) {
+    /* A phone has no room for a column: the toggles float as one row over
+       the bottom right, above the tab bar. */
+    .tool-strip {
+        position: fixed;
+        right: var(--space-3);
+        bottom: calc(var(--tabbar-h) + var(--space-3));
+        z-index: 40;
+        flex-direction: row;
+        width: auto;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-float);
+    }
+    .panel-toggle { min-width: 56px; min-height: 44px; }
+    .tool-strip:not(:has(.panel-toggle:not([hidden]):not(.info-head-toggle))) { display: none; }
+}
+
+/* --- Count: how many, beside the label it counts --- */
+
+/* One look for every count that stands beside a label — a button's, a
+   sidebar entry's, a link's, a chip's: a pill, apart from the word. */
+.count,
+.lib-filter-btn-count,
+.nav-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5em;
+    height: 18px;
+    box-sizing: border-box;
+    padding: 0 var(--space-2);
+    margin-left: var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--fg);
+    color: var(--bg);
+    font: 500 var(--text-xs)/1 var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.count:empty,
+.lib-filter-btn-count:empty { display: none; }
+
+/* A run of words that must not break, as "· 2020–2026". */
+.nowrap { white-space: nowrap; }
+
+/* On a filled entry or chip the pill turns round, so it still stands out. */
+.nav-item[aria-current="page"] .nav-count,
+[aria-pressed="true"] > .count { background: var(--bg); color: var(--fg); }
 
 .lib-filter-head {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--line);
 }
 
@@ -3832,20 +3811,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--fg);
 }
 
-.lib-filter-count {
-    font-size: var(--text-xs);
-    color: var(--fg-2);
-    font-variant-numeric: tabular-nums;
-}
-
-.lib-filter-close {
-    margin-left: auto;
-}
-
 .lib-filter-hint {
     margin: 0;
     padding: var(--space-2) var(--space-4);
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--fg-2);
 }
 
@@ -3999,6 +3968,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .lib-filter-select:focus-visible,
+.lib-date-input { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.lib-date-input[aria-invalid] { border-color: var(--warning); }
+
 .lib-date-input:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
@@ -4722,7 +4694,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .library-dialog-note {
-    font-size: 11px;
+    font-size: var(--text-sm);
     color: var(--fg-2);
 }
 .library-dialog-progress {
@@ -4755,6 +4727,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .form-hint {
+    font-size: var(--text-sm);
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
@@ -5254,8 +5227,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* --- Zoom Controls --- */
 
-.viewer-zoom-group,
-.viewer-action-group {
+.viewer-zoom-group {
     display: flex;
     align-items: stretch;
     gap: 1px;
@@ -5265,8 +5237,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     overflow: hidden;
 }
 
-.viewer-zoom-group .btn,
-.viewer-action-group .btn {
+.viewer-zoom-group .btn {
     display: inline-flex;
     align-items: center;
     border: none;
@@ -5277,12 +5248,19 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .viewer-zoom-group .viewer-zoom-select {
     border: none;
     border-radius: 0;
-    background: var(--overlay-raise);
+    background-color: var(--overlay-raise);
 }
 
-.viewer-action-group {
-    margin-left: auto;
+/* Three groups: where you are, how large, what to do with it. */
+.viewer-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+    min-width: 0;
 }
+
+.viewer-group-end { justify-content: flex-end; gap: var(--space-2); }
 
 .viewer-zoom-select {
     background: var(--overlay-hover);
@@ -5290,11 +5268,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-radius: var(--radius-sm);
     color: var(--overlay-fg);
     font-size: 12px;
-    padding: 0 4px;
+    font-family: inherit;
     cursor: pointer;
     min-width: 56px;
-    text-align: center;
-    font-family: inherit;
+    /* Its own arrow, inset like .select-btn's; the viewer is always dark. */
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 0 calc(var(--space-3) + 16px) 0 var(--space-3);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23C2C3BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
 }
 
 .viewer-zoom-select:focus {
@@ -5311,21 +5294,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-direction: column;
 }
 
-.gal-head {
-    flex-wrap: wrap;
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-6);
-    border-bottom: 1px solid var(--line);
-}
-
-.gal-title {
-    font-size: var(--text-lg);
-    font-weight: 600;
-}
-
-.gal-head-count,
 .gal-group-meta {
     font-size: var(--text-sm);
     color: var(--fg-3);
@@ -5437,11 +5405,16 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex: none;
 }
 
-.gal-state--online { color: var(--confirm-ink); }
-.gal-state--pending { color: var(--time-ink); }
-.gal-state--built { color: var(--time-ink); }
-.gal-state--exported { color: var(--fg-2); }
-.gal-state--exported::before { border-radius: 1px; }
+.gal-state--published { color: var(--confirm-ink); }
+
+/* What a state still needs, after it: plain, or in the warning colour where
+   something is left undone. */
+.gal-state-note {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.gal-state-note--warn { color: var(--warning-ink); }
 
 .gal-state--draft { color: var(--fg-2); }
 .gal-state--draft::before {
@@ -5727,14 +5700,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     border-top: 1px solid var(--line-strong);
 }
 
-.selection-bar-count {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    margin-right: var(--space-2);
-}
-
-.selection-bar-spacer { flex: 1; }
-
 /* --- Collect dialog: pick a gallery, not a channel --- */
 
 .collect-search-row { margin-bottom: var(--space-3); }
@@ -5801,33 +5766,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     flex-direction: column;
 }
 
-.dest-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-}
-
-.dest-table th {
-    text-align: left;
-    padding: var(--space-2) var(--space-3);
-    border-bottom: 1px solid var(--line-strong);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    color: var(--fg-3);
-}
-
-.dest-table td {
-    padding: var(--space-3);
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-}
-
-.dest-row { cursor: pointer; }
-.dest-row:hover { background: var(--hover-overlay); }
-.dest-name { font-weight: 500; }
 .dest-mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
-.dest-quiet { color: var(--fg-3); }
-.dest-num { text-align: right; font-variant-numeric: tabular-nums; }
+.dest-row .gal-row-state { max-width: 22rem; text-align: right; }
 
 .dest-form {
     max-width: 52rem;
@@ -6180,7 +6120,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .lib-move-down,
     .lib-sort-select,
     #lib-new-btn,
-    .library-list-header .header-actions-sep,
     .desk-only {
         display: none !important;
     }
@@ -6196,30 +6135,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         height: 44px;
     }
 
-    /* Filter stays: it only looks at photos. Statistics moves into the
-       pane's ⋯ menu; Edit library is settings work and hides with the other
-       desk-only controls; the path under the name goes too, so the name
-       itself stays readable. */
-    .library-detail-controls,
-    .library-list-header-actions {
-        flex-wrap: wrap;
-        gap: var(--space-2);
-    }
-
-    .library-detail-header {
-        height: auto;
-        min-height: var(--space-12);
-        flex-wrap: wrap;
-        gap: var(--space-2) var(--space-3);
-        padding: var(--space-2);
-    }
-
-    .library-detail-path {
-        display: none;
-    }
-
     /* There is no room to put the filter beside the photos, so it takes the
-       screen for as long as it is open and gives it back on Done. */
+       screen for as long as it is open and gives it back on Hide. */
     .lib-filter-panel.visible {
         position: absolute;
         inset: 0;
@@ -6228,16 +6145,9 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         z-index: 50;
     }
 
-    .library-list-header {
-        height: auto;
-        flex-wrap: wrap;
-        gap: var(--space-2);
-        padding: var(--space-2);
-    }
-
     /* Photos take the width: a thin margin, not a frame. */
-    .browse-container { padding: 0 var(--space-2); }
-    .library-pane-wrap { padding: 0 var(--space-2); }
+    .browse-content { padding: 0 var(--space-2) var(--space-3); }
+    .browse-bar { padding: var(--space-2); }
     .library-list-body { padding: var(--space-3) var(--space-2); gap: var(--space-6); }
     /* The rows are divided by hairlines, so their content can start at the
        list's own margin instead of a second one inside each row. */
@@ -6250,10 +6160,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .ss-btn { height: 44px; }
     .ss-counter { min-width: 0; }
 
-    /* The toolbar row that used to sit under the path is gone, so the
-       header keeps its own gap: scrolled photos pass under an edge, not
-       against the path. */
-    .browse-header { padding: var(--space-3) 0 var(--space-2); }
 
     /* One column of content; the info panel becomes a sheet (see viewer). */
     .browse-layout > #info-panel-container,
@@ -6265,7 +6171,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     .split.panel-collapsed { grid-template-columns: minmax(0, 1fr) !important; }
 
     /* Every place keeps the same thin margin as the photos. */
-    .gal-head,
     .gal-body,
     .dest-pane .gal-body { padding-inline: var(--space-2); }
     .gal-empty { padding: var(--space-6) 0; }
@@ -6309,10 +6214,14 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* --- Phone viewer: full screen, swipe, info from below --- */
 
-.phone-only { display: none; }
+.phone-only,
+.viewer-toolbar .phone-only { display: none; }
 
 @media (max-width: 700px) {
+    /* A phone shows a photo's info in the viewer, not beside the grid. */
+    .info-head-toggle { display: none !important; }
     .phone-only { display: revert; }
+    .viewer-toolbar .phone-only { display: inline-flex; }
 
     .viewer-toolbar { padding: var(--space-2) var(--space-3); gap: var(--space-2); }
     .viewer-filename { font-size: var(--text-xs); }
@@ -6544,16 +6453,121 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .folder-tile-meta {
     padding: 0 var(--space-3) var(--space-2);
-    font-family: var(--font-mono);
     font-size: var(--text-xs);
-    font-variant-numeric: tabular-nums;
-    color: var(--fg-3);
+    color: var(--fg-2);
 }
 
 .folder-tile.focused .folder-tile-meta,
 .folder-tile.selected .folder-tile-meta {
     color: inherit;
 }
+
+/* --- Place main: the head and what it heads, in one column ---
+   Beside it, the panels of the right-hand column and the tool strip run the
+   place's whole height. */
+.place-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Place header: one head for every place --- */
+
+.place-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.place-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    min-height: var(--control-h-sm);
+}
+
+.place-title {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    line-height: 1.2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.place-meta {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.place-meta:empty { display: none; }
+
+.place-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+.place-header-actions:empty { display: none; }
+
+/* What a host adds to a pane's head sits in the same row, with its gap. */
+.browse-header-extra { display: contents; }
+
+.place-header .place-lede { margin: 0; }
+
+/* A detail page's title is its way back and its name, at the title's size. */
+.place-title .gal-crumbs { font-size: inherit; gap: var(--space-2); }
+.place-title .link-btn { font: inherit; }
+
+@media (max-width: 700px) {
+    .place-header { padding: var(--space-3) var(--space-4); }
+    .place-title { font-size: var(--text-lg); }
+}
+
+/* --- Panel hide: the sidebar's panel glyph, framed, at a panel's head --- */
+
+.panel-hide-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-h-sm);
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+    padding: 0;
+    flex: none;
+    /* Every panel's head ends with it, whatever stands between. */
+    margin-left: auto;
+}
+
+/* --- Segment of radios: one choice, drawn as a segment --- */
+
+.seg-radio label {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 var(--space-3);
+    background: var(--bg);
+    color: var(--fg-2);
+    font: 500 var(--text-sm)/1 var(--font-sans);
+    cursor: pointer;
+    position: relative;
+}
+
+.seg-radio label + label { border-left: 1px solid var(--line-strong); }
+.seg-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.seg-radio label:has(input:checked) { background: var(--fg); color: var(--bg); }
+.seg-radio label:has(input:disabled) { opacity: 0.4; cursor: default; }
+.seg-radio label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; z-index: 1; }
 
 /* --- Select all: beside the count of a collection --- */
 
@@ -6579,7 +6593,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .select-all-count + .btn { margin-left: var(--space-2); }
 
-.wastebin-select { margin-bottom: var(--space-4); }
 
 /* --- Libraries: one row per library, the row itself opens it --- */
 
@@ -6606,10 +6619,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .library-card-count {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
     font-size: var(--text-sm);
-    color: var(--fg-3);
+    color: var(--fg-2);
 }
 
 .library-card-actions {
@@ -6649,27 +6660,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* --- Marked for deletion --- */
 
-.page-title-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-4);
-    padding-top: var(--space-4);
-}
-
-.page-title-row h1 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-}
-
-.page-title-spacer { flex: 1; }
-
-.wastebin-note {
-    max-width: 42rem;
-    margin: var(--space-3) 0 var(--space-4);
-    color: var(--fg-2);
-}
-
 .wastebin-question {
     font-size: var(--text-sm);
     color: var(--fg-2);
@@ -6690,7 +6680,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     gap: var(--space-2);
     align-items: flex-start;
     max-width: 32rem;
-    margin-top: var(--space-6);
+    margin: var(--space-6);
     padding: var(--space-4);
     background: var(--bg-2);
     border-radius: var(--radius-md);
@@ -6700,7 +6690,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .wastebin-failures {
     max-width: 42rem;
-    margin-bottom: var(--space-4);
+    margin: 0 var(--space-6) var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--warning-soft);
     border-radius: var(--radius-md);
@@ -6826,7 +6816,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .storage-hint {
     grid-column: 1 / -1;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     color: var(--fg-2);
 }
 
@@ -7042,27 +7032,7 @@ button.combo-item:hover { background: var(--bg-2); }
     flex-direction: column;
 }
 
-.map-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-6);
-    padding: var(--space-4) var(--space-6);
-    border-bottom: 1px solid var(--line);
-}
-
-.map-title {
-    font-size: var(--text-lg);
-    font-weight: 600;
-}
-
-.map-count {
-    font-size: var(--text-sm);
-    color: var(--fg-3);
-    font-variant-numeric: tabular-nums;
-}
-
-.map-head-spacer { flex: 1; }
+.map-pane .map-view { flex: 1; min-height: 0; }
 
 /* The one filter: when the photos were taken. */
 .map-time {
@@ -7086,30 +7056,11 @@ button.combo-item:hover { background: var(--bg-2); }
     font-variant-numeric: tabular-nums;
 }
 
-/* Colour or grey tiles: a purpose word, then the switch with its two. */
-.map-style {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    height: var(--control-h);
-    font-size: var(--text-sm);
-}
-
-.map-style[hidden] { display: none; }
-
-/* The period and the style; a group of their own only so a phone can fold them. */
-.map-options { display: contents; }
-
-.map-options-toggle { display: none; }
-
-.map-options-toggle[aria-expanded="true"] { background: var(--bg-3); }
-
-.map-style-label { color: var(--fg-2); }
-
 .map-body {
     flex: 1;
     min-height: 0;
     display: flex;
+    position: relative;
 }
 
 .map-view {
@@ -7200,19 +7151,8 @@ button.combo-item:hover { background: var(--bg-2); }
 
 
 @media (max-width: 700px) {
-    .map-head { padding: var(--space-3) var(--space-2); }
     /* On a phone the column is the lower half, the map stays above it. */
     .map-body { flex-direction: column; }
-    .map-head-spacer { display: none; }
-    .map-options-toggle:not([hidden]) { display: inline-flex; }
-    .map-options { display: none; }
-    .map-options-open .map-options {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-2) var(--space-6);
-        width: 100%;
-        order: 1;
-    }
     .map-time { width: 100%; }
     .map-time .range-slider { flex: 1; width: auto; }
     .map-time-value { min-width: 0; }
@@ -7232,32 +7172,34 @@ button.combo-item:hover { background: var(--bg-2); }
 
 /* --- Shared filter (ADR-0050) --- */
 
-/* One row of the place's head: libraries, months, cameras, lenses, reset. */
+/* In the head: the conditions as chips, then the Filter button. The column
+   on the right is a library's filter column (.lib-filter-panel). */
 .scope-filter {
-    display: contents;
-}
-
-.scope-filter-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-3);
+    gap: var(--space-2);
 }
 
-.scope-filter-controls > span:empty { display: none; }
-
-.scope-filter .map-time {
-    height: var(--control-h-sm);
+.scope-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
 }
 
-.scope-filter-toggle { display: none; }
+.scope-filter-chips:empty { display: none; }
 
-.scope-filter-toggle[aria-expanded="true"] { background: var(--bg-3); }
-
-.scope-filter-count {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+.scope-filter-panel .map-time {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    height: auto;
 }
+
+.scope-filter-panel .map-time .range-slider { width: auto; }
+.scope-filter-panel .map-time-label { display: none; }
+.scope-filter-panel .multi-select,
+.scope-filter-panel .multi-select > .btn { width: 100%; }
 
 /* --- Multi-select --- */
 
@@ -7318,19 +7260,7 @@ button.combo-item:hover { background: var(--bg-2); }
     color: var(--fg-2);
 }
 
-/* On a phone the filter folds behind its button, so the place keeps its
-   room; open, it takes a line of its own. */
 @media (max-width: 700px) {
-    .scope-filter-toggle { display: inline-flex; }
-    .scope-filter-controls { display: none; }
-    .scope-filter--open .scope-filter-controls {
-        display: flex;
-        width: 100%;
-        order: 1;
-    }
-    .scope-filter-time { width: 100%; }
-    .scope-filter .map-time { width: 100%; }
-    .scope-filter .map-time .range-slider { flex: 1; width: auto; }
     .multi-select-list { position: fixed; left: var(--space-4); right: var(--space-4); top: auto; }
 }
 
@@ -7357,13 +7287,9 @@ button.combo-item:hover { background: var(--bg-2); }
     .place-lede { width: auto; }
     .place-lede-toggle {
         display: inline-flex;
-        width: var(--control-h-sm);
         height: var(--control-h-sm);
         box-sizing: border-box;
         align-items: center;
-        padding: 0;
-        justify-content: center;
-        border-radius: var(--radius-full);
     }
     .place-lede-text { display: none; }
     .place-lede-open {
@@ -7376,30 +7302,10 @@ button.combo-item:hover { background: var(--bg-2); }
     .place-lede-open .place-lede-text { display: block; }
 }
 
-/* Where a head has no room for the button on a line with the title, it goes
-   elsewhere on a phone. The Map's sentence belongs to its folded options. */
-@media (max-width: 700px) {
-    .map-head:not(.map-options-open) .place-lede { display: none; }
-    .map-options-open .place-lede { width: 100%; order: 2; }
-    .map-options-open .place-lede-toggle { display: none; }
-    .map-options-open .place-lede-text { display: block; }
-    /* Closed, the "i" follows the title; open, the sentence takes a line. */
-    .timeline-title { order: -2; }
-    .timeline-head .place-lede:not(.place-lede-open) { order: -1; }
-    .library-list-header .place-lede-open { order: 1; }
-}
-
 .place-link,
 .library-link,
 .folder-link,
 .gal-dest-link { color: var(--fg); }
-
-.library-detail-folder {
-    font-size: var(--text-xs);
-    color: var(--fg-2);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
 
 .settings-guide { color: var(--fg-2); }
 

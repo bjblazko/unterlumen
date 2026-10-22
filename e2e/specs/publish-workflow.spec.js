@@ -225,7 +225,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await reopenPublishedTab(page);
         const row = page.locator('.gal-row', { hasText: galleryTitle });
         await expect(row).toBeVisible({ timeout: 5_000 });
-        await expect(row.locator('.gal-state')).toHaveText('Not online yet');
+        await expect(row.locator('.gal-state')).toHaveText('Not published');
         await expect(row.locator('.gal-row-sub')).toContainText('2 photos collected');
 
         // ── 3. The gallery's own view lists what is waiting; remove one ────
@@ -263,10 +263,10 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await reopenPublishedTab(page);
         const generatedRow = page.locator('.gal-row', { hasText: galleryTitle });
         await expect(generatedRow).toBeVisible({ timeout: 5_000 });
-        await expect(generatedRow.locator('.gal-state')).not.toHaveText('Not online yet');
+        await expect(generatedRow.locator('.gal-state-note')).toHaveText('built, upload missing');
         // Built here, never uploaded — these channels have no upload target,
         // and the state says that rather than claiming the gallery is online.
-        await expect(generatedRow.locator('.gal-state')).toHaveText('Built, not uploaded');
+        await expect(generatedRow.locator('.gal-state')).toHaveText('Not published');
 
         // ── 6. Info Panel now shows the photo as published, not pending ────
         await openLibraryDetail(page);
@@ -323,12 +323,12 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         // The draft is offered again the next time, to add more.
         await selectTwoPhotosAt(page, 6);
         await page.locator('.selection-bar [data-action="collect"]').click();
-        await expect(dlg.locator('.collect-item', { hasText: title })).toContainText('Not exported yet');
+        await expect(dlg.locator('.collect-item', { hasText: title })).toContainText('Not published');
         await dlg.locator('#collect-cancel').click();
 
         await reopenPublishedTab(page);
         const row = page.locator('.gal-row', { hasText: title });
-        await expect(row.locator('.gal-state')).toHaveText('Not exported yet');
+        await expect(row.locator('.gal-state')).toHaveText('Not published');
         await row.click();
         await page.locator('.gal-detail-primary .gal-row-action').click();
         const publishDlg = page.locator('.publish-dialog');
@@ -346,7 +346,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         await expect(publishDlg).toHaveCount(0);
         await reopenPublishedTab(page);
         const exported = page.locator('.gal-row', { hasText: title });
-        await expect(exported.locator('.gal-state')).toHaveText('Exported to folder');
+        await expect(exported.locator('.gal-state')).toHaveText(/^Published \d{4}-\d{2}-\d{2}$/);
         await page.locator('#mode-library').click();
         await openLibraryDetail(page);
         await selectTwoPhotosAt(page, 8);

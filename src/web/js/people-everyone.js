@@ -20,7 +20,7 @@ class PeopleEveryone {
             activity.fail(`The people could not be read: ${err.message}.`);
             return;
         }
-        this.pane._head(people.length ? countPeople(people.length) : '');
+        this.pane._head(people.length ? countHTML(people.length, 'person', 'people') : '');
         this.pane._lede(!people.length);
         body.innerHTML = `
             ${toNameHTML(toName)}
@@ -54,7 +54,7 @@ function toNameHTML(toName, current = '') {
     if (!waiting.length) return '';
     const links = waiting.map(l => {
         const here = String(l.library) === current;
-        return `<a class="people-to-name-link" href="${peopleHash({ view: 'name', library: l.library })}"${here ? ' aria-current="page"' : ''}>${escapeHtml(l.libraryName)} <span class="people-num">${formatCount(l.groups)}</span></a>`;
+        return `<a class="people-to-name-link" href="${peopleHash({ view: 'name', library: l.library })}"${here ? ' aria-current="page"' : ''}>${escapeHtml(l.libraryName)} <span class="count">${formatCount(l.groups)}</span></a>`;
     });
     return `<nav class="people-to-name" aria-label="Groups of faces waiting for a name"><span class="people-label">Groups waiting for a name</span>${links.join('')}</nav>`;
 }
@@ -77,7 +77,6 @@ function wirePeopleFind(container) {
     });
 }
 
-function countPeople(n) { return n === 1 ? '1 person' : `${formatCount(n)} people`; }
 function countLibraries(n) { return n === 1 ? '1 library' : `${formatCount(n)} libraries`; }
 function countPhotos(n) { return n === 1 ? '1 photo' : `${formatCount(n)} photos`; }
 function countFaces(n) { return n === 1 ? '1 face' : `${formatCount(n)} faces`; }
@@ -102,7 +101,7 @@ const OFTEN_WITH_LABEL = 'Often in photos together with · number of photos';
 // name, and in how many photos they are together.
 function withChipHTML(c) {
     const face = c.cover?.face ? `<img class="people-with-face" src="${PeopleAPI.faceURL(c.cover.library, c.cover.face)}" alt="" loading="lazy" width="24" height="24">` : '';
-    return `${face}${escapeHtml(c.name)} <span class="people-num">${formatCount(c.photos)}</span>`;
+    return `${face}${escapeHtml(c.name)}<span class="count">${formatCount(c.photos)}</span>`;
 }
 
 function wireOftenWith(container, name) {

@@ -11,9 +11,7 @@ class WarrantyPane {
         if (this.container.firstChild) return; // nothing on it changes
         this.container.innerHTML = `
             <div class="guide-pane">
-                <div class="gal-head">
-                    <h1 class="gal-title">No warranty</h1>
-                </div>
+                ${placeHeaderHTML({ title: 'No warranty' })}
                 <div class="reading-body">
                     <p class="reading-intro">Unterlumen is free software, made in spare time and given away under the <a href="https://github.com/bjblazko/unterlumen/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache License 2.0</a>. It comes as it is, without warranty of any kind: it may have faults, and you use it at your own risk.</p>
                     <div class="reading-text">

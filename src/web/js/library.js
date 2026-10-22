@@ -33,8 +33,6 @@ function showLibraryProgress(activity, p, busyText) {
 
 const LIBRARY_LEDE = placeLede(`A library catalogs a folder and every folder inside it — say Projects, with one subfolder per project — so you can search its photos, see them on the ${placeLink('map', 'map', 'map')} and the ${placeLink('timeline', 'timeline', 'timeline')}, and collect them into galleries. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder.`);
 
-// On a desk the sentence opens the list; on a phone it folds into the head,
-// where its "i" has room beside the title (see placeLede).
 // Words after a library's folder in the overview: shared, not connected, or
 // shared by another installation. Words, so the state reads without colour.
 function libraryStateWords(lib) {
@@ -42,10 +40,6 @@ function libraryStateWords(lib) {
     if (lib.joinOffer) return ' \u00b7 shared by another installation';
     if (lib.shared) return ' \u00b7 shared';
     return '';
-}
-
-function libraryLedeOnPhone() {
-    return matchMedia('(max-width: 700px)').matches;
 }
 
 class LibraryTab {
@@ -93,23 +87,23 @@ class LibraryTab {
     _renderList() {
         const el = document.createElement('div');
         el.className = 'library-list-view';
-        el.innerHTML = `
-            <div class="library-list-header">
-                ${this._filterButtonHTML()}
-                <h2 class="library-list-title">Libraries</h2>
-                ${libraryLedeOnPhone() ? LIBRARY_LEDE : ''}
-                <div class="library-list-header-actions">
-                    <select class="btn btn-sm select-btn lib-sort-select" aria-label="Sort libraries">
+        // The head and the list are one column, which the filter's results
+        // replace — they have a head of their own — so the panels and the
+        // tool strip beside them run the place's whole height.
+        el.innerHTML = this._filterBodyHTML(`
+            <div class="place-main" id="lib-list-main">
+            ${placeHeaderHTML({
+                title: 'Libraries',
+                actions: `<select class="btn btn-sm select-btn lib-sort-select" aria-label="Sort libraries">
                         <option value="auto">Recently added</option>
                         <option value="name">Name</option>
                         <option value="manual">Custom order</option>
                     </select>
-                    <div class="header-actions-sep"></div>
-                    <button class="btn btn-sm" id="lib-new-btn">New library…</button>
-                </div>
-            </div>
-            ${this._filterBodyHTML(`
-                <div class="library-list-body" id="lib-list-body"></div>`)}`;
+                    <button class="btn btn-sm" id="lib-new-btn">New library…</button>`,
+                lede: LIBRARY_LEDE,
+            })}
+                <div class="library-list-body" id="lib-list-body"></div>
+            </div>`);
         this.container.appendChild(el);
 
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._dialogs.create());
@@ -145,7 +139,7 @@ class LibraryTab {
             onAction: (action) => this._runSelectionAction(action),
         });
 
-        this._mountFilter(el, body, null);
+        this._mountFilter(el, el.querySelector('#lib-list-main'), null);
         this._syncInfoPanel();
         this._loadList(body);
     }
@@ -157,7 +151,9 @@ class LibraryTab {
             this._cachedLibs = libs;
             const prevLastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
             localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
-            body.innerHTML = libraryLedeOnPhone() ? '' : LIBRARY_LEDE;
+            body.innerHTML = '';
+            const meta = body.closest('.library-list-view')?.querySelector('.place-meta');
+            if (meta) meta.innerHTML = countHTML(libs.length, 'library', 'libraries');
             if (libs.length === 0) {
                 body.insertAdjacentHTML('beforeend', '<div class="library-empty">No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.</div>');
                 return;
@@ -185,7 +181,7 @@ class LibraryTab {
         const card = document.createElement('div');
         card.className = 'library-card';
         const lastIdx = lib.lastIndexed
-            ? new Date(lib.lastIndexed).toLocaleDateString()
+            ? formatDay(lib.lastIndexed)
             : 'Never';
 
         const top = document.createElement('div');
@@ -197,7 +193,7 @@ class LibraryTab {
         top.innerHTML = `
             <button class="library-card-open lib-open">
                 <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</span>
-                <span class="library-card-count">${lib.photoCount.toLocaleString()} photo${lib.photoCount !== 1 ? 's' : ''}</span>
+                <span class="library-card-count">${countHTML(lib.photoCount, 'photo')}</span>
                 <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
@@ -243,10 +239,9 @@ class LibraryTab {
         try {
             await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
             const updated = await LibraryAPI.get(lib.id);
-            card.querySelector('.library-card-count').textContent =
-                `${updated.photoCount.toLocaleString()} photo${updated.photoCount !== 1 ? 's' : ''}`;
+            card.querySelector('.library-card-count').innerHTML = countHTML(updated.photoCount, 'photo');
             card.querySelector('.library-card-indexed').textContent =
-                `Indexed ${new Date(updated.lastIndexed).toLocaleDateString()}`;
+                `Indexed ${formatDay(updated.lastIndexed)}`;
         } catch (err) {
             activity.fail(`It stopped: ${err.message}`);
         } finally {
@@ -367,14 +362,6 @@ class LibraryTab {
         if (lib) this._openLibrary(lib);
     }
 
-    // Where the library's folder is in Folders — or why it is not there.
-    _folderLinkHTML(lib) {
-        const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
-        return rel === null
-            ? '<span class="library-detail-folder">Outside the folder this installation serves, so Folders cannot show it</span>'
-            : `<span class="library-detail-folder">${folderLink(rel, 'Open in Folders')}</span>`;
-    }
-
     // What only the library's folder can tell: that it is not connected, or
     // that another installation shares it and this library can join it.
     _libraryNoticeHTML(lib) {
@@ -407,22 +394,6 @@ class LibraryTab {
         const el = document.createElement('div');
         el.className = 'library-detail';
         el.innerHTML = `
-            <div class="library-detail-header">
-                <button class="btn btn-sm library-back-btn" id="lib-back">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 2L3 6l4 4"/></svg>
-                    Libraries
-                </button>
-                ${this._filterButtonHTML()}
-                <div class="library-detail-title">
-                    <span class="library-detail-name">${escapeHtml(lib.name)}</span>
-                    <span class="library-detail-path">${escapeHtml(lib.sourcePath)}</span>
-                    ${this._folderLinkHTML(lib)}
-                </div>
-                <div class="library-detail-controls">
-                    <button class="btn btn-sm desk-only" id="lib-detail-stats-btn">Statistics</button>
-                    <button class="btn btn-sm desk-only" id="lib-edit-btn">Edit library…</button>
-                </div>
-            </div>
             ${this._libraryNoticeHTML(lib)}
             ${this._filterBodyHTML('<div class="library-pane-wrap" id="lib-pane"></div>')}`;
         this.container.appendChild(el);
@@ -434,19 +405,15 @@ class LibraryTab {
             onAction: (action) => this._runSelectionAction(action),
         });
 
-        el.querySelector('#lib-back').addEventListener('click', () => {
+        const leave = () => {
             this._pane = null;
             this._infoPanel = null;
             this.currentLibrary = null;
             this.render();
-        });
-
-        el.querySelector('#lib-detail-stats-btn').addEventListener('click', () => this._openStats());
-        el.querySelector('#lib-edit-btn').addEventListener('click', () => {
-            this._dialogs.edit(lib, (updated) => {
-                this.currentLibrary = { ...lib, ...updated };
-                this.render();
-            });
+        };
+        const edit = () => this._dialogs.edit(lib, (updated) => {
+            this.currentLibrary = { ...lib, ...updated };
+            this.render();
         });
 
         const paneEl = el.querySelector('#lib-pane');
@@ -457,6 +424,10 @@ class LibraryTab {
 
         this._pane = new LibraryPane(paneEl, lib.id, {
             sourcePath: lib.sourcePath,
+            rootLabel: lib.name,
+            onLeave: leave,
+            // What concerns the library as a whole, rare enough for the ⋯.
+            libraryItems: () => this._libraryMenuItems(lib, edit),
             onImageClick: (path) => App.openViewer(path, this._pane),
             onFocusChange: (path, type) => {
                 if (type === 'dir') this._onDirFocus(path);
@@ -464,7 +435,6 @@ class LibraryTab {
             },
             onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
             onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
-            onStatistics: () => this._openStats(),
             onSelectionChange: () => {
                 this._updateSelectionBar();
             },
@@ -479,33 +449,43 @@ class LibraryTab {
 
     /* --- Filter: one column, the same in the overview and in a library --- */
 
-    // The button stands at the left end of the head, directly above the
-    // column it opens, with the same panel glyph as the sidebar's collapse
-    // button and the number of criteria that are on.
-    _filterButtonHTML() {
-        return `
-            <button class="btn btn-sm lib-filter-toggle" id="lib-filter-btn" aria-pressed="false" aria-expanded="false" data-state="off" aria-controls="lib-filter-panel">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                    <rect x="1.5" y="2.5" width="13" height="11"/><path d="M5.5 2.5v11"/>
-                    <path class="collapse-chevron" d="M8.5 6l2 2-2 2"/>
-                </svg>
-                Filter
-                <span class="lib-filter-btn-count" hidden></span>
-            </button>`;
+    // Statistics, Edit library… and the way to the folder in Folders: what
+    // concerns the whole library, in the ⋯ of its head.
+    // A phone looks; it does not edit libraries or open Folders.
+    _libraryMenuItems(lib, edit) {
+        const statistics = { id: 'statistics', label: 'Statistics', onSelect: () => this._openStats() };
+        if (matchMedia('(max-width: 700px)').matches) return [statistics];
+        const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
+        return [
+            statistics,
+            { id: 'edit-library', label: 'Edit library…', onSelect: edit },
+            rel === null
+                ? { id: 'open-in-folders', label: 'Open in Folders', disabled: true, title: 'The library is outside the folder this installation serves' }
+                : { id: 'open-in-folders', label: 'Open in Folders', onSelect: () => App.openFolder(rel) },
+        ];
     }
 
-    // `underHTML` is what the column sits beside — the list of libraries or
-    // the library's own folders. The results take its place once a criterion
-    // is set, and the × on them gives it back.
+    // The Filter toggle of the tool strip, with the panel glyph and the
+    // number of criteria on.
+    _filterButton() {
+        const btn = panelToggleButton('Filter');
+        btn.id = 'lib-filter-btn';
+        btn.setAttribute('aria-controls', 'lib-filter-panel');
+        return btn;
+    }
+
+    // `underHTML` is what the results replace — the list of libraries or the
+    // library's own folders — while a criterion is set. The filter and the
+    // info panel share the column on the right, one at a time.
     _filterBodyHTML(underHTML) {
         return `
             <div class="lib-filter-body">
-                <div class="lib-filter-panel" id="lib-filter-panel"></div>
                 <div class="lib-filter-main">
                     ${underHTML}
                     <div class="library-pane-wrap" id="lib-results-pane" style="display:none"></div>
-                    <div class="lib-info-panel-container" id="lib-info-panel"></div>
                 </div>
+                <div class="lib-filter-panel" id="lib-filter-panel"></div>
+                <div class="lib-info-panel-container" id="lib-info-panel"></div>
             </div>`;
     }
 
@@ -515,24 +495,37 @@ class LibraryTab {
         this._filterUnderEl = underEl;
         this._resultsPane = null;
 
+        // Filter and Info each open their panel of the right-hand column;
+        // one is open at a time.
+        this._filterBtn = this._filterButton();
+        this._infoBtn = panelToggleButton('Info');
         this._infoPanel = new InfoPanel(el.querySelector('#lib-info-panel'));
+        this._infoPanel.attachToggle(this._infoBtn);
+        el.querySelector('.lib-filter-body').appendChild(toolStrip(this._filterBtn, this._infoBtn));
         this._infoPanel.onToggle = () => {
-            if (this._infoPanel.expanded) this.getActivePaneForKeyboard()?._notifyFocusChange();
+            if (!this._infoPanel.expanded) return;
+            this._filterPanel.close();
+            this.getActivePaneForKeyboard()?._notifyFocusChange();
         };
 
         this._filterPanel = new LibraryFilterPanel(
             el.querySelector('#lib-filter-panel'),
-            el.querySelector('#lib-filter-btn'),
+            this._filterBtn,
             scopeLibID,
             {
                 onResults: (photos, multiLib, pagination) => this._showFilterResults(photos, multiLib, pagination),
-                // The panel takes its width from the photos, so the justified
-                // layout has to re-pack when it comes and goes.
-                onOpen: () => this._relayoutPhotos(),
+                // The column takes its width from the photos, so the justified
+                // layout has to re-pack when it comes and goes. Open, the
+                // filter has the column to itself.
+                onOpen: () => {
+                    if (this._infoPanel.expanded) this._infoPanel._setExpanded(false);
+                    this._relayoutPhotos();
+                },
                 onClose: () => this._relayoutPhotos(),
                 onActiveCount: (n) => this._updateFilterCount(n),
                 onLoading: (on) => this._showFilterLoading(on),
                 onError: () => this._resultsEl().classList.add('is-stale'),
+                onCleared: () => this._hideFilterResults(),
             }
         );
     }
@@ -545,7 +538,7 @@ class LibraryTab {
     // The button says how many filters are on, so a closed panel never hides
     // the reason why fewer photos are shown.
     _updateFilterCount(count) {
-        const badge = this._filterEl.querySelector('.lib-filter-btn-count');
+        const badge = this._filterBtn.querySelector('.lib-filter-btn-count');
         if (!badge) return;
         badge.textContent = count ? String(count) : '';
         badge.hidden = count === 0;
@@ -582,11 +575,6 @@ class LibraryTab {
                 onSlideshowInvoke: () => App.handleSlideshowInvoke(this._resultsPane),
                 onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: this.currentLibrary?.sourcePath ?? null }),
                 onSelectionChange: () => this._updateSelectionBar(),
-                // × drops the criteria and gives back what the results replaced.
-                onClose: () => {
-                    this._filterPanel.clearAndHide();
-                    this._hideFilterResults();
-                },
             });
         }
         this._resultsPane.loadResults(photos, multiLib, pagination);
@@ -610,7 +598,10 @@ class LibraryTab {
     // is nothing for it to describe, so it is only there when a pane is.
     _syncInfoPanel() {
         const el = this._filterEl.querySelector('#lib-info-panel');
-        el.style.display = this.getActivePaneForKeyboard() ? '' : 'none';
+        const pane = this.getActivePaneForKeyboard();
+        el.style.display = pane ? '' : 'none';
+        // Info describes a photo or a folder; the list of libraries has none.
+        if (this._infoBtn) this._infoBtn.hidden = !pane;
     }
 
     async _onResultFocus(path) {
@@ -664,13 +655,6 @@ class LibraryTab {
     _runSelectionAction(action) {
         const pane = this.getActivePaneForKeyboard();
         if (!pane) return;
-        if (action === 'clear') {
-            pane.selection.clear();
-            pane.selectedDirs?.clear();
-            pane.updateSelectionClasses();
-            this._updateSelectionBar();
-            return;
-        }
         if (action === 'collect') { this._openCollectModal(); return; }
         if (action === 'organize') {
             const target = pane.getOpenInCommanderTarget();

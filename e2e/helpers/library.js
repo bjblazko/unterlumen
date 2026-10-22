@@ -12,3 +12,10 @@ export async function reindexLibrary(request, libID) {
         throw new Error('Reindex did not finish: ' + text.slice(0, 300));
     }
 }
+
+// libraryMenu chooses an entry of an open library's ⋯ in its head: what
+// concerns the whole library (Statistics, Edit library…, Open in Folders).
+export async function libraryMenu(page, id) {
+    await page.locator('.place-header:visible .menu-btn').click();
+    await page.locator(`.menu [data-id="${id}"]`).click();
+}

@@ -32,7 +32,7 @@ class PeoplePhone {
             activity.fail(`The people could not be read: ${err.message}.`);
             return;
         }
-        this.pane._head(people.length ? countPeople(people.length) : '');
+        this.pane._head(people.length ? countHTML(people.length, 'person', 'people') : '');
         this.pane._lede(!people.length);
         if (!people.length) {
             body.innerHTML = '<div class="people-note"><p>Nobody is named yet. Faces are found and named on your computer; the people named there show here.</p></div>';

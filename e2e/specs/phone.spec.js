@@ -125,8 +125,8 @@ test.describe('Phone', () => {
         // The controls row is gone; the ⋯ offers what only looks. Making a
         // library or clearing a cache changes things: desktop work.
         await expect(page.locator('.controls')).toBeHidden();
-        // Without the toolbar row, the header still keeps a gap above the photos.
-        const gap = await page.locator('.browse-header').evaluate(e => getComputedStyle(e).paddingBottom);
+        // Without the controls, the row under the head still keeps a gap above the photos.
+        const gap = await page.locator('.browse-bar').evaluate(e => getComputedStyle(e).paddingBottom);
         expect(gap).toBe('8px');
         await page.locator('.browse-more .menu-btn').tap();
         await expect(page.locator('.menu .menu-item')).toHaveCount(2);
@@ -215,11 +215,11 @@ test.describe('Phone', () => {
         expect(Math.round(box.width)).toBe(page.viewportSize().width);
     });
 
-    // The sentence under a place's title folds behind an "i" on a phone.
+    // The sentence under a place's title folds behind Explain on a phone.
     test('a place says what it is only when asked', async ({ page }) => {
         await page.goto('/#libraries');
         await waitForAppReady(page);
-        const lede = page.locator('.library-list-header .place-lede');
+        const lede = page.locator('.place-header .place-lede');
         await expect(lede.locator('.place-lede-text')).toBeHidden();
         const info = lede.locator('.place-lede-toggle');
         await expect(info).toHaveAttribute('aria-expanded', 'false');
@@ -230,8 +230,8 @@ test.describe('Phone', () => {
         await expect(lede.locator('.place-lede-text')).toBeHidden();
     });
 
-    // The period and the style fold away so the map keeps its height.
-    test('the map folds its options', async ({ page, request }) => {
+    // The style is in the ⋯ and the sentence behind Explain, so the map keeps its height.
+    test('the map keeps its options out of the way', async ({ page, request }) => {
         // folder-b holds photos with a location.
         const existing = await (await request.get('/api/library/')).json();
         await Promise.all(existing.filter(l => l.name === 'E2E Phone map').map(l => request.delete(`/api/library/${l.id}`)));
@@ -244,15 +244,13 @@ test.describe('Phone', () => {
             }));
             await page.goto('/#map');
             await waitForAppReady(page);
-            const options = page.locator('.map-options-toggle');
-            await expect(options).toBeVisible({ timeout: 15_000 });
-            await expect(page.locator('.map-style')).toBeHidden();
-            await expect(page.locator('.map-head .place-lede')).toBeHidden();
-            await options.tap();
-            await expect(page.locator('.map-style')).toBeVisible();
-            await expect(page.locator('.map-head .place-lede-text')).toBeVisible();
-            await options.tap();
-            await expect(page.locator('.map-style')).toBeHidden();
+            await page.waitForSelector('.map-marker', { timeout: 15_000 });
+            const text = page.locator('.place-header .place-lede-text');
+            await expect(text).toBeHidden();
+            await page.locator('.place-header .place-lede-toggle').tap();
+            await expect(text).toBeVisible();
+            await page.locator('.map-pane .place-header .menu-btn').tap();
+            await expect(page.getByRole('menuitemcheckbox', { name: /Map/ })).toBeVisible();
         } finally {
             await request.delete(`/api/library/${lib.id}`);
         }

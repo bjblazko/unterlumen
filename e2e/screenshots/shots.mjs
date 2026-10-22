@@ -144,7 +144,8 @@ export const shots = [
         name: 'library-sharing',
         take: async (page, { base }) => {
             await openLibrary(page, base);
-            await page.locator('#lib-edit-btn').click();
+            await page.locator('.place-header .menu-btn').click();
+            await page.locator('.menu [data-id="edit-library"]').click();
             await page.waitForSelector('#lib-edit-share .toggle');
             await page.locator('#lib-edit-share .toggle').click();
             await page.waitForSelector('#lib-edit-share .toggle[data-state="on"]');

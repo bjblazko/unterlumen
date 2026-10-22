@@ -111,7 +111,7 @@ test.describe('Destinations', () => {
         await page.goto('/#destinations');
         await waitForAppReady(page);
         await expect(page.locator('#mode-destinations')).toHaveAttribute('aria-current', 'page');
-        await expect(page.locator('.dest-table')).toBeVisible({ timeout: 8_000 });
+        await expect(page.locator('.dest-list')).toBeVisible({ timeout: 8_000 });
 
         // The old entry point — a modal reachable only from an opened library
         // — is gone.

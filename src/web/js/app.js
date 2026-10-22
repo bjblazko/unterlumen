@@ -126,13 +126,6 @@ const App = {
         // The phone's tab bar, and any other link that names a place, point at
         // the same places as the sidebar. A hash link on its own would not
         // fire popstate, so the app would stay where it is.
-        for (const el of document.querySelectorAll('#nav-about [data-about-topic]')) {
-            el.addEventListener('click', (e) => {
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-                e.preventDefault();
-                this.setMode(el.dataset.aboutTopic);
-            });
-        }
         for (const el of document.querySelectorAll('.tabbar-item, .desk-only-notice a[data-mode]')) {
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -315,7 +308,6 @@ const App = {
         this.uiHidden = !this.uiHidden;
         document.body.classList.toggle('ui-hidden', this.uiHidden);
         localStorage.setItem('ui-hidden', this.uiHidden ? '1' : '0');
-        if (this._hideUiToggle) this._hideUiToggle.setState(!this.uiHidden);
         if (this.uiHidden) this._showUIHint();
     },
 
@@ -401,20 +393,16 @@ const App = {
 
     // Mark where we are. There is no "done" or "next" — these are places.
     _markPlace(mode) {
+        // About's topics have no entries of their own; About stands for them.
+        const current = ABOUT_PLACES.has(mode) ? 'about' : mode;
         for (const [navMode, place] of Object.entries(this.NAV)) {
             const el = document.getElementById(place.id);
             if (!el) continue;
-            if (navMode === mode) el.setAttribute('aria-current', 'page');
+            if (navMode === current) el.setAttribute('aria-current', 'page');
             else el.removeAttribute('aria-current');
         }
         for (const el of document.querySelectorAll('.tabbar-item')) {
             if (el.dataset.mode === mode) el.setAttribute('aria-current', 'page');
-            else el.removeAttribute('aria-current');
-        }
-        // About's topics show while About or one of them is open.
-        document.getElementById('nav-about').hidden = !ABOUT_PLACES.has(mode);
-        for (const el of document.querySelectorAll('#nav-about [data-about-topic]')) {
-            if (el.dataset.aboutTopic === mode) el.setAttribute('aria-current', 'page');
             else el.removeAttribute('aria-current');
         }
         // A phone browses; it does not cull, organise or configure. Those
@@ -487,6 +475,10 @@ const App = {
             '<div id="browse-container" class="browse-container"></div>' +
             '<div id="info-panel-container"></div>';
         document.getElementById('app').appendChild(this._browseEl);
+        // Info opens from the tool strip at the edge, as every panel of the
+        // right-hand column does.
+        this._infoBtn = panelToggleButton('Info');
+        this._browseEl.appendChild(toolStrip(this._infoBtn));
         this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
             onNavigate: (path) => { this.currentBrowsePath = path; },
             onImageClick: (path) => this.openViewer(path, this.browsePane),
@@ -497,6 +489,7 @@ const App = {
             lede: placeLede(`Your folders as they are on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a ${placeLink('library', 'libraries', 'library')}.`),
         });
         this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
+        this.infoPanel.attachToggle(this._infoBtn);
         this.infoPanel.onToggle = () => {
             if (this.browsePane && this.browsePane.view === 'justified') {
                 this.browsePane._justifiedRenderer.scheduleRelayout();
@@ -704,12 +697,6 @@ const App = {
     runSelectionAction(action, pane) {
         if (!pane) return;
         const files = pane.getSelectedFiles();
-        if (action === 'clear') {
-            pane.selection.clear();
-            pane.updateSelectionClasses();
-            pane.onSelectionChange?.([]);
-            return;
-        }
         // Folders count for Download: they come with everything in them.
         if (action === 'download') {
             Originals.download(files, pane, { dirs: [...(pane.selectedDirs || [])] });
@@ -804,7 +791,6 @@ const App = {
             case 'set-location': this._setLocation(files, sourcePath, onDone, pane); break;
             case 'batch-rename': this._batchRename(files, sourcePath, onDone, pane); break;
             case 'export': this._openExport(files, sourcePath, pane); break;
-            case 'clear-cache': this._clearCache(files, path, sourcePath, onDone); break;
         }
     },
 
@@ -889,20 +875,6 @@ const App = {
             sourcePath: sourcePath || null,
             photoRefs,
         });
-    },
-
-    _clearCache(files, path, sourcePath, onDone) {
-        const prefix = sourcePath || '';
-        const toPath = f => prefix ? `${prefix}/${f}` : f;
-        const evictPaths = files.length > 0
-            ? files.map(toPath)
-            : path ? [toPath(path)] : [];
-        if (evictPaths.length === 0) { if (onDone) onDone(); return; }
-        App.showToast('Clearing cache…');
-        API.cacheEvict(evictPaths)
-            .then(r => App.showToast(`Cache cleared for ${r.evicted} file${r.evicted !== 1 ? 's' : ''}`))
-            .catch(e => App.showToast(`Cache clear failed: ${e.message}`))
-            .finally(() => { if (onDone) onDone(); });
     },
 
     // _runLibraryTool starts a scan-like job on a folder of the open library.

@@ -57,9 +57,3 @@ class SelectionManager {
         this._onRedraw();
     }
 }
-
-// "12 images", "1 image · 3 selected" — the status bar's count.
-function imageCountLabel(images, selected) {
-    const count = `${images} image${images !== 1 ? 's' : ''}`;
-    return selected > 0 ? `${count} · ${selected} selected` : count;
-}

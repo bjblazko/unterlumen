@@ -141,14 +141,17 @@ test.describe('Map', () => {
         // From 2020 on: the slider spans every photo's months, and the last
         // ones need not have a located photo.
         await page.evaluate(() => ScopeState.set({ from: '2020-01', until: '' }));
-        await expect(page.locator('.map-count')).toContainText('within the filter');
+        // The condition shows as a chip in the head, and drops with it.
+        const chip = page.locator('.map-pane .scope-filter-chips .lib-filter-chip', { hasText: 'Taken' });
+        await expect(chip).toBeVisible();
+        await expect.poll(async () => countsIn(await page.locator('.map-count').textContent())[0]).toBeLessThan(total);
         const [shown] = countsIn(await page.locator('.map-count').textContent());
         expect(shown).toBeGreaterThan(0);
-        expect(shown).toBeLessThan(total);
         await expect.poll(() => markerTotal(page)).toBe(shown);
 
-        await page.locator('.map-pane .scope-filter-reset').click();
-        await expect(page.locator('.map-count')).not.toContainText('within the filter');
+        await chip.click();
+        await expect(chip).toHaveCount(0);
+        await expect.poll(async () => countsIn(await page.locator('.map-count').textContent())[0]).toBe(total);
         await expect.poll(() => markerTotal(page)).toBe(total);
     });
 
@@ -174,7 +177,7 @@ test.describe('Map', () => {
         await openMap(page);
         const btn = page.locator('.map-photos-toggle');
         const [total] = countsIn(await page.locator('.map-count').textContent());
-        await expect(btn.locator('.lib-filter-btn-count')).toHaveText(String(total).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
+        await expect(btn.locator('.lib-filter-btn-count')).toHaveText(String(total).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f'));
 
         await expect(page.locator('#map-photos')).toBeVisible();
         await expect(btn).toHaveAttribute('aria-expanded', 'true');
@@ -232,16 +235,18 @@ test.describe('Map', () => {
         await openMap(page);
         expect(styles).toEqual(['positron']);
 
-        const toggle = page.locator('.map-style .toggle');
+        // The style is a switch in the Map's ⋯.
+        await page.locator('.map-pane .place-header .menu-btn').click();
+        const toggle = page.getByRole('menuitemcheckbox', { name: /Map/ });
         await expect(toggle).toHaveAttribute('aria-checked', 'false');
-        await expect(page.locator('.map-style')).toContainText('Style');
         await toggle.click();
         await expect.poll(() => styles).toContain('liberty');
         await expect(page.locator('.map-marker').first()).toBeVisible();
 
         await page.reload();
         await page.waitForSelector('.map-marker', { timeout: 20_000 });
-        await expect(page.locator('.map-style .toggle')).toHaveAttribute('aria-checked', 'true');
+        await page.locator('.map-pane .place-header .menu-btn').click();
+        await expect(page.getByRole('menuitemcheckbox', { name: /Map/ })).toHaveAttribute('aria-checked', 'true');
         expect(styles.at(-1)).toBe('liberty');
     });
 });

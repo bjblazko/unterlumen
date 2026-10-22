@@ -35,8 +35,8 @@ test.describe('Filter panel — no EXIF data', () => {
         await page.locator('.lib-filter-select').first().selectOption(String(libID));
         await page.waitForFunction(
             () => {
-                const el = document.querySelector('.lib-filter-status');
-                return el && el.textContent.includes('0 photo');
+                const el = document.querySelector('#lib-results-pane .place-meta');
+                return el && el.textContent.includes('0 photos');
             },
             { timeout: 15_000 },
         );
@@ -66,8 +66,8 @@ test.describe('Filter panel — no EXIF data', () => {
         );
     });
 
-    test('status shows 0 photos match for empty library', async ({ page }) => {
-        await expect(page.locator('.lib-filter-status')).toContainText('0');
+    test('the results count 0 photos for an empty library', async ({ page }) => {
+        await expect(page.locator('#lib-results-pane .place-meta')).toHaveText('0 photos');
     });
 
     test('closing filter panel hides it', async ({ page }) => {
@@ -103,8 +103,8 @@ test.describe('Library search with indexed fixtures', () => {
     async function waitForSearchStatus(page) {
         await page.waitForFunction(
             () => {
-                const el = document.querySelector('.lib-filter-status');
-                return el && el.textContent.includes('match');
+                const el = document.querySelector('#lib-results-pane .place-meta');
+                return el && /\d+ photos?/.test(el.textContent);
             },
             { timeout: 10_000 },
         );
@@ -144,15 +144,15 @@ test.describe('Library search with indexed fixtures', () => {
             expect(text.trim().length).toBeGreaterThan(0);
         });
 
-        test('status shows total photo count', async ({ page }) => {
-            const countText = await page.locator('.lib-filter-status strong').textContent();
+        test('the results count the photos', async ({ page }) => {
+            const countText = await page.locator('#lib-results-pane .place-meta').textContent();
             // src/examples has 79 images; indexer may skip unsupported formats
             expect(parseInt(countText, 10)).toBeGreaterThan(50);
         });
 
-        test('filter breadcrumb shows photo count in results area', async ({ page }) => {
-            await expect(page.locator('.search-breadcrumb')).toContainText('Filter results');
-            await expect(page.locator('.search-breadcrumb')).toContainText('photo');
+        test('the results have a head of their own, with the count', async ({ page }) => {
+            await expect(page.locator('#lib-results-pane .place-title')).toHaveText('Results');
+            await expect(page.locator('#lib-results-pane .place-meta')).toContainText('photo');
         });
 
         test('library selector has "All libraries" option', async ({ page }) => {
@@ -170,7 +170,7 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('selecting a camera model filters results to a subset', async ({ page }) => {
-            const status = page.locator('.lib-filter-status strong');
+            const status = page.locator('#lib-results-pane .place-meta');
             const total = parseInt(await status.textContent(), 10);
 
             const sel = page.locator('.lib-text-filter-select').first();
@@ -178,7 +178,7 @@ test.describe('Library search with indexed fixtures', () => {
 
             await page.waitForFunction(
                 (prev) => {
-                    const el = document.querySelector('.lib-filter-status strong');
+                    const el = document.querySelector('#lib-results-pane .place-meta');
                     return el && parseInt(el.textContent, 10) !== prev;
                 },
                 total,
@@ -191,14 +191,14 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('Reset button restores full photo count after filtering', async ({ page }) => {
-            const status = page.locator('.lib-filter-status strong');
+            const status = page.locator('#lib-results-pane .place-meta');
             const total = parseInt(await status.textContent(), 10);
 
             const sel = page.locator('.lib-text-filter-select').first();
             await sel.selectOption({ index: 1 });
             await page.waitForFunction(
                 (prev) => {
-                    const el = document.querySelector('.lib-filter-status strong');
+                    const el = document.querySelector('#lib-results-pane .place-meta');
                     return el && parseInt(el.textContent, 10) !== prev;
                 },
                 total,
@@ -218,7 +218,7 @@ test.describe('Library search with indexed fixtures', () => {
             );
             await page.locator('.lib-filter-reset').click();
             await resetResponse;
-            await expect(status).toHaveText(String(total));
+            await expect(status).toHaveText(`${total} photos`);
         });
 
         test('focal length 35mm equivalent checkbox is present', async ({ page }) => {
@@ -238,32 +238,43 @@ test.describe('Library search with indexed fixtures', () => {
             await expect(page.locator('#lib-results-pane .focused')).toHaveCount(1);
         });
 
-        test('the info panel is open beside the filter results, and i closes and opens it', async ({ page }) => {
+        // The filter and the info panel share the column on the right: i
+        // opens the info in the filter's place, the Filter button brings it back.
+        test('the filter and the info panel take turns in the right column', async ({ page }) => {
             const results = page.locator('#lib-results-pane [data-type="image"]');
             await expect(results.first()).toBeVisible({ timeout: 10_000 });
-            const panel = page.locator('#lib-info-panel .info-panel');
-            await expect(panel).toHaveClass(/expanded/, { timeout: 5_000 });
+            const filter = page.locator('#lib-filter-panel');
+            const info = page.locator('#lib-info-panel .info-panel');
+            await expect(filter).toHaveClass(/visible/);
+            await expect(page.locator('#lib-info-panel')).toBeHidden();
             await page.keyboard.press('i');
-            await expect(panel).toHaveClass(/collapsed/);
-            await page.keyboard.press('i');
-            await expect(panel).toHaveClass(/expanded/);
+            await expect(info).toHaveClass(/expanded/);
+            await expect(filter).not.toHaveClass(/visible/);
+            await expect(page.locator('.lib-filter-body .info-head-toggle')).toHaveAttribute('aria-pressed', 'true');
+            await page.locator('#lib-filter-btn').click();
+            await expect(filter).toHaveClass(/visible/);
+            await expect(page.locator('#lib-info-panel')).toBeHidden();
         });
 
         // The × works as in a library: criteria dropped, column closed, the
         // list of libraries back. Regression: the hidden results pane used to
         // keep taking keys, so `i` opened an info panel nobody could see.
-        test('× on the results resets the filter and gives the list back', async ({ page }) => {
+        // Results show while the filter is open or something is set; hidden
+        // with nothing set, the filter gives the list back.
+        test('hiding a filter with nothing set gives the list back', async ({ page }) => {
             await expect(page.locator('#lib-results-pane [data-type="image"]').first()).toBeVisible({ timeout: 10_000 });
             await page.locator('.lib-text-filter-select').first().selectOption({ index: 1 });
-            await expect(page.locator('.lib-filter-btn-count')).toHaveText('1', { timeout: 5_000 });
+            await expect(page.locator('#lib-filter-btn .lib-filter-btn-count')).toHaveText('1', { timeout: 5_000 });
 
-            await page.locator('#lib-results-pane .search-close-btn').click();
+            await page.locator('.lib-filter-reset').click();
+            await page.locator('.lib-filter-select').first().selectOption('');
+            await page.locator('.lib-filter-close').click();
             await expect(page.locator('#lib-filter-panel')).not.toHaveClass(/visible/);
             await expect(page.locator('#lib-results-pane')).toBeHidden();
             await expect(page.locator('#lib-list-body')).toBeVisible();
-            await expect(page.locator('.lib-filter-btn-count')).toBeHidden();
+            await expect(page.locator('#lib-filter-btn .lib-filter-btn-count')).toBeHidden();
             // Regression: resetting the chips scheduled a debounced query that
-            // brought every photo back 300 ms after the ×.
+            // brought every photo back 300 ms after the results went.
             await page.waitForTimeout(700);
             await expect(page.locator('#lib-results-pane')).toBeHidden();
 
@@ -283,7 +294,7 @@ test.describe('Library search with indexed fixtures', () => {
             });
             await page.locator('.lib-filter-chip').click();
             await expect(page.locator('.lib-filter-chip')).toHaveCount(0, { timeout: 500 });
-            await expect(page.locator('.lib-filter-btn-count')).toBeHidden({ timeout: 500 });
+            await expect(page.locator('#lib-filter-btn .lib-filter-btn-count')).toBeHidden({ timeout: 500 });
             await page.unrouteAll({ behavior: 'wait' });
         });
 
@@ -293,29 +304,29 @@ test.describe('Library search with indexed fixtures', () => {
         });
 
         test('setting a far-future From date filters results to zero', async ({ page }) => {
-            const status = page.locator('.lib-filter-status strong');
+            const status = page.locator('#lib-results-pane .place-meta');
             await page.locator('.lib-date-input').first().fill('2099-01-01');
             await page.locator('.lib-date-input').first().dispatchEvent('change');
             await page.waitForFunction(
                 () => {
-                    const el = document.querySelector('.lib-filter-status strong');
-                    return el && el.textContent.trim() === '0';
+                    const el = document.querySelector('#lib-results-pane .place-meta');
+                    return el && parseInt(el.textContent, 10) === 0;
                 },
                 { timeout: 10_000 },
             );
-            expect(await status.textContent()).toBe('0');
+            expect(await status.textContent()).toBe('0 photos');
         });
 
         test('Reset clears date inputs and restores photo count', async ({ page }) => {
-            const status = page.locator('.lib-filter-status strong');
+            const status = page.locator('#lib-results-pane .place-meta');
             const total = parseInt(await status.textContent(), 10);
 
             await page.locator('.lib-date-input').first().fill('2099-01-01');
             await page.locator('.lib-date-input').first().dispatchEvent('change');
             await page.waitForFunction(
                 () => {
-                    const el = document.querySelector('.lib-filter-status strong');
-                    return el && el.textContent.trim() === '0';
+                    const el = document.querySelector('#lib-results-pane .place-meta');
+                    return el && parseInt(el.textContent, 10) === 0;
                 },
                 { timeout: 10_000 },
             );
@@ -328,7 +339,7 @@ test.describe('Library search with indexed fixtures', () => {
             );
             await page.locator('.lib-filter-reset').click();
             await resetDone;
-            expect(await status.textContent()).toBe(String(total));
+            expect(parseInt(await status.textContent(), 10)).toBe(total);
 
             const fromVal = await page.locator('.lib-date-input').first().inputValue();
             expect(fromVal).toBe('');
@@ -379,7 +390,7 @@ test.describe('Library search with indexed fixtures', () => {
             await page.locator('#lib-filter-btn').click();
             await page.waitForSelector('.range-slider', { timeout: 8_000 });
             await expect(page.locator('.lib-filter-chip')).toHaveCount(0);
-            await expect(page.locator('.lib-filter-count')).toBeHidden();
+            await expect(page.locator('#lib-filter-btn .lib-filter-btn-count')).toBeEmpty();
         });
 
         test('opening the filter leaves the photos beside it in place', async ({ page }) => {
