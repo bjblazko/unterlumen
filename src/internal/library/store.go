@@ -81,7 +81,8 @@ CREATE INDEX IF NOT EXISTS photo_palette_hue ON photo_palette(hue_bin, share);
 -- The faces found in a photo's thumbnail and who they are (ADR-0051).
 -- person_id NULL with confirmed 0 is a face nobody has named yet; with
 -- confirmed 1 one the owner said not to name. grp groups unnamed faces
--- that look alike; it is rebuilt after every pass.
+-- that look alike; it is rebuilt after every pass. manual 1 is a face the
+-- owner marked by hand where none was found: always named, no embedding.
 CREATE TABLE IF NOT EXISTS faces (
 	id         INTEGER PRIMARY KEY,
 	photo_id   TEXT NOT NULL REFERENCES photos(id),
@@ -90,7 +91,8 @@ CREATE TABLE IF NOT EXISTS faces (
 	embedding  BLOB NOT NULL,
 	person_id  INTEGER REFERENCES people(id),
 	confirmed  INTEGER NOT NULL DEFAULT 0,
-	grp        INTEGER
+	grp        INTEGER,
+	manual     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS faces_photo  ON faces(photo_id);
 CREATE INDEX IF NOT EXISTS faces_person ON faces(person_id);
@@ -175,6 +177,8 @@ func openDB(dbPath string) (*sql.DB, error) {
 	// Migration: the face chosen to show a person.
 	db.Exec(`ALTER TABLE people ADD COLUMN cover INTEGER`)
 	db.Exec(`ALTER TABLE people ADD COLUMN cover_chosen TEXT`)
+	// Migration: faces marked by hand.
+	db.Exec(`ALTER TABLE faces ADD COLUMN manual INTEGER NOT NULL DEFAULT 0`)
 	// Migration: ext column for fast format distribution queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN ext TEXT NOT NULL DEFAULT ''`)
 	db.Exec(`UPDATE photos SET ext =

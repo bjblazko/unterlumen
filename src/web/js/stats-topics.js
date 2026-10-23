@@ -155,7 +155,7 @@ const STATS_TOPICS = [
                   ? { subject: `${v.person} · ${v.period}`, params: { person: v.person, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
             { title: 'Photos by age', subtitle: 'Photos per year of life of the people with a birthday', source: 'people', periods: false, full: true,
-              render: (el, d, pick) => renderPeopleAges(el, d.people, v => pick({ subject: `${v.person} at ${v.age}`, params: { person: v.person, ...ageDates(v.birth, v.age) } })) },
+              render: (el, d, pick) => renderPeopleAges(el, d.people, v => pick({ subject: `${v.person}, ${ageText(v.age)}`, params: { person: v.person, ...ageDates(v.birth, v.age) } })) },
             { title: 'Who with whom', subtitle: 'Photos two people share, of the twelve with the most photos', source: 'people', periods: false,
               render: (el, d, pick) => renderPeopleMatrix(el, d.people, v => pick({ subject: `${v.a} and ${v.b}`, params: { person: [v.a, v.b] } })) },
             { title: 'Alone or in a group', subtitle: 'Photos by the faces found in them, named or not', source: 'people', periods: false,

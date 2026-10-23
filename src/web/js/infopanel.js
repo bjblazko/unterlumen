@@ -26,6 +26,9 @@ class InfoPanel {
         // closed panel leaves no rail behind; the button opens it.
         this.toggleButton = null;
         this.onDirNavigate = null;
+        // onMarkFace(ref, faces, names): set by the viewer, where a face that
+        // was not found can be marked on the photo.
+        this.onMarkFace = null;
         this._metaContext = null;
         this._folders = new FolderDashboard(this);
         this._people = new InfoPeople(this);

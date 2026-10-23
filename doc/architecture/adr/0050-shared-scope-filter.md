@@ -1,6 +1,6 @@
 # ADR-0050: One filter for the Map, the Statistics and the Timeline
 
-*Last modified: 2026-10-02*
+*Last modified: 2026-10-23*
 
 ## Status
 
@@ -63,6 +63,16 @@ camera and lens.
    chosen libraries: cameras and lenses with their photo counts (lenses of the
    chosen cameras only) and the first and last month of the photos.
 
+8. **People** (added 2026-10-23). The column has a People group, shown when
+   names were given in People: a choice adds a person, each chosen one stands
+   below it with an ×, and each is a chip in the head. Several must all be in
+   the photo, as in a library's filter — a list of everyone checked at first
+   would read "any of", which is not what choosing a person means. The
+   endpoints take repeated `person` values; `library.Filter.People` adds one
+   set of a person's photos per name (confirmed faces only), never per row.
+   The search takes `person` as its own already and leaves it out of the
+   filter's part, so a person asked for twice is asked once.
+
 ## Consequences
 
 - A library's Statistics button sets the filter's libraries to that library,
@@ -74,5 +84,5 @@ camera and lens.
   instead of 3.9 s); the map's points come filtered from the server.
 - A new statistics query must take its photos through `statsScope`,
   `photoCond` or `aliasCond`, or the filter does not reach it.
-- Undated photos are outside any span of months; without one, cameras and
-  lenses still narrow them.
+- Undated photos are outside any span of months; without one, cameras,
+  lenses and people still narrow them.

@@ -10,7 +10,7 @@ import (
 
 // The shared filter of the Map, the Statistics and the Timeline (ADR-0050):
 // month_from and month_until are months, YYYY-MM; model and lens repeat, one
-// value each, as exif_index stores them.
+// value each, as exif_index stores them; person repeats, one name each.
 
 var monthPattern = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 
@@ -25,7 +25,7 @@ func ScopeFilter(r *http.Request) lib.Filter {
 }
 
 func filterFromQuery(q url.Values) lib.Filter {
-	f := lib.Filter{Models: nonEmpty(q["model"]), Lenses: nonEmpty(q["lens"])}
+	f := lib.Filter{Models: nonEmpty(q["model"]), Lenses: nonEmpty(q["lens"]), People: nonEmpty(q["person"])}
 	if v := q.Get("month_from"); monthPattern.MatchString(v) {
 		f.From = v
 	}

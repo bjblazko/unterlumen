@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-22*
+*Last modified: 2026-10-23*
 
 ## 1. Introduction and Goals
 
@@ -98,6 +98,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `GET /api/jobs/stream` | HTTP GET, SSE | Every running or recently finished job, then each change ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `GET /api/faces`, `POST /api/faces/install` | HTTP GET/POST | JSON — whether face recognition is installed and what it downloads; the download as a job ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `/api/library/{id}/people…`, `/face/{fid}`, `/faces/name\|unname\|hide` | HTTP GET/POST/PATCH | JSON and JPEG — named people, groups of unnamed faces, a face's picture, naming ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `GET\|POST /api/library/{id}/photo/{photoID}/faces` | HTTP GET/POST | JSON — a photo's faces for its info panel; marking a face that was not found, by box and name ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `GET /api/settings` | HTTP GET | JSON — global app settings (e.g. `librarySortMode`) |
 | `PATCH /api/settings` | HTTP PATCH | JSON — update one or more global settings fields |
 | `/` (static) | HTTP GET | HTML/CSS/JS files |
@@ -211,6 +212,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `people-person.js` | `PeoplePerson` — a person's page by name: a section per library, cover, Is instead, rename and take the name away per library, who elsewhere looks like them |
 | `face-grid.js` | `FaceGrid` — pictures of faces, each a switch, nothing switched on at first, for a group's and a person's page |
 | `people-api.js` | `PeopleAPI` — the `/api/faces` and People calls |
+| `face-mark-tool.js` | `FaceMarkTool` — marking a face that was not found in the viewer: a frame drawn with `CropTool`, the name below it, the known faces as quiet frames |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
 | `about-place.js` | `AboutPane` — About (`#about`), the overview of its topics; `ABOUT_PLACES` decides when the sidebar lists them |

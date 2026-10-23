@@ -6,17 +6,18 @@ import (
 )
 
 // Filter narrows the photos the Map, the Statistics and the Timeline count to
-// a span of months and to cameras and lenses (ADR-0050). The zero Filter
-// narrows nothing, and every query runs exactly as it does without one.
+// a span of months, to cameras and lenses and to people (ADR-0050). The zero
+// Filter narrows nothing, and every query runs exactly as it does without one.
 type Filter struct {
 	From, Until string   // months as "YYYY-MM", inclusive; "" leaves that end open
 	Models      []string // camera models as exif_index stores them; any of them
 	Lenses      []string // lens models as exif_index stores them; any of them
+	People      []string // names given in People; all of them in the photo, as in a library's filter
 }
 
 // Empty says the filter narrows nothing.
 func (f Filter) Empty() bool {
-	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0
+	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0 && len(f.People) == 0
 }
 
 // Key identifies the filter in a cache key; "" for the empty one.
@@ -24,7 +25,7 @@ func (f Filter) Key() string {
 	if f.Empty() {
 		return ""
 	}
-	return fmt.Sprintf("%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"))
+	return fmt.Sprintf("%s~%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"), strings.Join(f.People, "\x1f"))
 }
 
 // Cond restricts the photo IDs in col to the filter's photos: " AND col IN
@@ -56,6 +57,12 @@ func (f Filter) Cond(col string) (string, []any) {
 		for _, v := range part.values {
 			args = append(args, v)
 		}
+	}
+	// Each person a set of their photos, made once (ADR-0045).
+	for _, name := range f.People {
+		b.WriteString(" AND " + col + ` IN (SELECT fa.photo_id FROM faces fa JOIN people pe ON pe.id = fa.person_id
+			WHERE fa.confirmed = 1 AND pe.name = ?)`)
+		args = append(args, name)
 	}
 	return b.String(), args
 }

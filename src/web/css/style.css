@@ -7200,6 +7200,8 @@ button.combo-item:hover { background: var(--bg-2); }
 .scope-filter-panel .map-time-label { display: none; }
 .scope-filter-panel .multi-select,
 .scope-filter-panel .multi-select > .btn { width: 100%; }
+.scope-filter-panel .scope-filter-person { width: 100%; }
+.scope-filter-people:not(:empty) { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 
 /* --- Multi-select --- */
 

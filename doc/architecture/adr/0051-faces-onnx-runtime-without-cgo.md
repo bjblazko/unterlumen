@@ -1,6 +1,6 @@
 # ADR-0051: Faces found on this computer, with ONNX Runtime loaded without cgo
 
-*Last modified: 2026-10-21*
+*Last modified: 2026-10-23*
 
 ## Status
 
@@ -187,6 +187,30 @@ sidecar as Metadata Working Group regions; an architecture that is not
     of them together. No groups, naming, hiding, covers or birthdays; the
     info panel lists named faces only. A library's person address on a
     phone leads to the person by name.
+
+12. **A face that was not found is marked by hand.** A face in profile or
+    half hidden is often missed. In the viewer, the info panel's People
+    section has Mark a face: a frame drawn on the photo as for a crop
+    (`FaceMarkTool`, `CropTool` without the thirds), then the name in a
+    field below it; `POST /api/library/{id}/photo/{photoID}/faces` takes
+    the box in fractions of the upright photo and the name. Decided with
+    the owner on 2026-10-23: frame first, then name; no frame without a
+    name. The face is a row of `faces` with `manual = 1`, confirmed, named,
+    with an empty embedding: it counts everywhere a named face counts —
+    People, covers, filters, statistics, ages — but takes no part in
+    groups, suggestions or the Face space, as a profile would only spoil
+    them. It is never unnamed: × or hiding it removes it. A frame over a
+    known face is refused (409).
+    Its region goes into the sidecar like any name, and that is how the
+    other installation learns of it, whose detector misses it too: a scan
+    takes the regions no found face covers as the photo's faces marked by
+    hand — adding, renaming and removing them as the sidecar says, removing
+    none while another program keeps regions there (`applyMarkedFaces`). So
+    a face Lightroom or digiKam named where Unterlumen found none is a
+    person in the photo too. A pass keeps faces marked by hand; one it now
+    finds itself takes over the name and the frame drawn by hand goes
+    (`settleMarkedFaces`). Moving or resizing a saved frame and marking on
+    a phone are left out.
 
 ## Consequences
 

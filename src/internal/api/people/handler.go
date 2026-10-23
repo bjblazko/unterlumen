@@ -14,6 +14,7 @@ import (
 	"huepattl.de/unterlumen/internal/birthdays"
 	"huepattl.de/unterlumen/internal/jobs"
 	lib "huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/toolinstall"
 )
 
@@ -42,6 +43,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *bir
 	mux.HandleFunc("DELETE /api/library/{id}/people/{pid}", forgetPerson(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/people/{pid}/cover", chooseCover(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/faces", photoFaces(mgr, bdays))
+	mux.HandleFunc("POST /api/library/{id}/photo/{photoID}/faces", markFace(mgr))
 	mux.HandleFunc("GET /api/library/{id}/face/{fid}", serveFace(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/unname", changeFaces(mgr, (*lib.Store).UnnameFaces))
@@ -323,6 +325,31 @@ func nameFaces(mgr *lib.Manager) http.HandlerFunc {
 		}
 		skipped, err := store.NameFaces(body.Faces, body.Name)
 		writeChange(w, skipped, err)
+	}
+}
+
+// markFace marks a face the detector missed: a box in fractions of the
+// upright photo and the name of who it is.
+func markFace(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		if !ok {
+			return
+		}
+		var box media.FaceRegion
+		if err := json.NewDecoder(r.Body).Decode(&box); err != nil || strings.TrimSpace(box.Name) == "" {
+			http.Error(w, "A frame and a name are needed.", http.StatusBadRequest)
+			return
+		}
+		skipped, err := store.MarkFace(r.PathValue("photoID"), box)
+		switch {
+		case errors.Is(err, lib.ErrFaceAlreadyThere):
+			http.Error(w, "There is a face there already; name it in the list.", http.StatusConflict)
+		case errors.Is(err, lib.ErrBadFaceBox):
+			http.Error(w, "The frame must lie inside the photo.", http.StatusBadRequest)
+		default:
+			writeChange(w, skipped, err)
+		}
 	}
 }
 

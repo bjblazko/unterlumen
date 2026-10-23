@@ -169,3 +169,23 @@
 /* The viewer's panel is dark in both themes. */
 .viewer .info-face-input { background: transparent; color: var(--overlay-fg); border-color: var(--overlay-line); }
 .viewer .info-face-pic { background: var(--overlay-line-soft); }
+.info-face-mark { margin-top: var(--space-2); }
+
+/* --- Marking a face (viewer) --- */
+/* Over the photo like the crop overlay; only the name field takes the pointer. */
+.face-mark-layer { position: fixed; z-index: 11; pointer-events: none; }
+.face-mark-known { position: absolute; box-sizing: border-box; border: 1px solid var(--overlay-line); border-radius: var(--radius-sm); }
+.face-mark-known-name {
+    position: absolute; top: 100%; left: 0; margin-top: var(--space-1); padding: 0 var(--space-1);
+    background: var(--overlay-shade); color: var(--overlay-fg-2); font-size: 12px; white-space: nowrap; border-radius: var(--radius-sm);
+}
+.face-mark-name { position: absolute; pointer-events: auto; width: 200px; }
+.face-mark-input {
+    width: 100%; height: var(--control-h-sm); box-sizing: border-box; padding: 0 var(--space-2);
+    border: 1px solid var(--overlay-active); border-radius: var(--radius-sm); background: var(--overlay-bg); color: var(--overlay-fg); font: inherit;
+}
+.face-mark-error {
+    margin: var(--space-1) 0 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm);
+    background: var(--overlay-bg); color: var(--warning); font-size: 12px;
+}
+.viewer-face-hint { color: var(--overlay-fg-2); font-size: 13px; }

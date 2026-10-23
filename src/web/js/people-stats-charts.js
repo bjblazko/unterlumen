@@ -119,16 +119,17 @@ function renderPeopleAges(el, ps, onPick) {
     });
     if (![...byAge.values()].some(m => m.size)) { tlNoData(el, 'No photo of someone with a birthday has a date.'); return; }
     const c = chartColors();
-    const ages = Array.from({ length: oldest + 1 }, (_, i) => String(i));
+    const ages = Array.from({ length: oldest + 1 }, (_, i) => i);
+    const periods = ages.map(age => ageText(age, { short: true }));
     const series = shown.map(i => ({
         name: ps.people[i].name,
-        values: ages.map(age => byAge.get(i).get(Number(age)) ?? 0),
+        values: ages.map(age => byAge.get(i).get(age) ?? 0),
         color: i < 8 ? c.cats[i] : c.axis,
     }));
-    renderSeriesLines(el, ages, series, {
+    renderSeriesLines(el, periods, series, {
         yFormat: d => d.toLocaleString(),
         format: v => photoCount(v),
-        onPick: onPick && (({ period, series: s }) => s && onPick({ person: s.name, age: Number(period), birth: births[ps.people.findIndex(p => p.name === s.name)] })),
+        onPick: onPick && (({ period, series: s }) => s && onPick({ person: s.name, age: ages[periods.indexOf(period)], birth: births[ps.people.findIndex(p => p.name === s.name)] })),
     });
     el.insertAdjacentHTML('beforeend', '<p class="stats-chart-note">Age in whole years, across.</p>');
 }

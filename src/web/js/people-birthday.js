@@ -27,6 +27,13 @@ function ageAt(birth, date) {
     return age >= 0 ? age : null;
 }
 
+// ageText says an age with its unit: "8 years old", or "8 y" where there
+// is little room (a chart's axis). A number alone is not an age.
+function ageText(age, { short = false } = {}) {
+    if (short) return `${age}\u00a0y`;
+    return age === 0 ? 'under a year old' : `${age} ${age === 1 ? 'year' : 'years'} old`;
+}
+
 // The days on which someone born on birth was age years old.
 function ageDates(birth, age) {
     const [y, m, d] = birth.split('-').map(Number);
@@ -36,15 +43,11 @@ function ageDates(birth, age) {
     return { date_taken_min: iso(from), date_taken_max: iso(until) };
 }
 
-function formatBirthday(birth) {
-    return new Date(`${birth}T12:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-}
-
 // The line under a person's name: when they were born and how old they are.
 function bornHTML(birth) {
     if (!birth) return '';
     const age = ageAt(birth, new Date().toISOString());
-    return `<p class="people-born">Born <span class="people-num">${escapeHtml(formatBirthday(birth))}</span>${age !== null ? `, <span class="people-num">${age}</span> today` : ''}</p>`;
+    return `<p class="people-born">Born <span class="people-num">${escapeHtml(birth)}</span>${age !== null ? `, ${ageText(age)} today` : ''}</p>`;
 }
 
 // editBirthday asks for name's birthday and calls done after it was saved

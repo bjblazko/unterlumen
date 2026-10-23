@@ -132,18 +132,35 @@ func storedSize(path string) (int, int) {
 // name — taken away on the other installation — unless another program
 // keeps regions in the sidecar (foreign), where a name may only have been
 // impossible to write. Hidden faces stay hidden: the sidecar says only who
-// is in a photo. Only the index changes; a scan writes no sidecar.
+// is in a photo. The regions no found face covers are the faces marked by
+// hand (applyMarkedFaces). Only the index changes; a scan writes no sidecar.
 func (s *Store) ApplyFaceNames(photoID string, regions []media.FaceRegion, foreign bool) error {
 	current, err := s.faceNamesOf(photoID)
-	if err != nil || len(current) == 0 {
+	if err != nil || len(current)+len(regions) == 0 {
 		return err
 	}
-	boxes := make([]faces.Face, len(current))
-	for i, c := range current {
+	var found, marked []faceName
+	for _, c := range current {
+		if c.manual {
+			marked = append(marked, c)
+		} else {
+			found = append(found, c)
+		}
+	}
+	if err := s.applyFoundNames(found, regions, foreign); err != nil {
+		return err
+	}
+	return s.applyMarkedFaces(photoID, marked, regionsNoFaceCovers(regions, found), foreign)
+}
+
+func (s *Store) applyFoundNames(found []faceName, regions []media.FaceRegion, foreign bool) error {
+	boxes := make([]faces.Face, len(found))
+	for i, c := range found {
 		boxes[i] = c.box
 	}
 	names := namesFromRegions(boxes, regions)
-	for i, c := range current {
+	var err error
+	for i, c := range found {
 		switch {
 		case names[i] != "" && !strings.EqualFold(names[i], c.name):
 			err = s.nameFacesInIndex([]int64{c.id}, names[i])
@@ -158,13 +175,14 @@ func (s *Store) ApplyFaceNames(photoID string, regions []media.FaceRegion, forei
 }
 
 type faceName struct {
-	id   int64
-	box  faces.Face
-	name string // "" for a face nobody named, or one hidden
+	id     int64
+	box    faces.Face
+	name   string // "" for a face nobody named, or one hidden
+	manual bool   // marked by hand
 }
 
 func (s *Store) faceNamesOf(photoID string) ([]faceName, error) {
-	rows, err := s.db.Query(`SELECT f.id, f.x, f.y, f.w, f.h, COALESCE(p.name, '')
+	rows, err := s.db.Query(`SELECT f.id, f.x, f.y, f.w, f.h, COALESCE(p.name, ''), f.manual
 		FROM faces f LEFT JOIN people p ON p.id = f.person_id AND f.confirmed = 1
 		WHERE f.photo_id = ?`, photoID)
 	if err != nil {
@@ -174,7 +192,7 @@ func (s *Store) faceNamesOf(photoID string) ([]faceName, error) {
 	var out []faceName
 	for rows.Next() {
 		var f faceName
-		if err := rows.Scan(&f.id, &f.box.X, &f.box.Y, &f.box.W, &f.box.H, &f.name); err != nil {
+		if err := rows.Scan(&f.id, &f.box.X, &f.box.Y, &f.box.W, &f.box.H, &f.name, &f.manual); err != nil {
 			return nil, err
 		}
 		out = append(out, f)

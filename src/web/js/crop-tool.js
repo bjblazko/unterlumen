@@ -1,9 +1,13 @@
 // Interactive crop overlay for the fullscreen viewer.
 // Coordinates are expressed as fractions [0,1] of the rendered image area.
+// Marking a face draws its frame with it too: without the thirds, and told
+// after every change (onDraw).
 
 class CropTool {
-    constructor(imgEl) {
+    constructor(imgEl, { grid = true, onDraw = null } = {}) {
         this._img = imgEl;
+        this._grid = grid;
+        this._onDraw = onDraw;
         this._ratio = null; // null = free, number = w/h
         this._rect = null;  // { x, y, w, h } in image-fraction space
         this._overlay = null;
@@ -228,6 +232,7 @@ class CropTool {
 
         if (!this._rect || this._rect.w < 0.005 || this._rect.h < 0.005) {
             // Just the cursor-crosshair overlay, no box yet
+            this._onDraw?.();
             return;
         }
 
@@ -260,15 +265,17 @@ class CropTool {
         o.appendChild(box);
 
         // Rule-of-thirds grid
-        const grid = document.createElement('div');
-        grid.className = 'crop-grid';
-        grid.innerHTML = `
-            <div class="crop-grid-line crop-grid-v" style="left:33.33%"></div>
-            <div class="crop-grid-line crop-grid-v" style="left:66.66%"></div>
-            <div class="crop-grid-line crop-grid-h" style="top:33.33%"></div>
-            <div class="crop-grid-line crop-grid-h" style="top:66.66%"></div>
-        `;
-        box.appendChild(grid);
+        if (this._grid) {
+            const grid = document.createElement('div');
+            grid.className = 'crop-grid';
+            grid.innerHTML = `
+                <div class="crop-grid-line crop-grid-v" style="left:33.33%"></div>
+                <div class="crop-grid-line crop-grid-v" style="left:66.66%"></div>
+                <div class="crop-grid-line crop-grid-h" style="top:33.33%"></div>
+                <div class="crop-grid-line crop-grid-h" style="top:66.66%"></div>
+            `;
+            box.appendChild(grid);
+        }
 
         // Resize handles: nw, n, ne, e, se, s, sw, w
         const handles = [
@@ -288,5 +295,6 @@ class CropTool {
             h.style.cssText = `left:${lp}%;top:${tp}%;transform:translate(-50%,-50%)`;
             box.appendChild(h);
         }
+        this._onDraw?.();
     }
 }

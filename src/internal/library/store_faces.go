@@ -51,7 +51,8 @@ type FoundFaces struct {
 }
 
 // SaveFoundFaces stores the faces of several photos in one transaction,
-// replacing what an older pass found in them. A photo deleted since is
+// replacing what an older pass found in them; faces marked by hand stay
+// (settleMarkedFaces). A photo deleted since is
 // passed over: the pass runs beside scans.
 func (s *Store) SaveFoundFaces(items []FoundFaces) error {
 	tx, err := s.db.Begin()
@@ -72,7 +73,7 @@ func saveFoundFaces(tx *sql.Tx, it FoundFaces) error {
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM photos WHERE id = ?`, it.PhotoID).Scan(&exists); err != nil || exists == 0 {
 		return err
 	}
-	if _, err := tx.Exec(`DELETE FROM faces WHERE photo_id = ?`, it.PhotoID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM faces WHERE photo_id = ? AND manual = 0`, it.PhotoID); err != nil {
 		return err
 	}
 	for i, f := range it.Faces {
@@ -89,6 +90,9 @@ func saveFoundFaces(tx *sql.Tx, it FoundFaces) error {
 			it.PhotoID, f.X, f.Y, f.W, f.H, f.Score, encodeEmbedding(f.Embedding), person, confirmed); err != nil {
 			return err
 		}
+	}
+	if err := settleMarkedFaces(tx, it.PhotoID); err != nil {
+		return err
 	}
 	_, err := tx.Exec(`INSERT OR REPLACE INTO photo_faces_found (photo_id, version) VALUES (?, ?)`, it.PhotoID, faces.Version)
 	return err

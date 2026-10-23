@@ -64,6 +64,11 @@ const PeopleAPI = {
     async hide(lib, faces) {
         return peoplePost(`/api/library/${lib}/faces/hide`, { faces });
     },
+    // Marks a face that was not found: box { x, y, w, h } in fractions of
+    // the upright photo, and name.
+    async markFace(lib, photo, box) {
+        return peoplePost(`/api/library/${lib}/photo/${photo}/faces`, box);
+    },
     // The faces of one photo, with the library's names to choose from.
     async photoFaces(lib, photo) {
         return peopleJSON(await fetch(`/api/library/${lib}/photo/${photo}/faces`));

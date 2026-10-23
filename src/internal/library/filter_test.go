@@ -3,6 +3,7 @@ package library
 import (
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,6 +29,20 @@ func filterLibrary(t *testing.T) (*Manager, *Library) {
 			}
 		}
 	}
+	// Anna is in a and c, Ben in c; an unconfirmed guess of Ben in a counts not.
+	if _, err := s.db.Exec(`INSERT INTO people (id, name) VALUES (1, 'Anna'), (2, 'Ben')`); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []struct {
+		photo     string
+		person    int
+		confirmed int
+	}{{"a", 1, 1}, {"c", 1, 1}, {"c", 2, 1}, {"a", 2, 0}} {
+		if _, err := s.db.Exec(`INSERT INTO faces (photo_id, x, y, w, h, score, embedding, person_id, confirmed)
+			VALUES (?, 0, 0, 0.1, 0.1, 1, x'00', ?, ?)`, f.photo, f.person, f.confirmed); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return mgr, l
 }
 
@@ -45,6 +60,9 @@ func TestFilterNarrowsStatisticsAndSearch(t *testing.T) {
 		{"months, the last one whole", Filter{From: "2024-04", Until: "2024-07"}, []string{"c"}},
 		{"from a month on", Filter{From: "2024-12"}, []string{"b"}},
 		{"camera and months", Filter{Models: []string{`"X-T50"`}, Until: "2024-03"}, []string{"a"}},
+		{"a person", Filter{People: []string{"Anna"}}, []string{"a", "c"}},
+		{"two people, both in the photo", Filter{People: []string{"Anna", "Ben"}}, []string{"c"}},
+		{"a guess is not a name", Filter{People: []string{"Ben"}}, []string{"c"}},
 	}
 	for _, c := range cases {
 		st, err := mgr.Statistics([]string{l.ID}, "", c.f)
@@ -86,5 +104,37 @@ func TestNextMonth(t *testing.T) {
 		if got := nextMonth(in); got != want {
 			t.Errorf("nextMonth(%s) = %s, want %s", in, got, want)
 		}
+	}
+}
+
+func TestFilterPeopleAreNotCorrelated(t *testing.T) {
+	mgr, l := filterLibrary(t)
+	s, _ := mgr.OpenStore(l.ID)
+	cond, args := Filter{People: []string{"Anna", "Ben"}}.Cond("p.id")
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN SELECT COUNT(*) FROM photos p WHERE 1=1`+cond, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	if joined := strings.Join(plan, "; "); strings.Contains(joined, "CORRELATED") {
+		t.Fatalf("the filter's people run once per photo: %s", joined)
+	}
+}
+
+func TestFilterKeyTellsPeopleApart(t *testing.T) {
+	if (Filter{People: []string{"Anna"}}).Key() == (Filter{People: []string{"Ben"}}).Key() {
+		t.Fatal("two people share one cache key")
+	}
+	if (Filter{People: []string{"Anna"}}).Empty() {
+		t.Fatal("a filter with a person narrows nothing")
 	}
 }

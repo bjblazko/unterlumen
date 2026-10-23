@@ -90,5 +90,7 @@ test.describe('Statistics: People', () => {
     const ages = chart(page, 'Photos by age');
     await expect(ages.locator('svg path[stroke-width="2"]')).toHaveCount(1);
     await expect(ages).toContainText(ps.people[0].name);
+    // Its axis says what the numbers are: "8 y", not "8".
+    await expect(ages.locator('.tick text[transform]').first()).toHaveText(/^\d+\u00a0y$/);
   });
 });

@@ -29,6 +29,7 @@ class Viewer {
         this._cacheBust = null;
         this._cropTool = null;
         this._cropKeyHandler = null;
+        this._faceTool = null;
         this._zoomTool = null;
         this._enteredFullscreen = false;
         this._onFullscreenChange = () => this._updateFullscreenButton();
@@ -47,6 +48,9 @@ class Viewer {
         this.infoPanel.onToggle = () => {
             if (this.infoPanel?.expanded) this._infoLoadFn(this.currentPath, this.infoPanel);
         };
+        // A library photo's People section marks a face that was not found
+        // here, on the photo.
+        this.infoPanel.onMarkFace = (ref, faces, names) => this._enterFaceMode(ref, faces, names);
         this.buildFilmStrip();
 
         document.addEventListener('keydown', this.keyHandler);
@@ -65,6 +69,7 @@ class Viewer {
             this._cropTool.destroy();
             this._cropTool = null;
         }
+        this._leaveFaceTool();
         if (this._zoomTool) { this._zoomTool.destroy(); this._zoomTool = null; }
         this._menu.menu.close({ refocus: false });
         this._stopFullLoad();
@@ -221,7 +226,7 @@ class Viewer {
     }
 
     handleKey(e) {
-        if (this._cropTool) return; // crop mode has its own key handler
+        if (this._cropTool || this._faceTool) return; // crop and face marking have their own key handlers
         // A dialog or the menu opened from here has the keys while it is open.
         if (document.querySelector('.dialog-scrim, .keyboard-owner')) return;
         // Typing in a field of the info panel — a face's name — is typing:
@@ -593,6 +598,57 @@ class Viewer {
                 errEl.textContent = err.message || 'Crop failed';
             }
         }
+    }
+
+    // --- Marking a face ---
+
+    _enterFaceMode(ref, faces, names) {
+        const toolbar = this.container.querySelector('.viewer-toolbar');
+        const filename = this.currentPath.split('/').pop();
+        toolbar.innerHTML = `
+            <div class="viewer-group viewer-group-start">
+                <button class="btn viewer-face-cancel" title="Cancel (Esc)">Cancel</button>
+                <span class="viewer-filename">${escapeHtml(filename)}</span>
+            </div>
+            <span class="viewer-face-hint">Drag a frame around the face, then type who it is.</span>
+            <div class="viewer-group viewer-group-end">
+                <button class="btn active viewer-face-save" title="Save (Return)">Save</button>
+            </div>`;
+        toolbar.querySelector('.viewer-face-cancel').addEventListener('click', () => this._exitFaceMode());
+        toolbar.querySelector('.viewer-face-save').addEventListener('click', () => this._saveFace());
+        this.container.querySelectorAll('.viewer-prev, .viewer-next').forEach(b => { b.style.visibility = 'hidden'; });
+        if (this._zoomTool) this._zoomTool.reset();
+
+        const img = this.container.querySelector('.viewer-image-container img');
+        this._faceTool = new FaceMarkTool(img, {
+            faces, names,
+            onSave: async (box) => reportSkipped(await PeopleAPI.markFace(ref.lib, ref.photo, box)),
+        });
+        // Capturing: Return and Escape belong to the marking, the name field
+        // included, before the shortcuts of the place see them.
+        this._faceKeyHandler = (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this._exitFaceMode(); }
+            if (e.key === 'Enter' && this._faceTool?.hasFrame()) { e.preventDefault(); e.stopImmediatePropagation(); this._saveFace(); }
+        };
+        window.addEventListener('keydown', this._faceKeyHandler, true);
+    }
+
+    async _saveFace() {
+        if (!this._faceTool || !(await this._faceTool.save())) return;
+        this._exitFaceMode();
+        this.reloadInfo();
+    }
+
+    _exitFaceMode() {
+        this._leaveFaceTool();
+        this.render();
+    }
+
+    _leaveFaceTool() {
+        if (this._faceKeyHandler) window.removeEventListener('keydown', this._faceKeyHandler, true);
+        this._faceKeyHandler = null;
+        this._faceTool?.destroy();
+        this._faceTool = null;
     }
 }
 

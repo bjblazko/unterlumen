@@ -205,7 +205,9 @@ test.describe('People across libraries', () => {
     await page.locator('#people-birthday').fill('2015-05-12');
     await page.locator('.dialog').getByRole('button', { name: 'Save' }).click();
     await expect(page.locator('.people-born')).toContainText('Born');
-    await expect(page.locator('.people-born')).toContainText('2015');
+    // The date as it was given, and an age with its unit, never a bare number.
+    await expect(page.locator('.people-born')).toContainText('Born 2015-05-12');
+    await expect(page.locator('.people-born')).toHaveText(/, \d+ years old today$/);
     expect(birthdays).toEqual({ Anna: '2015-05-12' });
   });
 

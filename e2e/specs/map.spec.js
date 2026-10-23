@@ -155,6 +155,30 @@ test.describe('Map', () => {
         await expect.poll(() => markerTotal(page)).toBe(total);
     });
 
+    // People are part of the shared filter: added in its column, dropped
+    // there or in the head, all of them in the photo. The fixtures have no
+    // faces, so the names are given and nobody is in a photo.
+    test('the filter adds a person and drops them again', async ({ page }) => {
+        await page.route('**/api/library/person-names*', r => r.fulfill({ json: ['Anna', 'Ben'] }));
+        await openMap(page);
+        const [total] = countsIn(await page.locator('.map-count').textContent());
+
+        await page.locator('.map-pane .scope-filter-toggle').click();
+        const panel = page.locator('.scope-filter-panel:visible');
+        const add = panel.getByRole('combobox', { name: 'Add a person to the filter' });
+        const geo = page.waitForRequest(r => r.url().includes('/api/library/geo') && new URL(r.url()).searchParams.getAll('person').join() === 'Anna');
+        await add.selectOption('Anna');
+        await geo;
+        await expect(page.locator('.map-pane .scope-filter-chips .lib-filter-chip', { hasText: 'Person: Anna' })).toBeVisible();
+        await expect(panel.locator('.scope-filter-people .lib-filter-chip')).toHaveText(['Anna×']);
+        await expect(add.locator('option')).toHaveText(['Add someone else…', 'Ben']);
+        await expect.poll(async () => countsIn(await page.locator('.map-count').textContent())[0] ?? 0).toBe(0);
+
+        await panel.locator('.scope-filter-people .lib-filter-chip').click();
+        await expect(page.locator('.map-pane .scope-filter-chips .lib-filter-chip')).toHaveCount(0);
+        await expect.poll(async () => countsIn(await page.locator('.map-count').textContent())[0]).toBe(total);
+    });
+
     // The photos in view: a column that starts open on the desk, follows the
     // map, and closes with Done or Escape, which this browser remembers.
     // The panel's own button opened it empty ("Select an image to view

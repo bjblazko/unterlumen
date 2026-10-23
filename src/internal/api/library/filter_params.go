@@ -32,7 +32,7 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		Mono:           q.Get("mono"),
 		HueBin:         parseIntIn(q.Get("hue_bin"), 0, 11),
 		Hues:           parseHues(q.Get("hues")),
-		Scope:          filterFromQuery(q),
+		Scope:          searchScope(q),
 		Warmth:         q.Get("warmth"),
 		PhotoID:        q.Get("photo_id"),
 	}
@@ -168,4 +168,13 @@ func parseNumericFilters(vals map[string][]string) map[string]lib.NumericFilter 
 		out[field] = f
 	}
 	return out
+}
+
+// searchScope is the shared filter of a search. Its people are People's
+// already: a library's filter and a chart's photos both send person, and
+// asking twice would only slow the search.
+func searchScope(q url.Values) lib.Filter {
+	f := filterFromQuery(q)
+	f.People = nil
+	return f
 }

@@ -234,7 +234,8 @@ func TestNamesFollowTheSidecarBetweenInstallations(t *testing.T) {
 }
 
 // A sidecar whose regions Lightroom keeps cannot hold Unterlumen's names, so
-// a name missing from it is not taken away; hidden faces are this
+// a name missing from it is not taken away; a face Lightroom names where
+// none was found counts as marked by hand; hidden faces are this
 // installation's own decision and never reach a sidecar.
 func TestNamesStayWhereTheSidecarCannotSayThem(t *testing.T) {
 	dir := t.TempDir()
@@ -254,8 +255,16 @@ func TestNamesStayWhereTheSidecarCannotSayThem(t *testing.T) {
 	}
 	regions, foreign, _ := media.ReadFaceRegions(photo, 1)
 	s.ApplyFaceNames("a1photo", regions, foreign) //nolint:errcheck
-	if people, _ := s.People(); len(people) != 1 || people[0].Name != "Eva" {
-		t.Fatalf("the name kept in the index was taken away: %+v", people)
+	if people, _ := s.People(); len(people) != 2 || people[0].Name != "Dora" || people[1].Name != "Eva" {
+		t.Fatalf("want Lightroom's Dora and Eva, kept in the index: %+v", people)
+	}
+	ben := media.FaceRegion{Name: "Ben", X: 0.4, Y: 0.5, W: 0.1, H: 0.1}
+	if skipped, err := s.MarkFace("a1photo", ben); err != nil || skipped != 1 {
+		t.Fatalf("marking beside Lightroom's regions: skipped %d, err %v", skipped, err)
+	}
+	s.ApplyFaceNames("a1photo", regions, foreign) //nolint:errcheck
+	if people, _ := s.People(); len(people) != 3 {
+		t.Fatalf("a face marked in the index only went at the next scan: %+v", people)
 	}
 
 	for _, r := range refs {

@@ -83,6 +83,9 @@ func (s *Store) embeddings(query string, args ...any) ([]int64, [][]float32, err
 		if err := rows.Scan(&id, &blob); err != nil {
 			return nil, nil, err
 		}
+		if len(blob) == 0 {
+			continue // marked by hand: nothing to compare
+		}
 		ids = append(ids, id)
 		embs = append(embs, decodeEmbedding(blob))
 	}
@@ -335,11 +338,15 @@ func (s *Store) changeFaces(ids []int64, set func(*sql.Tx) (string, []any, error
 	if _, err := tx.Exec(`UPDATE faces SET `+cols+` WHERE id IN (`+in+`)`, append(args, idArgs...)...); err != nil {
 		return nil, err
 	}
-	if err := dropPeopleWithoutFaces(tx); err != nil {
-		return nil, err
-	}
 	photos, err := photosOfFaces(tx, in, idArgs)
 	if err != nil {
+		return nil, err
+	}
+	// A face marked by hand is there only as someone: without a name, it goes.
+	if _, err := tx.Exec(`DELETE FROM faces WHERE manual = 1 AND person_id IS NULL AND id IN (`+in+`)`, idArgs...); err != nil {
+		return nil, err
+	}
+	if err := dropPeopleWithoutFaces(tx); err != nil {
 		return nil, err
 	}
 	return photos, tx.Commit()
@@ -455,12 +462,13 @@ type PhotoFace struct {
 	FaceRef
 	Name   string `json:"name,omitempty"`
 	Hidden bool   `json:"hidden,omitempty"`
-	Age    *int   `json:"age,omitempty"` // in whole years on the day the photo was taken, when both are known
+	Manual bool   `json:"manual,omitempty"` // marked by hand
+	Age    *int   `json:"age,omitempty"`    // in whole years on the day the photo was taken, when both are known
 }
 
 // PhotoFaces lists the faces found in a photo, left to right.
 func (s *Store) PhotoFaces(photoID string) ([]PhotoFace, error) {
-	rows, err := s.db.Query(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.name, ''), f.person_id IS NULL AND f.confirmed = 1
+	rows, err := s.db.Query(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.name, ''), f.person_id IS NULL AND f.confirmed = 1, f.manual
 		FROM faces f LEFT JOIN people p ON p.id = f.person_id AND f.confirmed = 1
 		WHERE f.photo_id = ? ORDER BY f.x`, s.CurrentPhotoID(photoID))
 	if err != nil {
@@ -470,7 +478,7 @@ func (s *Store) PhotoFaces(photoID string) ([]PhotoFace, error) {
 	out := []PhotoFace{}
 	for rows.Next() {
 		var f PhotoFace
-		if err := rows.Scan(&f.ID, &f.PhotoID, &f.X, &f.Y, &f.W, &f.H, &f.Name, &f.Hidden); err != nil {
+		if err := rows.Scan(&f.ID, &f.PhotoID, &f.X, &f.Y, &f.W, &f.H, &f.Name, &f.Hidden, &f.Manual); err != nil {
 			return nil, err
 		}
 		out = append(out, f)

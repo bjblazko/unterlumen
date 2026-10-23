@@ -78,7 +78,8 @@ type FacePrint struct {
 	Embedding []float32
 }
 
-// FacePrints lists every face in scope that is not hidden.
+// FacePrints lists every face in scope that is not hidden, except those
+// marked by hand, which have no print.
 func (s *Store) FacePrints(pathGlob string) ([]FacePrint, error) {
 	where, args := s.aliasCond(pathGlob)
 	rows, err := s.db.Query(`
@@ -86,7 +87,7 @@ func (s *Store) FacePrints(pathGlob string) ([]FacePrint, error) {
 		FROM faces f
 		JOIN photos p ON p.id = f.photo_id
 		LEFT JOIN people pe ON pe.id = f.person_id
-		WHERE p.status = 'ok' AND NOT (f.person_id IS NULL AND f.confirmed = 1)`+where, args...)
+		WHERE p.status = 'ok' AND f.manual = 0 AND NOT (f.person_id IS NULL AND f.confirmed = 1)`+where, args...)
 	if err != nil {
 		return nil, err
 	}

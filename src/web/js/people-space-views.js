@@ -278,7 +278,7 @@ function lifeLinesSpec(ps, colours) {
             const age = ageAt(birthdayOf(ps.birthdays ?? {}, ps.people[a.person[j]].name), a.date[j]);
             return photoTipHTML(ps, a.lib[j], a.photo[j], `
                 <span class="point-stage-tip-title">${escapeHtml(ps.people[a.person[j]].name)}</span>
-                <span>${escapeHtml(a.date[j].slice(0, 10))}${age !== null ? ` · ${age} years old` : ''}</span>`);
+                <span>${escapeHtml(a.date[j].slice(0, 10))}${age !== null ? ` · ${ageText(age)}` : ''}</span>`);
         },
         pick: (kind, i) => {
             if (kind === 'step') return { person: ps.people[stepMeta[i].p].name, period: stepMeta[i].period };

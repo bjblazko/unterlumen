@@ -206,6 +206,55 @@ test.describe('People', () => {
     await expect(page.locator('.viewer')).toBeVisible();
   });
 
+  test('a face that was not found is marked on the photo and named', async ({ page }) => {
+    const state = { named: null, overview: () => waiting() };
+    await fakePeople(page, state);
+    let faces = [{ id: 11, photoId: 'p1', x: 0.1, y: 0.2, w: 0.1, h: 0.15, name: 'Anna' }];
+    const marks = [];
+    await page.route(`**/api/library/${LIB}/photo/p1/faces`, async r => {
+      if (r.request().method() !== 'POST') return r.fulfill({ json: { faces, names: ['Anna', 'Ben'] } });
+      const box = r.request().postDataJSON();
+      marks.push(box);
+      if (marks.length === 1) return r.fulfill({ status: 409, body: 'There is a face there already; name it in the list.' });
+      faces = [...faces, { id: 14, photoId: 'p1', x: box.x, y: box.y, w: box.w, h: box.h, name: box.name, manual: true }];
+      return r.fulfill({ json: { skipped: 0 } });
+    });
+    await page.route(`**/api/library/${LIB}/photo/p1/info`, r => r.fulfill({ json: { name: 'p1.jpg', size: 1000, modTime: '2026-01-01T00:00:00Z' } }));
+    await page.route(`**/api/library/${LIB}/photo/p1`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
+    await page.goto(`/#people/name/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').first().dblclick();
+
+    // Escape leaves the marking and nothing else.
+    await page.locator('.info-face-mark').click();
+    await expect(page.locator('.viewer-face-hint')).toBeVisible();
+    await expect(page.locator('.face-mark-known-name')).toHaveText('Anna');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.face-mark-overlay')).toHaveCount(0);
+    await expect(page.locator('.viewer')).toBeVisible();
+
+    await page.locator('.info-face-mark').click();
+    const area = await page.locator('.face-mark-overlay').boundingBox();
+    await page.mouse.move(area.x + area.width * 0.6, area.y + area.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width * 0.7, area.y + area.height * 0.35, { steps: 4 });
+    await page.mouse.up();
+    const input = page.locator('.face-mark-input');
+    await expect(input).toBeFocused();
+    await input.fill('Ben');
+    await input.press('Enter');
+    // The server's reason stays beside the frame; the marking goes on.
+    await expect(page.locator('.face-mark-error')).toHaveText('There is a face there already; name it in the list.');
+    await input.press('Enter');
+    await expect(page.locator('.face-mark-overlay')).toHaveCount(0);
+    expect(marks[1].name).toBe('Ben');
+    expect(marks[1].x).toBeCloseTo(0.6, 1);
+    expect(marks[1].h).toBeCloseTo(0.15, 1);
+    const people = page.locator('.info-people');
+    await expect(people.locator('.info-face-name')).toHaveText(['Anna', 'Ben']);
+    await expect(people.locator('.info-face-unname').last()).toHaveAttribute('title', "Remove Ben's frame");
+  });
+
   test("a person's name can be taken away from all their faces", async ({ page }) => {
     let forgotten = false;
     const state = { named: null, overview: () => (forgotten ? { ...annaNamed(), people: [] } : annaNamed()) };
