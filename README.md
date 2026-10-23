@@ -109,6 +109,15 @@ Every dated photo of every library on one time axis, oldest on the left. The gra
 
 ![Timeline with the time bar and a photo in the info panel](doc/screenshots/timeline.webp)
 
+#### People
+
+Everyone named in your libraries, found by their faces on this computer. Groups of faces that look alike wait for a name, some with a suggestion ("Is this Kofi?"); a person's page shows all their faces, newest photo first, their age and who is most often with them. A face that was not found — in profile, half hidden — is framed by hand in the viewer and named. The people in these pictures are invented: the photos were generated with Google Gemini for Unterlumen's tests.
+
+| | |
+|---|---|
+| ![Everyone named, each with a face and the number of their photos](doc/screenshots/people.webp) | ![Groups of faces waiting for a name, one with the suggestion Is this Kofi?](doc/screenshots/people-naming.webp) |
+| ![A person's page: born, age, who is often with her, and all her faces](doc/screenshots/people-person.webp) | ![The viewer marking a face in profile by hand: a frame around it and the name below](doc/screenshots/people-mark-face.webp) |
+
 #### Rename, export, location
 
 Tools for a selection: rename from EXIF tokens with a live preview, export to JPEG, PNG or WebP with size and metadata options, and set or remove the location of several photos at once.

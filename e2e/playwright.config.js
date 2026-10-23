@@ -18,7 +18,7 @@ export default defineConfig({
     video: 'retain-on-failure',
     actionTimeout: 20_000,
   },
-  webServer: {
+  webServer: [{
     // Pass the root as a CLI arg (not UNTERLUMEN_ROOT_PATH) so the server runs in
     // desktop/non-server-role mode. This keeps the same browse root while enabling
     // /api/export/save and allowing absolute-path exports from library search results.
@@ -32,11 +32,29 @@ export default defineConfig({
       // default one is the installed app's.
       UNTERLUMEN_CACHE_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-test-cache'),
     },
-  },
+  }, {
+    // People with real face recognition: invented people (faces/ABOUT.md)
+    // in a server of their own, so the other specs keep their photos and
+    // counts. ONNX Runtime and the models stay in its recognition/ folder.
+    command: `${path.resolve(__dirname, '../unterlumen')} --port 8084 --bind 127.0.0.1 ${path.resolve(__dirname, 'fixtures', 'faces-photos')}`,
+    url: 'http://localhost:8084',
+    reuseExistingServer: !process.env.CI,
+    timeout: 15_000,
+    env: {
+      UNTERLUMEN_LIB_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-faces'),
+      UNTERLUMEN_CACHE_DIR: path.resolve(__dirname, 'fixtures', '.unterlumen-faces-cache'),
+    },
+  }],
   projects: [
     {
       name: 'chromium',
+      testIgnore: /face-recognition\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'faces',
+      testMatch: /face-recognition\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:8084' },
     },
   ],
 });

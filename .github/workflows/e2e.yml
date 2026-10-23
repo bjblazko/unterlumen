@@ -44,6 +44,15 @@ jobs:
       - name: Install Playwright browsers
         run: cd e2e && npx playwright install --with-deps chromium
 
+      # ONNX Runtime and the face models for face-recognition.spec.js, which
+      # installs them through the app (about 50 MB) when they are missing.
+      # The pinned versions and checksums live in recognition.go.
+      - name: Cache face recognition
+        uses: actions/cache@v4
+        with:
+          path: e2e/fixtures/.unterlumen-faces/recognition
+          key: recognition-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/internal/toolinstall/recognition.go') }}
+
       - name: Download test fixtures
         run: cd e2e && npm run setup
 

@@ -1,2 +1,5 @@
 photos/
 .unterlumen-test/
+faces-photos/
+.unterlumen-faces/
+.unterlumen-faces-cache/

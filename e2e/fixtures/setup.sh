@@ -21,3 +21,16 @@ mkdir -p "$OUT/.unterlumen-test"
 echo "Done."
 echo "  photos/folder-a: $(find "$OUT/photos/folder-a" -maxdepth 1 -type f | wc -l | tr -d ' ') file(s), $(find "$OUT/photos/folder-a" -maxdepth 1 -type d | tail -n +2 | wc -l | tr -d ' ') subdir(s)"
 echo "  photos/folder-b: $(find "$OUT/photos/folder-b" -maxdepth 1 -type f | wc -l | tr -d ' ') file(s)"
+
+# People with real face recognition (face-recognition.spec.js): the photos
+# of ../faces, served by a server of their own. Its data folder starts
+# empty but for recognition/, ONNX Runtime and the models, which are
+# downloaded once and kept.
+echo "Copying face photos to $OUT/faces-photos..."
+rm -rf "$OUT/faces-photos"
+cp -r "$SCRIPT_DIR/../faces" "$OUT/faces-photos"
+rm -f "$OUT/faces-photos/ABOUT.md" "$OUT/faces-photos/LICENSE"
+mkdir -p "$OUT/.unterlumen-faces"
+find "$OUT/.unterlumen-faces" -mindepth 1 -maxdepth 1 ! -name recognition -exec rm -rf {} +
+rm -rf "$OUT/.unterlumen-faces-cache"
+echo "  faces-photos: $(find "$OUT/faces-photos" -type f -name '*.jpg' | wc -l | tr -d ' ') photo(s)"

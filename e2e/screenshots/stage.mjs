@@ -4,7 +4,7 @@
 // galleries through the API, on port 8097.
 
 import { spawn } from 'node:child_process';
-import { cpSync, mkdirSync, realpathSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,12 +27,20 @@ export function preparePhotos(tmp) {
     for (const [from, to] of Object.entries(FOLDERS)) {
         cpSync(path.join(REPO, 'src/examples', from), path.join(root, to), { recursive: true });
     }
+    // Invented people for People (e2e/faces/ABOUT.md): no real person is shown.
+    cpSync(path.join(REPO, 'e2e/faces'), path.join(root, 'Friends'), { recursive: true });
+    for (const note of ['ABOUT.md', 'LICENSE']) rmSync(path.join(root, 'Friends', note));
     return root;
 }
+
+// ONNX Runtime and the face models: the ones the e2e run keeps, or the
+// app's own download.
+const RECOGNITION = path.join(REPO, 'e2e/fixtures/.unterlumen-faces/recognition');
 
 export async function startServer(tmp, root) {
     const lib = path.join(tmp, 'lib');
     mkdirSync(lib);
+    if (existsSync(RECOGNITION)) cpSync(RECOGNITION, path.join(lib, 'recognition'), { recursive: true });
     const server = spawn(BINARY, ['--port', String(PORT), '--bind', '127.0.0.1', root], {
         env: { ...process.env, UNTERLUMEN_LIB_DIR: lib, UNTERLUMEN_CHANNELS_DIR: lib },
         stdio: 'ignore',
@@ -90,7 +98,33 @@ export async function seed() {
     const share = await collect('friends', 'Mallorca, for the family', near(39.5, 3.3));
     await api('POST', `/api/channels/friends/drafts/${share.id}/generate`, { publishedAt: '2025-07-20T12:00:00Z' });
     await collect('instagram', 'Summer', near(36.4, 28.2).slice(0, 3));
+    await seedPeople(lib);
     return lib;
+}
+
+// The people of Friends, named after a portrait of each; the faces the
+// detector did not put with them stay waiting, some with a suggestion.
+const PEOPLE = {
+    'portraits-12': 'Mei', 'portraits-11': 'Amara', 'portraits-13': 'Ravi', 'portraits-14': 'Klaus',
+    'portraits-31': 'Leila', 'portraits-32': 'Kofi', 'portraits-33': 'Grace', 'portraits-34': 'Jun',
+    'portraits-24': 'Klaus', 'portraits-42': 'Sofia',
+};
+
+async function seedPeople(lib) {
+    if (!(await api('GET', '/api/faces')).installed) await api('POST', '/api/faces/install');
+    for (let i = 0; i < 300; i++) {
+        const o = await api('GET', `/api/library/${lib.id}/people`);
+        if (!o.pending && !o.finding) break;
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    const tile = f => f.file.replace(/^.*_/, '').replace(/\.jpg$/, '');
+    const { groups } = await api('GET', `/api/library/${lib.id}/people`);
+    for (const g of groups) {
+        const faces = await api('GET', `/api/library/${lib.id}/people/groups/${g.id}`);
+        const name = faces.map(f => PEOPLE[tile(f)]).find(Boolean);
+        if (name) await api('POST', `/api/library/${lib.id}/faces/name`, { faces: faces.map(f => f.id), name });
+    }
+    await api('PUT', '/api/people/birthdays', { name: 'Mei', birthday: '1994-03-08' });
 }
 
 // The photos live in a temporary folder; the pictures show where a person
