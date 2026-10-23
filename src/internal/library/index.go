@@ -453,12 +453,16 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 		idx.store.ApplyNotes(photoID, media.Notes{}, idx.notesInSidecars()) //nolint:errcheck
 		idx.store.replaceBuiltMeta(photoID, nil)                            //nolint:errcheck
 		idx.store.ApplyFaceNames(photoID, nil, false)                       //nolint:errcheck
+		idx.store.ApplySidecarThings(photoID, media.SidecarThings{})        //nolint:errcheck
 		return
 	}
 	if notes, err := media.ReadNotes(absPath); err == nil {
 		idx.store.ApplyNotes(photoID, notes, idx.notesInSidecars()) //nolint:errcheck
 	}
 	idx.applyFaceNames(absPath, photoID)
+	if st, err := media.ReadThings(absPath); err == nil {
+		idx.store.ApplySidecarThings(photoID, st) //nolint:errcheck
+	}
 	if pubs, err := media.ReadSidecar(absPath); err == nil {
 		idx.store.replaceBuiltMeta(photoID, publicationKeys(pubs)) //nolint:errcheck
 	}

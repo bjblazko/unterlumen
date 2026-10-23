@@ -62,3 +62,10 @@ func TestNewTensorRejectsMismatchedData(t *testing.T) {
 		t.Fatal("4 values were promised and 3 accepted")
 	}
 }
+
+func TestNewTensorRejectsMismatchedInts(t *testing.T) {
+	r := &Runtime{}
+	if _, err := r.newTensor(Tensor{Shape: []int64{1, 77}, Ints: make([]int64, 76)}); err == nil {
+		t.Fatal("77 token IDs were promised and 76 accepted")
+	}
+}

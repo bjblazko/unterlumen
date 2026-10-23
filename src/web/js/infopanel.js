@@ -32,6 +32,7 @@ class InfoPanel {
         this._metaContext = null;
         this._folders = new FolderDashboard(this);
         this._people = new InfoPeople(this);
+        this._things = new InfoThings(this);
         this.render();
     }
 
@@ -80,6 +81,7 @@ class InfoPanel {
         this.error = null;
         this.data = null;
         this._people.reset();
+        this._things.reset();
         // render() prefers folderData over data when both are set, so a stale
         // folderData/libraryStats from a previous loadFolderInfo() call (e.g.
         // the folder was focused before any file was clicked) must be cleared
@@ -114,7 +116,13 @@ class InfoPanel {
         this.libraryStats = null;
         // A library photo's key is lib:<library>:<photo>; its faces come too.
         const [kind, lib, photo] = String(key).split(':');
-        if (kind === 'lib' && lib && photo) this._people.load(lib, photo); else this._people.reset();
+        if (kind === 'lib' && lib && photo) {
+            this._people.load(lib, photo);
+            this._things.load(lib, photo);
+        } else {
+            this._people.reset();
+            this._things.reset();
+        }
         this.render();
         const requestKey = key;
         try {
@@ -145,6 +153,7 @@ class InfoPanel {
         this.error = null;
         this._metaContext = null;
         this._people.reset();
+        this._things.reset();
         this.render();
         const requestPath = path;
 
@@ -181,6 +190,7 @@ class InfoPanel {
         this.loading = false;
         this._metaContext = null;
         this._people.reset();
+        this._things.reset();
         this.destroyMap();
         this.render();
     }
@@ -280,7 +290,10 @@ class InfoPanel {
 
         if (this._metaContext) this._attachMetaEvents();
         if (this.folderData) this._folders.attachEvents();
-        if (this.data) this._people.attachEvents(this.container);
+        if (this.data) {
+            this._people.attachEvents(this.container);
+            this._things.attachEvents(this.container);
+        }
 
         this.initMap();
     }
@@ -363,6 +376,7 @@ class InfoPanel {
 
         sections.push(this._renderShortList(d, tags, used));
         sections.push(this._people.render());
+        sections.push(this._things.render());
         const location = this._renderLocationSection(d, used);
         if (location) sections.push(location);
 

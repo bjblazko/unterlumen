@@ -11,6 +11,8 @@ const CHIP_NS_FIXED = [
     { ns: 'channel', label: 'Destination',    hint: 'Published to this destination', type: 'channel', param: 'channel' },
     { ns: 'album',   label: 'Gallery title',  hint: 'Any gallery with this title', type: 'album', param: 'album_title' },
     { ns: 'person',  label: 'Person',         hint: 'Named in People', type: 'person', param: 'person' },
+    { ns: 'thing',   label: 'Thing',          hint: 'Found in the photo', type: 'thing', param: 'thing' },
+    { ns: 'shows',   label: 'Shows',          hint: 'Words for what the photo shows', type: 'words', param: 'text' },
 ];
 
 // EXIF fields handled by numeric sliders — exclude from chip namespace list to avoid duplication.
@@ -34,6 +36,8 @@ function chipToParam(chip) {
         if (ns.type === 'channel') return { key: 'channel', value: chip.value };
         if (ns.type === 'album') return { key: 'album_title', value: chip.value };
         if (ns.type === 'person') return { key: 'person', value: chip.value };
+        if (ns.type === 'thing') return { key: 'thing', value: chip.value };
+        if (ns.type === 'words') return { key: 'text', value: chip.value };
         if (ns.type === 'meta') return { key: ns.param, value: chip.value };
     }
     return { key: 'meta_' + chip.ns, value: chip.value };
@@ -108,6 +112,9 @@ function valueToSlider(val, min, max, log) {
 function searchWords(criteria) {
     const people = [criteria.person ?? []].flat();
     if (people.length) return `Finding the photos of ${sentenceList(people)}…`;
+    const found = [criteria.thing ?? []].flat();
+    if (found.length) return `Finding the photos with ${sentenceList(found)}…`;
+    if (criteria.text) return `Finding photos that show ${criteria.text}…`;
     if (criteria.gallery) return `Finding the photos of ${criteria.gallery.title}…`;
     return 'Finding the photos…';
 }
@@ -201,6 +208,10 @@ class LibraryFilterPanel {
         for (const name of [criteria.person ?? []].flat()) {
             this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'person'), name);
         }
+        for (const thing of [criteria.thing ?? []].flat()) {
+            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'thing'), thing);
+        }
+        if (criteria.text) this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'shows'), criteria.text);
         if (criteria.hues) this._setHues(criteria.hues);
         this._suppressQuery = false;
         this._runQuery();
@@ -233,13 +244,14 @@ class LibraryFilterPanel {
 
         const ids = this._initialLibID || undefined;
         // Load libraries, ranges, text field values, channels, meta keys, album titles, and all EXIF fields in parallel.
-        const [libraries, ranges, channels, metaKeys, albumTitles, personNames, exifFields, ...textValues] = await Promise.all([
+        const [libraries, ranges, channels, metaKeys, albumTitles, personNames, thingTotals, exifFields, ...textValues] = await Promise.all([
             LibraryAPI.list().catch(() => []),
             this._fetchRanges(this._initialLibID),
             ChannelAPI.list().catch(() => []),
             LibraryAPI.metaKeys(ids).catch(() => []),
             LibraryAPI.albumTitles(ids).catch(() => []),
             LibraryAPI.personNames(ids).catch(() => []),
+            LibraryAPI.thingTotals(ids).catch(() => []),
             LibraryAPI.exifFields(ids).catch(() => []),
             ...EXIF_TEXT_FILTER_FIELDS.map(f =>
                 LibraryAPI.exifValues(f.field, ids).catch(() => [])
@@ -251,6 +263,7 @@ class LibraryFilterPanel {
         this._metaKeys = metaKeys;
         this._albumTitles = albumTitles;
         this._personNames = personNames;
+        this._thingNames = thingTotals.map(t => t.thing);
         this._exifFields = exifFields;
         this._textValues = {};
         this._textActive = {};
@@ -693,6 +706,7 @@ class LibraryFilterPanel {
         const metaKeys = this._metaKeys || [];
         const albumTitles = this._albumTitles || [];
         const personNames = this._personNames || [];
+        const thingNames = this._thingNames || [];
         const exifFields = this._exifFields || [];
 
         // Params already covered by fixed namespaces — don't add them again as dynamic EXIF entries.
@@ -728,6 +742,8 @@ class LibraryFilterPanel {
                     if (nsDesc.ns === 'channel') return channels.map(c => c.slug);
                     if (nsDesc.ns === 'album') return albumTitles;
                     if (nsDesc.ns === 'person') return personNames;
+                    if (nsDesc.ns === 'thing') return thingNames;
+                    if (nsDesc.ns === 'shows') return [];
                     if (nsDesc.type === 'exif') {
                         const raw = await LibraryAPI.exifValues(nsDesc.param, ids).catch(() => []);
                         return labeledExifValues(nsDesc.param, raw);
@@ -791,8 +807,8 @@ class LibraryFilterPanel {
         for (const chip of (this._chipInput?.getChips() || [])) {
             const p = chipToParam(chip);
             if (!p) continue;
-            // Several people narrow together: photos with all of them.
-            if (p.key === 'person') (params.person ||= []).push(p.value);
+            // Several people or things narrow together: photos with all of them.
+            if (p.key === 'person' || p.key === 'thing') (params[p.key] ||= []).push(p.value);
             else params[p.key] = p.value;
         }
         return params;

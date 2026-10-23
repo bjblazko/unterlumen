@@ -22,6 +22,8 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		MetaFilters:    parseMetaFilters(q),
 		AlbumTitle:     q.Get("album_title"),
 		People:         nonEmpty(q["person"]),
+		Things:         nonEmpty(q["thing"]),
+		Words:          strings.TrimSpace(q.Get("text")),
 		FacesMin:       parseIntIn(q.Get("faces_min"), 0, math.MaxInt32),
 		FacesMax:       parseIntIn(q.Get("faces_max"), 0, math.MaxInt32),
 		ExtFilter:      q.Get("ext"),
@@ -102,7 +104,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if strings.HasSuffix(k, "_min") || strings.HasSuffix(k, "_max") {
 			continue
 		}
-		if k == "channel" || k == "album" || k == "album_title" || k == "person" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
+		if k == "channel" || k == "album" || k == "album_title" || k == "person" || k == "thing" || k == "text" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
 		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" {
@@ -170,11 +172,11 @@ func parseNumericFilters(vals map[string][]string) map[string]lib.NumericFilter 
 	return out
 }
 
-// searchScope is the shared filter of a search. Its people are People's
-// already: a library's filter and a chart's photos both send person, and
-// asking twice would only slow the search.
+// searchScope is the shared filter of a search. Its people and things are
+// the search's own already: a library's filter and a chart's photos both
+// send person and thing, and asking twice would only slow the search.
 func searchScope(q url.Values) lib.Filter {
 	f := filterFromQuery(q)
-	f.People = nil
+	f.People, f.Things = nil, nil
 	return f
 }

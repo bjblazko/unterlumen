@@ -83,9 +83,9 @@ func writeJSON(w http.ResponseWriter, v any) {
 func recognitionStatus(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, struct {
-			Installed bool                        `json:"installed"`
-			Plan      toolinstall.RecognitionPlan `json:"plan"`
-		}{mgr.FacesInstalled(), toolinstall.PlanRecognition()})
+			Installed bool                  `json:"installed"`
+			Plan      toolinstall.ModelPlan `json:"plan"`
+		}{mgr.FacesInstalled(), toolinstall.PlanRecognition(mgr.RuntimeDir())})
 	}
 }
 
@@ -104,7 +104,7 @@ func installRecognition(mgr *lib.Manager, reg *jobs.Registry) http.HandlerFunc {
 		done := make(chan error, 1)
 		go func() {
 			defer busy.Unlock()
-			err := toolinstall.InstallRecognition(context.Background(), job, mgr.RecognitionDir())
+			err := toolinstall.InstallRecognition(context.Background(), job, mgr.RuntimeDir(), mgr.RecognitionDir())
 			job.Finish(err)
 			done <- err
 			if err == nil {

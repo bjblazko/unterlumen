@@ -46,6 +46,15 @@ function peopleStatsDerived(ps) {
 
 const PEOPLE_NOBODY = 'Nobody is named in these photos. Name people under People, and they are counted here.';
 
+// The words of the charts that count named series — people here, and things
+// (things-stats-charts.js), which come in the same shape.
+const PEOPLE_WORDS = {
+    none: PEOPLE_NOBODY,
+    undated: 'No photo of a named person has a date.',
+    apart: 'No two named people are in the same photo here.',
+    many: 'people',
+};
+
 // peopleCompared puts the people chosen to compare (Compare, in the topic's
 // head) first, in that order, so every chart shows them, and only them, in
 // the first colours of the ramp; compared says how many. Names nobody here
@@ -77,9 +86,9 @@ function peopleShown(ps, n) {
 
 const PEOPLE_BARS = 20;
 
-function renderPeopleBars(el, ps, onPick) {
+function renderPeopleBars(el, ps, onPick, words = PEOPLE_WORDS) {
     const data = ps?.people.slice(0, peopleShown(ps, PEOPLE_BARS)) ?? [];
-    if (!data.length) { tlNoData(el, PEOPLE_NOBODY); return; }
+    if (!data.length) { tlNoData(el, words.none); return; }
     const c = chartColors();
     const W = 680, barH = 22, pad = { top: 8, left: 150, right: 60, bottom: 8 };
     const svg = svgBase(el, W, pad.top + data.length * barH + pad.bottom);
@@ -101,17 +110,17 @@ function renderPeopleBars(el, ps, onPick) {
             .text(d.photos.toLocaleString());
     });
     if (!ps.compared && ps.people.length > PEOPLE_BARS) {
-        el.insertAdjacentHTML('beforeend', `<p class="stats-chart-note">The ${PEOPLE_BARS} with the most photos of ${formatCount(ps.people.length)} people.</p>`);
+        el.insertAdjacentHTML('beforeend', `<p class="stats-chart-note">The ${PEOPLE_BARS} with the most photos of ${formatCount(ps.people.length)} ${words.many}.</p>`);
     }
 }
 
 /* ─── People over time ─────────────────────────────────────────── */
 
 // The eight with the most photos, each in their slot of the ramp.
-function renderPeopleLines(el, ps, onPick) {
-    if (!ps?.people.length) { tlNoData(el, PEOPLE_NOBODY); return; }
+function renderPeopleLines(el, ps, onPick, words = PEOPLE_WORDS) {
+    if (!ps?.people.length) { tlNoData(el, words.none); return; }
     const { periods, counts } = peopleStatsDerived(ps);
-    if (!periods.length) { tlNoData(el, 'No photo of a named person has a date.'); return; }
+    if (!periods.length) { tlNoData(el, words.undated); return; }
     const c = chartColors();
     const series = ps.people.slice(0, peopleShown(ps, 8)).map((p, i) => ({
         name: p.name,
@@ -168,12 +177,12 @@ const PEOPLE_MATRIX = 12;
 
 // Of the people with the most photos, how many photos each two share: one
 // cell per pair, darker with more photos.
-function renderPeopleMatrix(el, ps, onPick) {
-    if (!ps?.people.length) { tlNoData(el, PEOPLE_NOBODY); return; }
+function renderPeopleMatrix(el, ps, onPick, words = PEOPLE_WORDS) {
+    if (!ps?.people.length) { tlNoData(el, words.none); return; }
     const { pairs } = peopleStatsDerived(ps);
     const shown = ps.people.slice(0, peopleShown(ps, PEOPLE_MATRIX)).map((p, i) => ({ ...p, i }));
     const shared = new Map(pairs.filter(p => p.a < shown.length && p.b < shown.length).map(p => [`${p.a},${p.b}`, p.photos]));
-    if (!shared.size) { tlNoData(el, 'No two named people are in the same photo here.'); return; }
+    if (!shared.size) { tlNoData(el, words.apart); return; }
     const c = chartColors();
     const most = Math.max(...shared.values());
     const cell = 28;

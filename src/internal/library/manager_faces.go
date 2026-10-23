@@ -20,15 +20,15 @@ type facesState struct {
 	running sync.Map // map[libraryID]*atomic.Bool — as Manager.analysing
 }
 
-// RecognitionDir is where this installation keeps ONNX Runtime and the
-// face models (ADR-0051). It is machine-local, like everything in the lib dir.
+// RecognitionDir is where this installation keeps the face models
+// (ADR-0051). It is machine-local, like everything in the lib dir.
 func (m *Manager) RecognitionDir() string {
 	return filepath.Join(m.root, "recognition")
 }
 
 // FacesInstalled reports whether faces can be found here.
 func (m *Manager) FacesInstalled() bool {
-	return faces.Installed(m.RecognitionDir())
+	return m.runtimeInstalled() && faces.Installed(m.RecognitionDir())
 }
 
 // faceEngine loads the engine once the recognition folder is complete.
@@ -41,7 +41,7 @@ func (m *Manager) faceEngine() (*faces.Engine, error) {
 	if !m.FacesInstalled() {
 		return nil, errors.New("face recognition is not installed")
 	}
-	e, err := faces.Open(m.RecognitionDir(), 1)
+	e, err := faces.Open(m.runtimeLib(), m.RecognitionDir(), 1)
 	if err != nil {
 		return nil, err
 	}

@@ -73,7 +73,9 @@ class SettingsStorage {
             hint: 'Thumbnails, faces and the index of this library.',
             link: placeLink('library', 'libraries', 'Libraries'),
         }));
-        if (data.recognition) rows.push({ label: 'Face recognition', bytes: data.recognition, hint: 'ONNX Runtime and the two face models.', link: placeLink('people', 'people', 'People') });
+        if (data.recognition) rows.push({ label: 'Face recognition', bytes: data.recognition, hint: 'The two face models.', link: placeLink('people', 'people', 'People') });
+        if (data.things) rows.push({ label: 'Things', bytes: data.things, hint: 'CLIP and the object detector.', link: placeLink('statistics', 'statistics', 'Statistics') });
+        if (data.runtime) rows.push({ label: 'ONNX Runtime', bytes: data.runtime, hint: 'Runs the face and things models.', link: '' });
         if (data.output) rows.push({ label: 'Destination output', bytes: data.output, hint: 'What destinations built on this computer, ready to publish.', link: placeLink('destinations', 'destinations', 'Destinations') });
         return rows.sort((a, b) => b.bytes - a.bytes);
     }

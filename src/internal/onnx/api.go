@@ -33,6 +33,7 @@ const (
 	idxSessionGetOutputName           = 37
 	idxCreateTensorWithDataAsOrtValue = 49
 	idxGetTensorMutableData           = 51
+	idxGetTensorElementType           = 60
 	idxGetDimensionsCount             = 61
 	idxGetDimensions                  = 62
 	idxGetTensorTypeAndShape          = 65
@@ -54,6 +55,7 @@ const (
 	ortArenaAllocator         = 1
 	ortMemTypeDefault         = 0
 	ortTensorElementFloat     = 1
+	ortTensorElementInt64     = 7
 	ortEnableAllOptimizations = 99
 )
 
@@ -78,6 +80,7 @@ type api struct {
 	sessionGetOutputName      func(sess unsafe.Pointer, i uintptr, alloc unsafe.Pointer, out unsafe.Pointer) unsafe.Pointer
 	createTensorWithData      func(mem unsafe.Pointer, data unsafe.Pointer, size uintptr, shape unsafe.Pointer, dims uintptr, elemType int32, out unsafe.Pointer) unsafe.Pointer
 	getTensorMutableData      func(value unsafe.Pointer, out unsafe.Pointer) unsafe.Pointer
+	getTensorElementType      func(info unsafe.Pointer, out unsafe.Pointer) unsafe.Pointer
 	getDimensionsCount        func(info unsafe.Pointer, out unsafe.Pointer) unsafe.Pointer
 	getDimensions             func(info unsafe.Pointer, out unsafe.Pointer, n uintptr) unsafe.Pointer
 	getTensorTypeAndShape     func(value unsafe.Pointer, out unsafe.Pointer) unsafe.Pointer
@@ -109,6 +112,7 @@ func newAPI(t *apiTable, version string) *api {
 		idxSessionGetOutputName:           &a.sessionGetOutputName,
 		idxCreateTensorWithDataAsOrtValue: &a.createTensorWithData,
 		idxGetTensorMutableData:           &a.getTensorMutableData,
+		idxGetTensorElementType:           &a.getTensorElementType,
 		idxGetDimensionsCount:             &a.getDimensionsCount,
 		idxGetDimensions:                  &a.getDimensions,
 		idxGetTensorTypeAndShape:          &a.getTensorTypeAndShape,

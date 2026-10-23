@@ -18,7 +18,7 @@ class PrivacyPane {
                     <div class="reading-text">
                         <section class="guide-section">
                             <h2>What stays here</h2>
-                            <p>Your photos stay in their folders. Libraries, thumbnails and settings live in Unterlumen's data folder. Titles, fields, publications and the names you give faces are written beside a photo into its XMP sidecar, and a location or a crop into the photo itself — only when you set one.</p>
+                            <p>Your photos stay in their folders. Libraries, thumbnails and settings live in Unterlumen's data folder. Titles, fields, publications, the names you give faces and the things found in a photo are written beside a photo into its XMP sidecar, and a location or a crop into the photo itself — only when you set one.</p>
                         </section>
                         <section class="guide-section">
                             <h2>What leaves, and when</h2>
@@ -27,6 +27,7 @@ class PrivacyPane {
                                 <li><strong>Publishing.</strong> Publish sends a gallery's photos to its destination, and only there: over SSH and rsync to the server you set up for a website, or into a folder for a files destination. Galleries then checks that the published addresses answer, when it opens and after a publish, by asking your own site.</li>
                                 <li><strong>Helper programs.</strong> Only when you choose Install the missing ones in Settings does Unterlumen download ffmpeg, exiftool and cwebp — from Homebrew, winget or your package manager, or from ffmpeg.martin-riedl.de, exiftool.org through SourceForge, and Google.</li>
                                 <li><strong>Face recognition.</strong> Only when you choose Download and turn on in People does Unterlumen download ONNX Runtime from Microsoft's releases on GitHub (<span class="mono">github.com</span>) and two face models from OpenCV's model zoo on Hugging Face (<span class="mono">huggingface.co</span>), once. Faces are then found and compared on this computer; no photo, face or name is sent anywhere.</li>
+                                <li><strong>Things.</strong> Only when you choose Download and turn on in Statistics, Things, does Unterlumen download OpenAI's CLIP from Hugging Face (<span class="mono">huggingface.co</span>), an object detector from OpenCV's model zoo there, and ONNX Runtime from GitHub (<span class="mono">github.com</span>) unless face recognition already did, once. Things are then found, and searches by words compared, on this computer; no photo and no search is sent anywhere.</li>
                                 <li><strong>Links you open.</strong> GitHub, huepattl.de, OpenStreetMap and the projects under Licenses and thanks open in your browser only when you click them.</li>
                             </ul>
                         </section>

@@ -35,7 +35,8 @@ export default defineConfig({
   }, {
     // People with real face recognition: invented people (faces/ABOUT.md)
     // in a server of their own, so the other specs keep their photos and
-    // counts. ONNX Runtime and the models stay in its recognition/ folder.
+    // counts. ONNX Runtime and the models stay in its data folder; things
+    // (things.spec.js) run here too, after the faces are named.
     command: `${path.resolve(__dirname, '../unterlumen')} --port 8086 --bind 127.0.0.1 ${path.resolve(__dirname, 'fixtures', 'faces-photos')}`,
     url: 'http://localhost:8086',
     reuseExistingServer: !process.env.CI,
@@ -48,12 +49,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /face-recognition\.spec\.js/,
+      testIgnore: /(face-recognition|things)\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'faces',
-      testMatch: /face-recognition\.spec\.js/,
+      testMatch: /(face-recognition|things)\.spec\.js/,
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:8086' },
     },
   ],

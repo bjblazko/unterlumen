@@ -92,6 +92,8 @@ class GlobalKeyboard {
         if (key === '\\' && noCommand) return this._toggleSidebar;
         if (plain && GlobalKeyboard.PLACE_KEYS[key]) return (ev) => { ev.preventDefault(); this._app.setMode(GlobalKeyboard.PLACE_KEYS[key]); };
         if (lower === 'h' && noCommand) return this._toggleUI;
+        // "/" may need Shift (on a German keyboard it is Shift+7).
+        if (key === '/' && noCommand) return (ev) => { ev.preventDefault(); this._app.search.focus(); };
         return null;
     }
 

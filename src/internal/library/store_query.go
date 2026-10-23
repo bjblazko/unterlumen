@@ -32,6 +32,9 @@ type ListPhotosOpts struct {
 	MetaExists     []string                 // photo_meta keys that must exist (any value)
 	AlbumTitle     string                   // match photos with any built:*:title = value
 	People         []string                 // people named in the photo, all of them (ADR-0051), without regard to case
+	Things         []string                 // things found in the photo, all of them (ADR-0054)
+	Words          string                   // words the photo must show, matched against its vector (ADR-0054)
+	matches        map[string]float32       // the photos that match Words, and how well; set by SearchLibraries
 	FacesMin       *int                     // at least this many faces found; only photos whose faces were looked for
 	FacesMax       *int                     // at most this many faces found; the same
 	ExtFilter      string                   // file extension (photos.ext)
@@ -53,6 +56,9 @@ type ListPhotosOpts struct {
 // ends — whoever asked has gone — so the library's one connection is free
 // again for everyone else.
 func (s *Store) ListPhotos(ctx context.Context, opts ListPhotosOpts) (ListPhotosResult, error) {
+	if opts.Words != "" {
+		return s.listMatches(ctx, opts)
+	}
 	fromSQL, whereSQL, args := newPhotoFilter(opts).sql()
 
 	var total int
@@ -271,6 +277,12 @@ func (f *photoFilter) addMeta(opts ListPhotosOpts) {
 	for _, name := range opts.People {
 		f.cond(`p.id IN (SELECT fa.photo_id FROM faces fa JOIN people pe ON pe.id = fa.person_id
 			WHERE fa.confirmed = 1 AND pe.name = ?)`, name)
+	}
+	for _, thing := range opts.Things {
+		f.cond(`p.id IN (SELECT photo_id FROM photo_things WHERE thing = ?)`, thing)
+	}
+	if opts.Words != "" {
+		f.cond(`p.id IN (SELECT value FROM json_each(?))`, matchesJSON(opts.matches))
 	}
 }
 

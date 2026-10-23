@@ -31,6 +31,7 @@ type Photo struct {
 	Status    string            `json:"status"`
 	Exif      map[string]string `json:"exif,omitempty"`
 	Meta      map[string]string `json:"meta,omitempty"`
+	Match     float32           `json:"match,omitempty"` // how well it matches the words searched for, if any
 }
 
 // MetaEntry is a single user-defined key/value pair for a photo.

@@ -67,9 +67,16 @@ func (m *Manager) SearchLibraries(ctx context.Context, ids []string, opts ListPh
 	perLibOpts := opts
 	perLibOpts.Offset = 0
 	perLibOpts.Limit = opts.Offset + opts.Limit
+	var matches map[string]map[string]float32
+	if opts.Words != "" {
+		if matches, err = m.wordMatches(ctx, libs, opts.Words); err != nil {
+			return CrossLibraryResult{}, err
+		}
+	}
 	var all []LibraryPhoto
 	total := 0
 	for _, l := range libs {
+		perLibOpts.matches = matches[l.ID]
 		photos, n := m.searchLibrary(ctx, l, perLibOpts)
 		if err := ctx.Err(); err != nil {
 			return CrossLibraryResult{}, err
@@ -77,8 +84,13 @@ func (m *Manager) SearchLibraries(ctx context.Context, ids []string, opts ListPh
 		all = append(all, photos...)
 		total += n
 	}
-	// Merge and sort by date taken, newest first, undated last.
-	sortLibraryPhotos(all)
+	// Merge and sort by date taken, newest first, undated last; by how well
+	// they match when words were searched for.
+	if opts.Words != "" {
+		sort.SliceStable(all, func(i, j int) bool { return all[i].Match > all[j].Match })
+	} else {
+		sortLibraryPhotos(all)
+	}
 
 	// Apply offset/limit.
 	if opts.Offset >= len(all) {

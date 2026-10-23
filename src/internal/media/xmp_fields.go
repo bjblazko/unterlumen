@@ -43,19 +43,18 @@ func WriteField(photoPath, key, value string) error {
 			if value == "" {
 				return nil, nil
 			}
-			return []byte(renderFreshXMPWith(nil, map[string]string{key: value})), nil
+			return []byte(renderFreshXMPWith(ulContent{fields: map[string]string{key: value}})), nil
 		}
-		fields := parseSidecarFields(raw)
+		c := readULContent(raw)
 		if value == "" {
-			if _, ok := fields[key]; !ok {
+			if _, ok := c.fields[key]; !ok {
 				return nil, nil
 			}
-			delete(fields, key)
+			delete(c.fields, key)
 		} else {
-			fields[key] = value
+			c.fields[key] = value
 		}
-		pubs, _ := parseSidecarPublications(raw)
-		return spliceULBlock(raw, pubs, fields), nil
+		return spliceULBlock(raw, c), nil
 	})
 }
 

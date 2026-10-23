@@ -14,6 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"huepattl.de/unterlumen/internal/onnx"
+	"huepattl.de/unterlumen/internal/things"
 )
 
 func tgz(t *testing.T, name, body string) []byte {
@@ -71,8 +74,30 @@ func TestFetchIntoRefusesAFileWithTheWrongChecksum(t *testing.T) {
 }
 
 func TestPlanRecognitionCountsEveryDownload(t *testing.T) {
-	p := PlanRecognition()
-	if p.Supported && p.Bytes < 38_000_000 {
-		t.Fatalf("plan %+v counts less than the recognition model alone", p)
+	p := PlanRecognition(t.TempDir())
+	if p.Supported && p.Bytes < 38_000_000+10_000_000 {
+		t.Fatalf("plan %+v counts less than the recognition model and the runtime", p)
+	}
+}
+
+func TestPlanLeavesOutAnInstalledRuntime(t *testing.T) {
+	dir := t.TempDir()
+	without := PlanThings(dir)
+	os.WriteFile(filepath.Join(dir, onnx.LibraryFile()), []byte("lib"), 0o644) //nolint:errcheck
+	with := PlanThings(dir)
+	if without.Supported && with.Bytes >= without.Bytes {
+		t.Fatalf("the runtime is counted although it is there: %d, then %d", without.Bytes, with.Bytes)
+	}
+}
+
+func TestEveryThingsFileIsDownloaded(t *testing.T) {
+	got := map[string]bool{}
+	for _, m := range thingsModels {
+		got[m.name] = true
+	}
+	for _, f := range things.Files {
+		if !got[f] {
+			t.Errorf("%s is not downloaded", f)
+		}
 	}
 }

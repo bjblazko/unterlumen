@@ -22,7 +22,9 @@ type LibraryStorage struct {
 type DataStorage struct {
 	Path        string           `json:"path"`
 	Libraries   []LibraryStorage `json:"libraries"`
-	Recognition int64            `json:"recognition"` // ONNX Runtime and the face models
+	Recognition int64            `json:"recognition"` // the face models
+	Things      int64            `json:"things"`      // the things models
+	Runtime     int64            `json:"runtime"`     // ONNX Runtime, which both use
 	Output      int64            `json:"output"`      // what destinations built on this computer
 }
 
@@ -35,6 +37,8 @@ func (m *Manager) DataStorage() DataStorage {
 		}
 	}
 	ds.Recognition = folderBytes(m.RecognitionDir())
+	ds.Things = folderBytes(m.ThingsDir())
+	ds.Runtime = folderBytes(m.RuntimeDir())
 	ds.Output = folderBytes(filepath.Join(m.root, "channels"))
 	return ds
 }

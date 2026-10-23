@@ -37,6 +37,7 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/colour-space", libraryColourSpace(mgr))
 	mux.HandleFunc("GET /api/library/exposure-space", libraryExposureSpace(mgr))
 	mux.HandleFunc("GET /api/library/people-stats", libraryPeopleStats(mgr))
+	mux.HandleFunc("GET /api/library/things-stats", libraryThingsStats(mgr))
 	mux.HandleFunc("GET /api/library/space-time", librarySpaceTime(mgr))
 	mux.HandleFunc("GET /api/library/geo", libraryGeo(mgr))
 	mux.HandleFunc("GET /api/library/scope-values", scopeValues(mgr))

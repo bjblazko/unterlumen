@@ -10,17 +10,24 @@ import (
 	"time"
 
 	"golang.org/x/image/draw"
+
+	"huepattl.de/unterlumen/internal/onnx"
 )
 
 // TestProbeFolder runs the engine over the JPEGs in UNTERLUMEN_FACES_PHOTOS
-// with the recognition folder UNTERLUMEN_FACES_DIR, logs timings and writes
+// with the recognition folder UNTERLUMEN_FACES_DIR and ONNX Runtime
+// UNTERLUMEN_ONNX_LIB (or the one in that folder), logs timings and writes
 // every face to UNTERLUMEN_FACES_OUT, when set, for a person to look at.
 func TestProbeFolder(t *testing.T) {
 	dir, photos, out := os.Getenv("UNTERLUMEN_FACES_DIR"), os.Getenv("UNTERLUMEN_FACES_PHOTOS"), os.Getenv("UNTERLUMEN_FACES_OUT")
 	if dir == "" || photos == "" {
 		t.Skip("UNTERLUMEN_FACES_DIR and UNTERLUMEN_FACES_PHOTOS are not set")
 	}
-	e, err := Open(dir, 2)
+	lib := os.Getenv("UNTERLUMEN_ONNX_LIB")
+	if lib == "" {
+		lib = filepath.Join(dir, onnx.LibraryFile())
+	}
+	e, err := Open(lib, dir, 2)
 	if err != nil {
 		t.Fatal(err)
 	}

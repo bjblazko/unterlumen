@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-10-24*
 
 ## 1. Introduction and Goals
 
@@ -421,6 +421,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md) — Faces found on this computer, with ONNX Runtime loaded without cgo
 - [ADR-0052](adr/0052-the-index-follows-the-folder.md) — The index follows the folder; a scan only reads it
 - [ADR-0053](adr/0053-one-system-for-every-place.md) — One system for every place: one head, one count, panels that hide, one filter interface
+- [ADR-0054](adr/0054-things-found-on-this-computer.md) — Things found on this computer, written into the sidecars as keywords; one search above every place
 
 ## 10. Quality Requirements
 

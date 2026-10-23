@@ -34,6 +34,8 @@ type Manager struct {
 	folderStatsCache sync.Map             // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 	jobs             *jobs.Registry       // where scans are reported to the status line; nil reports nowhere
 	faces            facesState           // the face engine and the face passes running (ADR-0051)
+	things           thingsState          // the things engine and the things passes running (ADR-0054)
+	vectors          sync.Map             // map[libraryID]*vectorCache, for searching by words
 	decisions        *facedecisions.Store // hidden faces, No's and covers, shared between installations; nil keeps them in each index
 }
 
@@ -63,7 +65,9 @@ func NewManager(root string) (*Manager, error) {
 	if err := os.MkdirAll(filepath.Join(root, "libraries"), 0o700); err != nil {
 		return nil, fmt.Errorf("create libraries dir: %w", err)
 	}
-	return &Manager{root: root}, nil
+	m := &Manager{root: root}
+	m.moveRuntime()
+	return m, nil
 }
 
 // LibDir returns the data directory for the given library ID.

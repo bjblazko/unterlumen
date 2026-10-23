@@ -25,7 +25,7 @@
     { "name": "libheif (heif-convert)", "use": "Decodes HEIF photos on Linux", "license": "LGPL-3.0-or-later, tools: MIT", "home": "https://github.com/strukturag/libheif", "support": "https://github.com/sponsors/farindk" },
     { "name": "libde265", "use": "The HEVC decoder libheif uses", "license": "LGPL-3.0-or-later", "home": "https://github.com/strukturag/libde265", "support": "https://github.com/sponsors/farindk" },
     { "name": "libwebp (cwebp)", "use": "Writes WebP when FFmpeg cannot", "license": "BSD-3-Clause", "home": "https://developers.google.com/speed/webp" },
-    { "name": "ONNX Runtime", "use": "Runs the face models; downloaded from Microsoft when you turn on face recognition", "license": "MIT", "home": "https://onnxruntime.ai" }
+    { "name": "ONNX Runtime", "use": "Runs the face and things models; downloaded from Microsoft when you turn on face recognition or things", "license": "MIT", "home": "https://onnxruntime.ai" }
   ],
   "data": [
     { "name": "OpenStreetMap", "use": "The map data, by its contributors", "license": "ODbL-1.0", "home": "https://www.openstreetmap.org/copyright", "support": "https://supporting.openstreetmap.org/" },
@@ -33,6 +33,8 @@
     { "name": "OpenMapTiles", "use": "The tile schema and map styles", "license": "BSD-3-Clause, schema: CC-BY-4.0", "home": "https://openmaptiles.org" },
     { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" },
     { "name": "YuNet", "use": "Finds the faces in a photo; downloaded with face recognition", "license": "MIT", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet" },
-    { "name": "SFace", "use": "Tells faces apart; downloaded with face recognition", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface" }
+    { "name": "SFace", "use": "Tells faces apart; downloaded with face recognition", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface" },
+    { "name": "CLIP ViT-B/16", "use": "Tells what a photo shows and searches by words; OpenAI's model in Xenova's ONNX export, downloaded with things", "license": "MIT", "home": "https://github.com/openai/CLIP" },
+    { "name": "YOLOX", "use": "Puts a box around animals and objects; downloaded with things", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/object_detection_yolox" }
   ]
 }

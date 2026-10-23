@@ -3,8 +3,8 @@
 // binary: without the library nothing here works, and nothing else needs it
 // (ADR-0051).
 //
-// Only what Unterlumen's models need is bound — float32 tensors in, float32
-// tensors out, on the CPU.
+// Only what Unterlumen's models need is bound — float32 and int64 tensors,
+// on the CPU.
 package onnx
 
 import (
@@ -16,6 +16,17 @@ import (
 
 	"github.com/ebitengine/purego"
 )
+
+// LibraryFile is the ONNX Runtime library's name on this system.
+func LibraryFile() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "libonnxruntime.dylib"
+	case "windows":
+		return "onnxruntime.dll"
+	}
+	return "libonnxruntime.so"
+}
 
 // apiVersion is the oldest ONNX Runtime C API whose functions are used here:
 // 1.17. A newer library serves an older API version unchanged.

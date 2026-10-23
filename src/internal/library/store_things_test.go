@@ -1,0 +1,188 @@
+package library
+
+import (
+	"context"
+	"image/color"
+	"path/filepath"
+	"slices"
+	"testing"
+
+	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/things"
+)
+
+func thingNamesOf(t *testing.T, s *Store, id string) []string {
+	t.Helper()
+	found, err := s.ThingsOf(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, f := range found {
+		names = append(names, f.Name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func TestSidecarThingsReplaceTheIndex(t *testing.T) {
+	s := newTestStore(t)
+	insertPhoto(t, s, "p1", nil, nil)
+	if err := s.SaveFoundThings([]FoundThings{{PhotoID: "p1", Written: true, Things: []things.Found{
+		{Name: "dog", Score: 0.3, Source: "clip"}, {Name: "tree", Score: 0.27, Source: "clip"}}}}); err != nil {
+		t.Fatal(err)
+	}
+	// tree's keyword was removed in another program, sea came from the other installation
+	st := media.SidecarThings{Record: media.ThingsRecord{Found: []string{"dog", "tree", "sea"}, Version: things.RecordVersion()},
+		Keywords: []string{"dog", "sea", "Urlaub"}}
+	if err := s.ApplySidecarThings("p1", st); err != nil {
+		t.Fatal(err)
+	}
+	found, _ := s.ThingsOf("p1")
+	if len(found) != 2 || found[0].Name != "dog" || found[0].Score != 0.3 || found[1].Source != "sidecar" {
+		t.Fatalf("got %+v", found)
+	}
+}
+
+// A sidecar that could not be written keeps the pass's things; one that
+// held the record and lost it has the photo looked at again.
+func TestASidecarWithoutTheRecord(t *testing.T) {
+	s := newTestStore(t)
+	insertPhoto(t, s, "kept", nil, nil)
+	insertPhoto(t, s, "lost", nil, nil)
+	s.SaveFoundThings([]FoundThings{ //nolint:errcheck
+		{PhotoID: "kept", Things: []things.Found{{Name: "dog", Source: "clip"}}},
+		{PhotoID: "lost", Things: []things.Found{{Name: "dog", Source: "clip"}}, Written: true},
+	})
+	for _, id := range []string{"kept", "lost"} {
+		if err := s.ApplySidecarThings(id, media.SidecarThings{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := thingNamesOf(t, s, "kept"); !slices.Equal(got, []string{"dog"}) {
+		t.Fatalf("kept has %v", got)
+	}
+	var again int
+	s.db.QueryRow(`SELECT COUNT(*) FROM photo_things_found WHERE photo_id = 'lost'`).Scan(&again) //nolint:errcheck
+	if again != 0 {
+		t.Fatal("the photo whose sidecar lost the record is not looked at again")
+	}
+}
+
+// wordsFor makes a word list where each thing is one axis, so a photo
+// vector along an axis is that thing and nothing else.
+func wordsFor() [][]float32 {
+	words := make([][]float32, len(things.Vocabulary))
+	for i := range words {
+		words[i] = make([]float32, len(things.Vocabulary))
+		words[i][i] = 1
+	}
+	return words
+}
+
+func vectorOf(name string) []float32 {
+	v := make([]float32, len(things.Vocabulary))
+	for i, t := range things.Vocabulary {
+		if t.Name == name {
+			v[i] = 1
+		}
+	}
+	return v
+}
+
+// photoWithOldWords is a photo looked at by an older word list: the pass
+// scores its stored vector again without the models.
+func photoWithOldWords(t *testing.T, s *Store, libDir, id, path, thing string) {
+	t.Helper()
+	addPhotoWithThumb(t, s, libDir, id, path, color.RGBA{})
+	if err := s.SaveFoundThings([]FoundThings{{PhotoID: id, Vector: vectorOf(thing)}}); err != nil {
+		t.Fatal(err)
+	}
+	s.db.Exec(`UPDATE photo_things_found SET vocabulary = 0 WHERE photo_id = ?`, id) //nolint:errcheck
+}
+
+func runThingsPass(t *testing.T, s *Store, libDir string) {
+	t.Helper()
+	ch := make(chan Progress, 8)
+	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), thingsLook{words: wordsFor()}, ch)
+	for p := range ch {
+		if p.Error != "" {
+			t.Fatal(p.Error)
+		}
+	}
+}
+
+func TestThingsPassWritesTheSidecarThenTheIndex(t *testing.T) {
+	s := newTestStore(t)
+	libDir, photos := t.TempDir(), t.TempDir()
+	photo := filepath.Join(photos, "a.jpg")
+	photoWithOldWords(t, s, libDir, "aa11", photo, "lighthouse")
+	runThingsPass(t, s, libDir)
+	st, _ := media.ReadThings(photo)
+	if !slices.Equal(st.Things(), []string{"lighthouse"}) || !slices.Equal(thingNamesOf(t, s, "aa11"), []string{"lighthouse"}) {
+		t.Fatalf("sidecar %+v, index %v", st, thingNamesOf(t, s, "aa11"))
+	}
+	if tasks, _ := s.PhotosNeedingThings(); len(tasks) != 0 {
+		t.Fatalf("%d photos still to look at", len(tasks))
+	}
+}
+
+// What the other installation's current models wrote is taken over, and a
+// thing the owner took away is not written again.
+func TestThingsPassTakesOverACurrentSidecar(t *testing.T) {
+	s := newTestStore(t)
+	libDir, photos := t.TempDir(), t.TempDir()
+	other, removed := filepath.Join(photos, "b.jpg"), filepath.Join(photos, "c.jpg")
+	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion()) //nolint:errcheck
+	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0")              //nolint:errcheck
+	media.RemoveThing(removed, "lighthouse")                                    //nolint:errcheck
+	photoWithOldWords(t, s, libDir, "bb22", other, "lighthouse")
+	photoWithOldWords(t, s, libDir, "cc33", removed, "lighthouse")
+	runThingsPass(t, s, libDir)
+	if got := thingNamesOf(t, s, "bb22"); !slices.Equal(got, []string{"windmill"}) {
+		t.Fatalf("the other installation's things were not taken over: %v", got)
+	}
+	st, _ := media.ReadThings(removed)
+	if len(thingNamesOf(t, s, "cc33")) != 0 || slices.Contains(st.Keywords, "lighthouse") {
+		t.Fatalf("a removed thing came back: index %v, sidecar %+v", thingNamesOf(t, s, "cc33"), st)
+	}
+}
+
+// The Things topic counts only the photos the shared filter lets through.
+func TestThingAppearancesFollowTheFilter(t *testing.T) {
+	s := newTestStore(t)
+	for _, id := range []string{"p1", "p2"} {
+		insertPhoto(t, s, id, nil, nil)
+	}
+	s.SaveFoundThings([]FoundThings{ //nolint:errcheck
+		{PhotoID: "p1", Things: []things.Found{{Name: "dog", Source: "clip"}, {Name: "sea", Source: "clip"}}},
+		{PhotoID: "p2", Things: []things.Found{{Name: "sea", Source: "clip"}}},
+	})
+	s.filter = Filter{Things: []string{"dog"}}
+	apps, err := s.ThingAppearances("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(apps) != 2 || apps[0].Photo != "p1" || apps[1].Photo != "p1" {
+		t.Fatalf("got %+v", apps)
+	}
+	if n, _ := s.ThingsLooked(""); n != 1 {
+		t.Fatalf("%d photos looked at in scope, want 1", n)
+	}
+}
+
+// Photos found by words come best match first, whatever their dates.
+func TestWordMatchesComeBestFirst(t *testing.T) {
+	s := newTestStore(t)
+	for _, id := range []string{"old", "new", "other"} {
+		insertPhoto(t, s, id, nil, nil)
+	}
+	page, err := s.ListPhotos(context.Background(), ListPhotosOpts{Words: "dog", Limit: 10,
+		matches: map[string]float32{"old": 0.31, "new": 0.27}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 2 || page.Photos[0].ID != "old" || page.Photos[0].Match != 0.31 {
+		t.Fatalf("got %+v", page)
+	}
+}

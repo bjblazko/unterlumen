@@ -205,26 +205,41 @@ func parseSidecarPublications(data []byte) ([]Publication, error) {
 	return pubs, nil
 }
 
-// renderFreshXMP creates a complete XMP sidecar with just the unterlumen namespace.
-func renderFreshXMP(pubs []Publication) string {
-	return renderFreshXMPWith(pubs, nil)
+// ulContent is everything Unterlumen's own description holds: the
+// publication records, the fields (ADR-0048) and the things found in the
+// photo (ADR-0054). A writer of one part reads the whole and writes it back,
+// so the others stay.
+type ulContent struct {
+	pubs   []Publication
+	fields map[string]string
+	things ThingsRecord
 }
 
-func renderFreshXMPWith(pubs []Publication, fields map[string]string) string {
+func readULContent(data []byte) ulContent {
+	pubs, _ := parseSidecarPublications(data)
+	return ulContent{pubs: pubs, fields: parseSidecarFields(data), things: parseThingsRecord(data)}
+}
+
+// renderFreshXMP creates a complete XMP sidecar with just the unterlumen namespace.
+func renderFreshXMP(pubs []Publication) string {
+	return renderFreshXMPWith(ulContent{pubs: pubs})
+}
+
+func renderFreshXMPWith(c ulContent) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-` + renderULBlock(pubs, fields) + `
+` + renderULBlock(c) + `
   </rdf:RDF>
 </x:xmpmeta>`
 }
 
 // renderULBlock produces the rdf:Description block for the unterlumen
-// namespace: the publication records and the fields (ADR-0048). A sidecar
-// that holds only fields has no empty Publications element.
-func renderULBlock(pubs []Publication, fields map[string]string) string {
+// namespace. A sidecar that holds only fields or things has no empty
+// Publications element.
+func renderULBlock(c ulContent) string {
 	var items strings.Builder
-	for _, p := range pubs {
+	for _, p := range c.pubs {
 		items.WriteString("\n        <rdf:li rdf:parseType=\"Resource\">")
 		items.WriteString("\n          <ul:Channel>" + xmlEscapeStr(p.Channel) + "</ul:Channel>")
 		if p.Account != "" {
@@ -246,28 +261,30 @@ func renderULBlock(pubs []Publication, fields map[string]string) string {
 		items.WriteString("\n        </rdf:li>")
 	}
 	var publications string
-	if len(pubs) > 0 || len(fields) == 0 {
+	if len(c.pubs) > 0 || len(c.fields) == 0 && c.things.empty() {
 		publications = `
       <ul:Publications>
         <rdf:Bag>` + items.String() + `
         </rdf:Bag>
       </ul:Publications>`
 	}
-	return `    <rdf:Description rdf:about="" xmlns:ul="https://unterlumen.app/xmp/1.0/">` + publications + renderFields(fields) + `
+	return `    <rdf:Description rdf:about="" xmlns:ul="https://unterlumen.app/xmp/1.0/">` + publications + renderFields(c.fields) + renderThingsRecord(c.things) + `
     </rdf:Description>`
 }
 
-// mergeULBlock replaces the publication records in existing XMP and keeps its
-// fields.
+// mergeULBlock replaces the publication records in existing XMP and keeps
+// the rest of Unterlumen's description.
 func mergeULBlock(existing []byte, pubs []Publication) []byte {
-	return spliceULBlock(existing, pubs, parseSidecarFields(existing))
+	c := readULContent(existing)
+	c.pubs = pubs
+	return spliceULBlock(existing, c)
 }
 
 // spliceULBlock replaces the unterlumen rdf:Description block in existing XMP.
 // If no unterlumen block exists, inserts one before </rdf:RDF>.
-func spliceULBlock(existing []byte, pubs []Publication, fields map[string]string) []byte {
+func spliceULBlock(existing []byte, c ulContent) []byte {
 	s := string(existing)
-	newBlock := renderULBlock(pubs, fields)
+	newBlock := renderULBlock(c)
 
 	const marker = `xmlns:ul="https://unterlumen.app/xmp/1.0/"`
 	idx := strings.Index(s, marker)
@@ -275,14 +292,14 @@ func spliceULBlock(existing []byte, pubs []Publication, fields map[string]string
 		endTag := "</rdf:RDF>"
 		endIdx := strings.LastIndex(s, endTag)
 		if endIdx == -1 {
-			return []byte(renderFreshXMPWith(pubs, fields))
+			return []byte(renderFreshXMPWith(c))
 		}
 		return []byte(s[:endIdx] + "  " + newBlock + "\n  " + s[endIdx:])
 	}
 
 	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
 	if descStart == -1 {
-		return []byte(renderFreshXMPWith(pubs, fields))
+		return []byte(renderFreshXMPWith(c))
 	}
 
 	closeTag := "</rdf:Description>"
@@ -290,7 +307,7 @@ func spliceULBlock(existing []byte, pubs []Publication, fields map[string]string
 	if descEnd == -1 {
 		selfClose := strings.Index(s[descStart:], "/>")
 		if selfClose == -1 {
-			return []byte(renderFreshXMPWith(pubs, fields))
+			return []byte(renderFreshXMPWith(c))
 		}
 		descEnd = descStart + selfClose + 2
 	} else {
@@ -298,147 +315,6 @@ func spliceULBlock(existing []byte, pubs []Publication, fields map[string]string
 	}
 
 	return []byte(s[:descStart] + newBlock + s[descEnd:])
-}
-
-func ReadTitle(photoPath string) (string, error) {
-	data, err := os.ReadFile(SidecarPath(photoPath))
-	if os.IsNotExist(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return parseDCTitle(data)
-}
-
-func WriteTitle(photoPath, title string) error {
-	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
-		switch {
-		case data == nil && title == "":
-			return nil, nil
-		case data == nil:
-			return []byte(renderFreshXMPWithDC(title)), nil
-		case title == "":
-			return clearDCBlock(data), nil
-		}
-		return mergeDCBlock(data, title), nil
-	})
-}
-
-func parseDCTitle(data []byte) (string, error) {
-	const dcNS = "http://purl.org/dc/elements/1.1/"
-	const rdfNS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-	dec := xml.NewDecoder(bytes.NewReader(data))
-	var inDCTitle, inAltLi bool
-
-	for {
-		tok, err := dec.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch {
-			case t.Name.Space == dcNS && t.Name.Local == "title":
-				inDCTitle = true
-			case inDCTitle && t.Name.Space == rdfNS && t.Name.Local == "li":
-				inAltLi = true
-			}
-		case xml.EndElement:
-			switch {
-			case t.Name.Space == dcNS && t.Name.Local == "title":
-				inDCTitle = false
-			case inDCTitle && t.Name.Space == rdfNS && t.Name.Local == "li":
-				inAltLi = false
-			}
-		case xml.CharData:
-			if inAltLi {
-				return strings.TrimSpace(string(t)), nil
-			}
-		}
-	}
-	return "", nil
-}
-
-func renderDCBlock(title string) string {
-	return `    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
-      <dc:title>
-        <rdf:Alt>
-          <rdf:li xml:lang="x-default">` + xmlEscapeStr(title) + `</rdf:li>
-        </rdf:Alt>
-      </dc:title>
-    </rdf:Description>`
-}
-
-func renderFreshXMPWithDC(title string) string {
-	return `<?xml version="1.0" encoding="UTF-8"?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/">
-  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-` + renderDCBlock(title) + `
-  </rdf:RDF>
-</x:xmpmeta>`
-}
-
-func mergeDCBlock(existing []byte, title string) []byte {
-	s := string(existing)
-	newBlock := renderDCBlock(title)
-
-	const marker = `xmlns:dc="http://purl.org/dc/elements/1.1/"`
-	idx := strings.Index(s, marker)
-	if idx == -1 {
-		endTag := "</rdf:RDF>"
-		endIdx := strings.LastIndex(s, endTag)
-		if endIdx == -1 {
-			return []byte(renderFreshXMPWithDC(title))
-		}
-		return []byte(s[:endIdx] + "  " + newBlock + "\n  " + s[endIdx:])
-	}
-
-	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
-	if descStart == -1 {
-		return []byte(renderFreshXMPWithDC(title))
-	}
-
-	closeTag := "</rdf:Description>"
-	descEnd := strings.Index(s[descStart:], closeTag)
-	if descEnd == -1 {
-		selfClose := strings.Index(s[descStart:], "/>")
-		if selfClose == -1 {
-			return []byte(renderFreshXMPWithDC(title))
-		}
-		descEnd = descStart + selfClose + 2
-	} else {
-		descEnd = descStart + descEnd + len(closeTag)
-	}
-
-	return []byte(s[:descStart] + newBlock + s[descEnd:])
-}
-
-func clearDCBlock(existing []byte) []byte {
-	s := string(existing)
-
-	const marker = `xmlns:dc="http://purl.org/dc/elements/1.1/"`
-	idx := strings.Index(s, marker)
-	if idx == -1 {
-		return existing
-	}
-
-	descStart := strings.LastIndex(s[:idx], "<rdf:Description")
-	if descStart == -1 {
-		return existing
-	}
-
-	closeTag := "</rdf:Description>"
-	descEnd := strings.Index(s[descStart:], closeTag)
-	if descEnd == -1 {
-		return existing
-	}
-	descEnd = descStart + descEnd + len(closeTag)
-
-	return []byte(strings.TrimRight(s[:descStart], " \t") + s[descEnd:])
 }
 
 func xmlEscapeStr(s string) string {

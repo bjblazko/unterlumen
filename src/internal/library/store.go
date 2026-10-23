@@ -114,6 +114,39 @@ CREATE TABLE IF NOT EXISTS face_not (
 	PRIMARY KEY (face, person)
 );
 
+-- Things (ADR-0054). photo_vectors is CLIP's vector of a photo, for
+-- searching by words. photo_things_found says which models (version) and
+-- word list (vocabulary) looked at a photo, and whether its sidecar holds
+-- what they found (written). photo_things are the things in a photo, from
+-- clip, the detector, or the sidecar alone. thing_boxes are the detector's
+-- boxes, kept for telling pets apart.
+CREATE TABLE IF NOT EXISTS photo_vectors (
+	photo_id TEXT PRIMARY KEY REFERENCES photos(id),
+	vector   BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS photo_things_found (
+	photo_id   TEXT PRIMARY KEY REFERENCES photos(id),
+	version    INTEGER NOT NULL,
+	vocabulary INTEGER NOT NULL,
+	written    INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS photo_things (
+	photo_id TEXT NOT NULL REFERENCES photos(id),
+	thing    TEXT NOT NULL,
+	score    REAL NOT NULL,
+	source   TEXT NOT NULL,
+	PRIMARY KEY (photo_id, thing)
+);
+CREATE INDEX IF NOT EXISTS photo_things_thing ON photo_things(thing, photo_id);
+CREATE TABLE IF NOT EXISTS thing_boxes (
+	id       INTEGER PRIMARY KEY,
+	photo_id TEXT NOT NULL REFERENCES photos(id),
+	class    TEXT NOT NULL,
+	score    REAL NOT NULL,
+	x REAL NOT NULL, y REAL NOT NULL, w REAL NOT NULL, h REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS thing_boxes_photo ON thing_boxes(photo_id);
+
 CREATE TABLE IF NOT EXISTS people (
 	id    INTEGER PRIMARY KEY,
 	name  TEXT NOT NULL UNIQUE COLLATE NOCASE,

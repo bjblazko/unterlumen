@@ -1,6 +1,6 @@
 // scope-filter.js — the one filter of the Map, the Statistics and the
-// Timeline (ADR-0050): libraries, a span of months, cameras, lenses and
-// people, each optional and all of everything at first. Its state is shared, so a place
+// Timeline (ADR-0050): libraries, a span of months, cameras, lenses, people
+// and things, each optional and all of everything at first. Its state is shared, so a place
 // shows what the others show; it is kept in the browser across visits.
 
 const SCOPE_FILTER_KEY = 'scope.filter';
@@ -11,7 +11,8 @@ const ScopeState = {
     // libraries, models, lenses: null for all, else the chosen values.
     // from, until: months as "YYYY-MM", '' for an open end.
     // people: names who must all be in the photo, as in a library's filter.
-    value: { libraries: null, from: '', until: '', models: null, lenses: null, people: [] },
+    // things: things found in photos (ADR-0054), all of them in the photo.
+    value: { libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [] },
     _listeners: new Set(),
 
     load() {
@@ -28,7 +29,7 @@ const ScopeState = {
     },
 
     reset() {
-        this.set({ libraries: null, from: '', until: '', models: null, lenses: null, people: [] });
+        this.set({ libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [] });
     },
 
     onChange(fn) {
@@ -39,7 +40,7 @@ const ScopeState = {
     // Whether anything is narrowed; time only where it counts.
     narrowed({ time = true } = {}) {
         const v = this.value;
-        return v.libraries !== null || v.models !== null || v.lenses !== null || v.people.length > 0 || (time && !!(v.from || v.until));
+        return v.libraries !== null || v.models !== null || v.lenses !== null || v.people.length > 0 || v.things.length > 0 || (time && !!(v.from || v.until));
     },
 
     // The request parameters, as [key, value] pairs (model and lens repeat).
@@ -54,6 +55,7 @@ const ScopeState = {
             for (const value of (values.length ? values : [SCOPE_NONE])) pairs.push([key, value]);
         }
         for (const name of v.people) pairs.push(['person', name]);
+        for (const thing of v.things) pairs.push(['thing', thing]);
         return pairs;
     },
 
@@ -113,6 +115,11 @@ class ScopeFilter {
                     <select class="btn btn-sm select-btn scope-filter-person" aria-label="Add a person to the filter"></select>
                     <span class="scope-filter-people"></span>
                 </div>
+                <div class="lib-filter-group scope-filter-things-group" hidden>
+                    <div class="lib-filter-label">Things</div>
+                    <select class="btn btn-sm select-btn scope-filter-thing" aria-label="Add a thing to the filter"></select>
+                    <span class="scope-filter-things"></span>
+                </div>
             </div>`;
         this._toggle = this.toggle;
         this._toggle.addEventListener('click', () => (this.isOpen() ? this.close() : this.open()));
@@ -128,6 +135,10 @@ class ScopeFilter {
         this._person = this.panel.querySelector('.scope-filter-person');
         this._person.addEventListener('change', () => {
             if (this._person.value) this._setPeople([...ScopeState.value.people, this._person.value]);
+        });
+        this._thing = this.panel.querySelector('.scope-filter-thing');
+        this._thing.addEventListener('change', () => {
+            if (this._thing.value) this._setThings([...ScopeState.value.things, this._thing.value]);
         });
         this._unsubscribe = ScopeState.onChange(() => this._showNarrowed());
         this._showNarrowed();
@@ -188,6 +199,28 @@ class ScopeFilter {
         }
     }
 
+    _setThings(things) {
+        ScopeState.set({ things });
+        this._drawThings();
+    }
+
+    // Things, as People: a choice adds one, grouped by kind, each with its
+    // photos; all chosen must be in the photo. Before anything was found
+    // the group stays away.
+    _drawThings() {
+        const chosen = ScopeState.value.things;
+        const totals = this._thingTotals || [];
+        this.panel.querySelector('.scope-filter-things-group').hidden = !totals.length && !chosen.length;
+        this._thing.innerHTML = `<option value="">${chosen.length ? 'Add another thing…' : 'Add a thing…'}</option>`
+            + thingOptionsHTML(totals.filter(t => !chosen.includes(t.thing)));
+        this._thing.disabled = totals.length <= chosen.length;
+        const slot = this.panel.querySelector('.scope-filter-things');
+        slot.innerHTML = '';
+        for (const thing of chosen) {
+            slot.appendChild(this._chip(thing, `Drop ${thing}`, () => this._setThings(ScopeState.value.things.filter(t => t !== thing))));
+        }
+    }
+
     _chip(label, title, drop) {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -220,12 +253,13 @@ class ScopeFilter {
         const q = new URLSearchParams();
         if (v.libraries?.length) q.set('ids', v.libraries.join(','));
         for (const m of v.models || []) q.append('model', m);
-        let libs, values, names;
+        let libs, values, names, things;
         try {
-            [libs, values, names] = await Promise.all([
+            [libs, values, names, things] = await Promise.all([
                 LibraryAPI.list(),
                 fetch(`/api/library/scope-values?${q}`).then(r => (r.ok ? r.json() : Promise.reject(new Error(r.statusText)))),
                 LibraryAPI.personNames(v.libraries?.length ? v.libraries.join(',') : undefined),
+                LibraryAPI.thingTotals(v.libraries?.length ? v.libraries.join(',') : undefined),
             ]);
         } catch {
             return; // the place says what it cannot read; the filter stays as it was
@@ -241,6 +275,8 @@ class ScopeFilter {
         this._drawTime(values.firstMonth, values.lastMonth);
         this._personNames = names;
         this._drawPeople();
+        this._thingTotals = things;
+        this._drawThings();
         this._showNarrowed();
     }
 
@@ -268,6 +304,7 @@ class ScopeFilter {
         if (v.models !== null) out.push({ label: some('Camera', v.models, plainExif), drop: { models: null } });
         if (v.lenses !== null) out.push({ label: some('Lens', v.lenses, plainExif), drop: { lenses: null } });
         for (const name of v.people) out.push({ label: `Person: ${name}`, drop: { people: v.people.filter(n => n !== name) } });
+        for (const thing of v.things) out.push({ label: `Thing: ${thing}`, drop: { things: v.things.filter(t => t !== thing) } });
         return out;
     }
 
@@ -287,4 +324,18 @@ class ScopeFilter {
             }));
         }
     }
+}
+
+// The options of a choice of things: grouped by kind, each with its photos.
+// totals as /api/library/things gives them, most photos first.
+function thingOptionsHTML(totals) {
+    const byKind = new Map();
+    for (const t of totals) {
+        const kind = t.category || 'Other';
+        if (!byKind.has(kind)) byKind.set(kind, []);
+        byKind.get(kind).push(t);
+    }
+    return [...byKind.keys()].sort().map(kind => `<optgroup label="${escapeHtml(kind)}">`
+        + byKind.get(kind).map(t => `<option value="${escapeHtml(t.thing)}">${escapeHtml(t.thing)} · ${countText(t.photos, 'photo', 'photos')}</option>`).join('')
+        + '</optgroup>').join('');
 }

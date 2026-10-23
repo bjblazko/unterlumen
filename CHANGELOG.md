@@ -1,9 +1,22 @@
 # Changelog
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-10-24*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Added
+- **Things: animals, objects and scenes in your photos.** Statistics → Things offers Download and turn on (447 MB: OpenAI's CLIP and OpenCV's YOLOX, and ONNX Runtime unless People already has it). After that, every library is looked at on this computer — "Finding things in …" in the status line — for about 170 things: dog, cat, bird, car, boat, house, church, tree, forest, the sea, a beach, a sunset, food and more. Found things are written into each photo's sidecar as keywords (`dc:subject`), which Lightroom, digiKam and Apple Photos read too, with a record of which keywords Unterlumen wrote; your own keywords stay as they are. See ADR-0054.
+- **A search above every place.** Type a name or a thing and choose it, or search by any words — "dog on a beach" — and Libraries opens with the photos, best match first for words, and the filter set to refine. `/` puts the cursor there from anywhere. `text`, `thing` in `GET /api/library/search`.
+- **Filter by things** in the Map, the Timeline and the Statistics (the filter's Things), and in Libraries (Thing, and Shows for words).
+- **Things in a photo's info panel**, each with × to take it away for good: the sidecar remembers, so no later pass finds it again.
+- **Statistics: Things** — things met most, things over time, things together; a click shows the photos.
+
+### Changed
+- **ONNX Runtime is shared** by face recognition and things, in `onnxruntime/` of the data folder; it is moved there from `recognition/` on start.
+
+### Fixed
+- **A title written into another program's sidecar kept that program's data.** Where Lightroom or another program keeps everything in one description of a photo's sidecar, setting a title in Unterlumen replaced that whole description — its rating and keywords with it. The title is now changed in its own element.
 
 ### Changed
 - **Show photos says what it looks for.** From a person's page, a gallery or a chart, the Libraries place used to show the list of libraries until the filtered photos came, as if nothing had happened. It shows "Finding the photos of Anna…" in their place now, after the usual 400 ms.

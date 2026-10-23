@@ -13,9 +13,10 @@
     <meta name="theme-color" content="#161718" media="(prefers-color-scheme: dark)">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=76">
+    <link rel="stylesheet" href="/css/style.css?v=77">
     <link rel="stylesheet" href="/css/timeline.css?v=5">
     <link rel="stylesheet" href="/css/people.css?v=19">
+    <link rel="stylesheet" href="/css/things.css?v=1">
     <link rel="stylesheet" href="/css/statistics.css?v=15">
     <link href="/js/vendor/maplibre-6.11.2/maplibre-gl.css" rel="stylesheet" />
     <!-- MapLibre 6 ships as an ES module only; the app's classic scripts use it
@@ -143,6 +144,7 @@
             <!-- Work the server is doing: scans, exports, publishing (ADR-0036). -->
             <div class="status-line" id="status-line" role="group" aria-label="Running tasks" hidden></div>
         </nav>
+        <header class="topbar" id="topbar" role="search"></header>
         <main id="app"></main>
         <div class="desk-only-notice">
             <h2>This is desktop work</h2>
@@ -189,7 +191,7 @@
     <div id="ui-hint" class="ui-hint"></div>
     <script src="/js/toggle.js?v=5"></script>
     <script src="/js/api.js?v=11"></script>
-    <script src="/js/library-api.js?v=5"></script>
+    <script src="/js/library-api.js?v=6"></script>
     <script src="/js/activity.js?v=5"></script>
     <script src="/js/dates.js?v=2"></script>
     <script src="/js/panel-icon.js?v=4"></script>
@@ -216,7 +218,8 @@
     <script src="/js/exif-labels.js?v=1"></script>
     <script src="/js/folder-dashboard.js?v=3"></script>
     <script src="/js/info-people.js?v=7"></script>
-    <script src="/js/infopanel.js?v=18"></script>
+    <script src="/js/info-things.js?v=1"></script>
+    <script src="/js/infopanel.js?v=19"></script>
     <script src="/js/dialog.js?v=1"></script>
     <script src="/js/progress-dialog.js?v=5"></script>
     <script src="/js/organize.js?v=8"></script>
@@ -236,7 +239,7 @@
     <script src="/js/search-result-pane.js?v=9"></script>
     <script src="/js/chip-input.js?v=9"></script>
     <script src="/js/range-slider.js?v=1"></script>
-    <script src="/js/library-filter.js?v=26"></script>
+    <script src="/js/library-filter.js?v=28"></script>
     <script src="/js/vendor/d3.v7.min.js?v=4"></script>
     <script src="/js/stats-charts.js?v=3"></script>
     <script src="/js/stats-timeline-charts.js?v=3"></script>
@@ -250,15 +253,16 @@
     <script src="/js/daylight-view.js?v=1"></script>
     <script src="/js/character-view.js?v=2"></script>
     <script src="/js/space-time-view.js?v=3"></script>
-    <script src="/js/people-stats-charts.js?v=5"></script>
+    <script src="/js/people-stats-charts.js?v=6"></script>
+    <script src="/js/things-stats-charts.js?v=1"></script>
     <script src="/js/stats-people-compare.js?v=2"></script>
     <script src="/js/people-space-views.js?v=4"></script>
-    <script src="/js/stats-topics.js?v=18"></script>
+    <script src="/js/stats-topics.js?v=19"></script>
     <script src="/js/library-dialogs.js?v=4"></script>
     <script src="/js/library.js?v=34"></script>
     <script src="/js/map-time-range.js?v=2"></script>
     <script src="/js/multi-select.js?v=2"></script>
-    <script src="/js/scope-filter.js?v=5"></script>
+    <script src="/js/scope-filter.js?v=6"></script>
     <script src="/js/photo-column.js?v=5"></script>
     <script src="/js/map-markers.js?v=2"></script>
     <script src="/js/map-place.js?v=15"></script>
@@ -272,6 +276,8 @@
     <script src="/js/timeline-scrubber.js?v=1"></script>
     <script src="/js/timeline-place.js?v=11"></script>
     <script src="/js/people-api.js?v=13"></script>
+    <script src="/js/things-api.js?v=1"></script>
+    <script src="/js/search-bar.js?v=1"></script>
     <script src="/js/people-birthday.js?v=2"></script>
     <script src="/js/face-grid.js?v=9"></script>
     <script src="/js/people-everyone.js?v=12"></script>
@@ -280,18 +286,18 @@
     <script src="/js/people-maybe.js?v=2"></script>
     <script src="/js/people-phone.js?v=5"></script>
     <script src="/js/people-place.js?v=15"></script>
-    <script src="/js/stats-place.js?v=17"></script>
-    <script src="/js/settings-storage.js?v=1"></script>
+    <script src="/js/stats-place.js?v=18"></script>
+    <script src="/js/settings-storage.js?v=2"></script>
     <script src="/js/settings.js?v=10"></script>
     <script src="/js/guide-place.js?v=5"></script>
     <script src="/js/credits-place.js?v=3"></script>
     <script src="/js/about-place.js?v=2"></script>
-    <script src="/js/privacy-place.js?v=3"></script>
+    <script src="/js/privacy-place.js?v=4"></script>
     <script src="/js/warranty-place.js?v=2"></script>
     <script src="/js/setup-place.js?v=5"></script>
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=9"></script>
-    <script src="/js/app-keyboard.js?v=15"></script>
-    <script src="/js/app.js?v=35"></script>
+    <script src="/js/app-keyboard.js?v=16"></script>
+    <script src="/js/app.js?v=36"></script>
 </body>
 </html>

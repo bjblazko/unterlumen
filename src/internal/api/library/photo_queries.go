@@ -1,6 +1,7 @@
 package apilibrary
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -130,6 +131,10 @@ func searchLibraries(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		result, err := mgr.SearchLibraries(r.Context(), parseIDList(q.Get("ids")), parseListPhotosOpts(q))
+		if errors.Is(err, lib.ErrNoWords) {
+			http.Error(w, "Searching by words needs Things. Turn it on under Statistics, Things.", http.StatusConflict)
+			return
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -338,6 +343,19 @@ func libraryPeopleStats(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, ps)
+	}
+}
+
+// libraryThingsStats serves the Things topic of the statistics.
+func libraryThingsStats(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids, pathPrefix, granularity := timeScope(r)
+		ts, err := mgr.ThingsStats(ids, pathPrefix, granularity, scopeFilter(r))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, ts)
 	}
 }
 

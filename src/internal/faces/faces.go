@@ -13,7 +13,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"huepattl.de/unterlumen/internal/onnx"
 )
@@ -28,20 +27,9 @@ const (
 	RecognizerFile = "face_recognition_sface_2021dec.onnx"
 )
 
-// RuntimeFile is the ONNX Runtime library's name on this system.
-func RuntimeFile() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "libonnxruntime.dylib"
-	case "windows":
-		return "onnxruntime.dll"
-	}
-	return "libonnxruntime.so"
-}
-
-// Installed reports whether dir holds the runtime and both models.
+// Installed reports whether dir holds both models.
 func Installed(dir string) bool {
-	for _, f := range []string{RuntimeFile(), DetectorFile, RecognizerFile} {
+	for _, f := range []string{DetectorFile, RecognizerFile} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
 			return false
 		}
@@ -63,10 +51,10 @@ type Engine struct {
 	detector, recognizer *onnx.Session
 }
 
-// Open loads the runtime and the models from dir. threads limits the
-// threads one model run uses.
-func Open(dir string, threads int) (*Engine, error) {
-	rt, err := onnx.Load(filepath.Join(dir, RuntimeFile()))
+// Open loads ONNX Runtime from runtimeLib and the models from dir. threads
+// limits the threads one model run uses.
+func Open(runtimeLib, dir string, threads int) (*Engine, error) {
+	rt, err := onnx.Load(runtimeLib)
 	if err != nil {
 		return nil, err
 	}

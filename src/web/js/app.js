@@ -46,6 +46,7 @@ const App = {
         this.wastebin = new Wastebin();
         this.theme = new ThemeManager(this);
         this.keyboard = new GlobalKeyboard(this);
+        this.search = new SearchBar(document.getElementById('topbar'));
         // The logo leads to About, as the About entry at the foot does.
         const aboutTrigger = document.getElementById('about-trigger');
         aboutTrigger.addEventListener('click', () => this.setMode('about'));

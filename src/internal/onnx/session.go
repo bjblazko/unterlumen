@@ -5,10 +5,20 @@ import (
 	"unsafe"
 )
 
-// Tensor is a float32 tensor: Data holds the product of Shape's values, row-major.
+// Tensor holds the product of Shape's values, row-major: in Data for a
+// float32 tensor, in Ints for an int64 one (token IDs). One of them is set.
 type Tensor struct {
 	Shape []int64
 	Data  []float32
+	Ints  []int64
+}
+
+func (t Tensor) size() int64 {
+	n := int64(1)
+	for _, d := range t.Shape {
+		n *= d
+	}
+	return n
 }
 
 // Session is a loaded model. Run may be called from several goroutines at once.
@@ -151,16 +161,22 @@ func (s *Session) Close() {
 
 // newTensor wraps t's data without copying it; t must outlive the value.
 func (r *Runtime) newTensor(t Tensor) (unsafe.Pointer, error) {
-	n := int64(1)
-	for _, d := range t.Shape {
-		n *= d
+	n, data, bytes, elem := t.size(), unsafe.Pointer(nil), uintptr(0), int32(ortTensorElementFloat)
+	held := len(t.Data)
+	if t.Ints != nil {
+		held, elem = len(t.Ints), ortTensorElementInt64
 	}
-	if n != int64(len(t.Data)) || n == 0 {
-		return nil, fmt.Errorf("a tensor of shape %v cannot hold %d values", t.Shape, len(t.Data))
+	if n != int64(held) || n == 0 {
+		return nil, fmt.Errorf("a tensor of shape %v cannot hold %d values", t.Shape, held)
+	}
+	if t.Ints != nil {
+		data, bytes = unsafe.Pointer(&t.Ints[0]), uintptr(n*8)
+	} else {
+		data, bytes = unsafe.Pointer(&t.Data[0]), uintptr(n*4)
 	}
 	var v unsafe.Pointer
-	err := r.status(r.api.createTensorWithData(r.mem, unsafe.Pointer(&t.Data[0]), uintptr(len(t.Data)*4),
-		unsafe.Pointer(&t.Shape[0]), uintptr(len(t.Shape)), ortTensorElementFloat, unsafe.Pointer(&v)))
+	err := r.status(r.api.createTensorWithData(r.mem, data, bytes,
+		unsafe.Pointer(&t.Shape[0]), uintptr(len(t.Shape)), elem, unsafe.Pointer(&v)))
 	return v, err
 }
 
@@ -181,17 +197,29 @@ func (r *Runtime) readTensor(v unsafe.Pointer) (Tensor, error) {
 			return Tensor{}, err
 		}
 	}
-	n := int64(1)
-	for _, d := range shape {
-		n *= d
+	var elem int32
+	if err := r.status(r.api.getTensorElementType(info, unsafe.Pointer(&elem))); err != nil {
+		return Tensor{}, err
 	}
 	var p unsafe.Pointer
 	if err := r.status(r.api.getTensorMutableData(v, unsafe.Pointer(&p))); err != nil {
 		return Tensor{}, err
 	}
-	data := make([]float32, n)
-	if n > 0 {
-		copy(data, unsafe.Slice((*float32)(p), n))
+	t := Tensor{Shape: shape}
+	n := t.size()
+	switch elem {
+	case ortTensorElementFloat:
+		t.Data = make([]float32, n)
+		if n > 0 {
+			copy(t.Data, unsafe.Slice((*float32)(p), n))
+		}
+	case ortTensorElementInt64:
+		t.Ints = make([]int64, n)
+		if n > 0 {
+			copy(t.Ints, unsafe.Slice((*int64)(p), n))
+		}
+	default:
+		return Tensor{}, fmt.Errorf("an output of element type %d cannot be read", elem)
 	}
-	return Tensor{Shape: shape, Data: data}, nil
+	return t, nil
 }

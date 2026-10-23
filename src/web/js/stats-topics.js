@@ -179,6 +179,21 @@ const STATS_TOPICS = [
                   : photoCriterion(v.photo))) },
         ],
     },
+    {
+        id: 'things',
+        label: 'Things',
+        blurb: 'Animals, objects and scenes found in the photos: which come most often, how that changed, and which come together.',
+        charts: [
+            { title: 'Things met most', subtitle: 'Photos per thing found', source: 'things', full: true,
+              render: (el, d, pick) => renderThingsBars(el, d.things, name => pick(thingCriterion(name))) },
+            { title: 'Things over time', subtitle: 'Photos per period of the eight things with the most photos', source: 'things', full: true,
+              render: (el, d, pick) => renderThingsLines(el, d.things, v => pick(v.person
+                  ? { subject: `${v.person} · ${v.period}`, params: { thing: v.person, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: 'Things together', subtitle: 'Photos two things share, of the twelve with the most photos', source: 'things', periods: false, full: true,
+              render: (el, d, pick) => renderThingsMatrix(el, d.things, v => pick({ subject: `${v.a} and ${v.b}`, params: { thing: [v.a, v.b] } })) },
+        ],
+    },
 ];
 
 // A chart may be a stage, a 3D view (ADR-0046): it comes after the topic's

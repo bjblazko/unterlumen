@@ -136,6 +136,30 @@ func TestPersonFilterIsNotCorrelated(t *testing.T) {
 	}
 }
 
+func TestThingFilterIsNotCorrelated(t *testing.T) {
+	s := listFixture(t)
+	fromSQL, whereSQL, args := newPhotoFilter(ListPhotosOpts{Things: []string{"dog", "sea"}}).sql()
+	scope, scopeArgs := Filter{Things: []string{"tree"}}.Cond("p.id")
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL+scope, append(args, scopeArgs...)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	joined := strings.Join(plan, "; ")
+	if strings.Contains(joined, "CORRELATED") || !strings.Contains(joined, "photo_things_thing") {
+		t.Fatalf("the thing filter does not use its index once: %s", joined)
+	}
+}
+
 func TestListPhotosStopsWhenTheAskerHasGone(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

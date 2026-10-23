@@ -154,6 +154,7 @@
     /* ── Control height — one height per row ───────────── */
     --control-h:    2.25rem;   /* 36 px */
     --control-h-sm: 1.875rem;  /* 30 px */
+    --topbar-h:     calc(var(--control-h) + 2 * var(--space-2) + 1px); /* the search above every place, with its hairline */
     --target-min:   44px;
 }
 
@@ -283,10 +284,12 @@ body {
 .shell {
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     height: 100vh;
 }
 
 .sidebar {
+    grid-row: 1 / span 2;
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
@@ -767,9 +770,93 @@ button.toggle {
 
 #app {
     min-width: 0;
-    height: 100vh;
+    height: calc(100vh - var(--topbar-h));
     overflow: hidden;
 }
+
+/* --- Top bar: the search above every place (ADR-0054) --- */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    height: var(--topbar-h);
+    box-sizing: border-box;
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+}
+
+.search-bar-label { font-size: var(--text-sm); font-weight: 500; color: var(--fg-2); }
+
+.search-bar-field { position: relative; flex: 1; max-width: 40rem; }
+
+.search-bar-input {
+    width: 100%;
+    height: var(--control-h);
+    box-sizing: border-box;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: var(--text-sm);
+}
+
+.search-bar-input::placeholder { color: var(--fg-3); }
+
+.search-bar-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.search-bar-list {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    right: 0;
+    z-index: 9000;
+    margin: 0;
+    padding: var(--space-1) 0;
+    list-style: none;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-float);
+}
+
+.search-bar-kind {
+    padding: var(--space-2) var(--space-3) var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--fg-3);
+}
+
+.search-bar-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    height: var(--control-h);
+    padding: 0 var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--fg);
+    cursor: pointer;
+}
+
+.search-bar-option[aria-selected="true"] { background: var(--bg-2); }
+
+.search-bar-words { border-top: 1px solid var(--line); }
+
+.search-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.search-bar-count {
+    flex: none;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs);
+    color: var(--fg-3);
+}
+
+body.ui-hidden .topbar { display: none; }
+body.ui-hidden #app { height: 100vh; }
 
 /* —— Browse container —— */
 
@@ -6060,14 +6147,19 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     .sidebar { display: none; }
 
+    /* The search stays, its field as wide as the phone; the word Search
+       is in the field's own name. */
+    .topbar { padding: var(--space-2) var(--space-3); }
+    .search-bar-label { display: none; }
+
     .shell,
     .shell.sidebar-collapsed {
         grid-template-columns: minmax(0, 1fr);
     }
 
     #app {
-        height: calc(100vh - var(--tabbar-h));
-        height: calc(100dvh - var(--tabbar-h));
+        height: calc(100vh - var(--tabbar-h) - var(--topbar-h));
+        height: calc(100dvh - var(--tabbar-h) - var(--topbar-h));
     }
 
     .tabbar {

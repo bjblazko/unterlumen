@@ -1,6 +1,6 @@
 # ADR-0050: One filter for the Map, the Statistics and the Timeline
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-10-24*
 
 ## Status
 
@@ -86,3 +86,9 @@ camera and lens.
   `photoCond` or `aliasCond`, or the filter does not reach it.
 - Undated photos are outside any span of months; without one, cameras,
   lenses and people still narrow them.
+
+## Addendum 2026-10-24: things
+
+The filter takes `thing` too, repeated, one thing each, all of them in the
+photo, as people are: one set per thing from `photo_things` through its
+index (ADR-0054). `Filter.Key()` includes them.
