@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-10-23
+
 ### Added
 - **Mark a face that was not found.** A face in profile or half hidden was often missed and could not be named. In the viewer, the info panel's People section has Mark a face: drag a frame around the face on the photo, type who it is and press Return. It is then a face like any other, on the person's page, in filters and statistics, and as a cover; × removes it. Its name goes into the sidecar, so the other installation shows it too, and names Lightroom or digiKam gave to faces Unterlumen did not find now count as well. `POST /api/library/{id}/photo/{photoID}/faces` marks one. See ADR-0051.
 - **People in the filter of Map, Timeline and Statistics**, as a library's filter has them: the filter's column has a People group, where a choice adds someone and × drops them; each also shows as a chip in the head. Several must all be in the photo. A person chosen in a chart's photos adds to those of the filter. Before, only a library's filter knew people.
