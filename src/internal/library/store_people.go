@@ -124,7 +124,7 @@ func (s *Store) FaceGroups(minSize, limit int) ([]FaceGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	people, centres, err := s.personCentres()
+	looks, err := s.lookalikes()
 	if err != nil {
 		return nil, err
 	}
@@ -133,14 +133,8 @@ func (s *Store) FaceGroups(minSize, limit int) ([]FaceGroup, error) {
 		if g.Faces, err = s.sampleFaces(g.ID); err != nil {
 			return nil, err
 		}
-		if len(centres) > 0 {
-			_, embs, err := s.embeddings(`SELECT id, embedding FROM faces WHERE grp = ? AND `+unnamed, g.ID)
-			if err != nil {
-				return nil, err
-			}
-			if best, sim := faces.Nearest(centres, faces.Mean(embs)); best >= 0 && sim >= faces.SuggestThreshold {
-				g.Suggestion = &people[best]
-			}
+		if g.Suggestion, err = s.suggestGroup(looks, g.ID); err != nil {
+			return nil, err
 		}
 	}
 	return groups, nil
@@ -190,37 +184,24 @@ func (s *Store) sampleFaces(grp int64) ([]int64, error) {
 	return ids, rows.Err()
 }
 
-// personCentres returns every named person with the average of their
-// confirmed faces.
-func (s *Store) personCentres() ([]Person, [][]float32, error) {
-	people, err := s.People()
-	if err != nil {
-		return nil, nil, err
-	}
-	centres := make([][]float32, len(people))
-	for i, p := range people {
-		_, embs, err := s.embeddings(`SELECT id, embedding FROM faces WHERE person_id = ? AND confirmed = 1`, p.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		centres[i] = faces.Mean(embs)
-	}
-	return people, centres, nil
-}
-
 // GroupFaces lists the unnamed faces of a group, the largest first;
 // PersonFaces the confirmed faces of a person, from the newest photo to the
 // oldest, those without a date last.
 func (s *Store) GroupFaces(grp int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, ''), COALESCE(p.date_taken, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+	return s.faceRefs(faceRefSelect+`
 		WHERE f.grp = ? AND f.person_id IS NULL AND f.confirmed = 0 ORDER BY f.w*f.h DESC`, grp)
 }
 
 func (s *Store) PersonFaces(person int64) ([]FaceRef, error) {
-	return s.faceRefs(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, ''), COALESCE(p.date_taken, '') FROM faces f LEFT JOIN photos p ON p.id = f.photo_id
+	return s.faceRefs(faceRefSelect+`
 		WHERE f.person_id = ? AND f.confirmed = 1
 		ORDER BY CASE WHEN p.date_taken IS NULL OR p.date_taken = '' THEN 1 ELSE 0 END, p.date_taken DESC, f.w*f.h DESC`, person)
 }
+
+// faceRefSelect reads the columns of a FaceRef, the photo's file name and
+// date with it; faceRefs scans them.
+const faceRefSelect = `SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.filename, ''), COALESCE(p.date_taken, '')
+	FROM faces f LEFT JOIN photos p ON p.id = f.photo_id`
 
 func (s *Store) faceRefs(query string, args ...any) ([]FaceRef, error) {
 	rows, err := s.db.Query(query, args...)
@@ -259,14 +240,32 @@ func (s *Store) FaceBox(id int64) (FaceBox, error) {
 // its faces as they were, and the error says so.
 func (s *Store) NameFaces(ids []int64, name string) (skipped int, err error) {
 	name = strings.TrimSpace(name)
-	return s.changeNames(ids, name, false, func(ok []int64) error { return s.nameFacesInIndex(ok, name) })
+	return s.changeNames(ids, name, false, func(ok []int64) error {
+		// Faces that were someone else are not them: a No for the old name.
+		if err := s.rememberNot(ok); err != nil {
+			return err
+		}
+		// A face hidden there is named after all.
+		if err := s.decideHidden(ok, false); err != nil {
+			return err
+		}
+		if err := s.nameFacesInIndex(ok, name); err != nil {
+			return err
+		}
+		return s.forgetNot(ok, name)
+	})
 }
 
 // UnnameFaces takes the faces back from whoever they were confirmed as, or
 // from being hidden, and puts them together in a group of their own; their
-// names leave the sidecars.
+// names leave the sidecars, and they are not suggested as that person again.
 func (s *Store) UnnameFaces(ids []int64) (skipped int, err error) {
-	return s.changeNames(ids, "", true, s.unnameFacesInIndex)
+	return s.changeNames(ids, "", true, func(ok []int64) error {
+		if err := s.rememberNot(ok); err != nil {
+			return err
+		}
+		return s.unnameFacesInIndex(ok)
+	})
 }
 
 // HideFaces marks the faces as ones nobody is to name: strangers, statues.
@@ -274,6 +273,9 @@ func (s *Store) UnnameFaces(ids []int64) (skipped int, err error) {
 // a name the faces had leaves the sidecar.
 func (s *Store) HideFaces(ids []int64) (skipped int, err error) {
 	return s.changeNames(ids, "", true, func(ok []int64) error {
+		if err := s.decideHidden(ok, true); err != nil {
+			return err
+		}
 		_, err := s.changeFaces(ok, func(*sql.Tx) (string, []any, error) {
 			return `person_id = NULL, confirmed = 1`, nil, nil
 		})
@@ -388,6 +390,16 @@ var ErrNotTheirFace = errors.New("the face is not one of this person's")
 // is kept: across libraries, the cover chosen last shows the person.
 func (s *Store) ChooseCover(person, face int64) error {
 	now := time.Now().UTC().Format(coverChosenLayout)
+	var theirs bool
+	if err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM faces WHERE id = ? AND person_id = ? AND confirmed = 1)`, face, person).Scan(&theirs); err != nil {
+		return err
+	}
+	if !theirs {
+		return ErrNotTheirFace
+	}
+	if err := s.decideCover(person, face, now); err != nil {
+		return err
+	}
 	res, err := s.db.Exec(`UPDATE people SET cover = ?, cover_chosen = ? WHERE id = ?
 		AND EXISTS (SELECT 1 FROM faces WHERE id = ? AND person_id = ? AND confirmed = 1)`, face, now, person, face, person)
 	if err != nil {
@@ -429,18 +441,6 @@ func (s *Store) RenamePerson(id int64, name string) (skipped int, err error) {
 	})
 }
 
-func distinctPhotos(refs []FaceRef) []string {
-	seen := map[string]bool{}
-	var photos []string
-	for _, r := range refs {
-		if !seen[r.PhotoID] {
-			seen[r.PhotoID] = true
-			photos = append(photos, r.PhotoID)
-		}
-	}
-	return photos
-}
-
 // ForgetPerson takes the name away from all the person's faces — in the
 // sidecars first, then in the index — and the faces go back to the groups
 // waiting for a name. skipped is as for NameFaces.
@@ -463,10 +463,13 @@ type PhotoFace struct {
 	Name   string `json:"name,omitempty"`
 	Hidden bool   `json:"hidden,omitempty"`
 	Manual bool   `json:"manual,omitempty"` // marked by hand
-	Age    *int   `json:"age,omitempty"`    // in whole years on the day the photo was taken, when both are known
+	// Suggestion is who a face nobody named looks like, if anyone.
+	Suggestion *Person `json:"suggestion,omitempty"`
+	Age        *int    `json:"age,omitempty"` // in whole years on the day the photo was taken, when both are known
 }
 
-// PhotoFaces lists the faces found in a photo, left to right.
+// PhotoFaces lists the faces found in a photo, left to right, with who
+// each unnamed one looks like.
 func (s *Store) PhotoFaces(photoID string) ([]PhotoFace, error) {
 	rows, err := s.db.Query(`SELECT f.id, f.photo_id, f.x, f.y, f.w, f.h, COALESCE(p.name, ''), f.person_id IS NULL AND f.confirmed = 1, f.manual
 		FROM faces f LEFT JOIN people p ON p.id = f.person_id AND f.confirmed = 1
@@ -483,5 +486,30 @@ func (s *Store) PhotoFaces(photoID string) ([]PhotoFace, error) {
 		}
 		out = append(out, f)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	return out, s.suggestNames(out)
+}
+
+// suggestNames says who each face nobody named looks like.
+func (s *Store) suggestNames(found []PhotoFace) error {
+	var looks *lookalikes
+	for i := range found {
+		f := &found[i]
+		if f.Name != "" || f.Hidden || f.Manual {
+			continue
+		}
+		var err error
+		if looks == nil {
+			if looks, err = s.lookalikes(); err != nil {
+				return err
+			}
+		}
+		if f.Suggestion, err = s.suggestFace(looks, f.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

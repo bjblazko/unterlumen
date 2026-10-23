@@ -174,8 +174,8 @@ func (m *Manager) JoinScan(id string) (*Broadcaster, bool) {
 }
 
 // EndScan removes the broadcaster and releases the index lock, then
-// measures the appearance of photos the scan added or changed and finds
-// their faces, one after the other.
+// measures the appearance of photos the scan added or changed, finds their
+// faces and applies the shared decisions about faces, one after the other.
 // The broadcaster itself must be closed separately (by the bridge goroutine).
 func (m *Manager) EndScan(id string) {
 	m.scans.Delete(id)
@@ -185,6 +185,7 @@ func (m *Manager) EndScan(id string) {
 	go func() {
 		m.AnalyseMissing(id)
 		m.FindFacesMissing(id)
+		m.ApplyFaceDecisions(id)
 	}()
 }
 

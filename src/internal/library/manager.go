@@ -11,29 +11,35 @@ import (
 	"sync"
 	"time"
 
+	"huepattl.de/unterlumen/internal/facedecisions"
 	"huepattl.de/unterlumen/internal/jobs"
 )
 
 // Manager manages the set of libraries rooted at a base directory.
 type Manager struct {
 	root             string
-	indexMu          sync.Map       // map[libraryID]bool — prevents concurrent reindex of same library
-	scans            sync.Map       // map[libraryID]*Broadcaster — active scan progress broadcasters
-	analysing        sync.Map       // map[libraryID]*atomic.Bool — an appearance pass runs; true: run it once more
-	dbMu             sync.Mutex     // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
-	openDBs          sync.Map       // map[libraryID]*sql.DB — long-lived per-library connections
-	statsCache       sync.Map       // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
-	timelineCache    sync.Map       // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
-	colourCache      sync.Map       // map[cacheKey]*LibraryColour — invalidated on scan start/end and after analysis
-	colourSpaceCache sync.Map       // map[cacheKey]*ColourSpace — invalidated with colourCache
-	exposureCache    sync.Map       // map[cacheKey]*ExposureSpace — invalidated with statsCache
-	spaceTimeCache   sync.Map       // map[cacheKey]*SpaceTime — invalidated with colourCache
-	exifRangesCache  sync.Map       // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
-	exifValuesCache  sync.Map       // map[cacheKey+"|"+field][]string — invalidated on scan start/end
-	folderStatsCache sync.Map       // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
-	jobs             *jobs.Registry // where scans are reported to the status line; nil reports nowhere
-	faces            facesState     // the face engine and the face passes running (ADR-0051)
+	indexMu          sync.Map             // map[libraryID]bool — prevents concurrent reindex of same library
+	scans            sync.Map             // map[libraryID]*Broadcaster — active scan progress broadcasters
+	analysing        sync.Map             // map[libraryID]*atomic.Bool — an appearance pass runs; true: run it once more
+	dbMu             sync.Mutex           // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
+	openDBs          sync.Map             // map[libraryID]*sql.DB — long-lived per-library connections
+	statsCache       sync.Map             // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
+	timelineCache    sync.Map             // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
+	colourCache      sync.Map             // map[cacheKey]*LibraryColour — invalidated on scan start/end and after analysis
+	colourSpaceCache sync.Map             // map[cacheKey]*ColourSpace — invalidated with colourCache
+	exposureCache    sync.Map             // map[cacheKey]*ExposureSpace — invalidated with statsCache
+	spaceTimeCache   sync.Map             // map[cacheKey]*SpaceTime — invalidated with colourCache
+	exifRangesCache  sync.Map             // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
+	exifValuesCache  sync.Map             // map[cacheKey+"|"+field][]string — invalidated on scan start/end
+	folderStatsCache sync.Map             // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
+	jobs             *jobs.Registry       // where scans are reported to the status line; nil reports nowhere
+	faces            facesState           // the face engine and the face passes running (ADR-0051)
+	decisions        *facedecisions.Store // hidden faces, No's and covers, shared between installations; nil keeps them in each index
 }
+
+// SetFaceDecisions keeps the decisions about faces that are not in the
+// sidecars in the folder installations share (facedecisions).
+func (m *Manager) SetFaceDecisions(d *facedecisions.Store) { m.decisions = d }
 
 // SetJobs wires the job register that scans report to.
 func (m *Manager) SetJobs(r *jobs.Registry) { m.jobs = r }
@@ -106,7 +112,9 @@ func (m *Manager) OpenStore(id string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newStore(db, m.LibDir(id)), nil
+	store := newStore(db, m.LibDir(id))
+	store.decisions = m.decisions
+	return store, nil
 }
 
 // OpenFiltered opens a library's store with a filter on its statistics, map
@@ -267,6 +275,7 @@ func (m *Manager) DeleteLibrary(id string) error {
 	m.dbMu.Lock()
 	defer m.dbMu.Unlock()
 	if db, ok := m.openDBs.LoadAndDelete(id); ok {
+		forgetLookalikes(db.(*sql.DB))
 		db.(*sql.DB).Close()
 	}
 	return os.RemoveAll(m.LibDir(id))

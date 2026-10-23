@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"errors"
+	"log"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -148,4 +149,36 @@ func (m *Manager) PersonNames(ids []string) ([]string, error) {
 	}
 	sortStrings(out)
 	return out, nil
+}
+
+// ApplyFaceDecisions makes the library's hidden faces, No's and covers
+// what the shared file says (Store.ApplyDecisions), after a scan, a face
+// pass, and with every check of the shared libraries.
+func (m *Manager) ApplyFaceDecisions(id string) {
+	if m.decisions == nil {
+		return
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return
+	}
+	regroup, err := store.ApplyDecisions()
+	if err != nil {
+		log.Printf("Library %s: the shared face decisions could not be applied: %v", id, err)
+		return
+	}
+	if regroup {
+		store.Regroup() //nolint:errcheck // grouped again after the next pass
+	}
+}
+
+// ApplyAllFaceDecisions does ApplyFaceDecisions for every library.
+func (m *Manager) ApplyAllFaceDecisions() {
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return
+	}
+	for _, l := range libs {
+		m.ApplyFaceDecisions(l.ID)
+	}
 }

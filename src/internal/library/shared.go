@@ -188,6 +188,7 @@ func (m *Manager) rekey(oldID, newID string) error {
 	m.dbMu.Lock()
 	defer m.dbMu.Unlock()
 	if db, ok := m.openDBs.LoadAndDelete(oldID); ok {
+		forgetLookalikes(db.(*sql.DB))
 		db.(*sql.DB).Close()
 	}
 	m.InvalidateStatsCache(oldID)

@@ -15,6 +15,7 @@
 /* What is counted: a library, and within it perhaps one folder. */
 .stats-scope,
 .stats-period,
+.stats-compare,
 .stats-folder {
     display: flex;
     align-items: center;
@@ -24,6 +25,9 @@
 
 .stats-period-label,
 .stats-folder-label { color: var(--fg-2); }
+
+/* Compare: the people chosen as chips, then the choice of one more. */
+.stats-compare { flex-wrap: wrap; gap: var(--space-2); }
 
 .stats-folder-path {
     font-family: var(--font-mono);

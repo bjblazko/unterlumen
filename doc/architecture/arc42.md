@@ -98,6 +98,9 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `GET /api/jobs/stream` | HTTP GET, SSE | Every running or recently finished job, then each change ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `GET /api/faces`, `POST /api/faces/install` | HTTP GET/POST | JSON — whether face recognition is installed and what it downloads; the download as a job ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `/api/library/{id}/people…`, `/face/{fid}`, `/faces/name\|unname\|hide` | HTTP GET/POST/PATCH | JSON and JPEG — named people, groups of unnamed faces, a face's picture, naming ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `GET /api/library/{id}/people/hidden`, `GET /api/people/hidden`, `POST /api/library/{id}/faces/show` | HTTP GET/POST | JSON — a library's hidden faces, and showing them again ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `GET /api/library/{id}/people/groups/{grp}/suggestion` | HTTP GET | JSON — who a group looks like, for its own page ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
+| `POST /api/library/{id}/faces/not`, `GET /api/people/maybe` | HTTP POST/GET | JSON — a No (these faces are not that person); the unnamed faces that look most like a person, across libraries ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `GET\|POST /api/library/{id}/photo/{photoID}/faces` | HTTP GET/POST | JSON — a photo's faces for its info panel; marking a face that was not found, by box and name ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `GET /api/settings` | HTTP GET | JSON — global app settings (e.g. `librarySortMode`) |
 | `PATCH /api/settings` | HTTP PATCH | JSON — update one or more global settings fields |
@@ -171,6 +174,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/faces` | Finds faces (YuNet), aligns them and describes each by an embedding (SFace); groups embeddings; pure, no storage ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/api/people` | `/api/faces*` and the People routes of a library: overview, group and person faces, a face's picture, naming, hiding, renaming; everyone across libraries by name (`/api/people*`); writes the names into the sidecars ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/appearance` | What a photo looks like, measured from an image: mono/tinted/colour, average colour and palette in OKLab, tone, texture, dHash; pure, no storage ([ADR-0044](adr/0044-photo-appearance-from-thumbnails.md)) |
+| `internal/facedecisions` | Hidden faces, No's and covers in `face-decisions.json` beside `channels.json` (the shared folder), each face by its photo's SHA-256 and box; every index follows it ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md), decision 15) |
 | `internal/birthdays` | The people's birthdays by name, in `people.json` beside `channels.json` (the shared folder), and ages from them ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `internal/media` cache | `cache_files.go` keeps copies made from photos in a folder per kind (`thumbnails/`, `images/`) under the cache folder; `cache_usage.go` measures, clears and trims them to a limit, least recently used first (Settings → Storage, `/api/storage*`) |
 | `internal/atomicfile` | Changes a file several installations write — sidecars, the birthdays — by writing it whole beside it and renaming, starting over when it changed meanwhile ([ADR-0052](adr/0052-the-index-follows-the-folder.md)) |
@@ -212,6 +216,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `people-person.js` | `PeoplePerson` — a person's page by name: a section per library, cover, Is instead, rename and take the name away per library, who elsewhere looks like them |
 | `face-grid.js` | `FaceGrid` — pictures of faces, each a switch, nothing switched on at first, for a group's and a person's page |
 | `people-api.js` | `PeopleAPI` — the `/api/faces` and People calls |
+| `people-maybe.js` | `PeopleMaybe` — *Maybe Anna* on a person's page: the unnamed faces that look most like them, taken or refused at once |
 | `face-mark-tool.js` | `FaceMarkTool` — marking a face that was not found in the viewer: a frame drawn with `CropTool`, the name below it, the known faces as quiet frames |
 | `place-lede.js` | `placeLede`, `placeLink` — the sentence under a place's title and links to places in running text ([ADR-0041](adr/0041-explaining-the-model-in-the-app.md)) |
 | `setup-place.js` | `SetupPane` — the setup (`#setup`): shared folder, data folder, helper programs; opened from Settings ([ADR-0042](adr/0042-installation-one-line-setup-in-the-browser.md), [ADR-0047](adr/0047-independent-libraries-shared-per-library.md)) |
@@ -243,6 +248,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `space-time-view.js` | The Space and time topic: photos by where (log distance around the middle of the photos) and when, over the world outline |
 | `people-birthday.js` | A person's birthday: the dialog, the line under the name, ages in whole years |
 | `people-stats-charts.js` | The People topic's charts: who appears most, people over time, who with whom, faces per photo |
+| `stats-people-compare.js` | `PeopleCompare` — Compare in the People topic: the people its charts show side by side |
 | `people-space-views.js` | The People topic's 3D views: Face space, Circle of people, Life lines |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |

@@ -51,12 +51,18 @@ class PeopleEveryone {
 // link to them with how many groups wait; current marks the library shown.
 function toNameHTML(toName, current = '') {
     const waiting = toName.filter(l => l.groups || String(l.library) === current);
-    if (!waiting.length) return '';
+    if (!waiting.length && !toName.some(l => l.hidden)) return '';
     const links = waiting.map(l => {
         const here = String(l.library) === current;
         return `<a class="people-to-name-link" href="${peopleHash({ view: 'name', library: l.library })}"${here ? ' aria-current="page"' : ''}>${escapeHtml(l.libraryName)} <span class="count">${formatCount(l.groups)}</span></a>`;
     });
-    return `<nav class="people-to-name" aria-label="Groups of faces waiting for a name"><span class="people-label">Groups waiting for a name</span>${links.join('')}</nav>`;
+    return `<nav class="people-to-name" aria-label="Groups of faces waiting for a name"><span class="people-label">Groups waiting for a name</span>${links.join('')}${hiddenEverywhereLink(toName)}</nav>`;
+}
+
+// hiddenEverywhereLink leads to the faces hidden in all libraries together.
+function hiddenEverywhereLink(toName) {
+    const n = toName.reduce((sum, l) => sum + (l.hidden || 0), 0);
+    return n ? `<a class="people-hidden-link" href="${peopleHash({ view: 'hidden' })}">${escapeHtml(countFaces(n))} hidden</a>` : '';
 }
 
 // wirePeopleFind narrows the cards in container to the names holding what

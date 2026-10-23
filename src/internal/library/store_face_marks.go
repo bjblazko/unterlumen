@@ -24,43 +24,74 @@ var ErrBadFaceBox = errors.New("the frame must lie inside the photo")
 const minMarkedFace = 0.005 // of the photo's width or height
 
 // MarkFace marks a face by hand in the photo: the box in fractions of the
-// upright photo, and who it is. The sidecar is written first (ADR-0052);
+// upright photo, and who it is. Over a face that was hidden, it names that
+// face instead. The sidecar is written first (ADR-0052);
 // skipped is 1 when another program keeps the sidecar's regions, and the
 // face is then in this index only.
 func (s *Store) MarkFace(photoID string, box media.FaceRegion) (skipped int, err error) {
 	box.Name = strings.TrimSpace(box.Name)
-	if box.X < 0 || box.Y < 0 || box.W < minMarkedFace || box.H < minMarkedFace || box.X+box.W > 1.0001 || box.Y+box.H > 1.0001 {
+	if !insidePhoto(box) {
 		return 0, ErrBadFaceBox
 	}
 	photoID = s.CurrentPhotoID(photoID)
+	under, hidden, err := s.faceUnder(photoID, box)
+	switch {
+	case err != nil:
+		return 0, err
+	case hidden:
+		// A face hidden there was found after all: the frame names it.
+		return s.NameFaces([]int64{under}, box.Name)
+	case under != 0:
+		return 0, ErrFaceAlreadyThere
+	}
+	if werr := s.writeFaceChanges(photoID, []media.FaceRegion{box}); errors.Is(werr, media.ErrForeignRegions) {
+		skipped = 1
+	} else if werr != nil {
+		return 0, werr
+	}
+	return skipped, s.insertMarkedFace(photoID, box)
+}
+
+func insidePhoto(box media.FaceRegion) bool {
+	return box.X >= 0 && box.Y >= 0 && box.W >= minMarkedFace && box.H >= minMarkedFace &&
+		box.X+box.W <= 1.0001 && box.Y+box.H <= 1.0001
+}
+
+// faceUnder is the face of the photo that box overlaps enough, if any,
+// and whether it is hidden; 0 when the place is free.
+func (s *Store) faceUnder(photoID string, box media.FaceRegion) (id int64, hidden bool, err error) {
 	known, err := s.faceNamesOf(photoID)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	for _, k := range known {
 		if media.Overlap(regionOf(k), box) >= media.RegionMatch {
-			return 0, ErrFaceAlreadyThere
+			hidden, err := s.isHidden(k.id)
+			return k.id, hidden, err
 		}
 	}
-	werr := s.writeFaceChanges(photoID, []media.FaceRegion{box})
-	switch {
-	case errors.Is(werr, media.ErrForeignRegions):
-		skipped = 1
-	case werr != nil:
-		return 0, werr
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return skipped, err
-	}
-	defer tx.Rollback() //nolint:errcheck
-	if err := insertMarkedFace(tx, photoID, box); err != nil {
-		return skipped, err
-	}
-	return skipped, tx.Commit()
+	return 0, false, nil
 }
 
-func insertMarkedFace(tx *sql.Tx, photoID string, r media.FaceRegion) error {
+func (s *Store) insertMarkedFace(photoID string, box media.FaceRegion) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if err := insertMarkedFaceTx(tx, photoID, box); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) isHidden(face int64) (bool, error) {
+	var hidden bool
+	err := s.db.QueryRow(`SELECT person_id IS NULL AND confirmed = 1 FROM faces WHERE id = ?`, face).Scan(&hidden)
+	return hidden, err
+}
+
+func insertMarkedFaceTx(tx *sql.Tx, photoID string, r media.FaceRegion) error {
 	person, err := personID(tx, r.Name)
 	if err != nil {
 		return err
@@ -90,24 +121,13 @@ func (s *Store) applyMarkedFaces(photoID string, marked []faceName, wanted []med
 	}
 	defer tx.Rollback() //nolint:errcheck
 	for _, m := range marked {
-		i := bestRegion(regionOf(m), wanted, used)
-		switch {
-		case i >= 0:
-			used[i] = true
-			if !strings.EqualFold(wanted[i].Name, m.name) {
-				if err := setFacePerson(tx, m.id, wanted[i].Name); err != nil {
-					return err
-				}
-			}
-		case !foreign:
-			if _, err := tx.Exec(`DELETE FROM faces WHERE id = ?`, m.id); err != nil {
-				return err
-			}
+		if err := followRegion(tx, m, wanted, used, foreign); err != nil {
+			return err
 		}
 	}
 	for i, r := range wanted {
 		if !used[i] {
-			if err := insertMarkedFace(tx, photoID, r); err != nil {
+			if err := insertMarkedFaceTx(tx, photoID, r); err != nil {
 				return err
 			}
 		}
@@ -116,6 +136,25 @@ func (s *Store) applyMarkedFaces(photoID string, marked []faceName, wanted []med
 		return err
 	}
 	return tx.Commit()
+}
+
+// followRegion gives a marked face the name of the region over it and marks
+// that region used, or removes the face when no region is over it — unless
+// another program keeps regions in the sidecar.
+func followRegion(tx *sql.Tx, m faceName, wanted []media.FaceRegion, used []bool, foreign bool) error {
+	i := bestRegion(regionOf(m), wanted, used)
+	switch {
+	case i >= 0:
+		used[i] = true
+		if strings.EqualFold(wanted[i].Name, m.name) {
+			return nil
+		}
+		return setFacePerson(tx, m.id, wanted[i].Name)
+	case !foreign:
+		_, err := tx.Exec(`DELETE FROM faces WHERE id = ?`, m.id)
+		return err
+	}
+	return nil
 }
 
 // bestRegion is the index of the unused region box overlaps most, if
@@ -158,32 +197,25 @@ func regionsNoFaceCovers(regions []media.FaceRegion, found []faceName) []media.F
 	return out
 }
 
+// markedFoundAgain pairs each face marked by hand in a photo with a found
+// face that overlaps it enough (media.Overlap, in SQL), saying whether the
+// found face is unnamed.
+const markedFoundAgain = `SELECT m.id, m.person_id, f.id, f.person_id IS NULL AND f.confirmed = 0
+	FROM faces m JOIN faces f ON f.photo_id = m.photo_id AND f.manual = 0
+	WHERE m.photo_id = ? AND m.manual = 1
+	  AND MAX(0, MIN(m.x+m.w, f.x+f.w) - MAX(m.x, f.x)) * MAX(0, MIN(m.y+m.h, f.y+f.h) - MAX(m.y, f.y))
+	      >= ? * (m.w*m.h + f.w*f.h - MAX(0, MIN(m.x+m.w, f.x+f.w) - MAX(m.x, f.x)) * MAX(0, MIN(m.y+m.h, f.y+f.h) - MAX(m.y, f.y)))`
+
+type foundAgain struct {
+	marked, person, face int64
+	unnamed              bool
+}
+
 // settleMarkedFaces runs after a pass stored the faces it found in a photo:
 // a marked face the detector now finds as well gives its name to the found
 // face, if that has none, and goes.
 func settleMarkedFaces(tx *sql.Tx, photoID string) error {
-	rows, err := tx.Query(`SELECT m.id, m.person_id, f.id, f.person_id IS NULL AND f.confirmed = 0
-		FROM faces m JOIN faces f ON f.photo_id = m.photo_id AND f.manual = 0
-		WHERE m.photo_id = ? AND m.manual = 1
-		  AND MAX(0, MIN(m.x+m.w, f.x+f.w) - MAX(m.x, f.x)) * MAX(0, MIN(m.y+m.h, f.y+f.h) - MAX(m.y, f.y))
-		      >= ? * (m.w*m.h + f.w*f.h - MAX(0, MIN(m.x+m.w, f.x+f.w) - MAX(m.x, f.x)) * MAX(0, MIN(m.y+m.h, f.y+f.h) - MAX(m.y, f.y)))`,
-		photoID, media.RegionMatch)
-	if err != nil {
-		return err
-	}
-	type found struct {
-		marked, person, face int64
-		unnamed              bool
-	}
-	var hits []found
-	err = scanRows(rows, func() error {
-		var h found
-		if err := rows.Scan(&h.marked, &h.person, &h.face, &h.unnamed); err != nil {
-			return err
-		}
-		hits = append(hits, h)
-		return nil
-	})
+	hits, err := marksFoundAgain(tx, photoID)
 	if err != nil {
 		return err
 	}
@@ -204,4 +236,21 @@ func settleMarkedFaces(tx *sql.Tx, photoID string) error {
 		}
 	}
 	return nil
+}
+
+func marksFoundAgain(tx *sql.Tx, photoID string) ([]foundAgain, error) {
+	rows, err := tx.Query(markedFoundAgain, photoID, media.RegionMatch)
+	if err != nil {
+		return nil, err
+	}
+	var hits []foundAgain
+	err = scanRows(rows, func() error {
+		var h foundAgain
+		if err := rows.Scan(&h.marked, &h.person, &h.face, &h.unnamed); err != nil {
+			return err
+		}
+		hits = append(hits, h)
+		return nil
+	})
+	return hits, err
 }

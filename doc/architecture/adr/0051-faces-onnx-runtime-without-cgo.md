@@ -212,6 +212,71 @@ sidecar as Metadata Working Group regions; an architecture that is not
     (`settleMarkedFaces`). Moving or resizing a saved frame and marking on
     a phone are left out.
 
+13. **Suggestions learn from every name and every No.** Decided with the
+    owner on 2026-10-23; the model itself is never trained. A face, or a
+    group, is compared with each named person's own faces: the mean
+    similarity of the nearest three (`faces.Resemblance`), not with the
+    average of all of them, which lies between frontal and profile and
+    looks like neither. Measured on a copy of a library of 12 554 named
+    faces of 143 people, every face left out in turn: the nearest three
+    suggested the right person for 98.1 % and a wrong one for 1.2 %; the
+    average managed 92.3 % and 4.8 %. `SuggestThreshold` stays 0.45. To
+    stay fast, the averages pick the five people who come into question
+    and only they are compared face by face; the prints are cached per
+    library until its confirmed faces change (`lookalikes`). A No is a row
+    of `face_not` (face, person), kept in this index like hiding: the
+    suggestion's No, "This is not Anna" and *Is instead* all write one,
+    and naming the face that person after all takes it back. Suggestions
+    are shown per group (Waiting for a name), per face in a photo's info
+    panel, and on a person's page as *Maybe Anna*: the unnamed faces
+    that look most like them of everyone named, at most 60, to take or
+    to refuse in one go (`GET /api/people/maybe`, `POST
+    …/faces/not`). Nothing is named without the owner. Left out, by the
+    owner's choice: listing named faces that may be wrong, prints for
+    faces marked by hand, and looking again for faces the detector missed.
+    A group is often mixed, so its own page starts from its suggestion
+    (`GET …/people/groups/{grp}/suggestion`), names or refuses the
+    selected faces or all, and stays while faces are left. Deselected
+    faces get no No of their own: they may only be named in a second go.
+    Hidden faces are listed per library (`GET …/people/hidden`) and shown
+    again (`POST …/faces/show`, then the unnamed faces are grouped anew);
+    a frame drawn by hand over a hidden face names that face. People's
+    first page lists the hidden faces of all libraries (`GET
+    /api/people/hidden`).
+
+14. **Compare in the People topic.** Up to eight people chosen in the
+    topic's head are put first, in that order (`peopleCompared`), and the
+    charts that show several people — Who appears most, People over time,
+    Photos by age, Who with whom, Life lines — show those and only those,
+    in the first colours of the ramp. Nobody chosen is the people with the
+    most photos, as before. The choice is the browser's (localStorage, a
+    per-viewer convenience); redrawing asks the server nothing. It is not
+    the shared filter's People (ADR-0050), which keeps the photos with all
+    of them together.
+
+15. **Hiding, No's and covers are shared through the shared folder.** They
+    were this installation's only, while the NAS and the Mac index the same
+    photos. The owner asked on 2026-10-23 for them to follow; they still stay
+    out of the sidecars, which say only who is in a photo (decided
+    2026-10-19). `internal/facedecisions` keeps `face-decisions.json` beside
+    `channels.json` and `people.json`: hidden faces, No's by name, covers by
+    name with when they were chosen (the last chosen wins). A face is its
+    photo's SHA-256 — the same on every installation — and its box,
+    matched by overlap like a sidecar's region, since each installation
+    finds its own faces. As with sidecars (ADR-0052), the file is written
+    first (`atomicfile.Change`, the decisions of the other installation made
+    meanwhile kept) and the index follows: `Store.ApplyDecisions` after a
+    scan, after a face pass, and with every check of the shared libraries
+    (at start, then every 30 minutes) makes the index's hidden faces, No's
+    and covers what the file says — a face shown again there is shown again
+    here; a face the sidecar names here is not hidden. The first time, each
+    library puts its own earlier decisions into the file (`exportDecisions`,
+    the library property `face_decisions_shared` holding the file's path,
+    so a new shared folder gets them too), so sharing loses nothing; measured on a copy of the largest library: 190 hidden faces, 46
+    No's and 11 covers, unchanged, 65 ms, 60 KB. Once shared, a missing file
+    is an error (`facedecisions.ErrMissing`), never "no decisions": an
+    unmounted shared folder must not show every hidden face again.
+
 ## Consequences
 
 - The single binary stays: cgo-free, cross-compiled as before. Face

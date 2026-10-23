@@ -47,6 +47,10 @@ const PeopleAPI = {
     async groupFaces(lib, grp) {
         return peopleJSON(await fetch(`/api/library/${lib}/people/groups/${grp}`));
     },
+    // Who a group looks like: { suggestion } with a person, or null.
+    async groupSuggestion(lib, grp) {
+        return peopleJSON(await fetch(`/api/library/${lib}/people/groups/${grp}/suggestion`));
+    },
     async personFaces(lib, person) {
         return peopleJSON(await fetch(`/api/library/${lib}/people/${person}`));
     },
@@ -63,6 +67,32 @@ const PeopleAPI = {
     },
     async hide(lib, faces) {
         return peoplePost(`/api/library/${lib}/faces/hide`, { faces });
+    },
+    // The faces hidden in lib, and taking them out of hiding.
+    async hidden(lib) {
+        return peopleJSON(await fetch(`/api/library/${lib}/people/hidden`));
+    },
+    // The faces hidden in every library: [{ ...face, library }].
+    async hiddenEverywhere() {
+        return peopleJSON(await fetch('/api/people/hidden'));
+    },
+    async showAgain(lib, faces) {
+        return peoplePost(`/api/library/${lib}/faces/show`, { faces });
+    },
+    // A No: the faces are not that person (their ID in lib), and are not
+    // suggested as them again.
+    async not(lib, faces, person) {
+        const r = await fetch(`/api/library/${lib}/faces/not`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ faces, person }),
+        });
+        if (!r.ok) throw new Error((await r.text()).trim());
+    },
+    // The unnamed faces that look most like the person of that name, in
+    // every library where they are named: [{ ...face, library, person }].
+    async maybe(name) {
+        return peopleJSON(await fetch(`/api/people/maybe?name=${encodeURIComponent(name)}`));
     },
     // Marks a face that was not found: box { x, y, w, h } in fractions of
     // the upright photo, and name.

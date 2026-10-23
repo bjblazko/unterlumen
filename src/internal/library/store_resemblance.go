@@ -30,14 +30,12 @@ func (s *Store) personEmbeddings(id int64) ([][]float32, error) {
 // nearestPerson is the named person who looks most like centre, if anyone
 // looks enough like it to be suggested.
 func (s *Store) nearestPerson(centre []float32) (*Person, error) {
-	people, centres, err := s.personCentres()
-	if err != nil || len(centres) == 0 {
+	looks, err := s.lookalikes()
+	if err != nil {
 		return nil, err
 	}
-	if best, sim := faces.Nearest(centres, centre); best >= 0 && sim >= faces.SuggestThreshold {
-		return &people[best], nil
-	}
-	return nil, nil
+	p, _ := looks.best(centre, nil)
+	return p, nil
 }
 
 // nearestGroup is the group of unnamed faces that looks most like centre,

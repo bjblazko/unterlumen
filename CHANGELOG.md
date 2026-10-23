@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Maybe Anna on a person's page**: the faces nobody named that look most like them, the likeliest first, in every library where the name is. Select the ones that are her and take them, or the ones that are not.
+- **Who an unnamed face looks like, in a photo's info panel**: "Is this Anna?" under its name field, in the viewer too; Anna takes it, No says it is not.
+- **Compare people in Statistics.** The People topic has Compare beside Periods: choose up to eight people, and Who appears most, People over time, Photos by age, Who with whom and Life lines show those, in that order and colours. With nobody chosen it is the people with the most photos, as before. The choice stays in this browser. Not the filter's People, which keeps only the photos with all of them.
+- **Hidden faces can be shown again.** Waiting for a name links to "N faces hidden" in that library, and People's first page to those of all libraries; newest first, selected, Show again puts them back among those waiting for a name. Before, a face hidden by mistake could not be reached again. `GET /api/library/{id}/people/hidden`, `GET /api/people/hidden`, `POST /api/library/{id}/faces/show`.
+- **Hiding, No's and covers follow to the other installation.** They are kept in `face-decisions.json` in the folder the installations share, beside `channels.json` and `people.json` — not in the sidecars, which say only who is in a photo — and each index follows the file after a scan, after a face pass and with every check of the shared libraries. A face is its photo's SHA-256 and its box, matched by overlap as names in the sidecars are. The first time, each installation puts the decisions it made before into the file, so none is lost. A shared folder that cannot be reached is an error, never an empty file: nothing hidden comes back. See ADR-0051, decision 15.
+- **A No is kept.** No beside a suggestion, "This is not Anna" and Is instead each record that this face is not that person, so it is not suggested as them again. Naming the face Anna after all takes the No back. It stays on this installation, as hiding does. `POST /api/library/{id}/faces/not`, `GET /api/people/maybe`.
+
+### Changed
+- **Map and Timeline show their one setting in the head**: Map · Grey / Colour and Rows · 2 / 3 / 4, as a segment like a folder's layout, where each was the only entry of a ⋯.
+- **A suggestion is a question with its answers beside it**: "Is this **Anna**? Yes · No", the name in the sentence and two buttons of one size, where the name was a button in the middle of the sentence.
+- **A mixed group is named on its page, to the end.** A group's page starts from its suggestion ("Is this Paula? Paula / No", the name already in the field) and acts on the faces selected, or on all; after naming, the faces left stay on the page — with their own suggestion — until none is left. Before, naming 181 of 183 faces meant typing the name again and finding the smaller group in the list. `GET /api/library/{id}/people/groups/{grp}/suggestion`.
+- **Suggestions are compared with a person's own faces**, the nearest three, not with the average of all of them, so a profile is measured against their profiles. On a library of 12 554 named faces this suggested the right person for 98 % of faces instead of 92 %, and a wrong one for 1 % instead of 5 %. Every face you name makes the next suggestions better. See ADR-0051.
+
+### Fixed
+- **A frame drawn over a hidden face names it.** Mark a face over a face that was found and hidden answered "There is a face there already; name it in the list", though the list does not show hidden faces.
+
 ## [0.17.4] - 2026-10-23
 
 ### Added

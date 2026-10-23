@@ -60,11 +60,9 @@ class StatsPane {
         this._drawCount(data.snap);
         if (data.snap.totalPhotos === 0) { this._note(this._nothingCounted(data.snap)); return; }
         this._noteEl.hidden = true;
-        this._main.innerHTML = '';
-        this._drawIndexing(data.snap, topic && (data.colour || data.colourSpace));
-        if (topic) this._drawTopic(topic, data);
-        else this._drawOverview(data);
-        this._labelStageButtons();
+        this._shown = { topic, data, people: data.people };
+        this._compare.setNames((data.people?.people ?? []).map(p => p.name));
+        this._drawData();
         this._drawn = true;
         if (this._allPhotosDue) {
             this._allPhotosDue = false;
@@ -87,6 +85,8 @@ class StatsPane {
         // The shared filter (ADR-0050): one for the place, moved into each
         // new head. A change counts again, once the choice rests a moment.
         this._filter = new ScopeFilter({ onOpen: () => this._hidePhotos() });
+        // Compare redraws what was read; it asks the server nothing.
+        this._compare = new PeopleCompare({ onChange: () => { if (this._shown) this._drawData(); } });
         ScopeState.onChange(() => {
             if (App.mode !== 'statistics') return;
             const lib = this._route.library;
@@ -130,6 +130,17 @@ class StatsPane {
         });
     }
 
+    // _drawData draws what was read, with the people compared first.
+    _drawData() {
+        const { topic, data, people } = this._shown;
+        data.people = peopleCompared(people, this._compare.names);
+        this._main.innerHTML = '';
+        this._drawIndexing(data.snap, topic && (data.colour || data.colourSpace));
+        if (topic) this._drawTopic(topic, data);
+        else this._drawOverview(data);
+        this._labelStageButtons();
+    }
+
     /* --- Head: where we are, what is counted --- */
 
     _drawHead(topic) {
@@ -145,6 +156,8 @@ class StatsPane {
             lede: placeLede(`What the photos in your ${placeLink('library', 'libraries', 'libraries')} have in common, and how that changed. Click a bar, a slice or a point to see its photos.`),
         });
         this._head.querySelector('.stats-scope').appendChild(this._filter.el);
+        // People side by side, in the People topic: which ones its charts show.
+        if (topic?.id === 'people') this._head.querySelector('.stats-scope').after(this._compare.el);
         this._head.querySelector('.stats-whole-library')?.addEventListener('click', () => {
             App.openStatistics({ ...this._route, path: '' });
         });

@@ -24,10 +24,13 @@ async function fakePeople(page, state) {
   await page.route(`**/api/library/${LIB}/face/*`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route(`**/api/library/${LIB}/thumb/*`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
   await page.route(`**/api/library/${LIB}/people`, r => r.fulfill({ json: state.overview() }));
-  await page.route(`**/api/library/${LIB}/people/groups/*`, r => r.fulfill({ json: [FACE_11, FACE_12] }));
+  // A group keeps the faces not named yet; state.suggestion is who it looks like.
+  await page.route(`**/api/library/${LIB}/people/groups/*`, r => r.fulfill({
+    json: [FACE_11, FACE_12].filter(f => !(state.namedIds ?? []).includes(f.id)) }));
+  await page.route(`**/api/library/${LIB}/people/groups/*/suggestion`, r => r.fulfill({ json: { suggestion: state.suggestion ?? null } }));
   await page.route('**/api/library/person-names*', r => r.fulfill({ json: ['Anna', 'Ben', 'Cleo from elsewhere'] }));
   await page.route('**/api/people/to-name', r => r.fulfill({ json: [
-    { library: LIB, libraryName: 'Family', groups: state.overview().groupCount, pending: 0, finding: false }] }));
+    { library: LIB, libraryName: 'Family', groups: state.overview().groupCount, hidden: state.hidden ?? 0, pending: 0, finding: false }] }));
   await page.route('**/api/people/birthdays', r => r.fulfill({ json: {} }));
   await page.route('**/api/people', r => r.fulfill({ json: people().map(p => ({
     name: p.name, faces: p.faces, photos: p.photos,
@@ -46,6 +49,7 @@ async function fakePeople(page, state) {
   await page.route('**/api/people/with?*', r => r.fulfill({ json: [] }));
   await page.route(`**/api/library/${LIB}/faces/name`, async r => {
     state.named = r.request().postDataJSON();
+    state.namedIds = [...(state.namedIds ?? []), ...state.named.faces];
     await r.fulfill({ json: { skipped: 0 } });
   });
 }
@@ -94,7 +98,7 @@ test.describe('People', () => {
     await fakePeople(page, state);
     await page.goto(`/#people/name/${LIB}`);
     await waitForAppReady(page);
-    await page.locator('.people-accept', { hasText: 'Anna' }).click();
+    await page.locator('.people-accept[data-name="Anna"]').click();
     await expect.poll(() => state.named).toEqual({ faces: [11, 12], name: 'Anna' });
     await expect(page.locator('.people-group-error')).toHaveCount(0);
   });
@@ -113,9 +117,65 @@ test.describe('People', () => {
     await expect(page.locator('.people-submit')).toHaveText('Name 1');
     await expect(page.locator('.people-hide')).toHaveText('Hide 1');
     await page.locator('#people-group-name').fill('Ben');
+    await expect(page.locator('.people-submit')).toHaveText('Name 1 Ben');
+    await page.locator('.people-submit').click();
+    await expect.poll(() => state.named).toEqual({ faces: [12], name: 'Ben' });
+    // The face left stays on the page, to be named too; then the list.
+    await expect(page.locator('.face-tile')).toHaveCount(1);
+    await expect(page).toHaveURL(new RegExp(`#people/name/${LIB}/group/0$`));
+    await page.locator('#people-group-name').fill('Cleo');
     await page.locator('.people-submit').click();
     await expect(page).toHaveURL(new RegExp(`#people/name/${LIB}$`));
-    expect(state.named).toEqual({ faces: [12], name: 'Ben' });
+  });
+
+  test('hidden faces are listed from Waiting for a name and shown again', async ({ page }) => {
+    let shown = null;
+    const state = { named: null, overview: () => ({ ...waiting(), hidden: shown ? 0 : 1 }) };
+    await fakePeople(page, state);
+    await page.route(`**/api/library/${LIB}/people/hidden`, r => r.fulfill({ json: shown ? [] : [FACE_11] }));
+    await page.route(`**/api/library/${LIB}/faces/show`, async r => { shown = r.request().postDataJSON(); await r.fulfill({ json: { skipped: 0 } }); });
+    await page.goto(`/#people/name/${LIB}`);
+    await waitForAppReady(page);
+    await page.getByRole('link', { name: '1 face hidden' }).click();
+    await expect(page).toHaveURL(new RegExp(`#people/name/${LIB}/hidden$`));
+    const again = page.locator('.people-show-again');
+    await expect(again).toBeDisabled();
+    await page.locator('.face-tile').first().click();
+    await expect(again).toHaveText('Show 1 again');
+    await again.click();
+    await expect.poll(() => shown).toEqual({ faces: [11] });
+    await expect(page.locator('.people-empty')).toHaveText('No face is hidden here.');
+  });
+
+  test('People lists the faces hidden in all libraries and shows them again, each in its library', async ({ page }) => {
+    let shown = null;
+    const state = { named: null, hidden: 1, overview: () => annaNamed() };
+    await fakePeople(page, state);
+    await page.route('**/api/people/hidden', r => r.fulfill({ json: shown ? [] : [{ ...FACE_12, library: LIB }] }));
+    await page.route(`**/api/library/${LIB}/faces/show`, async r => { shown = r.request().postDataJSON(); await r.fulfill({ json: { skipped: 0 } }); });
+    await page.goto('/#people');
+    await waitForAppReady(page);
+    await page.getByRole('link', { name: '1 face hidden' }).click();
+    await expect(page).toHaveURL(/#people\/hidden$/);
+    await page.locator('.face-tile').first().click();
+    await page.locator('.people-show-again').click();
+    await expect.poll(() => shown).toEqual({ faces: [12] });
+    await expect(page.locator('.people-empty')).toHaveText('No face is hidden.');
+  });
+
+  test("a group's page starts from its suggestion, and No refuses it for the faces chosen", async ({ page }) => {
+    const state = { named: null, suggestion: { id: 1, name: 'Anna' }, overview: () => waiting() };
+    await fakePeople(page, state);
+    let not = null;
+    await page.route(`**/api/library/${LIB}/faces/not`, async r => { not = r.request().postDataJSON(); await r.fulfill({ status: 204 }); });
+    await page.goto(`/#people/name/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await expect(page.locator('.people-suggest')).toContainText('Is this Anna?');
+    await expect(page.locator('#people-group-name')).toHaveValue('Anna');
+    await expect(page.locator('.people-submit')).toHaveText('Name all 2 Anna');
+    await page.locator('.face-tile').nth(0).click();
+    await page.locator('.people-suggest .people-not').click();
+    await expect.poll(() => not).toEqual({ faces: [11], person: 1 });
   });
 
   test('older addresses lead to their new place', async ({ page }) => {
@@ -181,6 +241,29 @@ test.describe('People', () => {
     await expect.poll(() => state.named).toEqual({ faces: [11], name: 'Anna' });
     await people.locator('.info-face-unname').click();
     await expect.poll(() => unnamed).toEqual({ faces: [13] });
+  });
+
+  test("a photo's info panel asks whether a face is who it looks like, and keeps a No", async ({ page }) => {
+    const state = { named: null, overview: () => waiting() };
+    await fakePeople(page, state);
+    let not = null;
+    const anna = { id: 1, name: 'Anna', faces: 3, photos: 3, cover: 13 };
+    const faces = [{ id: 11, photoId: 'p1', x: 0.1, y: 0.2, w: 0.1, h: 0.15, suggestion: anna },
+                   { id: 12, photoId: 'p1', x: 0.6, y: 0.2, w: 0.1, h: 0.15, suggestion: anna }];
+    await page.route(`**/api/library/${LIB}/photo/p1/faces`, r => r.fulfill({ json: { faces, names: ['Anna'] } }));
+    await page.route(`**/api/library/${LIB}/photo/p1/info`, r => r.fulfill({ json: { name: 'p1.jpg', size: 1000, modTime: '2026-01-01T00:00:00Z' } }));
+    await page.route(`**/api/library/${LIB}/photo/p1`, r => r.fulfill({ body: tinyJPEG, contentType: 'image/jpeg' }));
+    await page.route(`**/api/library/${LIB}/faces/not`, async r => { not = r.request().postDataJSON(); await r.fulfill({ status: 204 }); });
+    await page.goto(`/#people/name/${LIB}/group/0`);
+    await waitForAppReady(page);
+    await page.locator('.face-tile').first().dblclick();
+    const asks = page.locator('.info-people .info-face-suggest');
+    await expect(asks).toHaveCount(2);
+    await expect(asks.first()).toContainText('Is this Anna?');
+    await asks.first().getByRole('button', { name: 'Yes, this is Anna' }).click();
+    await expect.poll(() => state.named).toEqual({ faces: [11], name: 'Anna' });
+    await page.locator('.info-people .info-face-suggest').last().getByRole('button', { name: 'No, this is not Anna' }).click();
+    await expect.poll(() => not).toEqual({ faces: [12], person: 1 });
   });
 
   test("typing a face's name in the viewer's info panel stays typing", async ({ page }) => {

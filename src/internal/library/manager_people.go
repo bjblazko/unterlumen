@@ -324,6 +324,7 @@ type ToName struct {
 	Library     string `json:"library"`
 	LibraryName string `json:"libraryName"`
 	Groups      int    `json:"groups"`  // groups of faces waiting for a name
+	Hidden      int    `json:"hidden"`  // faces hidden, nobody to name them
 	Pending     int    `json:"pending"` // photos whose faces were not looked for yet
 	Finding     bool   `json:"finding"` // a pass is looking for faces now
 }
@@ -344,11 +345,78 @@ func (m *Manager) ToNameAll() ([]ToName, error) {
 		if err != nil {
 			return nil, err
 		}
+		hidden, err := store.HiddenCount()
+		if err != nil {
+			return nil, err
+		}
 		pending, err := store.PhotosNeedingFaces()
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ToName{l.ID, l.Name, groups, len(pending), m.FindingFaces(l.ID)})
+		out = append(out, ToName{l.ID, l.Name, groups, hidden, len(pending), m.FindingFaces(l.ID)})
 	}
+	return out, nil
+}
+
+// MaybeIn is a face that may be the person, in a library where they are
+// named, and the person there.
+type MaybeIn struct {
+	FaceIn
+	Person int64 `json:"person"`
+}
+
+// MaybeNamed lists, from every library where someone has the name, the
+// unnamed faces that look most like them there (Store.MaybeFaces).
+func (m *Manager) MaybeNamed(name string) ([]MaybeIn, error) {
+	out := []MaybeIn{}
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return out, err
+	}
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		p, ok, err := store.PersonNamed(name)
+		if err != nil || !ok {
+			if err != nil {
+				return out, err
+			}
+			continue
+		}
+		refs, err := store.MaybeFaces(p.ID)
+		if err != nil {
+			return out, err
+		}
+		for _, r := range refs {
+			out = append(out, MaybeIn{FaceIn: FaceIn{FaceRef: r, Library: l.ID}, Person: p.ID})
+		}
+	}
+	return out, nil
+}
+
+// HiddenEverywhere lists the faces hidden in every library, each with its
+// library, the newest photo first in each.
+func (m *Manager) HiddenEverywhere() ([]FaceIn, error) {
+	out := []FaceIn{}
+	libs, err := m.ListLibraries()
+	if err != nil {
+		return out, err
+	}
+	for _, l := range libs {
+		store, err := m.OpenStore(l.ID)
+		if err != nil {
+			continue
+		}
+		refs, err := store.HiddenFaces()
+		if err != nil {
+			return out, err
+		}
+		for _, r := range refs {
+			out = append(out, FaceIn{FaceRef: r, Library: l.ID})
+		}
+	}
+	newestFirst(out)
 	return out, nil
 }

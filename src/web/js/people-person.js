@@ -1,7 +1,7 @@
 // people-person.js — A person's page on the computer, by name (ADR-0051):
 // their faces from all libraries that have the name, newest photo first,
 // each managed in its own library — cover, faces that are someone else,
-// rename, take the name away — and in the
+// rename, take the name away — the faces that may be them, and in the
 // libraries without the name, who there looks like them, put right in place.
 //
 // Address: #people/person/<name>.
@@ -40,6 +40,7 @@ class PeoplePerson {
             ${oftenWithHTML(data.with)}
             <p class="people-hint">Select a face to open its photo, show it in its library or make it the cover; select several to give them to someone else. Rest the pointer on a face to see it in its photo; double-click opens the photo.</p>
             ${this._facesHTML()}
+            <section class="people-section people-maybe" hidden></section>
             ${this._notInHTML(name, data.notIn)}
             <div class="people-bar" hidden>
                 <div class="people-group-row">
@@ -65,6 +66,7 @@ class PeoplePerson {
         wireOftenWith(body, name);
         this._wireFaces(name);
         this._wireNotIn(name);
+        new PeopleMaybe(this, name, body.querySelector('.people-maybe')).load();
     }
 
     // One grid of all their faces, newest photo first; where they are in

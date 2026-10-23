@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	_ "modernc.org/sqlite"
+
+	"huepattl.de/unterlumen/internal/facedecisions"
 )
 
 const dbSchema = `
@@ -104,6 +106,14 @@ CREATE TABLE IF NOT EXISTS photo_faces_found (
 	version  INTEGER NOT NULL
 );
 
+-- A No: the face is not that person, so it is not suggested as them
+-- again (ADR-0051, decision 13). It goes with its face and its person.
+CREATE TABLE IF NOT EXISTS face_not (
+	face   INTEGER NOT NULL REFERENCES faces(id) ON DELETE CASCADE,
+	person INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+	PRIMARY KEY (face, person)
+);
+
 CREATE TABLE IF NOT EXISTS people (
 	id    INTEGER PRIMARY KEY,
 	name  TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -133,6 +143,9 @@ type Store struct {
 	db     *sql.DB
 	dir    string
 	filter Filter // narrows the statistics, map and timeline queries (ADR-0050)
+	// decisions is where hiding, No's and covers are shared with the other
+	// installation; nil keeps them in this index only.
+	decisions *facedecisions.Store
 }
 
 // openDB opens and migrates a SQLite database, returning the underlying *sql.DB.

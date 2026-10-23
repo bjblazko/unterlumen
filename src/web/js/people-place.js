@@ -4,19 +4,22 @@
 // people-everyone.js (everyone), people-naming.js (to name) and
 // people-person.js (a person).
 //
-// Addresses: #people, #people/person/<name>, #people/name/<library> and
-// #people/name/<library>/group/<n>. Groups are rebuilt after every pass, so
+// Addresses: #people, #people/person/<name>, #people/name/<library>,
+// #people/name/<library>/group/<n>, #people/name/<library>/hidden and
+// #people/hidden (every library). Groups are rebuilt after every pass, so
 // a group's address is only good until the next one. Older addresses lead
 // to their new place (peopleRouteFromHash).
 
 // peopleRouteFromHash reads an address into { view, library, id }. view is
 // '' (everyone), 'person' (id: the name), 'name' (a library's groups),
-// 'group' (id: the group) or 'person-of' (an older address: id is a person's
+// 'group' (id: the group), 'hidden' (a library's hidden faces) or 'person-of' (an older address: id is a person's
 // number in library, shown under their name).
 function peopleRouteFromHash(hash) {
     const parts = hash.replace(/^#/, '').split(/[?]/)[0].split('/').slice(1).map(decodeURIComponent);
     const [a = '', b = '', c = '', d = ''] = parts;
     if (a === 'person' && b) return { view: 'person', id: b, library: '' };
+    if (a === 'hidden') return { view: 'hidden', library: '', id: '' };
+    if (a === 'name' && b && c === 'hidden') return { view: 'hidden', library: b, id: '' };
     if (a === 'name' && b) return c === 'group' && d !== '' ? { view: 'group', library: b, id: d } : { view: 'name', library: b, id: '' };
     if (a === 'all' || !a) return b === 'person' && c ? { view: 'person', id: c, library: '' } : { view: '', library: '', id: '' };
     if (b === 'group' && c !== '') return { view: 'group', library: a, id: c };
@@ -30,6 +33,7 @@ function peopleHash({ view = '', library = '', id = '' } = {}) {
     if (view === 'name') return `#people/name/${enc(library)}`;
     // Groups are numbered from 0, so an id of 0 is an id.
     if (view === 'group') return `#people/name/${enc(library)}/group/${enc(id)}`;
+    if (view === 'hidden') return library ? `#people/name/${enc(library)}/hidden` : '#people/hidden';
     if (view === 'person-of') return `#people/${enc(library)}/person/${enc(id)}`;
     return '#people';
 }
@@ -67,6 +71,7 @@ class PeoplePane {
         if (view === 'person') await (peopleOnPhone() ? this._phone.showPerson(id) : this._person.show(id));
         else if (view === 'name' && !peopleOnPhone()) await this._naming.showLibrary(this._known(library));
         else if (view === 'group' && !peopleOnPhone()) await this._naming.showGroup(this._known(library), Number(id));
+        else if (view === 'hidden' && !peopleOnPhone()) await this._naming.showHidden(library ? this._known(library) : null);
         else await (peopleOnPhone() ? this._phone.showOverview() : this._everyone.show());
     }
 
@@ -172,6 +177,20 @@ function openFacePhotos(lib, faces, index) {
     const seen = new Map();
     for (const f of faces) if (!seen.has(key(f))) seen.set(key(f), { lib: f.library || lib, id: f.photoId, name: f.file || f.photoId });
     openLibraryPhotos([...seen.values()], [...seen.keys()].indexOf(key(faces[index])));
+}
+
+// suggestionHTML asks whether a face or a group is the person it looks
+// like, as a sentence with its answers beside it: Yes takes the name, No
+// says it is not them, which keeps the question from coming back.
+function suggestionHTML(person) {
+    const n = escapeHtml(person.name);
+    return `<div class="people-suggest">
+        <span class="people-suggest-question">Is this <strong>${n}</strong>?</span>
+        <span class="people-suggest-answers">
+            <button type="button" class="btn btn-sm people-accept" data-name="${n}" title="Yes, this is ${n}" aria-label="Yes, this is ${n}">Yes</button>
+            <button type="button" class="btn btn-sm people-not" data-person="${person.id}" title="No, this is not ${n}" aria-label="No, this is not ${n}">No</button>
+        </span>
+    </div>`;
 }
 
 // reportSkipped says when names could not go into some sidecars.

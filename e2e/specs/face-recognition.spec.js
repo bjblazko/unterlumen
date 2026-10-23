@@ -13,8 +13,9 @@ import { reindexLibrary } from '../helpers/library.js';
 // a face marked by hand, the filter narrowed to the person.
 //
 // What the tests rely on, as the detector sees these photos: the woman with
-// glasses of portraits-12, -22 and -44 is one group, and her face in
-// party-33, turned away in the dark, is not found.
+// glasses of portraits-12, -22 and -44 is one group, each near enough
+// to her other faces to be suggested as her, and her face in party-33,
+// turned away in the dark, is not found.
 
 const PHOTOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'faces-photos');
 const NAME = 'Mei';
@@ -90,33 +91,54 @@ test.describe.serial('Face recognition', () => {
     await expect(row.locator('.people-group-count')).toContainText(String(mei.size));
   });
 
-  test('a named group is a person, in the sidecars too, and a face taken back is suggested', async ({ page, request }) => {
+  // Two of her faces are left out when the group is named: People then
+  // offers them as maybe her, one is taken, the other gets a No that keeps
+  // it from being asked about again.
+  test('a named person is suggested for faces like hers, and a No is kept', async ({ page, request }) => {
     const mei = await groupWith(request, 'portraits-12');
-    await page.goto(`/#people/name/${lib}`);
+    const faces = await (await request.get(`/api/library/${lib}/people/groups/${mei.id}`)).json();
+    const left = Object.fromEntries(faces.filter(f => ['portraits-22', 'portraits-44'].includes(tileOf(f))).map(f => [tileOf(f), f.id]));
+    expect(Object.keys(left).sort()).toEqual(['portraits-22', 'portraits-44']);
+
+    await page.goto(`/#people/name/${lib}/group/${mei.id}`);
     await waitForAppReady(page);
-    const row = page.locator(`.people-group[data-group="${mei.id}"]`);
-    await row.locator('.people-input').fill(NAME);
-    await row.locator('button[type="submit"]').click();
-    await expect(row).toHaveCount(0);
+    await page.getByRole('button', { name: 'Select all' }).click();
+    for (const id of Object.values(left)) await page.locator(`.face-tile[data-face="${id}"]`).click();
+    await page.locator('#people-group-name').fill(NAME);
+    await page.locator('.people-submit').click();
+    // The two left out stay on the group's page, now asked about as her.
+    await expect(page.locator('.face-tile')).toHaveCount(2);
+    await expect(page.locator(`.people-accept[data-name="${NAME}"]`)).toBeVisible();
     expect(sidecarOf('portraits', 'portraits-12')).toContain(`<mwg-rs:Name>${NAME}</mwg-rs:Name>`);
+    expect(sidecarOf('portraits', 'portraits-44')).not.toContain(NAME);
 
-    await page.goto('/#people');
+    // Maybe Mei on her page: the two left out; one of them is her.
+    await page.goto(`/#people/person/${NAME}`);
     await waitForAppReady(page);
-    await expect(page.getByRole('link', { name: new RegExp(NAME) }).first()).toBeVisible();
+    const maybe = page.locator('.people-maybe');
+    await expect(maybe.locator('.people-section-title')).toHaveText(`Maybe ${NAME}`, { timeout: 20_000 });
+    await expect(maybe.locator(`.face-tile[data-face="${left['portraits-44']}"]`)).toBeVisible();
+    await maybe.locator(`.face-tile[data-face="${left['portraits-44']}"]`).click();
+    await maybe.getByRole('button', { name: `This is ${NAME}` }).click();
+    await expect(maybe.locator(`.face-tile[data-face="${left['portraits-44']}"]`)).toHaveCount(0);
+    expect(sidecarOf('portraits', 'portraits-44')).toContain(NAME);
 
-    // Taken back, her face waits alone, and People knows who it looks like.
-    const people = await (await request.get(`/api/library/${lib}/people`)).json();
-    const person = people.people.find(p => p.name === NAME);
-    const faces = await (await request.get(`/api/library/${lib}/people/${person.id}`)).json();
-    const back = faces.find(f => tileOf(f) === 'portraits-44');
-    await request.post(`/api/library/${lib}/faces/unname`, { data: { faces: [back.id] } });
+    // The other waits with "Is this Mei?"; No is kept, on reload and on her page.
+    const row = () => page.locator('.people-group', { has: page.locator(`.people-not[data-person]`) })
+      .filter({ has: page.locator(`.people-accept[data-name="${NAME}"]`) });
     await page.goto(`/#people/name/${lib}`);
     await waitForAppReady(page);
-    const alone = page.locator('.people-group', { has: page.locator(`.people-accept[data-name="${NAME}"]`) });
-    await expect(alone).toHaveCount(1, { timeout: 20_000 });
-    await alone.locator('.people-accept').click();
-    await expect(alone).toHaveCount(0);
-    expect(sidecarOf('portraits', 'portraits-44')).toContain(NAME);
+    await expect(row()).toHaveCount(1, { timeout: 20_000 });
+    await row().locator('.people-not').click();
+    await expect(row()).toHaveCount(0);
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(page.locator('.people-group').first()).toBeVisible();
+    await expect(row()).toHaveCount(0);
+    await page.goto(`/#people/person/${NAME}`);
+    await waitForAppReady(page);
+    await expect(page.locator('.people-faces .face-tile').first()).toBeVisible();
+    await expect(page.locator(`.people-maybe .face-tile[data-face="${left['portraits-22']}"]`)).toHaveCount(0);
   });
 
   test('a face that was not found is marked by hand and stays after reading the library again', async ({ page, request }) => {

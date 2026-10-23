@@ -55,7 +55,11 @@ class TimelinePane {
             </div>`;
         this._body = this.container.querySelector('.timeline-body');
         this._noteEl = this.container.querySelector('.timeline-note');
-        this._menu = new Menu({ label: 'Timeline options', items: () => this._menuItems() });
+        // The Timeline's one setting stands in its head: a ⋯ for one entry hid it.
+        this._rowsField = segmentField({
+            label: 'Rows', options: [2, 3, 4].map(n => [n, String(n)]), value: this._rows,
+            onChange: (v) => this._setRows(Number(v)),
+        });
         // The shared filter (ADR-0050). Its months are not asked of the
         // server: the stream is read whole and its axis and band show the
         // span, so a change of span only moves them. Its column and the info
@@ -64,7 +68,7 @@ class TimelinePane {
             onOpen: () => { if (this.infoPanel?.expanded) this.infoPanel._setExpanded(false); },
         });
         this._infoBtn = panelToggleButton('Info');
-        this.container.querySelector('.timeline-actions').replaceWith(this._filter.el, this._menu.button);
+        this.container.querySelector('.timeline-actions').replaceWith(this._filter.el, this._rowsField);
         // The filter and the info panel stand beside the place's whole
         // height, as the tool strip does.
         this._infoEl = document.createElement('div');
@@ -79,17 +83,10 @@ class TimelinePane {
         });
     }
 
-    _menuItems() {
-        return [2, 3, 4].map(n => ({
-            label: `${n} rows`,
-            disabled: n === this._rows,
-            title: n === this._rows ? 'Shown now' : undefined,
-            onSelect: () => {
-                this._rows = n;
-                writeTimelineRows(n);
-                this._lane?.setRows?.(n);
-            },
-        }));
+    _setRows(n) {
+        this._rows = n;
+        writeTimelineRows(n);
+        this._lane?.setRows?.(n);
     }
 
     _reloadSoon() {
@@ -137,7 +134,7 @@ class TimelinePane {
             ? `${countHTML(s.count, 'photo')} <span class="nowrap">· ${cal.formatMonth(0)} – ${cal.formatMonth(s.span - 1)}</span>` : '';
         this.container.querySelector('.timeline-undated').textContent = s.undated
             ? `${formatCount(s.undated)} without a date are not shown` : '';
-        this._menu.button.hidden = this._phone.matches || !s.count;
+        this._rowsField.hidden = this._phone.matches || !s.count;
     }
 
     _build(atMs) {

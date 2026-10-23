@@ -1,6 +1,7 @@
 // info-people.js — who is in a library photo, in its info panel: the faces
 // found in it, the names given, a field to name a face and a × to take a
-// name away (ADR-0051). Resting on a face shows it framed in the photo. In
+// name away (ADR-0051), and for a face nobody named who it looks like.
+// Resting on a face shows it framed in the photo. In
 // the viewer, Mark a face draws one that was not found (FaceMarkTool).
 
 class InfoPeople {
@@ -45,7 +46,8 @@ class InfoPeople {
                 ? `<span class="info-value info-face-name">${escapeHtml(f.name)}${f.age !== undefined ? `<span class="info-face-age"> · ${ageText(f.age)}</span>` : ''}</span>` +
                   `<button type="button" class="info-meta-del info-face-unname" data-face="${f.id}" title="${escapeHtml(drop)}" aria-label="${escapeHtml(drop)}">×</button>`
                 : `<input class="info-face-input" type="text" list="info-face-names" autocomplete="off" data-face="${f.id}" aria-label="Who is face ${i + 1}?">`;
-            return `<div class="info-face">${pic}${who}</div>`;
+            const ask = !f.name && f.suggestion ? `<div class="info-face-suggest" data-face="${f.id}">${suggestionHTML(f.suggestion)}</div>` : '';
+            return `<div class="info-face">${pic}${who}</div>${ask}`;
         });
         if (this._faces.some(f => !f.name)) rows.push('<p class="info-label info-face-hint">Type a name beside a face and press Return.</p>');
         if (markable) rows.push('<button type="button" class="btn btn-sm info-face-mark" title="Draw a frame around a face that was not found">Mark a face</button>');
@@ -79,6 +81,18 @@ class InfoPeople {
         });
         box.querySelector('.info-face-mark')?.addEventListener('click', () => {
             this._panel.onMarkFace(this._ref, this._faces, this._names);
+        });
+        // Who a face looks like: take the name, or say No, which is kept.
+        box.querySelectorAll('.info-face-suggest').forEach(ask => {
+            const face = [Number(ask.dataset.face)];
+            ask.querySelector('.people-accept').addEventListener('click', (e) => {
+                const name = e.currentTarget.dataset.name;
+                this._change(() => PeopleAPI.name(this._ref.lib, face, name));
+            });
+            ask.querySelector('.people-not').addEventListener('click', (e) => {
+                const person = Number(e.currentTarget.dataset.person);
+                this._change(() => PeopleAPI.not(this._ref.lib, face, person));
+            });
         });
         box.querySelectorAll('.info-face-unname').forEach(btn => {
             btn.addEventListener('click', () => this._change(() => PeopleAPI.unname(this._ref.lib, [Number(btn.dataset.face)])));

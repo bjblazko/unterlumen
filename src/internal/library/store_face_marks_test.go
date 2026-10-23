@@ -137,3 +137,19 @@ func TestAPassKeepsMarkedFacesAndTakesOverOnesItFinds(t *testing.T) {
 		t.Fatalf("after a pass that finds Ben: %+v, want his found face named", got)
 	}
 }
+
+// A frame drawn over a face that was hidden names that face: it was found
+// after all, only hidden.
+func TestAFrameOverAHiddenFaceNamesIt(t *testing.T) {
+	s := newTestStore(t)
+	onePhotoWithAFace(t, s, t.TempDir())
+	found := photoFaces(t, s)[0]
+	s.HideFaces([]int64{found.ID}) //nolint:errcheck
+	if _, err := s.MarkFace("a1photo", media.FaceRegion{Name: "Eva", X: 0.11, Y: 0.21, W: 0.1, H: 0.1}); err != nil {
+		t.Fatal(err)
+	}
+	got := photoFaces(t, s)
+	if len(got) != 1 || got[0].ID != found.ID || got[0].Name != "Eva" || got[0].Manual {
+		t.Fatalf("faces %+v, want the hidden face named Eva", got)
+	}
+}

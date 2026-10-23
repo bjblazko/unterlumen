@@ -64,10 +64,11 @@ test.describe('Timeline', () => {
         await expect.poll(() => band.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
     });
 
-    test('Rows in the menu changes the band and is remembered', async ({ page }) => {
+    test('Rows in the head changes the band and is remembered', async ({ page }) => {
         await openTimeline(page);
-        await page.locator('.timeline-place .place-header .menu-btn').click();
-        await page.getByRole('menuitem', { name: '2 rows' }).click();
+        const rows = page.locator('.timeline-place .place-header').getByRole('group', { name: 'Rows' });
+        await rows.getByRole('button', { name: '2' }).click();
+        await expect(rows.getByRole('button', { name: '2' })).toHaveAttribute('aria-pressed', 'true');
         await expect.poll(() => page.evaluate(() => localStorage.getItem('timeline-rows'))).toBe('2');
     });
 

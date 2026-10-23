@@ -46,17 +46,45 @@ function peopleStatsDerived(ps) {
 
 const PEOPLE_NOBODY = 'Nobody is named in these photos. Name people under People, and they are counted here.';
 
+// peopleCompared puts the people chosen to compare (Compare, in the topic's
+// head) first, in that order, so every chart shows them, and only them, in
+// the first colours of the ramp; compared says how many. Names nobody here
+// has are left out; without any, the answer is as it came.
+function peopleCompared(ps, names) {
+    if (!ps || !names.length) return ps;
+    const index = new Map(ps.people.map((p, i) => [p.name.toLowerCase(), i]));
+    const first = names.map(n => index.get(n.toLowerCase())).filter(i => i !== undefined);
+    if (!first.length) return ps;
+    const order = [...first, ...ps.people.map((_, i) => i).filter(i => !first.includes(i))];
+    const to = new Map(order.map((old, i) => [old, i]));
+    const remap = column => column.map(p => (to.has(p) ? to.get(p) : p));
+    return {
+        ...ps,
+        _derived: undefined, // worked out again, for the new order
+        people: order.map(i => ps.people[i]),
+        compared: first.length,
+        appearances: { ...ps.appearances, person: remap(ps.appearances.person) },
+        faceSpace: ps.faceSpace && { ...ps.faceSpace, person: remap(ps.faceSpace.person) },
+    };
+}
+
+// peopleShown is how many people a chart shows: those compared, or n.
+function peopleShown(ps, n) {
+    return ps?.compared || n;
+}
+
 /* ─── Who appears most ─────────────────────────────────────────── */
 
 const PEOPLE_BARS = 20;
 
 function renderPeopleBars(el, ps, onPick) {
-    const data = ps?.people.slice(0, PEOPLE_BARS) ?? [];
+    const data = ps?.people.slice(0, peopleShown(ps, PEOPLE_BARS)) ?? [];
     if (!data.length) { tlNoData(el, PEOPLE_NOBODY); return; }
     const c = chartColors();
     const W = 680, barH = 22, pad = { top: 8, left: 150, right: 60, bottom: 8 };
     const svg = svgBase(el, W, pad.top + data.length * barH + pad.bottom);
-    const x = d3.scaleLinear().domain([0, data[0].photos]).range([0, W - pad.left - pad.right]);
+    // Compared people come in their own order, not by their photos.
+    const x = d3.scaleLinear().domain([0, d3.max(data, d => d.photos)]).range([0, W - pad.left - pad.right]);
     data.forEach((d, i) => {
         const y = pad.top + i * barH;
         svg.append('text')
@@ -72,7 +100,7 @@ function renderPeopleBars(el, ps, onPick) {
             .attr('fill', c.textSec).attr('font-size', 10)
             .text(d.photos.toLocaleString());
     });
-    if (ps.people.length > PEOPLE_BARS) {
+    if (!ps.compared && ps.people.length > PEOPLE_BARS) {
         el.insertAdjacentHTML('beforeend', `<p class="stats-chart-note">The ${PEOPLE_BARS} with the most photos of ${formatCount(ps.people.length)} people.</p>`);
     }
 }
@@ -85,7 +113,7 @@ function renderPeopleLines(el, ps, onPick) {
     const { periods, counts } = peopleStatsDerived(ps);
     if (!periods.length) { tlNoData(el, 'No photo of a named person has a date.'); return; }
     const c = chartColors();
-    const series = ps.people.slice(0, 8).map((p, i) => ({
+    const series = ps.people.slice(0, peopleShown(ps, 8)).map((p, i) => ({
         name: p.name,
         values: periods.map(per => counts[i].get(per) ?? 0),
         color: c.cats[i],
@@ -105,7 +133,7 @@ function renderPeopleLines(el, ps, onPick) {
 function renderPeopleAges(el, ps, onPick) {
     if (!ps?.people.length) { tlNoData(el, PEOPLE_NOBODY); return; }
     const births = ps.people.map(p => birthdayOf(ps.birthdays ?? {}, p.name));
-    const shown = ps.people.map((p, i) => i).filter(i => births[i]).slice(0, 8);
+    const shown = ps.people.slice(0, peopleShown(ps, ps.people.length)).map((p, i) => i).filter(i => births[i]).slice(0, 8);
     if (!shown.length) { tlNoData(el, 'Nobody here has a birthday yet. Give one on a person\'s page under People, and their photos are counted by age here.'); return; }
     const a = ps.appearances;
     const byAge = new Map(shown.map(i => [i, new Map()]));
@@ -143,7 +171,7 @@ const PEOPLE_MATRIX = 12;
 function renderPeopleMatrix(el, ps, onPick) {
     if (!ps?.people.length) { tlNoData(el, PEOPLE_NOBODY); return; }
     const { pairs } = peopleStatsDerived(ps);
-    const shown = ps.people.slice(0, PEOPLE_MATRIX).map((p, i) => ({ ...p, i }));
+    const shown = ps.people.slice(0, peopleShown(ps, PEOPLE_MATRIX)).map((p, i) => ({ ...p, i }));
     const shared = new Map(pairs.filter(p => p.a < shown.length && p.b < shown.length).map(p => [`${p.a},${p.b}`, p.photos]));
     if (!shared.size) { tlNoData(el, 'No two named people are in the same photo here.'); return; }
     const c = chartColors();

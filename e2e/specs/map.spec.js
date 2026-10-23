@@ -259,18 +259,17 @@ test.describe('Map', () => {
         await openMap(page);
         expect(styles).toEqual(['positron']);
 
-        // The style is a switch in the Map's ⋯.
-        await page.locator('.map-pane .place-header .menu-btn').click();
-        const toggle = page.getByRole('menuitemcheckbox', { name: /Map/ });
-        await expect(toggle).toHaveAttribute('aria-checked', 'false');
-        await toggle.click();
+        // The style is the Map's one setting, in its head.
+        const style = page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' });
+        await expect(style.getByRole('button', { name: 'Grey' })).toHaveAttribute('aria-pressed', 'true');
+        await style.getByRole('button', { name: 'Colour' }).click();
         await expect.poll(() => styles).toContain('liberty');
         await expect(page.locator('.map-marker').first()).toBeVisible();
 
         await page.reload();
         await page.waitForSelector('.map-marker', { timeout: 20_000 });
-        await page.locator('.map-pane .place-header .menu-btn').click();
-        await expect(page.getByRole('menuitemcheckbox', { name: /Map/ })).toHaveAttribute('aria-checked', 'true');
+        await expect(page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' })
+            .getByRole('button', { name: 'Colour' })).toHaveAttribute('aria-pressed', 'true');
         expect(styles.at(-1)).toBe('liberty');
     });
 });

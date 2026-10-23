@@ -6296,6 +6296,18 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     color: var(--bg);
 }
 
+/* A place's only setting in its head: its name, then the segment. */
+.segment-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+}
+
+.segment-field[hidden] { display: none; }
+
+.segment-field-label { color: var(--fg-2); }
+
 /* A select that sits in a row of buttons is cut from the same stock: same
    height, same frame, its own arrow instead of the native one. */
 .select-btn {

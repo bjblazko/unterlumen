@@ -19,6 +19,10 @@ const sharedCheckInterval = 30 * time.Minute
 // It returns when ctx ends.
 func (m *Manager) KeepSharedLibrariesCurrent(ctx context.Context) {
 	for {
+		// What the other installation hid, refused or chose as a cover:
+		// first, as it takes moments where a check may take minutes; each
+		// check applies it again for its library when it ends (EndScan).
+		m.ApplyAllFaceDecisions()
 		m.checkSharedLibraries(ctx)
 		select {
 		case <-ctx.Done():

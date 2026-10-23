@@ -13,6 +13,7 @@ import (
 	"huepattl.de/unterlumen/internal/api"
 	apisetup "huepattl.de/unterlumen/internal/api/setup"
 	"huepattl.de/unterlumen/internal/desktop"
+	"huepattl.de/unterlumen/internal/facedecisions"
 	"huepattl.de/unterlumen/internal/installation"
 )
 
@@ -111,6 +112,9 @@ func (s *server) build(saved installation.Config) (config, error) {
 	h := api.NewRouter(app.boundary, app.start, app.home, s.web, app.serverRole, app.libMgr, app.chStore, Version, hooks)
 	s.handler.Store(&h)
 	if app.libMgr != nil {
+		// Hidden faces, No's and covers are kept beside channels.json, in
+		// the folder installations share (ADR-0051, decision 15).
+		app.libMgr.SetFaceDecisions(facedecisions.New(app.channelsDir))
 		if s.stopChecks != nil {
 			s.stopChecks() // the app this one replaces
 		}

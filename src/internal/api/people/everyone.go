@@ -65,3 +65,33 @@ func toName(mgr *lib.Manager) http.HandlerFunc {
 		writeJSON(w, out)
 	}
 }
+
+// maybe lists the unnamed faces, in every library where someone has the
+// name, that look most like them: "Maybe Anna" on their page.
+func maybe(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimSpace(r.URL.Query().Get("name"))
+		if name == "" {
+			http.Error(w, "A name is needed.", http.StatusBadRequest)
+			return
+		}
+		faces, err := mgr.MaybeNamed(name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, faces)
+	}
+}
+
+// hiddenEverywhere lists the faces hidden in every library.
+func hiddenEverywhere(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		faces, err := mgr.HiddenEverywhere()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, faces)
+	}
+}

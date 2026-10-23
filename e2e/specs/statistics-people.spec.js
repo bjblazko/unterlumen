@@ -93,4 +93,28 @@ test.describe('Statistics: People', () => {
     // Its axis says what the numbers are: "8 y", not "8".
     await expect(ages.locator('.tick text[transform]').first()).toHaveText(/^\d+\u00a0y$/);
   });
+
+  // Compare: nobody chosen is the people with the most photos; chosen, the
+  // charts show those, in that order. The choice outlives a reload.
+  test('compare shows the people chosen, and only them', async ({ page }) => {
+    const { ps } = await openPeople(page);
+    const bars = chart(page, 'Who appears most').locator('rect.stats-pickable');
+    await expect(bars).toHaveCount(10);
+    const add = page.getByRole('combobox', { name: 'Add a person to compare' });
+    await expect(add.locator('option').first()).toHaveText('The most photos');
+    const [third, first] = [ps.people[2].name, ps.people[0].name];
+    await add.selectOption(third);
+    await page.getByRole('combobox', { name: 'Add a person to compare' }).selectOption(first);
+    await expect(page.locator('.stats-compare-chip')).toHaveText([`${third}×`, `${first}×`]);
+    await expect(bars).toHaveCount(2);
+    await expect(chart(page, 'Who appears most')).toContainText(third);
+    await expect(chart(page, 'People over time')).toContainText(third);
+
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(page.locator('.stats-compare-chip')).toHaveCount(2);
+    await page.locator('.stats-compare-chip').first().click();
+    await page.locator('.stats-compare-chip').first().click();
+    await expect(chart(page, 'Who appears most').locator('rect.stats-pickable')).toHaveCount(10);
+  });
 });

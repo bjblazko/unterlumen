@@ -207,7 +207,7 @@ function renderLifeLines(el, ps, onPick, options) {
 
 function lifeLinesSpec(ps, colours) {
     const { periods, counts } = peopleStatsDerived(ps);
-    const lanes = Math.min(LIFE_LANES, ps.people.length);
+    const lanes = Math.min(peopleShown(ps, LIFE_LANES), ps.people.length);
     const at = new Map(periods.map((p, i) => [p, i]));
     const n = ps.granularity === 'year' ? 4 : 7;
     const width = periods.length > 1 ? 2 / (periods.length - 1) : 0;

@@ -80,10 +80,11 @@ class MapPane {
         this._photosBtn.setAttribute('aria-controls', 'map-photos');
         this._photosBtn.hidden = true;
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
-        this._menu = new Menu({ label: 'Map options', items: () => [
-            { id: 'colour', label: 'Map', switch: { on: this._colour, labelOn: 'Colour', labelOff: 'Grey' }, onChange: (on) => this._setColour(on) },
-        ] });
-        this._head.querySelector('.map-more').replaceWith(this._menu.button);
+        // The Map's one setting stands in its head: a ⋯ for one entry hid it.
+        this._head.querySelector('.map-more').replaceWith(segmentField({
+            label: 'Map', options: [['grey', 'Grey'], ['colour', 'Colour']], value: this._colour ? 'colour' : 'grey',
+            onChange: (v) => this._setColour(v === 'colour'),
+        }));
         this._photos = new PhotoColumn({
             onOpen: (photos, index) => openLibraryPhotos(photos, index),
             onClose: () => this._setPhotosOpen(false),

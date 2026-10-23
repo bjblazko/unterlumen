@@ -31,13 +31,17 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *bir
 	mux.HandleFunc("GET /api/people", everyone(mgr))
 	mux.HandleFunc("GET /api/people/someone", someone(mgr))
 	mux.HandleFunc("GET /api/people/with", companions(mgr))
+	mux.HandleFunc("GET /api/people/maybe", maybe(mgr))
+	mux.HandleFunc("GET /api/people/hidden", hiddenEverywhere(mgr))
 	mux.HandleFunc("GET /api/people/to-name", toName(mgr))
 	if bdays != nil {
 		mux.HandleFunc("GET /api/people/birthdays", listBirthdays(bdays))
 		mux.HandleFunc("PUT /api/people/birthdays", setBirthday(bdays))
 	}
 	mux.HandleFunc("GET /api/library/{id}/people", overview(mgr))
+	mux.HandleFunc("GET /api/library/{id}/people/hidden", hiddenFaces(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}", groupFaces(mgr))
+	mux.HandleFunc("GET /api/library/{id}/people/groups/{grp}/suggestion", groupSuggestion(mgr))
 	mux.HandleFunc("GET /api/library/{id}/people/{pid}", personFaces(mgr))
 	mux.HandleFunc("PATCH /api/library/{id}/people/{pid}", renamePerson(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/people/{pid}", forgetPerson(mgr))
@@ -48,6 +52,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry, bdays *bir
 	mux.HandleFunc("POST /api/library/{id}/faces/name", nameFaces(mgr))
 	mux.HandleFunc("POST /api/library/{id}/faces/unname", changeFaces(mgr, (*lib.Store).UnnameFaces))
 	mux.HandleFunc("POST /api/library/{id}/faces/hide", changeFaces(mgr, (*lib.Store).HideFaces))
+	mux.HandleFunc("POST /api/library/{id}/faces/not", notThem(mgr))
+	mux.HandleFunc("POST /api/library/{id}/faces/show", changeFaces(mgr, func(s *lib.Store, ids []int64) (int, error) { return 0, s.ShowAgain(ids) }))
 }
 
 // personNames lists the people named in the libraries ids (comma-separated;
@@ -136,7 +142,8 @@ func pathInt(w http.ResponseWriter, r *http.Request, name string) (int64, bool) 
 }
 
 // overview is what People shows of a library: who is named, which groups
-// wait for a name, and how many photos are still to be looked at.
+// wait for a name, how many faces are hidden, and how many photos are
+// still to be looked at.
 func overview(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		store, ok := openStore(mgr, w, r)
@@ -163,13 +170,19 @@ func overview(mgr *lib.Manager) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		hidden, err := store.HiddenCount()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, struct {
 			People     []lib.Person    `json:"people"`
 			Groups     []lib.FaceGroup `json:"groups"`
 			GroupCount int             `json:"groupCount"`
+			Hidden     int             `json:"hidden"`
 			Pending    int             `json:"pending"`
 			Finding    bool            `json:"finding"`
-		}{people, groups, groupCount, len(pending), mgr.FindingFaces(r.PathValue("id"))})
+		}{people, groups, groupCount, hidden, len(pending), mgr.FindingFaces(r.PathValue("id"))})
 	}
 }
 
@@ -186,6 +199,42 @@ func groupFaces(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, refs)
+	}
+}
+
+// hiddenFaces lists the faces hidden in the library, to show again.
+func hiddenFaces(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		if !ok {
+			return
+		}
+		faces, err := store.HiddenFaces()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, faces)
+	}
+}
+
+// groupSuggestion answers who a group looks like: { suggestion } or {}.
+func groupSuggestion(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		if !ok {
+			return
+		}
+		grp, ok := pathInt(w, r, "grp")
+		if !ok {
+			return
+		}
+		p, err := store.GroupSuggestion(grp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]*lib.Person{"suggestion": p})
 	}
 }
 
@@ -296,8 +345,9 @@ func photoFaces(mgr *lib.Manager, bdays *birthdays.Store) http.HandlerFunc {
 
 // faceRequest is the body of a change to faces.
 type faceRequest struct {
-	Faces []int64 `json:"faces"`
-	Name  string  `json:"name"`
+	Faces  []int64 `json:"faces"`
+	Name   string  `json:"name"`
+	Person int64   `json:"person"` // for a No: who the faces are not
 }
 
 func readFaceRequest(w http.ResponseWriter, r *http.Request) (faceRequest, bool) {
@@ -325,6 +375,30 @@ func nameFaces(mgr *lib.Manager) http.HandlerFunc {
 		}
 		skipped, err := store.NameFaces(body.Faces, body.Name)
 		writeChange(w, skipped, err)
+	}
+}
+
+// notThem records that the faces are not the person, so they are not
+// suggested as them again.
+func notThem(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store, ok := openStore(mgr, w, r)
+		if !ok {
+			return
+		}
+		body, ok := readFaceRequest(w, r)
+		if !ok {
+			return
+		}
+		if body.Person == 0 {
+			http.Error(w, "A person is needed.", http.StatusBadRequest)
+			return
+		}
+		if err := store.NotThem(body.Faces, body.Person); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
