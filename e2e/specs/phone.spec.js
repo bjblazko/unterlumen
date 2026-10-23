@@ -230,7 +230,7 @@ test.describe('Phone', () => {
         await expect(lede.locator('.place-lede-text')).toBeHidden();
     });
 
-    // The style is in the ⋯ and the sentence behind Explain, so the map keeps its height.
+    // The style beside the title and the sentence behind Explain, so the map keeps its height.
     test('the map keeps its options out of the way', async ({ page, request }) => {
         // folder-b holds photos with a location.
         const existing = await (await request.get('/api/library/')).json();
@@ -249,8 +249,11 @@ test.describe('Phone', () => {
             await expect(text).toBeHidden();
             await page.locator('.place-header .place-lede-toggle').tap();
             await expect(text).toBeVisible();
-            await page.locator('.map-pane .place-header .menu-btn').tap();
-            await expect(page.getByRole('menuitemcheckbox', { name: /Map/ })).toBeVisible();
+            // The style is the head's one setting, beside the title, not a row of its own.
+            const style = page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' });
+            await expect(style).toBeVisible();
+            const [title, seg] = [await page.locator('.map-pane .place-header h1, .map-pane .place-header .place-title').first().boundingBox(), await style.boundingBox()];
+            expect(Math.abs(title.y + title.height / 2 - (seg.y + seg.height / 2))).toBeLessThan(12);
         } finally {
             await request.delete(`/api/library/${lib.id}`);
         }
