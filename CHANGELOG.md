@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-24
+
 ### Added
 - **Things: animals, objects and scenes in your photos.** Statistics → Things offers Download and turn on (447 MB: OpenAI's CLIP and OpenCV's YOLOX, and ONNX Runtime unless People already has it). After that, every library is looked at on this computer — "Finding things in …" in the status line — for about 170 things: dog, cat, bird, car, boat, house, church, tree, forest, the sea, a beach, a sunset, food and more. Found things are written into each photo's sidecar as keywords (`dc:subject`), which Lightroom, digiKam and Apple Photos read too, with a record of which keywords Unterlumen wrote; your own keywords stay as they are. See ADR-0054.
 - **A search above every place.** Type a name or a thing and choose it, or search by any words — "dog on a beach" — and Libraries opens with the photos, best match first for words, and the filter set to refine. `/` puts the cursor there from anywhere. `text`, `thing` in `GET /api/library/search`.
