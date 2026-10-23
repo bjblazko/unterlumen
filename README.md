@@ -17,6 +17,8 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 - **Publish your own website:** turn collected photos into a complete, multi-album website with navigation and a sitemap, or into a single gallery behind a private share link for family and friends — no photo platform in between. You need your own webspace reachable over SSH; Unterlumen uploads with rsync. Without it, the result is a folder you can put online any way you like.
 - Map: every photo with a location on one map, grouped by place
 - Timeline: every dated library photo on one time axis, with a graph of when they were taken
+- People: faces found on your computer and grouped, named once and found everywhere, a face the detector missed marked by hand
+- Statistics: what your photos have in common and how that changed, in charts and 3D views
 - **Optional — Digital Asset Management (DAM):** build a persistent, searchable catalog of your photos. Search by aperture, focal length, camera, lens, or Fujifilm film simulation across multiple libraries. Track where and when photos were published, with platform presets (Instagram 1080 px, Mastodon 1920 px, …).
 
 **What it is not:**
@@ -25,7 +27,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 
 ## Screenshots
 
-The pictures below are made by `npm run screenshots` in `e2e/` from the example photos in `src/examples`, so they always show the current interface. Click one for the full size.
+The pictures below are made by `npm run screenshots` in `e2e/` from the example photos in `src/examples`, and for People from the invented people in `e2e/faces`, so they always show the current interface. Click one for the full size.
 
 #### Folders
 
@@ -46,6 +48,15 @@ Unterlumen follows the system's light or dark setting; Settings can fix one.
 One photo at a time, with the film strip below and its metadata and location beside it. The arrow keys step through the folder; Crop and Delete are one click away.
 
 ![Viewer with film strip and info panel](doc/screenshots/viewer.webp)
+
+#### People
+
+Everyone named in your libraries, found by their faces on this computer. Groups of faces that look alike wait for a name, some with a suggestion ("Is this Kofi?"); a person's page shows all their faces, newest photo first, their age and who is most often with them. A face that was not found — in profile, half hidden — is framed by hand in the viewer and named. The people in these pictures are invented: the photos were generated with Google Gemini for Unterlumen's tests.
+
+| | |
+|---|---|
+| ![Everyone named, each with a face and the number of their photos](doc/screenshots/people.webp) | ![Groups of faces waiting for a name, one with the suggestion Is this Kofi?](doc/screenshots/people-naming.webp) |
+| ![A person's page: born, age, who is often with her, and all her faces](doc/screenshots/people-person.webp) | ![The viewer marking a face in profile by hand: a frame around it and the name below](doc/screenshots/people-mark-face.webp) |
 
 #### Organize
 
@@ -108,15 +119,6 @@ Every photo with a location on one map. Photos close together form a group showi
 Every dated photo of every library on one time axis, oldest on the left. The graph below shows when the photos were taken; the frame marks what the rows above show, and the overview limits both to a span of months.
 
 ![Timeline with the time bar and a photo in the info panel](doc/screenshots/timeline.webp)
-
-#### People
-
-Everyone named in your libraries, found by their faces on this computer. Groups of faces that look alike wait for a name, some with a suggestion ("Is this Kofi?"); a person's page shows all their faces, newest photo first, their age and who is most often with them. A face that was not found — in profile, half hidden — is framed by hand in the viewer and named. The people in these pictures are invented: the photos were generated with Google Gemini for Unterlumen's tests.
-
-| | |
-|---|---|
-| ![Everyone named, each with a face and the number of their photos](doc/screenshots/people.webp) | ![Groups of faces waiting for a name, one with the suggestion Is this Kofi?](doc/screenshots/people-naming.webp) |
-| ![A person's page: born, age, who is often with her, and all her faces](doc/screenshots/people-person.webp) | ![The viewer marking a face in profile by hand: a frame around it and the name below](doc/screenshots/people-mark-face.webp) |
 
 #### Rename, export, location
 
@@ -200,13 +202,6 @@ On a phone Unterlumen is for looking: libraries, folders, photos, the map, the t
   - **Filters and statistics** — The library filter has a Person chip; Map, Timeline and Statistics add people in their filter. Several people find the photos with all of them. Statistics has a People topic: who appears most, over time, who with whom, by age, and three 3D views.
   - **In the sidecar** — Names are written into each photo's XMP sidecar as Metadata Working Group face regions, which Lightroom, digiKam and your other installation read; names other programs wrote there are picked up. A name given, changed or taken away on one installation follows on the other; hiding a stranger stays where it was hidden.
   - **On a phone** — Find a person and see their photos by year, with who is most often with them.
-
-  ![A person's page: born, age, who is often with her, and all her faces](doc/screenshots/people-person.webp)
-
-  ![The viewer marking a face in profile by hand: a frame around it and the name below](doc/screenshots/people-mark-face.webp)
-
-  More in [Screenshots → People](#people). The people shown are invented: the photos were generated with Google Gemini for the tests.
-
 - **Galleries** — A dedicated "Galleries" place lists every gallery across every destination (the UI name for a channel), grouped by destination and showing its state in words: Not published, or Published with its date, with a note where something is left (photos waiting, built but not uploaded). An action appears only where there is something to do — "Publish", "Publish N changes", "Check again". Link reachability is checked once when the screen opens and after each publish, and is reported next to the state with the time of the check rather than as a state of its own. Opening a gallery shows the photos waiting to go online (removable individually), its title, date, visibility toggle (single-gallery destinations), address, and Unpublish — with a scoped remote delete over SSH for rsync destinations. The channels list links to a destination's public site and to its galleries A destination that only exports files, such as Instagram, keeps no list of its own; its posts are listed from the photos' publication records in the sidecars, an untitled one as "Post of" its day.
 - **Image viewer** — Full-screen image view with keyboard navigation, and a button that downloads the original file (a HEIF stays HEIF). Its ⋯ menu does to the photo on screen what an overview does to a selection — Add to gallery…, Export…, Rename…, Set location…, Show in Organize — also when it was opened from the Map, Statistics or the Timeline; Show in library opens the library at the photo's folder with the photo selected
 - **Download originals** — Download in the selection bar saves the selected photos as they are: one as its file, several as a ZIP of the originals

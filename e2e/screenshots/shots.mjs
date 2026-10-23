@@ -89,6 +89,54 @@ export const shots = [
         },
     },
     {
+        name: 'people',
+        take: async (page, { base }) => {
+            await ready(page, base, 'people');
+            await page.waitForSelector('.people-card img');
+            await settle(page, 2000);
+        },
+    },
+    {
+        name: 'people-naming',
+        take: async (page, { base, lib }) => {
+            await ready(page, base, `people/name/${lib.id}`);
+            // A face in profile, with "Is this Kofi?", in view.
+            const suggested = page.locator('.people-group', { has: page.locator('.people-accept') }).first();
+            await suggested.evaluate(el => el.scrollIntoView({ block: 'center' }));
+            await settle(page, 2000);
+        },
+    },
+    {
+        name: 'people-person',
+        take: async (page, { base }) => {
+            await ready(page, base, 'people/person/Mei');
+            await page.waitForSelector('.face-tile img');
+            await settle(page, 2500);
+        },
+    },
+    {
+        name: 'people-mark-face',
+        take: async (page, { base }) => {
+            await openLibrary(page, base);
+            for (const folder of ['Friends', 'party']) {
+                await page.locator(`#lib-pane .folder-tile.dir-item[data-name="${folder}"]`).dblclick();
+            }
+            await page.locator(`#lib-pane ${IMAGE}[data-name="${PARTY_PROFILE}"]`).dblclick();
+            await page.waitForSelector('.viewer img');
+            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
+            await page.locator('.viewer .info-face-mark').click();
+            // Her face, turned away in the dark: not found, so framed by hand.
+            const area = await page.locator('.face-mark-overlay').boundingBox();
+            await page.mouse.move(area.x + area.width * 0.29, area.y + area.height * 0.16);
+            await page.mouse.down();
+            await page.mouse.move(area.x + area.width * 0.46, area.y + area.height * 0.63, { steps: 5 });
+            await page.mouse.up();
+            await page.locator('.face-mark-input').fill('Mei');
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 1500);
+        },
+    },
+    {
         name: 'organize',
         storage: { 'organize.targets': JSON.stringify([{ path: '2017' }, { path: '2025' }, { path: 'Odds and ends' }]) },
         take: async (page, { base }) => {
@@ -237,54 +285,6 @@ export const shots = [
             await page.locator('.timeline-tile').nth(3).click();
             await page.evaluate(() => document.activeElement?.blur());
             await settle(page, 2000);
-        },
-    },
-    {
-        name: 'people',
-        take: async (page, { base }) => {
-            await ready(page, base, 'people');
-            await page.waitForSelector('.people-card img');
-            await settle(page, 2000);
-        },
-    },
-    {
-        name: 'people-naming',
-        take: async (page, { base, lib }) => {
-            await ready(page, base, `people/name/${lib.id}`);
-            // A face in profile, with "Is this Kofi?", in view.
-            const suggested = page.locator('.people-group', { has: page.locator('.people-accept') }).first();
-            await suggested.evaluate(el => el.scrollIntoView({ block: 'center' }));
-            await settle(page, 2000);
-        },
-    },
-    {
-        name: 'people-person',
-        take: async (page, { base }) => {
-            await ready(page, base, 'people/person/Mei');
-            await page.waitForSelector('.face-tile img');
-            await settle(page, 2500);
-        },
-    },
-    {
-        name: 'people-mark-face',
-        take: async (page, { base }) => {
-            await openLibrary(page, base);
-            for (const folder of ['Friends', 'party']) {
-                await page.locator(`#lib-pane .folder-tile.dir-item[data-name="${folder}"]`).dblclick();
-            }
-            await page.locator(`#lib-pane ${IMAGE}[data-name="${PARTY_PROFILE}"]`).dblclick();
-            await page.waitForSelector('.viewer img');
-            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
-            await page.locator('.viewer .info-face-mark').click();
-            // Her face, turned away in the dark: not found, so framed by hand.
-            const area = await page.locator('.face-mark-overlay').boundingBox();
-            await page.mouse.move(area.x + area.width * 0.29, area.y + area.height * 0.16);
-            await page.mouse.down();
-            await page.mouse.move(area.x + area.width * 0.46, area.y + area.height * 0.63, { steps: 5 });
-            await page.mouse.up();
-            await page.locator('.face-mark-input').fill('Mei');
-            await page.evaluate(() => document.activeElement?.blur());
-            await settle(page, 1500);
         },
     },
     {
