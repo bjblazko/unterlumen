@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Folders no longer waits for a library's scan.** Every thumbnail in Folders asked every library's index which library the photo belongs to; while a library was being checked or scanned, those requests waited for it, filled the browser's six connections, and the folder's details waited behind them — minutes on a large library. Which library covers a photo is now told from the libraries' folders, kept in memory.
+
 ## [0.18.0] - 2026-10-24
 
 ### Added

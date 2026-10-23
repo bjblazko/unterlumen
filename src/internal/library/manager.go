@@ -36,6 +36,7 @@ type Manager struct {
 	faces            facesState           // the face engine and the face passes running (ADR-0051)
 	things           thingsState          // the things engine and the things passes running (ADR-0054)
 	vectors          sync.Map             // map[libraryID]*vectorCache, for searching by words
+	sourcePaths      sync.Map             // map[libraryID]string, each library's folder (libraryIDForPath)
 	decisions        *facedecisions.Store // hidden faces, No's and covers, shared between installations; nil keeps them in each index
 }
 
@@ -165,7 +166,11 @@ func (m *Manager) readLibrary(id string) (*Library, error) {
 		return nil, err
 	}
 	defer store.Close()
-	return libraryFromStore(id, store)
+	lib, err := libraryFromStore(id, store)
+	if err == nil && lib.SourcePath != "" {
+		m.sourcePaths.Store(id, lib.SourcePath) // for libraryIDForPath
+	}
+	return lib, err
 }
 
 func libraryFromStore(id string, store *Store) (*Library, error) {
@@ -362,26 +367,57 @@ func covers(sourcePath, absPath string) bool {
 // FindLibraryForPath returns the Library whose source_path covers absPath
 // (exact match or a path within it). Returns nil, false if no library matches.
 func (m *Manager) FindLibraryForPath(absPath string) (*Library, bool) {
-	libs, err := m.ListLibraries()
-	if err != nil {
+	id, ok := m.libraryIDForPath(absPath)
+	if !ok {
 		return nil, false
 	}
-	for _, l := range libs {
-		if covers(l.SourcePath, absPath) {
-			return l, true
+	lib, err := m.readLibrary(id)
+	return lib, err == nil
+}
+
+// libraryIDForPath finds the library whose folder covers absPath from the
+// folders alone, without asking every library's index: a thumbnail in
+// Folders asks this for each photo, and a library whose one connection is
+// busy with a scan made every such request wait for it.
+func (m *Manager) libraryIDForPath(absPath string) (string, bool) {
+	entries, err := os.ReadDir(filepath.Join(m.root, "libraries"))
+	if err != nil {
+		return "", false
+	}
+	for _, e := range entries {
+		if e.IsDir() && covers(m.sourcePathOf(e.Name()), absPath) {
+			return e.Name(), true
 		}
 	}
-	return nil, false
+	return "", false
+}
+
+// sourcePathOf is a library's folder, read from its index once: it is
+// written when the library is made and never changed.
+func (m *Manager) sourcePathOf(id string) string {
+	if v, ok := m.sourcePaths.Load(id); ok {
+		return v.(string)
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return ""
+	}
+	defer store.Close()
+	sp, ok, _ := store.GetProp("source_path")
+	if ok && sp != "" {
+		m.sourcePaths.Store(id, sp)
+	}
+	return sp
 }
 
 // FindThumbnailForPath returns the path of the pre-generated library thumbnail for absPath,
 // if the file is indexed in a library's path_cache and the thumbnail exists on disk.
 func (m *Manager) FindThumbnailForPath(absPath string) (string, bool) {
-	lib, ok := m.FindLibraryForPath(absPath)
+	id, ok := m.libraryIDForPath(absPath)
 	if !ok {
 		return "", false
 	}
-	store, err := m.OpenStore(lib.ID)
+	store, err := m.OpenStore(id)
 	if err != nil {
 		return "", false
 	}
@@ -389,7 +425,7 @@ func (m *Manager) FindThumbnailForPath(absPath string) (string, bool) {
 	if err != nil || !found || len(photoID) < 2 {
 		return "", false
 	}
-	tp := filepath.Join(m.ThumbDir(lib.ID), photoID[:2], photoID+".jpg")
+	tp := filepath.Join(m.ThumbDir(id), photoID[:2], photoID+".jpg")
 	if _, statErr := os.Stat(tp); statErr != nil {
 		return "", false
 	}
