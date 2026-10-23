@@ -1,6 +1,6 @@
 # ADR-0053: One system for every place
 
-*Last modified: 2026-10-22*
+*Last modified: 2026-10-23*
 
 ## Status
 
@@ -51,7 +51,12 @@ A place has no Done; you leave it by going elsewhere.
 
 **A count looks the same everywhere** (`countHTML`, `src/web/js/activity.js`):
 the number in a pill, then the word; thousands grouped with a narrow
-no-break space (`formatCount`).
+no-break space (`formatCount`). The pill marks the count of a place or a
+control — the head, a toggle, a link to what waits — so there are few on a
+screen. In a collection (a folder's tiles, the libraries' cards, the people
+cards) a count is data, plain in mono (`countText`): a pill in every tile
+made eleven equal signals of one grid, and indented the line it opened.
+Decided with the owner on 2026-10-23.
 
 **One filter interface.** Map, Timeline and Statistics use the library's kind
 of filter: the conditions as chips in the head, each dropping its own, the

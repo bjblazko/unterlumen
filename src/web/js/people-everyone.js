@@ -101,7 +101,7 @@ const OFTEN_WITH_LABEL = 'Often in photos together with · number of photos';
 // name, and in how many photos they are together.
 function withChipHTML(c) {
     const face = c.cover?.face ? `<img class="people-with-face" src="${PeopleAPI.faceURL(c.cover.library, c.cover.face)}" alt="" loading="lazy" width="24" height="24">` : '';
-    return `${face}${escapeHtml(c.name)}<span class="count">${formatCount(c.photos)}</span>`;
+    return `${face}${escapeHtml(c.name)} <span class="count">${formatCount(c.photos)}</span>`;
 }
 
 function wireOftenWith(container, name) {

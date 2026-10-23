@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 - **People in the README's screenshots**: everyone named, groups waiting for a name, a person's page and marking a face by hand, taken on the same invented people.
 
 ### Changed
+- **Counts in tiles and cards are plain again.** A folder's tile in a library and a library's card read "1 721 photos · 2018–2026" in mono, like a person's card; the pill is kept for the count of a place or a control — the head, the Filter toggle, a link to groups waiting. A pill in every tile was as loud as the head's, and it indented its line; on a selected tile it vanished into the dark.
 - **An age says what it is**: "8 years old" in a photo's info beside the name, under a person's name ("11 years old today") and in Statistics; "8 y" on the axis of Photos by age. It was a bare number. The birthday under a person's name reads 2015-05-12, like every other date.
 
 ## [0.17.3] - 2026-10-22

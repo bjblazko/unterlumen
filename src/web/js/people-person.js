@@ -237,7 +237,7 @@ class PeoplePerson {
         if (this.data.in.length < 2) return '';
         return `<fieldset class="people-libraries"><legend class="library-dialog-label">In</legend>${this.data.in.map(l => `
             <label class="people-library-choice"><input type="checkbox" value="${escapeHtml(l.library)}" checked>
-                ${escapeHtml(l.libraryName)}<span class="count">${formatCount(l.photos)}</span></label>`).join('')}
+                ${escapeHtml(l.libraryName)} <span class="count">${formatCount(l.photos)}</span></label>`).join('')}
             <span class="form-hint">Untick a library where someone else has this name.</span></fieldset>`;
     }
 

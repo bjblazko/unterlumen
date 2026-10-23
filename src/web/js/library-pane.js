@@ -1,13 +1,13 @@
 // LibraryPane — BrowsePane subclass that reads folder contents from the library DB.
 // No browse API calls are made, so no background EXIF extraction runs over NAS.
 
-// "[412] photos · 2021–2026", as HTML: how much a folder holds and the years
+// "412 photos · 2021–2026", as HTML: how much a folder holds and the years
 // it spans, the years never broken apart.
 function folderTileMeta(preview) {
     const first = (preview.firstTaken || '').slice(0, 4);
     const last = (preview.lastTaken || '').slice(0, 4);
     const years = first && last ? `<span class="nowrap"> · ${first === last ? first : `${first}–${last}`}</span>` : '';
-    return `<span class="nowrap">${countHTML(preview.photoCount, 'photo')}</span>${years}`;
+    return `<span class="nowrap">${countText(preview.photoCount, 'photo')}</span>${years}`;
 }
 
 class LibraryPane extends BrowsePane {

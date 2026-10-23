@@ -173,10 +173,16 @@ class Activity {
 }
 
 // Thin space as thousands separator: "1 280", readable in mono and in any locale.
-// countHTML is how many of something, the same everywhere: the number in
-// its pill, then the word — "[31 923] photos".
+// countHTML is the count of a place or a control — its head, a toggle, a
+// link to what waits — the number in its pill, then the word: "[31 923]
+// photos". In a collection (tiles, cards, rows) a count is data, the same
+// in every item, and plain: countText, "31 923 photos".
 function countHTML(n, one, many = `${one}s`) {
     return `<span class="count">${formatCount(n)}</span> ${n === 1 ? one : many}`;
+}
+
+function countText(n, one, many = `${one}s`) {
+    return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
 
 // formatCount groups thousands with a narrow no-break space: 15 832, never

@@ -3777,7 +3777,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     height: 18px;
     box-sizing: border-box;
     padding: 0 var(--space-2);
-    margin-left: var(--space-1);
     border-radius: var(--radius-full);
     background: var(--fg);
     color: var(--bg);
@@ -3789,6 +3788,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .count:empty,
 .lib-filter-btn-count:empty { display: none; }
+
+/* Beside a label the pill keeps a little distance; a count that opens a
+   line starts where the line does. */
+.lib-filter-btn-count,
+.nav-count { margin-left: var(--space-1); }
 
 /* A run of words that must not break, as "· 2020–2026". */
 .nowrap { white-space: nowrap; }
@@ -6451,9 +6455,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .folder-tile-icon + .item-name { padding-bottom: var(--space-2); }
 
+/* How much and when: data, in mono like a person card's count. */
 .folder-tile-meta {
     padding: 0 var(--space-3) var(--space-2);
-    font-size: var(--text-xs);
+    font: 400 var(--text-xs)/1.4 var(--font-mono);
+    font-variant-numeric: tabular-nums;
     color: var(--fg-2);
 }
 
@@ -6619,6 +6625,8 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 .library-card-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
     font-size: var(--text-sm);
     color: var(--fg-2);
 }

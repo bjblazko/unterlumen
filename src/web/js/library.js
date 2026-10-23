@@ -193,7 +193,7 @@ class LibraryTab {
         top.innerHTML = `
             <button class="library-card-open lib-open">
                 <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</span>
-                <span class="library-card-count">${countHTML(lib.photoCount, 'photo')}</span>
+                <span class="library-card-count">${countText(lib.photoCount, 'photo')}</span>
                 <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
@@ -239,7 +239,7 @@ class LibraryTab {
         try {
             await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
             const updated = await LibraryAPI.get(lib.id);
-            card.querySelector('.library-card-count').innerHTML = countHTML(updated.photoCount, 'photo');
+            card.querySelector('.library-card-count').textContent = countText(updated.photoCount, 'photo');
             card.querySelector('.library-card-indexed').textContent =
                 `Indexed ${formatDay(updated.lastIndexed)}`;
         } catch (err) {
