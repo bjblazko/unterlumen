@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.17.5] - 2026-10-23
+
 ### Added
 - **Maybe Anna on a person's page**: the faces nobody named that look most like them, the likeliest first, in every library where the name is. Select the ones that are her and take them, or the ones that are not.
 - **Who an unnamed face looks like, in a photo's info panel**: "Is this Anna?" under its name field, in the viewer too; Anna takes it, No says it is not.
