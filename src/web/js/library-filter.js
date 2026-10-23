@@ -104,6 +104,14 @@ function valueToSlider(val, min, max, log) {
 // "Show photos" on a gallery or a destination is a link to Libraries; a plain
 // click opens it with the filter set to what that gallery or destination
 // holds, a modified click leaves the browser to open the place itself.
+// searchWords says what a link to photos looks for, while it is looked for.
+function searchWords(criteria) {
+    const people = [criteria.person ?? []].flat();
+    if (people.length) return `Finding the photos of ${sentenceList(people)}…`;
+    if (criteria.gallery) return `Finding the photos of ${criteria.gallery.title}…`;
+    return 'Finding the photos…';
+}
+
 function showPhotosLink(el, criteria) {
     if (!el) return;
     el.addEventListener('click', (e) => {

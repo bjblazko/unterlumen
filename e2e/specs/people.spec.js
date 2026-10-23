@@ -209,6 +209,23 @@ test.describe('People', () => {
     await expect(peek.locator('img')).toHaveAttribute('src', new RegExp(`/thumb/p2`));
   });
 
+  // Between the click and the photos the filter reads its choices and
+  // searches; the place says what it looks for, not the list of libraries.
+  test("Show photos says what it looks for until the photos come", async ({ page }) => {
+    const state = { named: null, overview: () => annaNamed() };
+    await fakePeople(page, state);
+    let release;
+    const held = new Promise(r => { release = r; });
+    await page.route('**/api/library/search*', async r => { await held; await r.continue(); });
+    await page.goto('/#people/person/Anna');
+    await waitForAppReady(page);
+    await page.locator('.people-show').click();
+    await expect(page.locator('#lib-results-pane')).toContainText('Finding the photos of Anna…', { timeout: 5_000 });
+    await expect(page.locator('#lib-list-main')).toBeHidden();
+    release();
+    await expect(page.locator('#lib-results-pane')).not.toContainText('Finding the photos of Anna…');
+  });
+
   test("a person's Show photos opens the library filter at that person", async ({ page }) => {
     const state = { named: null, overview: () => annaNamed() };
     await fakePeople(page, state);

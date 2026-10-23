@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Show photos says what it looks for.** From a person's page, a gallery or a chart, the Libraries place used to show the list of libraries until the filtered photos came, as if nothing had happened. It shows "Finding the photos of Anna…" in their place now, after the usual 400 ms.
+
 ## [0.17.5] - 2026-10-23
 
 ### Added

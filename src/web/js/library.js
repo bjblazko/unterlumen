@@ -337,7 +337,15 @@ class LibraryTab {
         this._infoPanel = null;
         this.render();
         App.refreshLibraryVisibility();
-        await this._filterPanel.openWith(criteria);
+        // The filter reads its choices before it searches; meanwhile the
+        // results area already says what is coming, not the overview.
+        this._showFilterLoading(true, searchWords(criteria));
+        try {
+            await this._filterPanel.openWith(criteria);
+        } catch (err) {
+            this._showFilterLoading(false);
+            throw err;
+        }
     }
 
     // showPhoto opens a library at a folder with one photo selected and in
@@ -551,12 +559,12 @@ class LibraryTab {
     // The first answer fills an empty area, so it says what it is doing. Later
     // answers replace results that are already there: those stay in view and
     // fade only if the answer is slow (the delay lives in the CSS).
-    _showFilterLoading(isLoading) {
+    _showFilterLoading(isLoading, words = 'Searching…') {
         const resultsEl = this._resultsEl();
         if (isLoading && resultsEl.style.display === 'none') {
             this._filterUnderEl.style.display = 'none';
             if (!this._resultsPane) {
-                this._resultsActivity = Activity.in(resultsEl, 'Searching…', { area: true });
+                this._resultsActivity = Activity.in(resultsEl, words, { area: true });
             }
             resultsEl.style.display = '';
         } else if (!isLoading) {
