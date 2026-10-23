@@ -8,7 +8,7 @@ import { reindexLibrary } from '../helpers/library.js';
 
 // People with real face recognition (ADR-0051): ONNX Runtime and the models,
 // installed by the app itself, on photos of invented people (faces/ABOUT.md)
-// served by a server of their own on port 8084 (playwright.config.js, project "faces").
+// served by a server of their own on port 8086 (playwright.config.js, project "faces").
 // The tests run in order on one library: the faces found, a person named,
 // a face marked by hand, the filter narrowed to the person.
 //

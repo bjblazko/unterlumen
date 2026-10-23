@@ -36,8 +36,8 @@ export default defineConfig({
     // People with real face recognition: invented people (faces/ABOUT.md)
     // in a server of their own, so the other specs keep their photos and
     // counts. ONNX Runtime and the models stay in its recognition/ folder.
-    command: `${path.resolve(__dirname, '../unterlumen')} --port 8084 --bind 127.0.0.1 ${path.resolve(__dirname, 'fixtures', 'faces-photos')}`,
-    url: 'http://localhost:8084',
+    command: `${path.resolve(__dirname, '../unterlumen')} --port 8086 --bind 127.0.0.1 ${path.resolve(__dirname, 'fixtures', 'faces-photos')}`,
+    url: 'http://localhost:8086',
     reuseExistingServer: !process.env.CI,
     timeout: 15_000,
     env: {
@@ -54,7 +54,7 @@ export default defineConfig({
     {
       name: 'faces',
       testMatch: /face-recognition\.spec\.js/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:8084' },
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:8086' },
     },
   ],
 });
