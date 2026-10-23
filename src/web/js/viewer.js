@@ -603,6 +603,7 @@ class Viewer {
     // --- Marking a face ---
 
     _enterFaceMode(ref, faces, names) {
+        if (this._faceTool || this._cropTool) return;
         const toolbar = this.container.querySelector('.viewer-toolbar');
         const filename = this.currentPath.split('/').pop();
         toolbar.innerHTML = `
