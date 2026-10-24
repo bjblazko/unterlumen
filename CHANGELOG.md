@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-24
+
 ### Added
 - **Unterlumen speaks German.** Settings → Language offers Browser, English and Deutsch; Browser, the default, follows the browser's language. This release covers Libraries, Folders, Organize, Map, Timeline, People, Statistics, the info panel, the viewer, the search and the filter. The rarely used dialogs follow; messages from the server stay English for now. See ADR-0056.
 - **Things have names in German**, with words the search bar suggests: "Hund", "Fachwerkhaus", "Sonnenuntergang". A word that names no thing is matched to the nearest thing the model understands, when one is clearly nearest.
