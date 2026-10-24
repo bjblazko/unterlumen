@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-10-24
+
 ### Security
 - **Other web pages can no longer act through an open Unterlumen.** A page open in the same browser could send requests to it and delete, move or publish photos; requests that change something must now come from Unterlumen's own pages, and an installation that listens only on this computer answers only to this computer's names (ADR-0057).
 - **A destination's settings can no longer run a program.** User, host and key file of an upload over SSH become arguments of ssh and rsync, and a value starting with "-" was read as an option of theirs; such values are now refused with a clear message.
