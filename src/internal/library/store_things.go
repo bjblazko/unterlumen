@@ -141,6 +141,9 @@ func (s *Store) ApplySidecarThings(photoID string, st media.SidecarThings) error
 		_, err := s.db.Exec(`DELETE FROM photo_things_found WHERE photo_id = ? AND written = 1`, photoID)
 		return err
 	}
+	// Before the transaction: the lexicon may read the library's
+	// properties, and the transaction holds the library's one connection.
+	names := st.Things(s.lexicon())
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -150,8 +153,8 @@ func (s *Store) ApplySidecarThings(photoID string, st media.SidecarThings) error
 	if err != nil {
 		return err
 	}
-	found := make([]things.Found, 0, len(st.Things()))
-	for _, name := range st.Things() {
+	found := make([]things.Found, 0, len(names))
+	for _, name := range names {
 		f, ok := scores[name]
 		if !ok {
 			f = things.Found{Name: name, Source: "sidecar"}
@@ -278,7 +281,7 @@ func (s *Store) RemoveThing(photoID, thing string) error {
 	if err != nil || path == "" {
 		return fmt.Errorf("the photo's file is not known; scan the library and try again")
 	}
-	if err := media.RemoveThing(path, thing); err != nil {
+	if err := media.RemoveThing(path, thing, s.lexicon()); err != nil {
 		return fmt.Errorf("the sidecar beside the photo could not be written, so nothing was changed: %w", err)
 	}
 	return s.forgetThing(photoID, thing)

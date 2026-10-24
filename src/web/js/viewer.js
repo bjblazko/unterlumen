@@ -290,33 +290,33 @@ class Viewer {
             <div class="viewer">
                 <div class="viewer-toolbar">
                     <div class="viewer-group viewer-group-start">
-                        <button class="btn viewer-back" title="Back (Esc)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> Back</button>
+                        <button class="btn viewer-back" title="${t('Back (Esc)')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> ${t('Back')}</button>
                         <span class="viewer-filename">${filename}</span>
                         <span class="viewer-counter">${counter}</span>
                     </div>
                     <div class="viewer-zoom-group desk-only">
-                        <button class="btn viewer-zoom-out" title="Zoom out" aria-label="Zoom out"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
-                        <select class="viewer-zoom-select" title="Zoom level" aria-label="Zoom level">
+                        <button class="btn viewer-zoom-out" title="${t('Zoom out')}" aria-label="${t('Zoom out')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                        <select class="viewer-zoom-select" title="${t('Zoom level')}" aria-label="${t('Zoom level')}">
                             ${['fit', 5, 10, 15, 25, 50, 75, 100, 150, 200, 300, 400].map(v => `<option value="${v}">${v === 'fit' ? 'Fit' : `${v}%`}</option>`).join('')}
                         </select>
-                        <button class="btn viewer-zoom-in" title="Zoom in" aria-label="Zoom in"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
+                        <button class="btn viewer-zoom-in" title="${t('Zoom in')}" aria-label="${t('Zoom in')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                     </div>
                     <div class="viewer-group viewer-group-end">
-                        ${this._readOnly ? '' : `<button class="btn viewer-crop-btn desk-only" title="${preview ? 'Crop works on the full-size photo, which is still being prepared' : 'Crop'}" ${preview ? 'disabled' : ''}>Crop</button>
-                        <button class="btn viewer-delete desk-only" title="Mark for deletion (Delete)">Mark for deletion</button>`}
+                        ${this._readOnly ? '' : `<button class="btn viewer-crop-btn desk-only" title="${preview ? t('Crop works on the full-size photo, which is still being prepared') : t('Crop')}" ${preview ? 'disabled' : ''}>${t('Crop')}</button>
+                        <button class="btn viewer-delete desk-only" title="${t('Mark for deletion (Delete)')}">${t('Mark for deletion')}</button>`}
                         ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn phone-only"></button>' : ''}
-                        <a class="btn viewer-download-btn phone-only" href="${escapeHtml(this._downloadURL())}" download title="Download the original file" aria-label="Download the original file"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
-                        <button class="btn viewer-info-btn phone-only" title="Photo info">Info</button>
+                        <a class="btn viewer-download-btn phone-only" href="${escapeHtml(this._downloadURL())}" download title="${t('Download the original file')}" aria-label="${t('Download the original file')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
+                        <button class="btn viewer-info-btn phone-only" title="${t('Photo info')}">${t('Info')}</button>
                         <div class="viewer-menu-wrap desk-only"></div>
                     </div>
                 </div>
                 <div class="viewer-content">
                     <div class="viewer-body">
-                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="Previous (←)" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
+                        <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="${t('Previous (←)')}" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
                             <img src="${preview || this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
                         </div>
-                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="Next (→)" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
+                        <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="${t('Next (→)')}" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
                     </div>
                     <div class="viewer-info-container"></div>
                 </div>
@@ -382,8 +382,8 @@ class Viewer {
     // A large HEIC or RAW takes a moment to convert. A quick load shows
     // nothing; a slow one says what it is doing, a failed one says so.
     _watchImageLoad(imgEl, containerEl, words = {
-        busy: 'Preparing the photo…',
-        failed: 'This photo could not be shown. The file may be damaged or in a format this installation cannot convert.',
+        busy: t('Preparing the photo…'),
+        failed: t('This photo could not be shown. The file may be damaged or in a format this installation cannot convert.'),
     }) {
         if (imgEl.complete && imgEl.naturalWidth) return;
         const host = document.createElement('div');
@@ -402,15 +402,15 @@ class Viewer {
         const full = new Image();
         this._fullLoader = full;
         this._watchImageLoad(full, containerEl, {
-            busy: 'Preparing the full-size photo…',
-            failed: 'The full-size photo could not be prepared; this is its preview. The file may be damaged or in a format this installation cannot convert.',
+            busy: t('Preparing the full-size photo…'),
+            failed: t('The full-size photo could not be prepared; this is its preview. The file may be damaged or in a format this installation cannot convert.'),
         });
         full.addEventListener('load', () => {
             if (this._fullLoader !== full || this.currentPath !== path) return;
             this._fullLoader = null;
             imgEl.src = full.src;
             const crop = this.container.querySelector('.viewer-crop-btn');
-            if (crop) { crop.disabled = false; crop.title = 'Crop'; }
+            if (crop) { crop.disabled = false; crop.title = t('Crop'); }
         }, { once: true });
         full.src = this._currentImageURL();
     }
@@ -485,7 +485,7 @@ class Viewer {
         const btn = this.container.querySelector('.viewer-fullscreen-btn');
         if (!btn) return;
         const on = Fullscreen.active();
-        const label = on ? 'Leave full screen' : 'Full screen';
+        const label = on ? t('Leave full screen') : t('Full screen');
         btn.setAttribute('aria-pressed', String(on));
         btn.setAttribute('aria-label', label);
         btn.title = label;
@@ -497,10 +497,10 @@ class Viewer {
         const filename = this.currentPath.split('/').pop();
 
         toolbar.innerHTML = `
-            <button class="btn viewer-crop-cancel" title="Cancel (Esc)">Cancel</button>
+            <button class="btn viewer-crop-cancel" title="${t('Cancel (Esc)')}">${t('Cancel')}</button>
             <span class="viewer-filename">${filename}</span>
-            <select class="viewer-crop-ratio" title="Aspect ratio">
-                <option value="">Free</option>
+            <select class="viewer-crop-ratio" title="${t('Aspect ratio')}">
+                <option value="">${t('Free')}</option>
                 <option disabled>──────────</option>
                 <option value="1">1:1</option>
                 <option value="1.3333">4:3</option>
@@ -514,7 +514,7 @@ class Viewer {
                 <option value="2.35">2.35:1 Anamorphic</option>
                 <option value="2.39">2.39:1 DCI Scope</option>
             </select>
-            <button class="btn viewer-crop-apply active" title="Apply crop (Enter)">Apply Crop</button>
+            <button class="btn viewer-crop-apply active" title="${t('Apply crop (Enter)')}">${t('Apply Crop')}</button>
         `;
 
         toolbar.querySelector('.viewer-crop-cancel').addEventListener('click', () => this._exitCropMode());
@@ -567,7 +567,7 @@ class Viewer {
         const applyBtn = this.container.querySelector('.viewer-crop-apply');
         if (applyBtn) {
             applyBtn.disabled = true;
-            applyBtn.textContent = 'Saving…';
+            applyBtn.textContent = t('Saving…');
         }
 
         try {
@@ -585,7 +585,7 @@ class Viewer {
         } catch (err) {
             if (applyBtn) {
                 applyBtn.disabled = false;
-                applyBtn.textContent = 'Apply Crop';
+                applyBtn.textContent = t('Apply Crop');
             }
             const toolbar = this.container.querySelector('.viewer-toolbar');
             if (toolbar) {
@@ -595,7 +595,7 @@ class Viewer {
                     errEl.className = 'viewer-crop-error';
                     toolbar.appendChild(errEl);
                 }
-                errEl.textContent = err.message || 'Crop failed';
+                errEl.textContent = err.message || t('Crop failed');
             }
         }
     }
@@ -608,12 +608,12 @@ class Viewer {
         const filename = this.currentPath.split('/').pop();
         toolbar.innerHTML = `
             <div class="viewer-group viewer-group-start">
-                <button class="btn viewer-face-cancel" title="Cancel (Esc)">Cancel</button>
+                <button class="btn viewer-face-cancel" title="${t('Cancel (Esc)')}">${t('Cancel')}</button>
                 <span class="viewer-filename">${escapeHtml(filename)}</span>
             </div>
-            <span class="viewer-face-hint">Drag a frame around the face, then type who it is.</span>
+            <span class="viewer-face-hint">${t('Drag a frame around the face, then type who it is.')}</span>
             <div class="viewer-group viewer-group-end">
-                <button class="btn active viewer-face-save" title="Save (Return)">Save</button>
+                <button class="btn active viewer-face-save" title="${t('Save (Return)')}">${t('Save')}</button>
             </div>`;
         toolbar.querySelector('.viewer-face-cancel').addEventListener('click', () => this._exitFaceMode());
         toolbar.querySelector('.viewer-face-save').addEventListener('click', () => this._saveFace());

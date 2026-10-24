@@ -97,7 +97,7 @@ class InfoPanel {
         } catch (err) {
             if (this.currentPath !== requestPath) return;
             this.data = null;
-            this.error = err.message || 'Failed to load info';
+            this.error = err.message || t('Failed to load info');
         }
         this.loading = false;
         this.render();
@@ -134,7 +134,7 @@ class InfoPanel {
         } catch (err) {
             if (this.currentPath !== requestKey) return;
             this.data = null;
-            this.error = err.message || 'Failed to load info';
+            this.error = err.message || t('Failed to load info');
         }
         this.loading = false;
         this.render();
@@ -176,7 +176,7 @@ class InfoPanel {
             this.libraryStats = libStats || null;
         } catch (err) {
             if (this.currentPath !== requestPath) return;
-            this.error = err.message || 'Failed to load folder info';
+            this.error = err.message || t('Failed to load folder info');
         }
         this.loading = false;
         this.render();
@@ -244,7 +244,7 @@ class InfoPanel {
         if (!this.expanded) {
             this.container.innerHTML =
                 '<div class="info-panel collapsed">' +
-                    '<button class="info-toggle-btn" title="Show info (I)" aria-label="Show info">' + panelIconSVG(false) + '</button>' +
+                    '<button class="info-toggle-btn" title="' + t('Show info (I)') + '" aria-label="' + t('Show info') + '">' + panelIconSVG(false) + '</button>' +
                 '</div>';
             this.container.querySelector('.info-toggle-btn')
                 .addEventListener('click', () => this.toggle());
@@ -259,7 +259,7 @@ class InfoPanel {
         } else if (this.folderData) {
             body = this._folders.render(this.folderData);
         } else if (!this.data) {
-            body = '<div class="info-empty">Select an image to view info</div>';
+            body = '<div class="info-empty">' + t('Select an image to view info') + '</div>';
         } else {
             body = this.renderData(this.data);
         }
@@ -267,8 +267,8 @@ class InfoPanel {
         this.container.innerHTML =
             '<div class="info-panel expanded">' +
                 '<div class="info-panel-header">' +
-                    '<span class="info-panel-title">Info</span>' +
-                    panelHideButtonHTML('info-collapse-btn', 'Hide info', 'I') +
+                    '<span class="info-panel-title">' + t('Info') + '</span>' +
+                    panelHideButtonHTML('info-collapse-btn', t('Hide info'), 'I') +
                 '</div>' +
                 '<div class="info-panel-body">' + body + '</div>' +
             '</div>';
@@ -278,7 +278,7 @@ class InfoPanel {
 
 
         const loadingEl = this.container.querySelector('.info-loading');
-        if (loadingEl) Activity.in(loadingEl, 'Reading the details…');
+        if (loadingEl) Activity.in(loadingEl, t('Reading the details…'));
 
         const allMeta = this.container.querySelector('.info-all-meta');
         if (allMeta) {
@@ -317,7 +317,7 @@ class InfoPanel {
         // map should be looks like the photo has no location.
         if (typeof maplibregl === 'undefined') {
             mapEl.classList.add('info-map-unavailable');
-            mapEl.textContent = 'The map library could not be loaded. The coordinates below are unaffected.';
+            mapEl.textContent = t('The map library could not be loaded. The coordinates below are unaffected.');
             return;
         }
 
@@ -443,7 +443,7 @@ class InfoPanel {
          'GPSVersionID'].forEach(t => used.add(t));
 
         if (!d.exif || d.exif.latitude == null || d.exif.longitude == null) {
-            return this.section('Location', [this.row('Coordinates', 'None')]);
+            return this.section('Location', [this.row('Coordinates', t('None'))]);
         }
         const lat = d.exif.latitude.toFixed(6);
         const lon = d.exif.longitude.toFixed(6);
@@ -516,14 +516,14 @@ class InfoPanel {
 
         const open = this.metadataOpen ? ' open' : '';
         return '<details class="info-all-meta"' + open + '>' +
-            '<summary>All metadata</summary>' +
+            '<summary>' + t('All metadata') + '</summary>' +
             '<div class="info-all-meta-body">' + groups.join('') + '</div>' +
             '</details>';
     }
 
     metaGroup(title, rows) {
         return '<div class="info-meta-group">' +
-            '<h4 class="info-meta-group-title">' + title + '</h4>' +
+            '<h4 class="info-meta-group-title">' + t(title) + '</h4>' +
             rows.join('') +
             '</div>';
     }
@@ -543,10 +543,10 @@ class InfoPanel {
         const publishedCards = this._publishedAlbums(ctx.entries).map(a => {
             const galleryTitle = a.title ? escapeHtml(a.title) : '';
             const titleHTML = a.postID
-                ? `<a class="info-pub-title info-pub-link" href="#galleries" data-slug="${escapeHtml(a.slug)}" data-post="${escapeHtml(a.postID)}">${galleryTitle || 'Open the gallery'}</a>`
+                ? `<a class="info-pub-title info-pub-link" href="#galleries" data-slug="${escapeHtml(a.slug)}" data-post="${escapeHtml(a.postID)}">${galleryTitle || t('Open the gallery')}</a>`
                 : (galleryTitle ? `<div class="info-pub-title">${galleryTitle}</div>` : '');
             const leave = ctx.filesDestinations?.has(a.slug)
-                ? `<button class="info-meta-del" title="Remove from this gallery and delete its exported file" aria-label="Remove from this gallery" data-key="${escapeHtml(a.key)}">×</button>`
+                ? `<button class="info-meta-del" title="${t('Remove from this gallery and delete its exported file')}" aria-label="${t('Remove from this gallery')}" data-key="${escapeHtml(a.key)}">×</button>`
                 : '';
             return `<div class="info-pub-card" data-key="${escapeHtml(a.key)}">` +
                 `<div class="info-pub-card-header">` +
@@ -563,7 +563,7 @@ class InfoPanel {
             return `<div class="info-pub-card info-pub-card--pending">` +
                 `<div class="info-pub-card-header">` +
                     `<span class="info-pub-channel">${escapeHtml(p.channelName)}</span>` +
-                    `<button class="info-meta-del" title="Remove from pending" data-key="${escapeHtml(p.key)}">×</button>` +
+                    `<button class="info-meta-del" title="${t('Remove from pending')}" data-key="${escapeHtml(p.key)}">×</button>` +
                 `</div>` +
                 `<div class="info-pub-date">pending</div>` +
                 (albumTitle ? `<div class="info-pub-title">${albumTitle}</div>` : '') +
@@ -644,12 +644,12 @@ class InfoPanel {
     _renderTitleField(entry) {
         const val = entry ? escapeHtml(entry.value) : '';
         return `<div class="info-meta-row info-title-row">` +
-            `<span class="info-label">Title</span>` +
+            `<span class="info-label">${t('Title')}</span>` +
             `<span class="info-meta-val info-value info-title-val" contenteditable="true" ` +
-                `data-key="title"${!val ? ` data-placeholder="Add title..."` : ''}>` +
+                `data-key="title"${!val ? ` data-placeholder="${t('Add title…')}"` : ''}>` +
                 val +
             `</span>` +
-            (entry ? `<button class="info-meta-del" title="Remove" data-key="title">\u00d7</button>` : '') +
+            (entry ? `<button class="info-meta-del" title="${t('Remove')}" data-key="title">\u00d7</button>` : '') +
         `</div>`;
     }
 
@@ -666,16 +666,16 @@ class InfoPanel {
                 `<div class="info-meta-row" data-meta-key="${escapeHtml(e.key)}">` +
                     `<span class="info-label">${escapeHtml(e.key)}</span>` +
                     `<span class="info-meta-val info-value" contenteditable="true" data-key="${escapeHtml(e.key)}">${escapeHtml(e.value)}</span>` +
-                    `<button class="info-meta-del" title="Remove" data-key="${escapeHtml(e.key)}">\u00d7</button>` +
+                    `<button class="info-meta-del" title="${t('Remove')}" data-key="${escapeHtml(e.key)}">\u00d7</button>` +
                 `</div>`
             );
         }
 
         rows.push(
             `<div class="info-meta-add">` +
-                `<input class="info-meta-key-input" type="text" placeholder="Key" autocomplete="off">` +
-                `<input class="info-meta-val-input" type="text" placeholder="Value" autocomplete="off">` +
-                `<button class="btn btn-sm info-meta-add-btn">Add</button>` +
+                `<input class="info-meta-key-input" type="text" placeholder="${t('Key')}" autocomplete="off">` +
+                `<input class="info-meta-val-input" type="text" placeholder="${t('Value')}" autocomplete="off">` +
+                `<button class="btn btn-sm info-meta-add-btn">${t('Add')}</button>` +
             `</div>`
         );
 
@@ -688,7 +688,7 @@ class InfoPanel {
         const chevron = isCollapsed ? '\u25b8' : '\u25be';
         return '<div class="' + cls + '">' +
             '<div class="info-section-title" data-section="' + title + '">' +
-                '<span>' + title + '</span>' +
+                '<span>' + t(title) + '</span>' +
                 '<span class="info-chevron">' + chevron + '</span>' +
             '</div>' +
             '<div class="info-section-body">' + rows.join('') + '</div>' +
@@ -699,7 +699,7 @@ class InfoPanel {
     // come from the file, so none of them may be read as markup.
     row(label, value) {
         return '<div class="info-row">' +
-            '<span class="info-label">' + escapeHtml(label) + '</span>' +
+            '<span class="info-label">' + escapeHtml(t(label)) + '</span>' +
             '<span class="info-value">' + (value ? escapeHtml(value) : '\u2014') + '</span>' +
             '</div>';
     }
@@ -710,7 +710,7 @@ class InfoPanel {
     badgeRow(label, value) {
         if (!value) return this.row(label, value);
         return '<div class="info-row">' +
-            '<span class="info-label">' + escapeHtml(label) + '</span>' +
+            '<span class="info-label">' + escapeHtml(t(label)) + '</span>' +
             '<span class="info-value"><span class="info-chip">' + escapeHtml(value) + '</span></span>' +
             '</div>';
     }
@@ -728,11 +728,11 @@ class InfoPanel {
             const known = rw / rh;
             if (Math.abs(ratio - known) / known < tol) return rw + ':' + rh;
         }
-        return 'Custom Crop';
+        return t('Custom Crop');
     }
 
     _aspectRatioIcon(ratioStr, strokeColor) {
-        const isCustom = ratioStr === 'Custom Crop';
+        const isCustom = !ratioStr.includes(':');
         let ratio = 1;
         if (!isCustom) {
             const parts = ratioStr.split(':');
@@ -837,7 +837,7 @@ class InfoPanel {
                     ctx.onUpsert(key, newVal).catch(err => {
                         valEl.textContent = previous;
                         originalValue = previous;
-                        App.showToast('Could not save it: ' + err.message);
+                        App.showToast(t('Could not save it: ') + err.message);
                     });
                 }
             });
@@ -862,7 +862,7 @@ class InfoPanel {
                     }
                     this.render();
                 } catch (err) {
-                    App.showToast('Could not delete it: ' + err.message);
+                    App.showToast(t('Could not delete it: ') + err.message);
                 }
             });
         });
@@ -888,7 +888,7 @@ class InfoPanel {
                     ctx.entries = await ctx.refresh();
                     this.render();
                 } catch (err) {
-                    App.showToast('Could not save it: ' + err.message);
+                    App.showToast(t('Could not save it: ') + err.message);
                 }
             });
         }

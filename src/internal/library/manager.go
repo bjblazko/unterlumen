@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"huepattl.de/unterlumen/internal/things"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -196,6 +197,7 @@ func libraryFromStore(id string, store *Store) (*Library, error) {
 	if n, err := strconv.Atoi(props["sort_position"]); err == nil {
 		lib.SortPosition = &n
 	}
+	lib.KeywordLanguage = things.LanguageOf(props[keywordLanguageProp]).Code
 	return lib, nil
 }
 
@@ -278,7 +280,7 @@ func (m *Manager) UpdateLibrary(id, name, description string) (*Library, error) 
 		return nil, err
 	}
 	if ownMarker(l) != nil {
-		if err := writeMarker(l.SourcePath, Marker{ID: id, Name: name, Description: description}); err != nil {
+		if err := writeMarker(l.SourcePath, markerOf(l)); err != nil {
 			return nil, fmt.Errorf("the shared name could not be written: %w", err)
 		}
 		l.Shared = true

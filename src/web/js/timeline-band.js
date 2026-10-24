@@ -11,7 +11,7 @@ class TimelineBand {
         this.el = document.createElement('div');
         this.el.className = 'timeline-band';
         this.el.tabIndex = 0;
-        this.el.setAttribute('aria-label', 'Photos by date taken');
+        this.el.setAttribute('aria-label', t('Photos by date taken'));
         this.sizer = document.createElement('div');
         this.sizer.className = 'timeline-band-sizer';
         this.labelsEl = document.createElement('div');

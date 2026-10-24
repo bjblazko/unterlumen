@@ -24,26 +24,26 @@ class PeoplePhone {
 
     async showOverview() {
         const body = this.pane._body;
-        const activity = Activity.in(body, 'Reading the people…', { area: true });
+        const activity = Activity.in(body, t('Reading the people…'), { area: true });
         let people;
         try {
             people = await PeopleAPI.everyone();
         } catch (err) {
-            activity.fail(`The people could not be read: ${err.message}.`);
+            activity.fail(t('The people could not be read: {err}.', { err: err.message }));
             return;
         }
         this.pane._head(people.length ? countHTML(people.length, 'person', 'people') : '');
         this.pane._lede(!people.length);
         if (!people.length) {
-            body.innerHTML = '<div class="people-note"><p>Nobody is named yet. Faces are found and named on your computer; the people named there show here.</p></div>';
+            body.innerHTML = '<div class="people-note"><p>' + t('Nobody is named yet. Faces are found and named on your computer; the people named there show here.') + '</p></div>';
             return;
         }
         body.innerHTML = `
             <div class="people-phone">
-                <label class="people-label" for="people-find">Find a person</label>
+                <label class="people-label" for="people-find">${t('Find a person')}</label>
                 <input class="form-input people-find" id="people-find" type="search" autocomplete="off" enterkeyhint="search">
                 <div class="people-grid people-phone-grid">${people.map(p => this._card(p)).join('')}</div>
-                <p class="people-empty people-phone-none" hidden>Nobody by that name.</p>
+                <p class="people-empty people-phone-none" hidden>${t('Nobody by that name.')}</p>
             </div>`;
         const input = body.querySelector('#people-find');
         const cards = [...body.querySelectorAll('.people-card')];
@@ -72,7 +72,7 @@ class PeoplePhone {
 
     async showPerson(name) {
         const body = this.pane._body;
-        const activity = Activity.in(body, `Reading ${name}…`, { area: true });
+        const activity = Activity.in(body, t('Reading {name}…', { name: name }), { area: true });
         let data, birthdays;
         try {
             [data, birthdays] = await Promise.all([PeopleAPI.someone(name), peopleBirthdays()]);
@@ -81,7 +81,7 @@ class PeoplePhone {
             return;
         }
         if (!data.in.length) {
-            body.innerHTML = `<div class="people-note"><p>Nobody is named ${escapeHtml(name)} any more. <a class="people-back" href="#people">People</a></p></div>`;
+            body.innerHTML = `<div class="people-note"><p>Nobody is named ${escapeHtml(name)} any more. <a class="people-back" href="#people">${t('People')}</a></p></div>`;
             return;
         }
         this._name = data.name;
@@ -90,7 +90,7 @@ class PeoplePhone {
         this.pane._head('');
         body.innerHTML = `
             <div class="people-phone">
-                <a class="people-back" href="#people">People</a>
+                <a class="people-back" href="#people">${t('People')}</a>
                 <div class="people-phone-hero">
                     <img src="${PeopleAPI.faceURL(data.cover.library, data.cover.face)}" alt="" width="88" height="88">
                     <div>
@@ -127,7 +127,7 @@ class PeoplePhone {
         const body = this.pane._body;
         const names = [this._name, ...this._with];
         body.querySelector('.people-phone-subject').textContent = this._with.size
-            ? `Photos of ${sentenceList(names)} together` : '';
+            ? t('Photos of {names} together', { names: sentenceList(names) }) : '';
         this._grid = body.querySelector('.people-phone-photos');
         this._grid.innerHTML = '';
         this._photos = [];
@@ -154,10 +154,10 @@ class PeoplePhone {
             // An empty page ends it, whatever the total says.
             this._total = page.results.length ? page.total : this._photos.length;
             this._append(page.results.map(r => ({ lib: r.libraryID, id: r.id, name: r.filename, taken: r.dateTaken || '' })));
-            if (!this._photos.length) this._grid.innerHTML = '<p class="people-empty">No photos show all of them together.</p>';
+            if (!this._photos.length) this._grid.innerHTML = '<p class="people-empty">' + t('No photos show all of them together.') + '</p>';
         } catch (err) {
             if (gen !== this._gen) return;
-            this._grid.insertAdjacentHTML('beforeend', `<p class="people-group-error">The photos could not be read: ${escapeHtml(err.message)}</p>`);
+            this._grid.insertAdjacentHTML('beforeend', `<p class="people-group-error">${t('The photos could not be read: {err}', { err: escapeHtml(err.message) })}</p>`);
             this._total = this._photos.length;
         } finally {
             if (this._loadingGen === gen) this._loadingGen = null;
@@ -175,7 +175,7 @@ class PeoplePhone {
     _append(photos) {
         let block = this._grid.lastElementChild?.classList.contains('people-phone-year-photos') ? this._grid.lastElementChild : null;
         for (const p of photos) {
-            const year = p.taken.slice(0, 4) || 'No date';
+            const year = p.taken.slice(0, 4) || t('No date');
             if (year !== this._year) {
                 this._year = year;
                 this._grid.insertAdjacentHTML('beforeend', `<h3 class="people-year">${escapeHtml(year)}</h3><div class="people-phone-year-photos"></div>`);
@@ -185,7 +185,7 @@ class PeoplePhone {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'people-phone-photo';
-            btn.setAttribute('aria-label', `Open ${p.name}`);
+            btn.setAttribute('aria-label', t('Open {name}', { name: p.name }));
             btn.innerHTML = `<img src="${LibraryAPI.thumbURL(p.lib, p.id)}" alt="" loading="lazy">`;
             btn.addEventListener('click', () => openLibraryPhotos(this._photos, index));
             block.appendChild(btn);

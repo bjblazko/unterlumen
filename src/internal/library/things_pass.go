@@ -100,7 +100,7 @@ func (idx *Indexer) findThingsIn(load lookLoader, t ThingTask) FoundThings {
 		return FoundThings{}
 	}
 	if things.Current(sc.Record.Version) {
-		return takeOverThings(t, sc)
+		return takeOverThings(t, sc, idx.store.lexicon())
 	}
 	look, err := load()
 	if err != nil {
@@ -115,16 +115,16 @@ func (idx *Indexer) findThingsIn(load lookLoader, t ThingTask) FoundThings {
 		vector = t.Vector
 	}
 	res.Things = slices.DeleteFunc(res.Things, func(f things.Found) bool { return slices.Contains(sc.Record.Not, f.Name) })
-	res.Written, _ = media.WriteFoundThings(t.PathHint, thingNames(res.Things), things.RecordVersion(), vector)
+	res.Written, _ = media.WriteFoundThings(t.PathHint, thingNames(res.Things), things.RecordVersion(), vector, idx.store.lexicon())
 	res.VectorInSidecar = res.Written && vector != nil
 	return res
 }
 
 // takeOverThings is what a current sidecar says of the photo, with its
 // vector. A sidecar without the vector gets this index's, when there is one.
-func takeOverThings(t ThingTask, sc media.SidecarThings) FoundThings {
+func takeOverThings(t ThingTask, sc media.SidecarThings, lex media.Lexicon) FoundThings {
 	res := FoundThings{PhotoID: t.ID, Written: true}
-	for _, n := range sc.Things() {
+	for _, n := range sc.Things(lex) {
 		res.Things = append(res.Things, things.Found{Name: n, Source: "sidecar"})
 	}
 	switch {

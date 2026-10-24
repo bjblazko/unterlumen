@@ -11,6 +11,7 @@ function panelIconSVG(open) {
 // panelHideButtonHTML is the framed button in a panel's head that hides it;
 // cls names it for its panel, key is its shortcut if it has one.
 function panelHideButtonHTML(cls, label, key = '') {
+    label = t(label);
     return `<button type="button" class="btn btn-sm panel-hide-btn ${cls}" aria-label="${label}" title="${label}${key ? ` (${key})` : ''}">${panelIconSVG(true)}</button>`;
 }
 
@@ -27,11 +28,12 @@ const PANEL_GLYPHS = {
 // and hides it.
 function panelToggleButton(label, cls = label === 'Info' ? 'info-head-toggle' : '') {
     const glyph = PANEL_GLYPHS[label.toLowerCase()] || PANEL_GLYPHS.info;
-    const t = document.createElement('template');
-    t.innerHTML = `<button type="button" class="panel-toggle ${cls}" aria-pressed="false" aria-expanded="false" data-state="off" title="${label}">`
+    const shown = t(label);
+    const tpl = document.createElement('template');
+    tpl.innerHTML = `<button type="button" class="panel-toggle ${cls}" aria-pressed="false" aria-expanded="false" data-state="off" title="${shown}">`
         + `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">${glyph}</svg>`
-        + `<span class="panel-toggle-label">${label}</span><span class="lib-filter-btn-count"></span></button>`;
-    return t.content.firstElementChild;
+        + `<span class="panel-toggle-label">${shown}</span><span class="lib-filter-btn-count"></span></button>`;
+    return tpl.content.firstElementChild;
 }
 
 function setPanelToggle(btn, open) {
@@ -47,7 +49,7 @@ function toolStrip(...buttons) {
     const el = document.createElement('div');
     el.className = 'tool-strip';
     el.setAttribute('role', 'toolbar');
-    el.setAttribute('aria-label', 'Panels');
+    el.setAttribute('aria-label', t('Panels'));
     el.setAttribute('aria-orientation', 'vertical');
     el.append(...buttons.filter(Boolean));
     return el;

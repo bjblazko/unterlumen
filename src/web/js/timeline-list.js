@@ -11,7 +11,7 @@ class TimelineList {
         this.el.className = 'timeline-list-wrap';
         this.scroller = document.createElement('div');
         this.scroller.className = 'timeline-list';
-        this.scroller.setAttribute('aria-label', 'Photos by date taken, newest first');
+        this.scroller.setAttribute('aria-label', t('Photos by date taken, newest first'));
         this.sticky = document.createElement('div');
         this.sticky.className = 'timeline-list-sticky';
         this.sticky.hidden = true;

@@ -14,7 +14,7 @@ class PeoplePerson {
 
     async show(name) {
         const body = this.pane._body;
-        const activity = Activity.in(body, `Reading ${name}…`, { area: true });
+        const activity = Activity.in(body, t('Reading {name}…', { name: name }), { area: true });
         let data, birthdays, everyone;
         try {
             [data, birthdays, everyone] = await Promise.all([PeopleAPI.someone(name), peopleBirthdays(), PeopleAPI.everyone()]);
@@ -23,7 +23,7 @@ class PeoplePerson {
             return;
         }
         if (!data.in.length) {
-            body.innerHTML = `<div class="people-note"><p>Nobody is named ${escapeHtml(name)} any more. ${this.pane.backLink()}</p></div>`;
+            body.innerHTML = `<div class="people-note"><p>${t('Nobody is named {name} any more.', { name: escapeHtml(name) })} ${this.pane.backLink()}</p></div>`;
             return;
         }
         this.data = data;
@@ -34,32 +34,32 @@ class PeoplePerson {
         body.innerHTML = `
             <div class="people-page-head">${this.pane.crumb(escapeHtml(name))}
                 <span class="people-head-spacer"></span>
-                <a class="btn people-show" href="#libraries">Show photos</a>
+                <a class="btn people-show" href="#libraries">${t('Show photos')}</a>
             </div>
             ${bornHTML(birthdayOf(birthdays, name))}
             ${oftenWithHTML(data.with)}
-            <p class="people-hint">Select a face to open its photo, show it in its library or make it the cover; select several to give them to someone else. Rest the pointer on a face to see it in its photo; double-click opens the photo.</p>
+            <p class="people-hint">${t('Select a face to open its photo, show it in its library or make it the cover; select several to give them to someone else. Rest the pointer on a face to see it in its photo; double-click opens the photo.')}</p>
             ${this._facesHTML()}
             <section class="people-section people-maybe" hidden></section>
             ${this._notInHTML(name, data.notIn)}
             <div class="people-bar" hidden>
                 <div class="people-group-row">
                     <span class="people-bar-where" hidden></span>
-                    <button type="button" class="btn people-open" hidden>Open photo</button>
-                    <button type="button" class="btn people-in-library" hidden>Show in library</button>
-                    <button type="button" class="btn people-cover" hidden>Use as cover</button>
-                    <label class="people-instead-label" for="people-instead">Is instead</label>
+                    <button type="button" class="btn people-open" hidden>${t('Open photo')}</button>
+                    <button type="button" class="btn people-in-library" hidden>${t('Show in library')}</button>
+                    <button type="button" class="btn people-cover" hidden>${t('Use as cover')}</button>
+                    <label class="people-instead-label" for="people-instead">${t('Is instead')}</label>
                     <input class="form-input people-input" id="people-instead" type="text" list="people-names" autocomplete="off">
-                    <button type="button" class="btn people-move">Move</button>
+                    <button type="button" class="btn people-move">${t('Move')}</button>
                     <button type="button" class="btn people-unname"></button>
                 </div>
                 <p class="people-group-error" hidden></p>
             </div>
             ${namesList(everyone.map(p => p.name).filter(n => n.toLowerCase() !== name.toLowerCase()))}`;
-        const menu = new Menu({ label: 'Person options', items: () => [
-            { label: 'Rename…', onSelect: () => this._rename(name) },
-            { label: 'Birthday…', onSelect: () => editBirthday(name, birthdayOf(birthdays, name), () => this.show(name)) },
-            { label: 'Take the name away…', onSelect: () => this._forget(name) },
+        const menu = new Menu({ label: t('Person options'), items: () => [
+            { label: t('Rename…'), onSelect: () => this._rename(name) },
+            { label: t('Birthday…'), onSelect: () => editBirthday(name, birthdayOf(birthdays, name), () => this.show(name)) },
+            { label: t('Take the name away…'), onSelect: () => this._forget(name) },
         ] });
         body.querySelector('.people-show').after(menu.button);
         showPhotosLink(body.querySelector('.people-show'), { person: name });
@@ -91,14 +91,14 @@ class PeoplePerson {
         const one = () => this._grid.selectedFaces()[0];
         bar.querySelector('.people-open').addEventListener('click', () => openFacePhotos(null, faces, this._grid.selectedIndexes()[0]));
         bar.querySelector('.people-in-library').addEventListener('click', () => showPhotoInLibrary({ lib: one().library, id: one().photoId }));
-        bar.querySelector('.people-cover').addEventListener('click', (e) => this._act(e.currentTarget, 'The cover was not changed.',
+        bar.querySelector('.people-cover').addEventListener('click', (e) => this._act(e.currentTarget, t('The cover was not changed.'),
             ({ l, ids }) => PeopleAPI.chooseCover(l.library, l.person, ids[0])));
-        bar.querySelector('.people-unname').addEventListener('click', (e) => this._act(e.currentTarget, 'Nothing was changed.',
+        bar.querySelector('.people-unname').addEventListener('click', (e) => this._act(e.currentTarget, t('Nothing was changed.'),
             ({ l, ids }) => PeopleAPI.unname(l.library, ids)));
         const move = () => {
             const other = bar.querySelector('#people-instead').value.trim();
             if (!other) { bar.querySelector('#people-instead').focus(); return; }
-            this._act(bar.querySelector('.people-move'), 'Nothing was changed.', ({ l, ids }) => PeopleAPI.name(l.library, ids, other));
+            this._act(bar.querySelector('.people-move'), t('Nothing was changed.'), ({ l, ids }) => PeopleAPI.name(l.library, ids, other));
         };
         bar.querySelector('.people-move').addEventListener('click', move);
         bar.querySelector('#people-instead').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); move(); } });
@@ -126,11 +126,11 @@ class PeoplePerson {
         if (!n) return;
         const where = bar.querySelector('.people-bar-where');
         where.hidden = this.data.in.length < 2;
-        where.textContent = libs.length === 1 ? `In ${libs[0].l.libraryName}` : `In ${countLibraries(libs.length)}`;
+        where.textContent = libs.length === 1 ? t('In {library}', { library: libs[0].l.libraryName }) : t('In {libs}', { libs: countLibraries(libs.length) });
         bar.querySelector('.people-open').hidden = n !== 1;
         bar.querySelector('.people-in-library').hidden = n !== 1;
         bar.querySelector('.people-cover').hidden = n !== 1 || (String(cover.library) === String(first.library) && cover.face === first.id);
-        bar.querySelector('.people-unname').textContent = n === 1 ? `Not ${name}` : `${formatCount(n)} are not ${name}`;
+        bar.querySelector('.people-unname').textContent = n === 1 ? t('Not {name}', { name }) : t('{n} are not {name}', { n: formatCount(n), name });
     }
 
     // _act runs a change on the selected faces of each library and shows
@@ -146,7 +146,7 @@ class PeoplePerson {
             try {
                 skipped += (await change(g))?.skipped || 0;
             } catch (err) {
-                failed.push(groups.length > 1 ? `In ${g.l.libraryName}: ${err.message}` : err.message);
+                failed.push(groups.length > 1 ? t('In {library}: {error}', { library: g.l.libraryName, error: err.message }) : err.message);
             }
         }
         reportSkipped({ skipped });
@@ -173,8 +173,8 @@ class PeoplePerson {
         if (!notIn.length) return '';
         return `
             <section class="people-section">
-                ${suggested.length ? `<h2 class="people-section-title">Not named in</h2>${suggested.map(l => this._suggestionHTML(name, l)).join('')}` : ''}
-                ${others.length ? `<p class="people-hint">Not in ${escapeHtml(sentenceList(others.map(l => l.libraryName)))}.</p>` : ''}
+                ${suggested.length ? `<h2 class="people-section-title">${t('Not named in')}</h2>${suggested.map(l => this._suggestionHTML(name, l)).join('')}` : ''}
+                ${others.length ? `<p class="people-hint">${t('Not in {libraries}.', { libraries: escapeHtml(sentenceList(others.map(l => l.libraryName))) })}</p>` : ''}
             </section>`;
     }
 
@@ -187,8 +187,8 @@ class PeoplePerson {
                 <div class="people-elsewhere" data-library="${escapeHtml(l.library)}">
                     <div class="people-group-faces"><img src="${PeopleAPI.faceURL(l.library, other.cover)}" alt="" loading="lazy" width="64" height="64"></div>
                     <div class="people-elsewhere-text">
-                        <p>In ${lib}, ${escapeHtml(other.name)} looks like ${n}. If it is the same person, give them this name there; it goes into the sidecars of their photos.</p>
-                        <button type="button" class="btn people-rename-there" data-person="${other.id}">Rename to ${n} in ${lib} (${escapeHtml(countPhotos(other.photos))})</button>
+                        <p>${t('In {lib}, {other} looks like {name}. If it is the same person, give them this name there; it goes into the sidecars of their photos.', { lib, other: escapeHtml(other.name), name: n })}</p>
+                        <button type="button" class="btn people-rename-there" data-person="${other.id}">${t('Rename to {name} in {lib} ({photos})', { name: n, lib, photos: escapeHtml(countPhotos(other.photos)) })}</button>
                         <a href="${peopleHash({ view: 'person', id: other.name })}">${escapeHtml(other.name)}</a>
                         <p class="people-group-error" hidden></p>
                     </div>
@@ -199,9 +199,9 @@ class PeoplePerson {
             <div class="people-elsewhere" data-library="${escapeHtml(l.library)}">
                 <div class="people-group-faces">${faces}</div>
                 <div class="people-elsewhere-text">
-                    <p>In ${lib}, ${escapeHtml(countFaces(l.group.size))} waiting for a name look like ${n}.</p>
-                    <button type="button" class="btn people-name-there" data-group="${l.group.id}">Name them ${n}</button>
-                    <a href="${peopleHash({ view: 'group', library: l.library, id: l.group.id })}">See the faces</a>
+                    <p>${t('In {lib}, {faces} waiting for a name look like {name}.', { lib, faces: escapeHtml(countFaces(l.group.size)), name: n })}</p>
+                    <button type="button" class="btn people-name-there" data-group="${l.group.id}">${t('Name them {name}', { name: n })}</button>
+                    <a href="${peopleHash({ view: 'group', library: l.library, id: l.group.id })}">${t('See the faces')}</a>
                     <p class="people-group-error" hidden></p>
                 </div>
             </div>`;
@@ -237,10 +237,10 @@ class PeoplePerson {
     // untick leaves that library as it is — for two people of one name.
     _librariesHTML() {
         if (this.data.in.length < 2) return '';
-        return `<fieldset class="people-libraries"><legend class="library-dialog-label">In</legend>${this.data.in.map(l => `
+        return `<fieldset class="people-libraries"><legend class="library-dialog-label">${t('In')}</legend>${this.data.in.map(l => `
             <label class="people-library-choice"><input type="checkbox" value="${escapeHtml(l.library)}" checked>
                 ${escapeHtml(l.libraryName)} <span class="count">${formatCount(l.photos)}</span></label>`).join('')}
-            <span class="form-hint">Untick a library where someone else has this name.</span></fieldset>`;
+            <span class="form-hint">${t('Untick a library where someone else has this name.')}</span></fieldset>`;
     }
 
     _chosenLibraries(d) {
@@ -251,22 +251,22 @@ class PeoplePerson {
 
     _rename(name) {
         const dlg = new Dialog({
-            title: 'Rename',
+            title: t('Rename'),
             subtitle: name,
             size: 'sm',
             className: 'library-dialog',
             body: `
-                <label class="library-dialog-label" for="people-rename">Name</label>
+                <label class="library-dialog-label" for="people-rename">${t('Name')}</label>
                 <input class="library-dialog-input" id="people-rename" type="text" autocomplete="off" value="${escapeHtml(name)}">
-                <span class="form-hint">The name goes into the sidecars of their photos. Where someone already has the new name, the two become one person.</span>
+                <span class="form-hint">${t('The name goes into the sidecars of their photos. Where someone already has the new name, the two become one person.')}</span>
                 ${this._librariesHTML()}
                 <p class="people-group-error" hidden></p>`,
             actions: [
-                { label: 'Cancel', value: null },
-                { label: 'Rename', kind: 'accent', onClick: async (d) => {
+                { label: t('Cancel'), value: null },
+                { label: t('Rename'), kind: 'accent', onClick: async (d) => {
                     const to = d.el.querySelector('#people-rename').value.trim();
                     if (!to) return;
-                    await this._eachLibrary(d, (l) => PeopleAPI.rename(l.library, l.person, to), 'The name was not changed there.', { view: 'person', id: to });
+                    await this._eachLibrary(d, (l) => PeopleAPI.rename(l.library, l.person, to), t('The name was not changed there.'), { view: 'person', id: to });
                 } },
             ],
         });
@@ -275,17 +275,17 @@ class PeoplePerson {
 
     _forget(name) {
         new Dialog({
-            title: `Take the name ${name} away?`,
+            title: t('Take the name {name} away?', { name: name }),
             size: 'sm',
             className: 'library-dialog',
             body: `
-                <p>Their faces go back to the faces waiting for a name, and the name leaves the photos' sidecars, also for your other installation.</p>
+                <p>${t('Their faces go back to the faces waiting for a name, and the name leaves the photos\' sidecars, also for your other installation.')}</p>
                 ${this._librariesHTML()}
                 <p class="people-group-error" hidden></p>`,
             actions: [
-                { label: 'Cancel', value: null },
-                { label: 'Take the name away', kind: 'accent', onClick: async (d) => {
-                    await this._eachLibrary(d, (l) => PeopleAPI.forget(l.library, l.person), 'Nothing was changed there.', null);
+                { label: t('Cancel'), value: null },
+                { label: t('Take the name away'), kind: 'accent', onClick: async (d) => {
+                    await this._eachLibrary(d, (l) => PeopleAPI.forget(l.library, l.person), t('Nothing was changed there.'), null);
                 } },
             ],
         }).open();

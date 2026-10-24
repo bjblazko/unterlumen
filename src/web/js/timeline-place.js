@@ -43,10 +43,10 @@ class TimelinePane {
                 <div class="timeline-split">
                     <div class="place-main">
                 ${placeHeaderHTML({
-                    title: 'Timeline',
+                    title: t('Timeline'),
                     meta: '<span class="timeline-count"></span> <span class="timeline-undated"></span>',
                     actions: '<span class="timeline-actions"></span>',
-                    lede: placeLede(`Every dated photo from all ${placeLink('library', 'libraries', 'libraries')} on one time axis. A folder no library catalogs does not appear.`),
+                    lede: placeLede(t('Every dated photo from all {libraries} on one time axis. A folder no library catalogs does not appear.', { libraries: placeLink('library', 'libraries', t('libraries')) })),
                 })}
                     <div class="timeline-body"></div>
                     <div class="timeline-note" hidden></div>
@@ -57,7 +57,7 @@ class TimelinePane {
         this._noteEl = this.container.querySelector('.timeline-note');
         // The Timeline's one setting stands in its head: a ⋯ for one entry hid it.
         this._rowsField = segmentField({
-            label: 'Rows', options: [2, 3, 4].map(n => [n, String(n)]), value: this._rows,
+            label: t('Rows'), options: [2, 3, 4].map(n => [n, String(n)]), value: this._rows,
             onChange: (v) => this._setRows(Number(v)),
         });
         // The shared filter (ADR-0050). Its months are not asked of the
@@ -67,7 +67,7 @@ class TimelinePane {
         this._filter = new ScopeFilter({
             onOpen: () => { if (this.infoPanel?.expanded) this.infoPanel._setExpanded(false); },
         });
-        this._infoBtn = panelToggleButton('Info');
+        this._infoBtn = panelToggleButton(t('Info'));
         this.container.querySelector('.timeline-actions').replaceWith(this._filter.el, this._rowsField);
         // The filter and the info panel stand beside the place's whole
         // height, as the tool strip does.
@@ -104,7 +104,7 @@ class TimelinePane {
         const at = this._currentMs();
         if (!this._lane) {
             this._noteEl.hidden = false;
-            Activity.in(this._noteEl, 'Reading the timeline…', { area: true });
+            Activity.in(this._noteEl, t('Reading the timeline…'), { area: true });
         }
         let changed;
         try {
@@ -112,7 +112,7 @@ class TimelinePane {
         } catch (err) {
             this._noteEl.hidden = false;
             Activity.in(this._noteEl, '', { area: true })
-                .fail(`The timeline could not be read: ${err.message}. Reload the page to try again.`);
+                .fail(t('The timeline could not be read: {err}. Reload the page to try again.', { err: err.message }));
             return;
         }
         this._noteEl.innerHTML = '';
@@ -157,10 +157,10 @@ class TimelinePane {
     _explainEmpty() {
         this._noteEl.hidden = false;
         this._noteEl.innerHTML = ScopeState.narrowed()
-            ? 'No dated photo matches the filter. Widen it, or reset it.'
+            ? t('No dated photo matches the filter. Widen it, or reset it.')
             : this.stream.undated
-            ? 'None of the photos in the libraries has a date taken, so there is nothing to place on the timeline.'
-            : `There are no photos in any library yet. Make a library in ${placeLink('library', 'libraries', 'Libraries')}, and its dated photos appear here.`;
+            ? t('None of the photos in the libraries has a date taken, so there is nothing to place on the timeline.')
+            : t('There are no photos in any library yet. Make a library in {libraries}, and its dated photos appear here.', { libraries: placeLink('library', 'libraries', t('Libraries')) });
     }
 
     _buildDesk(day) {

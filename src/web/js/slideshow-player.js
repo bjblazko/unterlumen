@@ -61,23 +61,23 @@ class SlideshowPlayer {
             <div class="ss-overlay">
                 <div class="ss-stage"></div>
                 <div class="ss-hud">
-                    <button class="ss-btn ss-btn-prev" title="Previous (←)">
+                    <button class="ss-btn ss-btn-prev" title="${t('Previous (←)')}">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8,2 4,6 8,10"/></svg>
-                        Prev
+                        ${t('Prev')}
                     </button>
-                    <button class="ss-btn ss-btn-playpause" title="Pause (Space)">
+                    <button class="ss-btn ss-btn-playpause" title="${t('Pause (Space)')}">
                         <svg class="ss-icon-pause" width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="3" height="8" rx="0.5"/><rect x="7" y="2" width="3" height="8" rx="0.5"/></svg>
                         <svg class="ss-icon-play" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style="display:none"><polygon points="2,2 10,6 2,10"/></svg>
-                        <span class="ss-playpause-label">Pause</span>
+                        <span class="ss-playpause-label">${t('Pause')}</span>
                     </button>
-                    <button class="ss-btn ss-btn-next" title="Next (→)">
-                        Next
+                    <button class="ss-btn ss-btn-next" title="${t('Next (→)')}">
+                        ${t('Next')}
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,2 8,6 4,10"/></svg>
                     </button>
                     <span class="ss-counter"></span>
-                    <button class="ss-btn ss-btn-close" title="Close (Esc)">
+                    <button class="ss-btn ss-btn-close" title="${t('Close (Esc)')}">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>
-                        Close
+                        ${t('Close')}
                     </button>
                 </div>
             </div>
@@ -187,7 +187,7 @@ class SlideshowPlayer {
             this._running = false;
             this._iconPause.style.display = 'none';
             this._iconPlay.style.display = '';
-            this._playPauseLbl.textContent = 'Play';
+            this._playPauseLbl.textContent = t('Play');
             return;
         }
         this._cursor = next % this._images.length;
@@ -362,13 +362,13 @@ class SlideshowPlayer {
         if (this._running) {
             this._iconPause.style.display = '';
             this._iconPlay.style.display = 'none';
-            this._playPauseLbl.textContent = 'Pause';
+            this._playPauseLbl.textContent = t('Pause');
             if (this._audio) this._audio.play().catch(() => {});
             this._scheduleNext();
         } else {
             this._iconPause.style.display = 'none';
             this._iconPlay.style.display = '';
-            this._playPauseLbl.textContent = 'Play';
+            this._playPauseLbl.textContent = t('Play');
             clearTimeout(this._timer);
             if (this._audio) this._audio.pause();
         }

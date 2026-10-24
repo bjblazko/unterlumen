@@ -314,7 +314,9 @@ func spliceULBlock(existing []byte, c ulContent) []byte {
 		descEnd = descStart + descEnd + len(closeTag)
 	}
 
-	return []byte(s[:descStart] + newBlock + s[descEnd:])
+	// In place of the block, after the indentation that stands before it:
+	// its own would add to it with every write.
+	return []byte(s[:descStart] + strings.TrimLeft(newBlock, " ") + s[descEnd:])
 }
 
 func xmlEscapeStr(s string) string {

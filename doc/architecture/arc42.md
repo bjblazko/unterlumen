@@ -423,6 +423,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0053](adr/0053-one-system-for-every-place.md) — One system for every place: one head, one count, panels that hide, one filter interface
 - [ADR-0054](adr/0054-things-found-on-this-computer.md) — Things found on this computer, written into the sidecars as keywords; one search above every place
 - [ADR-0055](adr/0055-siglip2-quality-and-languages.md) — Things found by SigLIP 2: quality first, photo quality as things, search in any language
+- [ADR-0056](adr/0056-languages-things-and-interface.md) — Languages: thing IDs with names per language, a keyword language per library, the interface translated by English keys
 
 ## 10. Quality Requirements
 

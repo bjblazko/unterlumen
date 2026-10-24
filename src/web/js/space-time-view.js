@@ -102,7 +102,7 @@ function timeScale(dates) {
 // { photo } or { day } ("2024-05-01").
 function renderSpaceTime(el, st, onPick, options) {
     if (!st?.photos) {
-        tlNoData(el, 'No photo here has a location and a date.');
+        tlNoData(el, t('No photo here has a location and a date.'));
         return;
     }
     worldLines().then(world => renderPointStage(el, () => spaceTimeSpec(st, world), onPick, options));
@@ -128,8 +128,8 @@ function spaceTimeSpec(st, world) {
     const last = p.date.reduce((a, b) => (a > b ? a : b)).slice(0, 4);
     return {
         summary: `${formatCount(n)} photos with a place and a date: where they were taken on the floor, around the middle of the photos at ${formatLatLon(centre.lat, centre.lon)} and further out the further away, on a log scale of distance that widens beyond ${formatCount(STRETCH_FROM_KM)} km; and when, upward from ${first} to ${last}. Each is in its main colour.`,
-        legend: legendDotHTML('One photo, where and when it was taken')
-            + legendStepHTML(`One day away: where most of its photos were taken, larger with more photos. Days within ${HOME_KM} km of the middle sit on the axis. The line follows the days in time order.`),
+        legend: legendDotHTML(t('One photo, where and when it was taken'))
+            + legendStepHTML(t('One day away: where most of its photos were taken, larger with more photos. Days within {HOME_KM} km of the middle sit on the axis. The line follows the days in time order.', { HOME_KM: HOME_KM })),
         sprites, steps,
         distance: 4.2,
         trailWidth: 2,
@@ -202,7 +202,7 @@ function spaceTimeLabels(time) {
         const r = distanceRadius(km);
         labels.push({ text: `${formatCount(km)} km`, pos: [r * Math.SQRT1_2, -1.02, r * Math.SQRT1_2], kind: 'tick' });
     }
-    labels.push({ text: 'North', pos: [0, -1.02, -1.05], kind: 'name' });
+    labels.push({ text: t('North'), pos: [0, -1.02, -1.05], kind: 'name' });
     const first = new Date(time.lo).getUTCFullYear(), last = new Date(time.hi).getUTCFullYear();
     const step = [1, 2, 5, 10, 20].find(s => (last - first) / s <= 8) ?? 25;
     for (let year = Math.ceil(first / step) * step; year <= last; year += step) {

@@ -96,28 +96,28 @@ class ScopeFilter {
         this.el.className = 'scope-filter';
         this.el.innerHTML = '<span class="scope-filter-chips"></span>';
         // The toggle stands in the place's tool strip; the chips in its head.
-        this.toggle = panelToggleButton('Filter', 'scope-filter-toggle');
+        this.toggle = panelToggleButton(t('Filter'), 'scope-filter-toggle');
         this.panel = document.createElement('div');
         this.panel.className = 'lib-filter-panel scope-filter-panel';
         this.panel.innerHTML = `
             <div class="lib-filter-head">
-                <span class="lib-filter-title">Filter</span>
-                <button type="button" class="btn btn-sm scope-filter-reset" hidden>Reset filters</button>
-                ${panelHideButtonHTML('lib-filter-close', 'Hide filter')}
+                <span class="lib-filter-title">${t('Filter')}</span>
+                <button type="button" class="btn btn-sm scope-filter-reset" hidden>${t('Reset filters')}</button>
+                ${panelHideButtonHTML('lib-filter-close', t('Hide filter'))}
             </div>
             <div class="lib-filter-groups">
-                <div class="lib-filter-group"><div class="lib-filter-label">Libraries</div><span class="scope-filter-libraries"></span></div>
-                <div class="lib-filter-group scope-filter-time-group"${time ? '' : ' hidden'}><div class="lib-filter-label">Taken</div><span class="scope-filter-time"></span></div>
-                <div class="lib-filter-group"><div class="lib-filter-label">Cameras</div><span class="scope-filter-cameras"></span></div>
-                <div class="lib-filter-group"><div class="lib-filter-label">Lenses</div><span class="scope-filter-lenses"></span></div>
+                <div class="lib-filter-group"><div class="lib-filter-label">${t('Libraries')}</div><span class="scope-filter-libraries"></span></div>
+                <div class="lib-filter-group scope-filter-time-group"${time ? '' : ' hidden'}><div class="lib-filter-label">${t('Taken')}</div><span class="scope-filter-time"></span></div>
+                <div class="lib-filter-group"><div class="lib-filter-label">${t('Cameras')}</div><span class="scope-filter-cameras"></span></div>
+                <div class="lib-filter-group"><div class="lib-filter-label">${t('Lenses')}</div><span class="scope-filter-lenses"></span></div>
                 <div class="lib-filter-group scope-filter-people-group" hidden>
-                    <div class="lib-filter-label">People</div>
-                    <select class="btn btn-sm select-btn scope-filter-person" aria-label="Add a person to the filter"></select>
+                    <div class="lib-filter-label">${t('People')}</div>
+                    <select class="btn btn-sm select-btn scope-filter-person" aria-label="${t('Add a person to the filter')}"></select>
                     <span class="scope-filter-people"></span>
                 </div>
                 <div class="lib-filter-group scope-filter-things-group" hidden>
-                    <div class="lib-filter-label">Things</div>
-                    <select class="btn btn-sm select-btn scope-filter-thing" aria-label="Add a thing to the filter"></select>
+                    <div class="lib-filter-label">${t('Things')}</div>
+                    <select class="btn btn-sm select-btn scope-filter-thing" aria-label="${t('Add a thing to the filter')}"></select>
                     <span class="scope-filter-things"></span>
                 </div>
             </div>`;
@@ -129,9 +129,9 @@ class ScopeFilter {
             ScopeState.reset();
             this.sync();
         });
-        this._libraries = this._select('libraries', 'Libraries', 'libraries');
-        this._cameras = this._select('cameras', 'Cameras', 'models');
-        this._lenses = this._select('lenses', 'Lenses', 'lenses');
+        this._libraries = this._select('libraries', t('Libraries'), 'libraries');
+        this._cameras = this._select('cameras', t('Cameras'), 'models');
+        this._lenses = this._select('lenses', t('Lenses'), 'lenses');
         this._person = this.panel.querySelector('.scope-filter-person');
         this._person.addEventListener('change', () => {
             if (this._person.value) this._setPeople([...ScopeState.value.people, this._person.value]);
@@ -189,13 +189,13 @@ class ScopeFilter {
         const names = this._personNames || [];
         this.panel.querySelector('.scope-filter-people-group').hidden = !names.length && !chosen.length;
         const left = names.filter(n => !chosen.some(c => c.toLowerCase() === n.toLowerCase()));
-        this._person.innerHTML = `<option value="">${chosen.length ? 'Add someone else…' : 'Add a person…'}</option>`
+        this._person.innerHTML = `<option value="">${chosen.length ? t('Add someone else…') : t('Add a person…')}</option>`
             + left.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
         this._person.disabled = !left.length;
         const slot = this.panel.querySelector('.scope-filter-people');
         slot.innerHTML = '';
         for (const name of chosen) {
-            slot.appendChild(this._chip(name, `Drop ${name}`, () => this._setPeople(ScopeState.value.people.filter(n => n !== name))));
+            slot.appendChild(this._chip(name, t('Drop {name}', { name: name }), () => this._setPeople(ScopeState.value.people.filter(n => n !== name))));
         }
     }
 
@@ -211,13 +211,13 @@ class ScopeFilter {
         const chosen = ScopeState.value.things;
         const totals = this._thingTotals || [];
         this.panel.querySelector('.scope-filter-things-group').hidden = !totals.length && !chosen.length;
-        this._thing.innerHTML = `<option value="">${chosen.length ? 'Add another thing…' : 'Add a thing…'}</option>`
+        this._thing.innerHTML = `<option value="">${chosen.length ? t('Add another thing…') : t('Add a thing…')}</option>`
             + thingOptionsHTML(totals.filter(t => !chosen.includes(t.thing)));
         this._thing.disabled = totals.length <= chosen.length;
         const slot = this.panel.querySelector('.scope-filter-things');
         slot.innerHTML = '';
         for (const thing of chosen) {
-            slot.appendChild(this._chip(thing, `Drop ${thing}`, () => this._setThings(ScopeState.value.things.filter(t => t !== thing))));
+            slot.appendChild(this._chip(ThingWords.name(thing), t('Drop {name}', { name: ThingWords.name(thing) }), () => this._setThings(ScopeState.value.things.filter(x => x !== thing))));
         }
     }
 
@@ -299,12 +299,12 @@ class ScopeFilter {
         const v = ScopeState.value;
         const some = (label, values, name) => `${label}: ${values.length === 1 ? name(values[0]) : values.length ? `${values.length}` : 'none'}`;
         const out = [];
-        if (v.libraries !== null) out.push({ label: some('Libraries', v.libraries, id => this._libNames?.get(id) || id), drop: { libraries: null } });
-        if (this._time && (v.from || v.until)) out.push({ label: `Taken: ${v.from || '…'} – ${v.until || '…'}`, drop: { from: '', until: '' } });
-        if (v.models !== null) out.push({ label: some('Camera', v.models, plainExif), drop: { models: null } });
-        if (v.lenses !== null) out.push({ label: some('Lens', v.lenses, plainExif), drop: { lenses: null } });
-        for (const name of v.people) out.push({ label: `Person: ${name}`, drop: { people: v.people.filter(n => n !== name) } });
-        for (const thing of v.things) out.push({ label: `Thing: ${thing}`, drop: { things: v.things.filter(t => t !== thing) } });
+        if (v.libraries !== null) out.push({ label: some(t('Libraries'), v.libraries, id => this._libNames?.get(id) || id), drop: { libraries: null } });
+        if (this._time && (v.from || v.until)) out.push({ label: t('Taken: {from} – {until}', { from: v.from || '…', until: v.until || '…' }), drop: { from: '', until: '' } });
+        if (v.models !== null) out.push({ label: some(t('Camera'), v.models, plainExif), drop: { models: null } });
+        if (v.lenses !== null) out.push({ label: some(t('Lens'), v.lenses, plainExif), drop: { lenses: null } });
+        for (const name of v.people) out.push({ label: t('Person: {name}', { name: name }), drop: { people: v.people.filter(n => n !== name) } });
+        for (const thing of v.things) out.push({ label: t('Thing: {name}', { name: ThingWords.name(thing) }), drop: { things: v.things.filter(x => x !== thing) } });
         return out;
     }
 
@@ -318,7 +318,7 @@ class ScopeFilter {
         const chips = this.el.querySelector('.scope-filter-chips');
         chips.innerHTML = '';
         for (const c of conditions) {
-            chips.appendChild(this._chip(c.label, `Drop "${c.label}"`, () => {
+            chips.appendChild(this._chip(c.label, t('Drop "{label}"', { label: c.label }), () => {
                 ScopeState.set(c.drop);
                 this.sync();
             }));
@@ -330,12 +330,12 @@ class ScopeFilter {
 // totals as /api/library/things gives them, most photos first.
 function thingOptionsHTML(totals) {
     const byKind = new Map();
-    for (const t of totals) {
-        const kind = t.category || 'Other';
+    for (const w of totals) {
+        const kind = ThingWords.kind(w.thing) || w.category || t('Other');
         if (!byKind.has(kind)) byKind.set(kind, []);
-        byKind.get(kind).push(t);
+        byKind.get(kind).push(w);
     }
-    return [...byKind.keys()].sort().map(kind => `<optgroup label="${escapeHtml(kind)}">`
-        + byKind.get(kind).map(t => `<option value="${escapeHtml(t.thing)}">${escapeHtml(t.thing)} · ${countText(t.photos, 'photo', 'photos')}</option>`).join('')
+    return [...byKind.keys()].sort((a, b) => a.localeCompare(b, I18n.lang)).map(kind => `<optgroup label="${escapeHtml(kind)}">`
+        + byKind.get(kind).map(w => `<option value="${escapeHtml(w.thing)}">${escapeHtml(ThingWords.name(w.thing))} · ${countText(w.photos, 'photo', 'photos')}</option>`).join('')
         + '</optgroup>').join('');
 }

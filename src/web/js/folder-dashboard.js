@@ -26,7 +26,7 @@ class FolderDashboard {
         contRows.push(this.panel.row('Total size', formatSize(d.totalSize)));
         contRows.push(this.panel.row('Files', formatCount(d.fileCount)));
         contRows.push(this.panel.row('Subfolders', formatCount(d.dirCount)));
-        contRows.push(this.panel.row('Max depth', d.maxDepth + (d.maxDepth === 1 ? ' level' : ' levels')));
+        contRows.push(this.panel.row('Max depth', d.maxDepth === 1 ? t('1 level') : t('{n} levels', { n: d.maxDepth })));
         sections.push(this.panel.section('Contents', contRows));
 
         // Size map (treemap)
@@ -274,7 +274,7 @@ class FolderDashboard {
                 const pct = Math.round((cl.count / max) * 100);
                 // EXIF values come quoted from the index; a camera without a
                 // lens (a phone, a compact) is named alone.
-                const cam = this.panel.stripQuotes(cl.camera) || 'Unknown';
+                const cam = this.panel.stripQuotes(cl.camera) || t('Unknown');
                 const lens = this.panel.stripQuotes(cl.lens);
                 const label = cam + (lens && lens !== '(no lens)' ? ' / ' + lens : '');
                 return `<div class="folder-cam-item">` +

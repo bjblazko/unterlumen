@@ -12,48 +12,48 @@
 const STATS_TOPICS = [
     {
         id: 'equipment',
-        label: 'Equipment',
-        blurb: 'Cameras, lenses, file formats and film simulations, and how their use changed.',
+        label: t('Equipment'),
+        blurb: t('Cameras, lenses, file formats and film simulations, and how their use changed.'),
         charts: [
-            { title: 'Camera and lens', source: 'snap', full: true,
+            { title: t('Camera and lens'), source: 'snap', full: true,
               render: (el, d, pick) => renderCameraLensTreemap(el, d.snap.cameraLens, d.snap.totalPhotos, v => pick(cameraCriterion(v))) },
-            { title: 'Camera usage', subtitle: 'Photos per camera and period', source: 'tl', full: true,
+            { title: t('Camera usage'), subtitle: t('Photos per camera and period'), source: 'tl', full: true,
               render: (el, d, pick) => renderCameraLines(el, d.tl, v => pick(v.camera
                   ? { subject: `${v.camera} · ${v.period}`, params: { Model: v.camera, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
-            { title: 'Film simulation', source: 'snap', full: true,
+            { title: t('Film simulation'), source: 'snap', full: true,
               when: d => d.snap.filmSims?.some(s => s.name !== 'None'),
               render: (el, d, pick) => renderFilmSimBar(el, d.snap.filmSims, f => pick({ subject: f, params: { FilmSimulation: f } })) },
-            { title: 'Resolution', subtitle: 'Largest and average megapixels per period', source: 'tl', full: true,
+            { title: t('Resolution'), subtitle: t('Largest and average megapixels per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderMegapixelTimeline(el, d.tl, v => pick(periodCriterion(v))) },
-            { title: 'Format', source: 'snap',
+            { title: t('Format'), source: 'snap',
               render: (el, d, pick) => renderFormatDonut(el, d.snap.formats, f => pick({ subject: f.toUpperCase(), params: { ext: f } })) },
         ],
     },
     {
         id: 'exposure',
-        label: 'Exposure',
-        blurb: 'Focal lengths, apertures and ISO: every photo in the space of settings, coloured by camera, and how they drifted over time.',
+        label: t('Exposure'),
+        blurb: t('Focal lengths, apertures and ISO: every photo in the space of settings, coloured by camera, and how they drifted over time.'),
         charts: [
-            { title: 'Exposure space', subtitle: 'Focal length, aperture and ISO of each photo, in stops and coloured by camera, with a trail through the median settings of each period', source: 'exposureSpace', full: true, stage: true,
+            { title: t('Exposure space'), subtitle: t('Focal length, aperture and ISO of each photo, in stops and coloured by camera, with a trail through the median settings of each period'), source: 'exposureSpace', full: true, stage: true,
               preview: (el, d) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, null, { preview: true }),
               render: (el, d, pick) => renderExposureSpace(el, d.exposureSpace, d.snap.totalPhotos, v => pick(v.photo
                   ? photoCriterion(v.photo)
-                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
-            { title: 'Focal length', source: 'snap', full: true, coverage: d => d.snap.focalLengths,
+                  : { subject: t('All photos · {period}', { period: v.step.period }), params: periodDates(v.step.period) })) },
+            { title: t('Focal length'), source: 'snap', full: true, coverage: d => d.snap.focalLengths,
               render: (el, d, pick) => renderFocalHistogram(el, expandValues(d.snap.focalLengths), expandValues(d.snap.focalLengths35),
                   v => pick({ subject: `${v.min}–${v.max} mm${v.field === 'FocalLength35' ? ' (35 mm)' : ''}`, params: binRange(v.field, v) })) },
-            { title: 'Aperture', source: 'snap', coverage: d => d.snap.apertures,
+            { title: t('Aperture'), source: 'snap', coverage: d => d.snap.apertures,
               render: (el, d, pick) => renderApertureHistogram(el, expandValues(d.snap.apertures),
                   v => pick({ subject: `f/${v.min} – f/${v.max}`, params: binRange('FNumber', v) })) },
-            { title: 'ISO', source: 'snap', coverage: d => d.snap.isos,
+            { title: t('ISO'), source: 'snap', coverage: d => d.snap.isos,
               render: (el, d, pick) => renderISOHistogram(el, expandValues(d.snap.isos),
                   v => pick({ subject: `ISO ${v.min} – ${v.max}`, params: binRange('ISOSpeedRatings', v) })) },
-            { title: 'Focal length over time', subtitle: 'Median 35 mm equivalent, with the middle half of all photos as a band', source: 'tl', full: true,
+            { title: t('Focal length over time'), subtitle: t('Median 35 mm equivalent, with the middle half of all photos as a band'), source: 'tl', full: true,
               render: (el, d, pick) => renderFocalDrift(el, d.tl, v => pick(periodCriterion(v))) },
-            { title: 'ISO over time', subtitle: 'Median ISO per period', source: 'tl', full: true,
+            { title: t('ISO over time'), subtitle: t('Median ISO per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderISOEvolution(el, d.tl, v => pick(periodCriterion(v))) },
-            { title: 'Aperture over time', subtitle: 'Share of each f-stop per period', source: 'tl', full: true,
+            { title: t('Aperture over time'), subtitle: t('Share of each f-stop per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderApertureHeat(el, d.tl, v => pick({
                   subject: `${v.bucket} · ${v.period}`,
                   params: { ...apertureBucketRange(v.bucket), ...periodDates(v.period) },
@@ -62,20 +62,20 @@ const STATS_TOPICS = [
     },
     {
         id: 'time',
-        label: 'Time',
-        blurb: 'The hours and days on which the photos were taken, and in what light.',
+        label: t('Time'),
+        blurb: t('The hours and days on which the photos were taken, and in what light.'),
         charts: [
-            { title: 'Daylight', subtitle: 'Day of the year around, hour outward, brightness up; each photo in its main colour, with a trail through the months of the year', source: 'colourSpace', periods: false, full: true, stage: true,
+            { title: t('Daylight'), subtitle: t('Day of the year around, hour outward, brightness up; each photo in its main colour, with a trail through the months of the year'), source: 'colourSpace', periods: false, full: true, stage: true,
               preview: (el, d) => renderDaylight(el, d.colourSpace, null, { preview: true }),
               render: (el, d, pick) => renderDaylight(el, d.colourSpace, v => pick(v.photo
                   ? photoCriterion(v.photo)
-                  : { subject: `${MONTHS[v.month - 1]} · all years`, params: { month: v.month } })) },
-            { title: 'Time of day', source: 'snap',
+                  : { subject: t('{month} · all years', { month: MONTHS[v.month - 1] }), params: { month: v.month } })) },
+            { title: t('Time of day'), source: 'snap',
               render: (el, d, pick) => renderShootingClock(el, d.snap.shootingHours, h => pick({
                   subject: `${String(h).padStart(2, '0')}:00 – ${String(h + 1).padStart(2, '0')}:00`,
                   params: { hour: h },
               })) },
-            { title: 'Shooting calendar', source: 'snap', full: true,
+            { title: t('Shooting calendar'), source: 'snap', full: true,
               render: (el, d, pick) => renderCalendarHeatmap(el, d.snap.shootingDays, day => pick({
                   subject: day, params: { date_taken_min: day, date_taken_max: day },
               })) },
@@ -83,10 +83,10 @@ const STATS_TOPICS = [
     },
     {
         id: 'frame',
-        label: 'Frame',
-        blurb: 'The shape of the pictures, and how it changed.',
+        label: t('Frame'),
+        blurb: t('The shape of the pictures, and how it changed.'),
         charts: [
-            { title: 'Aspect ratio', subtitle: 'Share of each frame shape per period', source: 'tl', full: true,
+            { title: t('Aspect ratio'), subtitle: t('Share of each frame shape per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderAspectLines(el, d.tl, v => pick(v.aspect
                   ? { subject: `${v.aspect} · ${v.period}`, params: { aspect: v.aspect, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
@@ -94,49 +94,49 @@ const STATS_TOPICS = [
     },
     {
         id: 'colour',
-        label: 'Colour',
-        blurb: 'Every photo at its main colour and by its character, black and white or colour, the main colours, and warm against cool through the year.',
+        label: t('Colour'),
+        blurb: t('Every photo at its main colour and by its character, black and white or colour, the main colours, and warm against cool through the year.'),
         charts: [
-            { title: 'Colour space', subtitle: 'Each photo at its main colour in OKLab, with a trail through the mean colour of each period', source: 'colourSpace', full: true, stage: true,
+            { title: t('Colour space'), subtitle: t('Each photo at its main colour in OKLab, with a trail through the mean colour of each period'), source: 'colourSpace', full: true, stage: true,
               preview: (el, d) => renderColourSpace(el, d.colourSpace, null, { preview: true }),
               render: (el, d, pick) => renderColourSpace(el, d.colourSpace, v => pick(v.photo
                   ? photoCriterion(v.photo)
-                  : { subject: `Colour photos · ${v.step.period}`, params: { mono: 'colour', ...periodDates(v.step.period) } })) },
-            { title: 'Character', subtitle: 'Brightness across, contrast in depth, colourfulness up; each photo in its main colour, with a trail through the average of each period', source: 'colourSpace', full: true, stage: true,
+                  : { subject: t('Colour photos · {period}', { period: v.step.period }), params: { mono: 'colour', ...periodDates(v.step.period) } })) },
+            { title: t('Character'), subtitle: t('Brightness across, contrast in depth, colourfulness up; each photo in its main colour, with a trail through the average of each period'), source: 'colourSpace', full: true, stage: true,
               preview: (el, d) => renderCharacter(el, d.colourSpace, null, { preview: true }),
               render: (el, d, pick) => renderCharacter(el, d.colourSpace, v => pick(v.photo
                   ? photoCriterion(v.photo)
-                  : { subject: `All photos · ${v.step.period}`, params: periodDates(v.step.period) })) },
-            { title: 'Black and white', subtitle: 'Share of black-and-white, toned and colour photos per period', source: 'colour', full: true,
+                  : { subject: t('All photos · {period}', { period: v.step.period }), params: periodDates(v.step.period) })) },
+            { title: t('Black and white'), subtitle: t('Share of black-and-white, toned and colour photos per period'), source: 'colour', full: true,
               render: (el, d, pick) => renderColourClasses(el, d.colour, v => pick(v.cls
                   ? { subject: `${v.name} · ${v.period}`, params: { mono: v.cls, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
-            { title: 'Colour of each period', subtitle: 'The average hue of the colour photos\' main colours, at their most colourful', source: 'colour', full: true,
+            { title: t('Colour of each period'), subtitle: t('The average hue of the colour photos\' main colours, at their most colourful'), source: 'colour', full: true,
               render: (el, d, pick) => renderColourStrip(el, d.colour, v => pick({
-                  subject: `Colour photos · ${v.period}`, params: { mono: 'colour', ...periodDates(v.period) },
+                  subject: t('Colour photos · {period}', { period: v.period }), params: { mono: 'colour', ...periodDates(v.period) },
               })) },
-            { title: 'Main colours', subtitle: 'Part of the colour photos\' area in each hue; each hue at its most colourful', source: 'colour',
+            { title: t('Main colours'), subtitle: t('Part of the colour photos\' area in each hue; each hue at its most colourful'), source: 'colour',
               render: (el, d, pick) => renderHueWheel(el, d.colour, bin => pick({
                   subject: `${capitalise(hueName(bin))} · at least ${HUE_SHARE_MIN_PERCENT} % of the frame`,
                   params: { mono: 'colour', hue_bin: bin },
               })) },
-            { title: 'Colour combinations', subtitle: `Photos with each colour of a well-known combination, each at least ${COMBO_SHARE_MIN_PERCENT} % of the frame`, source: 'colour',
+            { title: t('Colour combinations'), subtitle: t('Photos with each colour of a well-known combination, each at least {COMBO_SHARE_MIN_PERCENT} % of the frame', { COMBO_SHARE_MIN_PERCENT: COMBO_SHARE_MIN_PERCENT }), source: 'colour',
               render: (el, d, pick) => renderColourCombos(el, d.colour, hues => pick(comboCriterion(hues))) },
-            { title: 'Your combination', subtitle: 'Choose two or three colours on the wheel to count and show their photos', source: 'colour', full: true,
+            { title: t('Your combination'), subtitle: t('Choose two or three colours on the wheel to count and show their photos'), source: 'colour', full: true,
               render: (el, d, pick) => renderComboPicker(el, d.colour, hues => pick(comboCriterion(hues))) },
-            { title: 'Warm and cool through the year', subtitle: 'Share of warm and of cool colour photos per month, in their warm or cool colours', source: 'colour', full: true,
+            { title: t('Warm and cool through the year'), subtitle: t('Share of warm and of cool colour photos per month, in their warm or cool colours'), source: 'colour', full: true,
               render: (el, d, pick) => renderWarmCool(el, d.colour, b => pick({
-                  subject: `${b.warmth === 'warm' ? 'Warm' : 'Cool'} · ${MONTHS[b.month - 1]}${b.year ? ' ' + b.year : ''}`,
+                  subject: `${b.warmth === 'warm' ? t('Warm') : t('Cool')} · ${MONTHS[b.month - 1]}${b.year ? ' ' + b.year : ''}`,
                   params: { mono: 'colour', warmth: b.warmth, month: b.month, ...(b.year ? periodDates(b.year) : {}) },
               })) },
         ],
     },
     {
         id: 'places',
-        label: 'Places',
-        blurb: 'Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world.',
+        label: t('Places'),
+        blurb: t('Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world.'),
         charts: [
-            { title: 'Space and time', subtitle: 'Where on the floor, around the middle of your photos with distance on a log scale, wider beyond 1,000 km; when, upward; a trail through the days', source: 'spaceTime', periods: false, full: true, stage: true,
+            { title: t('Space and time'), subtitle: t('Where on the floor, around the middle of your photos with distance on a log scale, wider beyond 1,000 km; when, upward; a trail through the days'), source: 'spaceTime', periods: false, full: true, stage: true,
               preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
               render: (el, d, pick) => renderSpaceTime(el, d.spaceTime, v => pick(v.photo
                   ? photoCriterion(v.photo)
@@ -145,34 +145,34 @@ const STATS_TOPICS = [
     },
     {
         id: 'people',
-        label: 'People',
-        blurb: 'Who is in the photos, when and with whom, how many faces a photo holds, and every face placed by what it looks like.',
+        label: t('People'),
+        blurb: t('Who is in the photos, when and with whom, how many faces a photo holds, and every face placed by what it looks like.'),
         charts: [
-            { title: 'Who appears most', subtitle: 'Photos per named person', source: 'people', full: true,
+            { title: t('Who appears most'), subtitle: t('Photos per named person'), source: 'people', full: true,
               render: (el, d, pick) => renderPeopleBars(el, d.people, name => pick(personCriterion(name))) },
-            { title: 'People over time', subtitle: 'Photos per period of the people compared, or of the eight with the most photos', source: 'people', full: true,
+            { title: t('People over time'), subtitle: t('Photos per period of the people compared, or of the eight with the most photos'), source: 'people', full: true,
               render: (el, d, pick) => renderPeopleLines(el, d.people, v => pick(v.person
                   ? { subject: `${v.person} · ${v.period}`, params: { person: v.person, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
-            { title: 'Photos by age', subtitle: 'Photos per year of life of the people with a birthday', source: 'people', periods: false, full: true,
+            { title: t('Photos by age'), subtitle: t('Photos per year of life of the people with a birthday'), source: 'people', periods: false, full: true,
               render: (el, d, pick) => renderPeopleAges(el, d.people, v => pick({ subject: `${v.person}, ${ageText(v.age)}`, params: { person: v.person, ...ageDates(v.birth, v.age) } })) },
-            { title: 'Who with whom', subtitle: 'Photos two people share, of the people compared, or of the twelve with the most photos', source: 'people', periods: false,
+            { title: t('Who with whom'), subtitle: t('Photos two people share, of the people compared, or of the twelve with the most photos'), source: 'people', periods: false,
               render: (el, d, pick) => renderPeopleMatrix(el, d.people, v => pick({ subject: `${v.a} and ${v.b}`, params: { person: [v.a, v.b] } })) },
-            { title: 'Alone or in a group', subtitle: 'Photos by the faces found in them, named or not', source: 'people', periods: false,
+            { title: t('Alone or in a group'), subtitle: t('Photos by the faces found in them, named or not'), source: 'people', periods: false,
               render: (el, d, pick) => renderCrowdBars(el, d.people, b => pick({ subject: b.label, params: crowdParams(b) })) },
-            { title: 'Faces per photo over time', subtitle: 'Share of each number of faces per period', source: 'people', full: true,
+            { title: t('Faces per photo over time'), subtitle: t('Share of each number of faces per period'), source: 'people', full: true,
               render: (el, d, pick) => renderCrowdLines(el, d.people, v => pick(v.bucket
                   ? { subject: `${v.bucket.label} · ${v.period}`, params: { ...crowdParams(v.bucket), ...periodDates(v.period) } }
                   : periodCriterion(v))) },
-            { title: 'Face space', subtitle: 'Every face placed by what it looks like, in the colour of its person; the middle of each person as a larger light', source: 'people', periods: false, full: true, stage: true,
+            { title: t('Face space'), subtitle: t('Every face placed by what it looks like, in the colour of its person; the middle of each person as a larger light'), source: 'people', periods: false, full: true, stage: true,
               preview: (el, d) => renderFaceSpace(el, d.people, null, { preview: true }),
               render: (el, d, pick) => renderFaceSpace(el, d.people, v => pick(v.person ? personCriterion(v.person) : photoCriterion(v.photo))) },
-            { title: 'Circle of people', subtitle: 'People drawn together by the photos they share, with their photos around them', source: 'people', periods: false, full: true, stage: true,
+            { title: t('Circle of people'), subtitle: t('People drawn together by the photos they share, with their photos around them'), source: 'people', periods: false, full: true, stage: true,
               preview: (el, d) => renderPeopleCircle(el, d.people, null, { preview: true }),
               render: (el, d, pick) => renderPeopleCircle(el, d.people, v => pick(
                   v.pair ? { subject: v.pair.join(' and '), params: { person: v.pair } }
                       : v.person ? personCriterion(v.person) : photoCriterion(v.photo))) },
-            { title: 'Life lines', subtitle: 'Time across, a lane for each of the people compared, or of the eight with the most photos, as high as their photos per period', source: 'people', full: true, stage: true,
+            { title: t('Life lines'), subtitle: t('Time across, a lane for each of the people compared, or of the eight with the most photos, as high as their photos per period'), source: 'people', full: true, stage: true,
               preview: (el, d) => renderLifeLines(el, d.people, null, { preview: true }),
               render: (el, d, pick) => renderLifeLines(el, d.people, v => pick(v.person
                   ? { subject: `${v.person} · ${v.period}`, params: { person: v.person, ...periodDates(v.period) } }
@@ -181,18 +181,18 @@ const STATS_TOPICS = [
     },
     {
         id: 'things',
-        label: 'Things',
-        blurb: 'Animals, objects and scenes found in the photos: which come most often, how that changed, which come together, and how many photos are blurred, too dark or too bright.',
+        label: t('Things'),
+        blurb: t('Animals, objects and scenes found in the photos: which come most often, how that changed, which come together, and how many photos are blurred, too dark or too bright.'),
         charts: [
-            { title: 'Things met most', subtitle: 'Photos per thing found', source: 'things', full: true,
+            { title: t('Things met most'), subtitle: t('Photos per thing found'), source: 'things', full: true,
               render: (el, d, pick) => renderThingsBars(el, d.things, name => pick(thingCriterion(name))) },
-            { title: 'Things over time', subtitle: 'Photos per period of the eight things with the most photos', source: 'things', full: true,
+            { title: t('Things over time'), subtitle: t('Photos per period of the eight things with the most photos'), source: 'things', full: true,
               render: (el, d, pick) => renderThingsLines(el, d.things, v => pick(v.person
                   ? { subject: `${v.person} · ${v.period}`, params: { thing: v.person, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
-            { title: 'Things together', subtitle: 'Photos two things share, of the twelve with the most photos', source: 'things', periods: false, full: true,
+            { title: t('Things together'), subtitle: t('Photos two things share, of the twelve with the most photos'), source: 'things', periods: false, full: true,
               render: (el, d, pick) => renderThingsMatrix(el, d.things, v => pick({ subject: `${v.a} and ${v.b}`, params: { thing: [v.a, v.b] } })) },
-            { title: 'Photo quality over time', subtitle: 'Photos per period that are blurred, underexposed or overexposed: where to look when sorting out', source: 'things', full: true,
+            { title: t('Photo quality over time'), subtitle: t('Photos per period that are blurred, underexposed or overexposed: where to look when sorting out'), source: 'things', full: true,
               render: (el, d, pick) => renderThingsQuality(el, d.things, v => pick(v.person
                   ? { subject: `${v.person} · ${v.period}`, params: { thing: v.person, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
@@ -230,7 +230,7 @@ function cameraCriterion({ camera, lens }) {
 
 // One photo, picked as a light on a 3D stage.
 function photoCriterion({ id, date }) {
-    return { subject: `One photo · ${date ? date.slice(0, 10) : 'no date'}`, params: { photo_id: id } };
+    return { subject: t('One photo · {date}', { date: date ? date.slice(0, 10) : t('no date') }), params: { photo_id: id } };
 }
 
 function periodCriterion({ period }) {

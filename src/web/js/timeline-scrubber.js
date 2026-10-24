@@ -13,7 +13,7 @@ class TimelineScrubber {
         this.el.className = 'timeline-scrubber';
         this.el.tabIndex = 0;
         this.el.setAttribute('role', 'slider');
-        this.el.setAttribute('aria-label', 'Jump to a date');
+        this.el.setAttribute('aria-label', t('Jump to a date'));
         this.canvas = document.createElement('canvas');
         this.thumb = document.createElement('div');
         this.thumb.className = 'timeline-scrubber-thumb';

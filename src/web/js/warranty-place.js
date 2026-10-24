@@ -53,8 +53,8 @@ const WarrantyNotice = {
         el.className = 'warranty-notice';
         el.setAttribute('role', 'note');
         el.innerHTML = `
-            <p><strong>Unterlumen changes your files when you tell it to</strong> — it deletes, moves, renames and writes into photos. It comes without any warranty. Keep a backup of your photos. ${placeLink('warranty', 'warranty', 'No warranty')}</p>
-            <button type="button" class="btn btn-sm">Understood</button>`;
+            <p><strong>${t('Unterlumen changes your files when you tell it to')}</strong> ${t('— it deletes, moves, renames and writes into photos. It comes without any warranty. Keep a backup of your photos.')} ${placeLink('warranty', 'warranty', t('No warranty'))}</p>
+            <button type="button" class="btn btn-sm">${t('Understood')}</button>`;
         el.querySelector('button').addEventListener('click', () => {
             try { localStorage.setItem(WARRANTY_NOTICE_KEY, '1'); } catch { /* shown again next time */ }
             el.remove();

@@ -28,14 +28,14 @@ class OrganizePane {
         this.container.innerHTML = `
             <div class="organize">
                 ${placeHeaderHTML({
-                    title: 'Organize',
+                    title: t('Organize'),
                     meta: '<span class="organize-path mono" id="org-path"></span> <span class="organize-session num" id="org-session"></span>',
-                    actions: '<button class="btn btn-sm" id="org-change">Change folder…</button>',
-                    lede: placeLede('Sort one folder into others: select photos and press a target’s number to move them there. The files move on disk.'),
+                    actions: '<button class="btn btn-sm" id="org-change">' + t('Change folder…') + '</button>',
+                    lede: placeLede(t('Sort one folder into others: select photos and press a target’s number to move them there. The files move on disk.')),
                 })}
                 <div class="organize-body">
                     <div class="organize-source" id="org-source"></div>
-                    <aside class="organize-targets" id="org-targets" aria-label="Targets"></aside>
+                    <aside class="organize-targets" id="org-targets" aria-label="${t('Targets')}"></aside>
                 </div>
                 <div class="organize-result" id="org-result" hidden></div>
             </div>`;
@@ -89,7 +89,7 @@ class OrganizePane {
     }
 
     async _changeFolder() {
-        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to sort' });
+        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to sort') });
         if (picked === null) return;
         this.load(picked);
     }
@@ -98,39 +98,39 @@ class OrganizePane {
 
     _renderTargets() {
         const el = this.container.querySelector('#org-targets');
-        const rows = this.targets.map((t, i) => {
+        const rows = this.targets.map((target, i) => {
             const key = i < 9 ? String(i + 1) : '';
-            const name = targetName(t.path);
-            const where = shortenPath(t.path);
+            const name = targetName(target.path);
+            const where = shortenPath(target.path);
             return `
-            <button class="org-target${t.missing ? ' org-target--missing' : ''}" data-target="${i}" aria-current="${i === this.current}">
+            <button class="org-target${target.missing ? ' org-target--missing' : ''}" data-target="${i}" aria-current="${i === this.current}">
                 <span class="org-target-name">${escapeHtml(name)}</span>
-                <span class="org-target-path mono" title="${escapeHtml(t.path)}">${escapeHtml(where)}</span>
-                ${t.missing ? '<span class="org-target-note">This folder is not there any more.</span>' : ''}
-                ${t.moved ? `<span class="org-target-note num">${t.moved} in this session</span>` : ''}
+                <span class="org-target-path mono" title="${escapeHtml(target.path)}">${escapeHtml(where)}</span>
+                ${target.missing ? `<span class="org-target-note">${t('This folder is not there any more.')}</span>` : ''}
+                ${target.moved ? `<span class="org-target-note num">${t('{n} in this session', { n: formatCount(target.moved) })}</span>` : ''}
                 ${key ? `<span class="key">${key}</span>` : ''}
             </button>`;
         }).join('');
 
         const markKey = this.targets.length < 9 ? String(this.targets.length + 1) : '';
         el.innerHTML = `
-            <p class="section-title">Targets</p>
+            <p class="section-title">${t('Targets')}</p>
             ${rows}
             <button class="org-target org-target--mark" data-target="mark" aria-current="${this.current === 'mark'}">
-                <span class="org-target-name">Mark for deletion</span>
-                <span class="org-target-path">To the waste bin, not off the disk</span>
+                <span class="org-target-name">${t('Mark for deletion')}</span>
+                <span class="org-target-path">${t('To the waste bin, not off the disk')}</span>
                 ${markKey ? `<span class="key">${markKey}</span>` : ''}
             </button>
             <div class="org-target-actions">
-                <button class="btn btn-sm" data-org="add">Add target…</button>
+                <button class="btn btn-sm" data-org="add">${t('Add target…')}</button>
             </div>
             <ul class="org-keys">
-                <li><span class="key">Space</span> selects the photo in focus</li>
+                <li><span class="key">${t('Space')}</span> selects the photo in focus</li>
                 <li><span class="key">1</span>–<span class="key">9</span> move the selection to that target; hold <span class="key">⌥</span> to copy</li>
-                <li><span class="key">Enter</span> sends it to the orange one</li>
+                <li><span class="key">${t('Enter')}</span> sends it to the orange one</li>
                 <li><span class="key">U</span> undoes the last move</li>
             </ul>
-            ${this.targets.some(t => t.missing) ? '<button class="btn btn-sm" data-org="forget">Forget the missing folders</button>' : ''}`;
+            ${this.targets.some(x => x.missing) ? `<button class="btn btn-sm" data-org="forget">${t('Forget the missing folders')}</button>` : ''}`;
     }
 
     _onTargetClick(e) {
@@ -148,7 +148,7 @@ class OrganizePane {
     }
 
     async _addTarget() {
-        const picked = await new FolderPicker().open(this.pane.path, { title: 'Folder to add as a target', create: true });
+        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
             this._say(`${targetName(picked)} is already a target.`);
@@ -185,7 +185,7 @@ class OrganizePane {
             return;
         }
         if (dirs.length) {
-            this._say('Folders can only go to "Mark for deletion"; photos go to any target.', 'error');
+            this._say(t('Folders can only go to "Mark for deletion"; photos go to any target.'), 'error');
             return;
         }
         await this._moveFiles(index, files, copy);
@@ -208,12 +208,12 @@ class OrganizePane {
     async _moveFiles(index, files, copy) {
         const target = this.targets[index];
         const name = targetName(target.path);
-        this._say(`${copy ? 'Copying' : 'Moving'} ${countLabel(files.length)} to ${name}…`);
+        this._say(copy ? t('Copying {photos} to {name}…', { photos: countLabel(files.length), name }) : t('Moving {photos} to {name}…', { photos: countLabel(files.length), name }));
         let result;
         try {
             result = copy ? await API.copy(files, target.path) : await API.move(files, target.path);
         } catch (err) {
-            this._say(`Could not reach ${name}: ${err.message}`, 'error');
+            this._say(t('Could not reach {name}: {err}', { name: name, err: err.message }), 'error');
             return;
         }
 
@@ -223,7 +223,7 @@ class OrganizePane {
         if (!moved.length) {
             target.missing = failures.length > 0;
             this._renderTargets();
-            this._say(`Nothing went to ${name}: ${failures.map(f => f.error).join(', ')}`, 'error');
+            this._say(t('Nothing went to {name}: {errors}', { name, errors: failures.map(f => f.error).join(', ') }), 'error');
             return;
         }
 
@@ -258,7 +258,7 @@ class OrganizePane {
             this._renderPath();
             return;
         }
-        this._say(`Moving ${countLabel(u.paths.length)} back from ${u.name}…`);
+        this._say(t('Moving {paths} back from {name}…', { paths: countLabel(u.paths.length), name: u.name }));
         try {
             await API.move(u.paths, u.back);
             this._sorted = Math.max(0, this._sorted - u.paths.length);
@@ -269,7 +269,7 @@ class OrganizePane {
             this._renderPath();
             this._say(`${countLabel(u.paths.length)} moved back from ${u.name}.`);
         } catch (err) {
-            this._say(`Could not move them back: ${err.message}`, 'error');
+            this._say(t('Could not move them back: {err}', { err: err.message }), 'error');
         }
     }
 
@@ -283,7 +283,7 @@ class OrganizePane {
         el.hidden = !message;
         el.className = `organize-result${kind === 'error' ? ' organize-result--problem' : ''}`;
         el.innerHTML = message
-            ? `<span>${escapeHtml(message)}</span>${this._undo ? '<button class="btn btn-sm" id="org-undo">Undo <span class="key">U</span></button>' : ''}`
+            ? `<span>${escapeHtml(message)}</span>${this._undo ? '<button class="btn btn-sm" id="org-undo">' + t('Undo ') + '<span class="key">U</span></button>' : ''}`
             : '';
         el.querySelector('#org-undo')?.addEventListener('click', () => this.undo());
     }

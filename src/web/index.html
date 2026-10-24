@@ -12,8 +12,10 @@
     <meta name="theme-color" content="#F4F4F0" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#161718" media="(prefers-color-scheme: dark)">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
+    <script src="/i18n/de.js?v=1"></script>
+    <script src="/js/i18n.js?v=1"></script>
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=79">
+    <link rel="stylesheet" href="/css/style.css?v=80">
     <link rel="stylesheet" href="/css/timeline.css?v=5">
     <link rel="stylesheet" href="/css/people.css?v=19">
     <link rel="stylesheet" href="/css/things.css?v=1">
@@ -29,9 +31,9 @@
 </head>
 <body>
     <div class="shell">
-        <nav class="sidebar" id="sidebar" aria-label="Main">
+        <nav class="sidebar" id="sidebar" aria-label="Main" data-i18n-attr="aria-label">
             <div class="brand">
-                <span class="brand-left" id="about-trigger" role="button" tabindex="0" title="About Unterlumen">
+                <span class="brand-left" id="about-trigger" role="button" tabindex="0" title="About Unterlumen" data-i18n-attr="title">
                     <svg class="brand-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <rect x="0" y="0" width="25" height="4" fill="currentColor"/>
                         <rect x="26" y="0" width="10" height="4" fill="currentColor" fill-opacity="0.3"/>
@@ -39,7 +41,7 @@
                     </svg>
                     <span class="brand-name">Unterlumen</span>
                 </span>
-                <button class="collapse-btn" id="sidebar-collapse" aria-expanded="true" aria-controls="sidebar" aria-label="Collapse sidebar" title="Collapse sidebar (\)">
+                <button class="collapse-btn" id="sidebar-collapse" aria-expanded="true" aria-controls="sidebar" aria-label="Collapse sidebar" title="Collapse sidebar (\)" data-i18n-attr="aria-label title">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <rect x="1.5" y="2.5" width="13" height="11"/><path d="M5.5 2.5v11"/>
                         <path class="collapse-chevron" d="M11 6l-2 2 2 2"/>
@@ -48,81 +50,81 @@
             </div>
 
             <div class="nav-group">
-                <div class="nav-label">Cull</div>
+                <div class="nav-label" data-i18n>Cull</div>
                 <a class="nav-item" id="mode-browse" href="#folders" data-mode="browse">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
                         <path d="M1.5 4.5v8h13v-7H7.5L6 4H1.5z"/>
                     </svg>
-                    <span class="nav-text">Folders</span>
+                    <span class="nav-text" data-i18n>Folders</span>
                 </a>
                 <a class="nav-item" id="mode-wastebin" href="#marked" data-mode="wastebin">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                         <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"/>
                     </svg>
-                    <span class="nav-text">Marked for deletion</span>
+                    <span class="nav-text" data-i18n>Marked for deletion</span>
                     <span class="nav-count" id="wastebin-count"></span>
                 </a>
                 <a class="nav-item" id="mode-organize" href="#organize" data-mode="organize">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <rect x="1.5" y="2.5" width="5.5" height="11"/><rect x="9" y="2.5" width="5.5" height="11"/>
                     </svg>
-                    <span class="nav-text">Organize</span>
+                    <span class="nav-text" data-i18n>Organize</span>
                 </a>
             </div>
 
             <div class="nav-group" id="nav-catalog">
-                <div class="nav-label">Catalog</div>
+                <div class="nav-label" data-i18n>Catalog</div>
                 <a class="nav-item" id="mode-library" href="#libraries" data-mode="library">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 6h13M5.5 6v7.5"/>
                     </svg>
-                    <span class="nav-text">Libraries</span>
+                    <span class="nav-text" data-i18n>Libraries</span>
                 </a>
                 <div id="nav-libraries"></div>
             </div>
 
             <div class="nav-group">
-                <div class="nav-label">Explore</div>
+                <div class="nav-label" data-i18n>Explore</div>
                 <a class="nav-item" id="mode-map" href="#map" data-mode="map">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
                         <path d="M8 14.5s-4.5-4.6-4.5-8a4.5 4.5 0 0 1 9 0c0 3.4-4.5 8-4.5 8z"/><circle cx="8" cy="6.5" r="1.5"/>
                     </svg>
-                    <span class="nav-text">Map</span>
+                    <span class="nav-text" data-i18n>Map</span>
                 </a>
                 <a class="nav-item" id="mode-timeline" href="#timeline" data-mode="timeline">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                         <rect x="1.5" y="3" width="13" height="11.5"/><path d="M1.5 6.5h13M5 1.5V4.5M11 1.5V4.5M4.5 9.5h2M9.5 9.5h2M4.5 12h2"/>
                     </svg>
-                    <span class="nav-text">Timeline</span>
+                    <span class="nav-text" data-i18n>Timeline</span>
                 </a>
                 <a class="nav-item" id="mode-people" href="#people" data-mode="people">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                         <circle cx="8" cy="5.5" r="3"/><path d="M2.5 14.5c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/>
                     </svg>
-                    <span class="nav-text">People</span>
+                    <span class="nav-text" data-i18n>People</span>
                 </a>
                 <a class="nav-item" id="mode-statistics" href="#statistics" data-mode="statistics">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M1.5 1.5v13h13"/><path d="M4 11l3-4 2.5 2.5L14 4"/>
                     </svg>
-                    <span class="nav-text">Statistics</span>
+                    <span class="nav-text" data-i18n>Statistics</span>
                 </a>
                 <div id="nav-statistics"></div>
             </div>
 
             <div class="nav-group">
-                <div class="nav-label">Publish</div>
+                <div class="nav-label" data-i18n>Publish</div>
                 <a class="nav-item" id="mode-published" href="#galleries" data-mode="published">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
                         <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 11l4-4 3 3 2-2 4 4"/>
                     </svg>
-                    <span class="nav-text">Galleries</span>
+                    <span class="nav-text" data-i18n>Galleries</span>
                 </a>
                 <a class="nav-item" id="mode-destinations" href="#destinations" data-mode="destinations">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <circle cx="8" cy="8" r="6.5"/><path d="M1.5 8h13M8 1.5c2 2 2 11 0 13M8 1.5c-2 2-2 11 0 13"/>
                     </svg>
-                    <span class="nav-text">Destinations</span>
+                    <span class="nav-text" data-i18n>Destinations</span>
                 </a>
             </div>
 
@@ -131,53 +133,53 @@
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <circle cx="8" cy="8" r="2.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3"/>
                     </svg>
-                    <span class="nav-text">Settings</span>
+                    <span class="nav-text" data-i18n>Settings</span>
                 </a>
                 <a class="nav-item" id="mode-about" href="#about" data-mode="about">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                         <circle cx="8" cy="8" r="6.5"/><path d="M8 7.5V11"/><circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none"/>
                     </svg>
-                    <span class="nav-text">About</span>
+                    <span class="nav-text" data-i18n>About</span>
                 </a>
             </div>
 
             <!-- Work the server is doing: scans, exports, publishing (ADR-0036). -->
-            <div class="status-line" id="status-line" role="group" aria-label="Running tasks" hidden></div>
+            <div class="status-line" id="status-line" role="group" aria-label="Running tasks" data-i18n-attr="aria-label" hidden></div>
         </nav>
         <header class="topbar" id="topbar" role="search"></header>
         <main id="app"></main>
         <div class="desk-only-notice">
-            <h2>This is desktop work</h2>
-            <p>Culling, organising and publishing change files and settings, which is not something to do on a phone. Open Unterlumen on your computer for this.</p>
-            <p>On a phone you can browse your libraries and folders, look at photos and their metadata, and find the people in them.</p>
-            <a class="btn" href="#libraries" data-mode="library">Go to Libraries</a>
+            <h2 data-i18n>This is desktop work</h2>
+            <p data-i18n>Culling, organising and publishing change files and settings, which is not something to do on a phone. Open Unterlumen on your computer for this.</p>
+            <p data-i18n>On a phone you can browse your libraries and folders, look at photos and their metadata, and find the people in them.</p>
+            <a class="btn" href="#libraries" data-mode="library" data-i18n>Go to Libraries</a>
         </div>
         <!-- Phone: the same places, reachable with a thumb. Same hrefs as the
              sidebar, so back and deep links behave identically. -->
-        <nav class="tabbar" aria-label="Main">
+        <nav class="tabbar" aria-label="Main" data-i18n-attr="aria-label">
             <a class="tabbar-item" id="tab-library" href="#libraries" data-mode="library">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                     <rect x="1.5" y="2.5" width="13" height="11"/><path d="M1.5 6h13M5.5 6v7.5"/>
                 </svg>
-                <span>Libraries</span>
+                <span data-i18n>Libraries</span>
             </a>
             <a class="tabbar-item" id="tab-map" href="#map" data-mode="map">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
                     <path d="M8 14.5s-4.5-4.6-4.5-8a4.5 4.5 0 0 1 9 0c0 3.4-4.5 8-4.5 8z"/><circle cx="8" cy="6.5" r="1.5"/>
                 </svg>
-                <span>Map</span>
+                <span data-i18n>Map</span>
             </a>
             <a class="tabbar-item" id="tab-timeline" href="#timeline" data-mode="timeline">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                     <rect x="1.5" y="3" width="13" height="11.5"/><path d="M1.5 6.5h13M5 1.5V4.5M11 1.5V4.5M4.5 9.5h2M9.5 9.5h2M4.5 12h2"/>
                 </svg>
-                <span>Timeline</span>
+                <span data-i18n>Timeline</span>
             </a>
             <a class="tabbar-item" id="tab-people" href="#people" data-mode="people">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
                     <circle cx="8" cy="5.5" r="3"/><path d="M2.5 14.5c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/>
                 </svg>
-                <span>People</span>
+                <span data-i18n>People</span>
             </a>
             <!-- Statistics, not Folders: on a phone the photos are found in
                  libraries; Folders stays reachable through its links. -->
@@ -185,121 +187,122 @@
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M1.5 1.5v13h13"/><path d="M4 11l3-4 2.5 2.5L14 4"/>
                 </svg>
-                <span>Statistics</span>
+                <span data-i18n>Statistics</span>
             </a>
         </nav>
     </div>
 
     <div id="ui-hint" class="ui-hint"></div>
-    <script src="/js/toggle.js?v=5"></script>
+    <script src="/js/toggle.js?v=6"></script>
     <script src="/js/api.js?v=11"></script>
-    <script src="/js/library-api.js?v=7"></script>
-    <script src="/js/activity.js?v=5"></script>
+    <script src="/js/library-api.js?v=8"></script>
+    <script src="/js/activity.js?v=6"></script>
     <script src="/js/dates.js?v=2"></script>
-    <script src="/js/panel-icon.js?v=4"></script>
-    <script src="/js/place-lede.js?v=6"></script>
-    <script src="/js/place-header.js?v=2"></script>
-    <script src="/js/status-line.js?v=2"></script>
-    <script src="/js/select-all.js?v=2"></script>
+    <script src="/js/panel-icon.js?v=5"></script>
+    <script src="/js/place-lede.js?v=7"></script>
+    <script src="/js/place-header.js?v=3"></script>
+    <script src="/js/status-line.js?v=3"></script>
+    <script src="/js/select-all.js?v=3"></script>
     <script src="/js/browse-selection.js?v=8"></script>
-    <script src="/js/selection-bar.js?v=4"></script>
+    <script src="/js/selection-bar.js?v=5"></script>
     <script src="/js/originals.js?v=2"></script>
     <script src="/js/browse-keyboard.js?v=4"></script>
     <script src="/js/browse-grid.js?v=5"></script>
-    <script src="/js/browse-list.js?v=5"></script>
+    <script src="/js/browse-list.js?v=6"></script>
     <script src="/js/browse-justified.js?v=6"></script>
-    <script src="/js/menu.js?v=2"></script>
-    <script src="/js/segment-field.js?v=3"></script>
-    <script src="/js/browse.js?v=22"></script>
+    <script src="/js/menu.js?v=3"></script>
+    <script src="/js/segment-field.js?v=4"></script>
+    <script src="/js/browse.js?v=23"></script>
     <script src="/js/crop-tool.js?v=5"></script>
-    <script src="/js/face-mark-tool.js?v=2"></script>
+    <script src="/js/face-mark-tool.js?v=3"></script>
     <script src="/js/zoom-tool.js?v=5"></script>
     <script src="/js/fullscreen.js?v=1"></script>
-    <script src="/js/viewer.js?v=17"></script>
-    <script src="/js/viewer-menu.js?v=3"></script>
-    <script src="/js/exif-labels.js?v=1"></script>
-    <script src="/js/folder-dashboard.js?v=3"></script>
-    <script src="/js/info-people.js?v=7"></script>
-    <script src="/js/info-things.js?v=1"></script>
-    <script src="/js/infopanel.js?v=20"></script>
-    <script src="/js/dialog.js?v=1"></script>
+    <script src="/js/viewer.js?v=18"></script>
+    <script src="/js/viewer-menu.js?v=4"></script>
+    <script src="/js/exif-labels.js?v=2"></script>
+    <script src="/js/folder-dashboard.js?v=4"></script>
+    <script src="/js/info-people.js?v=8"></script>
+    <script src="/js/info-things.js?v=2"></script>
+    <script src="/js/infopanel.js?v=21"></script>
+    <script src="/js/dialog.js?v=2"></script>
     <script src="/js/progress-dialog.js?v=5"></script>
-    <script src="/js/organize.js?v=8"></script>
-    <script src="/js/location-modal.js?v=6"></script>
+    <script src="/js/organize.js?v=9"></script>
+    <script src="/js/location-modal.js?v=7"></script>
     <script src="/js/batch-rename-modal.js?v=7"></script>
     <script src="/js/folder-picker.js?v=8"></script>
     <script src="/js/export-modal.js?v=9"></script>
     <script src="/js/deps-modal.js?v=8"></script>
-    <script src="/js/slideshow-modal.js?v=4"></script>
-    <script src="/js/slideshow-player.js?v=4"></script>
+    <script src="/js/slideshow-modal.js?v=5"></script>
+    <script src="/js/slideshow-player.js?v=5"></script>
     <script src="/js/channels.js?v=12"></script>
     <script src="/js/destinations.js?v=7"></script>
     <script src="/js/published-galleries.js?v=17"></script>
-    <script src="/js/collect-dialog.js?v=6"></script>
+    <script src="/js/collect-dialog.js?v=7"></script>
     <script src="/js/publish-dialog.js?v=3"></script>
-    <script src="/js/library-pane.js?v=13"></script>
-    <script src="/js/search-result-pane.js?v=9"></script>
-    <script src="/js/chip-input.js?v=9"></script>
+    <script src="/js/library-pane.js?v=14"></script>
+    <script src="/js/search-result-pane.js?v=10"></script>
+    <script src="/js/chip-input.js?v=10"></script>
     <script src="/js/range-slider.js?v=1"></script>
-    <script src="/js/library-filter.js?v=28"></script>
+    <script src="/js/library-filter.js?v=29"></script>
     <script src="/js/vendor/d3.v7.min.js?v=4"></script>
-    <script src="/js/stats-charts.js?v=3"></script>
-    <script src="/js/stats-timeline-charts.js?v=3"></script>
-    <script src="/js/stats-colour-charts.js?v=4"></script>
-    <script src="/js/stats-colour-combos.js?v=2"></script>
+    <script src="/js/stats-charts.js?v=4"></script>
+    <script src="/js/stats-timeline-charts.js?v=4"></script>
+    <script src="/js/stats-colour-charts.js?v=5"></script>
+    <script src="/js/stats-colour-combos.js?v=3"></script>
     <script src="/js/gpu-stage.js?v=1"></script>
     <script src="/js/point-scene.js?v=2"></script>
-    <script src="/js/point-stage.js?v=3"></script>
-    <script src="/js/colour-space-view.js?v=3"></script>
-    <script src="/js/exposure-space-view.js?v=2"></script>
-    <script src="/js/daylight-view.js?v=1"></script>
-    <script src="/js/character-view.js?v=2"></script>
-    <script src="/js/space-time-view.js?v=3"></script>
-    <script src="/js/people-stats-charts.js?v=6"></script>
-    <script src="/js/things-stats-charts.js?v=2"></script>
-    <script src="/js/stats-people-compare.js?v=2"></script>
-    <script src="/js/people-space-views.js?v=4"></script>
-    <script src="/js/stats-topics.js?v=20"></script>
-    <script src="/js/library-dialogs.js?v=4"></script>
-    <script src="/js/library.js?v=36"></script>
-    <script src="/js/map-time-range.js?v=2"></script>
+    <script src="/js/point-stage.js?v=4"></script>
+    <script src="/js/colour-space-view.js?v=4"></script>
+    <script src="/js/exposure-space-view.js?v=3"></script>
+    <script src="/js/daylight-view.js?v=2"></script>
+    <script src="/js/character-view.js?v=3"></script>
+    <script src="/js/space-time-view.js?v=4"></script>
+    <script src="/js/people-stats-charts.js?v=7"></script>
+    <script src="/js/things-stats-charts.js?v=3"></script>
+    <script src="/js/stats-people-compare.js?v=3"></script>
+    <script src="/js/people-space-views.js?v=5"></script>
+    <script src="/js/stats-topics.js?v=21"></script>
+    <script src="/js/library-dialogs.js?v=5"></script>
+    <script src="/js/library.js?v=37"></script>
+    <script src="/js/map-time-range.js?v=3"></script>
     <script src="/js/multi-select.js?v=2"></script>
-    <script src="/js/scope-filter.js?v=6"></script>
-    <script src="/js/photo-column.js?v=5"></script>
+    <script src="/js/scope-filter.js?v=7"></script>
+    <script src="/js/photo-column.js?v=6"></script>
     <script src="/js/map-markers.js?v=2"></script>
-    <script src="/js/map-place.js?v=15"></script>
-    <script src="/js/timeline-calendar.js?v=1"></script>
+    <script src="/js/map-place.js?v=16"></script>
+    <script src="/js/timeline-calendar.js?v=2"></script>
     <script src="/js/timeline-stream.js?v=2"></script>
     <script src="/js/timeline-chart.js?v=1"></script>
-    <script src="/js/timeline-axis.js?v=1"></script>
+    <script src="/js/timeline-axis.js?v=2"></script>
     <script src="/js/timeline-tiles.js?v=1"></script>
-    <script src="/js/timeline-band.js?v=1"></script>
-    <script src="/js/timeline-list.js?v=1"></script>
-    <script src="/js/timeline-scrubber.js?v=1"></script>
-    <script src="/js/timeline-place.js?v=11"></script>
+    <script src="/js/timeline-band.js?v=2"></script>
+    <script src="/js/timeline-list.js?v=2"></script>
+    <script src="/js/timeline-scrubber.js?v=2"></script>
+    <script src="/js/timeline-place.js?v=12"></script>
     <script src="/js/people-api.js?v=13"></script>
     <script src="/js/things-api.js?v=1"></script>
-    <script src="/js/search-bar.js?v=1"></script>
-    <script src="/js/people-birthday.js?v=2"></script>
-    <script src="/js/face-grid.js?v=9"></script>
-    <script src="/js/people-everyone.js?v=12"></script>
-    <script src="/js/people-naming.js?v=12"></script>
-    <script src="/js/people-person.js?v=10"></script>
+    <script src="/js/things-words.js?v=1"></script>
+    <script src="/js/search-bar.js?v=2"></script>
+    <script src="/js/people-birthday.js?v=3"></script>
+    <script src="/js/face-grid.js?v=10"></script>
+    <script src="/js/people-everyone.js?v=13"></script>
+    <script src="/js/people-naming.js?v=13"></script>
+    <script src="/js/people-person.js?v=11"></script>
     <script src="/js/people-maybe.js?v=2"></script>
-    <script src="/js/people-phone.js?v=5"></script>
-    <script src="/js/people-place.js?v=15"></script>
-    <script src="/js/stats-place.js?v=19"></script>
-    <script src="/js/settings-storage.js?v=2"></script>
-    <script src="/js/settings.js?v=10"></script>
+    <script src="/js/people-phone.js?v=6"></script>
+    <script src="/js/people-place.js?v=16"></script>
+    <script src="/js/stats-place.js?v=20"></script>
+    <script src="/js/settings-storage.js?v=3"></script>
+    <script src="/js/settings.js?v=11"></script>
     <script src="/js/guide-place.js?v=5"></script>
     <script src="/js/credits-place.js?v=3"></script>
     <script src="/js/about-place.js?v=2"></script>
     <script src="/js/privacy-place.js?v=5"></script>
-    <script src="/js/warranty-place.js?v=2"></script>
+    <script src="/js/warranty-place.js?v=3"></script>
     <script src="/js/setup-place.js?v=5"></script>
     <script src="/js/app-theme.js?v=4"></script>
-    <script src="/js/app-wastebin.js?v=9"></script>
-    <script src="/js/app-keyboard.js?v=16"></script>
-    <script src="/js/app.js?v=37"></script>
+    <script src="/js/app-wastebin.js?v=10"></script>
+    <script src="/js/app-keyboard.js?v=17"></script>
+    <script src="/js/app.js?v=38"></script>
 </body>
 </html>

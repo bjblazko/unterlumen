@@ -2,17 +2,17 @@
 
 // Fixed chip namespaces that map to EXIF fields or special filter params.
 const CHIP_NS_FIXED = [
-    { ns: 'camera',  label: 'Camera',        hint: 'Camera model',    type: 'exif', param: 'Model' },
-    { ns: 'lens',    label: 'Lens',           hint: 'Lens model',      type: 'exif', param: 'LensModel' },
-    { ns: 'film',    label: 'Film sim',       hint: 'Film simulation', type: 'exif', param: 'FilmSimulation' },
-    { ns: 'format',  label: 'Format',         hint: 'File format',     type: 'exif', param: 'ext' },
-    { ns: 'flash',   label: 'Flash',          hint: 'Flash mode',      type: 'exif', param: 'Flash' },
-    { ns: 'wb',      label: 'White balance',  hint: 'White balance',   type: 'exif', param: 'WhiteBalance' },
-    { ns: 'channel', label: 'Destination',    hint: 'Published to this destination', type: 'channel', param: 'channel' },
-    { ns: 'album',   label: 'Gallery title',  hint: 'Any gallery with this title', type: 'album', param: 'album_title' },
-    { ns: 'person',  label: 'Person',         hint: 'Named in People', type: 'person', param: 'person' },
-    { ns: 'thing',   label: 'Thing',          hint: 'Found in the photo', type: 'thing', param: 'thing' },
-    { ns: 'shows',   label: 'Shows',          hint: 'Words for what the photo shows', type: 'words', param: 'text' },
+    { ns: 'camera',  label: t('Camera'),        hint: t('Camera model'),    type: 'exif', param: 'Model' },
+    { ns: 'lens',    label: t('Lens'),           hint: t('Lens model'),      type: 'exif', param: 'LensModel' },
+    { ns: 'film',    label: t('Film sim'),       hint: t('Film simulation'), type: 'exif', param: 'FilmSimulation' },
+    { ns: 'format',  label: t('Format'),         hint: t('File format'),     type: 'exif', param: 'ext' },
+    { ns: 'flash',   label: t('Flash'),          hint: t('Flash mode'),      type: 'exif', param: 'Flash' },
+    { ns: 'wb',      label: t('White balance'),  hint: t('White balance'),   type: 'exif', param: 'WhiteBalance' },
+    { ns: 'channel', label: t('Destination'),    hint: t('Published to this destination'), type: 'channel', param: 'channel' },
+    { ns: 'album',   label: t('Gallery title'),  hint: t('Any gallery with this title'), type: 'album', param: 'album_title' },
+    { ns: 'person',  label: t('Person'),         hint: t('Named in People'), type: 'person', param: 'person' },
+    { ns: 'thing',   label: t('Thing'),          hint: t('Found in the photo'), type: 'thing', param: 'thing' },
+    { ns: 'shows',   label: t('Shows'),          hint: t('Words for what the photo shows'), type: 'words', param: 'text' },
 ];
 
 // EXIF fields handled by numeric sliders — exclude from chip namespace list to avoid duplication.
@@ -26,7 +26,7 @@ const SLIDER_FIELDS = new Set([
 // One gallery by its membership (<destination>:<postID>) rather than by
 // title, so a renamed gallery still finds its photos. Only a "Show photos"
 // link sets it; the chip shows the title.
-const GALLERY_CHIP_NS = { ns: 'gallery', label: 'Gallery', hint: 'One gallery', type: 'gallery', param: 'album' };
+const GALLERY_CHIP_NS = { ns: 'gallery', label: t('Gallery'), hint: t('One gallery'), type: 'gallery', param: 'album' };
 
 function chipToParam(chip) {
     const ns = chip.nsInfo || CHIP_NS_FIXED.find(n => n.ns === chip.ns);
@@ -44,33 +44,33 @@ function chipToParam(chip) {
 }
 
 const EXIF_TEXT_FILTER_FIELDS = [
-    { field: 'Model',     label: 'Camera'   },
-    { field: 'LensModel', label: 'Lens'     },
-    { field: 'FilmSimulation', label: 'Film sim' },
+    { field: 'Model',     label: t('Camera')   },
+    { field: 'LensModel', label: t('Lens')     },
+    { field: 'FilmSimulation', label: t('Film sim') },
 ];
 
 const EXIF_FILTER_FIELDS = [
     {
         field: 'ExposureTime',
-        label: 'Shutter speed',
+        label: t('Shutter speed'),
         format: formatShutterSpeed,
         log: true,
     },
     {
         field: 'FNumber',
-        label: 'Aperture',
+        label: t('Aperture'),
         format: v => `f/${v.toFixed(1)}`,
         log: true,
     },
     {
         field: 'FocalLength',
-        label: 'Focal length',
+        label: t('Focal length'),
         format: v => `${Math.round(v)} mm`,
         log: false,
     },
     {
         field: 'ISOSpeedRatings',
-        label: 'ISO',
+        label: t('ISO'),
         format: v => String(Math.round(v)),
         log: true,
     },
@@ -111,12 +111,12 @@ function valueToSlider(val, min, max, log) {
 // searchWords says what a link to photos looks for, while it is looked for.
 function searchWords(criteria) {
     const people = [criteria.person ?? []].flat();
-    if (people.length) return `Finding the photos of ${sentenceList(people)}…`;
+    if (people.length) return t('Finding the photos of {people}…', { people: sentenceList(people) });
     const found = [criteria.thing ?? []].flat();
-    if (found.length) return `Finding the photos with ${sentenceList(found)}…`;
-    if (criteria.text) return `Finding photos that show ${criteria.text}…`;
-    if (criteria.gallery) return `Finding the photos of ${criteria.gallery.title}…`;
-    return 'Finding the photos…';
+    if (found.length) return t('Finding the photos with {found}…', { found: sentenceList(found) });
+    if (criteria.text) return t('Finding photos that show {text}…', { text: criteria.text });
+    if (criteria.gallery) return t('Finding the photos of {title}…', { title: criteria.gallery.title });
+    return t('Finding the photos…');
 }
 
 function showPhotosLink(el, criteria) {
@@ -209,7 +209,7 @@ class LibraryFilterPanel {
             this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'person'), name);
         }
         for (const thing of [criteria.thing ?? []].flat()) {
-            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'thing'), thing);
+            this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'thing'), thing, ThingWords.name(thing));
         }
         if (criteria.text) this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'shows'), criteria.text);
         if (criteria.hues) this._setHues(criteria.hues);
@@ -228,7 +228,7 @@ class LibraryFilterPanel {
         if (this._options.onOpen) this._options.onOpen();
 
         if (!this._built) {
-            Activity.in(this._container, 'Reading the filters…');
+            Activity.in(this._container, t('Reading the filters…'));
             await this._build();
         } else {
             // Clear chip input caches so re-opening the panel picks up newly built albums etc.
@@ -294,8 +294,8 @@ class LibraryFilterPanel {
         const head = document.createElement('div');
         head.className = 'lib-filter-head';
         head.innerHTML = `
-            <span class="lib-filter-title">Filter</span>
-            ${panelHideButtonHTML('lib-filter-close', 'Hide filter')}`;
+            <span class="lib-filter-title">${t('Filter')}</span>
+            ${panelHideButtonHTML('lib-filter-close', t('Hide filter'))}`;
         head.querySelector('.lib-filter-close').addEventListener('click', () => this.close());
         this._container.appendChild(head);
 
@@ -313,7 +313,7 @@ class LibraryFilterPanel {
         const hint = document.createElement('p');
         hint.className = 'lib-filter-hint desk-only';
         hint.innerHTML = `More ways to find photos, such as by colour, are in
-            <a href="${statsHash(route)}">Statistics</a>: click a value in a chart to see its photos.`;
+            <a href="${statsHash(route)}">${t('Statistics')}</a>: click a value in a chart to see its photos.`;
         hint.querySelector('a').addEventListener('click', (e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
@@ -347,7 +347,7 @@ class LibraryFilterPanel {
             const from = this._dateMin || 'the beginning';
             const to = this._dateMax || 'today';
             out.push({
-                label: `Taken ${from} – ${to}`,
+                label: t('Taken {from} – {to}', { from: from, to: to }),
                 clear: () => {
                     this._dateMin = '';
                     this._dateMax = '';
@@ -360,7 +360,7 @@ class LibraryFilterPanel {
 
         if (this._hues?.length) {
             out.push({
-                label: `Colours: ${comboName(this._hues)}`,
+                label: t('Colours: {hues}', { hues: comboName(this._hues) }),
                 clear: () => this._setHues([]),
             });
         }
@@ -401,7 +401,7 @@ class LibraryFilterPanel {
             const chip = document.createElement('button');
             chip.className = 'lib-filter-chip';
             chip.innerHTML = `${escapeHtml(filter.label)}<span aria-hidden="true">×</span>`;
-            chip.title = `Drop "${filter.label}"`;
+            chip.title = t('Drop "{label}"', { label: filter.label });
             chip.addEventListener('click', () => filter.clear());
             this._activeEl.appendChild(chip);
         }
@@ -415,7 +415,7 @@ class LibraryFilterPanel {
         // Library selector
         const sel = document.createElement('select');
         sel.className = 'lib-filter-select';
-        sel.innerHTML = `<option value="">All libraries</option>` +
+        sel.innerHTML = `<option value="">${t('All libraries')}</option>` +
             this._libraries.map(l =>
                 `<option value="${escapeHtml(l.id)}"${l.id === this._initialLibID ? ' selected' : ''}>${escapeHtml(l.name)}</option>`
             ).join('');
@@ -449,7 +449,7 @@ class LibraryFilterPanel {
         // Reset button
         const reset = document.createElement('button');
         reset.className = 'btn btn-sm lib-filter-reset';
-        reset.textContent = 'Reset filters';
+        reset.textContent = t('Reset filters');
         reset.addEventListener('click', () => this._reset());
 
         bar.appendChild(sel);
@@ -482,7 +482,7 @@ class LibraryFilterPanel {
         if (fields.length === 0) {
             const msg = document.createElement('div');
             msg.style.cssText = 'font-size:11px;color:var(--fg-2);padding:4px 0';
-            msg.textContent = 'No numeric EXIF data — re-index the library to populate.';
+            msg.textContent = t('No numeric EXIF data — re-index the library to populate.');
             this._slidersWrap.appendChild(msg);
         }
     }
@@ -511,7 +511,7 @@ class LibraryFilterPanel {
             Toggle.create(wrap, {
                 initial: this._use35mm,
                 labelOn: '35mm',
-                labelOff: 'Native',
+                labelOff: t('Native'),
                 onChange: (on) => {
                     this._use35mm = on;
                     this._rebuildSliders();
@@ -572,7 +572,7 @@ class LibraryFilterPanel {
 
         const sel = document.createElement('select');
         sel.className = 'lib-filter-select lib-text-filter-select';
-        sel.innerHTML = `<option value="">All</option>` +
+        sel.innerHTML = `<option value="">${t('All')}</option>` +
             this._textValues[spec.field].map(v =>
                 `<option value="${escapeHtml(v)}"${this._textActive[spec.field] === v ? ' selected' : ''}>${escapeHtml(v)}</option>`
             ).join('');
@@ -599,10 +599,10 @@ class LibraryFilterPanel {
         wrap.className = 'lib-filter-groups';
         const group = document.createElement('div');
         group.className = 'lib-filter-group';
-        group.innerHTML = `<div class="lib-filter-label" id="lib-colour-label">Colours</div>
+        group.innerHTML = `<div class="lib-filter-label" id="lib-colour-label">${t('Colours')}</div>
             <div class="lib-colour-chips" role="group" aria-labelledby="lib-colour-label">${HUE_NAMES.map((name, bin) =>
                 `<button type="button" class="lib-colour-chip" data-bin="${bin}" aria-pressed="false"><span class="lib-colour-swatch" style="background: oklch(0.66 0.12 ${bin * 30 + 15})"></span>${escapeHtml(name)}</button>`).join('')}</div>
-            <span class="form-hint">Up to three; each covers at least ${COMBO_SHARE_MIN_PERCENT} % of the photo.</span>`;
+            <span class="form-hint">${t('Up to three; each covers at least {pct} % of the photo.', { pct: COMBO_SHARE_MIN_PERCENT })}</span>`;
         group.querySelectorAll('.lib-colour-chip').forEach(chip => chip.addEventListener('click', () => {
             const bin = Number(chip.dataset.bin);
             this._setHues(this._hues.includes(bin) ? this._hues.filter(b => b !== bin) : [...this._hues, bin].sort((a, b) => a - b));
@@ -638,7 +638,7 @@ class LibraryFilterPanel {
 
         const label = document.createElement('div');
         label.className = 'lib-filter-label';
-        label.textContent = 'Date taken';
+        label.textContent = t('Date taken');
         group.appendChild(label);
 
         const makeRow = (labelText, initVal, onChange) => {
@@ -652,7 +652,7 @@ class LibraryFilterPanel {
             const input = document.createElement('input');
             input.type = 'text';
             input.inputMode = 'numeric';
-            input.placeholder = 'YYYY-MM-DD';
+            input.placeholder = t('YYYY-MM-DD');
             input.autocomplete = 'off';
             input.className = 'lib-date-input';
             input.value = initVal;
@@ -660,7 +660,7 @@ class LibraryFilterPanel {
                 const v = input.value.trim();
                 const ok = v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v)));
                 input.toggleAttribute('aria-invalid', !ok);
-                input.title = ok ? '' : 'Write the day as 2026-10-21';
+                input.title = ok ? '' : t('Write the day as 2026-10-21');
                 if (ok) onChange(v);
             });
             // Escape blurs without changing value, restoring keyboard navigation.
@@ -670,7 +670,7 @@ class LibraryFilterPanel {
             return { row, input };
         };
 
-        const { row: fromRow, input: fromInput } = makeRow('From', this._dateMin, v => {
+        const { row: fromRow, input: fromInput } = makeRow(t('From'), this._dateMin, v => {
             this._dateMin = v;
             this._scheduleQuery();
         });
@@ -693,7 +693,7 @@ class LibraryFilterPanel {
 
         const label = document.createElement('div');
         label.className = 'lib-filter-group-header';
-        label.textContent = 'More filters';
+        label.textContent = t('More filters');
         section.appendChild(label);
 
         const chipContainer = document.createElement('div');
@@ -720,14 +720,14 @@ class LibraryFilterPanel {
                 if (SLIDER_FIELDS.has(field)) continue;
                 if (fixedParams.has(field)) continue;
                 if (!nss.find(n => n.ns === field)) {
-                    nss.push({ ns: field, label: field, hint: 'EXIF field', type: 'exif', param: field });
+                    nss.push({ ns: field, label: field, hint: t('EXIF field'), type: 'exif', param: field });
                 }
             }
             // Add dynamic user-defined meta keys (exclude built:* system keys).
             for (const key of metaKeys) {
                 if (key.startsWith('built:')) continue;
                 if (!nss.find(n => n.ns === key)) {
-                    nss.push({ ns: key, label: key, hint: 'Custom tag', type: 'meta', param: 'meta_' + key });
+                    nss.push({ ns: key, label: key, hint: t('Custom tag'), type: 'meta', param: 'meta_' + key });
                 }
             }
             return nss;
@@ -742,7 +742,7 @@ class LibraryFilterPanel {
                     if (nsDesc.ns === 'channel') return channels.map(c => c.slug);
                     if (nsDesc.ns === 'album') return albumTitles;
                     if (nsDesc.ns === 'person') return personNames;
-                    if (nsDesc.ns === 'thing') return thingNames;
+                    if (nsDesc.ns === 'thing') return thingNames.map(id => ({ value: id, label: ThingWords.name(id) }));
                     if (nsDesc.ns === 'shows') return [];
                     if (nsDesc.type === 'exif') {
                         const raw = await LibraryAPI.exifValues(nsDesc.param, ids).catch(() => []);
@@ -850,7 +850,7 @@ class LibraryFilterPanel {
             this._searchingTimer = setTimeout(() => {
                 if (this._statusEl) {
                     this._statusEl.style.display = '';
-                    this._statusEl.textContent = 'Searching…';
+                    this._statusEl.textContent = t('Searching…');
                 }
             }, ACTIVITY_DELAY_MS);
         }
@@ -863,7 +863,7 @@ class LibraryFilterPanel {
         this._options.onError?.();
         if (!this._statusEl) return;
         this._statusEl.style.display = '';
-        this._statusEl.innerHTML = `<span class="lib-filter-status-error">The search did not answer: ${escapeHtml(err.message)}. Change a filter to try again.</span>`;
+        this._statusEl.innerHTML = `<span class="lib-filter-status-error">${t('The search did not answer: {error}. Change a filter to try again.', { error: escapeHtml(err.message) })}</span>`;
     }
 
     _renderResults(result, params = this._lastParams || {}) {

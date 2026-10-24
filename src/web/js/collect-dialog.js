@@ -14,7 +14,7 @@
 // many were added.
 async function collectPhotoGroups(groups, { slug, draftID, postID, title, unlisted, account }) {
     groups = groups.filter(g => g.photoIDs.length > 0);
-    if (groups.length === 0) throw new Error('No matching library photos found for this selection.');
+    if (groups.length === 0) throw new Error(t('No matching library photos found for this selection.'));
 
     // The first call creates the draft, the rest append to it.
     // Passing the title to every call would instead create one
@@ -49,20 +49,20 @@ class CollectDialog {
 
     async open() {
         this._dialog = new Dialog({
-            title: `Add ${this._count} photo${this._count !== 1 ? 's' : ''} to a gallery`,
+            title: this._count === 1 ? t('Add 1 photo to a gallery') : t('Add {n} photos to a gallery', { n: formatCount(this._count) }),
             size: 'md',
             className: 'collect-dialog',
             body: `
                 <div id="collect-body"></div>
                 <div class="build-error" id="collect-error" hidden></div>`,
             actions: [
-                { label: 'Cancel', id: 'collect-cancel', onClick: () => this.close() },
-                { label: 'Add to gallery', kind: 'primary', id: 'collect-confirm', disabled: true, onClick: () => this._confirm() },
+                { label: t('Cancel'), id: 'collect-cancel', onClick: () => this.close() },
+                { label: t('Add to gallery'), kind: 'primary', id: 'collect-confirm', disabled: true, onClick: () => this._confirm() },
             ],
             onClose: () => { this._el = null; },
         });
         this._el = this._dialog.open();
-        Activity.in(this._el.querySelector('#collect-body'), 'Reading your galleries…');
+        Activity.in(this._el.querySelector('#collect-body'), t('Reading your galleries…'));
 
         try {
             [this._galleries, this._channels] = await Promise.all([
@@ -71,12 +71,12 @@ class CollectDialog {
             ]);
         } catch (err) {
             this._el.querySelector('#collect-body').innerHTML =
-                `<div class="channel-error">Could not load your galleries: ${escapeHtml(err.message)}</div>`;
+                `<div class="channel-error">${t('Could not load your galleries: {error}', { error: escapeHtml(err.message) })}</div>`;
             return;
         }
         if (this._channels.length === 0) {
             this._el.querySelector('#collect-body').innerHTML =
-                '<div class="channel-empty">No destinations configured yet. Add one under Channels first, then collect photos into a gallery of it.</div>';
+                '<div class="channel-empty">' + t('No destinations configured yet. Add one under Channels first, then collect photos into a gallery of it.') + '</div>';
             return;
         }
         this._renderPicker();
@@ -103,12 +103,12 @@ class CollectDialog {
         const rows = this._candidates();
         body.innerHTML = `
             <div class="collect-search-row">
-                <input class="form-input" id="collect-search" type="search" placeholder="Search your galleries" autocomplete="off">
+                <input class="form-input" id="collect-search" type="search" placeholder="${t('Search your galleries')}" autocomplete="off">
             </div>
-            <div class="collect-list" id="collect-list" role="listbox" aria-label="Galleries">
+            <div class="collect-list" id="collect-list" role="listbox" aria-label="${t('Galleries')}">
                 <button class="collect-item collect-item--new" data-new="1" role="option" aria-selected="false">
-                    <span class="collect-item-title">New gallery…</span>
-                    <span class="collect-item-meta">Start a new one at a destination you choose</span>
+                    <span class="collect-item-title">${t('New gallery…')}</span>
+                    <span class="collect-item-meta">${t('Start a new one at a destination you choose')}</span>
                 </button>
                 ${rows.map(g => this._itemHTML(g)).join('')}
             </div>
@@ -138,7 +138,7 @@ class CollectDialog {
                     data-label="${escapeHtml(galleryTitle(g))}"
                     data-search="${escapeHtml(search)}">
                 <span class="collect-item-title">${escapeHtml(galleryTitle(g))}</span>
-                <span class="collect-item-meta">${escapeHtml(ch?.name || g.channelName)} · ${escapeHtml(stateWords(state))} · ${g.status === 'draft' ? g.pendingCount : g.photoCount} photo${(g.status === 'draft' ? g.pendingCount : g.photoCount) !== 1 ? 's' : ''}</span>
+                <span class="collect-item-meta">${escapeHtml(ch?.name || g.channelName)} · ${escapeHtml(stateWords(state))} · ${countText(g.status === 'draft' ? g.pendingCount : g.photoCount, 'photo')}</span>
             </button>`;
     }
 
@@ -171,21 +171,21 @@ class CollectDialog {
         wrap.dataset.rendered = '1';
         wrap.innerHTML = `
             <div class="form-field">
-                <label class="form-label" for="collect-new-title">Title</label>
+                <label class="form-label" for="collect-new-title">${t('Title')}</label>
                 <input class="form-input" id="collect-new-title" placeholder="e.g. Herbst im Siebengebirge" autocomplete="off">
             </div>
             <div class="form-field">
-                <label class="form-label" for="collect-new-dest">Destination</label>
+                <label class="form-label" for="collect-new-dest">${t('Destination')}</label>
                 <select class="form-select" id="collect-new-dest">
                     ${this._channels.map(c => `<option value="${escapeHtml(c.slug)}">${escapeHtml(c.name)}</option>`).join('')}
                 </select>
             </div>
             <div class="form-field" id="collect-new-account-wrap" hidden>
-                <label class="form-label" for="collect-new-account">Account</label>
+                <label class="form-label" for="collect-new-account">${t('Account')}</label>
                 <select class="form-select" id="collect-new-account"></select>
             </div>
             <div class="form-field" id="collect-new-visibility-wrap">
-                <span class="form-label">Search engines</span>
+                <span class="form-label">${t('Search engines')}</span>
                 <div id="collect-new-visibility"></div>
                 <span class="form-hint" id="collect-new-visibility-hint"></span>
             </div>`;
@@ -193,7 +193,7 @@ class CollectDialog {
         wrap.querySelector('#collect-new-dest').addEventListener('change', () => this._updateNewDefaults());
         // Three visible labels, as every toggle carries (ADR-0019).
         this._visibilityToggle = Toggle.create(wrap.querySelector('#collect-new-visibility'), {
-            initial: true, labelOn: 'Hidden', labelOff: 'Allowed',
+            initial: true, labelOn: t('Hidden'), labelOff: t('Allowed'),
         });
         this._updateNewDefaults();
         wrap.querySelector('#collect-new-title').focus();
@@ -211,8 +211,8 @@ class CollectDialog {
         wrap.querySelector('#collect-new-visibility-wrap').hidden = !online;
         this._visibilityToggle.setState(!!ch.galleryExport);
         wrap.querySelector('#collect-new-visibility-hint').textContent = ch.siteExport
-            ? 'Hidden keeps the album off the site index and sitemap, and adds a noindex tag.'
-            : 'Hidden adds a noindex tag. The link itself stays unguessable either way.';
+            ? t('Hidden keeps the album off the site index and sitemap, and adds a noindex tag.')
+            : t('Hidden adds a noindex tag. The link itself stays unguessable either way.');
         const accounts = ch.accounts || [];
         const accountWrap = wrap.querySelector('#collect-new-account-wrap');
         accountWrap.hidden = accounts.length === 0;
@@ -249,7 +249,7 @@ class CollectDialog {
             : this._pick;
 
         btn.disabled = true;
-        btn.textContent = 'Adding…';
+        btn.textContent = t('Adding…');
         errEl.hidden = true;
         try {
             const total = await this._onCollect(params);
@@ -261,7 +261,7 @@ class CollectDialog {
             errEl.textContent = err.message;
             errEl.hidden = false;
             btn.disabled = false;
-            btn.textContent = 'Add to gallery';
+            btn.textContent = t('Add to gallery');
         }
     }
 }

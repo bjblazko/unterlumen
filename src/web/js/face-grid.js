@@ -23,9 +23,9 @@ class FaceGrid {
         this._grid.className = 'face-grid';
         this._grid.innerHTML = this._faces.map((f, i) => `
             <button type="button" class="face-tile" data-face="${f.id}" data-library="${escapeHtml(String(f.library))}" data-index="${i}"
-                aria-pressed="false" aria-label="Face ${i + 1}">
+                aria-pressed="false" aria-label="${t('Face {n}', { n: i + 1 })}">
                 <img src="${PeopleAPI.faceURL(f.library, f.id)}" alt="" loading="lazy" width="96" height="96">
-                ${cover && f.id === cover.face && String(f.library) === String(cover.library) ? '<span class="face-tile-cover">Cover</span>' : ''}
+                ${cover && f.id === cover.face && String(f.library) === String(cover.library) ? '<span class="face-tile-cover">' + t('Cover') + '</span>' : ''}
                 <svg class="face-tile-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                     <rect width="16" height="16" rx="2"/><path d="M4 8.5l2.5 2.5L12 5.5" fill="none" stroke-width="1.8"/>
                 </svg>

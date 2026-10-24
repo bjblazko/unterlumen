@@ -13,6 +13,9 @@ type Library struct {
 	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
 	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
 	SortPosition  *int       `json:"sortPosition,omitempty"`
+	// KeywordLanguage is the language things are written in as keywords
+	// into the sidecars (ADR-0056); "en" unless chosen.
+	KeywordLanguage string `json:"keywordLanguage"`
 
 	// Filled in by Manager.Annotate from the base folder, for the UI only.
 	Shared    bool    `json:"shared,omitempty"`    // the base folder carries this library's marker

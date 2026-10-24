@@ -22,8 +22,8 @@ function _galleryDateRange(g) {
 // {done, total, current, parent, finished, error}. An error also arrives with
 // `finished`, so it is checked first.
 function showLibraryProgress(activity, p, busyText) {
-    if (p.error) return activity.fail(`It stopped: ${p.error}`);
-    if (p.finished) return activity.done(`Finished. ${formatCount(p.total)} photo${p.total !== 1 ? 's' : ''}.`);
+    if (p.error) return activity.fail(t('It stopped: {error}', { error: p.error }));
+    if (p.finished) return activity.done(t('Finished. {photos}.', { photos: countText(p.total, 'photo', 'photos') }));
     if (!p.total) return activity.busy(busyText);
     const current = p.current ? (p.parent ? `${p.parent}/${p.current}` : p.current) : '';
     return activity.count(p.done, p.total, { noun: 'photos', current });
@@ -31,7 +31,9 @@ function showLibraryProgress(activity, p, busyText) {
 
 /* --- LibraryTab --- */
 
-const LIBRARY_LEDE = placeLede(`A library catalogs a folder and every folder inside it — say Projects, with one subfolder per project — so you can search its photos, see them on the ${placeLink('map', 'map', 'map')} and the ${placeLink('timeline', 'timeline', 'timeline')}, and collect them into galleries. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder.`);
+const LIBRARY_LEDE = placeLede(t('A library catalogs a folder and every folder inside it — say Projects, with one subfolder per project — so you can search its photos, see them on the {map} and the {timeline}, and collect them into galleries. The photos stay where they are; the catalog and its thumbnails live in Unterlumen’s own data folder.', {
+    map: placeLink('map', 'map', t('map')), timeline: placeLink('timeline', 'timeline', t('timeline')),
+}));
 
 // Words after a library's folder in the overview: shared, not connected, or
 // shared by another installation. Words, so the state reads without colour.
@@ -99,13 +101,13 @@ class LibraryTab {
         el.innerHTML = this._filterBodyHTML(`
             <div class="place-main" id="lib-list-main">
             ${placeHeaderHTML({
-                title: 'Libraries',
-                actions: `<select class="btn btn-sm select-btn lib-sort-select" aria-label="Sort libraries">
-                        <option value="auto">Recently added</option>
-                        <option value="name">Name</option>
-                        <option value="manual">Custom order</option>
+                title: t('Libraries'),
+                actions: `<select class="btn btn-sm select-btn lib-sort-select" aria-label="${t('Sort libraries')}">
+                        <option value="auto">${t('Recently added')}</option>
+                        <option value="name">${t('Name')}</option>
+                        <option value="manual">${t('Custom order')}</option>
                     </select>
-                    <button class="btn btn-sm" id="lib-new-btn">New library…</button>`,
+                    <button class="btn btn-sm" id="lib-new-btn">${t('New library…')}</button>`,
                 lede: LIBRARY_LEDE,
             })}
                 <div class="library-list-body" id="lib-list-body"></div>
@@ -151,7 +153,7 @@ class LibraryTab {
     }
 
     async _loadList(body) {
-        if (!body.firstChild) Activity.in(body, 'Reading the libraries…', { area: true });
+        if (!body.firstChild) Activity.in(body, t('Reading the libraries…'), { area: true });
         try {
             const libs = await LibraryAPI.list();
             this._cachedLibs = libs;
@@ -161,7 +163,7 @@ class LibraryTab {
             const meta = body.closest('.library-list-view')?.querySelector('.place-meta');
             if (meta) meta.innerHTML = countHTML(libs.length, 'library', 'libraries');
             if (libs.length === 0) {
-                body.insertAdjacentHTML('beforeend', '<div class="library-empty">No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.</div>');
+                body.insertAdjacentHTML('beforeend', `<div class="library-empty">${t('No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.')}</div>`);
                 return;
             }
             const sorted = this._sortLibs(libs);
@@ -171,14 +173,14 @@ class LibraryTab {
                 body.appendChild(card);
                 if (lib.scanning) {
                     const signal = this._scanWatch.signal;
-                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb, undefined, signal), 'Scanning', signal);
+                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb, undefined, signal), t('Scanning'), signal);
                 }
                 if (mode === 'manual') this._addManualSortButtons(lib, card, body);
             }
             const sortSelect = body.closest('.library-list-view')?.querySelector('.lib-sort-select');
             if (sortSelect) sortSelect.value = mode;
         } catch (err) {
-            body.innerHTML = `<div class="library-error">Could not read the libraries: ${escapeHtml(err.message)}. Reload the page to try again.</div>`;
+            body.innerHTML = `<div class="library-error">${t('Could not read the libraries: {error}. Reload the page to try again.', { error: escapeHtml(err.message) })}</div>`;
         }
     }
 
@@ -187,9 +189,6 @@ class LibraryTab {
 
         const card = document.createElement('div');
         card.className = 'library-card';
-        const lastIdx = lib.lastIndexed
-            ? formatDay(lib.lastIndexed)
-            : 'Never';
 
         const top = document.createElement('div');
         top.className = 'library-card-top';
@@ -199,14 +198,14 @@ class LibraryTab {
         // deleting moved into the library itself.
         top.innerHTML = `
             <button class="library-card-open lib-open">
-                <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? '<span class="library-card-new-dot" title="New photos added"></span>' : ''}</span>
+                <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? `<span class="library-card-new-dot" title="${t('New photos added')}"></span>` : ''}</span>
                 <span class="library-card-count">${countText(lib.photoCount, 'photo')}</span>
                 <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
             <div class="library-card-actions">
-                <button class="btn btn-sm lib-scan-new">Scan for new photos</button>
-                <span class="library-card-indexed">Indexed ${lastIdx}</span>
+                <button class="btn btn-sm lib-scan-new">${t('Scan for new photos')}</button>
+                <span class="library-card-indexed">${lib.lastIndexed ? t('Indexed {day}', { day: formatDay(lib.lastIndexed) }) : t('Never indexed')}</span>
             </div>`;
         card.appendChild(top);
 
@@ -219,7 +218,7 @@ class LibraryTab {
 
         top.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
         card.querySelector('.lib-scan-new').addEventListener('click',
-            () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning'));
+            () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), t('Scanning')));
         return card;
     }
 
@@ -249,9 +248,9 @@ class LibraryTab {
             const updated = await LibraryAPI.get(lib.id);
             card.querySelector('.library-card-count').textContent = countText(updated.photoCount, 'photo');
             card.querySelector('.library-card-indexed').textContent =
-                `Indexed ${formatDay(updated.lastIndexed)}`;
+                t('Indexed {day}', { day: formatDay(updated.lastIndexed) });
         } catch (err) {
-            activity.fail(`It stopped: ${err.message}`);
+            activity.fail(t('It stopped: {error}', { error: err.message }));
         } finally {
             scanBtns.forEach(b => { b.disabled = false; });
         }
@@ -295,11 +294,11 @@ class LibraryTab {
         const up = document.createElement('button');
         up.className = 'btn btn-sm lib-move-up';
         up.textContent = '↑';
-        up.title = 'Move up';
+        up.title = t('Move up');
         const down = document.createElement('button');
         down.className = 'btn btn-sm lib-move-down';
         down.textContent = '↓';
-        down.title = 'Move down';
+        down.title = t('Move down');
         card.querySelector('.library-card-actions').appendChild(up);
         card.querySelector('.library-card-actions').appendChild(down);
 
@@ -385,18 +384,18 @@ class LibraryTab {
     // that another installation shares it and this library can join it.
     _libraryNoticeHTML(lib) {
         if (lib.missing) {
-            return `<div class="library-notice">${escapeHtml(lib.sourcePath)} is not connected. Connect its disk or NAS to see new photos; what is indexed stays readable.</div>`;
+            return `<div class="library-notice">${t('{folder} is not connected. Connect its disk or NAS to see new photos; what is indexed stays readable.', { folder: escapeHtml(lib.sourcePath) })}</div>`;
         }
         if (lib.joinOffer) {
-            return `<div class="library-notice">Another installation shares this folder as \u201c${escapeHtml(lib.joinOffer.name)}\u201d. Joining it gives this library that name and identity, so galleries name the same library on both; the index stays as it is.
-                <button class="btn btn-sm" id="lib-join-btn">Join \u201c${escapeHtml(lib.joinOffer.name)}\u201d</button>
+            return `<div class="library-notice">${t('Another installation shares this folder as “{name}”. Joining it gives this library that name and identity, so galleries name the same library on both; the index stays as it is.', { name: escapeHtml(lib.joinOffer.name) })}
+                <button class="btn btn-sm" id="lib-join-btn">${t('Join “{name}”', { name: escapeHtml(lib.joinOffer.name) })}</button>
                 <span id="lib-join-result"></span></div>`;
         }
         return '';
     }
 
     async _join(lib, btn) {
-        const restore = Activity.button(btn, 'Joining\u2026');
+        const restore = Activity.button(btn, t('Joining\u2026'));
         try {
             const joined = await LibraryAPI.join(lib.id);
             this._cachedLibs = null;
@@ -472,22 +471,22 @@ class LibraryTab {
     // concerns the whole library, in the ⋯ of its head.
     // A phone looks; it does not edit libraries or open Folders.
     _libraryMenuItems(lib, edit) {
-        const statistics = { id: 'statistics', label: 'Statistics', onSelect: () => this._openStats() };
+        const statistics = { id: 'statistics', label: t('Statistics'), onSelect: () => this._openStats() };
         if (matchMedia('(max-width: 700px)').matches) return [statistics];
         const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
         return [
             statistics,
-            { id: 'edit-library', label: 'Edit library…', onSelect: edit },
+            { id: 'edit-library', label: t('Edit library…'), onSelect: edit },
             rel === null
-                ? { id: 'open-in-folders', label: 'Open in Folders', disabled: true, title: 'The library is outside the folder this installation serves' }
-                : { id: 'open-in-folders', label: 'Open in Folders', onSelect: () => App.openFolder(rel) },
+                ? { id: 'open-in-folders', label: t('Open in Folders'), disabled: true, title: t('The library is outside the folder this installation serves') }
+                : { id: 'open-in-folders', label: t('Open in Folders'), onSelect: () => App.openFolder(rel) },
         ];
     }
 
     // The Filter toggle of the tool strip, with the panel glyph and the
     // number of criteria on.
     _filterButton() {
-        const btn = panelToggleButton('Filter');
+        const btn = panelToggleButton(t('Filter'));
         btn.id = 'lib-filter-btn';
         btn.setAttribute('aria-controls', 'lib-filter-panel');
         return btn;
@@ -517,7 +516,7 @@ class LibraryTab {
         // Filter and Info each open their panel of the right-hand column;
         // one is open at a time.
         this._filterBtn = this._filterButton();
-        this._infoBtn = panelToggleButton('Info');
+        this._infoBtn = panelToggleButton(t('Info'));
         this._infoPanel = new InfoPanel(el.querySelector('#lib-info-panel'));
         this._infoPanel.attachToggle(this._infoBtn);
         el.querySelector('.lib-filter-body').appendChild(toolStrip(this._filterBtn, this._infoBtn));
@@ -570,7 +569,7 @@ class LibraryTab {
     // The first answer fills an empty area, so it says what it is doing. Later
     // answers replace results that are already there: those stay in view and
     // fade only if the answer is slow (the delay lives in the CSS).
-    _showFilterLoading(isLoading, words = 'Searching…') {
+    _showFilterLoading(isLoading, words = t('Searching…')) {
         const resultsEl = this._resultsEl();
         if (isLoading && resultsEl.style.display === 'none') {
             this._filterUnderEl.style.display = 'none';
@@ -666,7 +665,7 @@ class LibraryTab {
         active?.update(count, {
             onlyFolders: files === 0 && dirs > 0,
             disabled: {
-                organize: target ? '' : (pane ? pane.organizeBtnHint() : 'Select photos to show them in Organize'),
+                organize: target ? '' : (pane ? pane.organizeBtnHint() : t('Select photos to show them in Organize')),
             },
         });
     }
@@ -739,7 +738,7 @@ class LibraryTab {
         // to resolve — do it before the dialog so its count is the real one.
         if (selectedDirs.length > 0) {
             const n = selectedDirs.length;
-            const arrays = await App.whileSlow(`Collecting the photos of ${n} folder${n !== 1 ? 's' : ''}…`,
+            const arrays = await App.whileSlow(n === 1 ? t('Collecting the photos of 1 folder…') : t('Collecting the photos of {n} folders…', { n: formatCount(n) }),
                 () => Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d))));
             selectedPaths = selectedPaths.concat(arrays.flat());
         }

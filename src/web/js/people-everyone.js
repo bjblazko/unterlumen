@@ -12,12 +12,12 @@ class PeopleEveryone {
 
     async show() {
         const body = this.pane._body;
-        const activity = Activity.in(body, 'Reading the people…', { area: true });
+        const activity = Activity.in(body, t('Reading the people…'), { area: true });
         let people, toName;
         try {
             [people, toName] = await Promise.all([PeopleAPI.everyone(), PeopleAPI.toName()]);
         } catch (err) {
-            activity.fail(`The people could not be read: ${err.message}.`);
+            activity.fail(t('The people could not be read: {err}.', { err: err.message }));
             return;
         }
         this.pane._head(people.length ? countHTML(people.length, 'person', 'people') : '');
@@ -26,12 +26,12 @@ class PeopleEveryone {
             ${toNameHTML(toName)}
             ${people.length ? `
                 <div class="people-find-row">
-                    <label class="people-label" for="people-find">Find a person</label>
+                    <label class="people-label" for="people-find">${t('Find a person')}</label>
                     <input class="form-input people-find" id="people-find" type="search" autocomplete="off">
                 </div>
                 <div class="people-grid">${people.map(p => this._card(p)).join('')}</div>
-                <p class="people-empty people-none" hidden>Nobody by that name.</p>`
-                : `<p class="people-empty">Nobody is named yet. ${toName.some(l => l.groups) ? 'Name the faces waiting above, and the people show here.' : 'The faces found in your libraries wait for a name here once they are looked at.'}</p>`}`;
+                <p class="people-empty people-none" hidden>${t('Nobody by that name.')}</p>`
+                : `<p class="people-empty">${t('Nobody is named yet.')} ${toName.some(l => l.groups) ? t('Name the faces waiting above, and the people show here.') : t('The faces found in your libraries wait for a name here once they are looked at.')}</p>`}`;
         wirePeopleFind(body);
     }
 
@@ -56,13 +56,13 @@ function toNameHTML(toName, current = '') {
         const here = String(l.library) === current;
         return `<a class="people-to-name-link" href="${peopleHash({ view: 'name', library: l.library })}"${here ? ' aria-current="page"' : ''}>${escapeHtml(l.libraryName)} <span class="count">${formatCount(l.groups)}</span></a>`;
     });
-    return `<nav class="people-to-name" aria-label="Groups of faces waiting for a name"><span class="people-label">Groups waiting for a name</span>${links.join('')}${hiddenEverywhereLink(toName)}</nav>`;
+    return `<nav class="people-to-name" aria-label="${t('Groups of faces waiting for a name')}"><span class="people-label">${t('Groups waiting for a name')}</span>${links.join('')}${hiddenEverywhereLink(toName)}</nav>`;
 }
 
 // hiddenEverywhereLink leads to the faces hidden in all libraries together.
 function hiddenEverywhereLink(toName) {
     const n = toName.reduce((sum, l) => sum + (l.hidden || 0), 0);
-    return n ? `<a class="people-hidden-link" href="${peopleHash({ view: 'hidden' })}">${escapeHtml(countFaces(n))} hidden</a>` : '';
+    return n ? `<a class="people-hidden-link" href="${peopleHash({ view: 'hidden' })}">${escapeHtml(t('{faces} hidden', { faces: countFaces(n) }))}</a>` : '';
 }
 
 // wirePeopleFind narrows the cards in container to the names holding what
@@ -84,8 +84,8 @@ function wirePeopleFind(container) {
 }
 
 function countLibraries(n) { return n === 1 ? '1 library' : `${formatCount(n)} libraries`; }
-function countPhotos(n) { return n === 1 ? '1 photo' : `${formatCount(n)} photos`; }
-function countFaces(n) { return n === 1 ? '1 face' : `${formatCount(n)} faces`; }
+function countPhotos(n) { return countText(n, 'photo'); }
+function countFaces(n) { return countText(n, 'face'); }
 
 // sentenceList joins items as a sentence does: "a", "a and b", "a, b and c".
 function sentenceList(items) {
@@ -101,7 +101,7 @@ function oftenWithHTML(withList) {
     return `<div class="people-with"><span class="people-label">${OFTEN_WITH_LABEL}</span><div class="people-with-row">${links.join('')}</div></div>`;
 }
 
-const OFTEN_WITH_LABEL = 'Often in photos together with · number of photos';
+const OFTEN_WITH_LABEL = t('Often in photos together with · number of photos');
 
 // withChipHTML is what a chip of Often with shows: the person's face, their
 // name, and in how many photos they are together.

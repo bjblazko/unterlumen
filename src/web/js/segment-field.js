@@ -9,11 +9,11 @@
 function segmentField({ label, options, value, onChange }) {
     const el = document.createElement('div');
     el.className = 'segment-field';
-    el.innerHTML = `<span class="segment-field-label">${escapeHtml(label)}</span>
-        <div class="seg" role="group" aria-label="${escapeHtml(label)}">${options.map(([v, text]) =>
-            `<button type="button" data-value="${escapeHtml(String(v))}" aria-pressed="${String(v) === String(value)}">${escapeHtml(text)}</button>`).join('')}</div>
-        <select class="btn btn-sm select-btn segment-field-select" aria-label="${escapeHtml(label)}">${options.map(([v, text]) =>
-            `<option value="${escapeHtml(String(v))}"${String(v) === String(value) ? ' selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
+    el.innerHTML = `<span class="segment-field-label">${escapeHtml(t(label))}</span>
+        <div class="seg" role="group" aria-label="${escapeHtml(t(label))}">${options.map(([v, text]) =>
+            `<button type="button" data-value="${escapeHtml(String(v))}" aria-pressed="${String(v) === String(value)}">${escapeHtml(t(text))}</button>`).join('')}</div>
+        <select class="btn btn-sm select-btn segment-field-select" aria-label="${escapeHtml(t(label))}">${options.map(([v, text]) =>
+            `<option value="${escapeHtml(String(v))}"${String(v) === String(value) ? ' selected' : ''}>${escapeHtml(t(text))}</option>`).join('')}</select>`;
     const select = el.querySelector('select');
     const choose = (v) => {
         for (const b of el.querySelectorAll('button[data-value]')) b.setAttribute('aria-pressed', String(b.dataset.value === v));

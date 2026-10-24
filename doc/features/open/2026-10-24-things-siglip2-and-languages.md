@@ -91,9 +91,9 @@ Why:
 - **Things are kept by their ID** — the English names of today (`dog`,
   `half-timbered house`) — in the index, `ul:Things`/`ul:ThingsNot`, URLs and
   the shared filter.
-- **Display names per UI language** come from data next to the word list
-  (`vocabulary.<lang>.json`), with synonyms for the search bar's
-  suggestions. A test checks that every ID has a name in every language.
+- **Display names per UI language** come from the lexicon next to the word
+  list (`internal/things/lexicon/<lang>.json`), with synonyms for the
+  search bar's suggestions. A test checks that every ID has a name in every language.
 - **Keyword language per library**, chosen when it is made.
   - The default is the UI language.
   - A sentence says plainly that found things are written as keywords into
@@ -108,8 +108,8 @@ Why:
   still removes its thing.
 - **Searching by words** needs no translation: SigLIP 2's text encoder
   understands the languages.
-- **UI translation** (Spanish, French, German, Japanese, Chinese…) is a
-  feature of its own. This one only prepares the things for it.
+- **UI translation** is a feature of its own
+  (2026-10-24-interface-languages, ADR-0056). German comes first.
 
 ## Acceptance criteria
 
@@ -121,8 +121,8 @@ Why:
 - [x] New `things.Version`: every photo looked at again once; vectors travel; the NAS takes them over without the model
 - [ ] Pass at low priority with limited threads; the NAS stays usable during a first pass
 - [x] Word search in German, Spanish, French, Japanese and Chinese finds the photos the English phrase finds (Japanese and Chinese weaker)
-- [ ] Thing IDs stable; display names per language; synonyms in the search bar
-- [ ] Keyword language chosen per library when it is made, with a plain explanation; kept in the library's marker
-- [ ] Rewriting a library's keywords into another language without models
+- [x] Thing IDs stable; display names per language (German); synonyms in the search bar; the nearest thing for a word that names none
+- [x] Keyword language chosen per library when it is made, with a plain explanation; kept in the library's marker
+- [x] Rewriting a library's keywords into another language without models (ADR-0056)
 - [x] ADR-0055 (model change and quality); ADR-0054 decision 12 closed
 - [ ] Go tests, e2e (things spec), legal check of the new download

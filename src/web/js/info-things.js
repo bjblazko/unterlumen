@@ -32,13 +32,14 @@ class InfoThings {
         if (!this._things.length) return '';
         // On a phone the panel only says what is in the photo.
         const editable = !matchMedia(INFO_PANEL_PHONE).matches;
-        const rows = this._things.map(t => {
-            const drop = `There is no ${t.name} in this photo`;
-            return `<div class="info-thing"><span class="info-value info-thing-name">${escapeHtml(t.name)}</span>` +
-                (editable ? `<button type="button" class="info-meta-del info-thing-remove" data-thing="${escapeHtml(t.name)}" title="${escapeHtml(drop)}" aria-label="${escapeHtml(drop)}">×</button>` : '') +
+        const rows = this._things.map(f => {
+            const name = ThingWords.name(f.name);
+            const drop = t('There is no {name} in this photo', { name });
+            return `<div class="info-thing"><span class="info-value info-thing-name">${escapeHtml(name)}</span>` +
+                (editable ? `<button type="button" class="info-meta-del info-thing-remove" data-thing="${escapeHtml(f.name)}" title="${escapeHtml(drop)}" aria-label="${escapeHtml(drop)}">×</button>` : '') +
                 '</div>';
         });
-        return `<div class="info-things">${this._panel.section('Things', rows)}</div>`;
+        return `<div class="info-things">${this._panel.section(t('Things'), rows)}</div>`;
     }
 
     attachEvents(container) {

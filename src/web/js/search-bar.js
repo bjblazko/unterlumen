@@ -10,12 +10,12 @@ const SEARCH_THINGS = 6;
 class SearchBar {
     constructor(host) {
         host.innerHTML = `
-            <label class="search-bar-label" for="search-bar-input">Search</label>
+            <label class="search-bar-label" for="search-bar-input">${t('Search')}</label>
             <div class="search-bar-field">
-                <input id="search-bar-input" class="search-bar-input" type="text" autocomplete="off" spellcheck="false" aria-label="Search"
-                    placeholder="A person, a thing, or words such as dog on a beach"
+                <input id="search-bar-input" class="search-bar-input" type="text" autocomplete="off" spellcheck="false" aria-label="${t('Search')}"
+                    placeholder="${t('A person, a thing, or words such as dog on a beach')}"
                     role="combobox" aria-expanded="false" aria-controls="search-bar-list" aria-autocomplete="list">
-                <ul id="search-bar-list" class="search-bar-list" role="listbox" aria-label="Suggestions" hidden></ul>
+                <ul id="search-bar-list" class="search-bar-list" role="listbox" aria-label="${t('Suggestions')}" hidden></ul>
             </div>`;
         this._input = host.querySelector('.search-bar-input');
         this._list = host.querySelector('.search-bar-list');
@@ -44,6 +44,7 @@ class SearchBar {
             LibraryAPI.personNames().catch(() => []),
             LibraryAPI.thingTotals().catch(() => []),
             ThingsAPI.status().catch(() => ({ installed: false })),
+            ThingWords.load(),
         ]);
         this._names = names;
         this._things = things;
@@ -55,28 +56,54 @@ class SearchBar {
         const text = this._input.value.trim();
         const low = text.toLowerCase();
         this._options = [];
+        clearTimeout(this._nearTimer);
         if (text) {
             for (const name of (this._names || []).filter(n => n.toLowerCase().includes(low)).slice(0, SEARCH_PEOPLE)) {
                 this._options.push({ kind: 'People', label: name, criteria: { person: name } });
             }
-            for (const t of (this._things || []).filter(t => t.thing.includes(low)).slice(0, SEARCH_THINGS)) {
-                this._options.push({ kind: 'Things', label: t.thing, count: t.photos, criteria: { thing: t.thing } });
-            }
-            if (this._words) this._options.push({ kind: 'Words', label: `Photos that show “${text}”`, criteria: { text } });
+            // Things in the interface's language, by their names and other
+            // words, and by their English IDs: "Hu" and "dog" find the dog.
+            const hits = new Set(ThingWords.matches(text));
+            const found = (this._things || []).filter(th => hits.has(th.thing)).slice(0, SEARCH_THINGS);
+            for (const th of found) this._options.push(this._thingOption(th));
+            if (this._words) this._options.push({ kind: 'Words', label: t('Photos that show “{text}”', { text }), criteria: { text } });
+            if (!found.length && this._words) this._suggestNearest(text);
         }
         this._active = this._options.length ? 0 : -1;
         this._draw();
+    }
+
+    _thingOption(th, nearTo) {
+        return { kind: 'Things', label: ThingWords.name(th.thing) + (nearTo ? '?' : ''), count: th.photos,
+            note: nearTo ? t('nearest to “{text}”', { text: nearTo }) : '', criteria: { thing: th.thing } };
+    }
+
+    // A word no list has — "Dackel" — may still mean a thing: once the
+    // typing pauses, the thing nearest to it is suggested, with a question
+    // mark, before the search by words.
+    _suggestNearest(text) {
+        this._nearTimer = setTimeout(async () => {
+            const r = await fetch(`/api/things/nearest?text=${encodeURIComponent(text)}`).catch(() => null);
+            if (!r || r.status !== 200 || this._input.value.trim() !== text) return;
+            const { thing } = await r.json();
+            const th = (this._things || []).find(x => x.thing === thing);
+            if (!th) return;
+            const at = this._options.findIndex(o => o.kind === 'Words');
+            this._options.splice(at < 0 ? this._options.length : at, 0, this._thingOption(th, text));
+            this._draw();
+        }, 300);
     }
 
     _draw() {
         if (!this._options.length) { this._close(); return; }
         let kind = '';
         this._list.innerHTML = this._options.map((o, i) => {
-            const head = o.kind !== kind && o.kind !== 'Words' ? `<li class="search-bar-kind" role="presentation">${o.kind}</li>` : '';
+            const head = o.kind !== kind && o.kind !== 'Words' ? `<li class="search-bar-kind" role="presentation">${t(o.kind)}</li>` : '';
             kind = o.kind;
             const count = o.count !== undefined ? `<span class="search-bar-count">${countText(o.count, 'photo', 'photos')}</span>` : '';
+            const note = o.note ? `<span class="search-bar-note">${escapeHtml(o.note)}</span>` : '';
             return `${head}<li id="search-bar-option-${i}" class="search-bar-option${o.kind === 'Words' ? ' search-bar-words' : ''}" role="option" data-index="${i}" aria-selected="${i === this._active}">` +
-                `<span class="search-bar-name">${escapeHtml(o.label)}</span>${count}</li>`;
+                `<span class="search-bar-name">${escapeHtml(o.label)}${note}</span>${count}</li>`;
         }).join('');
         this._list.hidden = false;
         this._input.setAttribute('aria-expanded', 'true');

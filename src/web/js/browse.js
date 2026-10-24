@@ -23,7 +23,7 @@ class BrowsePane {
         this.onSlideshowInvoke = options.onSlideshowInvoke || null;
         // The pane draws the place's head unless its host has one (Organize).
         this.placeHeader = options.placeHeader ?? true;
-        this.rootLabel = options.rootLabel || 'Folders';
+        this.rootLabel = options.rootLabel || t('Folders');
         // onHeader(slot): the host puts buttons of its own into the head.
         this.onHeader = options.onHeader || null;
         this._toolsChecked = null;
@@ -183,7 +183,7 @@ class BrowsePane {
             if (err.name === 'AbortError' || this._loadController !== controller) return;
             this._loading = false;
             this._loadController = null;
-            this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
+            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: err.message })}</div>`;
             return;
         }
 
@@ -252,7 +252,7 @@ class BrowsePane {
         return App.config?.homePath ?? App.config?.startPath ?? '';
     }
 
-    homeLabel() { return 'Home folder'; }
+    homeLabel() { return t('Home folder'); }
 
     getFocusedDir()    { return this.keyboard.getFocusedDir(); }
     getFocusedFile()   { return this.keyboard.getFocusedFile(); }
@@ -358,7 +358,7 @@ class BrowsePane {
         // Says which libraries catalog this folder, and goes there.
         const libs = this._libraries;
         if (libs.length) {
-            badge.innerHTML = `In ${libs.length === 1 ? 'library' : 'libraries'} ${libs.map(libraryLink).join(', ')}`;
+            badge.innerHTML = (libs.length === 1 ? t('In library {links}', { links: libs.map(libraryLink).join(', ') }) : t('In libraries {links}', { links: libs.map(libraryLink).join(', ') }));
             badge.style.display = '';
         } else {
             badge.style.display = 'none';
@@ -380,7 +380,7 @@ class BrowsePane {
         if (this._loading) {
             content.push('<div class="browse-loading"></div>');
         } else if (this.entries.length === 0) {
-            content.push('<div class="empty">No images or folders found</div>');
+            content.push('<div class="empty">' + t('No images or folders found') + '</div>');
         } else {
             const end = Math.min(CHUNK_SIZE, this.entries.length);
             content.push(this._renderChunk(0, end));
@@ -403,7 +403,7 @@ class BrowsePane {
         // A new layout draws the breadcrumb anew; the libraries found stay.
         this._updateLibraryBadge();
         const loadingEl = this._contentEl.querySelector('.browse-loading');
-        if (loadingEl) Activity.in(loadingEl, 'Reading the folder…', { area: true });
+        if (loadingEl) Activity.in(loadingEl, t('Reading the folder…'), { area: true });
         this.attachEvents();
         this._setupObserver();
 
@@ -453,7 +453,7 @@ class BrowsePane {
         return this.warnings.map((w, i) =>
             `<div class="warning-banner" data-warning-index="${i}">
                 <span class="warning-message">${w.message}</span>
-                <button class="btn btn-sm warning-dismiss" data-warning-index="${i}" title="Dismiss">&times;</button>
+                <button class="btn btn-sm warning-dismiss" data-warning-index="${i}" title="${t('Dismiss')}">&times;</button>
             </div>`
         ).join('');
     }
@@ -462,7 +462,7 @@ class BrowsePane {
         const parts = this.path ? this.path.split('/') : [];
         const isAtRoot = parts.length === 0;
         const isAtHome = this.path === this.homeTarget();
-        const upBtn = `<button class="btn btn-sm up-dir-btn" title="Go up"${isAtRoot ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6.5" y1="10.5" x2="6.5" y2="2.5"/><polyline points="3 6 6.5 2.5 10 6"/></svg></button>`;
+        const upBtn = `<button class="btn btn-sm up-dir-btn" title="${t('Go up')}"${isAtRoot ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6.5" y1="10.5" x2="6.5" y2="2.5"/><polyline points="3 6 6.5 2.5 10 6"/></svg></button>`;
         const homeBtn = `<button class="btn btn-sm home-btn" title="${escapeHtml(this.homeLabel())}" aria-label="${escapeHtml(this.homeLabel())}"${isAtHome ? ' disabled' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1.5 6.5 6.5 1.5 11.5 6.5"/><path d="M3 6V11H10V6"/></svg></button>`;
         let crumbs = `${this.crumbsBefore()}<a href="#" class="crumb${isAtRoot ? ' crumb-current' : ''}" data-path="">${escapeHtml(this.rootLabel)}</a>`;
         let accumulated = '';
@@ -489,7 +489,7 @@ class BrowsePane {
     _slideshowButtonHTML() {
         if (!this.onSlideshowInvoke) return '';
         const noPhotos = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
-        return `<button class="btn btn-sm browse-slideshow-btn" aria-label="Slideshow"${noPhotos ? ' disabled title="This folder holds no photos"' : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M5.25 4.75v3.5l3-1.75z" fill="currentColor"/></svg><span class="browse-slideshow-label">Slideshow</span></button>`;
+        return `<button class="btn btn-sm browse-slideshow-btn" aria-label="${t('Slideshow')}"${noPhotos ? ` disabled title="${t('This folder holds no photos')}"` : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M5.25 4.75v3.5l3-1.75z" fill="currentColor"/></svg><span class="browse-slideshow-label">${t('Slideshow')}</span></button>`;
     }
 
     _syncSelectAll() {
@@ -501,15 +501,15 @@ class BrowsePane {
             <div class="controls-left">
             <!-- The layout is a view you switch while looking at photos, so
                  it is a visible control rather than an entry in a menu. -->
-            <div class="seg" role="group" aria-label="Layout">
+            <div class="seg" role="group" aria-label="${t('Layout')}">
                 ${['justified', 'grid', 'list'].map(v => `
                     <button aria-pressed="${this.view === v}" data-view="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
             </div>
-            <select class="btn btn-sm select-btn sort-field" aria-label="Sort photos">
-                ${[['taken', 'Photo taken'], ['name', 'Name'], ['date', 'File modified'], ['size', 'Size']].map(([v, label]) => `
+            <select class="btn btn-sm select-btn sort-field" aria-label="${t('Sort photos')}">
+                ${[['taken', t('Photo taken')], ['name', t('Name')], ['date', t('File modified')], ['size', t('Size')]].map(([v, label]) => `
                     <option value="${v}" ${this.sort === v ? 'selected' : ''}>${label}</option>`).join('')}
             </select>
-            <button class="btn btn-sm sort-order" title="${this.order === 'asc' ? 'Sorting oldest first' : 'Sorting newest first'}" aria-label="Reverse the order">${this.order === 'asc' ? '↑' : '↓'}</button>
+            <button class="btn btn-sm sort-order" title="${this.order === 'asc' ? t('Sorting oldest first') : t('Sorting newest first')}" aria-label="${t('Reverse the order')}">${this.order === 'asc' ? '↑' : '↓'}</button>
             </div>
             <span class="browse-select-all"></span>
         </div>`;
@@ -685,28 +685,28 @@ class BrowsePane {
     _menuItems() {
         const items = [
             {
-                id: 'names', label: 'Names', switch: { on: this.showNames, labelOn: 'Shown', labelOff: 'Hidden' },
+                id: 'names', label: t('Names'), switch: { on: this.showNames, labelOn: t('Shown'), labelOff: t('Hidden') },
                 onChange: (on) => { this.showNames = on; this.render(); },
             },
             {
-                id: 'details', label: 'Details', switch: { on: this.showOverlays, labelOn: 'Shown', labelOff: 'Hidden' },
+                id: 'details', label: t('Details'), switch: { on: this.showOverlays, labelOn: t('Shown'), labelOff: t('Hidden') },
                 onChange: (on) => { this.showOverlays = on; this.render(); },
             },
         ];
         // A phone has no key to bring a hidden interface back.
         if (window.matchMedia('(max-width: 700px)').matches) return items;
         items.push({
-            id: 'interface', label: 'Interface (H)', switch: { on: !App.uiHidden, labelOn: 'Shown', labelOff: 'Hidden' },
+            id: 'interface', label: t('Interface (H)'), switch: { on: !App.uiHidden, labelOn: t('Shown'), labelOff: t('Hidden') },
             onChange: () => App.toggleUIVisibility(),
         });
         if (!this.onToolInvoke) return items;
         items.push('separator');
         const dir = this.getFocusedDir();
         if (dir && App.mode !== 'library') {
-            items.push({ id: 'make-library', label: 'Make library…', onSelect: () => this._runFolderTool('make-library') });
+            items.push({ id: 'make-library', label: t('Make library…'), onSelect: () => this._runFolderTool('make-library') });
         }
         if (App.mode === 'library') {
-            items.push({ id: 'scan', label: 'Scan for new photos', onSelect: () => this._runFolderTool('lib-scan-new') });
+            items.push({ id: 'scan', label: t('Scan for new photos'), onSelect: () => this._runFolderTool('lib-scan-new') });
         }
         return items;
     }
@@ -868,7 +868,7 @@ class BrowsePane {
         if (!this.showOverlays) return '';
         const badges = [];
         if (meta && meta.hasGPS) {
-            badges.push(`<span class="overlay-badge overlay-badge-gps" title="Has GPS coordinates"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
+            badges.push(`<span class="overlay-badge overlay-badge-gps" title="${t('Has GPS coordinates')}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
         }
         const fileType = this._fileTypeLabel(name);
         if (fileType) badges.push(`<span class="overlay-badge">${fileType}</span>`);
@@ -893,7 +893,7 @@ class BrowsePane {
     }
 
     _aspectRatioIcon(ratioStr) {
-        const isCustom = ratioStr === 'Custom Crop';
+        const isCustom = !ratioStr.includes(':');
         let ratio = 1;
         if (!isCustom) {
             const parts = ratioStr.split(':');

@@ -20,7 +20,7 @@ function peopleLegendHTML(ps, colours, extra = '') {
         return `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(${r} ${g} ${b})" aria-hidden="true"></span>${escapeHtml(p.name)}</span>`;
     }).join('');
     const swatch = (rgb, text) => `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(${rgb.map(c => Math.round(c * 255)).join(' ')})" aria-hidden="true"></span>${text}</span>`;
-    return named + (ps.people.length > 8 ? swatch(PEOPLE_OTHER_RGB, 'Everyone else') : '') + extra;
+    return named + (ps.people.length > 8 ? swatch(PEOPLE_OTHER_RGB, t('Everyone else')) : '') + extra;
 }
 
 // A small, fixed offset per photo, so lights that share a place spread out
@@ -42,7 +42,7 @@ function peopleNoStage(el, ps) {
 // renderFaceSpace draws every face where what it looks like puts it.
 // onPick gets { photo } or { person }.
 function renderFaceSpace(el, ps, onPick, options) {
-    if (!ps?.faceSpace?.face.length) { tlNoData(el, 'No faces were found in these photos yet.'); return; }
+    if (!ps?.faceSpace?.face.length) { tlNoData(el, t('No faces were found in these photos yet.')); return; }
     renderPointStage(el, stageEl => faceSpaceSpec(ps, peopleStageColours(stageEl, ps.people.length)), onPick, options);
 }
 
@@ -68,7 +68,7 @@ function faceSpaceSpec(ps, colours) {
     const axes = f.axes === 'people' ? 'the named people differ most' : 'the faces differ most';
     return {
         summary: `${formatCount(n)}${of} faces, each placed by what it looks like: faces close together look alike. The three axes are the directions in which ${axes}; they have no names of their own. Named people are in their colour, faces nobody named are grey.`,
-        legend: peopleLegendHTML(ps, colours, `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(107 112 122)" aria-hidden="true"></span>Nobody named</span>`)
+        legend: peopleLegendHTML(ps, colours, `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(107 112 122)" aria-hidden="true"></span>${t('Nobody named')}</span>`)
             + legendStepHTML('A person: the middle of their faces, larger with more photos.'),
         sprites, steps,
         trail: new Float32Array(0),
@@ -81,8 +81,8 @@ function faceSpaceSpec(ps, colours) {
             }
             const p = f.person[i];
             return photoTipHTML(ps, f.lib[i], f.photo[i], `
-                <span class="point-stage-tip-title">${p >= 0 ? escapeHtml(ps.people[p].name) : 'Nobody named'}</span>
-                <span>${escapeHtml(f.date[i] ? f.date[i].slice(0, 10) : 'No date')}</span>`);
+                <span class="point-stage-tip-title">${p >= 0 ? escapeHtml(ps.people[p].name) : t('Nobody named')}</span>
+                <span>${escapeHtml(f.date[i] ? f.date[i].slice(0, 10) : t('No date'))}</span>`);
         },
         pick: (kind, i) => (kind === 'step'
             ? { person: ps.people[shown[i].p].name }
@@ -159,7 +159,7 @@ function peopleCircleSpec(ps, colours) {
     const lines = new StageLines();
     for (const { a: x, b: y, photos: n } of pairs) lines.line(pos[x], pos[y], 0.08 + 0.5 * Math.sqrt(n / mostShared));
     return {
-        summary: `The ${formatCount(count)} people with the most photos, each a large light with their photos around it. People who share photos are drawn together and joined by a line, brighter with more shared photos; where they stand otherwise means nothing.`,
+        summary: t('The {count} people with the most photos, each a large light with their photos around it. People who share photos are drawn together and joined by a line, brighter with more shared photos; where they stand otherwise means nothing.', { count: formatCount(count) }),
         legend: peopleLegendHTML(ps, colours)
             + legendStepHTML('A person, larger with more photos; a small light on a line: the photos two people share.'),
         sprites, steps,
@@ -171,12 +171,12 @@ function peopleCircleSpec(ps, colours) {
             if (kind === 'step') {
                 if (i < count) return `<span class="point-stage-tip-title">${escapeHtml(ps.people[i].name)}</span><span>${photoCount(ps.people[i].photos)}</span>`;
                 const pair = pairs[i - count];
-                return `<span class="point-stage-tip-title">${escapeHtml(ps.people[pair.a].name)} and ${escapeHtml(ps.people[pair.b].name)}</span><span>${photoCount(pair.photos)} together</span>`;
+                return `<span class="point-stage-tip-title">${t('{a} and {b}', { a: escapeHtml(ps.people[pair.a].name), b: escapeHtml(ps.people[pair.b].name) })}</span><span>${t('{photos} together', { photos: photoCount(pair.photos) })}</span>`;
             }
             const j = photos[i];
             return photoTipHTML(ps, a.lib[j], a.photo[j], `
                 <span class="point-stage-tip-title">${escapeHtml(ps.people[a.person[j]].name)}</span>
-                <span>${escapeHtml(a.date[j] ? a.date[j].slice(0, 10) : 'No date')}</span>`);
+                <span>${escapeHtml(a.date[j] ? a.date[j].slice(0, 10) : t('No date'))}</span>`);
         },
         pick: (kind, i) => {
             if (kind === 'step') {
@@ -201,7 +201,7 @@ const LIFE_FLOOR = -0.6; // the floor sits high, so the front lanes stay above t
 // { person, period }.
 function renderLifeLines(el, ps, onPick, options) {
     if (peopleNoStage(el, ps)) return;
-    if (!peopleStatsDerived(ps).periods.length) { tlNoData(el, 'No photo of a named person has a date.'); return; }
+    if (!peopleStatsDerived(ps).periods.length) { tlNoData(el, t('No photo of a named person has a date.')); return; }
     renderPointStage(el, stageEl => lifeLinesSpec(ps, peopleStageColours(stageEl, ps.people.length)), onPick, options);
 }
 
@@ -257,7 +257,7 @@ function lifeLinesSpec(ps, colours) {
     });
     const unit = periodUnit(ps.granularity);
     return {
-        summary: `Time across, from ${periods[0]} to ${periods[periods.length - 1]}, and a lane for each of the ${formatCount(lanes)} people with the most photos: their photos on the floor of their lane, and a line above it as high as their photos in each ${unit}, up to ${formatCount(most)}.`,
+        summary: t('Time across, from {periods} to {periods2}, and a lane for each of the {lanes} people with the most photos: their photos on the floor of their lane, and a line above it as high as their photos in each {unit}, up to {most}.', { periods: periods[0], periods2: periods[periods.length - 1], lanes: formatCount(lanes), unit: unit, most: formatCount(most) }),
         legend: peopleLegendHTML({ people: ps.people.slice(0, lanes) }, colours)
             + legendStepHTML(`A person's photos in one ${unit}, higher and larger with more.`),
         sprites,

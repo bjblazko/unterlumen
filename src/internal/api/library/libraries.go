@@ -78,9 +78,10 @@ func detectLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			SourcePath  string `json:"sourcePath"`
+			Name            string `json:"name"`
+			Description     string `json:"description"`
+			SourcePath      string `json:"sourcePath"`
+			KeywordLanguage string `json:"keywordLanguage"` // optional; English when empty
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -104,6 +105,12 @@ func createLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		// A library joined from another installation keeps its language.
+		if body.KeywordLanguage != "" && !created.Shared {
+			if l, err := mgr.SetKeywordLanguage(created.ID, body.KeywordLanguage); err == nil {
+				created = l
+			}
 		}
 		w.WriteHeader(http.StatusCreated)
 		writeJSON(w, toLibraryJSON(created, root, false))
@@ -147,8 +154,9 @@ func updateLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		var body struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
+			Name            string `json:"name"`
+			Description     string `json:"description"`
+			KeywordLanguage string `json:"keywordLanguage"` // optional; a change rewrites the keywords
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -162,6 +170,12 @@ func updateLibrary(mgr *lib.Manager, root string) http.HandlerFunc {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if body.KeywordLanguage != "" {
+			if updated, err = mgr.SetKeywordLanguage(id, body.KeywordLanguage); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 		writeJSON(w, toLibraryJSON(updated, root, mgr.IsScanning(id)))
 	}

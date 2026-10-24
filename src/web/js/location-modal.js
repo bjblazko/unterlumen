@@ -16,11 +16,11 @@ class LocationModal {
         const n = this.files.length;
         this._dialog.setBody(`
             <div class="location-confirm-msg">
-                <p>Remove the location from <strong>${n} photo${n !== 1 ? 's' : ''}</strong>? The GPS coordinates are deleted from the files; nothing else changes.</p>
+                <p>${t('Remove the location from')} <strong>${n} photo${n !== 1 ? 's' : ''}</strong>? The GPS coordinates are deleted from the files; nothing else changes.</p>
             </div>`);
         this._dialog.setActions([
-            { label: 'Keep it', onClick: () => { const files = this.files; const cb = this._onSuccess; this.close(); this.open(files, cb); } },
-            { label: `Remove from ${n} photo${n !== 1 ? 's' : ''}`, kind: 'danger', onClick: () => this._executeRemove() },
+            { label: t('Keep it'), onClick: () => { const files = this.files; const cb = this._onSuccess; this.close(); this.open(files, cb); } },
+            { label: n === 1 ? t('Remove from 1 photo') : t('Remove from {n} photos', { n: formatCount(n) }), kind: 'danger', onClick: () => this._executeRemove() },
         ]);
     }
 
@@ -33,7 +33,7 @@ class LocationModal {
             const dialog = new ProgressDialog();
             const successFiles = [];
             dialog.open(files, {
-                verb: 'Removing GPS',
+                verb: t('Removing GPS'),
                 action: async (file) => {
                     try {
                         const result = await API.removeLocation([file]);
@@ -52,18 +52,18 @@ class LocationModal {
         }
 
         this._dialog.setActions([]);
-        this._dialog.setNote('Removing the location…');
+        this._dialog.setNote(t('Removing the location…'));
 
         try {
             const result = await API.removeLocation(this.files);
             const successes = result.results.filter(r => r.success).length;
             const failures = result.results.filter(r => !r.success);
-            let msg = `GPS data removed from ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
+            let msg = t('GPS data removed from {done} of {photos}.', { done: formatCount(successes), photos: countText(this.files.length, 'photo') });
             const successFiles = result.results.filter(r => r.success).map(r => r.file);
             if (failures.length > 0) {
                 msg += ` ${failures.length} did not: ${failures.map(f => f.error).join(', ')}`;
                 this._dialog.setNote(msg, 'error');
-                this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
+                this._dialog.setActions([{ label: t('Close'), onClick: () => this.close() }]);
                 if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
             } else {
                 this._dialog.setNote(msg);
@@ -71,8 +71,8 @@ class LocationModal {
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            this._dialog.setNote(`It did not work: ${err.message}`, 'error');
-            this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
+            this._dialog.setNote(t('It did not work: {err}', { err: err.message }), 'error');
+            this._dialog.setActions([{ label: t('Close'), onClick: () => this.close() }]);
         }
     }
 
@@ -100,7 +100,7 @@ class LocationModal {
         // Everything about a photo's location is in this one dialog: setting
         // it, and taking it away again.
         this._dialog = new Dialog({
-            title: 'Location',
+            title: t('Location'),
             subtitle: `${this.files.length} photo${this.files.length !== 1 ? 's' : ''}`,
             size: 'md',
             className: 'location-dialog',
@@ -108,18 +108,18 @@ class LocationModal {
                 <div class="location-map" id="location-map"></div>
                 <div class="location-fields">
                     <label class="location-field">
-                        <span class="field-label-inline">Latitude</span>
+                        <span class="field-label-inline">${t('Latitude')}</span>
                         <input type="text" class="location-input" id="loc-lat" placeholder="e.g. 48.8566">
                     </label>
                     <label class="location-field">
-                        <span class="field-label-inline">Longitude</span>
+                        <span class="field-label-inline">${t('Longitude')}</span>
                         <input type="text" class="location-input" id="loc-lon" placeholder="e.g. 2.3522">
                     </label>
                 </div>`,
             actions: [
-                { label: 'Remove location…', kind: 'danger', id: 'loc-remove', onClick: () => this._confirmRemove() },
-                { label: 'Cancel', id: 'loc-cancel', onClick: () => this.close() },
-                { label: 'Set location', kind: 'primary', id: 'loc-confirm', disabled: true, onClick: () => this._showConfirmation() },
+                { label: t('Remove location…'), kind: 'danger', id: 'loc-remove', onClick: () => this._confirmRemove() },
+                { label: t('Cancel'), id: 'loc-cancel', onClick: () => this.close() },
+                { label: t('Set location'), kind: 'primary', id: 'loc-confirm', disabled: true, onClick: () => this._showConfirmation() },
             ],
             onClose: () => { this.overlay = null; },
         });
@@ -234,16 +234,16 @@ class LocationModal {
     _showConfirmation() {
         this._dialog.setBody(`
             <div class="location-confirm-msg">
-                <p>Location data will be set on <strong>${this.files.length} image${this.files.length !== 1 ? 's' : ''}</strong>. Existing GPS coordinates will be overwritten.</p>
+                <p>${t('Location data will be set on')} <strong>${this.files.length} image${this.files.length !== 1 ? 's' : ''}</strong>. Existing GPS coordinates will be overwritten.</p>
                 <div class="location-confirm-coords">
-                    <span class="info-label">Latitude</span> <span class="info-value">${this.lat}</span><br>
-                    <span class="info-label">Longitude</span> <span class="info-value">${this.lon}</span>
+                    <span class="info-label">${t('Latitude')}</span> <span class="info-value">${this.lat}</span><br>
+                    <span class="info-label">${t('Longitude')}</span> <span class="info-value">${this.lon}</span>
                 </div>
             </div>`);
 
         this._dialog.setActions([
-            { label: 'Back', onClick: () => { const files = this.files; this.close(); this.open(files, this._onSuccess); } },
-            { label: 'Set the location', kind: 'primary', onClick: () => this._execute() },
+            { label: t('Back'), onClick: () => { const files = this.files; this.close(); this.open(files, this._onSuccess); } },
+            { label: t('Set the location'), kind: 'primary', onClick: () => this._execute() },
         ]);
     }
 
@@ -258,7 +258,7 @@ class LocationModal {
             const dialog = new ProgressDialog();
             const successFiles = [];
             dialog.open(files, {
-                verb: 'Setting location',
+                verb: t('Setting location'),
                 action: async (file) => {
                     try {
                         const result = await API.setLocation([file], lat, lon);
@@ -277,18 +277,18 @@ class LocationModal {
         }
 
         this._dialog.setActions([]);
-        this._dialog.setNote('Setting the location…');
+        this._dialog.setNote(t('Setting the location…'));
 
         try {
             const result = await API.setLocation(this.files, this.lat, this.lon);
             const successes = result.results.filter(r => r.success).length;
             const failures = result.results.filter(r => !r.success);
             const successFiles = result.results.filter(r => r.success).map(r => r.file);
-            let msg = `Location set on ${successes} of ${this.files.length} image${this.files.length !== 1 ? 's' : ''}.`;
+            let msg = t('Location set on {done} of {photos}.', { done: formatCount(successes), photos: countText(this.files.length, 'photo') });
             if (failures.length > 0) {
                 msg += ` ${failures.length} did not: ${failures.map(f => f.error).join(', ')}`;
                 this._dialog.setNote(msg, 'error');
-                this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
+                this._dialog.setActions([{ label: t('Close'), onClick: () => this.close() }]);
                 if (successFiles.length > 0 && this._onSuccess) this._onSuccess(successFiles);
             } else {
                 this._dialog.setNote(msg);
@@ -296,8 +296,8 @@ class LocationModal {
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            this._dialog.setNote(`It did not work: ${err.message}`, 'error');
-            this._dialog.setActions([{ label: 'Close', onClick: () => this.close() }]);
+            this._dialog.setNote(t('It did not work: {err}', { err: err.message }), 'error');
+            this._dialog.setActions([{ label: t('Close'), onClick: () => this.close() }]);
         }
     }
 }

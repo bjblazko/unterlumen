@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Unterlumen speaks German.** Settings → Language offers Browser, English and Deutsch; Browser, the default, follows the browser's language. This release covers Libraries, Folders, Organize, Map, Timeline, People, Statistics, the info panel, the viewer, the search and the filter. The rarely used dialogs follow; messages from the server stay English for now. See ADR-0056.
+- **Things have names in German**, with words the search bar suggests: "Hund", "Fachwerkhaus", "Sonnenuntergang". A word that names no thing is matched to the nearest thing the model understands, when one is clearly nearest.
+- **Each library chooses the language of its keywords.** Found things are written into the `.xmp` sidecars as keywords, which Lightroom, Apple Photos and other programs read, so a new library asks which language to use and says why. Edit library changes it later: Unterlumen then rewrites its own keywords, never yours, without running a model. A shared library keeps the choice for every installation.
+
 ### Fixed
 - **Opening a library no longer waits behind a scan of another one.** The list of libraries follows every running scan on its card, and each time the list was drawn it opened another connection that stayed open until the scan ended — during a long check of a large library, a few visits took the browser's six connections, and a library stayed at "Reading the folder…". The list now lets go of them whenever the place is drawn anew; the scans go on.
 

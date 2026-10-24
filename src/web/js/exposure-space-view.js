@@ -46,7 +46,7 @@ function exposureCameraColours(stageEl, es) {
 // number of photos in the scope. onPick gets { photo } or { step }.
 function renderExposureSpace(el, es, total, onPick, options) {
     if (!es?.photos) {
-        tlNoData(el, 'No photo here has focal length, aperture and ISO in its EXIF.');
+        tlNoData(el, t('No photo here has focal length, aperture and ISO in its EXIF.'));
         return;
     }
     renderPointStage(el, stageEl => exposureSpaceSpec(es, total, exposureCameraColours(stageEl, es)), onPick, options);
@@ -95,7 +95,7 @@ function exposureLegendHTML(es, colours) {
         const [r, g, b] = colours[i].map(c => Math.round(c * 255));
         return `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(${r} ${g} ${b})" aria-hidden="true"></span>${escapeHtml(name)}</span>`;
     }).join('');
-    return cameras + legendStepHTML(`One ${unit}: the median focal length, aperture and ISO of its photos. The line joins the ${unit}s in time order${pathSpan(es.path)}.`);
+    return cameras + legendStepHTML(t(unit === 'year' ? 'One year: the median focal length, aperture and ISO of its photos. The line joins the years in time order{path}.' : 'One month: the median focal length, aperture and ISO of its photos. The line joins the months in time order{path}.', { path: pathSpan(es.path) }));
 }
 
 function formatFNum(v) {
@@ -110,12 +110,12 @@ function exposureTip(es, kind, i) {
     if (kind === 'step') {
         const s = es.path[i];
         return `<span class="point-stage-tip-title">${escapeHtml(s.period)}</span>
-            <span>${formatCount(s.photos)} ${s.photos === 1 ? 'photo' : 'photos'}, the median</span>
+            <span>${t('{photos}, the median', { photos: countText(s.photos, 'photo') })}</span>
             ${exposureSettingsHTML(s.focal, s.fnum, s.iso)}`;
     }
     const p = es.points;
     return photoTipHTML(es, p.lib[i], p.id[i], `
-        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : 'No date')}</span>
+        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : t('No date'))}</span>
         <span>${escapeHtml(es.cameras[p.camera[i]])}</span>
         ${exposureSettingsHTML(p.focal[i], p.fnum[i], p.iso[i])}`);
 }
@@ -149,8 +149,8 @@ function exposureLabels(es) {
     for (const f of focal.ticks) labels.push({ text: focal.label(f), pos: [exposureAxis('focal', f), -1, 1.08], kind: 'tick' });
     for (const a of fnum.ticks) labels.push({ text: fnum.label(a), pos: [-1.1, -1, exposureAxis('fnum', a)], kind: 'tick' });
     for (const v of iso.ticks) labels.push({ text: iso.label(v), pos: [-1, exposureAxis('iso', v), -1], kind: 'axis' });
-    labels.push({ text: 'Focal length (35 mm)', pos: [0, -1, 1.36], kind: 'name' });
-    labels.push({ text: 'Aperture', pos: [-1.42, -1, 0], kind: 'name' });
+    labels.push({ text: t('Focal length (35 mm)'), pos: [0, -1, 1.36], kind: 'name' });
+    labels.push({ text: t('Aperture'), pos: [-1.42, -1, 0], kind: 'name' });
     const path = es.path;
     if (path.length > 1) {
         for (const s of [path[0], path[path.length - 1]]) labels.push({ text: s.period, pos: exposurePosition(s.focal, s.fnum, s.iso), kind: 'period' });

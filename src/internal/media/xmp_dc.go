@@ -90,7 +90,8 @@ func withSubjects(data []byte, add, remove []string) []byte {
 	if start, end := foreignElement(s, "dc:subject", own); start >= 0 {
 		list := keep(append(parseSubjects([]byte(wrapFragment(s[start:end]))), c.subjects...))
 		c.subjects = nil
-		s = s[:start] + renderSubjectElement(list, "      ") + s[end:]
+		// In place of the element, after the indentation that stands before it.
+		s = s[:start] + strings.TrimLeft(renderSubjectElement(list, ""), " ") + s[end:]
 		return []byte(ownDC(s).replace(s, c))
 	}
 	c.subjects = keep(c.subjects)
@@ -136,7 +137,7 @@ func (o span) replace(s string, c dcContent) string {
 		if block == "" {
 			return strings.TrimRight(s[:o.start], " \t") + strings.TrimLeft(s[o.end:], "\n")
 		}
-		return s[:o.start] + block + s[o.end:]
+		return s[:o.start] + strings.TrimLeft(block, " ") + s[o.end:]
 	}
 	if block == "" {
 		return s

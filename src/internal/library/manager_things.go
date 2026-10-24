@@ -179,3 +179,46 @@ func (m *Manager) ThingTotals(ids []string) ([]ThingTotal, error) {
 	})
 	return out, nil
 }
+
+// NearestThing is the thing whose words lie nearest to text, in any
+// language SigLIP knows, and how likely it fits: for a word no list has —
+// "Dackel" is nearest to dog. ok is false when none is near enough, or
+// things are not installed here.
+func (m *Manager) NearestThing(text string) (thing string, probability float32, ok bool) {
+	if !m.ThingsInstalled() {
+		return "", 0, false
+	}
+	look, err := m.thingsLook()
+	if err != nil {
+		return "", 0, false
+	}
+	v, err := look.engine.Describe(text)
+	if err != nil {
+		return "", 0, false
+	}
+	best, second := -1, -1
+	for i, w := range look.words {
+		switch s := things.Similarity(v, w); {
+		case best < 0 || s > things.Similarity(v, look.words[best]):
+			best, second = i, best
+		case second < 0 || s > things.Similarity(v, look.words[second]):
+			second = i
+		}
+	}
+	if best < 0 || second < 0 {
+		return "", 0, false
+	}
+	top, next := things.Similarity(v, look.words[best]), things.Similarity(v, look.words[second])
+	if top < nearestMin || top-next < nearestAhead {
+		return "", 0, false
+	}
+	return things.Vocabulary[best].Name, top, true
+}
+
+// Text to text, every thing's words alike begin "a photo of", so all lie
+// near: words mean a thing when they are near it and nearer to it than to
+// any other. "Dackel" is dog, "Rathaus" nothing in particular.
+const (
+	nearestMin   = 0.80
+	nearestAhead = 0.01
+)

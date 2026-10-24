@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"huepattl.de/unterlumen/internal/things"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -22,6 +23,9 @@ type Marker struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
+	// KeywordLanguage is the language the library writes things in as
+	// keywords (ADR-0056); empty for English.
+	KeywordLanguage string `json:"keywordLanguage,omitempty"`
 }
 
 // libraryIDPattern is what newUUID makes. A marker's ID becomes a folder name
@@ -90,6 +94,13 @@ func (m *Manager) Annotate(l *Library) {
 			l.Name, l.Description = mk.Name, mk.Description
 		}
 	}
+	// The language the other installation chose: its sidecars are written
+	// already, and this index keeps things by their IDs.
+	if code := things.LanguageOf(mk.KeywordLanguage).Code; code != l.KeywordLanguage {
+		if err := m.setKeywordLanguage(l.ID, code); err == nil {
+			l.KeywordLanguage = code
+		}
+	}
 }
 
 // ShareLibrary writes the marker that lets other installations recognise the
@@ -102,7 +113,7 @@ func (m *Manager) ShareLibrary(id string) (*Library, error) {
 	if mk, err := ReadMarker(l.SourcePath); err == nil && mk != nil && mk.ID != id {
 		return nil, fmt.Errorf("another installation already shares this folder as %q; join it instead", mk.Name)
 	}
-	if err := writeMarker(l.SourcePath, Marker{ID: id, Name: l.Name, Description: l.Description}); err != nil {
+	if err := writeMarker(l.SourcePath, markerOf(l)); err != nil {
 		return nil, fmt.Errorf("the folder cannot be marked as shared: %w", err)
 	}
 	l.Shared = true

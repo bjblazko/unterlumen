@@ -12,52 +12,62 @@ class SettingsPane {
     render() {
         this.container.innerHTML = `
             <div class="settings-pane">
-                ${placeHeaderHTML({ title: 'Settings' })}
+                ${placeHeaderHTML({ title: t('Settings') })}
                 <div class="gal-body settings-body">
-                    <p class="settings-guide">New to Unterlumen, or not sure what a library or a destination is? ${placeLink('guide', 'guide', 'How Unterlumen works')} explains it on one page.</p>
+                    <p class="settings-guide">${t('New to Unterlumen, or not sure what a library or a destination is? {link} explains it on one page.', { link: placeLink('guide', 'guide', t('How Unterlumen works')) })}</p>
                     ${App.config?.canSetup ? `
                     <div class="form-field">
-                        <span class="form-label">Shared folder</span>
+                        <span class="form-label">${t('Shared folder')}</span>
                         <span class="settings-cache" id="settings-shared-dir">…</span>
-                        <span class="form-hint">${placeLink('setup', 'setup', 'Change the shared folder or the data folder')}</span>
+                        <span class="form-hint">${placeLink('setup', 'setup', t('Change the shared folder or the data folder'))}</span>
                     </div>` : ''}
 
                     ${App.config?.serverRole ? `
                     <div class="form-field">
-                        <span class="form-label">Sharing</span>
+                        <span class="form-label">${t('Sharing')}</span>
                         <div class="tools-install" id="settings-sharing">…</div>
                     </div>` : ''}
 
                     <div class="form-field">
-                        <span class="form-label">Theme</span>
-                        <div class="seg" role="group" aria-label="Theme" id="settings-theme">
-                            <button data-theme-set="light">Light</button>
-                            <button data-theme-set="auto">System</button>
-                            <button data-theme-set="dark">Dark</button>
+                        <span class="form-label">${t('Theme')}</span>
+                        <div class="seg" role="group" aria-label="${t('Theme')}" id="settings-theme">
+                            <button data-theme-set="light">${t('Light')}</button>
+                            <button data-theme-set="auto">${t('System')}</button>
+                            <button data-theme-set="dark">${t('Dark')}</button>
                         </div>
                     </div>
 
                     <div class="form-field">
-                        <span class="form-label">Folder previews</span>
-                        <div id="settings-thumb-quality-wrap"></div>
-                        <span class="form-hint">Only for Folders. Fast shows a photo's library thumbnail when it is in a library, otherwise the small preview stored in the file, JPEG and HEIF alike: quick, even over the network. Sharp decodes every photo at the size your screen needs: crisper, slower, and the cache grows faster.</span>
-                    </div>
-
-                    <div class="form-field" id="settings-storage">
-                        <span class="form-label">Storage</span>
-                        <span class="form-hint">Measuring…</span>
+                        <span class="form-label">${t('Language')}</span>
+                        <div class="seg" role="group" aria-label="${t('Language')}" id="settings-language">
+                            <button data-language="auto">${t('Browser')}</button>
+                            ${Object.entries(I18n.languages).map(([code, name]) => `<button data-language="${code}" lang="${code}">${name}</button>`).join('')}
+                        </div>
+                        <span class="form-hint">${t('The language of this browser\'s Unterlumen. Browser follows the language the browser is set to. The keywords written into the sidecars have a language of their own, chosen per library.')}</span>
                     </div>
 
                     <div class="form-field">
-                        <span class="form-label">Helper programs</span>
-                        <span class="settings-tools" id="settings-tools">Checking…</span>
-                        <div><button class="btn btn-sm" id="settings-check-deps">What these are for</button></div>
+                        <span class="form-label">${t('Folder previews')}</span>
+                        <div id="settings-thumb-quality-wrap"></div>
+                        <span class="form-hint">${t('Only for Folders. Fast shows a photo\'s library thumbnail when it is in a library, otherwise the small preview stored in the file, JPEG and HEIF alike: quick, even over the network. Sharp decodes every photo at the size your screen needs: crisper, slower, and the cache grows faster.')}</span>
+                    </div>
+
+                    <div class="form-field" id="settings-storage">
+                        <span class="form-label">${t('Storage')}</span>
+                        <span class="form-hint">${t('Measuring…')}</span>
+                    </div>
+
+                    <div class="form-field">
+                        <span class="form-label">${t('Helper programs')}</span>
+                        <span class="settings-tools" id="settings-tools">${t('Checking…')}</span>
+                        <div><button class="btn btn-sm" id="settings-check-deps">${t('What these are for')}</button></div>
                         <div class="tools-install" id="settings-tools-install"></div>
                     </div>
                 </div>
             </div>`;
 
         this._wireTheme();
+        this._wireLanguage();
         this._wireToggles();
         new SettingsStorage(this.container.querySelector('#settings-storage')).load();
         this._wireTools();
@@ -84,12 +94,25 @@ class SettingsPane {
         });
     }
 
+    // The language is this browser's: a choice loads the page again in it.
+    _wireLanguage() {
+        const seg = this.container.querySelector('#settings-language');
+        const chosen = I18n.chosen();
+        for (const btn of seg.querySelectorAll('[data-language]')) {
+            btn.setAttribute('aria-pressed', btn.dataset.language === chosen ? 'true' : 'false');
+        }
+        seg.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-language]');
+            if (btn && btn.dataset.language !== chosen) I18n.choose(btn.dataset.language);
+        });
+    }
+
     _wireToggles() {
         const savedQuality = localStorage.getItem('thumbnail-quality') || 'standard';
         Toggle.create(this.container.querySelector('#settings-thumb-quality-wrap'), {
             initial: savedQuality === 'high',
-            labelOn: 'Sharp',
-            labelOff: 'Fast',
+            labelOn: t('Sharp'),
+            labelOff: t('Fast'),
             onChange: (on) => App.theme.setQuality(on ? 'high' : 'standard'),
         });
 
@@ -100,9 +123,9 @@ class SettingsPane {
         const el = this.container.querySelector('#settings-shared-dir');
         try {
             const { sharedDir } = await API.setup();
-            el.textContent = sharedDir || 'Not shared';
+            el.textContent = sharedDir || t('Not shared');
         } catch (err) {
-            el.textContent = `Could not read the settings: ${err.message}`;
+            el.textContent = t('Could not read the settings: {error}', { error: err.message });
         }
     }
 
@@ -114,18 +137,18 @@ class SettingsPane {
         try {
             ({ sharedDir } = await API.sharing());
         } catch (err) {
-            el.innerHTML = `<span class="gal-detail-error">Could not read the sharing: ${escapeHtml(err.message)}</span>`;
+            el.innerHTML = `<span class="gal-detail-error">${t('Could not read the sharing: {error}', { error: escapeHtml(err.message) })}</span>`;
             return;
         }
         if (sharedDir) {
-            el.innerHTML = `<span class="form-hint">Destinations and galleries are shared through <span class="mono">${escapeHtml(sharedDir)}</span>. Another installation — Unterlumen on a Mac, say — uses them when it chooses this folder as its shared folder.</span>`;
+            el.innerHTML = `<span class="form-hint">${t('Destinations and galleries are shared through {folder}. Another installation — Unterlumen on a Mac, say — uses them when it chooses this folder as its shared folder.', { folder: `<span class="mono">${escapeHtml(sharedDir)}</span>` })}</span>`;
             return;
         }
-        el.innerHTML = `<span class="form-hint">If another installation shows the same photos — Unterlumen on a Mac with this folder opened over the network, say — both can use the same destinations and galleries. They are then kept in this installation’s folder, in <span class="mono">.unterlumen-shared</span>.</span>
-            <div><button class="btn btn-sm" id="settings-share">Share with another installation</button></div>
+        el.innerHTML = `<span class="form-hint">${t('If another installation shows the same photos — Unterlumen on a Mac with this folder opened over the network, say — both can use the same destinations and galleries. They are then kept in this installation’s folder, in {folder}.', { folder: '<span class="mono">.unterlumen-shared</span>' })}</span>
+            <div><button class="btn btn-sm" id="settings-share">${t('Share with another installation')}</button></div>
             <div id="settings-share-result"></div>`;
         el.querySelector('#settings-share').addEventListener('click', async (e) => {
-            const restore = Activity.button(e.currentTarget, 'Sharing…');
+            const restore = Activity.button(e.currentTarget, t('Sharing…'));
             try {
                 await API.share();
             } catch (err) {
@@ -147,7 +170,7 @@ class SettingsPane {
             try {
                 status = await API.toolsCheck();
             } catch {
-                el.textContent = 'The helper check did not answer.';
+                el.textContent = t('The helper check did not answer.');
                 return;
             }
         }

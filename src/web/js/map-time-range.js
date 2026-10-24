@@ -30,11 +30,11 @@ class MapTimeRange {
 
         this.el = document.createElement('div');
         this.el.className = 'map-time';
-        this.el.innerHTML = '<span class="map-time-label">Taken</span><span class="map-time-value"></span>';
+        this.el.innerHTML = '<span class="map-time-label">' + t('Taken') + '</span><span class="map-time-value"></span>';
         this._value = this.el.querySelector('.map-time-value');
 
         this._slider = new RangeSlider({
-            label: 'Taken',
+            label: t('Taken'),
             step: 1 / this._span,
             valueText: (pos) => formatMonth(this._monthAt(pos)),
             onInput: (minPos, maxPos) => this._input(minPos, maxPos),

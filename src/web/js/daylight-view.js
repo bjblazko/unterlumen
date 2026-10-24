@@ -30,7 +30,7 @@ function renderDaylight(el, cs, onPick, options) {
     if (noColourData(el, cs)) return;
     const timed = daylightPhotos(cs);
     if (!timed.length) {
-        tlNoData(el, 'No analysed photo here has a time of day.');
+        tlNoData(el, t('No analysed photo here has a time of day.'));
         return;
     }
     renderPointStage(el, () => daylightSpec(cs, timed), onPick, options);
@@ -61,8 +61,8 @@ function daylightSpec(cs, timed) {
     ]));
     return {
         summary: `${formatCount(timed.length)} photos by when they were taken: the day of the year around the ring, the hour from midnight in the middle outward, and how bright the photo is upward. Each is in its main colour. The trail goes through the twelve months, all years together.`,
-        legend: legendDotHTML('One photo, in its main colour')
-            + legendStepHTML('One month of the year, all years together: the average hour, brightness and colour of its photos, larger with more photos. The line goes round the year.'),
+        legend: legendDotHTML(t('One photo, in its main colour'))
+            + legendStepHTML(t('One month of the year, all years together: the average hour, brightness and colour of its photos, larger with more photos. The line goes round the year.')),
         sprites, steps,
         distance: 4.4,
         trail: trailBetween(steps, { closed: true }),
@@ -105,15 +105,15 @@ function formatHour(hour) {
 function daylightTip(cs, timed, months, kind, k) {
     if (kind === 'step') {
         const m = months[k];
-        return `<span class="point-stage-tip-title">${escapeHtml(MONTHS[m.month - 1])}, all years</span>
-            <span>${formatCount(m.photos)} ${m.photos === 1 ? 'photo' : 'photos'}, on average</span>
-            <span class="point-stage-tip-values">${formatHour(m.hour)} · brightness ${m.lum.toFixed(2)}</span>`;
+        return `<span class="point-stage-tip-title">${t('{month}, all years', { month: escapeHtml(MONTHS[m.month - 1]) })}</span>
+            <span>${t('{photos}, on average', { photos: countText(m.photos, 'photo') })}</span>
+            <span class="point-stage-tip-values">${formatHour(m.hour)} · ${t('brightness')} ${m.lum.toFixed(2)}</span>`;
     }
     const p = cs.points;
     const { i, hour } = timed[k];
     return photoTipHTML(cs, p.lib[i], p.id[i], `
         <span class="point-stage-tip-title">${escapeHtml(p.date[i].slice(0, 10))}</span>
-        <span class="point-stage-tip-values">${formatHour(hour)} · brightness ${p.lum[i].toFixed(2)}</span>
+        <span class="point-stage-tip-values">${formatHour(hour)} · ${t('brightness')} ${p.lum[i].toFixed(2)}</span>
         ${colourValuesHTML(labToLCh(p.l[i], p.a[i], p.b[i]))}`);
 }
 
@@ -136,7 +136,7 @@ function daylightLines() {
 function daylightLabels() {
     const labels = MONTHS.map((name, m) => ({ text: name.slice(0, 3), pos: daylightPosition((m + 0.5) / 12, 26, 0), kind: 'hue' }));
     for (const h of [0, 6, 12, 18]) labels.push({ text: `${String(h).padStart(2, '0')}:00`, pos: daylightPosition(0.5, h, 0), kind: 'axis' });
-    labels.push({ text: 'Dark', pos: daylightPosition(0, 24, 0.02), kind: 'axis' });
-    labels.push({ text: 'Bright', pos: daylightPosition(0, 24, 1), kind: 'axis' });
+    labels.push({ text: t('Dark'), pos: daylightPosition(0, 24, 0.02), kind: 'axis' });
+    labels.push({ text: t('Bright'), pos: daylightPosition(0, 24, 1), kind: 'axis' });
     return labels;
 }

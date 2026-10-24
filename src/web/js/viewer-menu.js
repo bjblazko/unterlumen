@@ -12,7 +12,7 @@ class ViewerMenu {
     constructor(viewer, libraryRef) {
         this._viewer = viewer;
         this._libraryRef = libraryRef || (() => null);
-        this.menu = new Menu({ items: () => this._items(), label: 'More actions' });
+        this.menu = new Menu({ items: () => this._items(), label: t('More actions') });
     }
 
     _items() {
@@ -25,35 +25,35 @@ class ViewerMenu {
     // each has its key.
     _viewItems() {
         const v = this._viewer;
-        const items = [{ id: 'filmstrip', label: 'Film strip (F)', switch: { on: v.filmStripVisible, labelOn: 'Shown', labelOff: 'Hidden' }, onChange: (on) => v.setFilmStrip(on) }];
-        if (Fullscreen.available()) items.push({ id: 'fullscreen', label: Fullscreen.active() ? 'Leave full screen' : 'Full screen', onSelect: () => v.toggleFullscreen() });
-        items.push({ id: 'download', label: 'Download original', onSelect: () => v.downloadOriginal() });
+        const items = [{ id: 'filmstrip', label: t('Film strip (F)'), switch: { on: v.filmStripVisible, labelOn: t('Shown'), labelOff: t('Hidden') }, onChange: (on) => v.setFilmStrip(on) }];
+        if (Fullscreen.available()) items.push({ id: 'fullscreen', label: Fullscreen.active() ? t('Leave full screen') : t('Full screen'), onSelect: () => v.toggleFullscreen() });
+        items.push({ id: 'download', label: t('Download original'), onSelect: () => v.downloadOriginal() });
         return items;
     }
 
     _libraryItems(ref) {
         const photoRef = { getLibraryMeta: () => ({ libID: ref.lib, photoID: ref.id }) };
         return [
-            { id: 'collect', label: 'Add to gallery…', onSelect: () => this._collect(ref) },
-            { id: 'export', label: 'Export…', onSelect: () => this._withPhoto(ref, p => App._openExport([p.path], null, photoRef)) },
-            { id: 'rename', label: 'Rename…', onSelect: () => this._withPhoto(ref, p => this._rename(p.path)) },
-            { id: 'location', label: 'Set location…', onSelect: () => this._withPhoto(ref, p => this._tool('set-location', p.path)) },
-            { id: 'organize', label: 'Show in Organize', onSelect: () => this._withPhoto(ref, p => this._leave(() => App.openCommanderAt(dirOf(p.path), [p.name]))) },
+            { id: 'collect', label: t('Add to gallery…'), onSelect: () => this._collect(ref) },
+            { id: 'export', label: t('Export…'), onSelect: () => this._withPhoto(ref, p => App._openExport([p.path], null, photoRef)) },
+            { id: 'rename', label: t('Rename…'), onSelect: () => this._withPhoto(ref, p => this._rename(p.path)) },
+            { id: 'location', label: t('Set location…'), onSelect: () => this._withPhoto(ref, p => this._tool('set-location', p.path)) },
+            { id: 'organize', label: t('Show in Organize'), onSelect: () => this._withPhoto(ref, p => this._leave(() => App.openCommanderAt(dirOf(p.path), [p.name]))) },
             'separator',
-            { id: 'library', label: 'Show in library', onSelect: () => showPhotoInLibrary(ref, () => this._viewer.close()) },
+            { id: 'library', label: t('Show in library'), onSelect: () => showPhotoInLibrary(ref, () => this._viewer.close()) },
         ];
     }
 
     _folderItems(path) {
         const items = [
-            { id: 'export', label: 'Export…', onSelect: () => App.handleToolInvoke({ tool: 'export', files: [path] }) },
-            { id: 'rename', label: 'Rename…', onSelect: () => this._rename(path) },
-            { id: 'location', label: 'Set location…', onSelect: () => this._tool('set-location', path) },
+            { id: 'export', label: t('Export…'), onSelect: () => App.handleToolInvoke({ tool: 'export', files: [path] }) },
+            { id: 'rename', label: t('Rename…'), onSelect: () => this._rename(path) },
+            { id: 'location', label: t('Set location…'), onSelect: () => this._tool('set-location', path) },
         ];
         if (App.mode !== 'organize') {
             const boundary = (App.config?.boundary || '').replace(/\/$/, '');
             const dir = dirOf(path);
-            items.push({ id: 'organize', label: 'Show in Organize', onSelect: () => this._leave(() => App.openCommanderAt(dir ? `${boundary}/${dir}` : boundary, [path.split('/').pop()])) });
+            items.push({ id: 'organize', label: t('Show in Organize'), onSelect: () => this._leave(() => App.openCommanderAt(dir ? `${boundary}/${dir}` : boundary, [path.split('/').pop()])) });
         }
         return items;
     }
@@ -105,7 +105,7 @@ async function readLibraryPhoto(ref) {
         const lib = libs.find(l => String(l.id) === String(ref.lib));
         return { path: info.path, name: info.name, sourcePath: lib?.sourcePath ?? '' };
     } catch (err) {
-        App.showToast(`This photo could not be found in its library: ${err.message}`);
+        App.showToast(t('This photo could not be found in its library: {err}', { err: err.message }));
         return null;
     }
 }
@@ -119,7 +119,7 @@ async function showPhotoInLibrary(ref, leave = () => {}) {
     const dir = dirOf(photo.path);
     const relDir = dir === source ? '' : dir.startsWith(source + '/') ? dir.slice(source.length + 1) : null;
     if (relDir === null) {
-        App.showToast('This photo is no longer inside its library\'s folder. Scan the library to find it again.');
+        App.showToast(t('This photo is no longer inside its library\'s folder. Scan the library to find it again.'));
         return;
     }
     leave();

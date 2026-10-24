@@ -44,13 +44,13 @@ class PeopleCompare {
     _draw() {
         const chosen = new Set(this._chosen.map(n => n.toLowerCase()));
         const free = this._names.filter(n => !chosen.has(n.toLowerCase()));
-        const chips = this._chosen.map(n => `<button type="button" class="lib-filter-chip stats-compare-chip" data-name="${escapeHtml(n)}" title="Leave ${escapeHtml(n)} out">` +
+        const chips = this._chosen.map(n => `<button type="button" class="lib-filter-chip stats-compare-chip" data-name="${escapeHtml(n)}" title="${t('Leave {name} out', { name: escapeHtml(n) })}">` +
             `<span class="chip-label">${escapeHtml(n)}</span><span class="chip-remove" aria-hidden="true">×</span></button>`).join('');
         const add = this._chosen.length < COMPARE_MOST && free.length
-            ? `<select class="btn btn-sm select-btn stats-compare-add" aria-label="Add a person to compare">
-                <option value="">${this._chosen.length ? 'Add someone…' : 'The most photos'}</option>
+            ? `<select class="btn btn-sm select-btn stats-compare-add" aria-label="${t('Add a person to compare')}">
+                <option value="">${this._chosen.length ? t('Add someone…') : t('The most photos')}</option>
                 ${free.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}</select>` : '';
-        this.el.innerHTML = `<span class="stats-period-label">Compare</span>${chips}${add}`;
+        this.el.innerHTML = `<span class="stats-period-label">${t('Compare')}</span>${chips}${add}`;
         this.el.querySelector('.stats-compare-add')?.addEventListener('change', (e) => {
             if (e.target.value) this._set([...this._chosen, e.target.value]);
         });

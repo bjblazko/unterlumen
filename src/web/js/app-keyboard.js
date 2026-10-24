@@ -286,7 +286,7 @@ class GlobalKeyboard {
     }
 }
 
-GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ']);
+GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', t('Enter'), ' ']);
 
 // The number keys switch places; comma opens Settings.
 GlobalKeyboard.PLACE_KEYS = {

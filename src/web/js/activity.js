@@ -30,7 +30,7 @@ class Activity {
         const label = btn.textContent;
         btn.disabled = true;
         btn.setAttribute('aria-busy', 'true');
-        if (verb) btn.textContent = verb;
+        if (verb) btn.textContent = t(verb);
         return () => {
             btn.disabled = false;
             btn.removeAttribute('aria-busy');
@@ -82,7 +82,7 @@ class Activity {
         this._begin();
         this.el.setAttribute('aria-live', 'polite');
         this.el.dataset.state = 'busy';
-        this._text.textContent = text;
+        this._text.textContent = t(text);
         this._bar.hidden = true;
         this._current.textContent = '';
         return this;
@@ -95,7 +95,7 @@ class Activity {
         this.el.setAttribute('aria-live', 'off');
         this.el.dataset.state = 'busy';
         const d = Math.min(done, total);
-        this._text.textContent = `${formatCount(d)} of ${formatCount(total)} ${noun}`;
+        this._text.textContent = t('{done} of {total} {noun}', { done: formatCount(d), total: formatCount(total), noun: t(noun) });
         this._bar.hidden = false;
         this._bar.setAttribute('aria-valuemin', '0');
         this._bar.setAttribute('aria-valuemax', String(total));
@@ -105,8 +105,8 @@ class Activity {
         return this;
     }
 
-    done(text) { return this._finish('done', text); }
-    fail(text) { return this._finish('failed', text); }
+    done(text) { return this._finish('done', t(text)); }
+    fail(text) { return this._finish('failed', t(text)); }
 
     clear() {
         this._stop();
@@ -178,11 +178,11 @@ class Activity {
 // photos". In a collection (tiles, cards, rows) a count is data, the same
 // in every item, and plain: countText, "31 923 photos".
 function countHTML(n, one, many = `${one}s`) {
-    return `<span class="count">${formatCount(n)}</span> ${n === 1 ? one : many}`;
+    return `<span class="count">${formatCount(n)}</span> ${t(n === 1 ? one : many)}`;
 }
 
 function countText(n, one, many = `${one}s`) {
-    return `${formatCount(n)} ${n === 1 ? one : many}`;
+    return `${formatCount(n)} ${t(n === 1 ? one : many)}`;
 }
 
 // formatCount groups thousands with a narrow no-break space: 15 832, never

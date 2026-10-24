@@ -6,9 +6,9 @@
 // the Colour space's points, which carry these measurements (ADR-0044).
 
 const CHARACTER_AXES = {
-    lum: { max: 1, ticks: [0, 0.25, 0.5, 0.75, 1], ends: ['Dark', 'Bright'] },
-    contrast: { max: 0.4, ticks: [0, 0.1, 0.2, 0.3, 0.4], ends: ['Flat', 'Contrasty'] },
-    colourful: { max: 120, ticks: [0, 30, 60, 90, 120], ends: ['Muted', 'Colourful'] },
+    lum: { max: 1, ticks: [0, 0.25, 0.5, 0.75, 1], ends: [t('Dark'), t('Bright')] },
+    contrast: { max: 0.4, ticks: [0, 0.1, 0.2, 0.3, 0.4], ends: [t('Flat'), t('Contrasty')] },
+    colourful: { max: 120, ticks: [0, 30, 60, 90, 120], ends: [t('Muted'), t('Colourful')] },
 };
 
 // A measurement on its axis, -1…1; anything beyond sits on the edge.
@@ -43,8 +43,8 @@ function characterSpec(cs) {
     const unit = periodUnit(cs.granularity);
     return {
         summary: `${formatCount(n)} photos by how bright they are (across), how contrasty (in depth) and how colourful (up), each in its main colour.${periods.length > 1 ? ` The trail joins each ${unit}'s average${pathSpan(periods)}.` : ''}`,
-        legend: legendDotHTML('One photo, in its main colour')
-            + legendStepHTML(`One ${unit}: the average brightness, contrast and colourfulness of its photos, larger with more photos. The line joins the ${unit}s in time order${pathSpan(periods)}.`),
+        legend: legendDotHTML(t('One photo, in its main colour'))
+            + legendStepHTML(t(unit === 'year' ? 'One year: the average brightness, contrast and colourfulness of its photos, larger with more photos. The line joins the years in time order{periods}.' : 'One month: the average brightness, contrast and colourfulness of its photos, larger with more photos. The line joins the months in time order{periods}.', { periods: pathSpan(periods) })),
         sprites, steps,
         distance: 5.6,
         trail: trailBetween(steps),
@@ -83,19 +83,19 @@ function characterPeriods(cs) {
 }
 
 function characterValuesHTML(lum, contrast, colourful) {
-    return `<span class="point-stage-tip-values">brightness ${lum.toFixed(2)} · contrast ${contrast.toFixed(2)} · colourfulness ${Math.round(colourful)}</span>`;
+    return `<span class="point-stage-tip-values">${t('brightness')} ${lum.toFixed(2)} · ${t('contrast')} ${contrast.toFixed(2)} · ${t('colourfulness')} ${Math.round(colourful)}</span>`;
 }
 
 function characterTip(cs, periods, kind, i) {
     if (kind === 'step') {
         const s = periods[i];
         return `<span class="point-stage-tip-title">${escapeHtml(s.period)}</span>
-            <span>${formatCount(s.photos)} ${s.photos === 1 ? 'photo' : 'photos'}, on average</span>
+            <span>${t('{photos}, on average', { photos: countText(s.photos, 'photo') })}</span>
             ${characterValuesHTML(s.lum, s.contrast, s.colourful)}`;
     }
     const p = cs.points;
     return photoTipHTML(cs, p.lib[i], p.id[i], `
-        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : 'No date')}</span>
+        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : t('No date'))}</span>
         ${characterValuesHTML(p.lum[i], p.contrast[i], p.colourful[i])}`);
 }
 

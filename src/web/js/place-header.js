@@ -7,7 +7,7 @@
 function placeHeaderHTML({ title, meta = '', actions = '', lede = '', below = '' }) {
     return `<header class="place-header">
         <div class="place-header-row">
-            <h1 class="place-title">${title}</h1>
+            <h1 class="place-title">${title.includes('<') ? title : t(title)}</h1>
             <span class="place-meta">${meta}</span>
             <span class="place-header-actions">${actions}</span>
         </div>

@@ -43,7 +43,7 @@ class PhotoColumn {
                     <span class="photo-column-subject" hidden></span>
                     <span class="photo-column-title"></span>
                 </div>
-                ${panelHideButtonHTML('photo-column-close', 'Hide photos')}
+                ${panelHideButtonHTML('photo-column-close', t('Hide photos'))}
             </div>
             <div class="photo-column-body">
                 <div class="photo-column-grid"></div>

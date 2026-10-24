@@ -58,7 +58,7 @@ class Wastebin {
         if (filePaths.length > 5) {
             const dialog = new ProgressDialog();
             dialog.open(filePaths, {
-                verb: 'Deleting',
+                verb: t('Deleting'),
                 action: async (file) => {
                     try {
                         const r = await deleteOne(file);
@@ -115,11 +115,11 @@ class Wastebin {
         if (items.length === 0) {
             containerEl.innerHTML = `
                 <div class="browse-container">
-                    ${placeHeaderHTML({ title: 'Marked for deletion' })}
+                    ${placeHeaderHTML({ title: t('Marked for deletion') })}
                     <div class="wastebin-empty-box">
-                        <strong>Nothing marked</strong>
-                        <span>Select photos in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.</span>
-                        <div><button class="btn" id="wb-go-folders">Go to Folders</button></div>
+                        <strong>${t('Nothing marked')}</strong>
+                        <span>${t('Select photos in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.')}</span>
+                        <div><button class="btn" id="wb-go-folders">${t('Go to Folders')}</button></div>
                     </div>
                 </div>`;
             containerEl.querySelector('#wb-go-folders').addEventListener('click', () => App.setMode('browse'));
@@ -132,18 +132,18 @@ class Wastebin {
         // leaves the disk until it is deleted here.
         const header = `
             ${placeHeaderHTML({
-                title: 'Marked for deletion',
+                title: t('Marked for deletion'),
                 meta: markedCount(items),
                 actions: `<div class="wastebin-actions" id="wb-actions">
-                    <button class="btn btn-sm" id="wb-restore">${selectedCount > 0 ? `Restore ${selectedCount}` : 'Restore all'}</button>
-                    <button class="btn btn-sm btn-danger" id="wb-delete">Delete ${deleteCount} permanently…</button>
+                    <button class="btn btn-sm" id="wb-restore">${selectedCount > 0 ? t('Restore {n}', { n: formatCount(selectedCount) }) : t('Restore all')}</button>
+                    <button class="btn btn-sm btn-danger" id="wb-delete">${t('Delete {n} permanently…', { n: deleteCount })}</button>
                 </div>`,
-                lede: '<p class="place-lede">These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.</p>',
+                lede: '<p class="place-lede">' + t('These photos are hidden from Folders and libraries. Nothing is removed from disk until you delete them here.') + '</p>',
             })}
             <div class="browse-bar"><span class="browse-bar-spacer"></span><div class="wastebin-select"></div></div>
             ${(this._lastFailures && this._lastFailures.length) ? `
             <div class="wastebin-failures">
-                <strong>${this._lastFailures.length} file${this._lastFailures.length !== 1 ? 's' : ''} could not be deleted</strong>
+                <strong>${this._lastFailures.length === 1 ? t('1 file could not be deleted') : t('{n} files could not be deleted', { n: formatCount(this._lastFailures.length) })}</strong>
                 <ul>${this._lastFailures.map(f => `<li>${f}</li>`).join('')}</ul>
             </div>` : ''}`;
         const actions = '';
@@ -195,9 +195,9 @@ class Wastebin {
             const what = describeDeletion(count, dirCount);
             const actionsEl = containerEl.querySelector('#wb-actions');
             actionsEl.innerHTML = `
-                <span class="wastebin-question">Delete ${what} from disk?${dirCount ? ' A folder goes with everything inside it.' : ''} This can't be undone: Unterlumen keeps no copy, and only a backup restores what is deleted.</span>
-                <button class="btn btn-sm" id="wb-delete-cancel">Cancel</button>
-                <button class="btn btn-sm btn-danger" id="wb-delete-confirm">Delete ${what}</button>`;
+                <span class="wastebin-question">${t('Delete {what} from disk?', { what })}${dirCount ? ' ' + t('A folder goes with everything inside it.') : ''} ${t('This can’t be undone: Unterlumen keeps no copy, and only a backup restores what is deleted.')}</span>
+                <button class="btn btn-sm" id="wb-delete-cancel">${t('Cancel')}</button>
+                <button class="btn btn-sm btn-danger" id="wb-delete-confirm">${t('Delete {what}', { what })}</button>`;
             actionsEl.querySelector('#wb-delete-cancel').addEventListener('click', () => this.render(containerEl, onRefresh));
             actionsEl.querySelector('#wb-delete-confirm').addEventListener('click', async () => {
                 const afterDelete = () => {

@@ -44,14 +44,21 @@ function peopleStatsDerived(ps) {
     return ps._derived;
 }
 
-const PEOPLE_NOBODY = 'Nobody is named in these photos. Name people under People, and they are counted here.';
+// shownName is how a chart names a series: people by their names; things,
+// kept by their IDs for the search a click starts, by their names in the
+// interface's language (ps.shown, things-stats-charts.js).
+function shownName(ps, name) {
+    return ps?.shown ? ps.shown(name) : name;
+}
+
+const PEOPLE_NOBODY = t('Nobody is named in these photos. Name people under People, and they are counted here.');
 
 // The words of the charts that count named series — people here, and things
 // (things-stats-charts.js), which come in the same shape.
 const PEOPLE_WORDS = {
     none: PEOPLE_NOBODY,
-    undated: 'No photo of a named person has a date.',
-    apart: 'No two named people are in the same photo here.',
+    undated: t('No photo of a named person has a date.'),
+    apart: t('No two named people are in the same photo here.'),
     many: 'people',
 };
 
@@ -99,18 +106,18 @@ function renderPeopleBars(el, ps, onPick, words = PEOPLE_WORDS) {
         svg.append('text')
             .attr('x', pad.left - 8).attr('y', y + barH / 2 + 4)
             .attr('text-anchor', 'end').attr('fill', c.text).attr('font-size', 11)
-            .text(truncate(d.name, 22));
+            .text(truncate(shownName(ps, d.name), 22));
         pickable(svg.append('rect').datum(d.name)
             .attr('x', pad.left).attr('y', y + 3)
             .attr('width', Math.max(1, x(d.photos))).attr('height', barH - 6)
-            .attr('rx', 2).attr('fill', c.cats[0]), onPick, `${d.name}, ${photoCount(d.photos)}`);
+            .attr('rx', 2).attr('fill', c.cats[0]), onPick, `${shownName(ps, d.name)}, ${photoCount(d.photos)}`);
         svg.append('text')
             .attr('x', pad.left + x(d.photos) + 5).attr('y', y + barH / 2 + 4)
             .attr('fill', c.textSec).attr('font-size', 10)
             .text(d.photos.toLocaleString());
     });
     if (!ps.compared && ps.people.length > PEOPLE_BARS) {
-        el.insertAdjacentHTML('beforeend', `<p class="stats-chart-note">The ${PEOPLE_BARS} with the most photos of ${formatCount(ps.people.length)} ${words.many}.</p>`);
+        el.insertAdjacentHTML('beforeend', `<p class="stats-chart-note">${t('The {n} with the most photos of {total} {many}.', { n: PEOPLE_BARS, total: formatCount(ps.people.length), many: t(words.many) })}</p>`);
     }
 }
 
@@ -124,6 +131,7 @@ function renderPeopleLines(el, ps, onPick, words = PEOPLE_WORDS) {
     const c = chartColors();
     const series = ps.people.slice(0, peopleShown(ps, 8)).map((p, i) => ({
         name: p.name,
+        label: shownName(ps, p.name),
         values: periods.map(per => counts[i].get(per) ?? 0),
         color: c.cats[i],
     }));
@@ -143,7 +151,7 @@ function renderPeopleAges(el, ps, onPick) {
     if (!ps?.people.length) { tlNoData(el, PEOPLE_NOBODY); return; }
     const births = ps.people.map(p => birthdayOf(ps.birthdays ?? {}, p.name));
     const shown = ps.people.slice(0, peopleShown(ps, ps.people.length)).map((p, i) => i).filter(i => births[i]).slice(0, 8);
-    if (!shown.length) { tlNoData(el, 'Nobody here has a birthday yet. Give one on a person\'s page under People, and their photos are counted by age here.'); return; }
+    if (!shown.length) { tlNoData(el, t('Nobody here has a birthday yet. Give one on a person\'s page under People, and their photos are counted by age here.')); return; }
     const a = ps.appearances;
     const byAge = new Map(shown.map(i => [i, new Map()]));
     let oldest = 0;
@@ -154,7 +162,7 @@ function renderPeopleAges(el, ps, onPick) {
         byAge.get(p).set(age, (byAge.get(p).get(age) ?? 0) + 1);
         oldest = Math.max(oldest, age);
     });
-    if (![...byAge.values()].some(m => m.size)) { tlNoData(el, 'No photo of someone with a birthday has a date.'); return; }
+    if (![...byAge.values()].some(m => m.size)) { tlNoData(el, t('No photo of someone with a birthday has a date.')); return; }
     const c = chartColors();
     const ages = Array.from({ length: oldest + 1 }, (_, i) => i);
     const periods = ages.map(age => ageText(age, { short: true }));
@@ -168,7 +176,7 @@ function renderPeopleAges(el, ps, onPick) {
         format: v => photoCount(v),
         onPick: onPick && (({ period, series: s }) => s && onPick({ person: s.name, age: ages[periods.indexOf(period)], birth: births[ps.people.findIndex(p => p.name === s.name)] })),
     });
-    el.insertAdjacentHTML('beforeend', '<p class="stats-chart-note">Age in whole years, across.</p>');
+    el.insertAdjacentHTML('beforeend', '<p class="stats-chart-note">' + t('Age in whole years, across.') + '</p>');
 }
 
 /* ─── Who with whom ────────────────────────────────────────────── */
@@ -194,12 +202,12 @@ function renderPeopleMatrix(el, ps, onPick, words = PEOPLE_WORDS) {
     // Rows from the second person, columns to the second last: each pair once.
     shown.slice(1).forEach((row, ri) => {
         g.append('text').attr('x', -8).attr('y', ri * cell + cell * 0.62)
-            .attr('text-anchor', 'end').attr('fill', c.text).attr('font-size', 11).text(truncate(row.name, 22));
+            .attr('text-anchor', 'end').attr('fill', c.text).attr('font-size', 11).text(truncate(shownName(ps, row.name), 22));
     });
     shown.slice(0, -1).forEach((col, ci) => {
         g.append('text')
             .attr('transform', `translate(${ci * cell + cell / 2},${iH + 8}) rotate(-45)`)
-            .attr('text-anchor', 'end').attr('fill', c.text).attr('font-size', 11).text(truncate(col.name, 18));
+            .attr('text-anchor', 'end').attr('fill', c.text).attr('font-size', 11).text(truncate(shownName(ps, col.name), 18));
     });
     shown.slice(1).forEach((row, ri) => {
         shown.slice(0, ri + 1).forEach((col, ci) => {
@@ -211,14 +219,14 @@ function renderPeopleMatrix(el, ps, onPick, words = PEOPLE_WORDS) {
                 .attr('fill', photos ? seqStep(c, photos, most) : c.border)
                 .attr('opacity', photos ? 1 : 0.3)
                 .on('mouseover', () => {
-                    tooltip.style('display', 'block').text(`${col.name} and ${row.name}: ${photoCount(photos)}`);
+                    tooltip.style('display', 'block').text(`${t('{a} and {b}', { a: shownName(ps, col.name), b: shownName(ps, row.name) })}: ${photoCount(photos)}`);
                 })
                 .on('mousemove', (event) => {
                     const [mx, my] = d3.pointer(event, el);
                     tooltip.style('left', `${mx + 12}px`).style('top', `${my - 28}px`);
                 })
                 .on('mouseout', () => tooltip.style('display', 'none'));
-            if (photos) pickable(rect, onPick, `${col.name} and ${row.name}, ${photoCount(photos)}`);
+            if (photos) pickable(rect, onPick, `${t('{a} and {b}', { a: shownName(ps, col.name), b: shownName(ps, row.name) })}, ${photoCount(photos)}`);
         });
     });
 }
@@ -227,7 +235,7 @@ function renderPeopleMatrix(el, ps, onPick, words = PEOPLE_WORDS) {
 
 function renderCrowdBars(el, ps, onPick) {
     const crowd = ps?.crowd;
-    if (!crowd?.photos) { tlNoData(el, 'No photo here has been looked at for faces yet.'); return; }
+    if (!crowd?.photos) { tlNoData(el, t('No photo here has been looked at for faces yet.')); return; }
     const c = chartColors();
     // Half a row wide, so drawn smaller than the full-width charts.
     const W = 400, barH = 26, pad = { top: 8, left: 90, right: 80, bottom: 8 };
@@ -255,7 +263,7 @@ function renderCrowdBars(el, ps, onPick) {
 // photos counts as much as one with many; a period without photos is a gap.
 function renderCrowdLines(el, ps, onPick) {
     const crowd = ps?.crowd;
-    if (!crowd?.periods.length) { tlNoData(el, 'No photo looked at for faces has a date.'); return; }
+    if (!crowd?.periods.length) { tlNoData(el, t('No photo looked at for faces has a date.')); return; }
     const c = chartColors();
     const all = periodRange(crowd.periods[0], crowd.periods[crowd.periods.length - 1], ps.granularity) ?? crowd.periods;
     const at = new Map(crowd.periods.map((p, i) => [p, crowd.counts[i]]));

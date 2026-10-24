@@ -43,6 +43,7 @@ const App = {
     keyboard: null,
 
     init() {
+        translateStatic();
         this.wastebin = new Wastebin();
         this.theme = new ThemeManager(this);
         this.keyboard = new GlobalKeyboard(this);
@@ -69,6 +70,7 @@ const App = {
         Promise.all([
             API.config(),
             API.toolsCheck().catch(() => ({ exiftool: false })),
+            ThingWords.load(), // the things' names in the interface's language, before a place shows them
         ]).then(([cfg, tools]) => {
             this.config = cfg;
             this.toolsStatus = tools;
@@ -186,8 +188,8 @@ const App = {
         document.querySelector('.shell').classList.toggle('sidebar-collapsed', collapsed);
         const btn = document.getElementById('sidebar-collapse');
         btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-        btn.title = `${collapsed ? 'Expand' : 'Collapse'} sidebar (\\)`;
+        btn.setAttribute('aria-label', collapsed ? t('Expand sidebar') : t('Collapse sidebar'));
+        btn.title = collapsed ? t('Expand sidebar (\\)') : t('Collapse sidebar (\\)');
         btn.querySelector('.collapse-chevron').setAttribute('d', collapsed ? 'M8.5 6l2 2-2 2' : 'M11 6l-2 2 2 2');
     },
 
@@ -223,9 +225,9 @@ const App = {
     _renderStatisticsNav() {
         const wrap = document.getElementById('nav-statistics');
         if (!wrap) return;
-        wrap.innerHTML = STATS_TOPICS.map(t => `
-            <a class="nav-item nav-sub" href="${statsHash({ topic: t.id })}" data-stats-topic="${t.id}">
-                <span class="nav-text">${escapeHtml(t.label)}</span>
+        wrap.innerHTML = STATS_TOPICS.map(topic => `
+            <a class="nav-item nav-sub" href="${statsHash({ topic: topic.id })}" data-stats-topic="${topic.id}">
+                <span class="nav-text">${escapeHtml(topic.label)}</span>
             </a>`).join('');
         for (const el of wrap.querySelectorAll('[data-stats-topic]')) {
             el.addEventListener('click', (e) => {
@@ -315,7 +317,7 @@ const App = {
     _showUIHint() {
         const hint = document.getElementById('ui-hint');
         if (!hint) return;
-        hint.textContent = 'Press H to show the interface again';
+        hint.textContent = t('Press H to show the interface again');
         hint.classList.add('visible');
         clearTimeout(this._uiHintTimer);
         this._uiHintTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
@@ -324,7 +326,7 @@ const App = {
     showToast(msg) {
         const hint = document.getElementById('ui-hint');
         if (!hint) return;
-        hint.textContent = msg;
+        hint.textContent = t(msg);
         hint.classList.add('visible');
         clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => hint.classList.remove('visible'), 3000);
@@ -478,7 +480,7 @@ const App = {
         document.getElementById('app').appendChild(this._browseEl);
         // Info opens from the tool strip at the edge, as every panel of the
         // right-hand column does.
-        this._infoBtn = panelToggleButton('Info');
+        this._infoBtn = panelToggleButton(t('Info'));
         this._browseEl.appendChild(toolStrip(this._infoBtn));
         this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
             onNavigate: (path) => { this.currentBrowsePath = path; },
@@ -487,7 +489,7 @@ const App = {
             onFocusChange: (path, type) => this.handleFocusChange(path, type),
             onToolInvoke: (params) => this.handleToolInvoke(params),
             onSlideshowInvoke: () => this.handleSlideshowInvoke(),
-            lede: placeLede(`Your folders as they are on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a ${placeLink('library', 'libraries', 'library')}.`),
+            lede: placeLede(t('Your folders as they are on disk. Look through it, mark what should go, and move what stays. To search, map or publish photos, catalog a folder as a {library}.', { library: placeLink('library', 'libraries', t('library')) })),
         });
         this.infoPanel = new InfoPanel(this._browseEl.querySelector('#info-panel-container'));
         this.infoPanel.attachToggle(this._infoBtn);
@@ -637,7 +639,7 @@ const App = {
         let images;
         if (pane.selectedDirs?.size > 0) {
             const n = pane.selectedDirs.size;
-            const allPaths = await this.whileSlow(`Collecting the photos of ${n} folder${n !== 1 ? 's' : ''}…`, async () => {
+            const allPaths = await this.whileSlow(n === 1 ? t('Collecting the photos of 1 folder…') : t('Collecting the photos of {n} folders…', { n: formatCount(n) }), async () => {
                 const paths = [];
                 for (const dirPath of pane.selectedDirs) paths.push(...await pane.fetchRecursivePhotoPaths(dirPath));
                 return paths;
@@ -837,7 +839,7 @@ const App = {
     },
 
     _outsideBoundary(onDone) {
-        this.showToast('This photo\'s folder is outside the folder this installation serves, so it cannot be changed from here.');
+        this.showToast(t('This photo\'s folder is outside the folder this installation serves, so it cannot be changed from here.'));
         if (onDone) onDone();
     },
 
@@ -890,7 +892,7 @@ const App = {
             if (p.finished && onDone) onDone();
         };
         LibraryAPI[run](lib.id, onProgress, path || '').catch(e => {
-            App.showToast(`It did not start: ${e.message}`);
+            App.showToast(t('It did not start: {e}', { e: e.message }));
             if (onDone) onDone();
         });
     },
@@ -899,11 +901,11 @@ const App = {
 // The library jobs a folder's menu can start: what the toast calls them and
 // the LibraryAPI method that runs them.
 const LIBRARY_TOOLS = {
-    'lib-scan-new':      { label: 'Scanning', run: 'scanNew' },
-    'lib-reindex':       { label: 'Indexing', run: 'reindex' },
-    'lib-cleanup':       { label: 'Checking', run: 'cleanup' },
-    'lib-regen-missing': { label: 'Generating missing previews for', run: 'regenMissingPreviews' },
-    'lib-rebuild-all':   { label: 'Rebuilding the previews of', run: 'rebuildAllPreviews' },
+    'lib-scan-new':      { label: t('Scanning'), run: 'scanNew' },
+    'lib-reindex':       { label: t('Indexing'), run: 'reindex' },
+    'lib-cleanup':       { label: t('Checking'), run: 'cleanup' },
+    'lib-regen-missing': { label: t('Generating missing previews for'), run: 'regenMissingPreviews' },
+    'lib-rebuild-all':   { label: t('Rebuilding the previews of'), run: 'rebuildAllPreviews' },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());

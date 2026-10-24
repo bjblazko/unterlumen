@@ -4,7 +4,7 @@
 // the arrow keys; a light is read by hovering and its photos shown by a
 // click. What is drawn on the GPU is in point-scene.js.
 
-const POINT_STAGE_NO_GPU = 'This view needs WebGPU, which this browser does not offer. Current versions of Chrome, Edge and Safari have it.';
+const POINT_STAGE_NO_GPU = t('This view needs WebGPU, which this browser does not offer. Current versions of Chrome, Edge and Safari have it.');
 
 // renderPointStage draws into el the stage that build(stageEl) describes:
 // {
@@ -35,7 +35,7 @@ function renderPointStage(el, build, onPick, { preview = false } = {}) {
             <canvas class="point-stage-canvas"${preview ? '' : ` tabindex="0" role="img" aria-label="${escapeHtml(spec.summary)}"`}></canvas>
             ${preview ? '' : `<div class="point-stage-labels" aria-hidden="true"></div><div class="point-stage-ring" hidden></div><div class="point-stage-tip" hidden></div><div class="point-stage-legend">${spec.legend}</div>`}`;
         if (!preview) {
-            el.insertAdjacentHTML('beforeend', `<p class="point-stage-help">${escapeHtml(spec.summary)} Drag to turn the view and scroll or pinch to zoom; once it is selected, the arrow keys turn it and + and − zoom. Point at a light to read it, click it to see its photos.</p>`);
+            el.insertAdjacentHTML('beforeend', `<p class="point-stage-help">${escapeHtml(spec.summary)} ${t('Drag to turn the view and scroll or pinch to zoom; once it is selected, the arrow keys turn it and + and − zoom. Point at a light to read it, click it to see its photos.')}</p>`);
         }
         new PointStage(stageEl, spec, device, preview ? null : onPick);
     });
@@ -74,7 +74,7 @@ function legendDotHTML(text) {
 }
 
 function legendStepHTML(text) {
-    return `<span class="point-stage-legend-item"><span class="point-stage-legend-step" aria-hidden="true"></span>${escapeHtml(text)}</span>`;
+    return `<span class="point-stage-legend-item"><span class="point-stage-legend-step" aria-hidden="true"></span>${escapeHtml(t(text))}</span>`;
 }
 
 function photoTipHTML(cs, libIndex, id, lines) {

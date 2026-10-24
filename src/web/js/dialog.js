@@ -68,8 +68,8 @@ class Dialog {
             <div class="dialog dialog--${this.size}${this.className ? ' ' + this.className : ''}"
                  role="dialog" aria-modal="true" aria-labelledby="${titleID}">
                 <div class="dialog-head">
-                    <h2 class="dialog-title" id="${titleID}">${escapeHtml(this.title)}</h2>
-                    ${this.subtitle ? `<span class="dialog-subtitle">${escapeHtml(this.subtitle)}</span>` : ''}
+                    <h2 class="dialog-title" id="${titleID}">${escapeHtml(t(this.title))}</h2>
+                    ${this.subtitle ? `<span class="dialog-subtitle">${escapeHtml(t(this.subtitle))}</span>` : ''}
                 </div>
                 <div class="dialog-body"></div>
                 <div class="dialog-foot">
@@ -121,7 +121,7 @@ class Dialog {
         for (const action of actions) {
             const btn = document.createElement('button');
             btn.className = `${kinds[action.kind] ?? kinds.secondary} dialog-action`;
-            btn.textContent = action.label;
+            btn.textContent = t(action.label);
             if (action.id) btn.id = action.id;
             if (action.disabled) btn.disabled = true;
             btn.addEventListener('click', () => {

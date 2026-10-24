@@ -48,7 +48,7 @@ test.describe('Library list view', () => {
     test('the row carries the photo count and when it was last indexed', async ({ page }) => {
         const card = page.locator('.library-card', { hasText: 'E2E Library UI' });
         await expect(card.locator('.library-card-count')).toContainText('photo');
-        await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
+        await expect(card.locator('.library-card-indexed')).toHaveText(/^(Indexed \d{4}-\d{2}-\d{2}|Never indexed)$/);
     });
 
     // The overview has the same filter as a library, starting with every

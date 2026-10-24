@@ -26,70 +26,70 @@ class SlideshowModal {
         const label = count === 1 ? '1 photo' : `${count} photos`;
 
         this._dialog = new Dialog({
-            title: 'Slideshow',
+            title: t('Slideshow'),
             subtitle: label,
             size: 'md',
             className: 'slideshow-dialog',
             body: `
                     <div class="ss-opt-section">
-                        <span class="ss-opt-label">Delay</span>
+                        <span class="ss-opt-label">${t('Delay')}</span>
                         <div class="ss-delay-row">
                             <input type="range" class="ss-delay-range" min="1" max="60" value="5">
                             <span class="ss-delay-value">5 s</span>
                         </div>
                     </div>
                     <div class="ss-opt-section">
-                        <span class="ss-opt-label">Transition</span>
-                        <div class="seg" role="group" aria-label="Transition">
-                            <button aria-pressed="true" data-transition="fade">Fade</button>
-                            <button aria-pressed="false" data-transition="slide">Slide</button>
-                            <button aria-pressed="false" data-transition="zoom">Zoom</button>
-                            <button aria-pressed="false" data-transition="instant">Instant</button>
+                        <span class="ss-opt-label">${t('Transition')}</span>
+                        <div class="seg" role="group" aria-label="${t('Transition')}">
+                            <button aria-pressed="true" data-transition="fade">${t('Fade')}</button>
+                            <button aria-pressed="false" data-transition="slide">${t('Slide')}</button>
+                            <button aria-pressed="false" data-transition="zoom">${t('Zoom')}</button>
+                            <button aria-pressed="false" data-transition="instant">${t('Instant')}</button>
                         </div>
                     </div>
                     <div class="ss-opt-section">
-                        <span class="ss-opt-label">Display</span>
-                        <div class="seg" role="group" aria-label="Display">
-                            <button aria-pressed="true" data-display="single">Single</button>
-                            <button aria-pressed="false" data-display="kenburns">Ken Burns</button>
+                        <span class="ss-opt-label">${t('Display')}</span>
+                        <div class="seg" role="group" aria-label="${t('Display')}">
+                            <button aria-pressed="true" data-display="single">${t('Single')}</button>
+                            <button aria-pressed="false" data-display="kenburns">${t('Ken Burns')}</button>
                             <button aria-pressed="false" data-display="2up">2-up</button>
                             <button aria-pressed="false" data-display="4up">4-up</button>
                         </div>
                     </div>
                     <div class="ss-opt-section">
-                        <span class="ss-opt-label">Loop</span>
+                        <span class="ss-opt-label">${t('Loop')}</span>
                         <div class="ss-loop-wrap"></div>
                     </div>
                     <div class="ss-opt-section ss-opt-audio-section">
-                        <span class="ss-opt-label">Audio</span>
+                        <span class="ss-opt-label">${t('Audio')}</span>
                         <div class="ss-audio-options">
                             <label class="export-radio-row">
-                                <input type="radio" name="ss-audio" value="none" checked> None
+                                <input type="radio" name="ss-audio" value="none" checked> ${t('None')}
                             </label>
                             <label class="export-radio-row">
-                                <input type="radio" name="ss-audio" value="file"> File…
+                                <input type="radio" name="ss-audio" value="file"> ${t('File…')}
                             </label>
                             <label class="export-radio-row">
-                                <input type="radio" name="ss-audio" value="folder"> Folder…
+                                <input type="radio" name="ss-audio" value="folder"> ${t('Folder…')}
                             </label>
                             <label class="export-radio-row">
-                                <input type="radio" name="ss-audio" value="builtin"> Built-in
+                                <input type="radio" name="ss-audio" value="builtin"> ${t('Built-in')}
                             </label>
                             <div class="ss-builtin-track" style="display:none">
                                 <label class="ss-track-check">
-                                    <input type="checkbox" class="ss-track-cb" value="After_Hours_Transit.mp3" checked> After Hours Transit (Electro-Pop)
+                                    <input type="checkbox" class="ss-track-cb" value="After_Hours_Transit.mp3" checked> ${t('After Hours Transit (Electro-Pop)')}
                                 </label>
                                 <label class="ss-track-check">
-                                    <input type="checkbox" class="ss-track-cb" value="Mahogany_Gravity.mp3" checked> Mahogany Gravity (Classic)
+                                    <input type="checkbox" class="ss-track-cb" value="Mahogany_Gravity.mp3" checked> ${t('Mahogany Gravity (Classic)')}
                                 </label>
                                 <label class="ss-track-check">
-                                    <input type="checkbox" class="ss-track-cb" value="Sunlight_Through_Leaves.mp3" checked> Sunlight through the leaves (Piano Pop)
+                                    <input type="checkbox" class="ss-track-cb" value="Sunlight_Through_Leaves.mp3" checked> ${t('Sunlight through the leaves (Piano Pop)')}
                                 </label>
                                 <div class="ss-track-order">
-                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="inorder" checked> In order</label>
-                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="shuffle"> Shuffled</label>
+                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="inorder" checked> ${t('In order')}</label>
+                                    <label class="ss-track-order-label"><input type="radio" name="ss-track-order" value="shuffle"> ${t('Shuffled')}</label>
                                 </div>
-                                <span class="ss-track-none-error" style="display:none">Select at least one track.</span>
+                                <span class="ss-track-none-error" style="display:none">${t('Select at least one track.')}</span>
                             </div>
                             <div class="ss-audio-file-label"></div>
                         </div>
@@ -98,8 +98,8 @@ class SlideshowModal {
                     <input type="file" class="ss-folder-input" accept="audio/*" style="display:none" webkitdirectory>
 `,
             actions: [
-                { label: 'Cancel', onClick: () => this.close() },
-                { label: 'Start slideshow', kind: 'primary', onClick: () => this._onStart() },
+                { label: t('Cancel'), onClick: () => this.close() },
+                { label: t('Start slideshow'), kind: 'primary', onClick: () => this._onStart() },
             ],
             onClose: () => { this.overlay = null; },
         });
@@ -170,7 +170,7 @@ class SlideshowModal {
         } else if (restoredMode !== 'none') {
             // New session: show saved label as a reminder to re-pick
             const savedLabel = localStorage.getItem('slideshow-audio-label') || '';
-            if (savedLabel) audioLabel.textContent = `Last: ${savedLabel} — re-select to use`;
+            if (savedLabel) audioLabel.textContent = t('Last: {savedLabel} — re-select to use', { savedLabel: savedLabel });
         }
 
         this.overlay.querySelectorAll('input[name="ss-audio"]').forEach(radio => {
@@ -243,7 +243,7 @@ class SlideshowModal {
         // Persist audio selection for next session
         if (options.audioMode === 'builtin') {
             localStorage.setItem('slideshow-audio-mode', 'builtin');
-            localStorage.setItem('slideshow-audio-label', 'Built-in');
+            localStorage.setItem('slideshow-audio-label', t('Built-in'));
             localStorage.setItem('slideshow-builtin-tracks', JSON.stringify(options.builtinTracks));
             localStorage.setItem('slideshow-builtin-shuffle', options.builtinShuffle ? 'true' : 'false');
         } else if (options.audioMode !== 'none' && this._audioFiles.length > 0) {

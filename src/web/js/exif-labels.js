@@ -35,7 +35,7 @@ const EXIF_LABELS = {
     Contrast: { '0': 'Normal', '1': 'Soft', '2': 'Hard' },
     Saturation: { '0': 'Normal', '1': 'Low', '2': 'High' },
     Sharpness: { '0': 'Normal', '1': 'Soft', '2': 'Hard' },
-    SubjectDistanceRange: { '0': 'Unknown', '1': 'Macro', '2': 'Close', '3': 'Distant' },
+    SubjectDistanceRange: { '0': 'Unknown', '1': 'Macro', '2': 'distance|Close', '3': 'Distant' },
     SensingMethod: {
         '1': 'Undefined', '2': 'One-chip color area', '3': 'Two-chip color area',
         '4': 'Three-chip color area', '5': 'Color sequential area',
@@ -58,8 +58,8 @@ const EXIF_LABELS = {
 function exifLabel(field, rawValue) {
     const decoder = EXIF_LABELS[field];
     if (!decoder) return null;
-    if (typeof decoder === 'function') return decoder(rawValue) ?? null;
-    return decoder[String(rawValue)] ?? null;
+    const label = typeof decoder === 'function' ? decoder(rawValue) : decoder[String(rawValue)];
+    return label == null ? null : t(label);
 }
 
 // Applies exifLabel to an array of raw values, deduplicates by label, and returns

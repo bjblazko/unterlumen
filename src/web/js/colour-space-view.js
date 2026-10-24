@@ -50,7 +50,7 @@ function periodUnit(granularity) {
 }
 
 function pathSpan(path) {
-    return path.length > 1 ? `, from ${path[0].period} to ${path[path.length - 1].period}` : '';
+    return path.length > 1 ? t(', from {from} to {to}', { from: path[0].period, to: path[path.length - 1].period }) : '';
 }
 
 function colourSpaceSummary(cs) {
@@ -63,8 +63,8 @@ function colourSpaceSummary(cs) {
 
 function colourSpaceLegendHTML(cs) {
     const unit = periodUnit(cs.granularity);
-    return legendDotHTML('One photo, at its main colour')
-        + legendStepHTML(`One ${unit}: the average colour of its colour photos, larger with more photos. The line joins the ${unit}s in time order${pathSpan(cs.path)}.`);
+    return legendDotHTML(t('One photo, at its main colour'))
+        + legendStepHTML(t(unit === 'year' ? 'One year: the average colour of its colour photos, larger with more photos. The line joins the years in time order{path}.' : 'One month: the average colour of its colour photos, larger with more photos. The line joins the months in time order{path}.', { path: pathSpan(cs.path) }));
 }
 
 // The floor at L 0: chroma rings at 0.05, 0.1, 0.15 and 0.2, a spoke at
@@ -84,8 +84,8 @@ function colourSpaceLines() {
 function colourSpaceLabels(cs) {
     const labels = [];
     for (let bin = 0; bin < 12; bin++) {
-        const t = (bin * 30 + 15) * Math.PI / 180;
-        labels.push({ text: capitalise(hueName(bin)), pos: colourSpacePosition(0, 0.245 * Math.cos(t), 0.245 * Math.sin(t)), kind: 'hue' });
+        const angle = (bin * 30 + 15) * Math.PI / 180;
+        labels.push({ text: capitalise(hueName(bin)), pos: colourSpacePosition(0, 0.245 * Math.cos(angle), 0.245 * Math.sin(angle)), kind: 'hue' });
     }
     for (const l of [0, 0.5, 1]) labels.push({ text: `L ${l}`, pos: colourSpacePosition(l, 0, 0), kind: 'axis' });
     const path = cs.path;
@@ -109,13 +109,13 @@ function colourSpaceTip(cs, kind, i) {
     if (kind === 'step') {
         const s = cs.path[i];
         return `<span class="point-stage-tip-title">${escapeHtml(s.period)}</span>
-            <span>${formatCount(s.photos)} colour ${s.photos === 1 ? 'photo' : 'photos'}, on average</span>
+            <span>${t('{photos}, on average', { photos: countText(s.photos, 'colour photo') })}</span>
             ${colourValuesHTML(labToLCh(s.l, s.a, s.b))}`;
     }
     const p = cs.points;
     const lch = labToLCh(p.l[i], p.a[i], p.b[i]);
     return photoTipHTML(cs, p.lib[i], p.id[i], `
-        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : 'No date')}</span>
+        <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : t('No date'))}</span>
         <span>${escapeHtml(COLOUR_CLASSES[p.mono[i]] ?? '')}, mostly ${escapeHtml(hueNameOf(lch))}</span>
         ${colourValuesHTML(lch)}`);
 }

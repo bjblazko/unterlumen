@@ -78,12 +78,12 @@ function pickable(selection, onPick, label) {
         });
 }
 
-const photoCount = n => `${n.toLocaleString()} ${n === 1 ? 'photo' : 'photos'}`;
+const photoCount = n => countText(n, 'photo', 'photos');
 
 /* ─── 1. Format donut ───────────────────────────────────────────── */
 
 function renderFormatDonut(el, formats, onPick) {
-    if (!formats?.length) { el.textContent = 'No data'; return; }
+    if (!formats?.length) { el.textContent = t('No data'); return; }
     const c = chartColors();
     const W = 320, H = 220, R = 80, r = 44;
     const svg = svgBase(el, W, H);
@@ -109,7 +109,7 @@ function renderFormatDonut(el, formats, onPick) {
         .on('mouseover', function(event, d) {
             d3.select(this).attr('d', arcHover);
             const pct = ((d.data.count / total) * 100).toFixed(1);
-            tooltip.style('display','block').html(`<strong>${d.data.name.toUpperCase()}</strong><br>${d.data.count.toLocaleString()} (${pct}%)`);
+            tooltip.style('display','block').html(`<strong>${d.data.name.toUpperCase()}</strong><br>${formatCount(d.data.count)} (${pct}%)`);
         })
         .on('mousemove', function(event) {
             const [mx,my] = d3.pointer(event, el);
@@ -124,7 +124,7 @@ function renderFormatDonut(el, formats, onPick) {
     // Centre label
     g.append('text').attr('text-anchor','middle').attr('dy','-0.2em')
         .attr('fill', c.text).attr('font-size', 18).attr('font-weight', 500)
-        .text(total.toLocaleString());
+        .text(formatCount(total));
     g.append('text').attr('text-anchor','middle').attr('dy','1.2em')
         .attr('fill', c.textSec).attr('font-size', 11)
         .text('photos');
@@ -168,18 +168,18 @@ function filmSimColor(name) {
 }
 
 function renderFilmSimBar(el, filmSims, onPick) {
-    if (!filmSims?.length) { el.textContent = 'No data'; return; }
+    if (!filmSims?.length) { el.textContent = t('No data'); return; }
 
     let showNone = false;
 
     const toggleRow = document.createElement('div');
     toggleRow.className = 'stats-filmsim-toggle-row';
     toggleRow.innerHTML =
-        '<span class="stats-filmsim-toggle-label">Untagged photos</span>' +
+        '<span class="stats-filmsim-toggle-label">' + t('Untagged photos') + '</span>' +
         '<button class="toggle" role="switch" aria-checked="false" data-state="off">' +
-        '<span class="toggle-label toggle-label-on">Counted</span>' +
+        '<span class="toggle-label toggle-label-on">' + t('Counted') + '</span>' +
         '<span class="toggle-track"><span class="toggle-thumb"></span></span>' +
-        '<span class="toggle-label toggle-label-off">Left out</span>' +
+        '<span class="toggle-label toggle-label-off">' + t('Left out') + '</span>' +
         '</button>';
     el.appendChild(toggleRow);
 
@@ -221,7 +221,7 @@ function renderFilmSimBar(el, filmSims, onPick) {
             svg.append('text')
                 .attr('x', pad.left + x(d.count) + 5).attr('y', y + barH/2 + 4)
                 .attr('fill', c.textSec).attr('font-size', 10)
-                .text(d.count.toLocaleString());
+                .text(formatCount(d.count));
         });
         return svg.node();
     }
@@ -239,7 +239,7 @@ function renderFocalHistogram(el, focalLengths, focalLengths35, onPick) {
         Toggle.create(wrap, {
             initial: false,
             labelOn: '35mm',
-            labelOff: 'Native',
+            labelOff: t('Native'),
             onChange: (on) => {
                 show35 = on;
                 svgEl.remove();
@@ -255,7 +255,7 @@ function renderFocalHistogram(el, focalLengths, focalLengths35, onPick) {
         if (!data?.length) {
             const d = document.createElement('div');
             d.className = 'stats-nodata';
-            d.textContent = 'No data';
+            d.textContent = t('No data');
             el.appendChild(d);
             return d;
         }
@@ -297,7 +297,7 @@ function renderFocalHistogram(el, focalLengths, focalLengths35, onPick) {
 /* ─── 4. Aperture histogram ─────────────────────────────────────── */
 
 function renderApertureHistogram(el, apertures, onPick) {
-    if (!apertures?.length) { el.textContent = 'No data'; return; }
+    if (!apertures?.length) { el.textContent = t('No data'); return; }
     const c = chartColors();
     const W = 280, H = 160;
     const margin = { top: 12, right: 16, bottom: 28, left: 40 };
@@ -332,7 +332,7 @@ function renderApertureHistogram(el, apertures, onPick) {
 /* ─── 5. ISO histogram (log scale) ─────────────────────────────── */
 
 function renderISOHistogram(el, isos, onPick) {
-    if (!isos?.length) { el.textContent = 'No data'; return; }
+    if (!isos?.length) { el.textContent = t('No data'); return; }
     const c = chartColors();
     const W = 280, H = 160;
     const margin = { top: 12, right: 16, bottom: 28, left: 40 };
@@ -342,7 +342,7 @@ function renderISOHistogram(el, isos, onPick) {
 
     const isoStops = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200];
     const filteredISOs = isos.filter(v => v >= 50);
-    if (!filteredISOs.length) { el.textContent = 'No data'; return; }
+    if (!filteredISOs.length) { el.textContent = t('No data'); return; }
     const x = d3.scaleLog().domain([50, 55000]).range([0, iW]).base(2);
     const bins = d3.histogram().domain([50, 55000]).thresholds(isoStops)(filteredISOs);
     const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)]).range([iH, 0]).nice();
@@ -368,7 +368,7 @@ function renderISOHistogram(el, isos, onPick) {
 /* ─── 6. Camera × lens treemap ──────────────────────────────────── */
 
 function renderCameraLensTreemap(el, cameraLens, totalPhotos, onPick) {
-    if (!cameraLens?.length) { el.textContent = 'No data'; return; }
+    if (!cameraLens?.length) { el.textContent = t('No data'); return; }
     const c = chartColors();
     const W = 600, H = 220;
     const svg = svgBase(el, W, H);
@@ -440,7 +440,7 @@ function renderCameraLensTreemap(el, cameraLens, totalPhotos, onPick) {
         .on('mouseover', function(event, d) {
             const pct = totalPhotos ? ((d.value / totalPhotos) * 100).toFixed(1) : '?';
             tooltip.style('display','block')
-                .html(`<strong>${d.parent.data.name}</strong><br>${d.data.name}<br>${d.value.toLocaleString()} shots (${pct}%)`);
+                .html(`<strong>${d.parent.data.name}</strong><br>${d.data.name}<br>${t('{photos} ({pct} %)', { photos: countText(d.value, 'photo'), pct })}`);
         })
         .on('mousemove', function(event) {
             const [mx,my] = d3.pointer(event, el);
@@ -461,7 +461,7 @@ function cleanExif(s) {
 /* ─── 7. Shooting-time radial clock ─────────────────────────────── */
 
 function renderShootingClock(el, shootingHours, onPick) {
-    if (!shootingHours || shootingHours.every(h => h === 0)) { el.textContent = 'No data'; return; }
+    if (!shootingHours || shootingHours.every(h => h === 0)) { el.textContent = t('No data'); return; }
     const c = chartColors();
     const W = 260, H = 260, cx = W/2, cy = H/2;
     const innerR = 40, outerR = 100;
@@ -514,13 +514,13 @@ function renderShootingClock(el, shootingHours, onPick) {
 /* ─── 8. Calendar heatmap (paginated by year) ───────────────────── */
 
 function renderCalendarHeatmap(el, shootingDays, onPick) {
-    if (!shootingDays || Object.keys(shootingDays).length === 0) { el.textContent = 'No data'; return; }
+    if (!shootingDays || Object.keys(shootingDays).length === 0) { el.textContent = t('No data'); return; }
 
     const c = chartColors();
     const cellSize = 13, cellGap = 2, step = cellSize + cellGap;
 
     const years = [...new Set(Object.keys(shootingDays).map(d => d.slice(0, 4)))].sort();
-    if (!years.length) { el.textContent = 'No data'; return; }
+    if (!years.length) { el.textContent = t('No data'); return; }
 
     const maxCount = d3.max(Object.values(shootingDays)) || 1;
 
@@ -531,13 +531,13 @@ function renderCalendarHeatmap(el, shootingDays, onPick) {
     const chevron = d => `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="${d}"/></svg>`;
     const prevBtn = document.createElement('button');
     prevBtn.className = 'btn btn-sm stats-cal-nav';
-    prevBtn.setAttribute('aria-label', 'Year before');
+    prevBtn.setAttribute('aria-label', t('Year before'));
     prevBtn.innerHTML = chevron('M7 2L3 6l4 4');
     const yearLabel = document.createElement('span');
     yearLabel.className = 'stats-cal-year';
     const nextBtn = document.createElement('button');
     nextBtn.className = 'btn btn-sm stats-cal-nav';
-    nextBtn.setAttribute('aria-label', 'Year after');
+    nextBtn.setAttribute('aria-label', t('Year after'));
     nextBtn.innerHTML = chevron('M5 2l4 4-4 4');
     controls.appendChild(prevBtn);
     controls.appendChild(yearLabel);

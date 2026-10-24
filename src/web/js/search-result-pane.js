@@ -79,8 +79,8 @@ class SearchResultPane extends BrowsePane {
 
     organizeBtnHint() {
         return this.selection.selected.size > 0
-            ? 'Organize sorts one folder — these photos come from several'
-            : 'Select photos to show in Organize';
+            ? t('Organize sorts one folder — these photos come from several')
+            : t('Select photos to show in Organize');
     }
 
     // pathHint is already an absolute path — no prefix needed.
@@ -131,7 +131,7 @@ class SearchResultPane extends BrowsePane {
     // what they are. The count is the server's, not what is loaded so far.
     _renderBreadcrumb() { return ''; }
 
-    title() { return 'Results'; }
+    title() { return t('Results'); }
 
     _folderMeta() { return countHTML(this._serverTotal || this.entries.length, 'photo'); }
 
@@ -158,7 +158,7 @@ class SearchResultPane extends BrowsePane {
         const more = document.createElement('div');
         more.className = 'results-more';
         (this._contentEl || this.container).appendChild(more);
-        Activity.in(more, 'Reading more photos…');
+        Activity.in(more, t('Reading more photos…'));
 
         try {
             const photos = await this._serverFetchPage(offset, 100);

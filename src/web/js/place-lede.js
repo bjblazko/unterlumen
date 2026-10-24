@@ -8,8 +8,8 @@
 // it is.
 function placeLede(text) {
     return `<p class="place-lede">` +
-        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" aria-label="Explain" title="What this place is">i</button>` +
-        `<span class="place-lede-text">${text} ${placeLink('guide', 'guide', 'How Unterlumen works')}</span></p>`;
+        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" aria-label="${t('Explain')}" title="${t('What this place is')}">i</button>` +
+        `<span class="place-lede-text">${text} ${placeLink('guide', 'guide', t('How Unterlumen works'))}</span></p>`;
 }
 
 // One listener for every lede, since they are built as HTML in many places.

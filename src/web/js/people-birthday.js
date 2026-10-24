@@ -47,13 +47,13 @@ function ageDates(birth, age) {
 function bornHTML(birth) {
     if (!birth) return '';
     const age = ageAt(birth, new Date().toISOString());
-    return `<p class="people-born">Born <span class="people-num">${escapeHtml(birth)}</span>${age !== null ? `, ${ageText(age)} today` : ''}</p>`;
+    return `<p class="people-born">${t('Born')} <span class="people-num">${escapeHtml(birth)}</span>${age !== null ? `, ${ageText(age)} today` : ''}</p>`;
 }
 
 // editBirthday asks for name's birthday and calls done after it was saved
 // or taken away.
 function editBirthday(name, current, done) {
-    const actions = [{ label: 'Cancel', value: null }];
+    const actions = [{ label: t('Cancel'), value: null }];
     const save = async (d, value) => {
         try {
             await PeopleAPI.setBirthday(name, value);
@@ -65,20 +65,20 @@ function editBirthday(name, current, done) {
             error.textContent = `${err.message} The birthday was not changed.`;
         }
     };
-    if (current) actions.push({ label: 'Take it away', onClick: (d) => save(d, '') });
-    actions.push({ label: 'Save', kind: 'accent', onClick: (d) => {
+    if (current) actions.push({ label: t('Take it away'), onClick: (d) => save(d, '') });
+    actions.push({ label: t('Save'), kind: 'accent', onClick: (d) => {
         const value = d.el.querySelector('#people-birthday').value;
         if (value) save(d, value);
     } });
     const dlg = new Dialog({
-        title: 'Birthday',
+        title: t('Birthday'),
         subtitle: name,
         size: 'sm',
         className: 'library-dialog',
         body: `
-            <label class="library-dialog-label" for="people-birthday">Born on</label>
+            <label class="library-dialog-label" for="people-birthday">${t('Born on')}</label>
             <input class="library-dialog-input" id="people-birthday" type="date" max="${new Date().toISOString().slice(0, 10)}" value="${escapeHtml(current)}">
-            <span class="form-hint">Shows how old ${escapeHtml(name)} was in each photo. Kept with your destinations in the folder your installations share, in every library; not written into the photos.</span>
+            <span class="form-hint">${t('Shows how old {name} was in each photo. Kept with your destinations in the folder your installations share, in every library; not written into the photos.', { name: escapeHtml(name) })}</span>
             <p class="people-group-error" hidden></p>`,
         actions,
     });

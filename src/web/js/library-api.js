@@ -6,11 +6,11 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
-    async create(name, description, sourcePath) {
+    async create(name, description, sourcePath, keywordLanguage) {
         const r = await fetch('/api/library/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, sourcePath }),
+            body: JSON.stringify({ name, description, sourcePath, keywordLanguage }),
         });
         if (!r.ok) throw new Error(await r.text());
         return r.json();
@@ -24,11 +24,11 @@ const LibraryAPI = {
         const r = await fetch(`/api/library/${id}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());
     },
-    async update(id, name, description) {
+    async update(id, name, description, keywordLanguage) {
         const r = await fetch(`/api/library/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description })
+            body: JSON.stringify({ name, description, keywordLanguage })
         });
         if (!r.ok) throw new Error(await r.text());
         return r.json();

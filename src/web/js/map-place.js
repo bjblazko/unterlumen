@@ -37,7 +37,7 @@ class MapPane {
         try {
             [geo, libraries] = await this._whileLoading(() => Promise.all([LibraryAPI.geo(ScopeState.query()), LibraryAPI.list()]));
         } catch (err) {
-            this._note(`The locations could not be read: ${escapeHtml(err.message)}. Reload the page to try again.`, true);
+            this._note(t('The locations could not be read: {err}. Reload the page to try again.', { err: escapeHtml(err.message) }), true);
             return;
         }
         if (gen !== this._gen) return;
@@ -51,10 +51,10 @@ class MapPane {
                 <div class="map-body">
                     <div class="place-main">
                 ${placeHeaderHTML({
-                    title: 'Map',
+                    title: t('Map'),
                     meta: '<span class="map-count"></span>',
                     actions: `<span class="map-filter-slot"></span><span class="map-more"></span>`,
-                    lede: placeLede(`Every photo with a location, from all ${placeLink('library', 'libraries', 'libraries')}. A folder no library catalogs does not appear.`),
+                    lede: placeLede(t('Every photo with a location, from all {libraries}. A folder no library catalogs does not appear.', { libraries: placeLink('library', 'libraries', t('libraries')) })),
                 })}
                     <div class="map-view">
                         <div class="map-canvas"></div>
@@ -76,20 +76,20 @@ class MapPane {
             clearTimeout(this._filterTimer);
             this._filterTimer = setTimeout(() => this.render(), 250);
         });
-        this._photosBtn = panelToggleButton('Photos', 'map-photos-toggle');
+        this._photosBtn = panelToggleButton(t('Photos'), 'map-photos-toggle');
         this._photosBtn.setAttribute('aria-controls', 'map-photos');
         this._photosBtn.hidden = true;
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
         // The Map's one setting stands in its head: a ⋯ for one entry hid it.
         this._head.querySelector('.map-more').replaceWith(segmentField({
-            label: 'Map', options: [['grey', 'Grey'], ['colour', 'Colour']], value: this._colour ? 'colour' : 'grey',
+            label: t('Map'), options: [['grey', t('Grey')], ['colour', t('Colour')]], value: this._colour ? 'colour' : 'grey',
             onChange: (v) => this._setColour(v === 'colour'),
         }));
         this._photos = new PhotoColumn({
             onOpen: (photos, index) => openLibraryPhotos(photos, index),
             onClose: () => this._setPhotosOpen(false),
-            label: 'Photos in this part of the map',
-            emptyText: 'No photos in this part of the map. Move the map or zoom out.',
+            label: t('Photos in this part of the map'),
+            emptyText: t('No photos in this part of the map. Move the map or zoom out.'),
         });
         this._photos.el.id = 'map-photos';
         const body = this.container.querySelector('.map-body');
@@ -111,7 +111,7 @@ class MapPane {
     async _whileLoading(read) {
         if (this._map) return read();
         this._noteEl.hidden = false;
-        Activity.in(this._noteEl, 'Reading the locations…', { area: true });
+        Activity.in(this._noteEl, t('Reading the locations…'), { area: true });
         const result = await read();
         this._noteEl.hidden = true;
         this._noteEl.innerHTML = ''; // ends the activity line and its clock
@@ -123,10 +123,10 @@ class MapPane {
         if (libraries.length === 0) {
             this._note('No libraries yet. Photos appear here once they are in a library — <a href="#libraries" data-mode="library">add one under Libraries</a>.');
         } else if (this._points.length === 0 && ScopeState.narrowed()) {
-            this._note('No photo with a location matches the filter. Widen it, or reset it.');
+            this._note(t('No photo with a location matches the filter. Widen it, or reset it.'));
         } else if (this._points.length === 0) {
             const total = libraries.reduce((n, l) => n + (l.photoCount || 0), 0);
-            this._note(`None of the ${formatCount(total)} photos in your libraries has a location.`);
+            this._note(t('None of the {total} photos in your libraries has a location.', { total: formatCount(total) }));
         } else {
             return false;
         }
@@ -158,7 +158,7 @@ class MapPane {
 
     _buildMap() {
         if (typeof maplibregl === 'undefined') {
-            this._note('The map library could not be loaded. Reload the page to try again.', true);
+            this._note(t('The map library could not be loaded. Reload the page to try again.'), true);
             return;
         }
         this._map = new maplibregl.Map({
@@ -186,7 +186,7 @@ class MapPane {
         // all; after it, a missing tile only leaves a blank patch.
         this._map.on('error', (e) => {
             if (this._styleLoaded) return;
-            this._note(`The map could not be loaded from OpenFreeMap: ${escapeHtml(e.error?.message || 'no answer')}. It needs a connection to the internet.`, true);
+            this._note(t('The map could not be loaded from OpenFreeMap: {error}. It needs a connection to the internet.', { error: escapeHtml(e.error?.message || t('no answer')) }), true);
         });
     }
 

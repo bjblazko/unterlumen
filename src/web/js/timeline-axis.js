@@ -19,7 +19,7 @@ class TimelineAxis {
         this.frame.className = 'timeline-frame';
         this.frame.tabIndex = 0;
         this.frame.setAttribute('role', 'slider');
-        this.frame.setAttribute('aria-label', 'Time shown');
+        this.frame.setAttribute('aria-label', t('Time shown'));
         this.frame.style.height = (height - AXIS_LABELS_H) + 'px';
         this.tip = document.createElement('div');
         this.tip.className = 'timeline-tip';

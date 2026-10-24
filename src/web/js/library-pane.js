@@ -61,7 +61,7 @@ class LibraryPane extends BrowsePane {
             data = await r.json();
         } catch (err) {
             this._loading = false;
-            this.container.innerHTML = `<div class="error">Failed to load: ${err.message}</div>`;
+            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: err.message })}</div>`;
             return;
         }
 
@@ -128,7 +128,7 @@ class LibraryPane extends BrowsePane {
 
     // The way out of the library is the first crumb: Libraries / Pictures / 2017.
     crumbsBefore() {
-        return this._onLeave ? `<a href="#libraries" class="crumb-out">Libraries</a><span class="crumb-sep"> / </span>` : '';
+        return this._onLeave ? `<a href="#libraries" class="crumb-out">${t('Libraries')}</a><span class="crumb-sep"> / </span>` : '';
     }
 
     attachEvents() {
@@ -140,10 +140,10 @@ class LibraryPane extends BrowsePane {
         });
     }
 
-    homeLabel() { return 'Top of this library'; }
+    homeLabel() { return t('Top of this library'); }
 
     organizeBtnHint() {
-        return 'Select photos, or one folder, to show in Organize';
+        return t('Select photos, or one folder, to show in Organize');
     }
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.

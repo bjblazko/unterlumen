@@ -36,7 +36,7 @@ class StatsPane {
         const generation = ++this._generation;
         const libs = await LibraryAPI.list().catch(() => null);
         if (generation !== this._generation) return;
-        if (libs === null) { this._note('The libraries could not be read. Reload the page to try again.', true); return; }
+        if (libs === null) { this._note(t('The libraries could not be read. Reload the page to try again.'), true); return; }
         this._libs = libs;
         // The one library in scope: named by the route, or the only one the
         // filter keeps. A folder belongs to the route's library.
@@ -46,14 +46,14 @@ class StatsPane {
         const topic = statsTopic(this._route.topic);
         this._drawHead(topic);
         if (libs.length === 0) {
-            this._note(`No libraries yet. Statistics count the photos in a library — ${placeLink('library', 'libraries', 'add one under Libraries')}.`);
+            this._note(t('No libraries yet. Statistics count the photos in a library — {link}.', { link: placeLink('library', 'libraries', t('add one under Libraries')) }));
             return;
         }
         let data;
         try {
             data = await this._whileLoading(() => this._read(topic));
         } catch (err) {
-            if (generation === this._generation) this._note(`The statistics could not be read: ${escapeHtml(err.message)}. Reload the page to try again.`, true);
+            if (generation === this._generation) this._note(t('The statistics could not be read: {err}. Reload the page to try again.', { err: escapeHtml(err.message) }), true);
             return;
         }
         if (generation !== this._generation) return;
@@ -108,14 +108,14 @@ class StatsPane {
         this._photos = new PhotoColumn({
             onOpen: (photos, index) => openLibraryPhotos(photos, index),
             onClose: () => this.closePhotos(),
-            label: 'Photos of the value picked in a chart',
-            emptyText: 'No photos match. Some charts count a value the photos only carry in part.',
+            label: t('Photos of the value picked in a chart'),
+            emptyText: t('No photos match. Some charts count a value the photos only carry in part.'),
         });
         this._photos.el.id = 'stats-photos';
         this._photos.el.hidden = true;
         // Photos opens the column with every photo counted, as the head's
         // count does; a value picked in a chart fills it with its own.
-        this._photosBtn = panelToggleButton('Photos');
+        this._photosBtn = panelToggleButton(t('Photos'));
         this._photosBtn.addEventListener('click', () => {
             if (this._photos.el.hidden) { keepPhotoColumnOpen(STATS_PHOTOS_KEY, true); this._showAllPhotos(); } else this.closePhotos();
         });
@@ -147,13 +147,13 @@ class StatsPane {
         const hasTimeline = topic ? topic.charts.some(c => ['tl', 'colour', 'colourSpace', 'exposureSpace', 'people', 'things'].includes(c.source) && c.periods !== false) : false;
         // A topic's title is the way back and its name, as a detail page's is.
         const title = topic
-            ? `<nav class="gal-crumbs" aria-label="Breadcrumb"><a class="link-btn stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">Statistics</a><span class="gal-crumb-sep">/</span><span class="gal-crumb-here stats-title">${escapeHtml(topic.label)}</span></nav>`
-            : '<span class="stats-title">Statistics</span>';
+            ? `<nav class="gal-crumbs" aria-label="${t('Breadcrumb')}"><a class="link-btn stats-back" href="${statsHash({ ...this._route, topic: '' })}" data-stats-topic="">${t('Statistics')}</a><span class="gal-crumb-sep">/</span><span class="gal-crumb-here stats-title">${escapeHtml(topic.label)}</span></nav>`
+            : '<span class="stats-title">' + t('Statistics') + '</span>';
         this._head.innerHTML = placeHeaderHTML({
             title,
             meta: '<span class="stats-count"></span>',
             actions: `<div class="stats-scope">${this._lib && this._route.path ? this._folderHTML() : ''}</div>${hasTimeline ? this._granularitySelectHTML() : ''}`,
-            lede: placeLede(`What the photos in your ${placeLink('library', 'libraries', 'libraries')} have in common, and how that changed. Click a bar, a slice or a point to see its photos.`),
+            lede: placeLede(t('What the photos in your {libraries} have in common, and how that changed. Click a bar, a slice or a point to see its photos.', { libraries: placeLink('library', 'libraries', t('libraries')) })),
         });
         this._head.querySelector('.stats-scope').appendChild(this._filter.el);
         // People side by side, in the People topic: which ones its charts show.
@@ -168,16 +168,16 @@ class StatsPane {
     }
 
     _folderHTML() {
-        return `<span class="stats-folder"><span class="stats-folder-label">Folder</span>
+        return `<span class="stats-folder"><span class="stats-folder-label">${t('Folder')}</span>
             <span class="stats-folder-path">${escapeHtml(this._route.path)}</span></span>
-            <button class="btn btn-sm stats-whole-library">Whole library</button>`;
+            <button class="btn btn-sm stats-whole-library">${t('Whole library')}</button>`;
     }
 
     _granularitySelectHTML() {
-        const opts = [['', 'Auto'], ['month', 'Months'], ['year', 'Years']].map(([v, label]) =>
+        const opts = [['', t('Auto')], ['month', t('Months')], ['year', t('Years')]].map(([v, label]) =>
             `<option value="${v}"${v === this._granularity ? ' selected' : ''}>${label}</option>`).join('');
-        return `<label class="stats-period"><span class="stats-period-label">Periods</span>
-            <select class="btn btn-sm select-btn stats-granularity" aria-label="Periods">${opts}</select></label>`;
+        return `<label class="stats-period"><span class="stats-period-label">${t('Periods')}</span>
+            <select class="btn btn-sm select-btn stats-granularity" aria-label="${t('Periods')}">${opts}</select></label>`;
     }
 
     _drawCount(snap) {
@@ -186,9 +186,9 @@ class StatsPane {
     }
 
     _nothingCounted(snap) {
-        if (snap.gonePhotos > 0) return `The ${formatCount(snap.gonePhotos)} photos here were not found in their folders. Edit library → Maintenance → Remove deleted photos checks them again.`;
-        if (this._route.path) return 'This folder holds no photos.';
-        return this._lib ? 'This library holds no photos yet. Scan it under Libraries to count them.' : 'Your libraries hold no photos yet.';
+        if (snap.gonePhotos > 0) return t('The {gonePhotos} photos here were not found in their folders. Edit library → Maintenance → Remove deleted photos checks them again.', { gonePhotos: formatCount(snap.gonePhotos) });
+        if (this._route.path) return t('This folder holds no photos.');
+        return this._lib ? t('This library holds no photos yet. Scan it under Libraries to count them.') : t('Your libraries hold no photos yet.');
     }
 
     // Photos an older version left marked as not found. Checking again (Remove
@@ -197,20 +197,20 @@ class StatsPane {
         const p = document.createElement('div');
         p.className = 'stats-gone';
         const n = snap.gonePhotos;
-        p.innerHTML = `<span>${formatCount(n)} ${n === 1 ? 'photo was' : 'photos were'} not found in ${n === 1 ? 'its folder' : 'their folders'} — deleted or moved outside Unterlumen — and ${n === 1 ? 'is' : 'are'} not counted. Checking the folders again finds those still there and takes the others out of the library.</span>
-            <button type="button" class="btn btn-sm">Check the folders again</button>
+        p.innerHTML = `<span>${n === 1 ? t('1 photo was not found in its folder — deleted or moved outside Unterlumen — and is not counted. Checking the folders again finds those still there and takes the others out of the library.') : t('{n} photos were not found in their folders — deleted or moved outside Unterlumen — and are not counted. Checking the folders again finds those still there and takes the others out of the library.', { n: formatCount(n) })}</span>
+            <button type="button" class="btn btn-sm">${t('Check the folders again')}</button>
             <span class="stats-gone-progress"></span>`;
         const btn = p.querySelector('button');
         btn.addEventListener('click', async () => {
-            const restore = Activity.button(btn, 'Removing…');
-            const progress = Activity.in(p.querySelector('.stats-gone-progress'), 'Checking the folders…');
+            const restore = Activity.button(btn, t('Removing…'));
+            const progress = Activity.in(p.querySelector('.stats-gone-progress'), t('Checking the folders…'));
             try {
                 for (const id of snap.goneLibraries ?? []) {
-                    await LibraryAPI.cleanup(id, (pr) => showLibraryProgress(progress, pr, 'Checking the folders…'));
+                    await LibraryAPI.cleanup(id, (pr) => showLibraryProgress(progress, pr, t('Checking the folders…')));
                 }
             } catch (err) {
                 restore();
-                progress.fail(`They were not removed: ${err.message}`);
+                progress.fail(t('They were not removed: {err}', { err: err.message }));
                 return;
             }
             this.render();
@@ -276,7 +276,7 @@ class StatsPane {
     async _whileLoading(read) {
         if (this._drawn) return read();
         this._noteEl.hidden = false;
-        Activity.in(this._noteEl, 'Counting the photos…', { area: true });
+        Activity.in(this._noteEl, t('Counting the photos…'), { area: true });
         const result = await read();
         this._noteEl.hidden = true;
         this._noteEl.innerHTML = '';
@@ -379,7 +379,7 @@ class StatsPane {
 
     _labelStageButtons() {
         for (const btn of this._main?.querySelectorAll('.stats-stage-btn') ?? []) {
-            btn.textContent = btn.closest('.stats-chart') === this._stage ? 'Leave full view' : 'Full view';
+            btn.textContent = btn.closest('.stats-chart') === this._stage ? t('Leave full view') : t('Full view');
         }
     }
 
@@ -397,10 +397,10 @@ class StatsPane {
     _showAllPhotos() {
         const v = ScopeState.value;
         const onlyLibrary = v.libraries?.length === 1 && v.models === null && v.lenses === null && !v.from && !v.until;
-        const where = this._route.path ? `in ${this._route.path}`
-            : onlyLibrary && this._lib ? `in ${this._lib.name}`
-            : ScopeState.narrowed() ? 'within the filter' : 'in all libraries';
-        return this._showPhotos({ subject: `All photos ${where}`, params: {}, all: true });
+        const where = this._route.path ? t('in {folder}', { folder: this._route.path })
+            : onlyLibrary && this._lib ? t('in {library}', { library: this._lib.name })
+            : ScopeState.narrowed() ? t('within the filter') : t('in all libraries');
+        return this._showPhotos({ subject: t('All photos {where}', { where: where }), params: {}, all: true });
     }
 
     // A value picked in a chart opens the column, and keeps it open on the
@@ -428,7 +428,7 @@ class StatsPane {
         try {
             first = await read(0);
         } catch (err) {
-            App.showToast(`The photos could not be read: ${err.message}`);
+            App.showToast(t('The photos could not be read: {err}', { err: err.message }));
             return;
         }
         if (generation !== this._pickGeneration) return;
@@ -485,7 +485,7 @@ function drawSafely(el, draw) {
         draw(el);
     } catch (err) {
         console.error(err);
-        el.innerHTML = '<p class="stats-nodata">This chart could not be drawn.</p>';
+        el.innerHTML = '<p class="stats-nodata">' + t('This chart could not be drawn.') + '</p>';
     }
 }
 

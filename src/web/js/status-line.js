@@ -8,9 +8,9 @@ const STATUS_LINE_KEEP_DONE_MS = 8000;
 
 // What a step of a publish run is doing, in words.
 const PUBLISH_STEPS = {
-    zip: 'Packing the download…',
-    html: 'Writing the gallery…',
-    site: 'Updating the site…',
+    zip: t('Packing the download…'),
+    html: t('Writing the gallery…'),
+    site: t('Updating the site…'),
 };
 
 class StatusLine {
@@ -137,13 +137,13 @@ class StatusLine {
     // Puts the job's state into its activity line and returns it in words.
     _describe(job, activity) {
         if (job.error) {
-            activity.fail(`It stopped: ${job.error}`);
+            activity.fail(t('It stopped: {error}', { error: job.error }));
             return `stopped: ${job.error}`;
         }
         if (job.finished) {
             const text = job.total > 0
-                ? `Finished. ${formatCount(job.total)} ${this._noun(job)}.`
-                : 'Finished.';
+                ? t('Finished. {total} {job}.', { total: formatCount(job.total), job: this._noun(job) })
+                : t('Finished.');
             activity.done(text);
             return text.toLowerCase();
         }
@@ -151,7 +151,7 @@ class StatusLine {
             activity.count(job.done, job.total, { noun: this._noun(job), current: job.current || '' });
             return `${job.done} of ${job.total} ${this._noun(job)}`;
         }
-        const text = PUBLISH_STEPS[job.step] || (job.kind === 'library' ? 'Looking for photos…' : 'Working…');
+        const text = PUBLISH_STEPS[job.step] || (job.kind === 'library' ? t('Looking for photos…') : t('Working…'));
         activity.busy(text);
         return text;
     }

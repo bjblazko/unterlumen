@@ -34,6 +34,14 @@ func (r ThingsRecord) empty() bool {
 	return len(r.Found) == 0 && len(r.Not) == 0 && r.Version == "" && r.Vector == nil
 }
 
+// A Lexicon gives a thing's keyword: the one a library writes, in its
+// language, and every one any installation may have written for it, in any
+// language. The record keeps IDs; only keywords are in a language.
+type Lexicon interface {
+	Keyword(id string) string
+	Keywords(id string) []string
+}
+
 // SidecarThings is what a sidecar says about the things in a photo.
 type SidecarThings struct {
 	Record   ThingsRecord
@@ -41,12 +49,14 @@ type SidecarThings struct {
 }
 
 // Things are the things the sidecar says the photo shows: those Unterlumen
-// wrote whose keyword is still there. A keyword taken away in another
-// program takes the thing with it.
-func (s SidecarThings) Things() []string {
+// wrote whose keyword, in any language, is still there. A keyword taken
+// away in another program takes the thing with it.
+func (s SidecarThings) Things(lex Lexicon) []string {
 	var out []string
 	for _, t := range s.Record.Found {
-		if slices.Contains(s.Keywords, t) && !slices.Contains(s.Record.Not, t) {
+		if !slices.Contains(s.Record.Not, t) && slices.ContainsFunc(lex.Keywords(t), func(k string) bool {
+			return slices.ContainsFunc(s.Keywords, func(have string) bool { return strings.EqualFold(have, k) })
+		}) {
 			out = append(out, t)
 		}
 	}
@@ -71,7 +81,7 @@ func ReadThings(photoPath string) (SidecarThings, error) {
 // keywords Unterlumen wrote before and no longer finds are removed, every
 // other keyword stays. It writes nothing for a photo without a sidecar and
 // without things, and reports whether the sidecar now holds the record.
-func WriteFoundThings(photoPath string, found []string, version string, vector []float32) (bool, error) {
+func WriteFoundThings(photoPath string, found []string, version string, vector []float32, lex Lexicon) (bool, error) {
 	written := false
 	err := changeSidecar(photoPath, func(data []byte) ([]byte, error) {
 		written = false
@@ -91,9 +101,31 @@ func WriteFoundThings(photoPath string, found []string, version string, vector [
 		if vector != nil {
 			c.things.Vector = vector
 		}
-		return withThings(data, c, keep, gone), nil
+		return withThings(data, c, lex, keep, append(gone, keep...)), nil
 	})
 	return written && err == nil, err
+}
+
+// RewriteThingKeywords writes the keywords of the things in the photo's
+// record in the lexicon's language, in place of those of any other: a
+// library whose language changed. The record and every other keyword stay.
+// It reports whether the sidecar changed.
+func RewriteThingKeywords(photoPath string, lex Lexicon) (bool, error) {
+	changed := false
+	err := changeSidecar(photoPath, func(data []byte) ([]byte, error) {
+		changed = false
+		c := readULContent(data)
+		if data == nil || len(c.things.Found) == 0 {
+			return nil, nil
+		}
+		out := withThings(data, c, lex, c.things.Found, c.things.Found)
+		if bytes.Equal(out, data) {
+			return nil, nil
+		}
+		changed = true
+		return out, nil
+	})
+	return changed && err == nil, err
 }
 
 // WriteThingsVector adds the photo's vector to a things record already in its
@@ -112,22 +144,35 @@ func WriteThingsVector(photoPath string, vector []float32) (bool, error) {
 	return written && err == nil, err
 }
 
-// RemoveThing takes a thing away from the photo for good: its keyword goes,
-// and the record keeps it from being found again.
-func RemoveThing(photoPath, thing string) error {
+// RemoveThing takes a thing away from the photo for good: its keywords go,
+// in every language, and the record keeps it from being found again.
+func RemoveThing(photoPath, thing string, lex Lexicon) error {
 	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
 		c := readULContent(data)
 		c.things.Found = slices.DeleteFunc(c.things.Found, func(t string) bool { return t == thing })
 		if !slices.Contains(c.things.Not, thing) {
 			c.things.Not = append(c.things.Not, thing)
 		}
-		return withThings(data, c, nil, []string{thing}), nil
+		return withThings(data, c, lex, nil, []string{thing}), nil
 	})
 }
 
-// withThings writes the keywords and Unterlumen's description with c.
-func withThings(data []byte, c ulContent, add, remove []string) []byte {
-	out := withSubjects(data, add, remove)
+// withThings writes Unterlumen's description with c, and the keywords: of
+// the things in add in the lexicon's language, in place of every keyword
+// any language writes for the things in remove.
+func withThings(data []byte, c ulContent, lex Lexicon, add, remove []string) []byte {
+	var keywords, gone []string
+	for _, t := range add {
+		keywords = append(keywords, lex.Keyword(t))
+	}
+	for _, t := range remove {
+		for _, k := range lex.Keywords(t) {
+			if !slices.Contains(keywords, k) {
+				gone = append(gone, k)
+			}
+		}
+	}
+	out := withSubjects(data, keywords, gone)
 	return spliceULBlock(out, c)
 }
 

@@ -12,16 +12,16 @@
 // `folders`: the action also works on selected folders. The others work on
 // photos only and say so when only folders are selected.
 const SELECTION_ACTIONS = {
-    collect: { label: 'Add to gallery…', primary: true },
-    export: { label: 'Export…' },
-    download: { label: 'Download', folders: true },
-    rename: { label: 'Rename…' },
-    location: { label: 'Set location…' },
-    organize: { label: 'Show in Organize', folders: true },
-    mark: { label: 'Mark for deletion' },
+    collect: { label: t('Add to gallery…'), primary: true },
+    export: { label: t('Export…') },
+    download: { label: t('Download'), folders: true },
+    rename: { label: t('Rename…') },
+    location: { label: t('Set location…') },
+    organize: { label: t('Show in Organize'), folders: true },
+    mark: { label: t('Mark for deletion') },
 };
 
-const PHOTOS_ONLY = 'Works on photos. Select photos to use it.';
+const PHOTOS_ONLY = t('Works on photos. Select photos to use it.');
 
 class SelectionBar {
     // container: the element the bar is appended to (it renders nothing until
@@ -56,7 +56,7 @@ class SelectionBar {
             this._el = document.createElement('div');
             this._el.className = 'selection-bar';
             this._el.setAttribute('role', 'toolbar');
-            this._el.setAttribute('aria-label', 'Selection');
+            this._el.setAttribute('aria-label', t('Selection'));
             this.container.appendChild(this._el);
             this._el.addEventListener('click', (e) => {
                 const btn = e.target.closest('[data-action]');

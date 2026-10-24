@@ -60,7 +60,7 @@ function periodBands(g, x, periods, iH, onPick) {
         .attr('x', p => x(p)).attr('y', 0)
         .attr('width', x.bandwidth()).attr('height', iH)
         .attr('fill', 'transparent'),
-    p => onPick({ period: p }), p => `Photos of ${p}`);
+    p => onPick({ period: p }), p => t('Photos of {p}', { p: p }));
 }
 
 // A value per period as a line (and optionally an area under it) that breaks
@@ -83,7 +83,7 @@ function gappedLine(g, periods, xC, yOf, { color, area = null, curve = d3.curveM
 }
 
 function tlNoData(el, msg) {
-    el.innerHTML = `<p class="stats-nodata">${escapeHtml(msg)}</p>`;
+    el.innerHTML = `<p class="stats-nodata">${escapeHtml(t(msg))}</p>`;
 }
 
 /* ─── Lines per series ──────────────────────────────────────────── */
@@ -136,7 +136,7 @@ function seriesLegend(series) {
     const legend = document.createElement('div');
     legend.className = 'stats-legend';
     legend.innerHTML = series.map(s => `
-        <span class="stats-legend-item"><span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.name)}</span>`).join('');
+        <span class="stats-legend-item"><span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.label ?? s.name)}</span>`).join('');
     return legend;
 }
 
@@ -175,9 +175,9 @@ function seriesHover(el, g, { periods, series, x, y, iW, iH, m, W, format, onPic
             .join('circle').attr('cx', px).attr('cy', s => y(s.values[i])).attr('r', 4)
             .attr('fill', s => s.color).attr('stroke', c.surface).attr('stroke-width', 2);
         const rows = series.filter(s => s.values[i]).sort((a, b) => b.values[i] - a.values[i])
-            .map(s => `<span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.name)} <span class="stats-tooltip-value">${escapeHtml(format(s.values[i], s, i))}</span>`);
+            .map(s => `<span class="stats-legend-line" style="background:${s.color}"></span>${escapeHtml(s.label ?? s.name)} <span class="stats-tooltip-value">${escapeHtml(format(s.values[i], s, i))}</span>`);
         tooltip.style('display', 'block')
-            .html(`<span class="stats-tooltip-value">${escapeHtml(periods[i])}</span><br>${rows.join('<br>') || 'No photos'}`);
+            .html(`<span class="stats-tooltip-value">${escapeHtml(periods[i])}</span><br>${rows.join('<br>') || t('No photos')}`);
         const drawn = g.node().ownerSVGElement.clientWidth;
         const left = (m.left + px) * drawn / W;
         tooltip.style('left', `${left + 12}px`).style('top', `${m.top * drawn / W}px`)
@@ -218,7 +218,7 @@ function seriesHover(el, g, { periods, series, x, y, iW, iH, m, W, format, onPic
     });
     const svg = d3.select(g.node().ownerSVGElement)
         .attr('tabindex', 0).attr('role', 'img')
-        .attr('aria-label', 'Chart. Arrow keys move between periods, Enter shows the photos of one.');
+        .attr('aria-label', t('Chart. Arrow keys move between periods, Enter shows the photos of one.'));
     svg.on('keydown', (event) => {
         if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
             event.preventDefault();
@@ -238,18 +238,19 @@ function seriesHover(el, g, { periods, series, x, y, iW, iH, m, W, format, onPic
 function renderCameraLines(el, tlData, onPick) {
     const cameras = tlData?.cameraUsage;
     const periods = tlData?.periods;
-    if (!cameras?.length || !periods?.length) { tlNoData(el, 'No camera data'); return; }
+    if (!cameras?.length || !periods?.length) { tlNoData(el, t('No camera data')); return; }
     const c = chartColors();
     let slot = 0;
     const series = cameras.map(cs => ({
         name: cs.camera,
+        label: cs.camera === 'Other' ? t('Other') : cs.camera,
         camera: cs.camera === 'Other' ? null : cs.camera,
         values: periods.map((_, i) => cs.counts[i] ?? 0),
         color: cs.camera === 'Other' ? c.axis : c.cats[slot++],
     }));
     renderSeriesLines(el, periods, series, {
-        yFormat: d => d.toLocaleString(),
-        format: v => `${v.toLocaleString()} ${v === 1 ? 'photo' : 'photos'}`,
+        yFormat: d => formatCount(d),
+        format: v => countText(v, 'photo'),
         onPick: onPick && (({ period, series: s }) => onPick({ period, camera: s?.camera ?? null })),
     });
 }
@@ -259,7 +260,7 @@ function renderCameraLines(el, tlData, onPick) {
 function renderFocalDrift(el, tlData, onPick) {
     const stats = tlData.focalStats;
     const periods = tlData.periods;
-    if (!stats?.length || !periods?.length) { tlNoData(el, 'No focal length data'); return; }
+    if (!stats?.length || !periods?.length) { tlNoData(el, t('No focal length data')); return; }
     const c = chartColors();
     const W = 680, H = 180;
     const m = { top: 8, right: 16, bottom: 48, left: 52 };
@@ -296,7 +297,7 @@ function renderFocalDrift(el, tlData, onPick) {
 function renderISOEvolution(el, tlData, onPick) {
     const stats = tlData.isoStats;
     const periods = tlData.periods;
-    if (!stats?.length || !periods?.length) { tlNoData(el, 'No ISO data'); return; }
+    if (!stats?.length || !periods?.length) { tlNoData(el, t('No ISO data')); return; }
     const c = chartColors();
     const W = 680, H = 160;
     const m = { top: 8, right: 16, bottom: 48, left: 56 };
@@ -341,7 +342,7 @@ function renderISOEvolution(el, tlData, onPick) {
 function renderApertureHeat(el, tlData, onPick) {
     const heat = tlData.apertureHeat;
     const periods = tlData.periods;
-    if (!heat?.length || !periods?.length) { tlNoData(el, 'No aperture data'); return; }
+    if (!heat?.length || !periods?.length) { tlNoData(el, t('No aperture data')); return; }
     const c = chartColors();
     const bucketOrder = ['f/1', 'f/1.4', 'f/2', 'f/2.8', 'f/4', 'f/5.6', 'f/8', 'f/11', 'f/16+'];
     const cellW = Math.max(4, Math.min(22, Math.floor(600 / periods.length)));
@@ -386,14 +387,14 @@ function renderApertureHeat(el, tlData, onPick) {
                 .on('mouseover', function(event) {
                     if (!count) return;
                     tooltip.style('display', 'block')
-                        .html(`${p} · ${b}<br>${count.toLocaleString()} shots (${(norm*100).toFixed(1)}%)`);
+                        .html(`${p} · ${b}<br>${t('{photos} ({pct} %)', { photos: countText(count, 'photo'), pct: (norm*100).toFixed(1) })}`);
                 })
                 .on('mousemove', function(event) {
                     const [mx, my] = d3.pointer(event, el);
                     tooltip.style('left', mx + 12 + 'px').style('top', my - 28 + 'px');
                 })
                 .on('mouseout', () => tooltip.style('display', 'none'));
-            if (count) pickable(cell, onPick && (() => onPick({ period: p, bucket: b })), `${p}, ${b}, ${count.toLocaleString()} photos`);
+            if (count) pickable(cell, onPick && (() => onPick({ period: p, bucket: b })), `${p}, ${b}, ${countText(count, 'photo')}`);
         });
     });
 }
@@ -410,7 +411,7 @@ const aspectColor = (c, ratio) => c.cats[TL_ASPECT_SLOTS[ratio] ?? 4];
 function renderAspectLines(el, tlData, onPick) {
     const aspects = tlData?.aspectRatios;
     const periods = tlData?.periods;
-    if (!aspects?.length || !periods?.length) { tlNoData(el, 'No aspect ratio data'); return; }
+    if (!aspects?.length || !periods?.length) { tlNoData(el, t('No aspect ratio data')); return; }
     const c = chartColors();
     const totals = periods.map((_, i) => d3.sum(aspects, a => a.counts[i] ?? 0));
     const ordered = [...aspects].sort((a, b) => (TL_ASPECT_SLOTS[a.ratio] ?? 4) - (TL_ASPECT_SLOTS[b.ratio] ?? 4));
@@ -423,7 +424,7 @@ function renderAspectLines(el, tlData, onPick) {
     renderSeriesLines(el, periods, series, {
         yMax: 100,
         yFormat: d => `${d} %`,
-        format: (v, s, i) => `${Math.round(v)} % (${(s.counts[i] ?? 0).toLocaleString()})`,
+        format: (v, s, i) => `${Math.round(v)} % (${formatCount(s.counts[i] ?? 0)})`,
         onPick: onPick && (({ period, series: s }) => onPick({ period, aspect: s?.name ?? null })),
         height: 180,
     });
@@ -434,7 +435,7 @@ function renderAspectLines(el, tlData, onPick) {
 function renderMegapixelTimeline(el, tlData, onPick) {
     const stats = tlData.megapixelStats;
     const periods = tlData.periods;
-    if (!stats?.length || !periods?.length) { tlNoData(el, 'No megapixel data'); return; }
+    if (!stats?.length || !periods?.length) { tlNoData(el, t('No megapixel data')); return; }
     const c = chartColors();
     const W = 680, H = 160;
     const m = { top: 16, right: 16, bottom: 48, left: 52 };
@@ -480,7 +481,7 @@ function renderMegapixelTimeline(el, tlData, onPick) {
     }
 
     el.insertBefore(seriesLegend([
-        { name: 'Largest', color: c.cats[0] },
-        { name: 'Average', color: c.textSec },
+        { name: 'Largest', label: t('Largest'), color: c.cats[0] },
+        { name: 'Average', label: t('Average'), color: c.textSec },
     ]), el.firstChild);
 }

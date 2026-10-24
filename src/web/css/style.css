@@ -847,6 +847,8 @@ button.toggle {
 
 .search-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.search-bar-note { margin-left: var(--space-2); font-size: var(--text-xs); color: var(--fg-3); }
+
 .search-bar-count {
     flex: none;
     font-family: var(--font-mono);

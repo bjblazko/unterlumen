@@ -168,7 +168,7 @@ func spliceRegionsBlock(data []byte, block string) ([]byte, error) {
 		if block == "" {
 			return []byte(strings.TrimRight(s[:start], " \t") + strings.TrimLeft(s[end:], "\n")), nil
 		}
-		return []byte(s[:start] + block + s[end:]), nil
+		return []byte(s[:start] + strings.TrimLeft(block, " ") + s[end:]), nil
 	}
 	if block == "" {
 		return data, nil

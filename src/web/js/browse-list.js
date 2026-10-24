@@ -22,7 +22,7 @@ class ListRenderer {
 
         if (start === 0) {
             return `<table class="list-view">
-                <thead><tr><th></th><th>Name</th><th>Date</th><th>Size</th></tr></thead>
+                <thead><tr><th></th><th>${t('Name')}</th><th>${t('Date')}</th><th>${t('Size')}</th></tr></thead>
                 <tbody>${rows.join('')}</tbody>
             </table>`;
         }

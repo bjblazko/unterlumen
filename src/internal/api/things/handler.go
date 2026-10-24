@@ -20,6 +20,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, reg *jobs.Registry) {
 	mux.HandleFunc("GET /api/things", status(mgr))
 	mux.HandleFunc("POST /api/things/install", install(mgr, reg))
 	mux.HandleFunc("GET /api/library/things", totals(mgr))
+	mux.HandleFunc("GET /api/things/words", words)
+	mux.HandleFunc("GET /api/things/nearest", nearest(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/things", photoThings(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}/things/{thing}", removeThing(mgr))
 }
@@ -123,5 +125,40 @@ func removeThing(mgr *lib.Manager) http.HandlerFunc {
 		}
 		mgr.InvalidateStatsCache(r.PathValue("id"))
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// words lists every thing with its name and other words in lang, and its
+// category, for the search bar and every place that names things.
+func words(w http.ResponseWriter, r *http.Request) {
+	lang := things.LanguageOf(r.URL.Query().Get("lang"))
+	type word struct {
+		Thing    string   `json:"thing"`
+		Name     string   `json:"name"`
+		Also     []string `json:"also,omitempty"`
+		Category string   `json:"category"`
+		Kind     string   `json:"kind"` // the category's name in lang
+	}
+	out := make([]word, 0, len(things.Vocabulary))
+	for _, t := range things.Vocabulary {
+		out = append(out, word{Thing: t.Name, Name: lang.Name(t.Name), Also: lang.Also(t.Name),
+			Category: string(t.Category), Kind: lang.Category(t.Category)})
+	}
+	writeJSON(w, out)
+}
+
+// nearest suggests the thing whose words lie nearest to text; 204 when
+// none is near enough or things are not installed here.
+func nearest(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		thing, similarity, ok := mgr.NearestThing(r.URL.Query().Get("text"))
+		if !ok {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeJSON(w, struct {
+			Thing      string  `json:"thing"`
+			Similarity float32 `json:"similarity"`
+		}{thing, similarity})
 	}
 }

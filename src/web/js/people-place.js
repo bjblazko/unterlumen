@@ -59,7 +59,7 @@ class PeoplePane {
         try {
             [status, this.libraries] = await Promise.all([PeopleAPI.status(), LibraryAPI.list()]);
         } catch (err) {
-            this._fail(`People could not be read: ${err.message}. Reload the page to try again.`);
+            this._fail(t('People could not be read: {err}. Reload the page to try again.', { err: err.message }));
             return;
         }
         this._head('');
@@ -95,7 +95,7 @@ class PeoplePane {
     _buildShell() {
         this.container.innerHTML = `
             <div class="people-place">
-                ${placeHeaderHTML({ title: 'People', below: '<div class="people-lede"></div>' })}
+                ${placeHeaderHTML({ title: t('People'), below: '<div class="people-lede"></div>' })}
                 <div class="people-body"></div>
             </div>`;
         this._body = this.container.querySelector('.people-body');
@@ -109,7 +109,7 @@ class PeoplePane {
     // that the owner knows, and the faces come first.
     _lede(shown) {
         this.container.querySelector('.people-lede').innerHTML = shown
-            ? placeLede(`The faces found in your libraries' photos, grouped by who they look like. Names you give are written into each photo's sidecar, where your other installation and programs such as Lightroom read them.`) : '';
+            ? placeLede(t('The faces found in your libraries\' photos, grouped by who they look like. Names you give are written into each photo\'s sidecar, where your other installation and programs such as Lightroom read them.')) : '';
     }
 
     _fail(text) {
@@ -128,24 +128,24 @@ class PeoplePane {
 
     _showInstall(plan) {
         if (!plan.supported) {
-            this._body.innerHTML = `<div class="people-note"><p>Face recognition is not available on this computer: ONNX Runtime, which it runs on, has no build for this system.</p></div>`;
+            this._body.innerHTML = `<div class="people-note"><p>${t('Face recognition is not available on this computer: ONNX Runtime, which it runs on, has no build for this system.')}</p></div>`;
             return;
         }
         const mb = Math.round(plan.bytes / 1e6);
         this._body.innerHTML = `
             <div class="people-note">
-                <p>People finds the faces in your library photos and groups the ones that look alike, so you can name them.</p>
-                <p>Face recognition runs on this computer. It needs ONNX Runtime from Microsoft and two face models from OpenCV, <span class="people-num">${mb} MB</span>, downloaded once from GitHub and Hugging Face. After that, no photo and no face leaves this computer.</p>
-                <div class="people-actions"><button type="button" class="btn btn-accent people-install">Download and turn on</button></div>
+                <p>${t('People finds the faces in your library photos and groups the ones that look alike, so you can name them.')}</p>
+                <p>${t('Face recognition runs on this computer. It needs ONNX Runtime from Microsoft and two face models from OpenCV,')} <span class="people-num">${mb} MB</span>${t(', downloaded once from GitHub and Hugging Face. After that, no photo and no face leaves this computer.')}</p>
+                <div class="people-actions"><button type="button" class="btn btn-accent people-install">${t('Download and turn on')}</button></div>
                 <div class="people-install-activity"></div>
             </div>`;
         const btn = this._body.querySelector('.people-install');
         btn.addEventListener('click', async () => {
-            const restore = Activity.button(btn, 'Downloading…');
-            const activity = Activity.in(this._body.querySelector('.people-install-activity'), `Downloading ${mb} MB…`);
+            const restore = Activity.button(btn, t('Downloading…'));
+            const activity = Activity.in(this._body.querySelector('.people-install-activity'), t('Downloading {mb} MB…', { mb: mb }));
             try {
                 await PeopleAPI.install();
-                activity.done('Face recognition is on. Your libraries are being looked at now.');
+                activity.done(t('Face recognition is on. Your libraries are being looked at now.'));
                 setTimeout(() => this.show(this.route), 1500);
             } catch (err) {
                 restore();
@@ -155,13 +155,13 @@ class PeoplePane {
     }
 
     _showNoLibraries() {
-        this._body.innerHTML = `<div class="people-note"><p>People works on libraries. Make one in ${placeLink('library', 'libraries', 'Libraries')} first; its photos are looked at as soon as it is read.</p></div>`;
+        this._body.innerHTML = `<div class="people-note"><p>People works on libraries. Make one in ${placeLink('library', 'libraries', t('Libraries'))} first; its photos are looked at as soon as it is read.</p></div>`;
     }
 
     // —— Shared by the pages ——
 
     backLink() {
-        return `<a class="people-back" href="${peopleHash()}">People</a>`;
+        return `<a class="people-back" href="${peopleHash()}">${t('People')}</a>`;
     }
 
     // crumb is the way back to everyone and the page's title.
@@ -185,10 +185,10 @@ function openFacePhotos(lib, faces, index) {
 function suggestionHTML(person) {
     const n = escapeHtml(person.name);
     return `<div class="people-suggest">
-        <span class="people-suggest-question">Is this <strong>${n}</strong>?</span>
+        <span class="people-suggest-question">${t('Is this')} <strong>${n}</strong>?</span>
         <span class="people-suggest-answers">
-            <button type="button" class="btn btn-sm people-accept" data-name="${n}" title="Yes, this is ${n}" aria-label="Yes, this is ${n}">Yes</button>
-            <button type="button" class="btn btn-sm people-not" data-person="${person.id}" title="No, this is not ${n}" aria-label="No, this is not ${n}">No</button>
+            <button type="button" class="btn btn-sm people-accept" data-name="${n}" title="${t('Yes, this is {name}', { name: n })}" aria-label="${t('Yes, this is {name}', { name: n })}">${t('Yes')}</button>
+            <button type="button" class="btn btn-sm people-not" data-person="${person.id}" title="${t('No, this is not {name}', { name: n })}" aria-label="${t('No, this is not {name}', { name: n })}">${t('No')}</button>
         </span>
     </div>`;
 }

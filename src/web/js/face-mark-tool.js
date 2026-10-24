@@ -30,7 +30,7 @@ class FaceMarkTool {
         const r = this._crop.getRect();
         const name = this._input.value.trim();
         if (!r || !name) {
-            this._showError(r ? 'Type who it is.' : 'Drag a frame around the face first.');
+            this._showError(r ? t('Type who it is.') : t('Drag a frame around the face first.'));
             return false;
         }
         this._input.disabled = true;
@@ -59,7 +59,7 @@ class FaceMarkTool {
             (f.name ? `<span class="face-mark-known-name">${escapeHtml(f.name)}</span>` : '') + '</span>').join('');
         layer.innerHTML = `${known}
             <div class="face-mark-name" hidden>
-                <input class="face-mark-input" type="text" list="face-mark-names" autocomplete="off" aria-label="Who is this?" placeholder="">
+                <input class="face-mark-input" type="text" list="face-mark-names" autocomplete="off" aria-label="${t('Who is this?')}" placeholder="">
                 <datalist id="face-mark-names">${names.map(n => `<option value="${escapeHtml(n)}">`).join('')}</datalist>
                 <p class="face-mark-error" role="alert" hidden></p>
             </div>`;

@@ -14,23 +14,23 @@ class PeopleNaming {
 
     async showLibrary(lib) {
         const body = this.pane._body;
-        const activity = Activity.in(body, 'Reading the faces…', { area: true });
+        const activity = Activity.in(body, t('Reading the faces…'), { area: true });
         let data, toName, names;
         try {
             [data, toName, names] = await Promise.all([PeopleAPI.overview(lib), PeopleAPI.toName(), PeopleAPI.allNames()]);
         } catch (err) {
-            activity.fail(`The faces could not be read: ${err.message}.`);
+            activity.fail(t('The faces could not be read: {err}.', { err: err.message }));
             return;
         }
         this.pane._head(data.groupCount ? countHTML(data.groupCount, 'group') : '');
         body.innerHTML = `
-            <div class="people-page-head">${this.pane.crumb(`Waiting for a name in ${escapeHtml(this.pane.libraryName(lib))}`)}</div>
+            <div class="people-page-head">${this.pane.crumb(t('Waiting for a name in {lib}', { lib: escapeHtml(this.pane.libraryName(lib)) }))}</div>
             ${this.pane.libraries.length > 1 ? toNameHTML(toName, lib) : ''}
             ${pendingNote(data)}
             ${data.groups.length ? `
-                <p class="people-hint">Faces that look alike, the largest groups first. Name them, or hide faces nobody is to name: strangers, statues, posters.${data.groupCount > data.groups.length ? ` These are ${formatCount(data.groups.length)} of ${formatCount(data.groupCount)}; naming them brings up the next.` : ''}${hiddenLink(lib, data.hidden)}</p>
+                <p class="people-hint">${t('Faces that look alike, the largest groups first. Name them, or hide faces nobody is to name: strangers, statues, posters.')}${data.groupCount > data.groups.length ? ' ' + t('These are {n} of {total}; naming them brings up the next.', { n: formatCount(data.groups.length), total: formatCount(data.groupCount) }) : ''}${hiddenLink(lib, data.hidden)}</p>
                 <div class="people-groups">${data.groups.map(g => this._groupRow(lib, g)).join('')}</div>`
-                : `<p class="people-empty">${data.people.length || data.pending ? 'No faces are waiting for a name here.' : 'No faces were found in the photos of this library.'}${hiddenLink(lib, data.hidden)}</p>`}
+                : `<p class="people-empty">${data.people.length || data.pending ? t('No faces are waiting for a name here.') : t('No faces were found in the photos of this library.')}${hiddenLink(lib, data.hidden)}</p>`}
             ${namesList(names)}`;
         for (const form of body.querySelectorAll('.people-group')) this._wireRow(lib, form);
     }
@@ -41,15 +41,15 @@ class PeopleNaming {
         const inputId = `people-name-${g.id}`;
         return `
             <form class="people-group" data-group="${g.id}">
-                <a class="people-group-faces" href="${href}" aria-label="All ${formatCount(g.size)} faces of this group">${faces}</a>
+                <a class="people-group-faces" href="${href}" aria-label="${t('All {n} faces of this group', { n: formatCount(g.size) })}">${faces}</a>
                 <div class="people-group-name">
                     <a class="people-group-count" href="${href}">${countFaces(g.size)}</a>
                     ${g.suggestion ? suggestionHTML(g.suggestion) : ''}
-                    <label class="people-label" for="${inputId}">Name</label>
+                    <label class="people-label" for="${inputId}">${t('Name')}</label>
                     <div class="people-group-row">
                         <input class="form-input people-input" id="${inputId}" type="text" list="people-names" autocomplete="off" required>
-                        <button type="submit" class="btn">Name</button>
-                        <button type="button" class="btn people-hide">Hide</button>
+                        <button type="submit" class="btn">${t('verb|Name')}</button>
+                        <button type="button" class="btn people-hide">${t('Hide')}</button>
                     </div>
                     <p class="people-group-error" hidden></p>
                 </div>
@@ -98,26 +98,26 @@ class PeopleNaming {
     // faces, and stays while faces are left, so the rest is named here too.
     async showGroup(lib, grp) {
         const body = this.pane._body;
-        const activity = Activity.in(body, 'Reading the group…', { area: true });
+        const activity = Activity.in(body, t('Reading the group…'), { area: true });
         let faces, names, suggestion;
         try {
             [faces, names, { suggestion }] = await Promise.all([
                 PeopleAPI.groupFaces(lib, grp), PeopleAPI.allNames(), PeopleAPI.groupSuggestion(lib, grp)]);
         } catch (err) {
-            activity.fail(`The group could not be read: ${err.message}.`);
+            activity.fail(t('The group could not be read: {err}.', { err: err.message }));
             return;
         }
-        const back = `<a class="people-back" href="${peopleHash({ view: 'name', library: lib })}">Waiting for a name in ${escapeHtml(this.pane.libraryName(lib))}</a>`;
+        const back = `<a class="people-back" href="${peopleHash({ view: 'name', library: lib })}">${t('Waiting for a name in {lib}', { lib: escapeHtml(this.pane.libraryName(lib)) })}</a>`;
         if (!faces.length) {
-            body.innerHTML = `<div class="people-note"><p>This group is gone: its faces were named, or the faces were grouped anew since. ${back}</p></div>`;
+            body.innerHTML = `<div class="people-note"><p>${t('This group is gone: its faces were named, or the faces were grouped anew since.')} ${back}</p></div>`;
             return;
         }
         this.pane._head(countHTML(faces.length, 'face'));
         const grid = new FaceGrid({ lib, faces, onChange: () => update(), onOpen: (i) => openFacePhotos(lib, faces, i) });
         body.innerHTML = `
-            <div class="people-page-head">${this.pane.crumb('Who is this?', back)}</div>
+            <div class="people-page-head">${this.pane.crumb(t('Who is this?'), back)}</div>
             ${suggestion ? suggestionHTML(suggestion) : ''}
-            <p class="people-hint">Name all of them, or select the ones to name first; the others stay here. Rest the pointer on a face to see it in its photo; double-click opens the photo.</p>
+            <p class="people-hint">${t('Name all of them, or select the ones to name first; the others stay here. Rest the pointer on a face to see it in its photo; double-click opens the photo.')}</p>
             <div class="people-grid-wrap"></div>
             ${this._groupBarHTML(suggestion)}
             ${namesList(names)}`;
@@ -129,7 +129,7 @@ class PeopleNaming {
     _groupBarHTML(suggestion) {
         return `
             <form class="people-bar">
-                <label class="people-label" for="people-group-name">Name</label>
+                <label class="people-label" for="people-group-name">${t('Name')}</label>
                 <div class="people-group-row">
                     <input class="form-input people-input" id="people-group-name" type="text" list="people-names" autocomplete="off" required
                         value="${suggestion ? escapeHtml(suggestion.name) : ''}">
@@ -147,10 +147,15 @@ class PeopleNaming {
         const input = bar.querySelector('.people-input');
         const update = () => {
             const n = grid.count;
-            const who = input.value.trim() ? ` ${input.value.trim()}` : '';
-            const all = faces.length === 1 ? '' : ` all ${formatCount(faces.length)}`;
-            bar.querySelector('.people-submit').textContent = n ? `Name ${formatCount(n)}${who}` : `Name${all}${who}`;
-            bar.querySelector('.people-hide').textContent = n ? `Hide ${formatCount(n)}` : `Hide${all}`;
+            const who = input.value.trim();
+            const count = formatCount(n || faces.length);
+            const several = n ? n > 1 : faces.length > 1;
+            bar.querySelector('.people-submit').textContent = n
+                ? (who ? t('Name {n} {who}', { n: count, who }) : t('Name {n}', { n: count }))
+                : !several ? (who ? t('Name {who}', { who }) : t('verb|Name'))
+                    : (who ? t('Name all {n} {who}', { n: count, who }) : t('Name all {n}', { n: count }));
+            bar.querySelector('.people-hide').textContent = n ? t('Hide {n}', { n: count })
+                : several ? t('Hide all {n}', { n: count }) : t('Hide');
         };
         const chosen = () => (grid.count ? grid.selectedFaces().map(f => f.id) : faces.map(f => f.id));
         this._groupActions(lib, grp, (change) => this._applyToGroup(lib, grp, () => change(chosen())));
@@ -204,29 +209,29 @@ class PeopleNaming {
     // hidden by mistake is shown again, and waits for a name once more.
     async showHidden(lib) {
         const body = this.pane._body;
-        const activity = Activity.in(body, 'Reading the hidden faces…', { area: true });
+        const activity = Activity.in(body, t('Reading the hidden faces…'), { area: true });
         let faces;
         try {
             faces = lib ? await PeopleAPI.hidden(lib) : await PeopleAPI.hiddenEverywhere();
         } catch (err) {
-            activity.fail(`The hidden faces could not be read: ${err.message}.`);
+            activity.fail(t('The hidden faces could not be read: {err}.', { err: err.message }));
             return;
         }
         const back = lib
-            ? `<a class="people-back" href="${peopleHash({ view: 'name', library: lib })}">Waiting for a name in ${escapeHtml(this.pane.libraryName(lib))}</a>`
+            ? `<a class="people-back" href="${peopleHash({ view: 'name', library: lib })}">${t('Waiting for a name in {lib}', { lib: escapeHtml(this.pane.libraryName(lib)) })}</a>`
             : this.pane.backLink();
         this.pane._head(faces.length ? countHTML(faces.length, 'face') : '');
         if (!faces.length) {
-            body.innerHTML = `<div class="people-page-head">${this.pane.crumb('Hidden', back)}</div><p class="people-empty">No face is hidden${lib ? ' here' : ''}.</p>`;
+            body.innerHTML = `<div class="people-page-head">${this.pane.crumb(t('Hidden'), back)}</div><p class="people-empty">No face is hidden${lib ? ' here' : ''}.</p>`;
             return;
         }
         const grid = new FaceGrid({ lib, faces, onChange: () => this._hiddenBar(grid), onOpen: (i) => openFacePhotos(lib, faces, i) });
         body.innerHTML = `
-            <div class="people-page-head">${this.pane.crumb('Hidden', back)}</div>
-            <p class="people-hint">Faces hidden so that nobody is asked to name them${lib ? '' : ', in all libraries'}, the newest photo first. Select the ones to show again: they wait for a name once more.</p>
+            <div class="people-page-head">${this.pane.crumb(t('Hidden'), back)}</div>
+            <p class="people-hint">${lib ? t('Faces hidden so that nobody is asked to name them, the newest photo first. Select the ones to show again: they wait for a name once more.') : t('Faces hidden so that nobody is asked to name them, in all libraries, the newest photo first. Select the ones to show again: they wait for a name once more.')}</p>
             <div class="people-grid-wrap"></div>
             <div class="people-bar">
-                <div class="people-group-row"><button type="button" class="btn btn-accent people-show-again" disabled>Show again</button></div>
+                <div class="people-group-row"><button type="button" class="btn btn-accent people-show-again" disabled>${t('Show again')}</button></div>
                 <p class="people-group-error" hidden></p>
             </div>`;
         body.querySelector('.people-grid-wrap').appendChild(grid.el);
@@ -254,13 +259,13 @@ class PeopleNaming {
     _hiddenBar(grid) {
         const again = this.pane._body.querySelector('.people-show-again');
         again.disabled = !grid.count;
-        again.textContent = grid.count ? `Show ${formatCount(grid.count)} again` : 'Show again';
+        again.textContent = grid.count ? t('Show {n} again', { n: formatCount(grid.count) }) : t('Show again');
     }
 }
 
 // hiddenLink leads to the faces hidden in a library, when there are any.
 function hiddenLink(lib, n) {
-    return n ? ` <a class="people-hidden-link" href="${peopleHash({ view: 'hidden', library: lib })}">${escapeHtml(countFaces(n))} hidden</a>` : '';
+    return n ? ` <a class="people-hidden-link" href="${peopleHash({ view: 'hidden', library: lib })}">${escapeHtml(t('{faces} hidden', { faces: countFaces(n) }))}</a>` : '';
 }
 
 function pendingNote(d) {

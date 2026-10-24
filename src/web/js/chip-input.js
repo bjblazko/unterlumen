@@ -70,7 +70,7 @@ class ChipInput {
         this._input = document.createElement('input');
         this._input.type = 'text';
         this._input.className = 'chip-input-field';
-        this._input.placeholder = 'Add filter…';
+        this._input.placeholder = t('Add filter…');
         this._input.setAttribute('autocomplete', 'off');
         wrap.appendChild(this._input);
 
@@ -98,8 +98,8 @@ class ChipInput {
             el.className = 'chip';
             el.style.setProperty('--chip-hue', String(chip.hue));
             el.innerHTML =
-                `<span class="chip-label">${escapeHtml(chip.label)}: ${escapeHtml(chip.displayValue || chip.value)}</span>` +
-                `<button class="chip-remove" title="Remove filter">×</button>`;
+                `<span class="chip-label">${escapeHtml(t(chip.label))}: ${escapeHtml(chip.displayValue || chip.value)}</span>` +
+                `<button class="chip-remove" title="${t('Remove filter')}">×</button>`;
             el.querySelector('.chip-remove').addEventListener('click', () => {
                 this._chips = this._chips.filter(c => c !== chip);
                 this._renderChips();
@@ -130,7 +130,7 @@ class ChipInput {
         this._selectedNS = ns;
         this._input.value = '';
         this._input.placeholder = '';
-        this._nsLabel.textContent = ns.label + ': ';
+        this._nsLabel.textContent = t(ns.label) + ': ';
         this._nsLabel.style.display = '';
     }
 
@@ -138,7 +138,7 @@ class ChipInput {
         this._phase = 'ns';
         this._selectedNS = null;
         this._nsLabel.style.display = 'none';
-        this._input.placeholder = 'Add filter…';
+        this._input.placeholder = t('Add filter…');
     }
 
     _close() {
@@ -163,7 +163,7 @@ class ChipInput {
         const q = text.trim().toLowerCase();
         if (!q) return this._nsCache || [];
         return (this._nsCache || []).filter(n =>
-            n.ns.toLowerCase().startsWith(q) || n.label.toLowerCase().startsWith(q)
+            n.ns.toLowerCase().startsWith(q) || n.label.toLowerCase().startsWith(q) || t(n.label).toLowerCase().startsWith(q)
         );
     }
 
@@ -208,7 +208,7 @@ class ChipInput {
             if (this._phase === 'value') {
                 const hint = document.createElement('div');
                 hint.className = 'chip-ac-item chip-ac-no-values';
-                hint.textContent = 'Type a value and press Enter';
+                hint.textContent = t('Type a value and press Enter');
                 this._dropdown.appendChild(hint);
                 this._positionDropdown();
                 this._dropdown.style.display = '';
@@ -229,7 +229,7 @@ class ChipInput {
                 el.addEventListener('mousedown', e => { e.preventDefault(); this._selectValue(raw, display); });
             } else {
                 el.innerHTML = `<span class="chip-ac-ns">${escapeHtml(item.ns)}:</span>` +
-                    (item.hint ? `<span class="chip-ac-hint">${escapeHtml(item.hint)}</span>` : '');
+                    (item.hint ? `<span class="chip-ac-hint">${escapeHtml(t(item.hint))}</span>` : '');
                 el.addEventListener('mousedown', e => { e.preventDefault(); this._selectNS(item); });
             }
             this._dropdown.appendChild(el);

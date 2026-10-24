@@ -27,8 +27,8 @@ class Menu {
         this.button.className = 'btn btn-sm menu-btn';
         this.button.setAttribute('aria-haspopup', 'menu');
         this.button.setAttribute('aria-expanded', 'false');
-        this.button.setAttribute('aria-label', label);
-        this.button.title = label;
+        this.button.setAttribute('aria-label', t(label));
+        this.button.title = t(label);
         // Three dots drawn at the size of the icons beside it; the text
         // character was set larger than every other control in the row.
         this.button.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden="true">'
@@ -77,10 +77,10 @@ class Menu {
         btn.type = 'button';
         btn.className = 'menu-item';
         if (item.id) btn.dataset.id = item.id;
-        if (item.title) btn.title = item.title;
+        if (item.title) btn.title = t(item.title);
         btn.disabled = !!item.disabled;
         btn.innerHTML = '<span class="menu-label"></span>';
-        btn.querySelector('.menu-label').textContent = item.label;
+        btn.querySelector('.menu-label').textContent = t(item.label);
         if (item.switch) return this._switchEl(btn, item);
         btn.setAttribute('role', 'menuitem');
         btn.addEventListener('click', () => {
@@ -97,7 +97,7 @@ class Menu {
         btn.setAttribute('role', 'menuitemcheckbox');
         btn.setAttribute('aria-checked', String(item.switch.on));
         const toggle = Toggle.create(btn, {
-            initial: item.switch.on, labelOn: item.switch.labelOn, labelOff: item.switch.labelOff,
+            initial: item.switch.on, labelOn: t(item.switch.labelOn), labelOff: t(item.switch.labelOff),
         });
         toggle.el.removeAttribute('role');
         toggle.el.setAttribute('aria-hidden', 'true');

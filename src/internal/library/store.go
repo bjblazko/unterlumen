@@ -3,7 +3,9 @@ package library
 import (
 	"database/sql"
 	"fmt"
+	"huepattl.de/unterlumen/internal/things"
 	"strings"
+	"sync"
 
 	_ "modernc.org/sqlite"
 
@@ -180,6 +182,8 @@ type Store struct {
 	// decisions is where hiding, No's and covers are shared with the other
 	// installation; nil keeps them in this index only.
 	decisions *facedecisions.Store
+	lex       *things.Language // the library's keyword language, read once (lexicon)
+	lexOnce   sync.Once
 }
 
 // openDB opens and migrates a SQLite database, returning the underlying *sql.DB.
@@ -378,4 +382,17 @@ func (s *Store) forgetSidecarStamps() {
 	if _, err := s.db.Exec(`UPDATE path_cache SET sidecar_stamp = NULL`); err == nil {
 		s.SetProp("sidecar_reading", reading) //nolint:errcheck
 	}
+}
+
+// keywordLanguageProp names the library's keyword language (ADR-0056).
+const keywordLanguageProp = "keyword_language"
+
+// lexicon is the language this library writes things in as keywords,
+// read once per store: a scan asks for every photo.
+func (s *Store) lexicon() *things.Language {
+	s.lexOnce.Do(func() {
+		code, _, _ := s.GetProp(keywordLanguageProp)
+		s.lex = things.LanguageOf(code)
+	})
+	return s.lex
 }

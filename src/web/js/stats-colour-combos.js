@@ -56,7 +56,7 @@ function sectorColour(colour, bin) {
 
 function renderColourCombos(el, colour, onPick) {
     if (noColourData(el, colour)) return;
-    if (!colour.hueSets?.length) { tlNoData(el, 'There are no colour photos here.'); return; }
+    if (!colour.hueSets?.length) { tlNoData(el, t('There are no colour photos here.')); return; }
     const combos = COLOUR_COMBOS.map(c => ({ ...c, photos: comboCount(colour, c.hues) }));
     const max = d3.max(combos, c => c.photos) || 1;
     const c = chartColors();
@@ -113,7 +113,7 @@ let comboChoice = [1, 6];
 
 function renderComboPicker(el, colour, onPick) {
     if (noColourData(el, colour)) return;
-    if (!colour.hueSets?.length) { tlNoData(el, 'There are no colour photos here.'); return; }
+    if (!colour.hueSets?.length) { tlNoData(el, t('There are no colour photos here.')); return; }
     const c = chartColors();
     const W = 260, H = 260, R = 112, r0 = 62;
     const step = Math.PI / 6;
@@ -137,7 +137,7 @@ function renderComboPicker(el, colour, onPick) {
         .on('mousemove', (event, b) => {
             const chosen = comboChoice.includes(b);
             const next = chosen ? comboChoice.filter(x => x !== b) : [...comboChoice, b];
-            const hint = chosen ? 'Click to leave it out' : comboChoice.length >= 3 ? 'Three at most' : `With it: ${photoCount(comboCount(colour, next))}`;
+            const hint = chosen ? t('Click to leave it out') : comboChoice.length >= 3 ? t('Three at most') : t('With it: {next}', { next: photoCount(comboCount(colour, next)) });
             tip.show(event, `${escapeHtml(capitalise(hueName(b)))}<br><span class="stats-tooltip-value">${escapeHtml(hint)}</span>`);
         })
         .on('mouseleave', tip.hide);
@@ -161,14 +161,14 @@ function renderComboPicker(el, colour, onPick) {
         centre.text(n === null ? '' : n.toLocaleString());
         side.html('');
         if (n === null) {
-            side.append('p').attr('class', 'combo-sentence').text('Choose two or three colours on the wheel.');
+            side.append('p').attr('class', 'combo-sentence').text(t('Choose two or three colours on the wheel.'));
             return;
         }
         side.append('p').attr('class', 'combo-sentence')
-            .text(`${n === 0 ? 'No photo is' : `${photoCount(n)} ${n === 1 ? 'is' : 'are'}`} ${comboName(comboChoice)}, each at least ${COMBO_SHARE_MIN_PERCENT} % of the frame.`);
+            .text(t(n === 0 ? 'No photo is {combo}, each at least {pct} % of the frame.' : n === 1 ? '{photos} is {combo}, each at least {pct} % of the frame.' : '{photos} are {combo}, each at least {pct} % of the frame.', { photos: photoCount(n), combo: comboName(comboChoice), pct: COMBO_SHARE_MIN_PERCENT }));
         if (onPick) {
             side.append('button').attr('class', 'btn btn-sm').attr('type', 'button')
-                .property('disabled', n === 0).text('Show photos')
+                .property('disabled', n === 0).text(t('Show photos'))
                 .on('click', () => onPick([...comboChoice]));
         }
     }

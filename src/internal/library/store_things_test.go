@@ -121,7 +121,7 @@ func TestThingsPassWritesTheSidecarThenTheIndex(t *testing.T) {
 	photoWithOldWords(t, s, libDir, "aa11", photo, "lighthouse")
 	runThingsPass(t, s, libDir)
 	st, _ := media.ReadThings(photo)
-	if !slices.Equal(st.Things(), []string{"lighthouse"}) || !slices.Equal(thingNamesOf(t, s, "aa11"), []string{"lighthouse"}) {
+	if !slices.Equal(st.Things(things.LanguageOf("en")), []string{"lighthouse"}) || !slices.Equal(thingNamesOf(t, s, "aa11"), []string{"lighthouse"}) {
 		t.Fatalf("sidecar %+v, index %v", st, thingNamesOf(t, s, "aa11"))
 	}
 	if tasks, _ := s.PhotosNeedingThings(); len(tasks) != 0 {
@@ -135,9 +135,9 @@ func TestThingsPassTakesOverACurrentSidecar(t *testing.T) {
 	s := newTestStore(t)
 	libDir, photos := t.TempDir(), t.TempDir()
 	other, removed := filepath.Join(photos, "b.jpg"), filepath.Join(photos, "c.jpg")
-	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion(), nil) //nolint:errcheck
-	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0", nil)              //nolint:errcheck
-	media.RemoveThing(removed, "lighthouse")                                         //nolint:errcheck
+	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion(), nil, things.LanguageOf("en")) //nolint:errcheck
+	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0", nil, things.LanguageOf("en"))              //nolint:errcheck
+	media.RemoveThing(removed, "lighthouse", things.LanguageOf("en"))                                         //nolint:errcheck
 	photoWithOldWords(t, s, libDir, "bb22", other, "lighthouse")
 	photoWithOldWords(t, s, libDir, "cc33", removed, "lighthouse")
 	runThingsPass(t, s, libDir)
@@ -197,7 +197,7 @@ func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
 	photo := filepath.Join(photos, "late.jpg")
 	insertPhoto(t, s, "late", nil, nil)
 	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "siglip"}}}}) //nolint:errcheck
-	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil)                                                 //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil, things.LanguageOf("en"))                        //nolint:errcheck
 	idx := NewIndexer(s, libDir, photos)
 	idx.sidecars = map[string]string{} // the walk saw no sidecar
 	idx.indexSidecar(photo, "late")
@@ -222,7 +222,7 @@ func TestAPassTakesOverThingsAndVectorWithoutModels(t *testing.T) {
 	libDir, photos := t.TempDir(), t.TempDir()
 	photo := filepath.Join(photos, "seen.jpg")
 	addPhotoWithThumb(t, s, libDir, "ee55", photo, color.RGBA{})
-	media.WriteFoundThings(photo, []string{"windmill"}, things.RecordVersion(), vectorOf("windmill")) //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"windmill"}, things.RecordVersion(), vectorOf("windmill"), things.LanguageOf("en")) //nolint:errcheck
 	ch := make(chan Progress, 8)
 	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), noModels, ch)
 	for range ch {
@@ -247,8 +247,8 @@ func TestAPassWritesItsVectorIntoASidecarWithout(t *testing.T) {
 	libDir, photos := t.TempDir(), t.TempDir()
 	photo := filepath.Join(photos, "old.jpg")
 	addPhotoWithThumb(t, s, libDir, "ff66", photo, color.RGBA{})
-	media.WriteFoundThings(photo, []string{"lighthouse"}, things.RecordVersion(), nil)               //nolint:errcheck
-	s.SaveFoundThings([]FoundThings{{PhotoID: "ff66", Vector: vectorOf("lighthouse"), Written: true, //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"lighthouse"}, things.RecordVersion(), nil, things.LanguageOf("en")) //nolint:errcheck
+	s.SaveFoundThings([]FoundThings{{PhotoID: "ff66", Vector: vectorOf("lighthouse"), Written: true,            //nolint:errcheck
 		Things: []things.Found{{Name: "lighthouse", Source: "siglip"}}}})
 	ch := make(chan Progress, 8)
 	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), noModels, ch)
