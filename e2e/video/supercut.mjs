@@ -158,8 +158,15 @@ const scenes = [
         },
         act: async (page) => {
             await page.locator('.map-pane .maplibregl-ctrl-zoom-in').click();
-            await wait(700);
+            await wait(550);
             await page.locator('.segment-field button[data-value="3d"]').click();
+            // Turned by a right drag, so the tilt shows.
+            const box = await page.locator('.map-pane .maplibregl-canvas').boundingBox();
+            const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+            await page.mouse.move(cx - 120, cy);
+            await page.mouse.down({ button: 'right' });
+            for (let i = 1; i <= 20; i++) { await page.mouse.move(cx - 120 + i * 3, cy, { steps: 1 }); await wait(45); }
+            await page.mouse.up({ button: 'right' });
         },
     },
     {
