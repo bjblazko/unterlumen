@@ -71,7 +71,7 @@ func bestWords(v []float32, words [][]float32, n int) string {
 	sort.Slice(idx, func(a, b int) bool { return sims[idx[a]] > sims[idx[b]] })
 	var parts []string
 	for _, i := range idx[:n] {
-		parts = append(parts, Vocabulary[i].Name+" "+fmt.Sprintf("%.3f", sims[i]))
+		parts = append(parts, Vocabulary[i].Name+" "+fmt.Sprintf("%.2f", Probability(sims[i])))
 	}
 	return strings.Join(parts, ", ")
 }

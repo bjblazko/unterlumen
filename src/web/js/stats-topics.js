@@ -182,7 +182,7 @@ const STATS_TOPICS = [
     {
         id: 'things',
         label: 'Things',
-        blurb: 'Animals, objects and scenes found in the photos: which come most often, how that changed, and which come together.',
+        blurb: 'Animals, objects and scenes found in the photos: which come most often, how that changed, which come together, and how many photos are blurred, too dark or too bright.',
         charts: [
             { title: 'Things met most', subtitle: 'Photos per thing found', source: 'things', full: true,
               render: (el, d, pick) => renderThingsBars(el, d.things, name => pick(thingCriterion(name))) },
@@ -192,6 +192,10 @@ const STATS_TOPICS = [
                   : periodCriterion(v))) },
             { title: 'Things together', subtitle: 'Photos two things share, of the twelve with the most photos', source: 'things', periods: false, full: true,
               render: (el, d, pick) => renderThingsMatrix(el, d.things, v => pick({ subject: `${v.a} and ${v.b}`, params: { thing: [v.a, v.b] } })) },
+            { title: 'Photo quality over time', subtitle: 'Photos per period that are blurred, underexposed or overexposed: where to look when sorting out', source: 'things', full: true,
+              render: (el, d, pick) => renderThingsQuality(el, d.things, v => pick(v.person
+                  ? { subject: `${v.person} · ${v.period}`, params: { thing: v.person, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
         ],
     },
 ];

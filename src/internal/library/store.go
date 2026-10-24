@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS face_not (
 	PRIMARY KEY (face, person)
 );
 
--- Things (ADR-0054). photo_vectors is CLIP's vector of a photo, for
+-- Things (ADR-0054). photo_vectors is the model's vector of a photo, for
 -- searching by words. photo_things_found says which models (version) and
 -- word list (vocabulary) looked at a photo, whether its sidecar holds what
 -- they found (written), and the vector too (vector_in_sidecar). photo_things are the things in a photo, from

@@ -33,8 +33,9 @@ func status(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, struct {
 			Installed bool                  `json:"installed"`
+			Outdated  bool                  `json:"outdated"` // an earlier model is there, which the download replaces
 			Plan      toolinstall.ModelPlan `json:"plan"`
-		}{mgr.ThingsInstalled(), toolinstall.PlanThings(mgr.RuntimeDir())})
+		}{mgr.ThingsInstalled(), mgr.ThingsOutdated(), toolinstall.PlanThings(mgr.RuntimeDir())})
 	}
 }
 

@@ -1,5 +1,6 @@
 // things-stats-charts.js — the Things topic's charts (ADR-0054): which
-// things the photos show, how that changed, and which come together. They
+// things the photos show, how that changed, which come together, and how
+// many photos are blurred, too dark or too bright. They
 // read /api/library/things-stats and draw with the People topic's charts,
 // whose answer has the same shape: named series and the photos they are in.
 
@@ -10,15 +11,45 @@ const THINGS_WORDS = {
     many: 'things',
 };
 
-// thingsAsSeries gives the things the People charts' shape, once per answer.
-function thingsAsSeries(ts) {
+// What a photo is like rather than what it shows: blurred, underexposed,
+// overexposed (ADR-0055). Its own chart; the others leave it out.
+const THINGS_QUALITY = 'Photo quality';
+
+const QUALITY_WORDS = {
+    none: 'No photo here was found blurred, underexposed or overexposed.',
+    undated: 'No blurred, underexposed or overexposed photo here has a date.',
+    apart: '',
+    many: 'kinds',
+};
+
+// thingsAsSeries gives the things the People charts' shape, once per answer:
+// the photo's qualities, or what it shows.
+function thingsAsSeries(ts, quality = false) {
     if (!ts) return null;
-    ts._series ??= {
+    ts._series ??= {};
+    if (ts._series[quality]) return ts._series[quality];
+    const keep = ts.things.map((t, i) => [t, i]).filter(([t]) => (t.category === THINGS_QUALITY) === quality);
+    const to = new Map(keep.map(([, old], i) => [old, i]));
+    const a = ts.appearances;
+    const rows = a.thing.map((t, k) => k).filter(k => to.has(a.thing[k]));
+    ts._series[quality] = {
         granularity: ts.granularity,
-        people: ts.things.map(t => ({ name: t.name, photos: t.photos })),
-        appearances: { person: ts.appearances.thing, lib: ts.appearances.lib, photo: ts.appearances.photo, date: ts.appearances.date },
+        people: keep.map(([t]) => ({ name: t.name, photos: t.photos })),
+        appearances: {
+            person: rows.map(k => to.get(a.thing[k])),
+            lib: rows.map(k => a.lib[k]),
+            photo: rows.map(k => a.photo[k]),
+            date: rows.map(k => a.date[k]),
+        },
     };
-    return ts._series;
+    return ts._series[quality];
+}
+
+// renderThingsQuality draws how many photos per period are blurred, too
+// dark or too bright: where to look when sorting out.
+function renderThingsQuality(el, ts, onPick) {
+    if (ts && !ts.installed) { tlNoData(el, THINGS_WORDS.none); return; }
+    renderPeopleLines(el, thingsAsSeries(ts, true), onPick, QUALITY_WORDS);
 }
 
 function renderThingsBars(el, ts, onPick) {
@@ -40,7 +71,7 @@ function renderThingsMatrix(el, ts, onPick) {
 // Before things can be found: what it takes, and the one action to start.
 function renderThingsInstall(el) {
     el.innerHTML = '<div class="things-install"><p>Loading what it takes…</p></div>';
-    ThingsAPI.status().then(({ plan }) => {
+    ThingsAPI.status().then(({ plan, outdated }) => {
         const box = el.querySelector('.things-install');
         if (!plan.supported) {
             box.innerHTML = '<p>Finding things is not available on this computer: ONNX Runtime, which it runs on, has no build for this system.</p>';
@@ -48,8 +79,9 @@ function renderThingsInstall(el) {
         }
         const mb = Math.round(plan.bytes / 1e6);
         box.innerHTML = `
-            <p>Things finds animals, objects and scenes in your library photos — a dog, a car, a house, the sea — so you can filter, search and count by them. What it finds is written into each photo's sidecar as keywords, which other programs read too.</p>
-            <p>It runs on this computer. It needs OpenAI's CLIP and an object detector from OpenCV, and ONNX Runtime from Microsoft unless People already downloaded it: <span class="things-num">${mb} MB</span>, downloaded once from Hugging Face and GitHub. After that, no photo leaves this computer.</p>
+            <p>Things finds animals, objects and scenes in your library photos — a dog, a car, a house, the sea — and which are blurred, too dark or too bright, so you can filter, search and count by them, and search in your own words, in many languages. What it finds is written into each photo's sidecar as keywords, which other programs read too.</p>
+            <p>It runs on this computer. It needs Google's SigLIP 2 and an object detector from OpenCV, and ONNX Runtime from Microsoft unless People already downloaded it: <span class="things-num">${mb} MB</span>, downloaded once from Hugging Face and GitHub. After that, no photo leaves this computer.${outdated ? ' It replaces the model downloaded before, and every photo is looked at once again.' : ''}</p>
+            <p>A fast computer finds things in a few hundred milliseconds a photo; a NAS takes seconds, and a large library a day or two the first time. What one installation found, another sharing the library takes over.</p>
             <div class="things-actions"><button type="button" class="btn btn-accent things-install-btn">Download and turn on</button></div>
             <div class="things-install-activity"></div>`;
         const btn = box.querySelector('.things-install-btn');

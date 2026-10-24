@@ -2,19 +2,10 @@ package things
 
 import "strings"
 
-// Describe is CLIP's vector of a phrase, for searching photos by words.
-func (e *Engine) Describe(phrase string) ([]float32, error) {
-	return e.describeText(searchPhrase(phrase))
-}
-
-// searchPhrase puts words typed into a search the way CLIP learned them,
-// as the caption of a photo: "dog on a beach" is "a photo of dog on a beach".
-func searchPhrase(words string) string {
-	words = strings.TrimSpace(words)
-	if strings.HasPrefix(strings.ToLower(words), "a photo") {
-		return words
-	}
-	return "a photo of " + words
+// Describe is SigLIP's vector of words typed into a search, in any
+// language SigLIP 2 knows: they are taken as they are.
+func (e *Engine) Describe(words string) ([]float32, error) {
+	return e.describeText(strings.TrimSpace(words))
 }
 
 // VocabularyVectors is the text vector of every thing in Vocabulary, in its

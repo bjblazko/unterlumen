@@ -19,7 +19,7 @@ import (
 // Unterlumen's own description that says which keywords Unterlumen wrote —
 // so the owner's own keywords are never taken for found things nor removed —
 // which things the owner took away, so no later pass brings them back,
-// which models and word list looked, and what CLIP saw — the photo's vector,
+// which models and word list looked, and what the model saw — the photo's vector,
 // so the other installation searches by words without running the models.
 
 // ThingsRecord is Unterlumen's record of the things in a photo.
@@ -27,7 +27,7 @@ type ThingsRecord struct {
 	Found   []string  // written as keywords by Unterlumen
 	Not     []string  // taken away by the owner
 	Version string    // the models and the word list that looked, "" for none
-	Vector  []float32 // CLIP's vector of the photo; nil when not written
+	Vector  []float32 // the model's vector of the photo; nil when not written
 }
 
 func (r ThingsRecord) empty() bool {

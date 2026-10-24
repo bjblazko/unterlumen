@@ -113,7 +113,9 @@ hundred megabytes is acceptable; a search bar above every place.
     CLIP, group them as faces are grouped, and write names as MWG regions of
     type `Pet`. No new pass over the photos is needed beyond the crops.
 
-12. **CLIP despite its model card, SigLIP as the way out.** OpenAI's model
+12. **CLIP despite its model card, SigLIP as the way out** — superseded on
+    the same day by [ADR-0055](0055-siglip2-quality-and-languages.md), which
+    takes SigLIP 2. OpenAI's model
     card calls "any deployed use case" of CLIP out of scope; its MIT license
     permits it. Decided with the owner on 2026-10-24 to keep CLIP: it runs
     locally on the owner's own photos, with a fixed word list that names no

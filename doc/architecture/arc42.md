@@ -422,6 +422,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0052](adr/0052-the-index-follows-the-folder.md) — The index follows the folder; a scan only reads it
 - [ADR-0053](adr/0053-one-system-for-every-place.md) — One system for every place: one head, one count, panels that hide, one filter interface
 - [ADR-0054](adr/0054-things-found-on-this-computer.md) — Things found on this computer, written into the sidecars as keywords; one search above every place
+- [ADR-0055](adr/0055-siglip2-quality-and-languages.md) — Things found by SigLIP 2: quality first, photo quality as things, search in any language
 
 ## 10. Quality Requirements
 

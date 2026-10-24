@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -29,6 +30,15 @@ func (m *Manager) ThingsDir() string {
 // ThingsInstalled reports whether things can be found here.
 func (m *Manager) ThingsInstalled() bool {
 	return m.runtimeInstalled() && things.Installed(m.ThingsDir())
+}
+
+// ThingsOutdated reports whether the things folder holds models of an
+// earlier version — CLIP before SigLIP 2 — that a download replaces.
+func (m *Manager) ThingsOutdated() bool {
+	if _, err := os.Stat(m.ThingsDir()); err != nil {
+		return false
+	}
+	return !things.Installed(m.ThingsDir())
 }
 
 // thingsLook loads the engine and describes the word list once the things

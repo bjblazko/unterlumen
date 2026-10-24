@@ -30,7 +30,7 @@ func TestSidecarThingsReplaceTheIndex(t *testing.T) {
 	s := newTestStore(t)
 	insertPhoto(t, s, "p1", nil, nil)
 	if err := s.SaveFoundThings([]FoundThings{{PhotoID: "p1", Written: true, Things: []things.Found{
-		{Name: "dog", Score: 0.3, Source: "clip"}, {Name: "tree", Score: 0.27, Source: "clip"}}}}); err != nil {
+		{Name: "dog", Score: 0.3, Source: "siglip"}, {Name: "tree", Score: 0.27, Source: "siglip"}}}}); err != nil {
 		t.Fatal(err)
 	}
 	// tree's keyword was removed in another program, sea came from the other installation
@@ -52,8 +52,8 @@ func TestASidecarWithoutTheRecord(t *testing.T) {
 	insertPhoto(t, s, "kept", nil, nil)
 	insertPhoto(t, s, "lost", nil, nil)
 	s.SaveFoundThings([]FoundThings{ //nolint:errcheck
-		{PhotoID: "kept", Things: []things.Found{{Name: "dog", Source: "clip"}}},
-		{PhotoID: "lost", Things: []things.Found{{Name: "dog", Source: "clip"}}, Written: true},
+		{PhotoID: "kept", Things: []things.Found{{Name: "dog", Source: "siglip"}}},
+		{PhotoID: "lost", Things: []things.Found{{Name: "dog", Source: "siglip"}}, Written: true},
 	})
 	for _, id := range []string{"kept", "lost"} {
 		if err := s.ApplySidecarThings(id, media.SidecarThings{}); err != nil {
@@ -157,8 +157,8 @@ func TestThingAppearancesFollowTheFilter(t *testing.T) {
 		insertPhoto(t, s, id, nil, nil)
 	}
 	s.SaveFoundThings([]FoundThings{ //nolint:errcheck
-		{PhotoID: "p1", Things: []things.Found{{Name: "dog", Source: "clip"}, {Name: "sea", Source: "clip"}}},
-		{PhotoID: "p2", Things: []things.Found{{Name: "sea", Source: "clip"}}},
+		{PhotoID: "p1", Things: []things.Found{{Name: "dog", Source: "siglip"}, {Name: "sea", Source: "siglip"}}},
+		{PhotoID: "p2", Things: []things.Found{{Name: "sea", Source: "siglip"}}},
 	})
 	s.filter = Filter{Things: []string{"dog"}}
 	apps, err := s.ThingAppearances("")
@@ -196,8 +196,8 @@ func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
 	libDir, photos := t.TempDir(), t.TempDir()
 	photo := filepath.Join(photos, "late.jpg")
 	insertPhoto(t, s, "late", nil, nil)
-	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "clip"}}}}) //nolint:errcheck
-	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil)                                               //nolint:errcheck
+	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "siglip"}}}}) //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil)                                                 //nolint:errcheck
 	idx := NewIndexer(s, libDir, photos)
 	idx.sidecars = map[string]string{} // the walk saw no sidecar
 	idx.indexSidecar(photo, "late")
@@ -249,7 +249,7 @@ func TestAPassWritesItsVectorIntoASidecarWithout(t *testing.T) {
 	addPhotoWithThumb(t, s, libDir, "ff66", photo, color.RGBA{})
 	media.WriteFoundThings(photo, []string{"lighthouse"}, things.RecordVersion(), nil)               //nolint:errcheck
 	s.SaveFoundThings([]FoundThings{{PhotoID: "ff66", Vector: vectorOf("lighthouse"), Written: true, //nolint:errcheck
-		Things: []things.Found{{Name: "lighthouse", Source: "clip"}}}})
+		Things: []things.Found{{Name: "lighthouse", Source: "siglip"}}}})
 	ch := make(chan Progress, 8)
 	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), noModels, ch)
 	for range ch {

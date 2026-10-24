@@ -21,22 +21,25 @@ const (
 	Objects   Category = "Objects"
 	Activity  Category = "Activities"
 	Occasions Category = "Occasions"
-	// none is no category: its things take part in the ranking and are
-	// never found, so that a dark or blurred photo's best match is one of
-	// them and not some word that happened to come out on top.
+	// Quality is what the photo is like rather than what it shows: blurred,
+	// too dark, too bright. A photo whose best thing is one of these gets
+	// no other things — it shows nothing clearly enough.
+	Quality Category = "Photo quality"
+	// none is the category of a name the list does not know.
 	none Category = ""
 )
 
-// A Thing is one word of the list. Prompts are the phrases its text vector
-// is the average of; empty means the default phrases around Name. Coco names
-// the detector's class that also finds it. Floor is the similarity it needs,
-// when not the default: higher for words CLIP sees too readily.
+// A Thing is one word of the list; Name is its ID, kept in the index and
+// the sidecars whatever the language. Prompts are the phrases its text
+// vector is the average of; empty means the default phrases around Name.
+// Coco names the detector's class that also finds it. Min is the
+// probability it needs, when not the default.
 type Thing struct {
 	Name     string
 	Category Category
 	Prompts  []string
 	Coco     string
-	Floor    float32
+	Min      float32
 }
 
 // Vocabulary is the fixed, curated list of things looked for.
@@ -94,14 +97,14 @@ var Vocabulary = []Thing{
 	{Name: "canoe", Category: Vehicles, Prompts: []string{"a photo of a canoe", "a photo of a kayak"}},
 	// Buildings and places
 	{Name: "house", Category: Buildings},
-	{Name: "half-timbered house", Category: Buildings, Floor: 0.28},
+	{Name: "half-timbered house", Category: Buildings},
 	{Name: "church", Category: Buildings},
 	{Name: "mosque", Category: Buildings},
 	{Name: "castle", Category: Buildings},
-	{Name: "ruin", Category: Buildings, Prompts: []string{"a photo of a ruin", "a photo of old ruins"}, Floor: 0.27},
+	{Name: "ruin", Category: Buildings, Prompts: []string{"a photo of a ruin", "a photo of old ruins"}},
 	{Name: "tower", Category: Buildings},
 	{Name: "lighthouse", Category: Buildings},
-	{Name: "windmill", Category: Buildings, Floor: 0.27},
+	{Name: "windmill", Category: Buildings},
 	{Name: "wind turbine", Category: Buildings},
 	{Name: "ferris wheel", Category: Buildings},
 	{Name: "crane", Category: Buildings, Prompts: []string{"a photo of a construction crane", "a photo of harbour cranes"}},
@@ -153,20 +156,20 @@ var Vocabulary = []Thing{
 	{Name: "blue sky", Category: Sky, Prompts: []string{"a photo with a clear blue sky"}},
 	{Name: "night", Category: Sky, Prompts: []string{"a photo taken at night"}},
 	{Name: "starry sky", Category: Sky, Prompts: []string{"a photo of the stars at night"}},
-	{Name: "moon", Category: Sky, Floor: 0.27},
+	{Name: "moon", Category: Sky},
 	{Name: "rain", Category: Sky, Prompts: []string{"a photo taken in the rain"}},
 	{Name: "fog", Category: Sky, Prompts: []string{"a photo of fog", "a misty photo"}},
 	{Name: "rainbow", Category: Sky},
 	{Name: "lightning", Category: Sky, Prompts: []string{"a photo of lightning in a thunderstorm"}},
-	{Name: "fireworks", Category: Sky, Floor: 0.27},
-	{Name: "fire", Category: Objects, Prompts: []string{"a photo of a fire", "a photo of a campfire", "a photo of a fireplace"}, Floor: 0.28},
+	{Name: "fireworks", Category: Sky},
+	{Name: "fire", Category: Objects, Prompts: []string{"a photo of a fire", "a photo of a campfire", "a photo of a fireplace"}},
 	// Plants
 	{Name: "flower", Category: Plants},
 	{Name: "rose", Category: Plants},
 	{Name: "sunflower", Category: Plants},
 	{Name: "tulip", Category: Plants},
 	{Name: "potted plant", Category: Plants, Coco: "potted plant"},
-	{Name: "mushroom", Category: Plants, Floor: 0.27},
+	{Name: "mushroom", Category: Plants},
 	{Name: "autumn leaves", Category: Plants, Prompts: []string{"a photo of autumn leaves", "a photo of colourful autumn foliage"}},
 	{Name: "cactus", Category: Plants},
 	{Name: "palm tree", Category: Plants},
@@ -187,8 +190,8 @@ var Vocabulary = []Thing{
 	{Name: "book", Category: Objects, Coco: "book"},
 	{Name: "computer", Category: Objects, Prompts: []string{"a photo of a computer", "a photo of a laptop"}, Coco: "laptop"},
 	{Name: "phone", Category: Objects, Prompts: []string{"a photo of a mobile phone"}, Coco: "cell phone"},
-	{Name: "camera", Category: Objects, Floor: 0.27},
-	{Name: "television", Category: Objects, Coco: "tv", Floor: 0.27},
+	{Name: "camera", Category: Objects},
+	{Name: "television", Category: Objects, Coco: "tv"},
 	{Name: "guitar", Category: Objects},
 	{Name: "piano", Category: Objects},
 	{Name: "bench", Category: Objects, Coco: "bench"},
@@ -197,7 +200,7 @@ var Vocabulary = []Thing{
 	{Name: "sofa", Category: Objects, Coco: "couch"},
 	{Name: "bed", Category: Objects, Coco: "bed"},
 	{Name: "umbrella", Category: Objects, Coco: "umbrella"},
-	{Name: "ball", Category: Objects, Coco: "sports ball", Floor: 0.27},
+	{Name: "ball", Category: Objects, Coco: "sports ball"},
 	{Name: "kite", Category: Objects, Coco: "kite"},
 	{Name: "tent", Category: Objects},
 	{Name: "sign", Category: Objects, Prompts: []string{"a photo of a sign with writing on it"}},
@@ -207,17 +210,17 @@ var Vocabulary = []Thing{
 	{Name: "document", Category: Objects, Prompts: []string{"a photo of a document", "a scan of a page of text"}},
 	{Name: "screenshot", Category: Objects, Prompts: []string{"a screenshot of a computer screen"}},
 	// Activities
-	{Name: "hiking", Category: Activity, Prompts: []string{"a photo of people hiking"}, Floor: 0.27},
-	{Name: "swimming", Category: Activity, Prompts: []string{"a photo of people swimming"}, Floor: 0.27},
+	{Name: "hiking", Category: Activity, Prompts: []string{"a photo of people hiking"}},
+	{Name: "swimming", Category: Activity, Prompts: []string{"a photo of people swimming"}},
 	{Name: "cycling", Category: Activity, Prompts: []string{"a photo of people riding bicycles"}},
 	{Name: "skiing", Category: Activity, Prompts: []string{"a photo of people skiing"}},
 	{Name: "sailing", Category: Activity, Prompts: []string{"a photo of people sailing a boat"}},
-	{Name: "playing", Category: Activity, Prompts: []string{"a photo of children playing"}, Floor: 0.27},
+	{Name: "playing", Category: Activity, Prompts: []string{"a photo of children playing"}},
 	{Name: "eating", Category: Activity, Prompts: []string{"a photo of people eating at a table"}},
 	{Name: "concert", Category: Activity, Prompts: []string{"a photo of a concert", "a photo of musicians on stage"}},
-	{Name: "sport", Category: Activity, Prompts: []string{"a photo of people playing sports"}, Floor: 0.27},
+	{Name: "sport", Category: Activity, Prompts: []string{"a photo of people playing sports"}},
 	{Name: "selfie", Category: Activity},
-	{Name: "group photo", Category: Activity, Prompts: []string{"a group photo of many people"}, Floor: 0.27},
+	{Name: "group photo", Category: Activity, Prompts: []string{"a group photo of many people"}},
 	{Name: "portrait", Category: Activity, Prompts: []string{"a portrait photo of a person"}},
 	{Name: "baby", Category: Activity, Prompts: []string{"a photo of a baby"}},
 	// Occasions
@@ -227,16 +230,11 @@ var Vocabulary = []Thing{
 	{Name: "easter", Category: Occasions, Prompts: []string{"a photo of easter eggs"}},
 	{Name: "halloween", Category: Occasions, Prompts: []string{"a photo of halloween", "a photo of a carved pumpkin"}},
 	{Name: "carnival", Category: Occasions, Prompts: []string{"a photo of people in carnival costumes"}},
+	// Photo quality
+	{Name: "blurred", Category: Quality, Prompts: []string{"a blurry out of focus photo", "a photo with motion blur"}, Min: 0.015},
+	{Name: "underexposed", Category: Quality, Prompts: []string{"a very dark underexposed photo", "an almost black photo"}, Min: 0.015},
+	{Name: "overexposed", Category: Quality, Prompts: []string{"an overexposed washed out photo", "an almost white photo"}, Min: 0.015},
 }
-
-// nothing are the things of no category.
-var nothing = []Thing{
-	{Name: "dark", Prompts: []string{"a very dark photo", "a black image"}},
-	{Name: "blurred", Prompts: []string{"a blurry out of focus photo", "a photo with motion blur"}},
-	{Name: "photo", Prompts: []string{"a photo", "a snapshot"}},
-}
-
-func init() { Vocabulary = append(Vocabulary, nothing...) }
 
 // prompts are the phrases a thing's text vector is the average of.
 func (t Thing) prompts() []string {

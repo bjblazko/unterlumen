@@ -34,7 +34,7 @@
     { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" },
     { "name": "YuNet", "use": "Finds the faces in a photo; downloaded with face recognition", "license": "MIT", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet" },
     { "name": "SFace", "use": "Tells faces apart; downloaded with face recognition", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface" },
-    { "name": "CLIP ViT-B/16", "use": "Tells what a photo shows and searches by words; OpenAI's model in Xenova's ONNX export, downloaded with things", "license": "MIT", "home": "https://github.com/openai/CLIP" },
+    { "name": "SigLIP 2", "use": "Tells what a photo shows and searches by words, in many languages; Google's model in its ONNX export, downloaded with things", "license": "Apache-2.0", "home": "https://huggingface.co/google/siglip2-base-patch16-224" },
     { "name": "YOLOX", "use": "Puts a box around animals and objects; downloaded with things", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/object_detection_yolox" }
   ]
 }

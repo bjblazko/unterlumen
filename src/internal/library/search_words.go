@@ -9,14 +9,14 @@ import (
 	"huepattl.de/unterlumen/internal/things"
 )
 
-// Searching photos by words (ADR-0054): the words become CLIP's vector of
-// them, compared with every photo's vector. Similarities of a phrase to
-// photos lie close together, so the photos taken are those near the best
-// match of all libraries, never far below a floor, at most wordsMost of them,
-// the best first.
+// Searching photos by words (ADR-0054, ADR-0055): the words become SigLIP's
+// vector of them, compared with every photo's vector. Each photo gets the
+// probability that the words fit it; the photos taken are those likely
+// enough and near the best match of all libraries, at most wordsMost of
+// them, the best first.
 const (
-	wordsNearBest = 0.035
-	wordsFloor    = 0.22
+	wordsMin      = 0.0002 // the probability a photo needs: low, since rarer languages score lower
+	wordsNearBest = 20     // and a twentieth of the best photo's
 	wordsMost     = 500
 )
 
@@ -39,13 +39,17 @@ func (m *Manager) photoVectors(ctx context.Context, id string) (*vectorCache, er
 		return nil, err
 	}
 	var n [2]int64
-	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(rowid), 0) FROM photo_vectors`).Scan(&n[0], &n[1]); err != nil {
+	// Only vectors of the current models: until every photo was looked at
+	// again, the older ones cannot be compared with the words'.
+	if err := store.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MAX(v.rowid), 0) FROM photo_vectors v
+		JOIN photo_things_found f ON f.photo_id = v.photo_id AND f.version = ?`, things.Version).Scan(&n[0], &n[1]); err != nil {
 		return nil, err
 	}
 	if v, ok := m.vectors.Load(id); ok && v.(*vectorCache).n == n {
 		return v.(*vectorCache), nil
 	}
-	rows, err := store.db.QueryContext(ctx, `SELECT photo_id, vector FROM photo_vectors`)
+	rows, err := store.db.QueryContext(ctx, `SELECT v.photo_id, v.vector FROM photo_vectors v
+		JOIN photo_things_found f ON f.photo_id = v.photo_id AND f.version = ?`, things.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -98,13 +102,14 @@ func (m *Manager) wordMatches(ctx context.Context, libs []*Library, words string
 	sort.Slice(hits, func(a, b int) bool { return hits[a].sim > hits[b].sim })
 	out := map[string]map[string]float32{}
 	for i, h := range hits {
-		if i == wordsMost || h.sim < wordsFloor || h.sim < hits[0].sim-wordsNearBest {
+		p := things.Probability(h.sim)
+		if i == wordsMost || p < wordsMin || p < things.Probability(hits[0].sim)/wordsNearBest {
 			break
 		}
 		if out[h.lib] == nil {
 			out[h.lib] = map[string]float32{}
 		}
-		out[h.lib][h.photo] = h.sim
+		out[h.lib][h.photo] = p
 	}
 	return out, nil
 }

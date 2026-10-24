@@ -161,6 +161,9 @@ func (s *Store) ApplySidecarThings(photoID string, st media.SidecarThings) error
 	if err := replaceThings(tx, photoID, found); err != nil {
 		return err
 	}
+	if !things.Current(st.Record.Version) {
+		return tx.Commit() // a vector of older models is no use here
+	}
 	if err := takeSidecarVector(tx, photoID, st.Record.Vector); err != nil {
 		return err
 	}
@@ -305,12 +308,13 @@ func (s *Store) ThingAppearances(pathGlob string) ([]Appearance, error) {
 	return out, err
 }
 
-// ThingsLooked counts the photos in scope that were looked at for things.
+// ThingsLooked counts the photos in scope that the current models looked
+// at for things; those of older ones are still to be looked at again.
 func (s *Store) ThingsLooked(pathGlob string) (int, error) {
 	where, args := s.aliasCond(pathGlob)
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM photos p JOIN photo_things_found f ON f.photo_id = p.id
-		WHERE p.status = 'ok'`+where, args...).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM photos p JOIN photo_things_found f ON f.photo_id = p.id AND f.version = ?
+		WHERE p.status = 'ok'`+where, append([]any{things.Version}, args...)...).Scan(&n)
 	return n, err
 }
 
