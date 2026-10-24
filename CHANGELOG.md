@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-10-24
+
 ### Added
 - **The rest of Unterlumen speaks German too**: Destinations, Galleries, Publish, Export, Rename, the folder picker, Settings' helper programs and sharing, About, How Unterlumen works, Your data, No warranty and Licenses and thanks. What the server says it is doing in the status line ("„Archiv“ wird gescannt") is in German as well; messages from the server about errors stay English.
 
