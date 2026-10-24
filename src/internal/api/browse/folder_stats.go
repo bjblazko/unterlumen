@@ -32,7 +32,7 @@ func handleFolderStats(root string) http.HandlerFunc {
 			return
 		}
 
-		stats, err := media.WalkFolderStats(absPath, relPath)
+		stats, err := media.WalkFolderStats(r.Context(), absPath, relPath)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

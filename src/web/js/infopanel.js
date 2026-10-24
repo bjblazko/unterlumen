@@ -126,7 +126,7 @@ class InfoPanel {
         this.render();
         const requestKey = key;
         try {
-            const r = await fetch(url);
+            const r = await fetch(url, { signal: this._newRequest() });
             if (!r.ok) throw new Error(await r.text());
             const result = await r.json();
             if (this.currentPath !== requestKey) return;
@@ -162,11 +162,12 @@ class InfoPanel {
                 ? `/api/library/${opts.libId}/folder-stats?path=${encodeURIComponent(path)}`
                 : `/api/browse/folder-stats?path=${encodeURIComponent(path)}`;
 
-            const fetches = [fetch(statsURL).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))];
+            const signal = this._newRequest();
+            const fetches = [fetch(statsURL, { signal }).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t); }))];
 
             if (opts.libId && opts.pathPrefix != null) {
                 const statsQ = new URLSearchParams({ ids: opts.libId, pathPrefix: opts.pathPrefix });
-                fetches.push(fetch(`/api/library/statistics?${statsQ}`).then(r => r.ok ? r.json() : null).catch(() => null));
+                fetches.push(fetch(`/api/library/statistics?${statsQ}`, { signal }).then(r => r.ok ? r.json() : null).catch(() => null));
             }
 
             const [folderData, libStats] = await Promise.all(fetches);
@@ -181,7 +182,18 @@ class InfoPanel {
         this.render();
     }
 
+    // _newRequest ends the request for what was shown before, and returns the
+    // signal of the next one. A folder's details walk all of it; a request
+    // left running for every folder the selection passed took the browser's
+    // few connections from everything else, the search among them.
+    _newRequest() {
+        this._request?.abort();
+        this._request = new AbortController();
+        return this._request.signal;
+    }
+
     clear() {
+        this._request?.abort();
         this.data = null;
         this.folderData = null;
         this.libraryStats = null;

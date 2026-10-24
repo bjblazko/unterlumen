@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - **Folders no longer waits for a library's scan.** Every thumbnail in Folders asked every library's index which library the photo belongs to; while a library was being checked or scanned, those requests waited for it, filled the browser's six connections, and the folder's details waited behind them — minutes on a large library. Which library covers a photo is now told from the libraries' folders, kept in memory.
+- **A folder's details no longer hold up the search.** The info panel walks the whole folder for its details — half a minute for a home folder — and every folder the selection passed went on walking after another was chosen. Those walks kept the browser's few connections, so a search waited minutes behind them. The panel now ends the request for what it showed before, and the walk stops with it.
+- **A check that starts while things are being found no longer forgets them.** A sidecar the things pass wrote after the check had listed the folder was taken as lost, and its photo looked at again. The check now looks on the disk first.
 
 ## [0.18.0] - 2026-10-24
 

@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -32,7 +33,7 @@ func TestWalkFolderStats(t *testing.T) {
 		}
 	}
 
-	st, err := WalkFolderStats(root, "photos/shoot")
+	st, err := WalkFolderStats(context.Background(), root, "photos/shoot")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,7 @@ func TestWalkFolderStatsStopsTenLevelsDown(t *testing.T) {
 	}
 	writeSized(t, filepath.Join(append(parts, "too-deep.jpg")...), 1)
 
-	st, err := WalkFolderStats(root, "")
+	st, err := WalkFolderStats(context.Background(), root, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +77,19 @@ func TestWalkFolderStatsStopsTenLevelsDown(t *testing.T) {
 }
 
 func TestWalkFolderStatsOfAMissingFolderFails(t *testing.T) {
-	if _, err := WalkFolderStats(filepath.Join(t.TempDir(), "gone"), ""); err == nil || !strings.Contains(err.Error(), "gone") {
+	if _, err := WalkFolderStats(context.Background(), filepath.Join(t.TempDir(), "gone"), ""); err == nil || !strings.Contains(err.Error(), "gone") {
 		t.Errorf("err = %v, want one naming the folder", err)
+	}
+}
+
+// A walk nobody waits for any more stops: the info panel asks for each
+// folder the selection passes, and walks of large folders left running took
+// the browser's connections from everything else.
+func TestWalkFolderStatsStopsWhenTheAskerHasGone(t *testing.T) {
+	root := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := WalkFolderStats(ctx, root, ""); err == nil {
+		t.Fatal("the walk went on after its request ended")
 	}
 }

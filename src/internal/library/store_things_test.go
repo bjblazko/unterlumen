@@ -186,3 +186,27 @@ func TestWordMatchesComeBestFirst(t *testing.T) {
 		t.Fatalf("got %+v", page)
 	}
 }
+
+// A check whose walk began before a things pass wrote a sidecar must not
+// take the record as lost: the sidecar is there, on the disk.
+func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
+	s := newTestStore(t)
+	libDir, photos := t.TempDir(), t.TempDir()
+	photo := filepath.Join(photos, "late.jpg")
+	insertPhoto(t, s, "late", nil, nil)
+	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "clip"}}}}) //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion())                                                    //nolint:errcheck
+	idx := NewIndexer(s, libDir, photos)
+	idx.sidecars = map[string]bool{} // the walk saw no sidecar
+	idx.indexSidecar(photo, "late")
+	if !s.thingsWritten("late") || !slices.Equal(thingNamesOf(t, s, "late"), []string{"dog"}) {
+		t.Fatal("a sidecar written after the walk was taken as lost")
+	}
+	gone := filepath.Join(photos, "gone.jpg")
+	insertPhoto(t, s, "gone", nil, nil)
+	s.SaveFoundThings([]FoundThings{{PhotoID: "gone", Written: true}}) //nolint:errcheck
+	idx.indexSidecar(gone, "gone")
+	if s.thingsWritten("gone") {
+		t.Fatal("a sidecar that is really gone kept its record")
+	}
+}

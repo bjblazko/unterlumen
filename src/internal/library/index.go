@@ -453,7 +453,7 @@ func (idx *Indexer) indexSidecar(absPath, photoID string) {
 		idx.store.ApplyNotes(photoID, media.Notes{}, idx.notesInSidecars()) //nolint:errcheck
 		idx.store.replaceBuiltMeta(photoID, nil)                            //nolint:errcheck
 		idx.store.ApplyFaceNames(photoID, nil, false)                       //nolint:errcheck
-		idx.store.ApplySidecarThings(photoID, media.SidecarThings{})        //nolint:errcheck
+		idx.applyThingsWithoutSidecar(absPath, photoID)
 		return
 	}
 	if notes, err := media.ReadNotes(absPath); err == nil {
@@ -766,4 +766,17 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
 	progress <- Progress{Done: total, Total: total, Finished: true}
+}
+
+// applyThingsWithoutSidecar is for a photo whose walk showed no sidecar. A
+// things pass may have written one since the walk began — a check may start
+// while it runs — so before the things record is taken as lost, the disk is
+// asked; only for photos whose record was written, so the rest cost nothing.
+func (idx *Indexer) applyThingsWithoutSidecar(absPath, photoID string) {
+	if !idx.store.thingsWritten(photoID) {
+		return
+	}
+	if st, err := media.ReadThings(absPath); err == nil {
+		idx.store.ApplySidecarThings(photoID, st) //nolint:errcheck // the next scan tries again
+	}
 }

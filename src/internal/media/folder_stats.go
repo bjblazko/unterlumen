@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ type FolderStats struct {
 
 // WalkFolderStats computes aggregated statistics for a directory by walking
 // its tree up to maxFolderWalkDepth levels deep.
-func WalkFolderStats(absPath, relPath string) (*FolderStats, error) {
+func WalkFolderStats(ctx context.Context, absPath, relPath string) (*FolderStats, error) {
 	info, err := os.Stat(absPath)
 	if err != nil {
 		return nil, err
@@ -45,6 +46,7 @@ func WalkFolderStats(absPath, relPath string) (*FolderStats, error) {
 		return nil, err
 	}
 	fw := &folderWalk{
+		ctx:  ctx,
 		root: absPath,
 		result: &FolderStats{
 			Name:       filepath.Base(absPath),
@@ -82,6 +84,7 @@ func visibleSubdirs(entries []os.DirEntry) []string {
 
 // folderWalk accumulates FolderStats during one filepath.WalkDir.
 type folderWalk struct {
+	ctx    context.Context // the walk stops when it ends: no one waits for it any more
 	root   string
 	result *FolderStats
 	subs   map[string]*SubfolderStats // immediate subfolders by name
@@ -90,6 +93,9 @@ type folderWalk struct {
 // visit counts one entry below root. Hidden entries and anything deeper than
 // maxFolderWalkDepth are skipped; unreadable entries are ignored.
 func (fw *folderWalk) visit(path string, d fs.DirEntry, err error) error {
+	if ctxErr := fw.ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	if err != nil {
 		return nil
 	}

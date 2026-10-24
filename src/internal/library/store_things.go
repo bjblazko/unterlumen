@@ -289,3 +289,10 @@ func (s *Store) ThingsLooked(pathGlob string) (int, error) {
 		WHERE p.status = 'ok'`+where, args...).Scan(&n)
 	return n, err
 }
+
+// thingsWritten says whether the photo's sidecar was given its things record.
+func (s *Store) thingsWritten(photoID string) bool {
+	var n int
+	s.db.QueryRow(`SELECT COUNT(*) FROM photo_things_found WHERE photo_id = ? AND written = 1`, photoID).Scan(&n) //nolint:errcheck
+	return n > 0
+}
