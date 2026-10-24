@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-10-24
+
 ### Changed
 - **Unterlumen starts in Libraries**, on the desk as on a phone, where a bare address used to open Folders.
 - **On a phone, Statistics has the place Folders had in the tab bar**: Libraries, Map, Timeline, People, Statistics. Folders stays reachable through its links.
