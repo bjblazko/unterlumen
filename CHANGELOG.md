@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-24
+
 ### Changed
 - **Things are found by Google's SigLIP 2 instead of OpenAI's CLIP** (ADR-0055). SigLIP gives each word its own probability, so a photo of nothing in particular — lens flare, blur, near black — no longer gets some thing that came out best: on the photos "helicopter" found with CLIP, it now finds only the helicopters. A thing is taken from a probability of 1 % and a tenth of the photo's best thing, at most five. The download is 690 MB instead of 447 MB and replaces the one before; every photo is looked at once again, and what one installation found, the other takes over. Apache-2.0, which settles the reservation about CLIP's model card.
 - **Searching by words understands many languages**: "Hund am Strand", "perro en la playa" and "浜辺の犬" find what "dog on a beach" finds, whole sentences included.
