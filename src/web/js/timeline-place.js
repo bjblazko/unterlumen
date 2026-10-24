@@ -67,7 +67,7 @@ class TimelinePane {
         this._filter = new ScopeFilter({
             onOpen: () => { if (this.infoPanel?.expanded) this.infoPanel._setExpanded(false); },
         });
-        this._infoBtn = panelToggleButton(t('Info'));
+        this._infoBtn = panelToggleButton('Info');
         this.container.querySelector('.timeline-actions').replaceWith(this._filter.el, this._rowsField);
         // The filter and the info panel stand beside the place's whole
         // height, as the tool strip does.

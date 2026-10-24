@@ -1,6 +1,6 @@
 # ADR-0039: The Map is a place, clustered in the browser
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-10-24*
 
 ## Status
 
@@ -31,3 +31,30 @@ What was there already: MapLibre GL JS, vendored as an ES module ([ADR-0038](003
 - The map needs a connection to OpenFreeMap. Without one the place says so; without MapLibre it says that instead.
 - All located photos are held in the browser. At 50 000 photos that is a few megabytes and a clustering index MapLibre builds in a worker; far beyond that, a bounding-box query on the server would be the next step.
 - The e2e spec (`map.spec.js`) replaces the tile style with an empty one, so it runs offline and asserts markers, not tiles.
+
+## Addendum 2026-10-24: Globe, Mercator, 3D
+
+The owner asked for the Equal Earth projection instead of Mercator. MapLibre
+(6.11) has no Equal Earth. It projects as Mercator, Globe or vertical
+perspective, and OpenFreeMap's tiles come only in Mercator. Equal Earth would
+have needed a second map drawn with d3 from the bundled Natural Earth data,
+without streets. The owner chose MapLibre's Globe instead.
+
+- **View: Globe · Mercator · 3D** stands in the Map's head, beside Grey ·
+  Colour. Both are views you switch while looking, so neither goes behind ⋯.
+  The view is kept per browser in `map-projection`.
+- **Globe is the default.**
+  - At world scale it shows countries at their true size.
+  - Close up MapLibre blends it into Mercator by itself.
+  - A projection belongs to the style, so it is applied again after every
+    `setStyle` (theme, Grey · Colour).
+- **3D is the flat map tilted to 60°, its buildings standing.**
+  - `liberty` has standing buildings of its own.
+  - On the grey styles a `fill-extrusion` layer from OpenMapTiles' `building`
+    layer is added in the colour of the flat buildings, from zoom 14.
+  - No terrain: elevation tiles would be one more host the map loads from.
+- **The view changes at once**, without the 240 ms ease: a move begun during
+  an animated tilt left the globe tilted.
+- **The info panel's map stays Mercator** and keeps its 3D · 2D switch. Its 3D
+  now zooms to at least 16, so the buildings stand.
+

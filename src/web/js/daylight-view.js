@@ -60,7 +60,7 @@ function daylightSpec(cs, timed) {
         ...daylightPosition((m.month - 0.5) / 12, m.hour, m.lum), ...oklabToStageRGB(m.l, m.a, m.b, { boost: TRAIL_BOOST }), stepRadius(m.photos, most), 1,
     ]));
     return {
-        summary: `${formatCount(timed.length)} photos by when they were taken: the day of the year around the ring, the hour from midnight in the middle outward, and how bright the photo is upward. Each is in its main colour. The trail goes through the twelve months, all years together.`,
+        summary: t('{photos} by when they were taken: the day of the year around the ring, the hour from midnight in the middle outward, and how bright the photo is upward. Each is in its main colour. The trail goes through the twelve months, all years together.', { photos: countText(timed.length, 'photo') }),
         legend: legendDotHTML(t('One photo, in its main colour'))
             + legendStepHTML(t('One month of the year, all years together: the average hour, brightness and colour of its photos, larger with more photos. The line goes round the year.')),
         sprites, steps,

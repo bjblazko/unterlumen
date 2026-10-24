@@ -5,6 +5,17 @@
 // so the newest photo of a group is known without asking for its leaves.
 // The markers are HTML: a round thumbnail of that photo and the count.
 
+// mapControlWords are MapLibre's own words on its buttons, in the interface's
+// language.
+function mapControlWords() {
+    return {
+        'NavigationControl.ZoomIn': t('Zoom in'),
+        'NavigationControl.ZoomOut': t('Zoom out'),
+        'NavigationControl.ResetBearing': t('Reset bearing to north'),
+        'AttributionControl.ToggleAttribution': t('Toggle attribution'),
+    };
+}
+
 const MAP_SOURCE = 'photos';
 const MAP_CLUSTER_MAX_ZOOM = 18;
 
@@ -114,5 +125,5 @@ class MapMarkers {
 function markerLabel(newest, count) {
     if (count === 1) return photoLabel(newest);
     const date = newest.taken ? formatTakenDate(newest.taken) : '';
-    return date ? `${formatCount(count)} photos, the newest from ${date}` : `${formatCount(count)} photos`;
+    return date ? t('{photos}, the newest from {date}', { photos: countText(count, 'photo'), date }) : countText(count, 'photo');
 }

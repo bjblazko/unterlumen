@@ -79,6 +79,44 @@ test.describe('Organize — one source, many targets', () => {
         expect(afterUndo.entries.filter((e) => e.type === 'image')).toHaveLength(0);
     });
 
+    // A second press while files are on their way, or a held key, sent the
+    // same photos again: one run moved them, the other found them gone.
+    test('a second press while a move runs sends nothing more', async ({ page, request }) => {
+        await openOrganize(page);
+        await loadSource(page);
+        const photos = page.locator('.organize-source [data-type="image"]');
+        await photos.first().click();
+        await photos.nth(1).click({ modifiers: ['ControlOrMeta'] });
+
+        // The server answers slowly, as a network drive does.
+        await page.route('**/api/move', async (route) => {
+            await new Promise((r) => setTimeout(r, 1200));
+            await route.continue();
+        });
+        await page.keyboard.press('1');
+        await page.keyboard.press('1');
+        await page.keyboard.down('1'); // a held key repeats
+        await page.keyboard.up('1');
+        await expect(page.locator('#org-result')).toContainText('2 items moved to', { timeout: 10_000 });
+        await expect(page.locator('#org-result')).not.toContainText('did not');
+        await expect(page.locator('#org-result .activity-errors')).toHaveCount(0);
+        const moved = await (await request.get(`/api/browse?path=${DST}`)).json();
+        expect(moved.entries.filter((e) => e.type === 'image')).toHaveLength(2);
+    });
+
+    // Enter opens, as everywhere else: it never moves a file.
+    test('Enter with photos selected moves nothing', async ({ page, request }) => {
+        await openOrganize(page);
+        await loadSource(page);
+        const photos = page.locator('.organize-source [data-type="image"]');
+        await photos.first().click();
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Escape');
+        const dst = await (await request.get(`/api/browse?path=${DST}`)).json();
+        expect(dst.entries.filter((e) => e.type === 'image')).toHaveLength(0);
+        await expect(page.locator('.org-keys')).not.toContainText('Enter');
+    });
+
     test('exactly one target is current, and clicking another makes it current', async ({ page }) => {
         await openOrganize(page, [{ path: DST }, { path: `${SRC}/a-subfolder` }]);
         await loadSource(page);

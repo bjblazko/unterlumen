@@ -82,11 +82,10 @@ function exposureSpaceSpec(es, total, colours) {
 
 function exposureSpaceSummary(es, total) {
     const n = es.photos;
-    const of = total > n ? ` of ${formatCount(total)}` : '';
-    const trail = es.path.length > 1
-        ? ` The trail joins the median settings of each ${periodUnit(es.granularity)}${pathSpan(es.path)}.`
-        : '';
-    return `${formatCount(n)}${of} photos with focal length, aperture and ISO: focal length across, aperture in depth and ISO up, each in stops, coloured by camera.${trail}`;
+    const photos = total > n ? t('{n} of {photos}', { n: formatCount(n), photos: countText(total, 'photo') }) : countText(n, 'photo');
+    const trail = es.path.length < 2 ? ''
+        : ' ' + t(periodUnit(es.granularity) === 'year' ? 'The trail joins the median settings of each year{path}.' : 'The trail joins the median settings of each month{path}.', { path: pathSpan(es.path) });
+    return t('{photos} with focal length, aperture and ISO: focal length across, aperture in depth and ISO up, each in stops, coloured by camera.', { photos }) + trail;
 }
 
 function exposureLegendHTML(es, colours) {

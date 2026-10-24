@@ -32,7 +32,7 @@ function comboCount(colour, hues) {
 function comboName(hues) {
     const key = [...hues].sort((a, b) => a - b).join(',');
     const known = COLOUR_COMBOS.find(c => [...c.hues].sort((a, b) => a - b).join(',') === key);
-    if (known) return known.name;
+    if (known) return t(known.name);
     const names = hues.map(hueName);
     return names.length > 2 ? `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}` : names.join(' & ');
 }
@@ -40,7 +40,7 @@ function comboName(hues) {
 // What a combination's photos are, for the photo column.
 function comboCriterion(hues) {
     return {
-        subject: `${capitalise(comboName(hues))} · each at least ${COMBO_SHARE_MIN_PERCENT} % of the frame`,
+        subject: t('{combo} · each at least {pct} % of the frame', { combo: capitalise(comboName(hues)), pct: COMBO_SHARE_MIN_PERCENT }),
         params: { mono: 'colour', hues: hues.join(',') },
     };
 }
@@ -84,7 +84,7 @@ function renderColourCombos(el, colour, onPick) {
     const chords = g.append('g').attr('fill', 'none').selectAll('path').data(combos).join('path')
         .attr('d', shape).attr('stroke', c.textSec).attr('stroke-width', width)
         .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('opacity', 0.75)
-        .on('mousemove', (event, d) => tip.show(event, `${escapeHtml(capitalise(d.name))} <span class="stats-tooltip-value">${photoCount(d.photos)}</span>`))
+        .on('mousemove', (event, d) => tip.show(event, `${escapeHtml(capitalise(t(d.name)))} <span class="stats-tooltip-value">${photoCount(d.photos)}</span>`))
         .on('mouseleave', tip.hide);
 
     const list = wrap.append('ol').attr('class', 'combo-list');
@@ -93,7 +93,7 @@ function renderColourCombos(el, colour, onPick) {
         .attr('class', 'combo-item').attr('type', 'button');
     item.append('span').attr('class', 'combo-swatches').selectAll('span').data(d => d.hues).join('span')
         .attr('class', 'combo-swatch').style('background', b => sectorColour(colour, b));
-    item.append('span').attr('class', 'combo-name').text(d => capitalise(d.name));
+    item.append('span').attr('class', 'combo-name').text(d => capitalise(t(d.name)));
     item.append('span').attr('class', 'combo-count').text(d => d.photos.toLocaleString());
     if (onPick) item.filter(d => d.photos > 0).on('click', (event, d) => onPick(d.hues));
 

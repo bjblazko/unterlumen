@@ -480,7 +480,7 @@ const App = {
         document.getElementById('app').appendChild(this._browseEl);
         // Info opens from the tool strip at the edge, as every panel of the
         // right-hand column does.
-        this._infoBtn = panelToggleButton(t('Info'));
+        this._infoBtn = panelToggleButton('Info');
         this._browseEl.appendChild(toolStrip(this._infoBtn));
         this.browsePane = new BrowsePane(this._browseEl.querySelector('#browse-container'), {
             onNavigate: (path) => { this.currentBrowsePath = path; },

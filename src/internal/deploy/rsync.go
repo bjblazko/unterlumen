@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +72,11 @@ func TargetFromConfig(cfg map[string]string) (Target, error) {
 		return Target{}, fmt.Errorf("rsync deploy config missing required field(s): %s", strings.Join(missing, ", "))
 	}
 
+	identityFile := strings.TrimSpace(cfg["identityFile"])
+	if err := checkTargetWords(host, user, identityFile); err != nil {
+		return Target{}, err
+	}
+
 	port := 0
 	if p := strings.TrimSpace(cfg["port"]); p != "" {
 		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
@@ -83,8 +89,32 @@ func TargetFromConfig(cfg map[string]string) (Target, error) {
 		User:         user,
 		Port:         port,
 		RemotePath:   remotePath,
-		IdentityFile: strings.TrimSpace(cfg["identityFile"]),
+		IdentityFile: identityFile,
 	}, nil
+}
+
+// Host, user and key file become arguments of ssh and rsync, and the
+// configuration they come from is shared between installations: a user
+// "-oProxyCommand=…" would be read as an option and run a command. So the
+// host and user may hold only what host names, addresses and user names
+// hold, and the key file may not start like an option or carry quotes or
+// spaces, which rsync's -e would split on.
+var (
+	hostWord = regexp.MustCompile(`^(\[[0-9A-Fa-f:.]+\]|[0-9A-Fa-f:]*:[0-9A-Fa-f:.]*|[A-Za-z0-9][A-Za-z0-9.-]*)$`)
+	userWord = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`)
+)
+
+func checkTargetWords(host, user, identityFile string) error {
+	if !hostWord.MatchString(host) {
+		return fmt.Errorf("rsync deploy config: host %q is not a host name or address", host)
+	}
+	if !userWord.MatchString(user) {
+		return fmt.Errorf("rsync deploy config: user %q may hold only letters, digits, '.', '_' and '-', and not start with '-'", user)
+	}
+	if strings.HasPrefix(identityFile, "-") || strings.ContainsAny(identityFile, " \t\n'\"\\") {
+		return fmt.Errorf("rsync deploy config: key file %q may not start with '-' or hold spaces or quotes", identityFile)
+	}
+	return nil
 }
 
 // sshArgs builds the argument list for invoking ssh against t, running

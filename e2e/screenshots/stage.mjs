@@ -4,7 +4,7 @@
 // galleries through the API, on port 8097.
 
 import { spawn } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,10 +37,18 @@ export function preparePhotos(tmp) {
 // app's own download.
 const RECOGNITION = path.join(REPO, 'e2e/fixtures/.unterlumen-faces/recognition');
 
+// SigLIP 2, the object detector and ONNX Runtime for Things, when they are
+// kept beside the fixtures (690 MB, never in git): linked, not copied. The
+// Things shots need them; without them Statistics offers the download.
+const THINGS = path.join(REPO, 'e2e/fixtures/.unterlumen-things');
+
 export async function startServer(tmp, root) {
     const lib = path.join(tmp, 'lib');
     mkdirSync(lib);
     if (existsSync(RECOGNITION)) cpSync(RECOGNITION, path.join(lib, 'recognition'), { recursive: true });
+    for (const dir of ['things', 'onnxruntime']) {
+        if (existsSync(path.join(THINGS, dir))) symlinkSync(path.join(THINGS, dir), path.join(lib, dir));
+    }
     const server = spawn(BINARY, ['--port', String(PORT), '--bind', '127.0.0.1', root], {
         env: { ...process.env, UNTERLUMEN_LIB_DIR: lib, UNTERLUMEN_CHANNELS_DIR: lib },
         stdio: 'ignore',

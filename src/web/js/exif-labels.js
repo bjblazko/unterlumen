@@ -74,3 +74,78 @@ function labeledExifValues(field, rawValues) {
     }
     return Array.from(seen.entries()).map(([label, value]) => ({ label, value }));
 }
+
+// exifText is a tag's value as text: exiftool quotes some strings.
+function exifText(s) {
+    if (typeof s !== 'string') return s;
+    return s.length >= 2 && s[0] === '"' && s[s.length - 1] === '"' ? s.slice(1, -1) : s;
+}
+
+// parseRational reads "28/10" or "2.8"; null when it is neither.
+function parseRational(s) {
+    const slash = s.indexOf('/');
+    if (slash >= 0) {
+        const num = parseFloat(s.slice(0, slash));
+        const den = parseFloat(s.slice(slash + 1));
+        if (den === 0 || isNaN(num) || isNaN(den)) return null;
+        return num / den;
+    }
+    const v = parseFloat(s);
+    return isNaN(v) ? null : v;
+}
+
+// An aperture of 0 (written 0/1) means the lens did not say.
+function decodeFNumber(s) {
+    const v = parseRational(s);
+    if (v === null) return s;
+    if (v <= 0) return null;
+    return `f/${v.toFixed(1)}`;
+}
+
+function decodeFocalLength(s) {
+    const v = parseRational(s);
+    if (v === null || v <= 0) return s;
+    return v < 10 ? `${v.toFixed(2).replace(/\.?0+$/, '')} mm` : `${Math.round(v)} mm`;
+}
+
+function decodeExposureTime(s) {
+    const v = parseRational(s);
+    if (v === null) return s;
+    if (v >= 1) return Number.isInteger(v) ? `${v} s` : `${v.toFixed(1)} s`;
+    return `1/${Math.round(1 / v)}`;
+}
+
+function decodeExposureBias(s) {
+    const v = parseRational(s);
+    if (v === null) return s;
+    if (v === 0) return '0 EV';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(2).replace(/\.?0+$/, '')} EV`;
+}
+
+// aspectRatioLabel names a frame's shape, "3:2", when it is a known one.
+function aspectRatioLabel(w, h) {
+    if (!w || !h) return '';
+    const known = [
+        [1, 2], [9, 16], [2, 3], [3, 4], [4, 5],
+        [1, 1],
+        [5, 4], [4, 3], [3, 2], [7, 5], [16, 10], [5, 3], [16, 9], [2, 1], [21, 9],
+    ];
+    const ratio = w / h;
+    for (const [rw, rh] of known) {
+        if (Math.abs(ratio - rw / rh) / (rw / rh) < 0.015) return rw + ':' + rh;
+    }
+    return t('Custom Crop');
+}
+
+// aspectRatioIcon draws a frame of that shape; a custom crop's is dashed.
+function aspectRatioIcon(ratioStr, stroke) {
+    const isCustom = !ratioStr.includes(':');
+    const [a, b] = isCustom ? [1, 1] : ratioStr.split(':').map(parseFloat);
+    const ratio = a / b || 1;
+    const [rw, rh] = ratio > 14 / 10 ? [14, 14 / ratio] : [10 * ratio, 10];
+    const x = ((16 - rw) / 2).toFixed(1);
+    const y = ((12 - rh) / 2).toFixed(1);
+    const dash = isCustom ? ' stroke-dasharray="2 1"' : '';
+    return `<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="${stroke}" stroke-width="1.5"${dash}><rect x="${x}" y="${y}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="0.5"/></svg>`;
+}

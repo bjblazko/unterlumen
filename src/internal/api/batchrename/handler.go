@@ -96,34 +96,11 @@ func handleBatchRenameExecute(root string, cache *media.ScanCache, libMgr *libra
 		pairs := buildRenamePairs(root, mappings)
 		results := executeTwoPassRename(pairs)
 
-		var renamedAbsPaths []string
-		for _, p := range pairs {
-			for _, res := range results {
-				if res.Success && res.File == p.relFile {
-					cache.Invalidate(p.dir)
-					renamedAbsPaths = append(renamedAbsPaths, filepath.Join(p.dir, p.newName))
-				}
-			}
+		renamed := renamedPairs(pairs, results)
+		for _, pair := range renamed {
+			cache.Invalidate(filepath.Dir(pair[1]))
 		}
-
-		// A rename never moves a file to a different directory, so every renamed
-		// file still belongs to whichever library (if any) already owned it — sync
-		// each one so the library's database reflects the new filename instead of
-		// keeping a stale path_hint until the next manual reindex.
-		libraryUpdated := false
-		if libMgr != nil {
-			byLibrary := make(map[string][]string)
-			for _, abs := range renamedAbsPaths {
-				if lib, ok := libMgr.FindLibraryForPath(filepath.Dir(abs)); ok {
-					byLibrary[lib.ID] = append(byLibrary[lib.ID], abs)
-				}
-			}
-			for libID, paths := range byLibrary {
-				if libMgr.IndexFilesSync(libID, paths) {
-					libraryUpdated = true
-				}
-			}
-		}
+		libraryUpdated := syncRenamed(libMgr, renamed)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(batchRenameExecuteResponse{Results: results, LibraryUpdated: libraryUpdated})
@@ -251,3 +228,43 @@ func executeTwoPassRename(pairs []renamePair) []batchRenameResult {
 
 	return results
 }
+
+// renamedPairs are the [old, new] absolute paths of the files renamed.
+func renamedPairs(pairs []renamePair, results []batchRenameResult) [][2]string {
+	ok := make(map[string]bool, len(results))
+	for _, res := range results {
+		if res.Success {
+			ok[res.File] = true
+		}
+	}
+	var out [][2]string
+	for _, p := range pairs {
+		if ok[p.relFile] {
+			out = append(out, [2]string{p.absPath, filepath.Join(p.dir, p.newName)})
+		}
+	}
+	return out
+}
+
+// A rename never moves a file to a different directory, so every renamed
+// file still belongs to whichever library (if any) already owned it; its
+// path changes there, its content does not.
+func syncRenamed(libMgr *library.Manager, renamed [][2]string) bool {
+	if libMgr == nil {
+		return false
+	}
+	byLibrary := make(map[string][][2]string)
+	for _, pair := range renamed {
+		if lib, ok := libMgr.FindLibraryForPath(filepath.Dir(pair[1])); ok {
+			byLibrary[lib.ID] = append(byLibrary[lib.ID], pair)
+		}
+	}
+	updated := false
+	for libID, pairs := range byLibrary {
+		if libMgr.IndexMovedFiles(libID, pairs) {
+			updated = true
+		}
+	}
+	return updated
+}
+

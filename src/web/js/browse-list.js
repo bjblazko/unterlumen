@@ -47,7 +47,7 @@ class ListRenderer {
         const size = entry.size ? formatSize(entry.size) : '';
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
-        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
+        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${escapeHtml(fallback)}'"` : '';
         return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="image" data-path="${escapeHtml(fp)}">
             <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy" decoding="async" fetchpriority="low"${onerror}></td>
             <td class="list-name">${escapeHtml(label)}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>

@@ -6,7 +6,7 @@
 // "January 2026" · "January – March 2026" · "December 2025 – January 2026"
 function _galleryDateRange(g) {
     const pub = new Date(g.publishedAt);
-    const fmt = (d, opts) => d.toLocaleDateString('en', opts);
+    const fmt = (d, opts) => d.toLocaleDateString(I18n.lang, opts);
     const MY = { month: 'long', year: 'numeric' };
     const MO = { month: 'long' };
     if (!g.updatedAt || g.updatedAt.startsWith('0001-')) return fmt(pub, MY);
@@ -113,213 +113,17 @@ class LibraryTab {
                 <div class="library-list-body" id="lib-list-body"></div>
             </div>`);
         this.container.appendChild(el);
-
         el.querySelector('#lib-new-btn').addEventListener('click', () => this._dialogs.create());
-
-        const sortSelect = el.querySelector('.lib-sort-select');
         const body = el.querySelector('#lib-list-body');
-
-        // Render immediately from localStorage, then reconcile with the server.
-        const cachedMode = localStorage.getItem('library.sortMode') || 'auto';
-        this._sortMode = cachedMode;
-        sortSelect.value = cachedMode;
-        LibraryAPI.getSettings().then(s => {
-            const serverMode = s.librarySortMode || 'auto';
-            if (serverMode !== this._sortMode) {
-                this._sortMode = serverMode;
-                localStorage.setItem('library.sortMode', serverMode);
-                sortSelect.value = serverMode;
-                this._loadList(body);
-            }
-        }).catch(() => {});
-
-        sortSelect.addEventListener('change', async () => {
-            const newMode = sortSelect.value;
-            if (newMode === 'manual') await this._initManualOrder(this._cachedLibs || []);
-            this._sortMode = newMode;
-            localStorage.setItem('library.sortMode', newMode);
-            LibraryAPI.patchSettings({ librarySortMode: newMode }); // fire-and-forget
-            this._loadList(body);
-        });
-
+        this._list = new LibraryList(this);
+        this._list.wireSort(el.querySelector('.lib-sort-select'), body);
         this._listSelectionBar = new SelectionBar(el, {
             actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
-
         this._mountFilter(el, el.querySelector('#lib-list-main'), null);
         this._syncInfoPanel();
-        this._loadList(body);
-    }
-
-    async _loadList(body) {
-        if (!body.firstChild) Activity.in(body, t('Reading the libraries…'), { area: true });
-        try {
-            const libs = await LibraryAPI.list();
-            this._cachedLibs = libs;
-            const prevLastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10);
-            localStorage.setItem('library.lastOverviewVisit', Date.now().toString());
-            body.innerHTML = '';
-            const meta = body.closest('.library-list-view')?.querySelector('.place-meta');
-            if (meta) meta.innerHTML = countHTML(libs.length, 'library', 'libraries');
-            if (libs.length === 0) {
-                body.insertAdjacentHTML('beforeend', `<div class="library-empty">${t('No libraries yet. Choose New library… and pick a folder; its photos are read once and stay where they are.')}</div>`);
-                return;
-            }
-            const sorted = this._sortLibs(libs);
-            const mode = this._sortMode || localStorage.getItem('library.sortMode') || 'auto';
-            for (const lib of sorted) {
-                const card = this._libCard(lib, prevLastSeen);
-                body.appendChild(card);
-                if (lib.scanning) {
-                    const signal = this._scanWatch.signal;
-                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb, undefined, signal), t('Scanning'), signal);
-                }
-                if (mode === 'manual') this._addManualSortButtons(lib, card, body);
-            }
-            const sortSelect = body.closest('.library-list-view')?.querySelector('.lib-sort-select');
-            if (sortSelect) sortSelect.value = mode;
-        } catch (err) {
-            body.innerHTML = `<div class="library-error">${t('Could not read the libraries: {error}. Reload the page to try again.', { error: escapeHtml(err.message) })}</div>`;
-        }
-    }
-
-    _libCard(lib, lastSeen = parseInt(localStorage.getItem('library.lastOverviewVisit') || '0', 10)) {
-        const hasNew = lib.lastNewPhotos && new Date(lib.lastNewPhotos).getTime() > lastSeen;
-
-        const card = document.createElement('div');
-        card.className = 'library-card';
-
-        const top = document.createElement('div');
-        top.className = 'library-card-top';
-        // The whole row opens the library — five orange Open buttons on one
-        // screen were five primary actions. Scanning stays here because the
-        // row is also where you see when it was last indexed; editing and
-        // deleting moved into the library itself.
-        top.innerHTML = `
-            <button class="library-card-open lib-open">
-                <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? `<span class="library-card-new-dot" title="${t('New photos added')}"></span>` : ''}</span>
-                <span class="library-card-count">${countText(lib.photoCount, 'photo')}</span>
-                <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
-                ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
-            </button>
-            <div class="library-card-actions">
-                <button class="btn btn-sm lib-scan-new">${t('Scan for new photos')}</button>
-                <span class="library-card-indexed">${lib.lastIndexed ? t('Indexed {day}', { day: formatDay(lib.lastIndexed) }) : t('Never indexed')}</span>
-            </div>`;
-        card.appendChild(top);
-
-        if (lib.photoCount > 0) {
-            const strip = document.createElement('div');
-            strip.className = 'library-card-filmstrip';
-            card.appendChild(strip);
-            this._loadFilmstrip(strip, lib.id);
-        }
-
-        top.querySelector('.lib-open').addEventListener('click', () => this._openLibrary(lib));
-        card.querySelector('.lib-scan-new').addEventListener('click',
-            () => this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), t('Scanning')));
-        return card;
-    }
-
-    async _loadFilmstrip(strip, libID) {
-        const result = await LibraryAPI.photos(libID, { limit: 50 });
-        for (const photo of result.photos) {
-            const img = document.createElement('img');
-            img.src = LibraryAPI.thumbURL(libID, photo.id);
-            img.loading = 'lazy';
-            strip.appendChild(img);
-        }
-    }
-
-    async _runScanCard(lib, card, scanFn, label, signal) {
-        let host = card.querySelector('.library-card-progress');
-        if (!host) {
-            host = document.createElement('div');
-            host.className = 'library-card-progress';
-            card.querySelector('.library-card-actions').appendChild(host);
-        }
-        const activity = Activity.in(host, `${label}…`);
-        const scanBtns = card.querySelectorAll('.lib-scan-new');
-        scanBtns.forEach(b => { b.disabled = true; });
-        try {
-            await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
-            if (signal?.aborted) return; // the card is gone
-            const updated = await LibraryAPI.get(lib.id);
-            card.querySelector('.library-card-count').textContent = countText(updated.photoCount, 'photo');
-            card.querySelector('.library-card-indexed').textContent =
-                t('Indexed {day}', { day: formatDay(updated.lastIndexed) });
-        } catch (err) {
-            activity.fail(t('It stopped: {error}', { error: err.message }));
-        } finally {
-            scanBtns.forEach(b => { b.disabled = false; });
-        }
-    }
-
-    _sortLibs(libs) {
-        const mode = this._sortMode || localStorage.getItem('library.sortMode') || 'auto';
-        if (mode === 'name') {
-            return [...libs].sort((a, b) => a.name.localeCompare(b.name));
-        }
-        if (mode === 'manual') {
-            return [...libs].sort((a, b) => {
-                const ai = a.sortPosition ?? Infinity;
-                const bi = b.sortPosition ?? Infinity;
-                return ai - bi;
-            });
-        }
-        // auto: sort by lastNewPhotos descending, nulls last
-        return [...libs].sort((a, b) => {
-            if (!a.lastNewPhotos && !b.lastNewPhotos) return 0;
-            if (!a.lastNewPhotos) return 1;
-            if (!b.lastNewPhotos) return -1;
-            return new Date(b.lastNewPhotos) - new Date(a.lastNewPhotos);
-        });
-    }
-
-    async _initManualOrder(libs) {
-        if (!libs || !libs.length) return;
-        if (libs.some(l => l.sortPosition != null)) return; // already seeded server-side
-        // Seed from current auto order
-        const sorted = [...libs].sort((a, b) => {
-            if (!a.lastNewPhotos && !b.lastNewPhotos) return 0;
-            if (!a.lastNewPhotos) return 1;
-            if (!b.lastNewPhotos) return -1;
-            return new Date(b.lastNewPhotos) - new Date(a.lastNewPhotos);
-        });
-        await LibraryAPI.setOrder(sorted.map(l => l.id));
-    }
-
-    _addManualSortButtons(lib, card, body) {
-        const up = document.createElement('button');
-        up.className = 'btn btn-sm lib-move-up';
-        up.textContent = '↑';
-        up.title = t('Move up');
-        const down = document.createElement('button');
-        down.className = 'btn btn-sm lib-move-down';
-        down.textContent = '↓';
-        down.title = t('Move down');
-        card.querySelector('.library-card-actions').appendChild(up);
-        card.querySelector('.library-card-actions').appendChild(down);
-
-        up.addEventListener('click', async () => {
-            const order = this._sortLibs(this._cachedLibs || []).map(l => l.id);
-            const i = order.indexOf(lib.id);
-            if (i > 0) {
-                [order[i - 1], order[i]] = [order[i], order[i - 1]];
-                await LibraryAPI.setOrder(order);
-                this._loadList(body);
-            }
-        });
-        down.addEventListener('click', async () => {
-            const order = this._sortLibs(this._cachedLibs || []).map(l => l.id);
-            const i = order.indexOf(lib.id);
-            if (i !== -1 && i < order.length - 1) {
-                [order[i], order[i + 1]] = [order[i + 1], order[i]];
-                await LibraryAPI.setOrder(order);
-                this._loadList(body);
-            }
-        });
+        this._list.load(body);
     }
 
     openCreateDialogForPath(sourcePath) {
@@ -408,7 +212,6 @@ class LibraryTab {
 
     _renderDetail() {
         const lib = this.currentLibrary;
-
         const el = document.createElement('div');
         el.className = 'library-detail';
         el.innerHTML = `
@@ -422,47 +225,41 @@ class LibraryTab {
             actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
-
-        const leave = () => {
-            this._pane = null;
-            this._infoPanel = null;
-            this.currentLibrary = null;
-            this.render();
-        };
-        const edit = () => this._dialogs.edit(lib, (updated) => {
-            this.currentLibrary = { ...lib, ...updated };
-            this.render();
-        });
-
         const paneEl = el.querySelector('#lib-pane');
         this._mountFilter(el, paneEl, lib.id);
-        this._infoPanel.onDirNavigate = (subPath) => {
-            if (this._pane) this._pane.load(subPath);
-        };
-
-        this._pane = new LibraryPane(paneEl, lib.id, {
-            sourcePath: lib.sourcePath,
-            rootLabel: lib.name,
-            onLeave: leave,
-            // What concerns the library as a whole, rare enough for the ⋯.
-            libraryItems: () => this._libraryMenuItems(lib, edit),
-            onImageClick: (path) => App.openViewer(path, this._pane),
-            onFocusChange: (path, type) => {
-                if (type === 'dir') this._onDirFocus(path);
-                else this._onPhotoFocus(path);
-            },
-            onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
-            onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
-            onSelectionChange: () => {
-                this._updateSelectionBar();
-            },
-        });
-
+        this._infoPanel.onDirNavigate = (subPath) => this._pane?.load(subPath);
+        this._pane = new LibraryPane(paneEl, lib.id, this._paneOptions(lib));
         this._syncInfoPanel();
         const start = this._startAt || { path: '' };
         this._startAt = null;
         if (start.name) this._pane.primePreselect([start.name]);
         this._pane.load(start.path);
+    }
+
+    // The open library's folders: leaving it, its ⋯, opening, focusing and
+    // selecting photos.
+    _paneOptions(lib) {
+        const edit = () => this._dialogs.edit(lib, (updated) => {
+            this.currentLibrary = { ...lib, ...updated };
+            this.render();
+        });
+        return {
+            sourcePath: lib.sourcePath,
+            rootLabel: lib.name,
+            onLeave: () => {
+                this._pane = null;
+                this._infoPanel = null;
+                this.currentLibrary = null;
+                this.render();
+            },
+            // What concerns the library as a whole, rare enough for the ⋯.
+            libraryItems: () => this._libraryMenuItems(lib, edit),
+            onImageClick: (path) => App.openViewer(path, this._pane),
+            onFocusChange: (path, type) => (type === 'dir' ? this._onDirFocus(path) : this._onPhotoFocus(path)),
+            onToolInvoke: (params) => App.handleToolInvoke({ ...params, sourcePath: lib.sourcePath }),
+            onSlideshowInvoke: () => App.handleSlideshowInvoke(this._pane),
+            onSelectionChange: () => this._updateSelectionBar(),
+        };
     }
 
     /* --- Filter: one column, the same in the overview and in a library --- */
@@ -486,7 +283,7 @@ class LibraryTab {
     // The Filter toggle of the tool strip, with the panel glyph and the
     // number of criteria on.
     _filterButton() {
-        const btn = panelToggleButton(t('Filter'));
+        const btn = panelToggleButton('Filter');
         btn.id = 'lib-filter-btn';
         btn.setAttribute('aria-controls', 'lib-filter-panel');
         return btn;
@@ -512,11 +309,10 @@ class LibraryTab {
         this._filterEl = el;
         this._filterUnderEl = underEl;
         this._resultsPane = null;
-
         // Filter and Info each open their panel of the right-hand column;
         // one is open at a time.
         this._filterBtn = this._filterButton();
-        this._infoBtn = panelToggleButton(t('Info'));
+        this._infoBtn = panelToggleButton('Info');
         this._infoPanel = new InfoPanel(el.querySelector('#lib-info-panel'));
         this._infoPanel.attachToggle(this._infoBtn);
         el.querySelector('.lib-filter-body').appendChild(toolStrip(this._filterBtn, this._infoBtn));
@@ -525,27 +321,25 @@ class LibraryTab {
             this._filterPanel.close();
             this.getActivePaneForKeyboard()?._notifyFocusChange();
         };
+        this._filterPanel = new LibraryFilterPanel(el.querySelector('#lib-filter-panel'), this._filterBtn, scopeLibID, this._filterCallbacks());
+    }
 
-        this._filterPanel = new LibraryFilterPanel(
-            el.querySelector('#lib-filter-panel'),
-            this._filterBtn,
-            scopeLibID,
-            {
-                onResults: (photos, multiLib, pagination) => this._showFilterResults(photos, multiLib, pagination),
-                // The column takes its width from the photos, so the justified
-                // layout has to re-pack when it comes and goes. Open, the
-                // filter has the column to itself.
-                onOpen: () => {
-                    if (this._infoPanel.expanded) this._infoPanel._setExpanded(false);
-                    this._relayoutPhotos();
-                },
-                onClose: () => this._relayoutPhotos(),
-                onActiveCount: (n) => this._updateFilterCount(n),
-                onLoading: (on) => this._showFilterLoading(on),
-                onError: () => this._resultsEl().classList.add('is-stale'),
-                onCleared: () => this._hideFilterResults(),
-            }
-        );
+    _filterCallbacks() {
+        return {
+            onResults: (photos, multiLib, pagination) => this._showFilterResults(photos, multiLib, pagination),
+            // The column takes its width from the photos, so the justified
+            // layout has to re-pack when it comes and goes. Open, the filter
+            // has the column to itself.
+            onOpen: () => {
+                if (this._infoPanel.expanded) this._infoPanel._setExpanded(false);
+                this._relayoutPhotos();
+            },
+            onClose: () => this._relayoutPhotos(),
+            onActiveCount: (n) => this._updateFilterCount(n),
+            onLoading: (on) => this._showFilterLoading(on),
+            onError: () => this._resultsEl().classList.add('is-stale'),
+            onCleared: () => this._hideFilterResults(),
+        };
     }
 
     _relayoutPhotos() {
@@ -673,6 +467,7 @@ class LibraryTab {
     _runSelectionAction(action) {
         const pane = this.getActivePaneForKeyboard();
         if (!pane) return;
+        const sourcePath = this.currentLibrary?.sourcePath ?? null;
         if (action === 'collect') { this._openCollectModal(); return; }
         if (action === 'organize') {
             const target = pane.getOpenInCommanderTarget();
@@ -682,10 +477,7 @@ class LibraryTab {
         const files = pane.getSelectedFiles();
         // Folders count for Download: they come with everything in them.
         if (action === 'download') {
-            Originals.download(files, pane, {
-                dirs: [...(pane.selectedDirs || [])],
-                sourcePath: this.currentLibrary?.sourcePath ?? null,
-            });
+            Originals.download(files, pane, { dirs: [...(pane.selectedDirs || [])], sourcePath });
             return;
         }
         if (!files.length) return;
@@ -694,14 +486,8 @@ class LibraryTab {
             pane.updateMarkedForDeletion();
             return;
         }
-        const tool = action === 'export' ? 'export'
-            : action === 'location' ? 'set-location'
-            // Always the batch dialog, even for one photo: it previews the
-            // result, and the single-file path was a browser prompt().
-            : action === 'rename' ? 'batch-rename'
-            : null;
-        if (!tool) return;
-        App.handleToolInvoke({ tool, files, path: pane.path, sourcePath: this.currentLibrary?.sourcePath ?? null });
+        const tool = LIBRARY_SELECTION_TOOLS[action];
+        if (tool) App.handleToolInvoke({ tool, files, path: pane.path, sourcePath });
     }
 
     // Resolves the current selection to library photo IDs and hands the
@@ -709,45 +495,13 @@ class LibraryTab {
     // cross-library search), and it is still one gallery.
     async _openCollectModal() {
         const active = this.getActivePaneForKeyboard();
-        const searchPane = active && active === this._resultsPane && active.selection.selected.size > 0
-            ? active : null;
-
+        const searchPane = active && active === this._resultsPane && active.selection.selected.size > 0 ? active : null;
         const lib = this.currentLibrary;
-        let photoGroups = null;
-        let selectedPaths = [];
-        let selectedDirs = [];
-
-        if (searchPane) {
-            const byLib = new Map();
-            for (const hint of searchPane.getSelectedFiles()) {
-                const info = searchPane.getPhotoInfo(hint);
-                if (!info) continue;
-                if (!byLib.has(info.libID)) byLib.set(info.libID, []);
-                byLib.get(info.libID).push(info.photoID);
-            }
-            photoGroups = Array.from(byLib.entries()).map(([libID, photoIDs]) => ({ libID, photoIDs }));
-        } else {
-            const pane = this._pane;
-            if (!pane) return;
-            selectedPaths = pane.getSelectedFiles();
-            selectedDirs = Array.from(pane.selectedDirs || []);
-            if (selectedPaths.length === 0 && selectedDirs.length === 0) return;
-        }
-
-        // A selected folder means every photo in it, which takes a round trip
-        // to resolve — do it before the dialog so its count is the real one.
-        if (selectedDirs.length > 0) {
-            const n = selectedDirs.length;
-            const arrays = await App.whileSlow(n === 1 ? t('Collecting the photos of 1 folder…') : t('Collecting the photos of {n} folders…', { n: formatCount(n) }),
-                () => Promise.all(selectedDirs.map(d => this._pane.fetchRecursivePhotoPaths(d))));
-            selectedPaths = selectedPaths.concat(arrays.flat());
-        }
-
-        const count = photoGroups
-            ? photoGroups.reduce((n, g) => n + g.photoIDs.length, 0)
-            : selectedPaths.length;
+        const photoGroups = searchPane ? searchSelectionGroups(searchPane) : null;
+        const selectedPaths = searchPane ? [] : await this._selectedPhotoPaths();
+        if (!selectedPaths) return;
+        const count = photoGroups ? photoGroups.reduce((n, g) => n + g.photoIDs.length, 0) : selectedPaths.length;
         if (count === 0) return;
-
         new CollectDialog({
             count,
             onCollect: async (choice) => {
@@ -759,6 +513,23 @@ class LibraryTab {
                 return collectPhotoGroups(groups, choice);
             },
         }).open();
+    }
+
+    // The photos selected in the open library, a selected folder standing
+    // for every photo in it; null when nothing is selected. Resolving
+    // folders takes a round trip, done before the dialog so its count is
+    // the real one.
+    async _selectedPhotoPaths() {
+        const pane = this._pane;
+        if (!pane) return null;
+        const paths = pane.getSelectedFiles();
+        const dirs = Array.from(pane.selectedDirs || []);
+        if (paths.length === 0 && dirs.length === 0) return null;
+        if (dirs.length === 0) return paths;
+        const n = dirs.length;
+        const arrays = await App.whileSlow(n === 1 ? t('Collecting the photos of 1 folder…') : t('Collecting the photos of {n} folders…', { n: formatCount(n) }),
+            () => Promise.all(dirs.map(d => pane.fetchRecursivePhotoPaths(d))));
+        return paths.concat(arrays.flat());
     }
 
     async _onPhotoFocus(path) {
@@ -803,6 +574,23 @@ class LibraryTab {
 }
 
 /* --- Utilities --- */
+
+// The selection's tools that open a dialog. Rename is always the batch
+// dialog, even for one photo: it previews the result, and the single-file
+// path was a browser prompt().
+const LIBRARY_SELECTION_TOOLS = { export: 'export', location: 'set-location', rename: 'batch-rename' };
+
+// The photos selected among search results, grouped by their library.
+function searchSelectionGroups(searchPane) {
+    const byLib = new Map();
+    for (const hint of searchPane.getSelectedFiles()) {
+        const info = searchPane.getPhotoInfo(hint);
+        if (!info) continue;
+        if (!byLib.has(info.libID)) byLib.set(info.libID, []);
+        byLib.get(info.libID).push(info.photoID);
+    }
+    return Array.from(byLib.entries()).map(([libID, photoIDs]) => ({ libID, photoIDs }));
+}
 
 function stripQuotes(s) {
     if ((s.startsWith("'") && s.endsWith("'")) ||

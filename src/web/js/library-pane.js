@@ -61,7 +61,7 @@ class LibraryPane extends BrowsePane {
             data = await r.json();
         } catch (err) {
             this._loading = false;
-            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: err.message })}</div>`;
+            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: escapeHtml(err.message) })}</div>`;
             return;
         }
 

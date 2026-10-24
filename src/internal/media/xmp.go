@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -81,9 +82,10 @@ func AppendPublication(photoPath string, pub Publication) error {
 
 // RemovePublication drops the record of one album (channel and postID) from the
 // photo's sidecar and leaves everything else in it alone. A photo without a
-// sidecar, or one that never was in that album, is not an error.
+// sidecar, one that never was in that album, or one that is gone, is not an
+// error.
 func RemovePublication(photoPath, channel, postID string) error {
-	return changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
+	err := changeSidecar(photoPath, func(raw []byte) ([]byte, error) {
 		if raw == nil {
 			return nil, nil
 		}
@@ -103,6 +105,10 @@ func RemovePublication(photoPath, channel, postID string) error {
 		}
 		return mergeULBlock(raw, kept), nil
 	})
+	if errors.Is(err, ErrPhotoGone) {
+		return nil
+	}
+	return err
 }
 
 // SetPublicationAddress records a site album's slug and Unlisted flag in the

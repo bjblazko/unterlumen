@@ -274,8 +274,8 @@ class FolderDashboard {
                 const pct = Math.round((cl.count / max) * 100);
                 // EXIF values come quoted from the index; a camera without a
                 // lens (a phone, a compact) is named alone.
-                const cam = this.panel.stripQuotes(cl.camera) || t('Unknown');
-                const lens = this.panel.stripQuotes(cl.lens);
+                const cam = exifText(cl.camera) || t('Unknown');
+                const lens = exifText(cl.lens);
                 const label = cam + (lens && lens !== '(no lens)' ? ' / ' + lens : '');
                 return `<div class="folder-cam-item">` +
                     `<div class="folder-cam-bar-row">` +

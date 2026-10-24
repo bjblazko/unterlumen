@@ -291,7 +291,7 @@ class Viewer {
                 <div class="viewer-toolbar">
                     <div class="viewer-group viewer-group-start">
                         <button class="btn viewer-back" title="${t('Back (Esc)')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> ${t('Back')}</button>
-                        <span class="viewer-filename">${filename}</span>
+                        <span class="viewer-filename">${escapeHtml(filename)}</span>
                         <span class="viewer-counter">${counter}</span>
                     </div>
                     <div class="viewer-zoom-group desk-only">
@@ -314,7 +314,7 @@ class Viewer {
                     <div class="viewer-body">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="${t('Previous (←)')}" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
-                            <img src="${preview || this._currentImageURL()}" alt="${filename}" loading="eager" fetchpriority="high">
+                            <img src="${preview || this._currentImageURL()}" alt="${escapeHtml(filename)}" loading="eager" fetchpriority="high">
                         </div>
                         <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="${t('Next (→)')}" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
                     </div>
@@ -498,7 +498,7 @@ class Viewer {
 
         toolbar.innerHTML = `
             <button class="btn viewer-crop-cancel" title="${t('Cancel (Esc)')}">${t('Cancel')}</button>
-            <span class="viewer-filename">${filename}</span>
+            <span class="viewer-filename">${escapeHtml(filename)}</span>
             <select class="viewer-crop-ratio" title="${t('Aspect ratio')}">
                 <option value="">${t('Free')}</option>
                 <option disabled>──────────</option>

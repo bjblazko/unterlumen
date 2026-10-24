@@ -33,6 +33,9 @@ func addPhotoWithThumb(t *testing.T, s *Store, libDir, id, path string, c color.
 	if err := jpeg.Encode(f, img, nil); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		os.WriteFile(path, nil, 0o644) //nolint:errcheck // a sidecar is written only beside a photo
+	}
 	if err := s.UpsertPhoto(id, path, filepath.Base(path), 0, time.Now(), "{}", rel, "", "jpeg"); err != nil {
 		t.Fatal(err)
 	}

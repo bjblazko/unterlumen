@@ -33,7 +33,7 @@ func TestOrientationSixTurnsTopLeftToTopRight(t *testing.T) {
 }
 
 func TestWriteThenReadFaceRegions(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "a.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "a.jpg"))
 	want := []FaceRegion{{Name: "Anna & Ben", X: 0.1, Y: 0.2, W: 0.1, H: 0.15}, {Name: "Carla", X: 0.6, Y: 0.3, W: 0.1, H: 0.12}}
 	if err := WriteFaceRegions(photo, want, 6, 6000, 4000); err != nil {
 		t.Fatal(err)
@@ -48,7 +48,7 @@ func TestWriteThenReadFaceRegions(t *testing.T) {
 }
 
 func TestWriteFaceRegionsKeepsTheRestOfTheSidecar(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "a.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "a.jpg"))
 	if err := WriteField(photo, "Place", "Kiel"); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ const lightroomSidecar = `<x:xmpmeta xmlns:x="adobe:ns:meta/">
 </x:xmpmeta>`
 
 func TestForeignRegionsAreReadButNotWritten(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "a.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "a.jpg"))
 	os.WriteFile(SidecarPath(photo), []byte(lightroomSidecar), 0o644) //nolint:errcheck
 	got, foreign, _ := ReadFaceRegions(photo, 1)
 	if !foreign {
@@ -113,7 +113,7 @@ func TestForeignRegionsAreReadButNotWritten(t *testing.T) {
 // A change touches only its own face: a name the other installation wrote
 // since stays, and a name taken away goes.
 func TestChangeFaceRegionsChangesOnlyItsFaces(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "a.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "a.jpg"))
 	anna := FaceRegion{Name: "Anna", X: 0.1, Y: 0.1, W: 0.2, H: 0.2}
 	ben := FaceRegion{Name: "Ben", X: 0.6, Y: 0.1, W: 0.2, H: 0.2}
 	if err := ChangeFaceRegions(photo, []FaceRegion{anna}, 6, 600, 400); err != nil {
@@ -149,7 +149,7 @@ func TestChangeFaceRegionsChangesOnlyItsFaces(t *testing.T) {
 // A description of another program that starts like Unterlumen's is still
 // another program's.
 func TestALookAlikeDescriptionIsNotTakenForUnterlumens(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "a.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "a.jpg"))
 	lookAlike := strings.Replace(lightroomSidecar,
 		`xmlns:xmp="http://ns.adobe.com/xap/1.0/"
     xmlns:mwg-rs="http://www.metadataworkinggroup.com/schemas/regions/"`,

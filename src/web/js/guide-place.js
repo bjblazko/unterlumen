@@ -61,13 +61,13 @@ function guideText() {
         <section class="guide-section">
             <h2>${t('Libraries')}</h2>
             <p>${t('A {library} catalogs a folder together with every folder inside it, however deep. Keep your photos in subfolders as you like; a library does not flatten them, and you browse it folder by folder as in Folders. For example:', { library: placeLink('library', 'libraries', t('library')) })}</p>
-            <pre class="guide-tree" aria-label="${t('Two libraries in two places: Projects on this computer and Travel on a NAS, each with subfolders')}">${t('Pictures/Projects/')}          <span class="guide-tree-note">one library, on this computer</span>
+            <pre class="guide-tree" aria-label="${t('Two libraries in two places: Projects on this computer and Travel on a NAS, each with subfolders')}">${t('Pictures/Projects/')}          <span class="guide-tree-note">${t('one library, on this computer')}</span>
   2024 Wedding Anna and Ben/
   Portraits studio/
   Street Berlin/
     Day 1/
     Day 2/
-nas/Travel/                 <span class="guide-tree-note">another library, on a NAS</span>
+nas/Travel/                 <span class="guide-tree-note">${t('another library, on a NAS')}</span>
   2023 Iceland/
   2025 Lisbon/</pre>
             <p>${t('Each library is its own folder, wherever it is; libraries need no folder in common. New library… asks for that folder and nothing else.')}</p>

@@ -42,7 +42,8 @@ function characterSpec(cs) {
     ]));
     const unit = periodUnit(cs.granularity);
     return {
-        summary: `${formatCount(n)} photos by how bright they are (across), how contrasty (in depth) and how colourful (up), each in its main colour.${periods.length > 1 ? ` The trail joins each ${unit}'s average${pathSpan(periods)}.` : ''}`,
+        summary: t('{photos} by how bright they are (across), how contrasty (in depth) and how colourful (up), each in its main colour.', { photos: countText(n, 'photo') })
+            + (periods.length > 1 ? ' ' + t(unit === 'year' ? 'The trail joins each year’s average{path}.' : 'The trail joins each month’s average{path}.', { path: pathSpan(periods) }) : ''),
         legend: legendDotHTML(t('One photo, in its main colour'))
             + legendStepHTML(t(unit === 'year' ? 'One year: the average brightness, contrast and colourfulness of its photos, larger with more photos. The line joins the years in time order{periods}.' : 'One month: the average brightness, contrast and colourfulness of its photos, larger with more photos. The line joins the months in time order{periods}.', { periods: pathSpan(periods) })),
         sprites, steps,

@@ -10,7 +10,7 @@ import (
 
 func TestReadTitle_NoSidecar(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	title, err := ReadTitle(photo)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -22,7 +22,7 @@ func TestReadTitle_NoSidecar(t *testing.T) {
 
 func TestReadTitle_WithTitle(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	xmp := `<?xml version="1.0" encoding="UTF-8"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -49,7 +49,7 @@ func TestReadTitle_WithTitle(t *testing.T) {
 
 func TestReadTitle_NoTitle(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	pub := Publication{
 		Channel:     "instagram",
 		PublishedAt: time.Now(),
@@ -68,7 +68,7 @@ func TestReadTitle_NoTitle(t *testing.T) {
 
 func TestWriteTitle_FreshSidecar(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	if err := WriteTitle(photo, "Golden hour"); err != nil {
 		t.Fatalf("WriteTitle error: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestWriteTitle_FreshSidecar(t *testing.T) {
 
 func TestWriteTitle_PreservesULBlock(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	pub := Publication{
 		Channel:     "flickr",
 		PostID:      "abc123",
@@ -113,7 +113,7 @@ func TestWriteTitle_PreservesULBlock(t *testing.T) {
 
 func TestWriteTitle_UpdateTitle(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	if err := WriteTitle(photo, "First title"); err != nil {
 		t.Fatalf("first WriteTitle error: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestWriteTitle_UpdateTitle(t *testing.T) {
 
 func TestWriteTitle_ClearTitle(t *testing.T) {
 	dir := t.TempDir()
-	photo := filepath.Join(dir, "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(dir, "shot.jpg"))
 	if err := WriteTitle(photo, "To be cleared"); err != nil {
 		t.Fatalf("WriteTitle error: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestWriteTitle_ClearTitle(t *testing.T) {
 // A site album's slug is its URL and must never be derived again, so the
 // sidecar has to carry it, together with the flag that is encoded in it.
 func TestPublication_SlugAndUnlistedRoundTrip(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "shot.jpg"))
 	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
 	in := Publication{Channel: "website", PostID: "p1", GalleryTitle: "Iceland", Slug: "iceland-3fa9c1d2", Unlisted: true, PublishedAt: at}
 	if err := AppendPublication(photo, in); err != nil {
@@ -167,7 +167,7 @@ func TestPublication_SlugAndUnlistedRoundTrip(t *testing.T) {
 
 // Sidecars written before the slug existed still read, with the fields empty.
 func TestPublication_WithoutSlugReadsAsEmpty(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "shot.jpg"))
 	if err := AppendPublication(photo, Publication{Channel: "website", PostID: "p1", PublishedAt: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestPublication_WithoutSlugReadsAsEmpty(t *testing.T) {
 }
 
 func TestRemovePublication_RemovesOnlyTheNamedAlbum(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "shot.jpg"))
 	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
 	for _, p := range []Publication{
 		{Channel: "website", PostID: "p1", Slug: "one", PublishedAt: at},
@@ -211,7 +211,7 @@ func TestRemovePublication_RemovesOnlyTheNamedAlbum(t *testing.T) {
 }
 
 func TestRemovePublication_LastOneLeavesAReadableSidecar(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "shot.jpg"))
 	_ = AppendPublication(photo, Publication{Channel: "website", PostID: "p1", PublishedAt: time.Now()})
 	if err := RemovePublication(photo, "website", "p1"); err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ func TestRemovePublication_NoSidecarIsNotAnError(t *testing.T) {
 }
 
 func TestSetPublicationAddress_FillsOnlyWhatIsMissing(t *testing.T) {
-	photo := filepath.Join(t.TempDir(), "shot.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "shot.jpg"))
 	at := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
 	for _, p := range []Publication{
 		{Channel: "website", PostID: "old", GalleryTitle: "Old", PublishedAt: at}, // published before slugs

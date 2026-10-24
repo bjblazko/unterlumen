@@ -241,9 +241,19 @@ class LibraryFilterPanel {
         this._container.innerHTML = '';
         this._container.className = 'lib-filter-panel visible';
         this._buildHead();
+        await this._loadChoices();
+        this._buildStatus();
+        this._buildControls();
+        this._buildDateFilter();
+        this._buildColourFilter();
+        this._buildSliders();
+        this._buildTextFilters();
+        this._buildChipFilters();
+    }
 
+    // Everything the filter offers to choose from, read at once.
+    async _loadChoices() {
         const ids = this._initialLibID || undefined;
-        // Load libraries, ranges, text field values, channels, meta keys, album titles, and all EXIF fields in parallel.
         const [libraries, ranges, channels, metaKeys, albumTitles, personNames, thingTotals, exifFields, ...textValues] = await Promise.all([
             LibraryAPI.list().catch(() => []),
             this._fetchRanges(this._initialLibID),
@@ -253,31 +263,14 @@ class LibraryFilterPanel {
             LibraryAPI.personNames(ids).catch(() => []),
             LibraryAPI.thingTotals(ids).catch(() => []),
             LibraryAPI.exifFields(ids).catch(() => []),
-            ...EXIF_TEXT_FILTER_FIELDS.map(f =>
-                LibraryAPI.exifValues(f.field, ids).catch(() => [])
-            ),
+            ...EXIF_TEXT_FILTER_FIELDS.map(f => LibraryAPI.exifValues(f.field, ids).catch(() => [])),
         ]);
-        this._libraries = libraries;
-        this._ranges = ranges;
-        this._channels = channels;
-        this._metaKeys = metaKeys;
-        this._albumTitles = albumTitles;
-        this._personNames = personNames;
-        this._thingNames = thingTotals.map(t => t.thing);
-        this._exifFields = exifFields;
-        this._textValues = {};
-        this._textActive = {};
-        EXIF_TEXT_FILTER_FIELDS.forEach((f, i) => {
-            this._textValues[f.field] = textValues[i];
+        Object.assign(this, {
+            _libraries: libraries, _ranges: ranges, _channels: channels, _metaKeys: metaKeys,
+            _albumTitles: albumTitles, _personNames: personNames, _exifFields: exifFields,
+            _thingNames: thingTotals.map(th => th.thing), _textValues: {}, _textActive: {},
         });
-
-        this._buildStatus();
-        this._buildControls();
-        this._buildDateFilter();
-        this._buildColourFilter();
-        this._buildSliders();
-        this._buildTextFilters();
-        this._buildChipFilters();
+        EXIF_TEXT_FILTER_FIELDS.forEach((f, i) => { this._textValues[f.field] = textValues[i]; });
     }
 
     async _fetchRanges(libID) {
@@ -312,8 +305,9 @@ class LibraryFilterPanel {
         const route = { topic: 'colour', library: this._initialLibID ? String(this._initialLibID) : '', path: '' };
         const hint = document.createElement('p');
         hint.className = 'lib-filter-hint desk-only';
-        hint.innerHTML = `More ways to find photos, such as by colour, are in
-            <a href="${statsHash(route)}">${t('Statistics')}</a>: click a value in a chart to see its photos.`;
+        hint.innerHTML = t('More ways to find photos, such as by colour, are in {statistics}: click a value in a chart to see its photos.', {
+            statistics: `<a href="${statsHash(route)}">${t('Statistics')}</a>`,
+        });
         hint.querySelector('a').addEventListener('click', (e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
@@ -326,69 +320,57 @@ class LibraryFilterPanel {
     // under the photos is 412 and not 13 371. Every chip drops its own
     // criterion; "Reset filters" drops them all.
     activeFilters() {
-        const out = [];
+        return [
+            ...this._rangeFilters(),
+            ...this._dateFilters(),
+            ...(this._hues?.length ? [{ label: t('Colours: {hues}', { hues: comboName(this._hues) }), clear: () => this._setHues([]) }] : []),
+            ...this._textFilters(),
+            ...(this._chipInput?.getChips() || []).map(chip => ({
+                label: `${chip.label}: ${chip.displayValue || chip.value}`,
+                clear: () => { this._chipInput.removeChip(chip); this._runQuery(); },
+            })),
+        ];
+    }
 
-        for (const f of EXIF_FILTER_FIELDS) {
+    _rangeFilters() {
+        return EXIF_FILTER_FIELDS.filter(f => {
             const range = this._ranges[f.field];
             const active = this._active[f.field];
-            if (!range || !active) continue;
-            if (!isNarrowed(active, range)) continue;
-            out.push({
-                label: `${f.label} ${f.format(active.min)} – ${f.format(active.max)}`,
-                clear: () => {
-                    this._active[f.field] = { min: range.min, max: range.max };
-                    this._rebuildSliders();
-                    this._runQuery();
-                },
-            });
-        }
+            return range && active && isNarrowed(active, range);
+        }).map(f => ({
+            label: `${f.label} ${f.format(this._active[f.field].min)} – ${f.format(this._active[f.field].max)}`,
+            clear: () => {
+                const range = this._ranges[f.field];
+                this._active[f.field] = { min: range.min, max: range.max };
+                this._rebuildSliders();
+                this._runQuery();
+            },
+        }));
+    }
 
-        if (this._dateMin || this._dateMax) {
-            const from = this._dateMin || 'the beginning';
-            const to = this._dateMax || 'today';
-            out.push({
-                label: t('Taken {from} – {to}', { from: from, to: to }),
-                clear: () => {
-                    this._dateMin = '';
-                    this._dateMax = '';
-                    if (this._dateMinInput) this._dateMinInput.value = '';
-                    if (this._dateMaxInput) this._dateMaxInput.value = '';
-                    this._runQuery();
-                },
-            });
-        }
+    _dateFilters() {
+        if (!this._dateMin && !this._dateMax) return [];
+        return [{
+            label: t('Taken {from} – {to}', { from: this._dateMin || t('the beginning'), to: this._dateMax || t('today') }),
+            clear: () => {
+                this._dateMin = '';
+                this._dateMax = '';
+                if (this._dateMinInput) this._dateMinInput.value = '';
+                if (this._dateMaxInput) this._dateMaxInput.value = '';
+                this._runQuery();
+            },
+        }];
+    }
 
-        if (this._hues?.length) {
-            out.push({
-                label: t('Colours: {hues}', { hues: comboName(this._hues) }),
-                clear: () => this._setHues([]),
-            });
-        }
-
-        for (const f of EXIF_TEXT_FILTER_FIELDS) {
-            const value = (this._textActive || {})[f.field];
-            if (!value) continue;
-            out.push({
-                label: `${f.label}: ${value}`,
-                clear: () => {
-                    delete this._textActive[f.field];
-                    this._rebuildTextFilters();
-                    this._runQuery();
-                },
-            });
-        }
-
-        for (const chip of (this._chipInput?.getChips() || [])) {
-            out.push({
-                label: `${chip.label}: ${chip.displayValue || chip.value}`,
-                clear: () => {
-                    this._chipInput.removeChip(chip);
-                    this._runQuery();
-                },
-            });
-        }
-
-        return out;
+    _textFilters() {
+        return EXIF_TEXT_FILTER_FIELDS.filter(f => (this._textActive || {})[f.field]).map(f => ({
+            label: `${f.label}: ${this._textActive[f.field]}`,
+            clear: () => {
+                delete this._textActive[f.field];
+                this._rebuildTextFilters();
+                this._runQuery();
+            },
+        }));
     }
 
     activeCount() { return this.activeFilters().length; }
@@ -411,50 +393,47 @@ class LibraryFilterPanel {
     _buildControls() {
         const bar = document.createElement('div');
         bar.className = 'lib-filter-controls';
-
-        // Library selector
         const sel = document.createElement('select');
         sel.className = 'lib-filter-select';
         sel.innerHTML = `<option value="">${t('All libraries')}</option>` +
             this._libraries.map(l =>
                 `<option value="${escapeHtml(l.id)}"${l.id === this._initialLibID ? ' selected' : ''}>${escapeHtml(l.name)}</option>`
             ).join('');
-        sel.addEventListener('change', async () => {
-            this._setLoading(true);
-            this._initialLibID = sel.value || null;
-            const ids = this._initialLibID || undefined;
-            let ranges;
-            try {
-                [ranges] = await Promise.all([
-                    this._fetchRanges(this._initialLibID),
-                    ...EXIF_TEXT_FILTER_FIELDS.map(f =>
-                        LibraryAPI.exifValues(f.field, ids).catch(() => []).then(vals => {
-                            this._textValues[f.field] = vals;
-                        })
-                    ),
-                ]);
-            } catch (err) {
-                this._setLoading(false);
-                this._showQueryError(err);
-                return;
-            }
-            this._ranges = ranges;
-            this._textActive = {};
-            this._rebuildSliders();
-            this._rebuildTextFilters();
-            this._runQuery();
-        });
+        sel.addEventListener('change', () => this._chooseLibrary(sel.value || null));
         this._libSelect = sel;
-
-        // Reset button
         const reset = document.createElement('button');
         reset.className = 'btn btn-sm lib-filter-reset';
         reset.textContent = t('Reset filters');
         reset.addEventListener('click', () => this._reset());
-
         bar.appendChild(sel);
         bar.appendChild(reset);
         this._container.appendChild(bar);
+    }
+
+    // Another library has other ranges and values: they are read again, and
+    // what was chosen of the old ones goes.
+    async _chooseLibrary(libID) {
+        this._setLoading(true);
+        this._initialLibID = libID;
+        const ids = libID || undefined;
+        let ranges;
+        try {
+            [ranges] = await Promise.all([
+                this._fetchRanges(libID),
+                ...EXIF_TEXT_FILTER_FIELDS.map(f => LibraryAPI.exifValues(f.field, ids).catch(() => []).then(vals => {
+                    this._textValues[f.field] = vals;
+                })),
+            ]);
+        } catch (err) {
+            this._setLoading(false);
+            this._showQueryError(err);
+            return;
+        }
+        this._ranges = ranges;
+        this._textActive = {};
+        this._rebuildSliders();
+        this._rebuildTextFilters();
+        this._runQuery();
     }
 
     _buildSliders() {
@@ -490,38 +469,30 @@ class LibraryFilterPanel {
     _buildGroup(spec, activeField, range) {
         const group = document.createElement('div');
         group.className = 'lib-filter-group';
-
         // Header row: field label + current range display
-        const header = document.createElement('div');
-        header.className = 'lib-filter-label';
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = spec.label;
-        const displaySpan = document.createElement('span');
-        displaySpan.className = 'lib-filter-range-display';
+        group.innerHTML = `<div class="lib-filter-label"><span>${escapeHtml(spec.label)}</span><span class="lib-filter-range-display"></span></div>`;
+        const displaySpan = group.querySelector('.lib-filter-range-display');
         displaySpan.textContent = spec.format(range.min) + ' – ' + spec.format(range.max);
-        header.appendChild(nameSpan);
-        header.appendChild(displaySpan);
-        group.appendChild(header);
-
         group.appendChild(this._buildRangeSlider(spec, activeField, range, displaySpan));
-
-        if (spec.field === 'FocalLength') {
-            const wrap = document.createElement('div');
-            wrap.className = 'lib-filter-35mm';
-            Toggle.create(wrap, {
-                initial: this._use35mm,
-                labelOn: '35mm',
-                labelOff: t('Native'),
-                onChange: (on) => {
-                    this._use35mm = on;
-                    this._rebuildSliders();
-                    this._runQuery();
-                }
-            });
-            group.appendChild(wrap);
-        }
-
+        if (spec.field === 'FocalLength') group.appendChild(this._focal35Switch());
         return group;
+    }
+
+    // Focal lengths as they are, or as on 35 mm film.
+    _focal35Switch() {
+        const wrap = document.createElement('div');
+        wrap.className = 'lib-filter-35mm';
+        Toggle.create(wrap, {
+            initial: this._use35mm,
+            labelOn: '35mm',
+            labelOff: t('Native'),
+            onChange: (on) => {
+                this._use35mm = on;
+                this._rebuildSliders();
+                this._runQuery();
+            },
+        });
+        return wrap;
     }
 
     _buildRangeSlider(spec, activeField, range, displaySpan) {
@@ -601,7 +572,7 @@ class LibraryFilterPanel {
         group.className = 'lib-filter-group';
         group.innerHTML = `<div class="lib-filter-label" id="lib-colour-label">${t('Colours')}</div>
             <div class="lib-colour-chips" role="group" aria-labelledby="lib-colour-label">${HUE_NAMES.map((name, bin) =>
-                `<button type="button" class="lib-colour-chip" data-bin="${bin}" aria-pressed="false"><span class="lib-colour-swatch" style="background: oklch(0.66 0.12 ${bin * 30 + 15})"></span>${escapeHtml(name)}</button>`).join('')}</div>
+                `<button type="button" class="lib-colour-chip" data-bin="${bin}" aria-pressed="false"><span class="lib-colour-swatch" style="background: oklch(0.66 0.12 ${bin * 30 + 15})"></span>${escapeHtml(t(name))}</button>`).join('')}</div>
             <span class="form-hint">${t('Up to three; each covers at least {pct} % of the photo.', { pct: COMBO_SHARE_MIN_PERCENT })}</span>`;
         group.querySelectorAll('.lib-colour-chip').forEach(chip => chip.addEventListener('click', () => {
             const bin = Number(chip.dataset.bin);
@@ -630,128 +601,31 @@ class LibraryFilterPanel {
     }
 
     _buildDateFilter() {
-        const wrap = document.createElement('div');
-        wrap.className = 'lib-filter-groups';
-
-        const group = document.createElement('div');
-        group.className = 'lib-filter-group lib-filter-group--date';
-
-        const label = document.createElement('div');
-        label.className = 'lib-filter-label';
-        label.textContent = t('Date taken');
-        group.appendChild(label);
-
-        const makeRow = (labelText, initVal, onChange) => {
-            const row = document.createElement('div');
-            row.className = 'lib-date-row';
-            const lbl = document.createElement('span');
-            lbl.className = 'lib-date-row-label';
-            lbl.textContent = labelText;
-            // A text field, so the day reads 2026-10-21 as everywhere else,
-            // not in the browser's own order.
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.inputMode = 'numeric';
-            input.placeholder = t('YYYY-MM-DD');
-            input.autocomplete = 'off';
-            input.className = 'lib-date-input';
-            input.value = initVal;
-            input.addEventListener('change', () => {
-                const v = input.value.trim();
-                const ok = v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v)));
-                input.toggleAttribute('aria-invalid', !ok);
-                input.title = ok ? '' : t('Write the day as 2026-10-21');
-                if (ok) onChange(v);
-            });
-            // Escape blurs without changing value, restoring keyboard navigation.
-            input.addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
-            row.appendChild(lbl);
-            row.appendChild(input);
-            return { row, input };
-        };
-
-        const { row: fromRow, input: fromInput } = makeRow(t('From'), this._dateMin, v => {
-            this._dateMin = v;
-            this._scheduleQuery();
+        const { el, from, to } = dateTakenFilter(this._dateMin, this._dateMax, {
+            from: v => { this._dateMin = v; this._scheduleQuery(); },
+            to: v => { this._dateMax = v; this._scheduleQuery(); },
         });
-        const { row: toRow, input: toInput } = makeRow('To', this._dateMax, v => {
-            this._dateMax = v;
-            this._scheduleQuery();
-        });
-        this._dateMinInput = fromInput;
-        this._dateMaxInput = toInput;
-
-        group.appendChild(fromRow);
-        group.appendChild(toRow);
-        wrap.appendChild(group);
-        this._container.appendChild(wrap);
+        this._dateMinInput = from;
+        this._dateMaxInput = to;
+        this._container.appendChild(el);
     }
 
     _buildChipFilters() {
         const section = document.createElement('div');
         section.className = 'lib-filter-groups lib-chip-filter-section';
-
-        const label = document.createElement('div');
-        label.className = 'lib-filter-group-header';
-        label.textContent = t('More filters');
-        section.appendChild(label);
-
-        const chipContainer = document.createElement('div');
-        chipContainer.className = 'lib-chip-filter-wrap';
-        section.appendChild(chipContainer);
+        section.innerHTML = `<div class="lib-filter-group-header">${t('More filters')}</div><div class="lib-chip-filter-wrap"></div>`;
         this._container.appendChild(section);
-
-        const ids = this._initialLibID || undefined;
-        const channels = this._channels || [];
-        const metaKeys = this._metaKeys || [];
-        const albumTitles = this._albumTitles || [];
-        const personNames = this._personNames || [];
-        const thingNames = this._thingNames || [];
-        const exifFields = this._exifFields || [];
-
-        // Params already covered by fixed namespaces — don't add them again as dynamic EXIF entries.
-        const fixedParams = new Set(CHIP_NS_FIXED.filter(n => n.type === 'exif').map(n => n.param));
-
-        const buildNamespaces = () => {
-            const nss = [...CHIP_NS_FIXED];
-            // Add all EXIF fields from the index (excluding slider fields and already-fixed ones).
-            for (const field of exifFields) {
-                if (field === 'DateTaken' || field === 'DateTimeOriginal') continue;
-                if (SLIDER_FIELDS.has(field)) continue;
-                if (fixedParams.has(field)) continue;
-                if (!nss.find(n => n.ns === field)) {
-                    nss.push({ ns: field, label: field, hint: t('EXIF field'), type: 'exif', param: field });
-                }
-            }
-            // Add dynamic user-defined meta keys (exclude built:* system keys).
-            for (const key of metaKeys) {
-                if (key.startsWith('built:')) continue;
-                if (!nss.find(n => n.ns === key)) {
-                    nss.push({ ns: key, label: key, hint: t('Custom tag'), type: 'meta', param: 'meta_' + key });
-                }
-            }
-            return nss;
+        const namespaces = () => chipNamespaces(this._exifFields || [], this._metaKeys || []);
+        const sources = {
+            channel: () => (this._channels || []).map(c => c.slug),
+            album: () => this._albumTitles || [],
+            person: () => this._personNames || [],
+            thing: () => (this._thingNames || []).map(id => ({ value: id, label: ThingWords.name(id) })),
+            shows: () => [],
         };
-
-        this._chipInput = new ChipInput(chipContainer, {
-            onFetchNamespaces: async () => buildNamespaces(),
-            onFetchValues: async (ns) => {
-                // Look up the full namespace descriptor built by buildNamespaces().
-                const nsDesc = buildNamespaces().find(n => n.ns === ns);
-                if (nsDesc) {
-                    if (nsDesc.ns === 'channel') return channels.map(c => c.slug);
-                    if (nsDesc.ns === 'album') return albumTitles;
-                    if (nsDesc.ns === 'person') return personNames;
-                    if (nsDesc.ns === 'thing') return thingNames.map(id => ({ value: id, label: ThingWords.name(id) }));
-                    if (nsDesc.ns === 'shows') return [];
-                    if (nsDesc.type === 'exif') {
-                        const raw = await LibraryAPI.exifValues(nsDesc.param, ids).catch(() => []);
-                        return labeledExifValues(nsDesc.param, raw);
-                    }
-                    if (nsDesc.type === 'meta') return LibraryAPI.metaValues(ns, ids).catch(() => []);
-                }
-                return LibraryAPI.metaValues(ns, ids).catch(() => []);
-            },
+        this._chipInput = new ChipInput(section.querySelector('.lib-chip-filter-wrap'), {
+            onFetchNamespaces: async () => namespaces(),
+            onFetchValues: (ns) => chipValues(namespaces().find(n => n.ns === ns), ns, sources, this._initialLibID || undefined),
             onChange: () => this._scheduleQuery(),
         });
     }
@@ -792,8 +666,7 @@ class LibraryFilterPanel {
         if (this._initialLibID) params.ids = this._initialLibID;
         for (const [field, active] of Object.entries(this._active)) {
             const r = this._ranges[field];
-            if (!r) continue;
-            if (isNarrowed(active, r)) {
+            if (r && isNarrowed(active, r)) {
                 params[`${field}_min`] = active.min;
                 params[`${field}_max`] = active.max;
             }
@@ -804,13 +677,7 @@ class LibraryFilterPanel {
         if (this._dateMin) params.date_taken_min = this._dateMin;
         if (this._dateMax) params.date_taken_max = this._dateMax;
         if (this._hues?.length) params.hues = this._hues.join(',');
-        for (const chip of (this._chipInput?.getChips() || [])) {
-            const p = chipToParam(chip);
-            if (!p) continue;
-            // Several people or things narrow together: photos with all of them.
-            if (p.key === 'person' || p.key === 'thing') (params[p.key] ||= []).push(p.value);
-            else params[p.key] = p.value;
-        }
+        addChipParams(params, this._chipInput?.getChips() || []);
         return params;
     }
 

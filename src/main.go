@@ -56,13 +56,16 @@ func main() {
 
 	addr := fmt.Sprintf("%s:%d", cfg.bind, cfg.port)
 	log.Printf("Listening on http://%s", addr)
+	handler := guard(srv, cfg.bind)
 	if !cfg.desktop {
-		if err := http.ListenAndServe(addr, srv); err != nil {
+		h := newHTTPServer(handler)
+		h.Addr = addr
+		if err := h.ListenAndServe(); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 		return
 	}
-	serveDesktop(addr, srv)
+	serveDesktop(addr, handler)
 }
 
 // packaged runs the packaging commands, which exit instead of serving:
@@ -289,7 +292,7 @@ func serveDesktop(addr string, mux http.Handler) {
 	if err != nil {
 		log.Fatalf("Failed to bind %s: %v", addr, err)
 	}
-	srv := &http.Server{Handler: mux}
+	srv := newHTTPServer(mux)
 	go func() {
 		if serveErr := srv.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", serveErr)

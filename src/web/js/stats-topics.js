@@ -117,7 +117,7 @@ const STATS_TOPICS = [
               })) },
             { title: t('Main colours'), subtitle: t('Part of the colour photos\' area in each hue; each hue at its most colourful'), source: 'colour',
               render: (el, d, pick) => renderHueWheel(el, d.colour, bin => pick({
-                  subject: `${capitalise(hueName(bin))} · at least ${HUE_SHARE_MIN_PERCENT} % of the frame`,
+                  subject: t('{hue} · at least {pct} % of the frame', { hue: capitalise(hueName(bin)), pct: HUE_SHARE_MIN_PERCENT }),
                   params: { mono: 'colour', hue_bin: bin },
               })) },
             { title: t('Colour combinations'), subtitle: t('Photos with each colour of a well-known combination, each at least {COMBO_SHARE_MIN_PERCENT} % of the frame', { COMBO_SHARE_MIN_PERCENT: COMBO_SHARE_MIN_PERCENT }), source: 'colour',

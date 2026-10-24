@@ -11,7 +11,7 @@ import (
 
 func thingsPhoto(t *testing.T, sidecar string) string {
 	t.Helper()
-	photo := filepath.Join(t.TempDir(), "p.jpg")
+	photo := existingPhoto(t, filepath.Join(t.TempDir(), "p.jpg"))
 	if sidecar != "" {
 		if err := os.WriteFile(SidecarPath(photo), []byte(sidecar), 0o644); err != nil {
 			t.Fatal(err)

@@ -254,7 +254,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |
 | `stats-colour-charts.js` | Colour charts from `/api/library/colour`: black and white against colour, a swatch strip per period, a hue wheel, warm and cool per month; marks in the photos' own colour (ADR-0030, Deviations) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
-| `js/vendor/maplibre-6.11.2/` | Vendored MapLibre GL JS 6.11.2 as ES modules, loaded as the global `maplibregl` ([ADR-0038](adr/0038-maplibre-6-as-es-module.md)) for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
+| `js/vendor/maplibre-6.15.0/` | Vendored MapLibre GL JS 6.15.0 as ES modules, loaded as the global `maplibregl` ([ADR-0038](adr/0038-maplibre-6-as-es-module.md)) for location maps ([ADR-0013](adr/0013-maplibre-location-maps.md), vendored per [ADR-0031](adr/0031-vendor-maplibre.md)); tiles come from OpenFreeMap over the network |
 | `data/natural-earth-lines.json` | Natural Earth 1:50m coastlines and land borders (public domain), simplified and delta-encoded, for the floor of Space and time ([ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)) |
 | `fonts/` | Self-hosted IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500), latin and latin-ext WOFF2 subsets, declared in `fonts/fonts.css` ([ADR-0030](adr/0030-rams-design-tokens.md)) |
 
@@ -424,6 +424,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0054](adr/0054-things-found-on-this-computer.md) — Things found on this computer, written into the sidecars as keywords; one search above every place
 - [ADR-0055](adr/0055-siglip2-quality-and-languages.md) — Things found by SigLIP 2: quality first, photo quality as things, search in any language
 - [ADR-0056](adr/0056-languages-things-and-interface.md) — Languages: thing IDs with names per language, a keyword language per library, the interface translated by English keys
+- [ADR-0057](adr/0057-requests-from-other-sites-and-untrusted-input.md) — Requests from other sites refused, security headers, only images served inline, external program arguments checked, one escape helper
 
 ## 10. Quality Requirements
 

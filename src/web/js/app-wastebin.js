@@ -155,19 +155,19 @@ class Wastebin {
             // A folder has no thumbnail, and a broken image icon would look
             // like a defect rather than a folder waiting to be deleted.
             if (entry.type === 'dir') {
-                return `<div class="grid-item image-item wastebin-dir${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
+                return `<div class="grid-item image-item wastebin-dir${selectedClass}" data-index="${idx}" data-path="${escapeHtml(path)}" data-type="image">
                     <div class="wastebin-dir-tile">
                         <svg width="40" height="34" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true"><path d="M1.5 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></svg>
                     </div>
-                    <div class="item-name">${label}</div>
+                    <div class="item-name">${escapeHtml(label)}</div>
                 </div>`;
             }
             const thumbSrc = (entry.libID && entry.photoID)
                 ? LibraryAPI.thumbURL(entry.libID, entry.photoID)
                 : API.thumbnailURL(path, 200);
-            return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${path}" data-type="image">
-                <img src="${thumbSrc}" alt="${label}" loading="lazy" onload="this.classList.add('img-loaded')">
-                <div class="item-name">${label}</div>
+            return `<div class="grid-item image-item${selectedClass}" data-index="${idx}" data-path="${escapeHtml(path)}" data-type="image">
+                <img src="${thumbSrc}" alt="${escapeHtml(label)}" loading="lazy" onload="this.classList.add('img-loaded')">
+                <div class="item-name">${escapeHtml(label)}</div>
             </div>`;
         });
 

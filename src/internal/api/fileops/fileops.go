@@ -212,7 +212,13 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		var destLib *library.Library
 		if lib, ok := libMgr.FindLibraryForPath(destDir); ok {
 			destLib = lib
-			libraryUpdated = libMgr.IndexFilesSync(lib.ID, dstPaths)
+			if cleanupSrc {
+				// A move keeps content, time and size: a photo the library
+				// knew at its old path is not read again.
+				libraryUpdated = libMgr.IndexMovedFiles(lib.ID, movedPairs(srcPaths, dstPaths))
+			} else {
+				libraryUpdated = libMgr.IndexFilesSync(lib.ID, dstPaths)
+			}
 		}
 		if cleanupSrc {
 			// After the arrivals are indexed: a photo moved within one
@@ -508,3 +514,13 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)
 }
+
+// movedPairs pairs each moved file's old path with its new one.
+func movedPairs(srcPaths, dstPaths []string) [][2]string {
+	pairs := make([][2]string, len(srcPaths))
+	for i := range srcPaths {
+		pairs[i] = [2]string{srcPaths[i], dstPaths[i]}
+	}
+	return pairs
+}
+

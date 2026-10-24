@@ -125,10 +125,9 @@ class OrganizePane {
                 <button class="btn btn-sm" data-org="add">${t('Add target…')}</button>
             </div>
             <ul class="org-keys">
-                <li><span class="key">${t('Space')}</span> selects the photo in focus</li>
-                <li><span class="key">1</span>–<span class="key">9</span> move the selection to that target; hold <span class="key">⌥</span> to copy</li>
-                <li><span class="key">${t('Enter')}</span> sends it to the orange one</li>
-                <li><span class="key">U</span> undoes the last move</li>
+                <li>${t('{key} selects the photo in focus', { key: `<span class="key">${t('Space')}</span>` })}</li>
+                <li>${t('{keys} move the selection to that target; hold {option} to copy', { keys: '<span class="key">1</span>–<span class="key">9</span>', option: '<span class="key">⌥</span>' })}</li>
+                <li>${t('{key} undoes the last move', { key: '<span class="key">U</span>' })}</li>
             </ul>
             ${this.targets.some(x => x.missing) ? `<button class="btn btn-sm" data-org="forget">${t('Forget the missing folders')}</button>` : ''}`;
     }
@@ -151,7 +150,7 @@ class OrganizePane {
         const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
-            this._say(`${targetName(picked)} is already a target.`);
+            this._say(t('{name} is already a target.', { name: targetName(picked) }));
             return;
         }
         this.targets.push({ path: picked });
@@ -171,6 +170,9 @@ class OrganizePane {
     // index is a number (a folder target) or 'mark' (the waste bin).
     async sendTo(index, { copy = false } = {}) {
         if (index !== 'mark' && !this.targets[index]) return;
+        // One move at a time: a second press while the first runs would send
+        // the same photos again, and find them gone.
+        if (this._moving) return;
         const files = this.pane.getActionableFiles();
         const dirs = [...this.pane.selectedDirs];
         if (!files.length && !dirs.length) {
@@ -188,7 +190,12 @@ class OrganizePane {
             this._say(t('Folders can only go to "Mark for deletion"; photos go to any target.'), 'error');
             return;
         }
-        await this._moveFiles(index, files, copy);
+        this._moving = true;
+        try {
+            await this._moveFiles(index, files, copy);
+        } finally {
+            this._moving = false;
+        }
     }
 
     _mark(files, dirs) {
@@ -199,7 +206,7 @@ class OrganizePane {
         this.pane.selectedDirs.clear();
         this.pane.render();
         this._undo = { kind: 'mark', paths: targets };
-        this._say(`${countLabel(targets.length)} marked for deletion.`);
+        this._say(t('{photos} marked for deletion.', { photos: countLabel(targets.length) }));
         this._renderTargets();
         this._renderPath();
         this._updateSelectionBar();
@@ -208,25 +215,37 @@ class OrganizePane {
     async _moveFiles(index, files, copy) {
         const target = this.targets[index];
         const name = targetName(target.path);
-        this._say(copy ? t('Copying {photos} to {name}…', { photos: countLabel(files.length), name }) : t('Moving {photos} to {name}…', { photos: countLabel(files.length), name }));
+        this._working(copy ? t('Copying {photos} to {name}…', { photos: countLabel(files.length), name })
+            : t('Moving {photos} to {name}…', { photos: countLabel(files.length), name }));
         let result;
         try {
             result = copy ? await API.copy(files, target.path) : await API.move(files, target.path);
         } catch (err) {
-            this._say(t('Could not reach {name}: {err}', { name: name, err: err.message }), 'error');
+            this._say(t('Could not reach {name}: {err}', { name, err: err.message }), 'error');
             return;
         }
-
         const results = result.results || [];
-        const failures = results.filter(r => !r.success);
+        const failures = results.filter(r => !r.success).map(failureLine);
         const moved = results.filter(r => r.success).map(r => r.file);
         if (!moved.length) {
             target.missing = failures.length > 0;
             this._renderTargets();
-            this._say(t('Nothing went to {name}: {errors}', { name, errors: failures.map(f => f.error).join(', ') }), 'error');
+            this._say(t('Nothing went to {name}.', { name }), 'error', failures);
             return;
         }
+        this._recordMoved(target, moved, copy, name);
+        const done = copy ? t('{photos} copied to {name}.', { photos: countLabel(moved.length), name })
+            : t('{photos} moved to {name}.', { photos: countLabel(moved.length), name });
+        this._say(failures.length ? `${done} ${t('{n} did not:', { n: formatCount(failures.length) })}` : done,
+            failures.length ? 'error' : '', failures);
+        this.pane.selection.clear();
+        this.pane.load(this.pane.path);
+        this._renderTargets();
+        this._renderPath();
+        if (result.libraryUpdated) App.reloadLibraryPane();
+    }
 
+    _recordMoved(target, moved, copy, name) {
         target.missing = false;
         target.moved = (target.moved || 0) + moved.length;
         this._sorted += moved.length;
@@ -236,29 +255,22 @@ class OrganizePane {
             back: this.pane.path,
             name,
         };
-        this._say(`${countLabel(moved.length)} ${copy ? 'copied' : 'moved'} to ${name}.`
-            + (failures.length ? ` ${failures.length} did not: ${failures.map(f => f.error).join(', ')}` : ''),
-            failures.length ? 'error' : '');
-        this.pane.selection.clear();
-        this.pane.load(this.pane.path);
-        this._renderTargets();
-        this._renderPath();
-        if (result.libraryUpdated) App.reloadLibraryPane();
     }
 
     async undo() {
         const u = this._undo;
-        if (!u) return;
+        if (!u || this._moving) return;
         this._undo = null;
         if (u.kind === 'mark') {
             App.wastebin.restore(new Set(u.paths));
             this._sorted = Math.max(0, this._sorted - u.paths.length);
             this.pane.render();
-            this._say(`${countLabel(u.paths.length)} back in the folder.`);
+            this._say(t('{photos} back in the folder.', { photos: countLabel(u.paths.length) }));
             this._renderPath();
             return;
         }
-        this._say(t('Moving {paths} back from {name}…', { paths: countLabel(u.paths.length), name: u.name }));
+        this._working(t('Moving {paths} back from {name}…', { paths: countLabel(u.paths.length), name: u.name }));
+        this._moving = true;
         try {
             await API.move(u.paths, u.back);
             this._sorted = Math.max(0, this._sorted - u.paths.length);
@@ -267,15 +279,18 @@ class OrganizePane {
             this.pane.load(this.pane.path);
             this._renderTargets();
             this._renderPath();
-            this._say(`${countLabel(u.paths.length)} moved back from ${u.name}.`);
+            this._say(t('{photos} moved back from {name}.', { photos: countLabel(u.paths.length), name: u.name }));
         } catch (err) {
             this._say(t('Could not move them back: {err}', { err: err.message }), 'error');
+        } finally {
+            this._moving = false;
         }
     }
 
     /* --- Result line --- */
 
-    _say(message, kind = '') {
+    // details are lines under the message: what did not work, and why.
+    _say(message, kind = '', details = []) {
         this._result = message;
         this._resultKind = kind;
         const el = this.container.querySelector('#org-result');
@@ -285,7 +300,19 @@ class OrganizePane {
         el.innerHTML = message
             ? `<span>${escapeHtml(message)}</span>${this._undo ? '<button class="btn btn-sm" id="org-undo">' + t('Undo ') + '<span class="key">U</span></button>' : ''}`
             : '';
+        if (details.length) el.appendChild(Activity.errorList(details));
         el.querySelector('#org-undo')?.addEventListener('click', () => this.undo());
+    }
+
+    // While files move, the result line says so — and after a few seconds
+    // for how long (ADR-0036).
+    _working(text) {
+        const el = this.container.querySelector('#org-result');
+        if (!el) return;
+        el.hidden = false;
+        el.className = 'organize-result';
+        el.innerHTML = '';
+        Activity.in(el, text);
     }
 
     /* --- Selection --- */
@@ -311,7 +338,8 @@ class OrganizePane {
 
     // The number keys are the place shortcuts everywhere else, so they only
     // aim at a target while something is selected: you select, then you send.
-    // Enter keeps opening a folder when nothing is selected, as in Folders.
+    // Enter opens, as everywhere else; it never moves a file. A held key
+    // does not send again.
     handleKey(e) {
         const hasSelection = this.pane.selection.selected.size + this.pane.selectedDirs.size > 0;
         if (hasSelection && /^[1-9]$/.test(e.key)) {
@@ -319,21 +347,24 @@ class OrganizePane {
             const isMark = n === this.targets.length;
             if (n >= this.targets.length && !isMark) return false;
             e.preventDefault();
-            this.sendTo(isMark ? 'mark' : n, { copy: e.altKey });
+            if (!e.repeat) this.sendTo(isMark ? 'mark' : n, { copy: e.altKey });
             return true;
         }
-        if (hasSelection && e.key === 'Enter') {
-            e.preventDefault();
-            this.sendTo(this.current, { copy: e.altKey });
-            return true;
-        }
-        if ((e.key === 'u' || e.key === 'U') && this._undo) {
+        if ((e.key === 'u' || e.key === 'U') && this._undo && !e.repeat) {
             e.preventDefault();
             this.undo();
             return true;
         }
         return false;
     }
+}
+
+// failureLine is one file that did not move: its name and why, without the
+// path the server's message repeats.
+function failureLine(r) {
+    const name = String(r.file || '').split('/').pop();
+    const reason = String(r.error || '').split(': ').pop();
+    return name ? `${name}: ${reason}` : reason;
 }
 
 /* --- Targets are remembered client-side (ADR-0012) --- */
@@ -358,5 +389,5 @@ function targetName(path) {
 }
 
 function countLabel(n) {
-    return `${n} ${n === 1 ? 'item' : 'items'}`;
+    return countText(n, 'item');
 }

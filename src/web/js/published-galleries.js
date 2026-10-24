@@ -143,27 +143,46 @@ function formatTime(date) {
 // it stands.
 function galleryStateLine(row, ch, state, check) {
     const published = formatDay(row.publishedAt);
-    const builtOn = recordedTime(row.generatedAt) ? formatDay(recordedTime(row.generatedAt)) : '';
     switch (state.key) {
-        case 'draft':
-            return ch && !ch.galleryExport && !ch.siteExport
-                ? t('Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.')
-                : t('Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.');
-        case 'pending':
-            return isFilesDestination(ch)
-                ? (row.pendingCount === 1 ? t('Exported {day}. 1 more photo waits to be exported.', { day: published }) : t('Exported {day}. {n} more photos wait to be exported.', { day: published, n: formatCount(row.pendingCount) }))
-                : (row.pendingCount === 1 ? t('Online since {day}. 1 change is not online yet.', { day: published }) : t('Online since {day}. {n} changes are not online yet.', { day: published, n: formatCount(row.pendingCount) }));
+        case 'draft': return draftLine(ch);
+        case 'pending': return pendingLine(row, ch, published);
         case 'exported':
             return t('Exported {day} as {files}. This destination has no upload configured, so putting them anywhere is up to you.', { day: published, files: countText(row.photoCount, 'file') });
-        case 'built':
-            return ch?.handler
-                ? (builtOn ? t('Built on {day}, and not uploaded since. Publishing again uploads it.', { day: builtOn }) : t('Built, and not uploaded since. Publishing again uploads it.'))
-                : (builtOn ? t('Built on {day}. This destination has no upload configured, so the files only exist in the local output folder.', { day: builtOn }) : t('Built. This destination has no upload configured, so the files only exist in the local output folder.'));
+        case 'built': return builtLine(row, ch);
     }
     if (check && check.reachable === false) {
-        return t('Published {published}. The address did not answer at {at}.', { published: published, at: formatTime(check.at) });
+        return t('Published {published}. The address did not answer at {at}.', { published, at: formatTime(check.at) });
     }
-    return t('Published {published}.', { published: published });
+    return t('Published {published}.', { published });
+}
+
+function draftLine(ch) {
+    return ch && !ch.galleryExport && !ch.siteExport
+        ? t('Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.')
+        : t('Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.');
+}
+
+// Changes wait: photos still to export for a files destination, changes
+// not yet online for the others.
+function pendingLine(row, ch, day) {
+    const n = row.pendingCount;
+    if (isFilesDestination(ch)) {
+        return n === 1 ? t('Exported {day}. 1 more photo waits to be exported.', { day })
+            : t('Exported {day}. {n} more photos wait to be exported.', { day, n: formatCount(n) });
+    }
+    return n === 1 ? t('Online since {day}. 1 change is not online yet.', { day })
+        : t('Online since {day}. {n} changes are not online yet.', { day, n: formatCount(n) });
+}
+
+// Built, but not online: not uploaded since, or nowhere to upload to.
+function builtLine(row, ch) {
+    const day = recordedTime(row.generatedAt) ? formatDay(recordedTime(row.generatedAt)) : '';
+    if (ch?.handler) {
+        return day ? t('Built on {day}, and not uploaded since. Publishing again uploads it.', { day })
+            : t('Built, and not uploaded since. Publishing again uploads it.');
+    }
+    return day ? t('Built on {day}. This destination has no upload configured, so the files only exist in the local output folder.', { day })
+        : t('Built. This destination has no upload configured, so the files only exist in the local output folder.');
 }
 
 class GalleriesPane {
@@ -236,66 +255,77 @@ class GalleriesPane {
         const base = ch ? _deployBaseURL(ch) : null;
         if (base) return { text: base.url.replace(/^https?:\/\//, '') + (base.guessed ? ' (guessed)' : ''), isAddress: true };
         if (ch?.outputPath) return { text: ch.outputPath, isAddress: true };
-        return { text: 'no address configured', isAddress: false };
+        return { text: t('no address configured'), isAddress: false };
     }
 
     /* --- List --- */
 
     _renderList() {
-        let rows = this._rows;
         const filtered = this._filterChannel
-            ? rows.filter(r => r.channelSlug === this._filterChannel)
-            : rows;
+            ? this._rows.filter(r => r.channelSlug === this._filterChannel)
+            : this._rows;
+        this.container.innerHTML = `
+            <div class="gal-pane">
+                ${this._listHeaderHTML(filtered)}
+                <div class="gal-body">${filtered.length === 0 ? this._emptyListHTML() : this._groupsHTML(filtered)}</div>
+            </div>`;
+        this._wireList();
+        this._startReachabilityCheck(filtered);
+    }
 
+    _listHeaderHTML(filtered) {
+        const todo = filtered.filter(r => galleryAction(r, this._checks.get(r.rowKey), this._channelBySlug(r.channelSlug))?.act === 'publish').length;
+        const shown = this._filterChannel && escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel);
+        return placeHeaderHTML({
+            title: t('Galleries'),
+            meta: countHTML(filtered.length, 'gallery', 'galleries') + (todo ? ' · ' + t('{n} to publish', { n: formatCount(todo) }) : ''),
+            actions: shown
+                ? `<span class="gal-filter" id="gal-filter">${t('Showing {destination}', { destination: shown })}</span>
+                   <button class="btn btn-sm gal-clear-filter">${t('Show all destinations')}</button>`
+                : '',
+            lede: placeLede(t('A gallery is a set of photos collected from libraries and published together to a {destination}.', { destination: placeLink('destinations', 'destinations', t('destination')) })),
+        });
+    }
+
+    _emptyListHTML() {
+        return `<p class="gal-empty">${this._filterChannel
+            ? t('Nothing has been collected for this destination yet.')
+            : t('No galleries yet. Select photos in a {library} and choose Add to gallery… to collect the first one.', { library: placeLink('library', 'libraries', t('library')) })}</p>`;
+    }
+
+    // The galleries grouped by destination, in the order they come.
+    _groupsHTML(rows) {
         const bySlug = new Map();
-        for (const row of filtered) {
+        for (const row of rows) {
             if (!bySlug.has(row.channelSlug)) bySlug.set(row.channelSlug, []);
             bySlug.get(row.channelSlug).push(row);
         }
-
-        const todo = filtered.filter(r => galleryAction(r, this._checks.get(r.rowKey), this._channelBySlug(r.channelSlug))?.act === 'publish').length;
-
-        const groups = [...bySlug.entries()].map(([slug, groupRows]) => {
+        return [...bySlug.entries()].map(([slug, groupRows]) => {
             const ch = this._channelBySlug(slug);
             const name = ch?.name || groupRows[0].channelName;
             return `
                 <section class="gal-group" aria-label="${escapeHtml(name)}">
                     <div class="gal-group-head">
                         <h2 class="gal-group-name">${escapeHtml(name)}</h2>
-                        <span class="gal-group-meta">${(() => {
-                            // The type only where the name does not say it already.
-                            const type = this._destinationType(ch);
-                            const addr = this._destinationAddress(ch);
-                            const where = addr.isAddress ? `<span class="gal-group-addr">${escapeHtml(addr.text)}</span>` : escapeHtml(addr.text);
-                            return type && type.toLowerCase() !== name.toLowerCase() ? `${escapeHtml(type)} · ${where}` : where;
-                        })()}</span>
+                        <span class="gal-group-meta">${this._groupMetaHTML(ch, name)}</span>
                         <span class="gal-group-spacer"></span>
                         <button class="btn btn-sm gal-dest-settings" data-slug="${escapeHtml(slug)}">${t('Destination settings')}</button>
                     </div>
                     ${groupRows.map(r => this._rowHTML(r)).join('')}
                 </section>`;
         }).join('');
+    }
 
-        this.container.innerHTML = `
-            <div class="gal-pane">
-                ${placeHeaderHTML({
-                    title: t('Galleries'),
-                    meta: `${filtered.length} ${filtered.length === 1 ? 'gallery' : 'galleries'}${todo ? ` · ${todo} to publish` : ''}`,
-                    actions: this._filterChannel
-                        ? `<span class="gal-filter" id="gal-filter">${t('Showing {destination}', { destination: escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel) })}</span>
-                           <button class="btn btn-sm gal-clear-filter">${t('Show all destinations')}</button>`
-                        : '',
-                    lede: placeLede(t('A gallery is a set of photos collected from libraries and published together to a {destination}.', { destination: placeLink('destinations', 'destinations', t('destination')) })),
-                })}
-                <div class="gal-body">
-                    ${filtered.length === 0
-                        ? `<p class="gal-empty">${this._filterChannel
-                            ? t('Nothing has been collected for this destination yet.')
-                            : t('No galleries yet. Select photos in a {library} and choose Add to gallery… to collect the first one.', { library: placeLink('library', 'libraries', t('library')) })}</p>`
-                        : groups}
-                </div>
-            </div>`;
+    // Where a destination's galleries go, with its type only where the name
+    // does not say it already.
+    _groupMetaHTML(ch, name) {
+        const type = this._destinationType(ch);
+        const addr = this._destinationAddress(ch);
+        const where = addr.isAddress ? `<span class="gal-group-addr">${escapeHtml(addr.text)}</span>` : escapeHtml(addr.text);
+        return type && type.toLowerCase() !== name.toLowerCase() ? `${escapeHtml(type)} · ${where}` : where;
+    }
 
+    _wireList() {
         this.container.querySelector('.gal-clear-filter')?.addEventListener('click', () => {
             this.setFilterChannel(null);
             this._renderList();
@@ -306,18 +336,13 @@ class GalleriesPane {
                 App.showDestination(btn.dataset.slug);
             });
         }
+        const open = (el) => { this._openRowKey = el.dataset.rowkey; this._renderDetail(); };
         for (const el of this.container.querySelectorAll('.gal-row')) {
-            el.addEventListener('click', (e) => {
-                if (e.target.closest('.gal-row-action')) return;
-                this._openRowKey = el.dataset.rowkey;
-                this._renderDetail();
-            });
+            el.addEventListener('click', (e) => { if (!e.target.closest('.gal-row-action')) open(el); });
             el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this._openRowKey = el.dataset.rowkey;
-                    this._renderDetail();
-                }
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                open(el);
             });
         }
         for (const btn of this.container.querySelectorAll('.gal-row-action')) {
@@ -326,8 +351,6 @@ class GalleriesPane {
                 this._runAction(btn.dataset.act, btn.dataset.rowkey);
             });
         }
-
-        this._startReachabilityCheck(filtered);
     }
 
     _rowHTML(row) {
@@ -442,29 +465,39 @@ class GalleriesPane {
         const ch = this._channelBySlug(row.channelSlug);
         const state = galleryState(row, ch);
         const check = this._checks.get(row.rowKey);
-        const action = galleryAction(row, check, ch);
         const canEditVisibility = !!row.galleryExport;
-
-        const stateLine = galleryStateLine(row, ch, state, check);
-
         this.container.innerHTML = `
             <div class="gal-pane gal-detail">
-                ${placeHeaderHTML({
-                    title: `<nav class="gal-crumbs" aria-label="${t('Breadcrumb')}"><button class="link-btn gal-back">${t('Galleries')}</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span></nav>`,
-                    actions: `${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">' + t('Show photos') + '</a>' : ''}
-                        ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">${t('Open in browser')}</a>` : ''}`,
-                })}
+                ${this._detailHeaderHTML(row, state)}
                 <div class="gal-detail-body">
                     <div class="gal-detail-main">
                         <div class="gal-detail-title-row">${this._stateHTML(row, state)}</div>
-                        <p class="gal-detail-state-line">${escapeHtml(stateLine)}</p>
-                        ${this._detailActionHTML(row, action)}
+                        <p class="gal-detail-state-line">${escapeHtml(galleryStateLine(row, ch, state, check))}</p>
+                        ${this._detailActionHTML(row, galleryAction(row, check, ch))}
                         <section class="gal-pending" id="gal-pending"></section>
                     </div>
 ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                 </div>
             </div>`;
+        this._wireDetail(row);
+        this._wireTitleSave(row);
+        this._wireVisibility(row, canEditVisibility);
+        this._renderDangerZone(row, state);
+        this._renderPendingPhotos(row);
+    }
 
+    // The way back and the gallery's name; its photos and its page, once it
+    // has been published.
+    _detailHeaderHTML(row, state) {
+        const published = state.key !== 'draft';
+        return placeHeaderHTML({
+            title: `<nav class="gal-crumbs" aria-label="${t('Breadcrumb')}"><button class="link-btn gal-back">${t('Galleries')}</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span></nav>`,
+            actions: `${published ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">' + t('Show photos') + '</a>' : ''}
+                ${row.url && published ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">${t('Open in browser')}</a>` : ''}`,
+        });
+    }
+
+    _wireDetail(row) {
         this.container.querySelector('.gal-back').addEventListener('click', () => {
             this._openRowKey = null;
             this._renderList();
@@ -474,16 +507,11 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         showPhotosLink(this.container.querySelector('#gal-show-photos'), {
             gallery: { id: `${row.channelSlug}:${row.postID}`, title: galleryTitle(row) },
         });
-
         this.container.querySelector('.gal-dest-link').addEventListener('click', (e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey) return;
             e.preventDefault();
             App.showDestination(row.channelSlug);
         });
-        this._wireTitleSave(row);
-        this._wireVisibility(row, canEditVisibility);
-        this._renderDangerZone(row, state);
-        this._renderPendingPhotos(row);
     }
 
     // The main action under the status line: recheck (with Publish again next
@@ -609,56 +637,60 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         }
         wrap.innerHTML = `<button class="btn btn-sm btn-danger" id="gal-remove">${isDraft ? t('Discard draft…') : t('Unpublish…')}</button>`;
         wrap.querySelector('#gal-remove').addEventListener('click', () => {
-            const canDeleteRemote = !isDraft && row.channelHandler === 'rsync';
-            wrap.innerHTML = `
-                <p class="gal-danger-question">${isDraft
-                    ? (row.pendingCount === 1 ? t('Discard this draft? The 1 collected photo stays in your library.') : t('Discard this draft? The {n} collected photos stay in your library.', { n: formatCount(row.pendingCount) }))
-                    : t('Unpublish "{row}"? This removes the built gallery from the local output. The photos stay in your libraries.', { row: escapeHtml(galleryTitle(row)) })}</p>
-                ${canDeleteRemote ? `<label class="gal-danger-remote"><input type="checkbox" id="gal-remove-remote"> ${t('Also delete it on the remote host over SSH')}</label>` : ''}
-                <div class="gal-danger-actions">
-                    <button class="btn btn-sm" id="gal-remove-cancel">${t('Keep it')}</button>
-                    <button class="btn btn-sm btn-danger" id="gal-remove-confirm">${isDraft ? t('Discard draft') : t('Unpublish')}</button>
-                </div>
-                <div class="gal-danger-status" id="gal-danger-status" role="status" aria-live="polite"></div>
-                <div class="gal-detail-error" id="gal-danger-error" hidden></div>`;
+            wrap.innerHTML = this._removalQuestionHTML(row, isDraft);
             wrap.querySelector('#gal-remove-cancel').addEventListener('click', () => this._renderDangerZone(row, state));
-            wrap.querySelector('#gal-remove-confirm').addEventListener('click', async () => {
-                const errEl = wrap.querySelector('#gal-danger-error');
-                const statusEl = wrap.querySelector('#gal-danger-status');
-                const controls = wrap.querySelectorAll('button, input');
-                // Removing takes a moment (the photos' sidecars are cleaned, and
-                // the remote copy is deleted over SSH): say so, and lock the
-                // controls so it cannot be started twice.
-                const setBusy = (text) => {
-                    controls.forEach(c => { c.disabled = !!text; });
-                    statusEl.textContent = text;
-                };
-                const deleteRemote = !!wrap.querySelector('#gal-remove-remote')?.checked;
-                errEl.hidden = true;
-                setBusy(isDraft ? t('Discarding the draft…')
-                    : deleteRemote ? t('Unpublishing and deleting on the remote host…') : t('Unpublishing…'));
-                try {
-                    if (isDraft) {
-                        await ChannelAPI.deleteDraft(row.channelSlug, row.draftID);
-                    } else {
-                        const result = await PublishedGalleryAPI.remove(row.channelSlug, row.postID, deleteRemote);
-                        if (result.remoteDeleteError) {
-                            setBusy('');
-                            errEl.textContent = t('Removed locally, but the remote copy is still there: ') + result.remoteDeleteError;
-                            errEl.hidden = false;
-                            return;
-                        }
-                    }
-                    this._openRowKey = null;
-                    this._checks.delete(row.rowKey);
-                    await this._load();
-                } catch (err) {
-                    setBusy('');
-                    errEl.textContent = t('Could not remove it: ') + err.message;
-                    errEl.hidden = false;
-                }
-            });
+            wrap.querySelector('#gal-remove-confirm').addEventListener('click', () => this._remove(wrap, row, isDraft));
         });
+    }
+
+    _removalQuestionHTML(row, isDraft) {
+        const question = !isDraft
+            ? t('Unpublish "{row}"? This removes the built gallery from the local output. The photos stay in your libraries.', { row: escapeHtml(galleryTitle(row)) })
+            : row.pendingCount === 1 ? t('Discard this draft? The 1 collected photo stays in your library.')
+            : t('Discard this draft? The {n} collected photos stay in your library.', { n: formatCount(row.pendingCount) });
+        const canDeleteRemote = !isDraft && row.channelHandler === 'rsync';
+        return `
+            <p class="gal-danger-question">${question}</p>
+            ${canDeleteRemote ? `<label class="gal-danger-remote"><input type="checkbox" id="gal-remove-remote"> ${t('Also delete it on the remote host over SSH')}</label>` : ''}
+            <div class="gal-danger-actions">
+                <button class="btn btn-sm" id="gal-remove-cancel">${t('Keep it')}</button>
+                <button class="btn btn-sm btn-danger" id="gal-remove-confirm">${isDraft ? t('Discard draft') : t('Unpublish')}</button>
+            </div>
+            <div class="gal-danger-status" id="gal-danger-status" role="status" aria-live="polite"></div>
+            <div class="gal-detail-error" id="gal-danger-error" hidden></div>`;
+    }
+
+    // Removing takes a moment (the photos' sidecars are cleaned, and the
+    // remote copy is deleted over SSH): it says so, and locks the controls so
+    // it cannot be started twice.
+    async _remove(wrap, row, isDraft) {
+        const errEl = wrap.querySelector('#gal-danger-error');
+        const controls = wrap.querySelectorAll('button, input');
+        const setBusy = (text) => {
+            controls.forEach(c => { c.disabled = !!text; });
+            wrap.querySelector('#gal-danger-status').textContent = text;
+        };
+        const fail = (text) => { setBusy(''); errEl.textContent = text; errEl.hidden = false; };
+        const deleteRemote = !!wrap.querySelector('#gal-remove-remote')?.checked;
+        errEl.hidden = true;
+        setBusy(isDraft ? t('Discarding the draft…')
+            : deleteRemote ? t('Unpublishing and deleting on the remote host…') : t('Unpublishing…'));
+        try {
+            if (isDraft) {
+                await ChannelAPI.deleteDraft(row.channelSlug, row.draftID);
+            } else {
+                const result = await PublishedGalleryAPI.remove(row.channelSlug, row.postID, deleteRemote);
+                if (result.remoteDeleteError) {
+                    fail(t('Removed locally, but the remote copy is still there: ') + result.remoteDeleteError);
+                    return;
+                }
+            }
+            this._openRowKey = null;
+            this._checks.delete(row.rowKey);
+            await this._load();
+        } catch (err) {
+            fail(t('Could not remove it: ') + err.message);
+        }
     }
 
     // What will go online with the next publish, and what is already there.
@@ -677,11 +709,18 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
             wrap.innerHTML = `<div class="gal-error">${t('Could not load the collected photos: {error}', { error: escapeHtml(err.message) })}</div>`;
             return;
         }
-        const photos = draft?.photos || [];
-        wrap.innerHTML = `
+        wrap.innerHTML = this._pendingHTML(row, draft?.photos || []);
+        for (const btn of wrap.querySelectorAll('.gal-pending-remove')) {
+            btn.addEventListener('click', () => this._leaveOut(row, draft, btn.closest('.gal-pending-photo')));
+        }
+    }
+
+    _pendingHTML(row, photos) {
+        const collected = countText(photos.length, 'photo');
+        return `
             <h2 class="gal-section-title">${galleryState(row, this._channelBySlug(row.channelSlug)).key === 'draft'
-                ? `${photos.length} photo${photos.length !== 1 ? 's' : ''} collected`
-                : t('Not published: {photos} added', { photos: photos.length })}</h2>
+                ? t('{photos} collected', { photos: collected })
+                : t('Not published: {photos} added', { photos: collected })}</h2>
             <div class="gal-pending-photos">
                 ${photos.map(p => `
                     <div class="gal-pending-photo" data-lib="${escapeHtml(p.libraryID)}" data-photo="${escapeHtml(p.photoID)}">
@@ -689,16 +728,14 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                         <button class="gal-pending-remove" title="${t('Leave this photo out')}">×</button>
                     </div>`).join('')}
             </div>`;
-        for (const btn of wrap.querySelectorAll('.gal-pending-remove')) {
-            btn.addEventListener('click', async () => {
-                const card = btn.closest('.gal-pending-photo');
-                try {
-                    await ChannelAPI.removeDraftPhoto(row.channelSlug, draft.id, card.dataset.lib, card.dataset.photo);
-                    await this._load();
-                } catch (err) {
-                    this._showDetailError(t('Could not remove the photo: ') + err.message);
-                }
-            });
+    }
+
+    async _leaveOut(row, draft, card) {
+        try {
+            await ChannelAPI.removeDraftPhoto(row.channelSlug, draft.id, card.dataset.lib, card.dataset.photo);
+            await this._load();
+        } catch (err) {
+            this._showDetailError(t('Could not remove the photo: ') + err.message);
         }
     }
 

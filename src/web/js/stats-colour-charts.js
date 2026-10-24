@@ -17,11 +17,11 @@ const HUE_NAMES = ['red', 'orange', 'amber', 'yellow', 'green', 'emerald',
 
 // The name of a 30° hue sector of OKLCh, as the index stores it (hue_bin).
 function hueName(bin) {
-    return HUE_NAMES[bin] ?? 'grey';
+    return t(HUE_NAMES[bin] ?? 'grey');
 }
 
 function hueNameOf(colour) {
-    return colour.c < 0.03 ? 'grey' : hueName(Math.floor(colour.h / 30) % 12);
+    return colour.c < 0.03 ? t('grey') : hueName(Math.floor(colour.h / 30) % 12);
 }
 
 function photoColour({ l, c, h }) {
@@ -154,7 +154,7 @@ function renderHueWheel(el, colour, onPick) {
     // A sector shows the photos it is a main colour of; a hue that is only
     // ever a small part of a photo has none to show.
     pickable(marks.filter(s => s.photos > 0), onPick && (s => onPick(s.bin)),
-        s => `${hueName(s.bin)}, ${share(s)} of the colours, main colour of ${photoCount(s.photos)}`);
+        s => t('{hue}, {share} of the colours, main colour of {photos}', { hue: hueName(s.bin), share: share(s), photos: photoCount(s.photos) }));
 
     const labelled = sectors.filter(s => s.share >= 0.01);
     const at = (s, r) => d3.pointRadial((s.bin + 0.5) * step, r);

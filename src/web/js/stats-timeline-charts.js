@@ -417,6 +417,7 @@ function renderAspectLines(el, tlData, onPick) {
     const ordered = [...aspects].sort((a, b) => (TL_ASPECT_SLOTS[a.ratio] ?? 4) - (TL_ASPECT_SLOTS[b.ratio] ?? 4));
     const series = ordered.map(a => ({
         name: a.ratio,
+        label: t(a.ratio),
         counts: a.counts,
         values: periods.map((_, i) => totals[i] ? 100 * (a.counts[i] ?? 0) / totals[i] : null),
         color: aspectColor(c, a.ratio),

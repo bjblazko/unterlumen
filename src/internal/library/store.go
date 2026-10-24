@@ -349,6 +349,18 @@ func (s *Store) UpsertPathCache(absPath, photoID string, mtimeNs, fileSize int64
 	return err
 }
 
+// MovePathCache moves what is known about the file at oldPath to newPath:
+// a rename or a move keeps a file's content, time and size, so the next look
+// at newPath needs neither a hash nor its EXIF. Nothing moves when oldPath is
+// not known, or newPath already is.
+func (s *Store) MovePathCache(oldPath, newPath string) error {
+	_, err := s.db.Exec(
+		`UPDATE path_cache SET abs_path=? WHERE abs_path=?
+		 AND NOT EXISTS (SELECT 1 FROM path_cache WHERE abs_path=?)`,
+		newPath, oldPath, newPath)
+	return err
+}
+
 // sidecarReading names what a scan reads from a sidecar. When it changes —
 // a version that reads something new from them — every sidecar is read once
 // again, whatever its stamp (forgetSidecarStamps).

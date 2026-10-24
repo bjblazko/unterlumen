@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,9 +46,15 @@ func statusOf(t *testing.T, s *Store, id string) string {
 	return status
 }
 
+// The run is cancelled after its first file, but goes on in parallel until it
+// sees that; with two files it could finish both first (2 in 200 runs), and
+// a run that saw every file rightly settles. Thirty files leave it no time.
 func TestInterruptedReindexLeavesNoPhotoMissing(t *testing.T) {
 	dir := t.TempDir()
 	idx, s := newTestIndexer(t, dir)
+	for i := 0; i < 28; i++ {
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("more-%02d.jpg", i)), []byte(fmt.Sprintf("jpeg %d", i)), 0o644) //nolint:errcheck
+	}
 	for _, name := range []string{"a.jpg", "b.jpg"} {
 		path := filepath.Join(dir, name)
 		os.WriteFile(path, []byte("jpeg "+name), 0o644) //nolint:errcheck

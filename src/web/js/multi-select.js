@@ -60,13 +60,13 @@ class MultiSelect {
     }
 
     _summary() {
-        if (this._selected === null) return `${this._label}: all`;
-        if (this._selected.length === 0) return `${this._label}: none`;
+        if (this._selected === null) return t('{label}: all', { label: this._label });
+        if (this._selected.length === 0) return t('{label}: none', { label: this._label });
         if (this._selected.length === 1) {
             const one = this._options.find(o => o.value === this._selected[0]);
             return `${this._label}: ${one ? one.label : this._selected[0]}`;
         }
-        return `${this._label}: ${this._selected.length} of ${this._options.length}`;
+        return t('{label}: {n} of {total}', { label: this._label, n: formatCount(this._selected.length), total: formatCount(this._options.length) });
     }
 
     _draw() {

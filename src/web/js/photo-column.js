@@ -122,7 +122,7 @@ function formatTakenDate(iso) {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
     if (!m) return '';
     return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
-        .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+        .toLocaleDateString(I18n.lang === 'en' ? 'en-GB' : I18n.lang, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
 // Photos seen outside a library are looked at, not culled: the viewer opens

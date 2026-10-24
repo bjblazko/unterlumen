@@ -18,7 +18,7 @@ test.describe('Licenses and thanks', () => {
     await page.goto('/#licenses');
     const items = page.locator('.credits-item');
     await expect(items.first()).toBeVisible();
-    for (const name of ['modernc.org/sqlite', 'MapLibre GL JS 6.11.2', 'IBM Plex Sans and Mono', 'FFmpeg', 'OpenStreetMap']) {
+    for (const name of ['modernc.org/sqlite', 'MapLibre GL JS 6.15.0', 'IBM Plex Sans and Mono', 'FFmpeg', 'OpenStreetMap']) {
       await expect(page.locator('.credits-name', { hasText: name })).toHaveCount(1);
     }
     const count = await items.count();

@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Security
+- **Other web pages can no longer act through an open Unterlumen.** A page open in the same browser could send requests to it and delete, move or publish photos; requests that change something must now come from Unterlumen's own pages, and an installation that listens only on this computer answers only to this computer's names (ADR-0057).
+- **A destination's settings can no longer run a program.** User, host and key file of an upload over SSH become arguments of ssh and rsync, and a value starting with "-" was read as an option of theirs; such values are now refused with a clear message.
+- **Files among the photos that are not images are only downloaded**, never shown: an HTML or SVG file in a photo folder would have run as a page of Unterlumen.
+- **Names from photos and files are shown as text everywhere**: file names in Marked for deletion, Export and the viewer, camera and lens names in the Statistics' tooltips, and error messages from the server could carry markup.
+- **Security headers** (Content-Security-Policy, nosniff, no framing by other sites) and a timeout for slow clients.
+- **Go 1.27.3**, which fixes a vulnerability in the standard library's certificate handling (GO-2026-6809).
+
+### Added
+- **The Map shows the world as a globe**, with countries at their true size, instead of the flat Mercator map that makes Greenland as big as Africa. Close up it turns into the flat map by itself. View: Globe · Mercator · 3D in the Map's head switches between them, and each browser remembers its choice. 3D tilts the map and stands its buildings up, in grey as in colour. The info panel's 3D now zooms in close enough for the buildings to stand. Equal Earth, which was asked for, is not among the projections the map library has (ADR-0039, addendum).
+
+### Changed
+- **Dependencies updated** after reading their release notes: MapLibre GL JS 6.11.2 → 6.15.0 (globe and clustering fixes, a workaround for Safari no longer loading tiles after the page was in the background), modernc.org/sqlite 1.59 → 1.61 with SQLite 3.54.1 (a query waiting for a lock now stops when its request is abandoned), golang.org/x/image 0.47, Playwright 1.64.1 for the tests.
+- **Renaming and moving photos in a library no longer reads them again**: the library keeps what it knew and only takes the new path. On a network share that was seconds per photo, and the index could be left with the old names while it ran.
+- **Reading the EXIF of a HEIC file over a network share is about seven times faster** (33 instead of 218 ms per photo): it no longer tries the JPEG reader first, which read the whole file, and reads 64 KB before it reads a megabyte.
+- **Organize: Enter no longer moves photos.** It opens, as everywhere else; the number keys send the selection to a target.
+- **Long functions split and large files divided by what they do** (Destinations, Galleries, Publish, the info panel, Folders, Libraries, the library filter), each function now within about 30 lines.
+- **The README shows Things and the German interface**, in three new screenshots.
+
+### Fixed
+- **Organize moved the same photos twice** when a number key was pressed again, or held, while a move was still running — "2 moved, 32 did not: no such file". A move runs once; the result line shows that it is working and, at the end, what did not move and why as a short list.
+- **Renaming or moving photos left the index on their old names**, so things, faces and publishing kept working from paths that were gone and wrote new sidecars under the old names beside the renamed photos (which had taken their sidecars along). A rename or move now updates the index at once without reading the photos again, and a sidecar is no longer written for a photo that is not there.
+- **Publishing put an empty gallery online when no photo could be exported**, for example after photos were renamed outside Unterlumen, and showed every step as done. It now stops and says why ("… is not in its folder any more; scan the library"); photos that fail beside others are listed, and their step is marked as failed.
+- **Enter did not count as a navigation key in German**, after the translation.
+- **German that was still English**: the layout switch of Folders and libraries (Bündig · Raster · Liste), the colours of the filter and the Statistics (Rot, Petrol, Orange & Petrol…), dates written out ("25. Juli 2023"), the keys in Organize, the 3D views' descriptions, the export sizes of destinations, the map's zoom buttons and a few counts. Found by comparing every text on screen in English and German.
+
 ## [0.20.1] - 2026-10-24
 
 ### Added

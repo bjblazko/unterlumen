@@ -137,7 +137,7 @@ class BatchRenameModal {
                         <label class="field-label-inline">${t('Pattern')}</label>
                         <div class="batch-rename-input-wrap">
                             <div class="batch-rename-highlight" aria-hidden="true"></div>
-                            <input type="text" class="batch-rename-input" value="${this._esc(lastRenamePattern())}" aria-label="${t('Pattern')}">
+                            <input type="text" class="batch-rename-input" value="${escapeHtml(lastRenamePattern())}" aria-label="${t('Pattern')}">
                         </div>
                     </div>
                     <div class="batch-rename-tokens">${tokenButtons}</div>
@@ -272,7 +272,7 @@ class BatchRenameModal {
         const highlight = this.overlay.querySelector('.batch-rename-highlight');
         if (!input || !highlight) return;
         // Trailing space to keep height consistent
-        highlight.innerHTML = highlightedPatternHTML(input.value, this._dragInsertPos, (s) => this._esc(s)) + '\u00a0';
+        highlight.innerHTML = highlightedPatternHTML(input.value, this._dragInsertPos, escapeHtml) + '\u00a0';
         this._syncScroll();
     }
 
@@ -325,15 +325,15 @@ class BatchRenameModal {
                 if (m.error) {
                     hasErrors = true;
                     return `<div class="batch-rename-row batch-rename-row-error">
-                        <span class="batch-rename-old">${this._esc(oldName)}</span>
-                        <span class="batch-rename-error">${this._esc(m.error)}</span>
+                        <span class="batch-rename-old">${escapeHtml(oldName)}</span>
+                        <span class="batch-rename-error">${escapeHtml(m.error)}</span>
                     </div>`;
                 }
                 const conflictClass = (result.conflicts > 0 && m.newName.match(/_\d{3}\.[^.]+$/)) || dateTwice(m.newName) ? ' batch-rename-row-conflict' : '';
                 return `<div class="batch-rename-row${conflictClass}">
-                    <span class="batch-rename-old">${this._esc(oldName)}</span>
+                    <span class="batch-rename-old">${escapeHtml(oldName)}</span>
                     <span class="batch-rename-arrow">&rarr;</span>
-                    <span class="batch-rename-new">${this._esc(m.newName)}</span>
+                    <span class="batch-rename-new">${escapeHtml(m.newName)}</span>
                 </div>`;
             });
 
@@ -341,7 +341,7 @@ class BatchRenameModal {
             applyBtn.disabled = hasErrors;
         } catch (err) {
             if (!this.overlay) return;
-            list.innerHTML = `<div class="batch-rename-preview-empty" style="color:var(--warning-ink)">${this._esc(err.message)}</div>`;
+            list.innerHTML = `<div class="batch-rename-preview-empty" style="color:var(--warning-ink)">${escapeHtml(err.message)}</div>`;
             applyBtn.disabled = true;
         }
     }
@@ -385,9 +385,4 @@ class BatchRenameModal {
         }
     }
 
-    _esc(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
 }

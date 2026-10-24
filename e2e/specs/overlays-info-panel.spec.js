@@ -135,9 +135,10 @@ test.describe('Info panel', () => {
 
         await expect(page.locator('#info-map canvas')).toBeVisible({ timeout: 15_000 });
         await expect(page.locator('#info-map')).not.toHaveClass(/info-map-unavailable/);
-        // Tiles are drawn in a worker, which the entry module loads from next to itself.
+        // Tiles are drawn in a worker, which the entry module loads from next
+        // to itself, with its version as a query since MapLibre 6.13.
         await expect.poll(() => page.evaluate(() => performance.getEntriesByType('resource')
-            .some(e => e.name.endsWith('/maplibre-gl-worker.mjs'))), { timeout: 10_000 }).toBe(true);
+            .some(e => new URL(e.name).pathname.endsWith('/maplibre-gl-worker.mjs'))), { timeout: 10_000 }).toBe(true);
     });
 
     test('the short list carries what you cull by', async ({ page }) => {

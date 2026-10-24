@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image/color"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -135,6 +136,8 @@ func TestThingsPassTakesOverACurrentSidecar(t *testing.T) {
 	s := newTestStore(t)
 	libDir, photos := t.TempDir(), t.TempDir()
 	other, removed := filepath.Join(photos, "b.jpg"), filepath.Join(photos, "c.jpg")
+	os.WriteFile(other, nil, 0o644)                                                                           //nolint:errcheck
+	os.WriteFile(removed, nil, 0o644)                                                                         //nolint:errcheck
 	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion(), nil, things.LanguageOf("en")) //nolint:errcheck
 	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0", nil, things.LanguageOf("en"))              //nolint:errcheck
 	media.RemoveThing(removed, "lighthouse", things.LanguageOf("en"))                                         //nolint:errcheck
@@ -195,6 +198,7 @@ func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
 	s := newTestStore(t)
 	libDir, photos := t.TempDir(), t.TempDir()
 	photo := filepath.Join(photos, "late.jpg")
+	os.WriteFile(photo, nil, 0o644) //nolint:errcheck
 	insertPhoto(t, s, "late", nil, nil)
 	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "siglip"}}}}) //nolint:errcheck
 	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil, things.LanguageOf("en"))                        //nolint:errcheck

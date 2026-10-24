@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -55,12 +56,9 @@ func ExtractAllEXIF(path string) (*ExifData, error) {
 	}
 	defer f.Close()
 
-	x, err := exif.Decode(f)
+	x, err := decodeFileExif(f, path)
 	if err != nil {
-		x, err = decodeEmbeddedExif(path)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	data := &ExifData{Tags: make(map[string]string)}
@@ -109,12 +107,9 @@ func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
 	}
 	defer f.Close()
 
-	x, err := exif.Decode(f)
+	x, err := decodeFileExif(f, path)
 	if err != nil {
-		x, err = decodeEmbeddedExif(path)
-		if err != nil {
-			return time.Time{}, nil, err
-		}
+		return time.Time{}, nil, err
 	}
 
 	dt, dtErr := x.DateTime()
@@ -256,25 +251,65 @@ func heifOrientation(path string) int {
 // The string "Exif" also appears in iinf/infe boxes as an item type name,
 // so we validate each match by checking for a valid TIFF header ("II*\0"
 // or "MM\0*") before attempting to decode.
+// decodeFileExif reads the EXIF of an open file. A JPEG or TIFF goes to the
+// decoder; anything else — HEIF above all — has its EXIF block found in its
+// first megabyte. Handing a HEIF to the decoder first made it read the whole
+// file looking for a JPEG marker before failing: on a network share, about
+// half a second per photo before the right reader even started.
+func decodeFileExif(f *os.File, path string) (*exif.Exif, error) {
+	head := make([]byte, 4)
+	if _, err := io.ReadFull(f, head); err != nil {
+		return nil, err
+	}
+	if !isJPEGOrTIFF(head) {
+		return decodeEmbeddedExif(path)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	x, err := exif.Decode(f)
+	if err != nil {
+		return decodeEmbeddedExif(path)
+	}
+	return x, nil
+}
+
+func isJPEGOrTIFF(head []byte) bool {
+	return bytes.HasPrefix(head, []byte{0xFF, 0xD8}) ||
+		bytes.Equal(head, []byte("II*\x00")) || bytes.Equal(head, []byte("MM\x00*"))
+}
+
+// decodeEmbeddedExif finds the EXIF block in a container such as HEIF,
+// where it sits in the meta box near the start: in the first 64 KB for the
+// cameras seen so far (byte 357 for Fujifilm), within the first megabyte for
+// any. The small read comes first; over a network share each megabyte read
+// costs about a tenth of a second.
 func decodeEmbeddedExif(path string) (*exif.Exif, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-
-	// Read up to 1MB — EXIF metadata is in the container's meta box,
-	// typically near the start of the file.
-	buf := make([]byte, 1024*1024)
-	n, err := f.Read(buf)
-	if err != nil {
-		return nil, err
+	for _, size := range []int{64 << 10, 1 << 20} {
+		buf := make([]byte, size)
+		n, err := f.ReadAt(buf, 0)
+		if n == 0 && err != nil {
+			return nil, err
+		}
+		if x := findEmbeddedExif(buf[:n]); x != nil {
+			return x, nil
+		}
+		if n < size {
+			break // the whole file has been looked at
+		}
 	}
-	buf = buf[:n]
+	return nil, errors.New("no embedded EXIF data found")
+}
 
+// findEmbeddedExif looks for an "Exif" block, then for a bare TIFF header.
+func findEmbeddedExif(buf []byte) *exif.Exif {
 	marker := []byte("Exif\x00\x00")
-	offset := 0
-	for {
+	for offset := 0; ; {
 		idx := bytes.Index(buf[offset:], marker)
 		if idx < 0 {
 			break
@@ -282,31 +317,26 @@ func decodeEmbeddedExif(path string) (*exif.Exif, error) {
 		tiffStart := offset + idx + len(marker)
 		if tiffStart+8 <= len(buf) && isTIFFHeader(buf[tiffStart:]) {
 			if x, err := exif.Decode(bytes.NewReader(buf[tiffStart:])); err == nil {
-				return x, nil
+				return x
 			}
 		}
 		offset += idx + 1
 	}
-
-	// Fallback: search for bare TIFF headers.
 	for _, hdr := range [][]byte{{0x49, 0x49, 0x2a, 0x00}, {0x4d, 0x4d, 0x00, 0x2a}} {
-		offset = 0
-		for {
+		for offset := 0; ; {
 			idx := bytes.Index(buf[offset:], hdr)
 			if idx < 0 {
 				break
 			}
-			tiffStart := offset + idx
-			if tiffStart+8 <= len(buf) {
+			if tiffStart := offset + idx; tiffStart+8 <= len(buf) {
 				if x, err := exif.Decode(bytes.NewReader(buf[tiffStart:])); err == nil {
-					return x, nil
+					return x
 				}
 			}
 			offset += idx + 1
 		}
 	}
-
-	return nil, errors.New("no embedded EXIF data found")
+	return nil
 }
 
 // isTIFFHeader checks whether data starts with a valid TIFF byte order mark.

@@ -221,8 +221,8 @@ class ExportModal {
         const list = this.overlay.querySelector('.export-file-list');
         list.innerHTML = this._files.map(f => {
             const name = f.split('/').pop();
-            return `<div class="export-file-row" data-file="${f}">
-                <span class="export-file-name">${name}</span>
+            return `<div class="export-file-row" data-file="${escapeHtml(f)}">
+                <span class="export-file-name">${escapeHtml(name)}</span>
                 <span class="export-file-dims">—</span>
                 <span class="export-file-size"><span class="export-file-orig">—</span> <span class="export-file-arrow">→</span> <span class="export-file-out">—</span></span>
             </div>`;
@@ -557,9 +557,6 @@ class ExportModal {
 }
 
 // Escape HTML special characters for use in attribute values.
-function _escHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 // Format bytes to human-readable string.
 function _fmtBytes(n) {
@@ -612,8 +609,8 @@ function _applyRowError(row, est) {
         dimsEl.style.textAlign  = 'left';
         dimsEl.style.color      = '';
         const msg   = _shortError(est.error || 'unknown error');
-        const title = _escHtml(est.error || '');
-        dimsEl.innerHTML = `<span class="export-file-error" title="${title}">${_escHtml(msg)}</span>`;
+        const title = escapeHtml(est.error || '');
+        dimsEl.innerHTML = `<span class="export-file-error" title="${title}">${escapeHtml(msg)}</span>`;
     }
 }
 

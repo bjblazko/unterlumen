@@ -50,6 +50,7 @@ func addLibraryWithFaces(t *testing.T, mgr *lib.Manager, name string, look int) 
 	for _, id := range []string{"aa1", "bb2"} {
 		thumb := filepath.Join("thumbs", id[:2], id+".jpg")
 		writeJPEG(t, filepath.Join(mgr.LibDir(l.ID), thumb))
+		writeJPEG(t, filepath.Join(source, id+".jpg"))
 		if err := store.UpsertPhoto(id, filepath.Join(source, id+".jpg"), id+".jpg", 1, time.Now(), "{}", thumb, "2020-06-01T10:00:00", "jpeg"); err != nil {
 			t.Fatal(err)
 		}

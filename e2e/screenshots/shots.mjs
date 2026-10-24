@@ -61,6 +61,26 @@ async function selectionDialog(page, base, action) {
     await settle(page, 2500);
 }
 
+// Things are found in the background after the library is read (with the
+// models beside the fixtures, stage.mjs); waits until the totals stop changing.
+async function thingsSettled(base) {
+    let last = '', same = 0;
+    for (let i = 0; i < 180 && same < 3; i++) {
+        const now = await fetch(`${base}/api/library/things`).then(r => r.text()).catch(() => '');
+        same = now.length > 2 && now === last ? same + 1 : 0;
+        last = now;
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    if (same < 3) throw new Error('No things were found: are the models in e2e/fixtures/.unterlumen-things?');
+}
+
+// Types into the search bar and waits for its suggestions.
+async function search(page, words) {
+    await page.locator('#search-bar-input').fill(words);
+    await page.waitForSelector('#search-bar-list:not([hidden]) [role="option"]');
+    await page.waitForTimeout(600);
+}
+
 const ROME = '2009-09-08_14-41-41_iPhone_IMG_0311.jpeg';
 const FUJI = '2024-07-04_14-09-43_X-T50_DSCF3258.jpeg';
 const PARTY_PROFILE = '2025-02-12_21-00-00_party-33.jpg';
@@ -266,6 +286,49 @@ export const shots = [
             await settle(page, 2500);
         },
     })),
+    {
+        // The Things topic: what is found most, over time, together, and the
+        // photos that are blurred or too dark.
+        name: 'statistics-things',
+        take: async (page, { base }) => {
+            await thingsSettled(base);
+            await ready(page, base, 'statistics/things');
+            await page.waitForSelector('.stats-chart svg');
+            await page.mouse.move(1, 1);
+            await settle(page, 2000);
+        },
+    },
+    {
+        // A thing chosen in the search bar: its photos, one of them in the
+        // info panel with the things found in it.
+        name: 'search-things',
+        take: async (page, { base }) => {
+            await thingsSettled(base);
+            await ready(page, base, 'libraries');
+            await search(page, 'boat');
+            await page.locator('#search-bar-list [role="option"]').first().click();
+            const results = page.locator('#lib-results-pane [data-type="image"]');
+            await results.first().waitFor();
+            await results.nth(Math.min(2, await results.count() - 1)).click();
+            if (!await page.locator('.info-panel.expanded').count()) await page.keyboard.press('i');
+            await page.waitForSelector('.info-panel.expanded .info-things');
+            await page.locator('.info-panel.expanded .info-things').evaluate(el => el.scrollIntoView({ block: 'center' }));
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 2000);
+        },
+    },
+    {
+        // The interface in German, as a German browser gets it: the search
+        // bar suggests a thing by its German name, and words to search by.
+        name: 'german',
+        locale: 'de-DE',
+        take: async (page, { base }) => {
+            await thingsSettled(base);
+            await openLibrary(page, base);
+            await settle(page, 1500);
+            await search(page, 'Boot');
+        },
+    },
     {
         name: 'map',
         storage: { 'map-photos-open': '1' },

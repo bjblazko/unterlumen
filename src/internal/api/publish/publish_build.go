@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -205,6 +206,11 @@ func buildOne(store *lib.Store, ch *channels.Channel, pub media.Publication, ts,
 		return buildResult{PhotoID: photoID, Error: "photo not found"}
 	}
 
+	// The index names a file that is not there: renamed or moved outside
+	// Unterlumen since the library was last scanned.
+	if _, err := os.Stat(pathHint); errors.Is(err, fs.ErrNotExist) {
+		return buildResult{PhotoID: photoID, Error: filepath.Base(pathHint) + " is not in its folder any more; scan the library to find it again"}
+	}
 	exported, err := media.ExportImage(pathHint, ch.ExportOptions())
 	if err != nil {
 		return buildResult{PhotoID: photoID, Error: "export: " + err.Error()}

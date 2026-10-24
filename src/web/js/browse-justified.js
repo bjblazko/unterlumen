@@ -44,7 +44,7 @@ class JustifiedRenderer {
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
         const ar = aspectRatios[idx] || 1.5;
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
-        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${fallback}'"` : '';
+        const onerror = fallback ? ` onerror="this.onerror=null;this.src='${escapeHtml(fallback)}'"` : '';
         return `<div class="justified-item image-item${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="image" data-path="${escapeHtml(fp)}" style="width:${Math.round(targetHeight * ar)}px;height:${targetHeight}px">
             <img src="${this._pane.thumbURL(entry, thumbSize)}" alt="${escapeHtml(label)}" loading="lazy" decoding="async" fetchpriority="low" data-jidx="${idx}"${onerror}>${badgesHtml}${nameHtml}
         </div>`;

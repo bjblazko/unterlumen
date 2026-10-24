@@ -164,6 +164,7 @@ class LocationModal {
             container: mapEl,
             style: 'https://tiles.openfreemap.org/styles/liberty',
             center: initialCenter,
+            locale: mapControlWords(),
             zoom: initialZoom,
             attributionControl: false,
         });

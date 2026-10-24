@@ -64,10 +64,11 @@ function faceSpaceSpec(ps, colours) {
     const shown = sums.map((s, p) => ({ p, at: s[3] ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : null })).filter(c => c.at);
     const most = Math.max(1, ...shown.map(c => ps.people[c.p].photos));
     const steps = new Float32Array(shown.flatMap(c => [...c.at, ...colours[c.p], stepRadius(ps.people[c.p].photos, most), 1]));
-    const of = f.faces > n ? ` of ${formatCount(f.faces)}` : '';
-    const axes = f.axes === 'people' ? 'the named people differ most' : 'the faces differ most';
+    const faces = f.faces > n ? t('{n} of {faces}', { n: formatCount(n), faces: countText(f.faces, 'face') }) : countText(n, 'face');
     return {
-        summary: `${formatCount(n)}${of} faces, each placed by what it looks like: faces close together look alike. The three axes are the directions in which ${axes}; they have no names of their own. Named people are in their colour, faces nobody named are grey.`,
+        summary: t(f.axes === 'people'
+            ? '{faces}, each placed by what it looks like: faces close together look alike. The three axes are the directions in which the named people differ most; they have no names of their own. Named people are in their colour, faces nobody named are grey.'
+            : '{faces}, each placed by what it looks like: faces close together look alike. The three axes are the directions in which the faces differ most; they have no names of their own. Named people are in their colour, faces nobody named are grey.', { faces }),
         legend: peopleLegendHTML(ps, colours, `<span class="point-stage-legend-item"><span class="point-stage-legend-swatch" style="background:rgb(107 112 122)" aria-hidden="true"></span>${t('Nobody named')}</span>`)
             + legendStepHTML('A person: the middle of their faces, larger with more photos.'),
         sprites, steps,

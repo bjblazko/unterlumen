@@ -305,6 +305,13 @@ func (p *publishRun) publishGallery(w http.ResponseWriter, mgr *lib.Manager) {
 	results := p.buildPhotos(thumbDir, func(i int, res buildResult) {
 		emit(map[string]any{"step": "photo", "done": i + 1, "total": total, "file": res.Filename})
 	})
+	// Photos were collected and not one could be exported: nothing is
+	// built, packed or uploaded, so a gallery already online is not
+	// replaced by an empty one.
+	if total > 0 && noneBuilt(results) {
+		emit(map[string]any{"error": "no photo could be exported: " + results[0].Error})
+		return
+	}
 	// Existing photos first, then newly exported, each file once.
 	items := mergePhotoItems(p.target.existingPhotos, results)
 	zipName := p.writeZip(items, emit)
@@ -516,4 +523,13 @@ func mergePhotoItems(existing []site.Photo, results []buildResult) []site.Galler
 		})
 	}
 	return items
+}
+
+func noneBuilt(results []buildResult) bool {
+	for _, r := range results {
+		if r.Error == "" {
+			return false
+		}
+	}
+	return true
 }

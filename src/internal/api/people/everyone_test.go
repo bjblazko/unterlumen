@@ -152,6 +152,7 @@ func TestWhoIsOftenWithSomeone(t *testing.T) {
 	store, _ := mgr.OpenStore(l.ID)
 	look := func(i int) []float32 { e := make([]float32, 128); e[i] = 1; return e }
 	for _, id := range []string{"p1", "p2"} {
+		writeJPEG(t, filepath.Join(source, id+".jpg"))
 		if err := store.UpsertPhoto(id, filepath.Join(source, id+".jpg"), id+".jpg", 1, time.Now(), "{}", "", "", "jpeg"); err != nil {
 			t.Fatal(err)
 		}

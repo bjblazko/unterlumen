@@ -40,9 +40,15 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 			return
 		}
 
-		if ct := contentTypeByExt(absPath); ct != "" {
-			w.Header().Set("Content-Type", ct)
+		// Only images are shown. Anything else under the folder — an .html or
+		// .svg among the photos — would run as a page of the app's own origin,
+		// so it is handed over as a download instead.
+		ct := contentTypeByExt(absPath)
+		if ct == "" {
+			download.Original(w, r, absPath)
+			return
 		}
+		w.Header().Set("Content-Type", ct)
 		http.ServeFile(w, r, absPath)
 	}
 }

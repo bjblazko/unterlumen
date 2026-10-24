@@ -15,7 +15,7 @@
     { "name": "go-strftime", "module": "github.com/ncruces/go-strftime", "use": "Used by modernc.org/sqlite", "license": "MIT", "home": "https://github.com/ncruces/go-strftime", "text": "go-strftime.txt" },
     { "name": "bigfft", "module": "github.com/remyoudompheng/bigfft", "use": "Used by modernc.org/sqlite", "license": "BSD-3-Clause", "home": "https://github.com/remyoudompheng/bigfft", "text": "bigfft.txt" },
     { "name": "purego", "module": "github.com/ebitengine/purego", "use": "Calls ONNX Runtime without cgo, for face recognition", "license": "Apache-2.0", "home": "https://github.com/ebitengine/purego", "text": "purego.txt" },
-    { "name": "MapLibre GL JS 6.11.2", "use": "Draws the maps", "license": "BSD-3-Clause", "home": "https://maplibre.org", "support": "https://maplibre.org/sponsors/", "text": "maplibre.txt" },
+    { "name": "MapLibre GL JS 6.15.0", "use": "Draws the maps", "license": "BSD-3-Clause", "home": "https://maplibre.org", "support": "https://maplibre.org/sponsors/", "text": "maplibre.txt" },
     { "name": "D3 7.9.0", "use": "Draws the charts in Statistics", "license": "ISC", "home": "https://d3js.org", "text": "d3.txt" },
     { "name": "IBM Plex Sans and Mono", "use": "The typefaces", "license": "OFL-1.1", "home": "https://github.com/IBM/plex", "text": "ibm-plex.txt" }
   ],

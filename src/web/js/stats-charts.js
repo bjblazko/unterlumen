@@ -109,7 +109,7 @@ function renderFormatDonut(el, formats, onPick) {
         .on('mouseover', function(event, d) {
             d3.select(this).attr('d', arcHover);
             const pct = ((d.data.count / total) * 100).toFixed(1);
-            tooltip.style('display','block').html(`<strong>${d.data.name.toUpperCase()}</strong><br>${formatCount(d.data.count)} (${pct}%)`);
+            tooltip.style('display','block').html(`<strong>${escapeHtml(d.data.name.toUpperCase())}</strong><br>${formatCount(d.data.count)} (${pct}%)`);
         })
         .on('mousemove', function(event) {
             const [mx,my] = d3.pointer(event, el);
@@ -440,7 +440,7 @@ function renderCameraLensTreemap(el, cameraLens, totalPhotos, onPick) {
         .on('mouseover', function(event, d) {
             const pct = totalPhotos ? ((d.value / totalPhotos) * 100).toFixed(1) : '?';
             tooltip.style('display','block')
-                .html(`<strong>${d.parent.data.name}</strong><br>${d.data.name}<br>${t('{photos} ({pct} %)', { photos: countText(d.value, 'photo'), pct })}`);
+                .html(`<strong>${escapeHtml(d.parent.data.name)}</strong><br>${escapeHtml(d.data.name)}<br>${t('{photos} ({pct} %)', { photos: countText(d.value, 'photo'), pct })}`);
         })
         .on('mousemove', function(event) {
             const [mx,my] = d3.pointer(event, el);

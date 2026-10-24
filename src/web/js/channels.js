@@ -130,11 +130,13 @@ const ChannelAPI = {
             return r.json();
         }
         let finalEvt = null;
+        let stopped = '';
         await readEventStream(r, (evt) => {
             if (evt.complete) finalEvt = evt;
+            else if (evt.error) stopped = evt.error;
             else if (onProgress) onProgress(evt);
         });
-        if (!finalEvt) throw new Error('Generate stream ended without completion event');
+        if (!finalEvt) throw new Error(stopped || t('the export stopped without saying why'));
         return finalEvt;
     },
 };
@@ -226,8 +228,10 @@ function _readAccountsEditor(el) {
 /* --- Scale helpers --- */
 
 function _scaleDesc(scale) {
-    if (!scale || scale.mode === 'none' || !scale.mode) return 'original size';
-    if (scale.mode === 'max_dim') return `max ${scale.maxDimension || 'width'} ${scale.maxValue}px`;
+    if (!scale || scale.mode === 'none' || !scale.mode) return t('original size');
+    if (scale.mode === 'max_dim') {
+        return scale.maxDimension === 'height' ? t('max height {px}px', { px: scale.maxValue }) : t('max width {px}px', { px: scale.maxValue });
+    }
     if (scale.mode === 'percent') return `${scale.percent}%`;
     if (scale.mode === 'pixels') return `${scale.width}×${scale.height}px`;
     return scale.mode;

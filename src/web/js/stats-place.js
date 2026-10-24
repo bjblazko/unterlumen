@@ -115,7 +115,7 @@ class StatsPane {
         this._photos.el.hidden = true;
         // Photos opens the column with every photo counted, as the head's
         // count does; a value picked in a chart fills it with its own.
-        this._photosBtn = panelToggleButton(t('Photos'));
+        this._photosBtn = panelToggleButton('Photos');
         this._photosBtn.addEventListener('click', () => {
             if (this._photos.el.hidden) { keepPhotoColumnOpen(STATS_PHOTOS_KEY, true); this._showAllPhotos(); } else this.closePhotos();
         });
@@ -492,5 +492,5 @@ function drawSafely(el, draw) {
 // "412 of 1,000 photos" when a chart only knows some of the photos.
 function coverageLine(valueCounts, total) {
     const n = (valueCounts ?? []).reduce((s, v) => s + v.count, 0);
-    return n < total ? `${formatCount(n)} of ${formatCount(total)} photos` : '';
+    return n < total ? t('{n} of {photos}', { n: formatCount(n), photos: countText(total, 'photo') }) : '';
 }

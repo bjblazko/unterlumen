@@ -11,6 +11,36 @@ const MAP_STYLE_URLS = {
     colour: 'https://tiles.openfreemap.org/styles/liberty',
 };
 
+// The world as a globe unless this browser chose otherwise: a globe shows
+// the sizes of countries as they are, and close up it turns into Mercator by
+// itself. Mercator is the flat map; 3D the flat map tilted.
+function readProjection() {
+    let view = null;
+    try { view = localStorage.getItem('map-projection'); } catch { /* per browser only */ }
+    return ['mercator', '3d'].includes(view) ? view : 'globe';
+}
+
+// The grey styles draw buildings flat; tilted, they stand in the grey of
+// the style's own buildings. The colour style has standing buildings of its own.
+function standBuildings(map) {
+    const style = map.getStyle();
+    if (style.layers.some(l => l.type === 'fill-extrusion') || !style.sources.openmaptiles) return;
+    const flat = style.layers.find(l => l.id === 'building');
+    map.addLayer({
+        id: 'unterlumen-buildings-3d',
+        type: 'fill-extrusion',
+        source: 'openmaptiles',
+        'source-layer': 'building',
+        minzoom: 14,
+        paint: {
+            'fill-extrusion-color': flat?.paint?.['fill-color'] ?? '#d9d9d9',
+            'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 0],
+            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+            'fill-extrusion-opacity': 0.8,
+        },
+    }, flat ? style.layers[style.layers.indexOf(flat) + 1]?.id : undefined);
+}
+
 function mapStyleURL(colour) {
     if (colour) return MAP_STYLE_URLS.colour;
     return MAP_STYLE_URLS[document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'];
@@ -25,6 +55,7 @@ class MapPane {
         this._shown = [];
         this._photosOpen = photoColumnStartsOpen('map-photos-open');
         this._colour = readFlag('map-colour');
+        this._projection = readProjection();
     }
 
     // Reads the locations again on every visit — a scan may have added some —
@@ -76,15 +107,11 @@ class MapPane {
             clearTimeout(this._filterTimer);
             this._filterTimer = setTimeout(() => this.render(), 250);
         });
-        this._photosBtn = panelToggleButton(t('Photos'), 'map-photos-toggle');
+        this._photosBtn = panelToggleButton('Photos', 'map-photos-toggle');
         this._photosBtn.setAttribute('aria-controls', 'map-photos');
         this._photosBtn.hidden = true;
         this._photosBtn.addEventListener('click', () => this._setPhotosOpen(!this._photosOpen));
-        // The Map's one setting stands in its head: a ⋯ for one entry hid it.
-        this._head.querySelector('.map-more').replaceWith(segmentField({
-            label: t('Map'), options: [['grey', t('Grey')], ['colour', t('Colour')]], value: this._colour ? 'colour' : 'grey',
-            onChange: (v) => this._setColour(v === 'colour'),
-        }));
+        this._head.querySelector('.map-more').replaceWith(...this._headSettings());
         this._photos = new PhotoColumn({
             onOpen: (photos, index) => openLibraryPhotos(photos, index),
             onClose: () => this._setPhotosOpen(false),
@@ -156,6 +183,21 @@ class MapPane {
         this._applyRange();
     }
 
+    // The Map's settings stand in its head, views you switch while looking:
+    // a ⋯ would hide them.
+    _headSettings() {
+        return [
+            segmentField({
+                label: t('View'), options: [['globe', t('Globe')], ['mercator', t('Mercator')], ['3d', t('3D')]], value: this._projection,
+                onChange: (v) => this._setProjection(v),
+            }),
+            segmentField({
+                label: t('Map'), options: [['grey', t('Grey')], ['colour', t('Colour')]], value: this._colour ? 'colour' : 'grey',
+                onChange: (v) => this._setColour(v === 'colour'),
+            }),
+        ];
+    }
+
     _buildMap() {
         if (typeof maplibregl === 'undefined') {
             this._note(t('The map library could not be loaded. Reload the page to try again.'), true);
@@ -163,6 +205,7 @@ class MapPane {
         }
         this._map = new maplibregl.Map({
             container: this._canvas,
+            locale: mapControlWords(),
             style: mapStyleURL(this._colour),
             bounds: pointBounds(this._points),
             fitBoundsOptions: { padding: 72, maxZoom: 12 },
@@ -177,6 +220,8 @@ class MapPane {
         // Fires for the first style and again after every theme switch.
         this._map.on('style.load', () => {
             this._styleLoaded = true;
+            // A projection belongs to the style, so every new style needs it again.
+            this._applyProjection();
             this._applyRange();
         });
         this._map.on('moveend', () => this._updateInView());
@@ -199,6 +244,23 @@ class MapPane {
         if (this._styleLoaded) this._markers.show(this._points);
         this._noteEl.hidden = true;
         this._updateInView();
+    }
+
+    _setProjection(view) {
+        this._projection = view;
+        try { localStorage.setItem('map-projection', view); } catch { /* per browser only */ }
+        if (this._styleLoaded) this._applyProjection();
+    }
+
+    // 3D is the flat map tilted, its buildings standing; Globe and Mercator
+    // look straight down.
+    _applyProjection() {
+        const tilted = this._projection === '3d';
+        this._map.setProjection({ type: this._projection === 'globe' ? 'globe' : 'mercator' });
+        if (tilted) standBuildings(this._map);
+        // At once: a move begun before an animated tilt ended would leave
+        // the globe tilted.
+        this._map.jumpTo({ pitch: tilted ? 60 : 0, bearing: tilted ? this._map.getBearing() : 0 });
     }
 
     _setColour(on) {

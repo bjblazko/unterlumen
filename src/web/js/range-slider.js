@@ -26,8 +26,8 @@ class RangeSlider {
         this._fill = this.el.querySelector('.range-fill');
         this._minHandle = this.el.querySelector('.range-handle--min');
         this._maxHandle = this.el.querySelector('.range-handle--max');
-        this._minHandle.setAttribute('aria-label', `${label}, from`);
-        this._maxHandle.setAttribute('aria-label', `${label}, until`);
+        this._minHandle.setAttribute('aria-label', t('{label}, from', { label }));
+        this._maxHandle.setAttribute('aria-label', t('{label}, until', { label }));
 
         for (const [handle, isMin] of [[this._minHandle, true], [this._maxHandle, false]]) {
             this._attachPointer(handle, isMin);

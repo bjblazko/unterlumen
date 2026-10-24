@@ -259,7 +259,7 @@ test.describe('Map', () => {
         await openMap(page);
         expect(styles).toEqual(['positron']);
 
-        // The style is the Map's one setting, in its head.
+        // The style is one of the Map's settings, in its head.
         const style = page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' });
         await expect(style.getByRole('button', { name: 'Grey' })).toHaveAttribute('aria-pressed', 'true');
         await style.getByRole('button', { name: 'Colour' }).click();
@@ -271,6 +271,28 @@ test.describe('Map', () => {
         await expect(page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' })
             .getByRole('button', { name: 'Colour' })).toHaveAttribute('aria-pressed', 'true');
         expect(styles.at(-1)).toBe('liberty');
+    });
+
+    // A globe by default; Mercator looks straight down at the flat map, 3D
+    // tilts it. The choice is remembered.
+    test('shows a globe, the flat map or the map tilted in 3D', async ({ page }) => {
+        await openMap(page);
+        const view = page.locator('.map-pane .place-header').getByRole('group', { name: 'View' });
+        const shown = () => page.evaluate(() => ({ type: App._mapPane._map.getProjection()?.type, pitch: Math.round(App._mapPane._map.getPitch()) }));
+        await expect(view.getByRole('button', { name: 'Globe' })).toHaveAttribute('aria-pressed', 'true');
+        await expect.poll(shown).toEqual({ type: 'globe', pitch: 0 });
+
+        await view.getByRole('button', { name: 'Mercator' }).click();
+        await expect.poll(shown).toEqual({ type: 'mercator', pitch: 0 });
+        await view.getByRole('button', { name: '3D' }).click();
+        await expect.poll(shown).toEqual({ type: 'mercator', pitch: 60 });
+        await expect(page.locator('.map-marker').first()).toBeVisible();
+
+        await page.reload();
+        await page.waitForSelector('.map-marker', { timeout: 20_000 });
+        await expect.poll(shown).toEqual({ type: 'mercator', pitch: 60 });
+        await page.locator('.map-pane .place-header').getByRole('group', { name: 'View' }).getByRole('button', { name: 'Globe' }).click();
+        await expect.poll(shown).toEqual({ type: 'globe', pitch: 0 });
     });
 });
 

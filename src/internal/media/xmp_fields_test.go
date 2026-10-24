@@ -10,7 +10,7 @@ import (
 
 func photoIn(t *testing.T) string {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "photo.jpg")
+	p := existingPhoto(t, filepath.Join(t.TempDir(), "photo.jpg"))
 	os.WriteFile(p, []byte("jpeg"), 0o644) //nolint:errcheck
 	return p
 }

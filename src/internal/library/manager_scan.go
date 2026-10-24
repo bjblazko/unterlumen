@@ -63,6 +63,29 @@ func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
 	return len(absPaths) > 0
 }
 
+// IndexMovedFiles indexes files that were renamed or moved, given as
+// [old, new] absolute paths, and reports whether the caller should refresh
+// any view of this library. A file the library knew at its old path keeps
+// what it knew: only its path changes, without reading the file again — on
+// a network share that read was seconds per photo. Any other file is indexed
+// as new.
+func (m *Manager) IndexMovedFiles(id string, moved [][2]string) bool {
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return false
+	}
+	libInfo, err := libraryFromStore(id, store)
+	if err != nil || libInfo.SourcePath == "" {
+		return false
+	}
+	idx := NewIndexer(store, m.LibDir(id), libInfo.SourcePath)
+	for _, pair := range moved {
+		_ = store.MovePathCache(pair[0], pair[1])
+		_ = idx.IndexFile(pair[1])
+	}
+	return len(moved) > 0
+}
+
 // TriggerScanNewInFolderBackground is like TriggerScanNewBackground but scoped to
 // a single subfolder (relative to the library source path). A no-op if a scan is
 // already running for this library.

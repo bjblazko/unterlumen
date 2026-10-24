@@ -96,7 +96,7 @@ class SettingsStorage {
     _reveal(s, folder) {
         if (!s.canReveal) return '';
         const where = /Mac/.test(navigator.platform) ? 'Finder' : t('file manager');
-        return `<button type="button" class="btn btn-sm storage-reveal" data-folder="${folder}">${t('Show in {where}', { where })}</button>`;
+        return `<button type="button" class="btn btn-sm storage-reveal" data-folder="${escapeHtml(folder)}">${t('Show in {where}', { where })}</button>`;
     }
 
     _limitOptions(limit) {

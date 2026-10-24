@@ -127,7 +127,7 @@ function spaceTimeSpec(st, world) {
     const first = p.date.reduce((a, b) => (a < b ? a : b)).slice(0, 4);
     const last = p.date.reduce((a, b) => (a > b ? a : b)).slice(0, 4);
     return {
-        summary: `${formatCount(n)} photos with a place and a date: where they were taken on the floor, around the middle of the photos at ${formatLatLon(centre.lat, centre.lon)} and further out the further away, on a log scale of distance that widens beyond ${formatCount(STRETCH_FROM_KM)} km; and when, upward from ${first} to ${last}. Each is in its main colour.`,
+        summary: t('{photos} with a place and a date: where they were taken on the floor, around the middle of the photos at {centre} and further out the further away, on a log scale of distance that widens beyond {km} km; and when, upward from {first} to {last}. Each is in its main colour.', { photos: countText(n, 'photo'), centre: formatLatLon(centre.lat, centre.lon), km: formatCount(STRETCH_FROM_KM), first, last }),
         legend: legendDotHTML(t('One photo, where and when it was taken'))
             + legendStepHTML(t('One day away: where most of its photos were taken, larger with more photos. Days within {HOME_KM} km of the middle sit on the axis. The line follows the days in time order.', { HOME_KM: HOME_KM })),
         sprites, steps,
@@ -223,7 +223,7 @@ function spaceTimeTip(st, days, floor, kind, i) {
     if (kind === 'step') {
         const d = days[i];
         return `<span class="point-stage-tip-title">${escapeHtml(d.day)}</span>
-            <span>${formatCount(d.photos)} ${d.photos === 1 ? 'photo' : 'photos'}</span>
+            <span>${countText(d.photos, 'photo')}</span>
             <span class="point-stage-tip-values">${formatDistance(d.d)}</span>`;
     }
     const p = st.points;

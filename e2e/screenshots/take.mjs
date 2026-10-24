@@ -56,7 +56,7 @@ async function main() {
                 isMobile: !!shot.phone,
                 hasTouch: !!shot.phone,
                 colorScheme: shot.dark ? 'dark' : 'light',
-                locale: 'en-GB',
+                locale: shot.locale || 'en-GB',
             });
             await context.addInitScript(([theme, extra]) => {
                 localStorage.setItem('theme', theme);

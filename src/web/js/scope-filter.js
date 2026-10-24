@@ -96,7 +96,7 @@ class ScopeFilter {
         this.el.className = 'scope-filter';
         this.el.innerHTML = '<span class="scope-filter-chips"></span>';
         // The toggle stands in the place's tool strip; the chips in its head.
-        this.toggle = panelToggleButton(t('Filter'), 'scope-filter-toggle');
+        this.toggle = panelToggleButton('Filter', 'scope-filter-toggle');
         this.panel = document.createElement('div');
         this.panel.className = 'lib-filter-panel scope-filter-panel';
         this.panel.innerHTML = `

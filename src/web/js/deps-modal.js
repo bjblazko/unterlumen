@@ -69,14 +69,14 @@ function toolsSummary(status) {
         ['exiftool', status.exiftool?.available, 'reading and writing metadata'],
         ['ffmpeg', status.ffmpeg?.available, 'HEIF and video frames'],
     ];
-    if (status.platform === 'darwin') tools.push(['sips', status.sips?.available, 'HEIF conversion']);
-    if (status.platform === 'linux') tools.push(['heif-convert', status.heifConvert?.available, 'HEIF conversion']);
+    if (status.platform === 'darwin') tools.push(['sips', status.sips?.available, t('HEIF conversion')]);
+    if (status.platform === 'linux') tools.push(['heif-convert', status.heifConvert?.available, t('HEIF conversion')]);
     if (status.ffmpeg?.available && !status.ffmpeg?.webpSupport) tools.push(['cwebp', status.webpAvailable, t('WebP export')]);
     const found = tools.filter(([, ok]) => ok).map(([name]) => name);
     const missing = tools.filter(([, ok]) => !ok);
     return [
-        found.length ? `${found.join(', ')} found` : t('No helper programs found'),
-        missing.length ? `missing: ${missing.map(([name, , what]) => `${name} (${what})`).join(', ')}` : null,
+        found.length ? t('{tools} found', { tools: found.join(', ') }) : t('No helper programs found'),
+        missing.length ? t('missing: {tools}', { tools: missing.map(([name, , what]) => `${name} (${what})`).join(', ') }) : null,
     ].filter(Boolean).join(' · ');
 }
 
@@ -174,23 +174,20 @@ class DepsModal {
         let detail = '';
         if (!dep.ok && dep.note) {
             const installBlock = dep.install
-                ? `<div class="dep-install"><pre>${this._esc(dep.install)}</pre></div>`
+                ? `<div class="dep-install"><pre>${escapeHtml(dep.install)}</pre></div>`
                 : '';
-            detail = `<div class="dep-note">${this._esc(dep.note)}${installBlock}</div>`;
+            detail = `<div class="dep-note">${escapeHtml(dep.note)}${installBlock}</div>`;
         }
 
         return `
             <div class="dep-row">
                 <div class="dep-header">
                     ${icon}
-                    <span class="dep-name">${this._esc(dep.name)}</span>
-                    <span class="dep-desc">${this._esc(dep.desc)}</span>
+                    <span class="dep-name">${escapeHtml(dep.name)}</span>
+                    <span class="dep-desc">${escapeHtml(dep.desc)}</span>
                 </div>
                 ${detail}
             </div>`;
     }
 
-    _esc(s) {
-        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
 }

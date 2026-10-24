@@ -1,6 +1,6 @@
 # ADR-0038: MapLibre 6 as an ES module, without a bundler
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-10-24*
 
 ## Status
 
@@ -36,3 +36,17 @@ The app itself uses four stable parts of the API — `Map`, `Marker`, `Navigatio
 - The UMD file and its stylesheet are gone; the three modules are about 1.1 MB together, similar to before.
 - A browser without module-script support would get no map. Every browser that has WebGL2 supports module scripts.
 - The e2e test from ADR-0031 still asserts that `maplibregl` is defined and that a map canvas appears for a photo with coordinates.
+
+## Addendum 2026-10-24: 6.15.0
+
+Updated from 6.11.2 to 6.15.0 in a dependency review. The release notes of
+6.12 to 6.15 bring globe fixes (the hole at the poles, the centre reaching
+the poles, circles during the switch to Mercator), GeoJSON clustering and
+memory fixes, and a workaround for Safari 26.6 no longer loading tiles after
+the page was in the background. Since 6.13 the worker is self-contained, so
+`maplibre-gl-shared.mjs` is empty and is no longer vendored: the directory
+holds `maplibre-gl.mjs`, `maplibre-gl-worker.mjs`, `maplibre-gl.css` and
+the license. 6.15 also adds experimental custom projections
+(`addProjection`), including Equal Earth, but only for tiles made in that
+projection, and OpenFreeMap serves Mercator tiles (ADR-0039, addendum).
+

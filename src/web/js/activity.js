@@ -42,7 +42,7 @@ class Activity {
     static errorList(lines) {
         const maxShow = 5;
         const shown = lines.slice(0, maxShow);
-        if (lines.length > maxShow) shown.push(`and ${lines.length - maxShow} more`);
+        if (lines.length > maxShow) shown.push(t('and {n} more', { n: formatCount(lines.length - maxShow) }));
         const list = document.createElement('div');
         list.className = 'activity-errors';
         for (const l of shown) {

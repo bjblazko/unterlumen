@@ -373,3 +373,43 @@ func TestIsHostKeyVerificationFailure(t *testing.T) {
 		})
 	}
 }
+
+// A destination's configuration is shared between installations; what
+// becomes an argument of ssh must not be read as an option of it.
+func TestTargetFromConfigRefusesWordsReadAsOptions(t *testing.T) {
+	base := map[string]string{"host": "example.org", "user": "deploy", "remotePath": "/srv/www"}
+	with := func(k, v string) map[string]string {
+		c := map[string]string{}
+		for key, val := range base {
+			c[key] = val
+		}
+		c[k] = v
+		return c
+	}
+	for _, bad := range []map[string]string{
+		with("user", "-oProxyCommand=touch /tmp/x"),
+		with("user", "a@b"),
+		with("host", "-oProxyCommand=x"),
+		with("host", "example.org extra"),
+		with("identityFile", "-oProxyCommand=x"),
+		with("identityFile", "/keys/id x -oProxyCommand=y"),
+		with("identityFile", "/keys/it's"),
+	} {
+		if _, err := TargetFromConfig(bad); err == nil {
+			t.Errorf("accepted %v", bad)
+		}
+	}
+	for _, good := range []map[string]string{
+		base,
+		with("host", "192.168.178.148"),
+		with("host", "[2001:db8::1]"),
+		with("host", "2001:db8::1"),
+		with("host", "my-server.example.org"),
+		with("user", "timo.b_2"),
+		with("identityFile", "/Users/me/.ssh/id_ed25519"),
+	} {
+		if _, err := TargetFromConfig(good); err != nil {
+			t.Errorf("refused %v: %v", good, err)
+		}
+	}
+}

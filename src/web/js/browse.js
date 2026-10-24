@@ -10,6 +10,29 @@ class BrowsePane {
         this.view = 'justified'; // 'grid', 'list', or 'justified'
         this.sort = 'name';
         this.order = 'asc';
+        this.showNames = false;
+        this.showOverlays = true;
+        this._takeOptions(options);
+        this._resetFolderState();
+        this._toolsChecked = null;
+        this._loading = false;
+        this._loadController = null;
+        this._renderedCount = 0;
+        this._observer = null;
+        this._justifiedTargetHeight = 200;
+        this._resizeHandler = null;
+        this._contentEl = null;
+        this.selectedDirs = new Set();
+        this._previewLibID = null;
+        this._pendingPreselect = null;
+        this._libraries = [];
+        this._buildParts();
+        this._attachDelegatedEvents();
+    }
+
+    // What the host gives: what happens on navigating, opening and selecting,
+    // and how the place's head looks.
+    _takeOptions(options) {
         this.onNavigate = options.onNavigate || null;
         this.onImageClick = options.onImageClick || null;
         this.onSelectionChange = options.onSelectionChange || null;
@@ -17,8 +40,6 @@ class BrowsePane {
         this.onLoad = options.onLoad || null;
         // What the place is, shown at the top folder only (placeLede HTML).
         this.lede = options.lede || '';
-        this.showNames = false;
-        this.showOverlays = true;
         this.onToolInvoke = options.onToolInvoke || null;
         this.onSlideshowInvoke = options.onSlideshowInvoke || null;
         // The pane draws the place's head unless its host has one (Organize).
@@ -26,24 +47,9 @@ class BrowsePane {
         this.rootLabel = options.rootLabel || t('Folders');
         // onHeader(slot): the host puts buttons of its own into the head.
         this.onHeader = options.onHeader || null;
-        this._toolsChecked = null;
-        this._loading = false;
-        this._loadController = null;
-        this._renderedCount = 0;
-        this._observer = null;
-        this._exifPollPath = null;
-        this._metaPollPath = null;
-        this._entryMeta = {};
-        this._aspectRatios = {};
-        this._justifiedTargetHeight = 200;
-        this._resizeHandler = null;
-        this._contentEl = null;
-        this.selectedDirs = new Set();
-        this._folderPreviews = new Map(); // subfolder name → what a library knows of it
-        this._previewLibID = null;
-        this._pendingPreselect = null;
-        this._libraries = [];
+    }
 
+    _buildParts() {
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
         }, () => this._syncSelectAll());
@@ -56,8 +62,16 @@ class BrowsePane {
         this._gridRenderer = new GridRenderer(this);
         this._listRenderer = new ListRenderer(this);
         this._justifiedRenderer = new JustifiedRenderer(this);
+    }
 
-        this._attachDelegatedEvents();
+    // What belongs to the folder shown, forgotten when another is loaded.
+    _resetFolderState() {
+        this.warnings = [];
+        this._exifPollPath = null;
+        this._metaPollPath = null;
+        this._entryMeta = {};
+        this._aspectRatios = {};
+        this._folderPreviews = new Map(); // subfolder name → what a library knows of it
     }
 
     // _clearAllSelection deselects every photo and folder, if any is selected.
@@ -150,16 +164,28 @@ class BrowsePane {
 
     async load(path) {
         // Cancel any in-flight load so navigation is always immediately responsive.
-        // The aborted load() will receive an AbortError and return silently.
         if (this._loadController) this._loadController.abort();
         const controller = new AbortController();
         this._loadController = controller;
-
         this._loading = true;
         const isReload = (path || '') === this.path;
-        const scrollEl = this._contentEl || this.container;
-        const savedScroll = isReload ? scrollEl.scrollTop : 0;
+        const savedScroll = isReload ? (this._contentEl || this.container).scrollTop : 0;
         this.path = path || '';
+        this._leaveFolder();
+        this.render();
+
+        const data = await this._fetchFolder(controller);
+        if (!data) return;
+        this.entries = data.entries || [];
+        this.warnings = data.warnings || [];
+        this.render();
+        this.keyboard.updateFocusClass();
+        if (savedScroll > 0) this._restoreScroll(savedScroll);
+        this._afterLoad();
+    }
+
+    // Nothing of the folder before stays selected, focused or known.
+    _leaveFolder() {
         const hadSelection = this.selection.selected.size + this.selectedDirs.size > 0;
         this.selection.clear();
         this.selectedDirs.clear();
@@ -167,49 +193,44 @@ class BrowsePane {
         // first click of a double click must take the bar away with it.
         if (hadSelection && this.onSelectionChange) this.onSelectionChange([]);
         this.keyboard.focusedIndex = 0;
-        this.warnings = [];
         this.entries = [];
-        this._exifPollPath = null;
-        this._metaPollPath = null;
-        this._entryMeta = {};
-        this._aspectRatios = {};
-        this._folderPreviews = new Map();
-        this.render();
+        this._resetFolderState();
+    }
 
-        let data;
+    // The folder's entries, or null when this load was replaced or failed
+    // (and says so).
+    async _fetchFolder(controller) {
         try {
-            data = await API.browse(this.path, this.sort, this.order, controller.signal);
-        } catch (err) {
-            if (err.name === 'AbortError' || this._loadController !== controller) return;
+            const data = await API.browse(this.path, this.sort, this.order, controller.signal);
+            if (this._loadController !== controller) return null;
             this._loading = false;
             this._loadController = null;
-            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: err.message })}</div>`;
-            return;
+            return data;
+        } catch (err) {
+            if (err.name === 'AbortError' || this._loadController !== controller) return null;
+            this._loading = false;
+            this._loadController = null;
+            this.container.innerHTML = `<div class="error">${t('Failed to load: {error}', { error: escapeHtml(err.message) })}</div>`;
+            return null;
         }
+    }
 
-        if (this._loadController !== controller) return;
-        this._loading = false;
-        this._loadController = null;
-        this.entries = data.entries || [];
-        this.warnings = data.warnings || [];
-        this.render();
-        this.keyboard.updateFocusClass();
-
-        if (isReload && savedScroll > 0) {
-            const restoreEl = this._contentEl || this.container;
-            while (this._renderedCount < this.entries.length &&
-                   restoreEl.scrollHeight <= savedScroll + restoreEl.clientHeight) {
-                this._renderNextChunk();
-            }
-            restoreEl.scrollTop = savedScroll;
+    // A reload keeps the place it was scrolled to, drawing as many chunks as
+    // that needs.
+    _restoreScroll(savedScroll) {
+        const el = this._contentEl || this.container;
+        while (this._renderedCount < this.entries.length && el.scrollHeight <= savedScroll + el.clientHeight) {
+            this._renderNextChunk();
         }
+        el.scrollTop = savedScroll;
+    }
+
+    _afterLoad() {
         this._notifyFocusChange();
-
         if (this.entries.some(e => e.type === 'image')) {
             this._pollExifDates();
             this._pollOverlayMeta();
         }
-
         this._applyPendingPreselect();
         if (this.onLoad) this.onLoad();
         this._detectLibrary(this.path);
@@ -370,32 +391,13 @@ class BrowsePane {
     render() {
         this._destroyObserver();
         this._renderedCount = 0;
-
-        const header = [];
-        if (this.placeHeader) header.push(this._renderPlaceHeader());
-        if (this.warnings && this.warnings.length > 0) header.push(this._renderWarnings());
-        header.push(`<div class="browse-bar">${this._renderBreadcrumb()}${this._renderControls()}</div>`);
-
-        const content = [];
-        if (this._loading) {
-            content.push('<div class="browse-loading"></div>');
-        } else if (this.entries.length === 0) {
-            content.push('<div class="empty">' + t('No images or folders found') + '</div>');
-        } else {
-            const end = Math.min(CHUNK_SIZE, this.entries.length);
-            content.push(this._renderChunk(0, end));
-            this._renderedCount = end;
-            if (end < this.entries.length) content.push('<div class="scroll-sentinel"></div>');
-        }
-
         if (this._resizeHandler) {
             window.removeEventListener('resize', this._resizeHandler);
             this._resizeHandler = null;
         }
-
         this.container.innerHTML =
-            `<div class="browse-header">${header.join('')}</div>` +
-            `<div class="browse-content">${content.join('')}</div>`;
+            `<div class="browse-header">${this._headerHTML()}</div>` +
+            `<div class="browse-content">${this._contentHTML()}</div>`;
         this._contentEl = this.container.querySelector('.browse-content');
         this.container.querySelector('.browse-select-all')?.appendChild(this._selectAll.el);
         this.onHeader?.(this.container.querySelector('.browse-header-extra'));
@@ -406,12 +408,28 @@ class BrowsePane {
         if (loadingEl) Activity.in(loadingEl, t('Reading the folder…'), { area: true });
         this.attachEvents();
         this._setupObserver();
-
         if (this.view === 'justified') {
             this._justifiedRenderer.layout();
             this._resizeHandler = () => this._justifiedRenderer.scheduleRelayout();
             window.addEventListener('resize', this._resizeHandler);
         }
+    }
+
+    _headerHTML() {
+        const header = [];
+        if (this.placeHeader) header.push(this._renderPlaceHeader());
+        if (this.warnings && this.warnings.length > 0) header.push(this._renderWarnings());
+        header.push(`<div class="browse-bar">${this._renderBreadcrumb()}${this._renderControls()}</div>`);
+        return header.join('');
+    }
+
+    // The first chunk of the folder; the rest follows as it scrolls into view.
+    _contentHTML() {
+        if (this._loading) return '<div class="browse-loading"></div>';
+        if (this.entries.length === 0) return '<div class="empty">' + t('No images or folders found') + '</div>';
+        const end = Math.min(CHUNK_SIZE, this.entries.length);
+        this._renderedCount = end;
+        return this._renderChunk(0, end) + (end < this.entries.length ? '<div class="scroll-sentinel"></div>' : '');
     }
 
     // The place's head: the folder's name and what is in it, the slideshow
@@ -452,7 +470,7 @@ class BrowsePane {
     _renderWarnings() {
         return this.warnings.map((w, i) =>
             `<div class="warning-banner" data-warning-index="${i}">
-                <span class="warning-message">${w.message}</span>
+                <span class="warning-message">${escapeHtml(w.message)}</span>
                 <button class="btn btn-sm warning-dismiss" data-warning-index="${i}" title="${t('Dismiss')}">&times;</button>
             </div>`
         ).join('');
@@ -502,8 +520,8 @@ class BrowsePane {
             <!-- The layout is a view you switch while looking at photos, so
                  it is a visible control rather than an entry in a menu. -->
             <div class="seg" role="group" aria-label="${t('Layout')}">
-                ${['justified', 'grid', 'list'].map(v => `
-                    <button aria-pressed="${this.view === v}" data-view="${v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
+                ${[['justified', t('Justified')], ['grid', t('Grid')], ['list', t('List')]].map(([v, label]) => `
+                    <button aria-pressed="${this.view === v}" data-view="${v}">${label}</button>`).join('')}
             </div>
             <select class="btn btn-sm select-btn sort-field" aria-label="${t('Sort photos')}">
                 ${[['taken', t('Photo taken')], ['name', t('Name')], ['date', t('File modified')], ['size', t('Size')]].map(([v, label]) => `
@@ -594,48 +612,39 @@ class BrowsePane {
     attachEvents() {
         this.container.querySelectorAll('.warning-dismiss').forEach(el => {
             el.addEventListener('click', () => {
-                const idx = parseInt(el.dataset.warningIndex);
-                this.warnings.splice(idx, 1);
+                this.warnings.splice(parseInt(el.dataset.warningIndex), 1);
                 this.render();
             });
         });
+        this._wireNavigation();
+        this._wireControls();
+        if (this.view === 'justified') this._attachJustifiedImgLoad(0, this._renderedCount);
+    }
 
+    // The breadcrumb, Up and Home each load a folder and say where it went.
+    _wireNavigation() {
+        const go = (path) => {
+            this.load(path);
+            if (this.onNavigate) this.onNavigate(path);
+        };
         this.container.querySelectorAll('.crumb').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.preventDefault();
-                const path = el.dataset.path;
-                this.load(path);
-                if (this.onNavigate) this.onNavigate(path);
-            });
+            el.addEventListener('click', (e) => { e.preventDefault(); go(el.dataset.path); });
         });
+        this.container.querySelector('.up-dir-btn')?.addEventListener('click', () => {
+            const parts = this.path.split('/').filter(Boolean);
+            if (parts.length === 0) return;
+            parts.pop();
+            go(parts.join('/'));
+        });
+        this.container.querySelector('.home-btn')?.addEventListener('click', () => go(this.homeTarget()));
+    }
 
-        const upBtn = this.container.querySelector('.up-dir-btn');
-        if (upBtn) {
-            upBtn.addEventListener('click', () => {
-                const parts = this.path.split('/').filter(Boolean);
-                if (parts.length === 0) return;
-                parts.pop();
-                const parentPath = parts.join('/');
-                this.load(parentPath);
-                if (this.onNavigate) this.onNavigate(parentPath);
-            });
-        }
-
-        const homeBtn = this.container.querySelector('.home-btn');
-        if (homeBtn) {
-            homeBtn.addEventListener('click', () => {
-                const path = this.homeTarget();
-                this.load(path);
-                if (this.onNavigate) this.onNavigate(path);
-            });
-        }
-
+    // Layout, slideshow, ⋯ and sort.
+    _wireControls() {
         this.container.querySelectorAll('[data-view]').forEach(el => {
             el.addEventListener('click', () => this.setView(el.dataset.view));
         });
-
         this.container.querySelector('.browse-slideshow-btn')?.addEventListener('click', () => this.onSlideshowInvoke());
-
         const moreSlot = this.container.querySelector('.browse-more');
         if (moreSlot) {
             // One menu per pane, moved into each render, so a menu left open
@@ -643,16 +652,9 @@ class BrowsePane {
             this._menu ??= new Menu({ items: () => this._menuItems() });
             moreSlot.appendChild(this._menu.button);
         }
-
         const sortSelect = this.container.querySelector('.sort-field');
-        if (sortSelect) sortSelect.addEventListener('change', () => this.setSort(sortSelect.value, this.order));
-
-        const sortOrder = this.container.querySelector('.sort-order');
-        if (sortOrder) sortOrder.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
-
-        if (this.view === 'justified') {
-            this._attachJustifiedImgLoad(0, this._renderedCount);
-        }
+        sortSelect?.addEventListener('change', () => this.setSort(sortSelect.value, this.order));
+        this.container.querySelector('.sort-order')?.addEventListener('click', () => this.setSort(this.sort, this.order === 'asc' ? 'desc' : 'asc'));
     }
 
     // Attaches img.load listeners for justified-view aspect-ratio recording on newly rendered items.
@@ -736,27 +738,16 @@ class BrowsePane {
     // folder no library covers shows the folder sign.
     _folderItemHTML(idx, name, focusedClass) {
         const preview = this._folderPreviews.get(name);
-        const body = preview ? this._folderTileBody(name, preview) : `
-                <span class="folder-tile-icon" aria-hidden="true"><svg width="40" height="32" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M1 2.5v10h16v-8.5H8L6.5 2.5H1z"/></svg></span>
-                <span class="item-name">${escapeHtml(name)}</span>`;
+        const body = preview ? this._folderTileBody(name, preview) : folderSignHTML(name);
         return this._folderTileHTML(idx, name, focusedClass, body);
     }
 
     _folderTileHTML(idx, name, focusedClass, body) {
-        const markedClass = this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : '';
-        return `<button class="folder-tile dir-item${focusedClass}${markedClass}" data-index="${idx}" data-name="${escapeHtml(name)}" data-type="dir">
-            <span class="folder-tile-body">${body}</span>
-        </button>`;
+        return folderTileHTML(idx, name, focusedClass + (this.isMarkedForDeletion(this.fullPath(name)) ? ' marked-for-deletion' : ''), body);
     }
 
     _folderTileBody(name, preview) {
-        const ids = preview?.photoIds || [];
-        const cells = [0, 1, 2, 3].map(i => ids[i]
-            ? `<img src="${LibraryAPI.thumbURL(this._previewLibID, ids[i])}" alt="" loading="lazy">`
-            : '<span></span>').join('');
-        return `<span class="folder-tile-mosaic${ids.length === 1 ? ' folder-tile-mosaic--one' : ''}" aria-hidden="true">${cells}</span>
-            <span class="item-name">${escapeHtml(name)}</span>
-            <span class="folder-tile-meta">${preview ? folderTileMeta(preview) : '&nbsp;'}</span>`;
+        return folderTileBodyHTML(this._previewLibID, name, preview);
     }
 
     // The tiles appear with the folder names at once; what each folder holds
@@ -835,101 +826,17 @@ class BrowsePane {
     }
 
     _updateOverlays() {
-        const ct = this._contentEl || this.container;
-        ct.querySelectorAll('[data-type="image"]').forEach(el => {
-            const name = el.dataset.name;
-            const badges = this._buildOverlayBadges(name, this._entryMeta[name]);
-            if (el.tagName === 'TR') {
-                const nameCell = el.querySelector('td.list-name');
-                if (!nameCell) return;
-                let listBadges = nameCell.querySelector('.list-badges');
-                if (badges) {
-                    if (!listBadges) { listBadges = document.createElement('span'); listBadges.className = 'list-badges'; nameCell.appendChild(listBadges); }
-                    listBadges.innerHTML = badges;
-                } else if (listBadges) {
-                    listBadges.remove();
-                }
-            } else {
-                const existing = el.querySelector('.overlay-badges');
-                if (existing) existing.remove();
-                if (badges) el.insertAdjacentHTML('beforeend', badges);
-            }
-        });
+        updateOverlayBadges(this._contentEl || this.container, name => this._buildOverlayBadges(name, this._entryMeta[name]));
     }
 
-    // --- Overlay badge builders ---
-
-    // All overlay chips look the same: a dark chip with mono text over the
-    // photo. Colour is a signal in this UI (ADR-0030), and a colour per file
-    // format and per film simulation would be eight decorative colours
-    // competing with the photograph itself. Every value from before is still
-    // shown, in the same order.
     _buildOverlayBadges(name, meta) {
-        if (!this.showOverlays) return '';
-        const badges = [];
-        if (meta && meta.hasGPS) {
-            badges.push(`<span class="overlay-badge overlay-badge-gps" title="${t('Has GPS coordinates')}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
-        }
-        const fileType = this._fileTypeLabel(name);
-        if (fileType) badges.push(`<span class="overlay-badge">${fileType}</span>`);
-        if (meta && meta.filmSimulation) {
-            badges.push(`<span class="overlay-badge">${escapeHtml(meta.filmSimulation)}</span>`);
-        }
-        if (meta && meta.aspectRatio) {
-            const icon = this._aspectRatioIcon(meta.aspectRatio);
-            badges.push(`<span class="overlay-badge overlay-badge-ratio">${icon}${escapeHtml(meta.aspectRatio)}</span>`);
-        }
-        if (badges.length === 0) return '';
-        return `<div class="overlay-badges">${badges.join('')}</div>`;
-    }
-
-    _fileTypeLabel(name) {
-        const labels = {
-            jpg: 'JPEG', jpeg: 'JPEG',
-            heif: 'HEIF', heic: 'HEIF', hif: 'HEIF',
-            png: 'PNG', gif: 'GIF', webp: 'WebP',
-        };
-        return labels[name.split('.').pop().toLowerCase()] || null;
-    }
-
-    _aspectRatioIcon(ratioStr) {
-        const isCustom = !ratioStr.includes(':');
-        let ratio = 1;
-        if (!isCustom) {
-            const parts = ratioStr.split(':');
-            if (parts.length === 2) ratio = parseFloat(parts[0]) / parseFloat(parts[1]);
-        }
-        let rw, rh;
-        if (ratio > 14 / 10) { rw = 14; rh = 14 / ratio; }
-        else { rh = 10; rw = 10 * ratio; }
-        const x = ((16 - rw) / 2).toFixed(1);
-        const y = ((12 - rh) / 2).toFixed(1);
-        const dash = isCustom ? ' stroke-dasharray="2 1"' : '';
-        return `<svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"${dash}><rect x="${x}" y="${y}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" rx="0.5"/></svg>`;
+        return this.showOverlays ? overlayBadgesHTML(name, meta) : '';
     }
 
     // --- Client-side sort ---
 
     _resortAndRender() {
-        this.entries.sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
-            let less;
-            switch (this.sort) {
-                case 'date': less = new Date(a.date) < new Date(b.date); break;
-                case 'taken': {
-                    const aDate = a.exifDate ? new Date(a.exifDate) : null;
-                    const bDate = b.exifDate ? new Date(b.exifDate) : null;
-                    if (!aDate && !bDate) return 0;
-                    if (!aDate) return 1;
-                    if (!bDate) return -1;
-                    less = aDate < bDate;
-                    break;
-                }
-                case 'size': less = (a.size || 0) < (b.size || 0); break;
-                default: less = a.name.toLowerCase() < b.name.toLowerCase();
-            }
-            return this.order === 'desc' ? (less ? 1 : -1) : (less ? -1 : 1);
-        });
+        this.entries.sort(compareBrowseEntries(this.sort, this.order));
         this.render();
     }
 }

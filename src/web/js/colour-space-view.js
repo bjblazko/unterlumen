@@ -55,10 +55,9 @@ function pathSpan(path) {
 
 function colourSpaceSummary(cs) {
     const n = cs.analysedPhotos;
-    const trail = cs.path.length > 1
-        ? ` The trail joins the mean colour of each ${periodUnit(cs.granularity)}'s colour photos${pathSpan(cs.path)}.`
-        : '';
-    return `${formatCount(n)} ${n === 1 ? 'photo' : 'photos'}, each at its main colour: lightness up, hue around, chroma outward.${trail}`;
+    const trail = cs.path.length < 2 ? ''
+        : ' ' + t(periodUnit(cs.granularity) === 'year' ? 'The trail joins the mean colour of each year’s colour photos{path}.' : 'The trail joins the mean colour of each month’s colour photos{path}.', { path: pathSpan(cs.path) });
+    return t('{photos}, each at its main colour: lightness up, hue around, chroma outward.', { photos: countText(n, 'photo') }) + trail;
 }
 
 function colourSpaceLegendHTML(cs) {
@@ -116,6 +115,6 @@ function colourSpaceTip(cs, kind, i) {
     const lch = labToLCh(p.l[i], p.a[i], p.b[i]);
     return photoTipHTML(cs, p.lib[i], p.id[i], `
         <span class="point-stage-tip-title">${escapeHtml(p.date[i] ? p.date[i].slice(0, 10) : t('No date'))}</span>
-        <span>${escapeHtml(COLOUR_CLASSES[p.mono[i]] ?? '')}, mostly ${escapeHtml(hueNameOf(lch))}</span>
+        <span>${escapeHtml(t('{kind}, mostly {hue}', { kind: COLOUR_CLASSES[p.mono[i]] ?? '', hue: hueNameOf(lch) }))}</span>
         ${colourValuesHTML(lch)}`);
 }
