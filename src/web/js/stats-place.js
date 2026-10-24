@@ -177,7 +177,7 @@ class StatsPane {
         const opts = [['', 'Auto'], ['month', 'Months'], ['year', 'Years']].map(([v, label]) =>
             `<option value="${v}"${v === this._granularity ? ' selected' : ''}>${label}</option>`).join('');
         return `<label class="stats-period"><span class="stats-period-label">Periods</span>
-            <select class="btn btn-sm select-btn stats-granularity">${opts}</select></label>`;
+            <select class="btn btn-sm select-btn stats-granularity" aria-label="Periods">${opts}</select></label>`;
     }
 
     _drawCount(snap) {

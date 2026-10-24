@@ -4,7 +4,7 @@ import { FOLDER_B_IMAGE_COUNT, FOLDER_A_A1_IMAGE_COUNT, navigateToFolder } from 
 
 test.describe('Folder navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
   });
 

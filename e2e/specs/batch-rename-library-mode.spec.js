@@ -40,7 +40,7 @@ test.describe('Batch rename in library mode', () => {
     });
 
     test('batch-rename preview resolves a valid new name, not "invalid path"', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });

@@ -6,7 +6,7 @@ import { reindexLibrary } from '../helpers/library.js';
 
 test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
@@ -77,7 +77,7 @@ test.describe('Overlays and EXIF metadata — folder-b (JPEG)', () => {
 
 test.describe('Overlays — folder-a/a1 (HIF)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-a');
     const a1 = page.locator('.folder-tile.dir-item[data-name="a1"]');
@@ -114,7 +114,7 @@ test.describe('Overlays — library folder view', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await page.locator('#mode-library').click();
     const card = page.locator('.library-card', { hasText: 'E2E Overlay Library' });

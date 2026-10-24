@@ -8,7 +8,7 @@ import { navigateToFolder } from '../helpers/fixtures.js';
 
 test.describe('Selection bar', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 2);

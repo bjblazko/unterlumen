@@ -4,7 +4,7 @@ import { GPS_IMAGE, NO_GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.j
 
 test.describe('Wastebin (non-destructive)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);
@@ -147,7 +147,7 @@ test.describe('Wastebin – library mode', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('#mode-library').click();
     await page.waitForSelector('.library-list-view', { timeout: 8_000 });

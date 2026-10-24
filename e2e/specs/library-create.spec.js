@@ -15,7 +15,7 @@ test.describe('New library dialog', () => {
   test.afterAll(async ({ request }) => removeCreated(request));
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('#mode-library').click();
     await page.waitForSelector('#lib-new-btn', { timeout: 8_000 });
@@ -71,7 +71,7 @@ test.describe('New library dialog with the system folder dialog', () => {
       await route.fulfill({ response, json: { ...cfg, folderDialog: true } });
     });
     await page.route('**/api/folder-dialog', (route) => route.fulfill({ json: chosen(boundary) }));
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('#mode-library').click();
     await page.locator('#lib-new-btn').click();

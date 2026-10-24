@@ -4,10 +4,11 @@
 
 //
 // On a phone the sentence would take the room the photos need, so it folds
-// behind a round "i" button there; the desk shows it as it is.
+// behind a round "i" button there, in the title's row; the desk shows it as
+// it is.
 function placeLede(text) {
     return `<p class="place-lede">` +
-        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" title="What this place is">Explain</button>` +
+        `<button type="button" class="btn btn-sm place-lede-toggle" aria-expanded="false" aria-label="Explain" title="What this place is">i</button>` +
         `<span class="place-lede-text">${text} ${placeLink('guide', 'guide', 'How Unterlumen works')}</span></p>`;
 }
 

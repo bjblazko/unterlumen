@@ -69,7 +69,7 @@ test.describe('Library scan operations', () => {
     // ── Library card UI ──────────────────────────────────────────────────────
 
     test('library row offers Scan for new photos and the indexed date', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -88,7 +88,7 @@ test.describe('Library scan operations', () => {
     // ── Maintenance in "Edit library…" ───────────────────────────────────────
 
     test('Edit library holds the maintenance runs', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -111,7 +111,7 @@ test.describe('Library scan operations', () => {
     // ── Scanning the folder you have open ────────────────────────────────────
 
     test('a library folder offers Scan for new photos in its ⋯ menu', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });

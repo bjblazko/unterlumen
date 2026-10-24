@@ -8,7 +8,7 @@ const FOLDER_A_SUBDIR_COUNT = 3;
 
 test.describe('Folder info panel — browse mode', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
         await openInfoPanel(page);
     });
@@ -143,7 +143,7 @@ test.describe('Folder info panel — library mode', () => {
     });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });

@@ -10,7 +10,7 @@ const isFullscreen = (page) => page.evaluate(() => !!document.fullscreenElement)
 
 test.describe('Full screen', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 2);

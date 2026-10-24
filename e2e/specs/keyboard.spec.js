@@ -7,7 +7,7 @@ import { navigateToFolder, FOLDER_B_IMAGE_COUNT } from '../helpers/fixtures.js';
 // MacIntel in headless Chrome on a Mac and so expects Cmd there.
 
 async function openFolderB(page) {
-  await page.goto('/');
+  await page.goto('/#folders');
   await waitForAppReady(page);
   await navigateToFolder(page, 'folder-b');
   await waitForThumbnailsLoaded(page, 1);
@@ -17,7 +17,7 @@ async function openFolderB(page) {
 
 test.describe('Keyboard shortcuts', () => {
   test('number keys and comma switch places', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('.breadcrumb').click();
     const places = [['3', 'organize'], ['4', 'library'], ['5', 'published'], ['6', 'destinations'], [',', 'settings'], ['1', 'browse']];

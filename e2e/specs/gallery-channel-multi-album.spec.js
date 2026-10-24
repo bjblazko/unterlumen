@@ -222,7 +222,7 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         const b = await collect(request, libID, [photos[0]], { title: 'Card B', unlisted: true });
         const albumB = (await generate(request, b.id)).postID;
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view, .library-detail', { timeout: 8_000 });
@@ -270,7 +270,7 @@ test.describe('Single-gallery channel — many albums on one host', () => {
         await collect(request, libID, [photos[0]], { title: 'Pending One' });
         await collect(request, libID, [photos[1]], { title: 'Pending Two' });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 

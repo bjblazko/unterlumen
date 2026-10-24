@@ -12,7 +12,7 @@ test.describe('Thumbnails', () => {
 
   test.describe('folder-b JPEG thumbnails', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/#folders');
       await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
       await navigateToFolder(page, 'folder-b');
       await waitForThumbnailsLoaded(page, 1);
@@ -72,7 +72,7 @@ test.describe('Thumbnails', () => {
 
     test('HIF thumbnail appears in the grid after navigating to folder-a/a1', async ({ page }) => {
       test.skip(!(await supportsHifConversion(page.request)), 'HIF conversion not supported in this environment');
-      await page.goto('/');
+      await page.goto('/#folders');
       await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
       await navigateToFolder(page, 'folder-a');
       await page.locator('.folder-tile.dir-item[data-name="a1"]').dblclick();

@@ -30,7 +30,7 @@ test.describe('View menu — library folder view', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await page.locator('#mode-library').click();
     const card = page.locator('.library-card', { hasText: 'E2E View Menu Library' });

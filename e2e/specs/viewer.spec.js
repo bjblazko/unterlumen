@@ -4,7 +4,7 @@ import { GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 
 test.describe('Image Viewer', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 1);

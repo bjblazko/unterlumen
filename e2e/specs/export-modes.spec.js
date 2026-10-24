@@ -162,7 +162,7 @@ test.describe('Export modes', () => {
     // after clicking the tool button from search-result panes.
 
     test('UI browse: select 2 photos and open export modal', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 2);
@@ -176,7 +176,7 @@ test.describe('Export modes', () => {
     });
 
     test('UI library detail: select 2 photos and open export modal', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -200,7 +200,7 @@ test.describe('Export modes', () => {
     });
 
     test('UI in-library filter: photos from filter results open export modal', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -230,7 +230,7 @@ test.describe('Export modes', () => {
     });
 
     test('UI cross-library filter: photos from list-view filter open export modal', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });

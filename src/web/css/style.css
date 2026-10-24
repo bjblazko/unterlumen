@@ -6400,6 +6400,14 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .segment-field-label { color: var(--fg-2); }
 
+.segment-field-select { display: none; }
+
+@media (max-width: 700px) {
+    .segment-field-label,
+    .segment-field .seg { display: none; }
+    .segment-field-select { display: inline-block; }
+}
+
 /* A select that sits in a row of buttons is cut from the same stock: same
    height, same frame, its own arrow instead of the native one. */
 .select-btn {
@@ -6639,9 +6647,24 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .place-title .gal-crumbs { font-size: inherit; gap: var(--space-2); }
 .place-title .link-btn { font: inherit; }
 
+/* On a phone the head is one row — title, count, the place's setting, the
+   "i" of its sentence and ⋯ — so the photos keep the screen: what does not
+   fit is cut short, and only an opened sentence takes a row of its own. */
 @media (max-width: 700px) {
-    .place-header { padding: var(--space-3) var(--space-4); }
-    .place-title { font-size: var(--text-lg); }
+    .place-header {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: var(--space-2) var(--space-4);
+    }
+    .place-header > * { flex-basis: 100%; }
+    .place-header > .place-header-row { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; }
+    .place-header > .place-lede:not(.place-lede-open) { flex: 0 0 auto; }
+    /* The name is cut last: the count gives way first. */
+    .place-title { font-size: var(--text-lg); flex-shrink: 0; max-width: 70%; }
+    .place-meta { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stats-period-label { display: none; }
+    .place-header-actions { flex-shrink: 0; }
 }
 
 /* --- Panel hide: the sidebar's panel glyph, framed, at a panel's head --- */
@@ -7401,9 +7424,15 @@ button.combo-item:hover { background: var(--bg-2); }
     .place-lede { width: auto; }
     .place-lede-toggle {
         display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        width: var(--control-h-sm);
         height: var(--control-h-sm);
         box-sizing: border-box;
-        align-items: center;
+        padding: 0;
+        border-radius: var(--radius-full);
+        font-family: var(--font-sans);
+        font-weight: 600;
     }
     .place-lede-text { display: none; }
     .place-lede-open {

@@ -4,7 +4,7 @@
 const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'people', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
 
 const App = {
-    mode: 'browse',
+    mode: 'library',
     locationModal: null,
     batchRenameModal: null,
     exportModal: null,
@@ -160,7 +160,7 @@ const App = {
     _modeFromHash() {
         const hash = location.hash.replace(/^#/, '').split(/[/?]/)[0];
         const entry = Object.entries(this.NAV).find(([, place]) => place.hash === hash);
-        if (!entry) return 'browse';
+        if (!entry) return 'library'; // a bare address starts in Libraries, on the desk as on a phone
         if (entry[0] === 'statistics') this._statsRoute = statsRouteFromHash(location.hash);
         if (entry[0] === 'people') this._peopleRoute = peopleRouteFromHash(location.hash);
         return entry[0];
@@ -380,9 +380,9 @@ const App = {
     },
 
     // leaveSettings goes back to the place Settings was opened from, or to
-    // Folders when it was opened directly.
+    // Libraries when it was opened directly.
     leaveSettings() {
-        this.setMode(this._placeBeforeSettings || 'browse');
+        this.setMode(this._placeBeforeSettings || 'library');
     },
 
     // Each place's element, in the order they are shown or hidden.

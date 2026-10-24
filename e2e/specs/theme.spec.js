@@ -8,7 +8,7 @@ async function openSettings(page) {
 
 test.describe('Theme', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
   });
 

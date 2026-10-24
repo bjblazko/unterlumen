@@ -66,7 +66,7 @@ test.describe('Map', () => {
     });
 
     test('a photo in two libraries is one point on the map', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         const ids = await page.evaluate(() => mapPoints({ libraries: [
             { id: 'A', points: [['same', 48.1, 11.5, '2024-05-01T10:30:00', 'a.jpg'], ['own', 1, 1, '', 'b.jpg']] },
@@ -77,7 +77,7 @@ test.describe('Map', () => {
 
     test('is a place in the sidebar, at #map and on key 7', async ({ page }) => {
         await stubTiles(page);
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
 
         await page.locator('#mode-map').click();
@@ -279,7 +279,7 @@ test.describe('Map on a phone', () => {
 
     test('is one of the tabs', async ({ page }) => {
         await stubTiles(page);
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await expect(page.locator('#tab-map')).toHaveAttribute('href', '#map');
         await page.locator('#tab-map').tap();

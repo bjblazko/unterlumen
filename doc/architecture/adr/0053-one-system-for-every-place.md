@@ -1,6 +1,6 @@
 # ADR-0053: One system for every place
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-10-24*
 
 ## Status
 
@@ -85,3 +85,16 @@ strip, full screen and the download in ⋯.
   `/api/library/detect` says where in the library a folder is.
 - `/api/cache/evict` is gone with the menu entry that used it.
 - e2e specs that looked for the old heads, counts and words were rewritten.
+
+## Addendum 2026-10-24: the head on a phone, and where the app starts
+
+On a phone the head is one row: title and count, the place's one setting,
+the round "i" that opens its sentence, its actions and ⋯. The setting is
+still `segmentField`, drawn there as a small select named by the setting —
+the segment and its label took a row of their own, and with the search bar
+and the tab bar the photos had half the screen. The count gives way before
+the name. An opened sentence takes its own row.
+
+A bare address starts in Libraries, on the desk as on a phone, and the
+phone's tab bar carries Statistics where it carried Folders: photos are
+found in libraries, and Folders is reached through its links.

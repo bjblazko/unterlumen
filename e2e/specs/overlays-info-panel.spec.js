@@ -10,7 +10,7 @@ import { GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 
 test.describe('Thumbnail overlays', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
@@ -66,9 +66,9 @@ test.describe('Info panel', () => {
     // Note: no addInitScript for the remembered state — it would re-run on
     // every navigation and quietly undo what the persistence test asserts.
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await page.evaluate(() => localStorage.setItem('info-all-metadata-open', '0'));
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);

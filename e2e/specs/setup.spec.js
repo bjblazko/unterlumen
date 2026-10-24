@@ -75,6 +75,8 @@ test.describe('Setup in the browser', () => {
         expect(cfg.needsSetup).toBeUndefined();
         await page.goto(URL + '/');
         await expect(page).not.toHaveURL(/#setup$/);
+        await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
+        await page.goto(URL + '/#folders');
         await expect(page.getByRole('button', { name: 'Photos' })).toBeVisible();
         await expect(page.getByRole('button', { name: 'NAS' })).toBeVisible();
     });

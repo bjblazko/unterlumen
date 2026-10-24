@@ -137,7 +137,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('Galleries groups rows by destination and layers the link check on the state', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -167,7 +167,7 @@ test.describe('Published Galleries overview', () => {
     // "Check again" would then only repeat the bad news: the way to put it
     // online has to be there as well.
     test('a gallery whose address does not answer offers Publish again next to Check again', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -181,7 +181,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('an Online gallery with nothing pending offers no action in its row', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -193,7 +193,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('the detail view names its destination and leads there', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -205,7 +205,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('the detail view renames a gallery and toggles its visibility', async ({ page, request }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -237,7 +237,7 @@ test.describe('Published Galleries overview', () => {
         const evt = await buildGallery(request, libID, photoID, GALLERY_SLUG, 'E2E Disposable Gallery');
         const disposablePostID = evt.postID;
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
 
@@ -277,7 +277,7 @@ test.describe('Published Galleries overview', () => {
             await route.continue();
         });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
         await page.locator(`.gal-row[data-postid="${evt.postID}"]`).click();
@@ -305,7 +305,7 @@ test.describe('Published Galleries overview', () => {
     // scope, filtered to that gallery by its membership — so a rename (the
     // test above may have run) does not lose them.
     test('Show photos on a gallery opens Libraries filtered to that gallery', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-published');
         await page.locator(`.gal-row[data-postid="${galleryPostID}"]`).click();
@@ -324,7 +324,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('Show photos on a destination opens Libraries filtered to it', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-destinations');
         await page.locator('.dest-row', { hasText: 'E2E Published Site' }).click();
@@ -339,7 +339,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('the destinations list links to the public site and into Galleries', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-destinations');
 
@@ -353,7 +353,7 @@ test.describe('Published Galleries overview', () => {
     });
 
     test('opening a destination shows its type first, and the type is fixed', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.click('#mode-destinations');
 

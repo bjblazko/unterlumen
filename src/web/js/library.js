@@ -346,6 +346,9 @@ class LibraryTab {
             this._showFilterLoading(false);
             throw err;
         }
+        // On a phone the filter covers the screen: the photos come first,
+        // the filter's count on its button says they are filtered.
+        if (matchMedia(INFO_PANEL_PHONE).matches) this._filterPanel.close();
     }
 
     // showPhoto opens a library at a folder with one photo selected and in

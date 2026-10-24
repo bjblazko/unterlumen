@@ -47,7 +47,7 @@ test.describe('Filename XSS safety', () => {
             throw new Error(`Unexpected dialog (would indicate script execution): ${d.message()}`);
         });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, XSS_FOLDER);
         await waitForThumbnailsLoaded(page, 1);
@@ -76,7 +76,7 @@ test.describe('Filename XSS safety', () => {
             throw new Error(`Unexpected dialog (would indicate script execution): ${d.message()}`);
         });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, XSS_FOLDER);
         await page.locator('button[data-view="list"]').click();

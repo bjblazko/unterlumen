@@ -34,7 +34,7 @@ test.describe('Timeline', () => {
     test.use({ viewport: { width: 800, height: 640 } });
 
     test('is a place in Explore, below Map', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         const entry = page.locator('#mode-timeline');
         await expect(entry).toHaveAttribute('href', '#timeline');

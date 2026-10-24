@@ -52,7 +52,7 @@ test.describe('Photo appearance', () => {
     });
 
     test('Edit library reads everything again and says when it is finished', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });

@@ -18,30 +18,60 @@ test.use({
 });
 
 test.describe('Phone', () => {
-    test('a tab bar replaces the sidebar', async ({ page }) => {
+    test('a tab bar replaces the sidebar, and Libraries is where it starts', async ({ page }) => {
         await page.goto('/');
         await waitForAppReady(page);
 
         await expect(page.locator('.tabbar')).toBeVisible();
         await expect(page.locator('.sidebar')).toBeHidden();
 
-        // The same places as the sidebar, with the same addresses.
-        await expect(page.locator('#tab-browse')).toHaveAttribute('href', '#folders');
+        // The same places as the sidebar, with the same addresses; Libraries first.
         await expect(page.locator('#tab-library')).toHaveAttribute('href', '#libraries');
+        await expect(page.locator('#tab-library')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('#tab-statistics')).toHaveAttribute('href', '#statistics');
         await expect(page.locator('#tab-people')).toHaveAttribute('href', '#people');
-        await expect(page.locator('#tab-browse')).toHaveAttribute('aria-current', 'page');
 
         await page.locator('#tab-people').tap();
         await expect(page).toHaveURL(/#people$/);
         await expect(page.locator('#tab-people')).toHaveAttribute('aria-current', 'page');
-        // Publishing is desktop work: Galleries is not among the tabs.
-        await expect(page.locator('.tabbar-item')).toHaveText(['Libraries', 'Folders', 'Map', 'Timeline', 'People']);
+        // Publishing is desktop work, and photos are found in libraries:
+        // Statistics has the place Folders had. Folders stays reachable by its links.
+        await expect(page.locator('.tabbar-item')).toHaveText(['Libraries', 'Map', 'Timeline', 'People', 'Statistics']);
+    });
+
+    // The photos keep the screen: a place's head is one row on a phone —
+    // its setting a small select, its sentence behind "i".
+    test("a place's head is one row", async ({ page }) => {
+        for (const place of ['#libraries', '#map', '#timeline', '#statistics', '#folders']) {
+            await page.goto('/' + place);
+            await waitForAppReady(page);
+            const head = page.locator('#app .place-header:visible').first();
+            await expect(head).toBeVisible();
+            const box = await head.boundingBox();
+            expect(box.height, place).toBeLessThanOrEqual(60);
+        }
+        await page.goto('/#map');
+        await waitForAppReady(page);
+        await expect(page.getByRole('combobox', { name: 'Map' })).toBeVisible();
+        await page.getByRole('button', { name: 'Explain' }).first().tap();
+        await expect(page.locator('.place-lede-open .place-lede-text').first()).toBeVisible();
+    });
+
+    // A search shows its photos; the filter, which covers the screen on a
+    // phone, stays closed and counts its condition on its button.
+    test('a search shows its photos, not the filter', async ({ page }) => {
+        await page.goto('/#libraries');
+        await waitForAppReady(page);
+        await page.evaluate(() => App.showPhotos({ thing: 'boat' }));
+        await expect(page.locator('.place-header:visible', { hasText: 'Results' })).toBeVisible();
+        await expect(page.locator('.lib-filter-panel.visible')).toHaveCount(0);
+        await expect(page.locator('.lib-filter-btn-count:visible').first()).toHaveText('1');
     });
 
     // The row height shrinks with the width, so two landscape photos share a
     // row instead of one photo filling the screen; the margins stay thin.
     test('two photos share a row, with thin margins', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 4);
@@ -111,11 +141,12 @@ test.describe('Phone', () => {
         // And it offers the way back to something a phone can do.
         await page.locator('.desk-only-notice a').tap();
         await expect(page.locator('.desk-only-notice')).toBeHidden();
-        await expect(page.locator('.browse-container')).toBeVisible();
+        await expect(page).toHaveURL(/#libraries$/);
+        await expect(page.locator('#tab-library')).toHaveAttribute('aria-current', 'page');
     });
 
     test('selecting a photo offers no actions', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
@@ -137,7 +168,7 @@ test.describe('Phone', () => {
     });
 
     test('the viewer fills the screen, swipes and shows info from below', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 2);
@@ -181,7 +212,7 @@ test.describe('Phone', () => {
     });
 
     test('the slideshow covers the tab bar and its controls fit the width', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
@@ -249,8 +280,9 @@ test.describe('Phone', () => {
             await expect(text).toBeHidden();
             await page.locator('.place-header .place-lede-toggle').tap();
             await expect(text).toBeVisible();
-            // The style is the head's one setting, beside the title, not a row of its own.
-            const style = page.locator('.map-pane .place-header').getByRole('group', { name: 'Map' });
+            // The style is the head's one setting, beside the title as a small
+            // select, not a row of its own.
+            const style = page.locator('.map-pane .place-header').getByRole('combobox', { name: 'Map' });
             await expect(style).toBeVisible();
             const [title, seg] = [await page.locator('.map-pane .place-header h1, .map-pane .place-header .place-title').first().boundingBox(), await style.boundingBox()];
             expect(Math.abs(title.y + title.height / 2 - (seg.y + seg.height / 2))).toBeLessThan(12);

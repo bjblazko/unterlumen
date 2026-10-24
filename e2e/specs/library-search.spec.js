@@ -25,7 +25,7 @@ test.describe('Filter panel — no EXIF data', () => {
     });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
         await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -114,7 +114,7 @@ test.describe('Library search with indexed fixtures', () => {
 
     test.describe('Filter panel in list view', () => {
         test.beforeEach(async ({ page }) => {
-            await page.goto('/');
+            await page.goto('/#folders');
             await waitForAppReady(page);
             await page.locator('#mode-library').click();
             await page.waitForSelector('.library-list-view', { timeout: 8_000 });
@@ -350,7 +350,7 @@ test.describe('Library search with indexed fixtures', () => {
 
     test.describe('Filter panel in library detail view', () => {
         test.beforeEach(async ({ page }) => {
-            await page.goto('/');
+            await page.goto('/#folders');
             await waitForAppReady(page);
             await page.locator('#mode-library').click();
             await page.waitForSelector('.library-list-view', { timeout: 8_000 });

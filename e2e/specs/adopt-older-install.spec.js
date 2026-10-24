@@ -61,6 +61,8 @@ test.describe('An older installation', () => {
 
         await page.goto(URL + '/');
         await expect(page).not.toHaveURL(/#setup$/);
+        await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
+        await page.goto(URL + '/#folders');
         await expect(page.getByRole('button', { name: 'Bilder' })).toBeVisible();
     });
 

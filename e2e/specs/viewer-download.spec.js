@@ -34,7 +34,7 @@ const zipNames = (file) => execFileSync('unzip', ['-Z1', file]).toString().trim(
 const zipEntry = (file, name) => execFileSync('unzip', ['-p', file, name], { maxBuffer: 100 * 1024 * 1024 });
 
 async function openInFolder(page, folderPath, name) {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     // Nested folders: each step's crumb carries the path so far.
     const parts = folderPath.split('/').slice(0, -1);
@@ -187,7 +187,7 @@ test.describe('Download the original from the viewer', () => {
 
     test.describe('from the selection bar', () => {
         async function selectInFolderB(page, count) {
-            await page.goto('/');
+            await page.goto('/#folders');
             await waitForAppReady(page);
             await page.locator('.dir-item[data-name="folder-b"]').first().dblclick();
             await waitForThumbnailsLoaded(page, count);
@@ -205,7 +205,7 @@ test.describe('Download the original from the viewer', () => {
         });
 
         test('a selected folder comes as a ZIP with everything in it, in its folders', async ({ page }) => {
-            await page.goto('/');
+            await page.goto('/#folders');
             await waitForAppReady(page);
             await page.locator('.folder-tile[data-name="folder-a"]').click();
             // Only folders: Download works, the photo-only actions say why not.

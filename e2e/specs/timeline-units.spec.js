@@ -6,7 +6,7 @@ import { waitForAppReady } from '../helpers/wait.js';
 
 test.describe('Timeline units', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
     });
 

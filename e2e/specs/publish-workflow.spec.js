@@ -203,7 +203,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
     // two channel types diverge in the UI: the Unlisted checkbox and the
     // Open-in-browser assertion the plan calls out explicitly.
     async function runPublishWorkflow(page, { channelSlug, galleryTitle, isSite, photoOffset }) {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
 
         // ── 1. Collect two photos into a new draft ──────────────────────────
@@ -305,7 +305,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
     // destinations, so a Files destination could not be reached at all.
     test('Files channel: collect into it from the dialog, then export the files', async ({ page }) => {
         const title = 'E2E Publish Workflow Files Batch';
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await openLibraryDetail(page);
         await selectTwoPhotosAt(page, 4);
@@ -378,7 +378,7 @@ test.describe('Publish workflow — collect, draft, generate', () => {
         const existingValue = existing.toISOString().slice(0, 10);
         const today = new Date().toISOString().slice(0, 10);
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
         await reopenPublishedTab(page);
         await page.locator(`.gal-row[data-postid="${published.postID}"]`).click();

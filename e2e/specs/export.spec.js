@@ -99,7 +99,7 @@ test.describe('Export', () => {
   // ── UI smoke test ─────────────────────────────────────────────────────────
 
   test('select an image in browse and open export dialog via toolbar', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
     await navigateToFolder(page, 'folder-b');
     await page.waitForSelector(`[data-name="${GPS_IMAGE}"]`, { timeout: 10_000 });

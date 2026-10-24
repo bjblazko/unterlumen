@@ -8,7 +8,7 @@ import { GPS_IMAGE, NO_GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.j
 const SIZE = /^~?\d+(\.\d+)?\s?(B|KB|MB|GB)$/;
 
 async function openExportForTwo(page) {
-  await page.goto('/');
+  await page.goto('/#folders');
   await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
   await navigateToFolder(page, 'folder-b');
   await waitForThumbnailsLoaded(page, 2);

@@ -60,7 +60,7 @@ test.describe('GPS editing — set-location / remove-location APIs', () => {
             data: { files: [NO_GPS_EDIT_PATH], latitude: 51.5074, longitude: -0.1278 },
         });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);
@@ -91,7 +91,7 @@ test.describe('GPS editing — set-location / remove-location APIs', () => {
             data: { files: [GPS_EDIT_PATH] },
         });
 
-        await page.goto('/');
+        await page.goto('/#folders');
         await page.waitForSelector('.breadcrumb', { timeout: 10_000 });
         await navigateToFolder(page, 'folder-b');
         await waitForThumbnailsLoaded(page, 1);

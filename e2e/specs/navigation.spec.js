@@ -7,7 +7,7 @@ import { waitForAppReady } from '../helpers/wait.js';
 
 test.describe('Navigation — places, not steps', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
   });
 

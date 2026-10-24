@@ -6,7 +6,7 @@ import { GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.js';
 // the behaviour once per representative dialog instead of once per feature.
 
 async function selectAPhoto(page) {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await navigateToFolder(page, 'folder-b');
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
@@ -90,7 +90,7 @@ test.describe('Dialogs — one frame, one behaviour', () => {
 
 test.describe('Charts take their colours from the tokens (ADR-0034)', () => {
     test('the chart ramp is defined and the dead --border token is gone', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/#folders');
         await waitForAppReady(page);
 
         const tokens = await page.evaluate(() => {

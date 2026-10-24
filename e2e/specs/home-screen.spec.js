@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 // bars. That needs a manifest the page links to, and icons that load.
 
 test('the page links a manifest that opens standalone, with icons that load', async ({ page, request }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     const href = await page.locator('link[rel="manifest"]').getAttribute('href');
     expect(href).toBe('/manifest.json');
 

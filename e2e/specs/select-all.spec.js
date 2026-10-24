@@ -7,7 +7,7 @@ import { GPS_IMAGE, NO_GPS_IMAGE, navigateToFolder } from '../helpers/fixtures.j
 
 test.describe('Select all', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/#folders');
     await waitForAppReady(page);
     await navigateToFolder(page, 'folder-b');
     await waitForThumbnailsLoaded(page, 2);
