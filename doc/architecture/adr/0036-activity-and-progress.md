@@ -1,6 +1,6 @@
 # ADR-0036: One way to show activity, and a status line for work that outlives its page
 
-*Last modified: 2026-09-26*
+*Last modified: 2026-10-25*
 
 ## Status
 
@@ -99,3 +99,29 @@ work that outlives the page that started it.**
   `context.Background()`. Cancel is a separate decision.
 - **Phone:** the sidebar is hidden on a phone and the phone only browses, so the
   status line is not shown there.
+
+## Addendum 2026-10-25: where a wait is shown
+
+Moving 90 photos in Organize showed its wait at the foot of the place, the
+work that followed it (adding the photos to the index) nowhere, and setting a
+location the same kind of wait in a dialog. Where a wait is shown now follows
+from what the work is:
+
+- **A dialog** (`ProgressDialog`, `src/web/js/progress-dialog.js`) for work on
+  many files that nothing else should run beside: moving or copying more than
+  five files in Organize, setting or removing a location, deleting. One file
+  per request, so the count is the server's ("40 of 90 files", the file going
+  now), Cancel between files, a report at the end with what failed. The dialog
+  holds the keyboard, so a second press sends nothing.
+- **The place's own line** for a short answer about what is on the screen: a
+  move of up to five files, a search, a save.
+- **The status line** for work that goes on after the answer. A copy or move
+  into a library's folder answers once the files are there; adding them to the
+  index runs in the background as one job per library ("Adding photos to
+  \"Chronologisch\"", x of y) that grows when more files arrive while it runs
+  (`Manager.AddMovedFiles`, `AddCopiedFiles`). The place reads the library
+  again when that job ends (`StatusLine.onFinished`).
+
+Before, the move request read every new photo into the index before it
+answered — one or two seconds a photo on a network drive — and the page said
+"Moving…" long after the files had been moved.

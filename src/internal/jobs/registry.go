@@ -79,6 +79,15 @@ func (r *Registry) Start(kind, title, place string) *Handle {
 	return &Handle{reg: r, id: id}
 }
 
+// ID is the job's ID, as the UI sees it; empty for a handle that reports
+// nowhere.
+func (h *Handle) ID() string {
+	if h == nil {
+		return ""
+	}
+	return h.id
+}
+
 // Progress reports how far the current step is.
 func (h *Handle) Progress(done, total int, current string) {
 	h.update(func(j *Job) {

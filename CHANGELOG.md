@@ -1,9 +1,12 @@
 # Changelog
 
-*Last modified: 2026-10-24*
+*Last modified: 2026-10-25*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Fixed
+- **Organize said "Moving…" long after the files were moved, and never how far it was.** The files went in one request, and that request also read every new photo into the library's index before answering — on a network drive one or two seconds a photo, with nothing to show meanwhile. More than five files now move or copy in the same progress dialog that setting or removing a location and deleting use: it counts them as they go ("40 of 90 files", with the file going now), can be cancelled, and reports at the end; a few files still go at once, with the line under the folder saying so. The answer comes as soon as the files are where they belong; adding them to the library's index follows in the background and shows in the status line ("Adding photos to “Chronologisch”", x of y), and the library's views are read again when it is done. A move within a library still keeps each photo's faces and things.
 
 ## [0.20.2] - 2026-10-24
 

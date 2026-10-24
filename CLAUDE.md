@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-10-25*
 
 ## Project
 
@@ -63,7 +63,7 @@ The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/archit
 - **Shape and depth**: Flat. Radii `--radius-sm` 2px / `--radius-md` 4px / `--radius-lg` 8px, `--radius-full` for round controls and badges. Separate areas with a surface step *or* a hairline, never both. `--shadow-float` only for floating layers (menu, popover, modal); nothing at rest has a shadow. No gradients, glows or backdrop blur.
 - **Layout**: 4px base spacing scale (`--space-1` … `--space-12`), no off-scale values, generous whitespace, photos without ornament.
 - **Motion**: 120/160/240ms ease-out, state changes only; 0ms under `prefers-reduced-motion`.
-- **Activity** ([ADR-0036](doc/architecture/adr/0036-activity-and-progress.md)): every wait goes through `Activity` (`src/web/js/activity.js`) — words while busy (elapsed seconds after 3 s), a `--time` bar and "x of y" only when the server reports a total, a sentence at the end. Nothing for the first 400 ms, no spinner, never an invented count. A button that starts work uses `Activity.button()`. Work that outlives its page registers a job in `internal/jobs` (a `*jobs.Handle`, or `apijobs.Track` for request-long work) and shows in the sidebar's status line.
+- **Activity** ([ADR-0036](doc/architecture/adr/0036-activity-and-progress.md)): every wait goes through `Activity` (`src/web/js/activity.js`) — words while busy (elapsed seconds after 3 s), a `--time` bar and "x of y" only when the server reports a total, a sentence at the end. Nothing for the first 400 ms, no spinner, never an invented count. A button that starts work uses `Activity.button()`. Work on many files that nothing should run beside (moving more than five files, setting a location, deleting) runs in `ProgressDialog` (`src/web/js/progress-dialog.js`), one file per request. Work that outlives its page registers a job in `internal/jobs` (a `*jobs.Handle`, or `apijobs.Track` for request-long work) and shows in the sidebar's status line.
 - **Copy**: Sentence case, plain declarative sentences, specifics over superlatives, no exclamation marks or emoji. Errors say what happened, why, and what to do next — inline, never `alert()`/`confirm()`.
 - **Vocabulary** ([ADR-0029](doc/architecture/adr/0029-destinations-galleries-one-publish-action.md)): in the UI a channel is a **Destination** and an album is a **Gallery**; publishing is one action called **Publish**. Backend names (`channel`, `galleryExport`, `siteExport`, `drafts.json`) are unchanged.
 - **Charts** ([ADR-0034](doc/architecture/adr/0034-colour-in-charts.md)): colour in a chart encodes data, so charts have their own ramp — `--chart-1 … --chart-8` (categorical, fixed order, designed per theme), `--chart-seq-1 … 5` (magnitude), `--chart-grid`, `--chart-axis`. The signal colours stay with the interface and appear in a chart only with their own meaning. One series takes slot 1 and no legend; several take slots in order, never cycled. Never colour alone — always a label or a legend. Film simulations keep their own `--film-*` tokens as a recorded exception. Validate any new step with `dataviz/scripts/validate_palette.js` in both modes.

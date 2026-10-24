@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-24*
+*Last modified: 2026-10-25*
 
 ## 1. Introduction and Goals
 
@@ -165,7 +165,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/timeline` | Every dated photo of every library as one stream, oldest first, each photo once; display aspect ratios, versioned by the libraries' content stamps and cached ([ADR-0040](adr/0040-timeline-place.md)) |
 | `internal/api/timeline` | `/api/timeline` (skeleton: a day and an aspect ratio per photo) and `/api/timeline/photos` (details by index range, 409 when the stream changed) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
-| `internal/jobs` | Register of long-running work (scans, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
+| `internal/jobs` | Register of long-running work (scans, adding copied or moved files to an index, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
 | `internal/api/sse` | Opens a server-sent event stream and writes JSON data events; used by every streaming handler |
 | `internal/site` | Static output of a destination: single-gallery pages and multi-album sites (templates, assets, nav, sitemap), their state files, slugs, and the shared album register ([ADR-0035](adr/0035-shared-album-register.md)); no HTTP |

@@ -38,6 +38,7 @@ type Manager struct {
 	things           thingsState          // the things engine and the things passes running (ADR-0054)
 	vectors          sync.Map             // map[libraryID]*vectorCache, for searching by words
 	sourcePaths      sync.Map             // map[libraryID]string, each library's folder (libraryIDForPath)
+	arrivals         sync.Map             // map[libraryID]*arrivalQueue, files copied or moved in, still to index
 	decisions        *facedecisions.Store // hidden faces, No's and covers, shared between installations; nil keeps them in each index
 }
 

@@ -1,6 +1,6 @@
 # ADR-0032: Organize is one source and many targets
 
-*Last modified: 2026-09-24*
+*Last modified: 2026-10-25*
 
 ## Status
 
@@ -60,3 +60,17 @@ waste bin, where the count and the two-step confirmation already live.
 - **Deleting a folder is now two steps**, in a different place than before:
   mark it, then delete it in *Marked for deletion*. That is slower on purpose
   — it deletes a folder with its contents and cannot be undone.
+
+## Addendum 2026-10-25: Enter opens, larger moves in a dialog
+
+- **Enter no longer sends** (0.20.2). Everywhere else it opens a folder or a
+  photo, and here it moved the selection to the current target — the same
+  thing a number key does, and a dangerous surprise. Number keys send, Enter
+  opens. A held number key (`e.repeat`) and a second press while files are on
+  their way send nothing more.
+- **More than five files move or copy in the progress dialog** that location
+  and deleting use, with a count, Cancel and a report (ADR-0036, addendum of
+  the same date). Up to five go at once, with the line under the folder
+  saying so; that line keeps Undo either way.
+- **Adding the files to a library's index follows in the background** and
+  shows in the status line, so the move is done when the files are.

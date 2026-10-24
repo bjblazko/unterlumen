@@ -267,4 +267,3 @@ func syncRenamed(libMgr *library.Manager, renamed [][2]string) bool {
 	}
 	return updated
 }
-

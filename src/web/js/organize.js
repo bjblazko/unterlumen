@@ -215,16 +215,15 @@ class OrganizePane {
     async _moveFiles(index, files, copy) {
         const target = this.targets[index];
         const name = targetName(target.path);
-        this._working(copy ? t('Copying {photos} to {name}…', { photos: countLabel(files.length), name })
-            : t('Moving {photos} to {name}…', { photos: countLabel(files.length), name }));
-        let result;
-        try {
-            result = copy ? await API.copy(files, target.path) : await API.move(files, target.path);
-        } catch (err) {
-            this._say(t('Could not reach {name}: {err}', { name, err: err.message }), 'error');
+        const words = copy
+            ? { busy: t('Copying {photos} to {name}…', { photos: countLabel(files.length), name }), title: t('Copying to {name}', { name }), done: t('Copied') }
+            : { busy: t('Moving {photos} to {name}…', { photos: countLabel(files.length), name }), title: t('Moving to {name}', { name }), done: t('Moved') };
+        const send = group => copy ? API.copy(group, target.path) : API.move(group, target.path);
+        const { results, error } = await sendFiles(files, send, words, text => this._working(text));
+        if (error && !results.some(r => r.success)) {
+            this._say(t('Could not reach {name}: {err}', { name, err: error.message }), 'error');
             return;
         }
-        const results = result.results || [];
         const failures = results.filter(r => !r.success).map(failureLine);
         const moved = results.filter(r => r.success).map(r => r.file);
         if (!moved.length) {
@@ -242,7 +241,7 @@ class OrganizePane {
         this.pane.load(this.pane.path);
         this._renderTargets();
         this._renderPath();
-        if (result.libraryUpdated) App.reloadLibraryPane();
+        App.reloadLibraryPane();
     }
 
     _recordMoved(target, moved, copy, name) {
@@ -269,10 +268,15 @@ class OrganizePane {
             this._renderPath();
             return;
         }
-        this._working(t('Moving {paths} back from {name}…', { paths: countLabel(u.paths.length), name: u.name }));
+        const words = {
+            busy: t('Moving {paths} back from {name}…', { paths: countLabel(u.paths.length), name: u.name }),
+            title: t('Moving back from {name}', { name: u.name }),
+            done: t('Moved back'),
+        };
         this._moving = true;
         try {
-            await API.move(u.paths, u.back);
+            const { error } = await sendFiles(u.paths, group => API.move(group, u.back), words, text => this._working(text));
+            if (error) throw error;
             this._sorted = Math.max(0, this._sorted - u.paths.length);
             const target = this.targets.find(t => targetName(t.path) === u.name);
             if (target) target.moved = Math.max(0, (target.moved || 0) - u.paths.length);
@@ -312,7 +316,7 @@ class OrganizePane {
         el.hidden = false;
         el.className = 'organize-result';
         el.innerHTML = '';
-        Activity.in(el, text);
+        return Activity.in(el, text);
     }
 
     /* --- Selection --- */
@@ -390,4 +394,48 @@ function targetName(path) {
 
 function countLabel(n) {
     return countText(n, 'item');
+}
+
+// A move or copy of more than a few files runs in the progress dialog that
+// location and deleting use — one file at a time, a count, Cancel, and a
+// report at the end — so nothing else is sent to the folders meanwhile. A
+// few files go in one request, with the result line saying so.
+const FILES_WITHOUT_DIALOG = 5;
+
+async function sendFiles(files, send, { busy, title, done }, line) {
+    if (files.length <= FILES_WITHOUT_DIALOG) {
+        line(busy);
+        try {
+            const answer = await send(files);
+            if (answer.indexJob) followIndexJob(answer.indexJob);
+            return { results: answer.results || [], error: null };
+        } catch (error) {
+            return { results: [], error };
+        }
+    }
+    return new Promise((resolve) => {
+        new ProgressDialog().open(files, {
+            title, done,
+            action: async (file) => {
+                const answer = await send([file]);
+                if (answer.indexJob) followIndexJob(answer.indexJob);
+                return (answer.results || [])[0] || { file, success: false, error: t('No answer') };
+            },
+            onComplete: (results) => resolve({ results, error: null }),
+        });
+    });
+}
+
+// The server adds the files to their library's index after it answered;
+// the library's views are read again once that job ends.
+const indexJobs = new Set();
+let followingIndexJobs = false;
+
+function followIndexJob(id) {
+    indexJobs.add(id);
+    if (followingIndexJobs || !App.statusLine) return;
+    followingIndexJobs = true;
+    App.statusLine.onFinished((job) => {
+        if (indexJobs.delete(job.id)) App.reloadLibraryPane();
+    });
 }

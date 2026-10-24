@@ -28,8 +28,8 @@ type fileOpResult struct {
 }
 
 type fileOpResponse struct {
-	Results        []fileOpResult `json:"results"`
-	LibraryUpdated bool           `json:"libraryUpdated,omitempty"`
+	Results  []fileOpResult `json:"results"`
+	IndexJob string         `json:"indexJob,omitempty"` // the job adding the files to their library's index
 }
 
 // Handle registers all file-operation routes on mux.
@@ -154,7 +154,7 @@ func handleMove(root string, cache *media.ScanCache, libMgr *library.Manager) ht
 	}
 }
 
-func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache, libMgr *library.Manager, cleanupSrc bool) {
+func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(src, dst string) error, cache *media.ScanCache, libMgr *library.Manager, isMove bool) {
 	var req fileOpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -164,81 +164,97 @@ func handleFileOp(w http.ResponseWriter, r *http.Request, root string, op func(s
 		http.Error(w, "No files specified", http.StatusBadRequest)
 		return
 	}
-
 	destDir, ok := pathguard.SafePath(root, req.Destination)
 	if !ok {
 		http.Error(w, "Invalid destination path", http.StatusBadRequest)
 		return
 	}
-	info, err := os.Stat(destDir)
-	if err != nil || !info.IsDir() {
+	if info, err := os.Stat(destDir); err != nil || !info.IsDir() {
 		http.Error(w, "Destination is not a valid directory", http.StatusBadRequest)
 		return
 	}
+	done := applyFileOp(root, req.Files, destDir, op)
+	for dir := range done.dirs {
+		cache.Invalidate(dir)
+	}
+	writeJSON(w, fileOpResponse{Results: done.results, IndexJob: indexArrivals(libMgr, destDir, done, isMove)})
+}
 
-	dirsToInvalidate := make(map[string]struct{})
-	srcDirs := make(map[string]struct{})
-	var dstPaths, srcPaths []string
-	var results []fileOpResult
-	for _, file := range req.Files {
+// fileOpDone is what a copy or move did: a result per file, the paths that
+// went across, and the folders whose listing changed.
+type fileOpDone struct {
+	results            []fileOpResult
+	srcPaths, dstPaths []string
+	dirs               map[string]struct{}
+}
+
+func applyFileOp(root string, files []string, destDir string, op func(src, dst string) error) fileOpDone {
+	done := fileOpDone{dirs: map[string]struct{}{}}
+	for _, file := range files {
 		srcPath, ok := pathguard.SafePath(root, file)
 		if !ok {
-			results = append(results, fileOpResult{File: file, Error: "invalid source path"})
+			done.results = append(done.results, fileOpResult{File: file, Error: "invalid source path"})
 			continue
 		}
 		dstPath := filepath.Join(destDir, filepath.Base(srcPath))
 		if err := op(srcPath, dstPath); err != nil {
-			results = append(results, fileOpResult{File: file, Error: err.Error()})
-		} else {
-			media.CarrySidecar(op, srcPath, dstPath) //nolint:errcheck
-			srcDir := filepath.Dir(srcPath)
-			dirsToInvalidate[srcDir] = struct{}{}
-			dirsToInvalidate[destDir] = struct{}{}
-			srcDirs[srcDir] = struct{}{}
-			dstPaths = append(dstPaths, dstPath)
-			srcPaths = append(srcPaths, srcPath)
-			results = append(results, fileOpResult{File: file, Success: true})
+			done.results = append(done.results, fileOpResult{File: file, Error: err.Error()})
+			continue
 		}
+		media.CarrySidecar(op, srcPath, dstPath) //nolint:errcheck
+		done.dirs[filepath.Dir(srcPath)] = struct{}{}
+		done.dirs[destDir] = struct{}{}
+		done.srcPaths = append(done.srcPaths, srcPath)
+		done.dstPaths = append(done.dstPaths, dstPath)
+		done.results = append(done.results, fileOpResult{File: file, Success: true})
 	}
-	for dir := range dirsToInvalidate {
-		cache.Invalidate(dir)
-	}
+	return done
+}
 
-	// Index new arrivals synchronously so the response already reflects the
-	// updated library state. For moves across libraries, also queue a cleanup
-	// of the source library folder in the background.
-	libraryUpdated := false
-	if libMgr != nil && len(dstPaths) > 0 {
-		var destLib *library.Library
-		if lib, ok := libMgr.FindLibraryForPath(destDir); ok {
-			destLib = lib
-			if cleanupSrc {
-				// A move keeps content, time and size: a photo the library
-				// knew at its old path is not read again.
-				libraryUpdated = libMgr.IndexMovedFiles(lib.ID, movedPairs(srcPaths, dstPaths))
-			} else {
-				libraryUpdated = libMgr.IndexFilesSync(lib.ID, dstPaths)
-			}
-		}
-		if cleanupSrc {
-			// After the arrivals are indexed: a photo moved within one
-			// library is then known at its new path and stays.
-			libMgr.ForgetFiles(srcPaths)
-			for srcDir := range srcDirs {
-				if srcLib, ok := libMgr.FindLibraryForPath(srcDir); ok {
-					if destLib == nil || srcLib.ID != destLib.ID {
-						relSrc, _ := filepath.Rel(srcLib.SourcePath, srcDir)
-						if relSrc == "." {
-							relSrc = ""
-						}
-						libMgr.TriggerCleanupInFolderBackground(srcLib.ID, relSrc)
-					}
-				}
-			}
-		}
+// indexArrivals hands the files that arrived to their library's index in the
+// background — on a network share that is seconds per new photo, and the
+// files are already where they belong — and returns the job that shows it.
+// A move out of other libraries, or out of none into none, settles those at
+// once.
+func indexArrivals(libMgr *library.Manager, destDir string, done fileOpDone, isMove bool) string {
+	if libMgr == nil || len(done.dstPaths) == 0 {
+		return ""
 	}
+	destLib, inLibrary := libMgr.FindLibraryForPath(destDir)
+	job := ""
+	switch {
+	case inLibrary && isMove:
+		job = libMgr.AddMovedFiles(destLib.ID, movedPairs(done.srcPaths, done.dstPaths))
+	case inLibrary:
+		job = libMgr.AddCopiedFiles(destLib.ID, done.dstPaths)
+	}
+	if isMove {
+		if !inLibrary {
+			libMgr.ForgetFiles(done.srcPaths)
+		}
+		cleanUpSources(libMgr, done.srcPaths, destLib)
+	}
+	return job
+}
 
-	writeJSON(w, fileOpResponse{Results: results, LibraryUpdated: libraryUpdated})
+// cleanUpSources checks the folders the files left in libraries other than
+// the one they went to.
+func cleanUpSources(libMgr *library.Manager, srcPaths []string, destLib *library.Library) {
+	dirs := map[string]struct{}{}
+	for _, p := range srcPaths {
+		dirs[filepath.Dir(p)] = struct{}{}
+	}
+	for srcDir := range dirs {
+		srcLib, ok := libMgr.FindLibraryForPath(srcDir)
+		if !ok || (destLib != nil && srcLib.ID == destLib.ID) {
+			continue
+		}
+		relSrc, _ := filepath.Rel(srcLib.SourcePath, srcDir)
+		if relSrc == "." {
+			relSrc = ""
+		}
+		libMgr.TriggerCleanupInFolderBackground(srcLib.ID, relSrc)
+	}
 }
 
 func handleMkdir(root string, cache *media.ScanCache) http.HandlerFunc {
@@ -523,4 +539,3 @@ func movedPairs(srcPaths, dstPaths []string) [][2]string {
 	}
 	return pairs
 }
-

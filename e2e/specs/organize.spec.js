@@ -104,6 +104,34 @@ test.describe('Organize — one source, many targets', () => {
         expect(moved.entries.filter((e) => e.type === 'image')).toHaveLength(2);
     });
 
+    // More than a few files move in the progress dialog that location and
+    // deleting use: it counts them as they go and reports at the end.
+    test('a move of many photos runs in the progress dialog', async ({ page, request }) => {
+        const folder = await (await request.get('/api/browse?path=folder-b')).json();
+        const more = folder.entries.filter((e) => e.type === 'image').map((e) => `folder-b/${e.name}`)
+            .filter((p) => !p.includes('DSCF3500') && !p.includes('IMG_9637') && p !== GPS_PATH && p !== NO_GPS_PATH)
+            .slice(0, 10);
+        expect((await request.post('/api/copy', { data: { files: more, destination: SRC } })).status()).toBe(200);
+        await openOrganize(page);
+        await loadSource(page);
+        await page.locator('.organize-source').getByRole('button', { name: 'Select all' }).click();
+
+        await page.route('**/api/move', async (route) => {
+            await new Promise((r) => setTimeout(r, 150));
+            await route.continue();
+        });
+        await page.keyboard.press('1');
+        const dialog = page.locator('.progress-dialog');
+        await expect(dialog).toContainText(`Moving to ${DST}`);
+        await expect(dialog).toContainText(/\d+ of 12/, { timeout: 10_000 });
+        await expect(dialog).toContainText('Moved: 12 of 12 files.', { timeout: 15_000 });
+        await page.keyboard.press('1'); // the dialog holds the keys: nothing more is sent
+        await dialog.getByRole('button', { name: 'Close' }).click();
+        await expect(page.locator('#org-result')).toContainText('12 items moved to');
+        const moved = await (await request.get(`/api/browse?path=${DST}`)).json();
+        expect(moved.entries.filter((e) => e.type === 'image')).toHaveLength(12);
+    });
+
     // Enter opens, as everywhere else: it never moves a file.
     test('Enter with photos selected moves nothing', async ({ page, request }) => {
         await openOrganize(page);
