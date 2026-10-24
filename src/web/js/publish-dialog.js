@@ -23,7 +23,7 @@ class PublishDialog {
     open(row) {
         this._row = row;
         this._dialog = new Dialog({
-            title: 'Publish',
+            title: t('Publish'),
             subtitle: row.title || row.channelName,
             size: 'md',
             className: 'publish-dialog',
@@ -49,14 +49,14 @@ class PublishDialog {
     // one date field. No step the user has to drive by hand.
     async _renderConfirmStep() {
         const body = this._el.querySelector('#pub-body');
-        Activity.in(body, 'Reading the collected photos…');
+        Activity.in(body, t('Reading the collected photos…'));
         let draft = null;
         if (this._row.draftID) {
             try {
                 const drafts = await ChannelAPI.listDrafts(this._row.channelSlug);
                 draft = drafts.find(d => d.id === this._row.draftID) || null;
             } catch (err) {
-                body.innerHTML = `<div class="channel-error">Could not load the collected photos: ${escapeHtml(err.message)}</div>`;
+                body.innerHTML = `<div class="channel-error">${t('Could not load the collected photos: {error}', { error: escapeHtml(err.message) })}</div>`;
                 return;
             }
         }
@@ -72,29 +72,29 @@ class PublishDialog {
         const dateValue = (validExisting || new Date()).toISOString().slice(0, 10);
 
         const steps = [
-            pending > 0 ? `Export ${pending} photo${pending !== 1 ? 's' : ''}` : 'Rebuild the exported photos',
-            'Build the pages',
-            willUpload ? `Upload to ${escapeHtml(this._uploadHost() || 'the configured host')}` : null,
-            this._row.url ? 'Check the link' : null,
+            pending > 0 ? t('Export {photos}', { photos: countText(pending, 'photo') }) : t('Rebuild the exported photos'),
+            t('Build the pages'),
+            willUpload ? t('Upload to {host}', { host: escapeHtml(this._uploadHost() || t('the configured host')) }) : null,
+            this._row.url ? t('Check the link') : null,
         ].filter(Boolean);
 
         body.innerHTML = `
             <p class="form-hint">${pending > 0
                 ? `${pending} photo${pending !== 1 ? 's are' : ' is'} waiting to go online.`
-                : 'Nothing is waiting. Publishing rebuilds this gallery as it is.'}</p>
+                : t('Nothing is waiting. Publishing rebuilds this gallery as it is.')}</p>
             <ol class="publish-plan">${steps.map(s => `<li>${s}</li>`).join('')}</ol>
-            ${willUpload ? '' : '<p class="form-hint">This destination has no upload configured, so the files stay in the local output folder.</p>'}
-            <label class="form-label" for="pub-date">${this._row.postID ? 'Date shown on the gallery' : 'Published date'}</label>
+            ${willUpload ? '' : '<p class="form-hint">' + t('This destination has no upload configured, so the files stay in the local output folder.') + '</p>'}
+            <label class="form-label" for="pub-date">${this._row.postID ? 'Date shown on the gallery' : t('Published date')}</label>
             <input class="form-input" id="pub-date" type="date" value="${dateValue}">
             <span class="build-date-note">${this._row.postID
-                ? 'Stays as it is unless you change it here. Stored in XMP sidecars on the newly added photos.'
-                : 'Sets album order in the built site and is stored in XMP sidecars.'}</span>
+                ? t('Stays as it is unless you change it here. Stored in XMP sidecars on the newly added photos.')
+                : t('Sets album order in the built site and is stored in XMP sidecars.')}</span>
             `;
 
         this._dialog.setActions([
-            { label: 'Cancel', id: 'pub-cancel', onClick: () => this.close() },
+            { label: t('Cancel'), id: 'pub-cancel', onClick: () => this.close() },
             {
-                label: pending > 0 ? `Publish ${pending} photo${pending !== 1 ? 's' : ''}` : 'Publish',
+                label: pending > 0 ? t('Publish {photos}', { photos: countText(pending, 'photo') }) : t('Publish'),
                 kind: 'primary',
                 id: 'pub-run',
                 onClick: () => this._run(),
@@ -116,10 +116,10 @@ class PublishDialog {
         const willUpload = this._row.channelHandler === 'rsync';
 
         this._steps = [
-            { id: 'export', label: 'Exporting photos' },
-            { id: 'build', label: 'Building the pages' },
-            ...(willUpload ? [{ id: 'upload', label: 'Uploading' }] : []),
-            ...(this._row.url ? [{ id: 'check', label: 'Checking the link' }] : []),
+            { id: 'export', label: t('Exporting photos') },
+            { id: 'build', label: t('Building the pages') },
+            ...(willUpload ? [{ id: 'upload', label: t('Uploading') }] : []),
+            ...(this._row.url ? [{ id: 'check', label: t('Checking the link') }] : []),
         ];
         body.innerHTML = `
             <ol class="publish-steps" id="pub-steps">
@@ -150,7 +150,7 @@ class PublishDialog {
             );
         } catch (err) {
             this._setStep('export', 'failed');
-            this._fail('The export did not finish.', err.message, [{ label: 'Try again', run: () => this._run() }]);
+            this._fail(t('The export did not finish.'), err.message, [{ label: t('Try again'), run: () => this._run() }]);
             return;
         }
         this._result = result;
@@ -185,9 +185,9 @@ class PublishDialog {
             // The build survives a failed upload, which is exactly the state
             // "Built, not uploaded" — so the retry only uploads.
             this._fail(
-                'The pages are built, but the upload did not go through.',
+                t('The pages are built, but the upload did not go through.'),
                 err.message,
-                [{ label: 'Retry upload', run: async () => { this._el.querySelector('#pub-error').hidden = true; if (await this._upload()) { if (this._row.url) await this._check(); this._done = true; this._renderResult([]); } } }],
+                [{ label: t('Retry upload'), run: async () => { this._el.querySelector('#pub-error').hidden = true; if (await this._upload()) { if (this._row.url) await this._check(); this._done = true; this._renderResult([]); } } }],
             );
             return false;
         }
@@ -222,7 +222,7 @@ class PublishDialog {
         errEl.innerHTML = `<strong>${escapeHtml(what)}</strong><span>${escapeHtml(why || '')}</span>`;
         errEl.hidden = false;
         this._dialog.setActions([
-            { label: 'Close', onClick: () => this.close() },
+            { label: t('Close'), onClick: () => this.close() },
             ...actions.map(action => ({ label: action.label, kind: 'primary', onClick: () => action.run() })),
         ]);
     }
@@ -234,12 +234,12 @@ class PublishDialog {
         const willUpload = this._row.channelHandler === 'rsync';
 
         const summary = !willUpload
-            ? 'Exported to the local output folder. Putting the files anywhere is up to you.'
+            ? t('Exported to the local output folder. Putting the files anywhere is up to you.')
             : this._row.url
                 ? (this._reachable
-                    ? 'Online. The link answered just now.'
-                    : 'Uploaded, but the link did not answer. It can take a moment for the host to serve the new files.')
-                : 'Uploaded.';
+                    ? t('Online. The link answered just now.')
+                    : t('Uploaded, but the link did not answer. It can take a moment for the host to serve the new files.'))
+                : t('Uploaded.');
 
         this._el.querySelector('#pub-error')?.setAttribute('hidden', '');
         body.insertAdjacentHTML('beforeend', `
@@ -248,14 +248,14 @@ class PublishDialog {
             <div class="publish-step-review">
                 ${this._row.url ? `<div class="build-destination">${escapeHtml(this._row.url)}</div>` : `<div class="build-destination">${escapeHtml(localPath)}</div>`}
                 <div class="publish-step-review-actions">
-                    ${this._row.url ? `<a class="btn btn-sm" href="${escapeHtml(this._row.url)}" target="_blank" rel="noopener">Open in browser</a>` : ''}
-                    <button class="btn btn-sm" id="pub-copy-path">Copy path</button>
-                    <button class="btn btn-sm" id="pub-open-folder">Open in Finder/Explorer</button>
-                    ${showsHTML ? '<button class="btn btn-sm" id="pub-preview">Preview locally</button>' : ''}
+                    ${this._row.url ? `<a class="btn btn-sm" href="${escapeHtml(this._row.url)}" target="_blank" rel="noopener">${t('Open in browser')}</a>` : ''}
+                    <button class="btn btn-sm" id="pub-copy-path">${t('Copy path')}</button>
+                    <button class="btn btn-sm" id="pub-open-folder">${t('Open in Finder/Explorer')}</button>
+                    ${showsHTML ? '<button class="btn btn-sm" id="pub-preview">' + t('Preview locally') + '</button>' : ''}
                 </div>
             </div>`);
 
-        this._dialog.setActions([{ label: 'Done', kind: 'primary', id: 'pub-done', onClick: () => this.close() }]);
+        this._dialog.setActions([{ label: t('Done'), kind: 'primary', id: 'pub-done', onClick: () => this.close() }]);
         body.querySelector('#pub-copy-path').addEventListener('click', () => navigator.clipboard.writeText(localPath));
         // ChannelAPI.reveal(slug) reveals the channel's own output folder in
         // Finder/Explorer — it takes no path argument (see channels.js).

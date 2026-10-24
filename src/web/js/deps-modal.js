@@ -5,7 +5,7 @@ const DEP_INSTALL = {
     ffmpeg: {
         darwin: 'brew install ffmpeg',
         linux: 'sudo apt install ffmpeg   # Debian/Ubuntu\nsudo dnf install ffmpeg   # Fedora/RHEL',
-        windows: 'Download from https://ffmpeg.org/download.html and add to PATH',
+        windows: t('Download from https://ffmpeg.org/download.html and add to PATH'),
     },
     heifConvert: {
         linux: 'sudo apt install libheif-examples   # Debian/Ubuntu\nsudo dnf install libheif   # Fedora/RHEL',
@@ -13,12 +13,12 @@ const DEP_INSTALL = {
     cwebp: {
         darwin: 'brew install webp',
         linux: 'sudo apt install webp   # Debian/Ubuntu\nsudo dnf install libwebp-tools   # Fedora/RHEL',
-        windows: 'Download from https://developers.google.com/speed/webp/download and add to PATH',
+        windows: t('Download from https://developers.google.com/speed/webp/download and add to PATH'),
     },
     exiftool: {
         darwin: 'brew install exiftool',
         linux: 'sudo apt install libimage-exiftool-perl   # Debian/Ubuntu\nsudo dnf install perl-Image-ExifTool   # Fedora/RHEL',
-        windows: 'Download from https://exiftool.org and add to PATH',
+        windows: t('Download from https://exiftool.org and add to PATH'),
     },
 };
 
@@ -30,11 +30,11 @@ function _toolDep(name, desc, ok, missingNote, install) {
 
 // ffmpeg — WebP export and embedded JPEG stream extraction from HEIF.
 function _ffmpegDep(ffmpeg, platform, install) {
-    const desc = 'Required for HEIF/HEIC image display and WebP export';
+    const desc = t('Required for HEIF/HEIC image display and WebP export');
     if (!ffmpeg.available) {
         return {
             name: 'ffmpeg', desc, ok: false,
-            note: 'Not installed — HEIF/HEIC images cannot be displayed and WebP export is unavailable.',
+            note: t('Not installed — HEIF/HEIC images cannot be displayed and WebP export is unavailable.'),
             install,
         };
     }
@@ -43,15 +43,15 @@ function _ffmpegDep(ffmpeg, platform, install) {
         // heif-convert (below) is the primary decoder; ffmpeg is still needed for WebP export.
         return {
             name: 'ffmpeg',
-            desc: 'Required for WebP export and embedded HEIF preview extraction',
+            desc: t('Required for WebP export and embedded HEIF preview extraction'),
             ok: true,
-            note: 'Installed. On this platform, HEIF/HEIC display uses heif-convert (see below).',
+            note: t('Installed. On this platform, HEIF/HEIC display uses heif-convert (see below).'),
         };
     }
     if (!ffmpeg.heifSupport) {
         return {
             name: 'ffmpeg', desc, ok: false,
-            note: 'Installed, but built without HEVC/HEIF decoder. HEIF/HEIC images cannot be displayed.',
+            note: t('Installed, but built without HEVC/HEIF decoder. HEIF/HEIC images cannot be displayed.'),
             install,
         };
     }
@@ -71,11 +71,11 @@ function toolsSummary(status) {
     ];
     if (status.platform === 'darwin') tools.push(['sips', status.sips?.available, 'HEIF conversion']);
     if (status.platform === 'linux') tools.push(['heif-convert', status.heifConvert?.available, 'HEIF conversion']);
-    if (status.ffmpeg?.available && !status.ffmpeg?.webpSupport) tools.push(['cwebp', status.webpAvailable, 'WebP export']);
+    if (status.ffmpeg?.available && !status.ffmpeg?.webpSupport) tools.push(['cwebp', status.webpAvailable, t('WebP export')]);
     const found = tools.filter(([, ok]) => ok).map(([name]) => name);
     const missing = tools.filter(([, ok]) => !ok);
     return [
-        found.length ? `${found.join(', ')} found` : 'No helper programs found',
+        found.length ? `${found.join(', ')} found` : t('No helper programs found'),
         missing.length ? `missing: ${missing.map(([name, , what]) => `${name} (${what})`).join(', ')}` : null,
     ].filter(Boolean).join(' · ');
 }
@@ -89,18 +89,18 @@ function mountToolsInstall(wrap, status, onInstalled) {
     if (!plan?.missing?.length) return;
     if (!plan.canInstall) {
         if (plan.command) {
-            wrap.innerHTML = `<span class="form-hint">To install them, run this in a terminal:</span>
+            wrap.innerHTML = `<span class="form-hint">${t('To install them, run this in a terminal:')}</span>
                 <code class="tools-command">${escapeHtml(plan.command)}</code>`;
         }
         return;
     }
-    wrap.innerHTML = `<div><button class="btn btn-sm" type="button">Install the missing ones</button></div>
-        <span class="form-hint">From ${escapeHtml(plan.how)}. It takes a minute or two; you can go on meanwhile.</span>
+    wrap.innerHTML = `<div><button class="btn btn-sm" type="button">${t('Install the missing ones')}</button></div>
+        <span class="form-hint">${t('From {how}. It takes a minute or two; you can go on meanwhile.', { how: escapeHtml(plan.how) })}</span>
         <div class="tools-install-result"></div>`;
     const btn = wrap.querySelector('button');
     const result = wrap.querySelector('.tools-install-result');
     btn.addEventListener('click', async () => {
-        const restore = Activity.button(btn, 'Installing…');
+        const restore = Activity.button(btn, t('Installing…'));
         result.innerHTML = '';
         try {
             await API.installTools();
@@ -119,11 +119,11 @@ class DepsModal {
     open(status) {
         const deps = this._deps(status, status ? status.platform : 'unknown');
         this._dialog = new Dialog({
-            title: 'Helper programs',
-            subtitle: 'What each one is for, and how to install it',
+            title: t('Helper programs'),
+            subtitle: t('What each one is for, and how to install it'),
             size: 'md',
             body: `<div class="deps-list">${deps.map(d => this._renderDep(d)).join('')}</div>`,
-            actions: [{ label: 'Close', value: null }],
+            actions: [{ label: t('Close'), value: null }],
         });
         this._dialog.open();
     }
@@ -143,23 +143,23 @@ class DepsModal {
         const deps = [_ffmpegDep(ffmpeg, platform, install('ffmpeg'))];
         // heif-convert (Linux only) — primary HEIF/HEIC decoder when ffmpeg lacks libheif
         if (platform === 'linux') {
-            deps.push(_toolDep('heif-convert', 'Required for HEIF/HEIC image display on Linux (from libheif-examples)',
-                heifConvert.available, 'Not installed — HEIF/HEIC images cannot be displayed.', install('heifConvert')));
+            deps.push(_toolDep('heif-convert', t('Required for HEIF/HEIC image display on Linux (from libheif-examples)'),
+                heifConvert.available, t('Not installed — HEIF/HEIC images cannot be displayed.'), install('heifConvert')));
         }
         // cwebp — only shown when ffmpeg lacks the libwebp encoder
         if (ffmpeg.available && !ffmpeg.webpSupport) {
-            deps.push(_toolDep('cwebp', 'WebP encoder — required for WebP export (ffmpeg on this system lacks libwebp)',
-                webpAvailable, 'Not installed — WebP export is unavailable.', install('cwebp')));
+            deps.push(_toolDep('cwebp', t('WebP encoder — required for WebP export (ffmpeg on this system lacks libwebp)'),
+                webpAvailable, t('Not installed — WebP export is unavailable.'), install('cwebp')));
         }
-        deps.push(_toolDep('exiftool', 'Required for GPS metadata editing and EXIF stripping on export',
-            exiftool.available, 'Not installed — GPS location editing and EXIF stripping on export are unavailable.', install('exiftool')));
+        deps.push(_toolDep('exiftool', t('Required for GPS metadata editing and EXIF stripping on export'),
+            exiftool.available, t('Not installed — GPS location editing and EXIF stripping on export are unavailable.'), install('exiftool')));
         // sips (macOS only)
         if (platform === 'darwin') {
             deps.push({
                 name: 'sips',
-                desc: 'Built-in macOS image tool used as fallback for HEIF conversion',
+                desc: t('Built-in macOS image tool used as fallback for HEIF conversion'),
                 ok: sips.available,
-                note: sips.available ? null : 'Not found — should be present on all macOS systems.',
+                note: sips.available ? null : t('Not found — should be present on all macOS systems.'),
                 install: null,
             });
         }

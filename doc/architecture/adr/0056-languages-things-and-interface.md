@@ -85,8 +85,10 @@ The owner asked for three things:
    - Choosing a language reloads the page; nothing is redrawn in place.
 
 7. **Only the interface is translated.**
-   - Texts from the server, such as error messages and job names, stay
-     English for now.
+   - The server words its jobs in English, a name in quotes
+     (`Scanning "Archive"`). The status line translates the text with the
+     name taken out (`Scanning "{name}"`) and puts the name back in.
+   - The server's error messages stay English for now.
    - Photo data is never translated: EXIF values, file names, camera and
      film simulation names.
 
@@ -94,8 +96,8 @@ The owner asked for three things:
    - 0.20.0 translates Libraries, Folders, Organize, Map, Timeline, People,
      Statistics, the info panel, the viewer, the search bar, the filter and
      Settings.
-   - Rarely used places and dialogs follow in 0.20.x: Destinations,
-     Galleries, Publish, Export, batch rename, the guides.
+   - 0.20.1 translates the rest: Destinations, Galleries, Publish, Export,
+     batch rename, the folder picker, About and its topics, the guide.
    - `TestEveryInterfaceTextHasAGermanWord` fails for any text passed to
      `t()` without a German entry. `TestGermanWordsKeepTheirPlaceholders`
      fails when a translation loses a placeholder.

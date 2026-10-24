@@ -11,27 +11,27 @@ class WarrantyPane {
         if (this.container.firstChild) return; // nothing on it changes
         this.container.innerHTML = `
             <div class="guide-pane">
-                ${placeHeaderHTML({ title: 'No warranty' })}
+                ${placeHeaderHTML({ title: t('No warranty') })}
                 <div class="reading-body">
-                    <p class="reading-intro">Unterlumen is free software, made in spare time and given away under the <a href="https://github.com/bjblazko/unterlumen/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache License 2.0</a>. It comes as it is, without warranty of any kind: it may have faults, and you use it at your own risk.</p>
+                    <p class="reading-intro">${t('Unterlumen is free software, made in spare time and given away under the {license}. It comes as it is, without warranty of any kind: it may have faults, and you use it at your own risk.', { license: '<a href="https://github.com/bjblazko/unterlumen/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Apache License 2.0</a>' })}</p>
                     <div class="reading-text">
                         <section class="guide-section">
-                            <h2>What it does to your files</h2>
+                            <h2>${t('What it does to your files')}</h2>
                             <ul class="privacy-list">
-                                <li><strong>Deletes</strong> what you marked, when you choose Delete permanently in Marked for deletion. Unterlumen keeps no copy.</li>
-                                <li><strong>Moves and renames</strong> files with Rename… and in Organize.</li>
-                                <li><strong>Writes into the photo itself</strong> when you crop it or set or remove its location. The original is replaced.</li>
-                                <li><strong>Writes beside the photo</strong> an XMP sidecar for titles, fields and publications.</li>
-                                <li><strong>Sends</strong> photos to a destination when you publish, and removes them there when you unpublish.</li>
+                                <li>${t('{Deletes} what you marked, when you choose Delete permanently in Marked for deletion. Unterlumen keeps no copy.', { Deletes: `<strong>${t('Deletes')}</strong>` })}</li>
+                                <li>${t('{Moves} files with Rename… and in Organize.', { Moves: `<strong>${t('Moves and renames')}</strong>` })}</li>
+                                <li>${t('{Writes} when you crop it or set or remove its location. The original is replaced.', { Writes: `<strong>${t('Writes into the photo itself')}</strong>` })}</li>
+                                <li>${t('{Writes} an XMP sidecar for titles, fields, publications, the names of faces and the things found.', { Writes: `<strong>${t('Writes beside the photo')}</strong>` })}</li>
+                                <li>${t('{Sends} photos to a destination when you publish, and removes them there when you unpublish.', { Sends: `<strong>${t('Sends')}</strong>` })}</li>
                             </ul>
                         </section>
                         <section class="guide-section">
-                            <h2>Keep a backup</h2>
-                            <p>Only a backup brings back a photo that is gone or changed. Make one before you use Unterlumen on photos you care about, and keep making them — on another disk, or another place.</p>
+                            <h2>${t('Keep a backup')}</h2>
+                            <p>${t('Only a backup brings back a photo that is gone or changed. Make one before you use Unterlumen on photos you care about, and keep making them — on another disk, or another place.')}</p>
                         </section>
                         <section class="guide-section">
-                            <h2>Liability</h2>
-                            <p>As far as the law allows, the authors are not liable for any damage that comes from using Unterlumen, including lost or changed files. The Apache License 2.0, sections 7 and 8, says this in full.</p>
+                            <h2>${t('Liability')}</h2>
+                            <p>${t('As far as the law allows, the authors are not liable for any damage that comes from using Unterlumen, including lost or changed files. The Apache License 2.0, sections 7 and 8, says this in full.')}</p>
                         </section>
                     </div>
                 </div>

@@ -36,7 +36,7 @@ class FolderPicker {
         if (!App.config?.folderDialog) return this._openHere(startPath, options);
         let abs;
         try {
-            abs = await API.folderDialog(options.title || 'Choose folder');
+            abs = await API.folderDialog(options.title || t('Choose folder'));
         } catch {
             return this._openHere(startPath, options);
         }
@@ -51,7 +51,7 @@ class FolderPicker {
         });
     }
 
-    _openHere(startPath, { title = 'Choose folder', disk = false, home = null, notice = '', create = false } = {}) {
+    _openHere(startPath, { title = t('Choose folder'), disk = false, home = null, notice = '', create = false } = {}) {
         return new Promise((resolve) => {
             this._notice = notice;
             this._create = create && !disk;
@@ -96,22 +96,22 @@ class FolderPicker {
             size: 'md',
             className: 'fp-dialog',
             body: `
-                <div class="seg fp-sources" role="group" aria-label="Where to look"${this._disk ? ' hidden' : ''}>
-                    <button data-source="fs">Filesystem</button>
-                    <button data-source="libs">Libraries</button>
+                <div class="seg fp-sources" role="group" aria-label="${t('Where to look')}"${this._disk ? ' hidden' : ''}>
+                    <button data-source="fs">${t('Filesystem')}</button>
+                    <button data-source="libs">${t('Libraries')}</button>
                 </div>
                 ${this._notice ? `<p class="fp-msg fp-msg-error fp-notice">${escapeHtml(this._notice)}</p>` : ''}
-                <div class="fp-crumbs" aria-label="Path"></div>
+                <div class="fp-crumbs" aria-label="${t('Path')}"></div>
                 <div class="fp-new" hidden>
-                    <label class="form-label" for="fp-new-name">Name of the new folder</label>
+                    <label class="form-label" for="fp-new-name">${t('Name of the new folder')}</label>
                     <input class="form-input" id="fp-new-name" type="text" autocomplete="off">
-                    <button type="button" class="btn btn-sm" id="fp-new-create">Create</button>
+                    <button type="button" class="btn btn-sm" id="fp-new-create">${t('Create')}</button>
                     <p class="fp-msg fp-msg-error" hidden></p>
                 </div>
                 <div class="fp-body"></div>`,
             actions: [
-                { label: 'Cancel', id: 'fp-cancel', onClick: () => this._close(null) },
-                { label: 'Select', kind: 'primary', id: 'fp-select', onClick: () => this._close(this._currentPath) },
+                { label: t('Cancel'), id: 'fp-cancel', onClick: () => this._close(null) },
+                { label: t('Select'), kind: 'primary', id: 'fp-select', onClick: () => this._close(this._currentPath) },
             ],
             onClose: (result) => this._settle(result),
         });
@@ -169,7 +169,7 @@ class FolderPicker {
 
     async _loadDir(relPath) {
         const body = this._overlay.querySelector('.fp-body');
-        Activity.in(body, 'Reading the folder…');
+        Activity.in(body, t('Reading the folder…'));
 
         let data;
         try {
@@ -178,7 +178,7 @@ class FolderPicker {
             if (!resp.ok) throw new Error(await resp.text());
             data = await resp.json();
         } catch (err) {
-            body.innerHTML = `<div class="fp-msg fp-msg-error">Could not read this folder: ${escapeHtml(err.message)}</div>`;
+            body.innerHTML = `<div class="fp-msg fp-msg-error">${t('Could not read this folder: {error}', { error: escapeHtml(err.message) })}</div>`;
             return;
         }
 
@@ -195,7 +195,7 @@ class FolderPicker {
                     ${FP_FOLDER_ICON}<span class="fp-row-name">${escapeHtml(d.name)}</span>
                 </button>`;
             }).join('')
-            : '<div class="fp-msg">No folders in here. "Select" takes this one.</div>';
+            : `<div class="fp-msg">${t('No folders in here. “Select” takes this one.')}</div>`;
 
         body.querySelectorAll('[data-path]').forEach(btn => {
             btn.addEventListener('click', () => this._loadDir(btn.dataset.path));
@@ -207,7 +207,7 @@ class FolderPicker {
     _renderCrumbs(path, parent) {
         const el = this._overlay.querySelector('.fp-crumbs');
         const parts = (path || '').split('/').filter(Boolean);
-        const crumbs = ['<button class="fp-crumb" data-crumb="">Root</button>'];
+        const crumbs = ['<button class="fp-crumb" data-crumb="">' + t('Root') + '</button>'];
         parts.forEach((part, i) => {
             const upto = parts.slice(0, i + 1).join('/');
             crumbs.push('<span class="fp-crumb-sep">/</span>');
@@ -218,11 +218,11 @@ class FolderPicker {
         // Home is the folder the server was started with (or the OS home), the
         // same place the Home button goes to while browsing.
         const home = this._home ?? App.config?.homePath ?? App.config?.startPath ?? '';
-        const homeBtn = `<button class="btn btn-sm fp-home" data-crumb="${escapeHtml(home)}"${path === home ? ' disabled' : ''}>Home</button>`;
+        const homeBtn = `<button class="btn btn-sm fp-home" data-crumb="${escapeHtml(home)}"${path === home ? ' disabled' : ''}>${t('Home')}</button>`;
         const up = (parent !== null && parent !== undefined)
-            ? `<button class="btn btn-sm fp-up" data-crumb="${escapeHtml(String(parent))}">Up</button>`
+            ? `<button class="btn btn-sm fp-up" data-crumb="${escapeHtml(String(parent))}">${t('Up')}</button>`
             : '';
-        const newBtn = this._create ? '<button type="button" class="btn btn-sm fp-new-btn">New folder…</button>' : '';
+        const newBtn = this._create ? '<button type="button" class="btn btn-sm fp-new-btn">' + t('New folder…') + '</button>' : '';
         el.innerHTML = `${homeBtn}${up}<nav class="fp-crumb-list">${crumbs.join('')}</nav>${newBtn}`;
         el.querySelectorAll('[data-crumb]').forEach(btn => {
             btn.addEventListener('click', () => this._loadDir(btn.dataset.crumb));
@@ -238,18 +238,18 @@ class FolderPicker {
 
     async _loadLibraries() {
         const body = this._overlay.querySelector('.fp-body');
-        Activity.in(body, 'Reading the libraries…');
+        Activity.in(body, t('Reading the libraries…'));
 
         if (!this._libs) {
             try {
                 this._libs = await LibraryAPI.list();
             } catch (err) {
-                body.innerHTML = `<div class="fp-msg fp-msg-error">Could not load the libraries: ${escapeHtml(err.message)}</div>`;
+                body.innerHTML = `<div class="fp-msg fp-msg-error">${t('Could not load the libraries: {error}', { error: escapeHtml(err.message) })}</div>`;
                 return;
             }
         }
         if (!this._libs.length) {
-            body.innerHTML = '<div class="fp-msg">No libraries yet. Make one from a folder in Libraries.</div>';
+            body.innerHTML = '<div class="fp-msg">' + t('No libraries yet. Make one from a folder in Libraries.') + '</div>';
             return;
         }
 

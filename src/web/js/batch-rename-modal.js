@@ -2,26 +2,26 @@
 
 const BATCH_RENAME_TOKENS = [
     // Date tokens
-    { token: '{YYYY}', label: 'Year', example: '2026', category: 'date' },
-    { token: '{MM}', label: 'Month (zero-padded)', example: '03', category: 'date' },
-    { token: '{DD}', label: 'Day (zero-padded)', example: '20', category: 'date' },
-    { token: '{hh}', label: 'Hour (24h)', example: '14', category: 'date' },
-    { token: '{mm}', label: 'Minute', example: '07', category: 'date' },
-    { token: '{ss}', label: 'Second', example: '42', category: 'date' },
+    { token: '{YYYY}', label: t('Year'), example: '2026', category: 'date' },
+    { token: '{MM}', label: t('Month (zero-padded)'), example: '03', category: 'date' },
+    { token: '{DD}', label: t('Day (zero-padded)'), example: '20', category: 'date' },
+    { token: '{hh}', label: t('Hour (24h)'), example: '14', category: 'date' },
+    { token: '{mm}', label: t('Minute'), example: '07', category: 'date' },
+    { token: '{ss}', label: t('Second'), example: '42', category: 'date' },
     // Camera tokens
-    { token: '{make}', label: 'Camera manufacturer', example: 'FUJIFILM', category: 'camera' },
-    { token: '{model}', label: 'Camera model', example: 'X-T50', category: 'camera' },
-    { token: '{lens}', label: 'Lens model', example: 'XF23mmF1.4-R-LM-WR', category: 'camera' },
-    { token: '{filmsim}', label: 'Film simulation (Fujifilm)', example: 'Classic-Chrome', category: 'camera' },
+    { token: '{make}', label: t('Camera manufacturer'), example: 'FUJIFILM', category: 'camera' },
+    { token: '{model}', label: t('Camera model'), example: 'X-T50', category: 'camera' },
+    { token: '{lens}', label: t('Lens model'), example: 'XF23mmF1.4-R-LM-WR', category: 'camera' },
+    { token: '{filmsim}', label: t('Film simulation (Fujifilm)'), example: 'Classic-Chrome', category: 'camera' },
     // Exposure tokens
-    { token: '{iso}', label: 'ISO sensitivity', example: '800', category: 'exposure' },
-    { token: '{aperture}', label: 'Aperture (f-number)', example: 'f1.4', category: 'exposure' },
-    { token: '{focal}', label: 'Focal length', example: '23mm', category: 'exposure' },
-    { token: '{shutter}', label: 'Shutter speed', example: '1-125s', category: 'exposure' },
+    { token: '{iso}', label: t('ISO sensitivity'), example: '800', category: 'exposure' },
+    { token: '{aperture}', label: t('Aperture (f-number)'), example: 'f1.4', category: 'exposure' },
+    { token: '{focal}', label: t('Focal length'), example: '23mm', category: 'exposure' },
+    { token: '{shutter}', label: t('Shutter speed'), example: '1-125s', category: 'exposure' },
     // File tokens
-    { token: '{original}', label: 'Original filename (no extension)', example: 'DSCF1234', category: 'file' },
-    { token: '{seq}', label: 'Auto-increment counter (3 digits, or {seq:N} for N digits)', example: '001', category: 'file' },
-    { token: '{title}', label: 'Image title (slugified)', example: 'morning-fog', category: 'file' },
+    { token: '{original}', label: t('Original filename (no extension)'), example: 'DSCF1234', category: 'file' },
+    { token: '{seq}', label: t('Auto-increment counter (3 digits, or {seq:N} for N digits)'), example: '001', category: 'file' },
+    { token: '{title}', label: t('Image title (slugified)'), example: 'morning-fog', category: 'file' },
 ];
 
 // Token pattern for matching in input text — matches {word} and {seq:N}
@@ -31,7 +31,7 @@ const TOKEN_REGEX = /\{(?:YYYY|MM|DD|hh|mm|ss|make|model|lens|filmsim|iso|apertu
 // A token carries its category; plain text has none.
 function renameSegments(text) {
     const catMap = {};
-    for (const t of BATCH_RENAME_TOKENS) catMap[t.token] = t.category;
+    for (const tok of BATCH_RENAME_TOKENS) catMap[tok.token] = tok.category;
     const segments = [];
     let lastIndex = 0;
     let match;
@@ -119,38 +119,38 @@ class BatchRenameModal {
     }
 
     _buildDOM() {
-        const groups = [['date', 'Date'], ['camera', 'Camera'], ['exposure', 'Exposure'], ['file', 'File']];
+        const groups = [['date', t('Date')], ['camera', t('Camera')], ['exposure', t('Exposure')], ['file', t('File')]];
         const tokenButtons = groups.map(([cat, name]) => `
             <div class="batch-rename-token-group" role="group" aria-label="${name}">
                 <span class="batch-rename-token-label">${name}</span>
-                ${BATCH_RENAME_TOKENS.filter(t => t.category === cat).map(t =>
-                    `<button class="btn btn-sm batch-rename-token" data-token="${t.token}" title="${t.label} — e.g. ${t.example}" draggable="true">${t.token}</button>`).join('')}
+                ${BATCH_RENAME_TOKENS.filter(tok => tok.category === cat).map(tok =>
+                    `<button class="btn btn-sm batch-rename-token" data-token="${tok.token}" title="${t('{label} — e.g. {example}', { label: t(tok.label), example: tok.example })}" draggable="true">${tok.token}</button>`).join('')}
             </div>`).join('');
 
         this._dialog = new Dialog({
-            title: 'Rename',
+            title: t('Rename'),
             subtitle: `${this.files.length} photo${this.files.length !== 1 ? 's' : ''}`,
             size: 'lg',
             className: 'batch-rename-dialog',
             body: `
                     <div class="batch-rename-pattern-section">
-                        <label class="field-label-inline">Pattern</label>
+                        <label class="field-label-inline">${t('Pattern')}</label>
                         <div class="batch-rename-input-wrap">
                             <div class="batch-rename-highlight" aria-hidden="true"></div>
-                            <input type="text" class="batch-rename-input" value="${this._esc(lastRenamePattern())}" aria-label="Pattern">
+                            <input type="text" class="batch-rename-input" value="${this._esc(lastRenamePattern())}" aria-label="${t('Pattern')}">
                         </div>
                     </div>
                     <div class="batch-rename-tokens">${tokenButtons}</div>
                     <div class="batch-rename-preview">
-                        <div class="batch-rename-preview-header">Preview (${this.files.length} file${this.files.length !== 1 ? 's' : ''})</div>
+                        <div class="batch-rename-preview-header">${t('Preview ({files})', { files: countText(this.files.length, 'file') })}</div>
                         <div class="batch-rename-preview-list">
-                            <div class="batch-rename-preview-empty">Enter a pattern to see preview</div>
+                            <div class="batch-rename-preview-empty">${t('Enter a pattern to see preview')}</div>
                         </div>
                     </div>
 `,
             actions: [
-                { label: 'Cancel', id: 'batch-rename-cancel', onClick: () => this.close() },
-                { label: 'Rename', kind: 'primary', id: 'batch-rename-apply', disabled: true, onClick: () => this._execute() },
+                { label: t('Cancel'), id: 'batch-rename-cancel', onClick: () => this.close() },
+                { label: t('Rename'), kind: 'primary', id: 'batch-rename-apply', disabled: true, onClick: () => this._execute() },
             ],
             onClose: () => { this.overlay = null; },
         });
@@ -272,7 +272,7 @@ class BatchRenameModal {
         const highlight = this.overlay.querySelector('.batch-rename-highlight');
         if (!input || !highlight) return;
         // Trailing space to keep height consistent
-        highlight.innerHTML = highlightedPatternHTML(input.value, this._dragInsertPos, (t) => this._esc(t)) + '\u00a0';
+        highlight.innerHTML = highlightedPatternHTML(input.value, this._dragInsertPos, (s) => this._esc(s)) + '\u00a0';
         this._syncScroll();
     }
 
@@ -298,12 +298,12 @@ class BatchRenameModal {
         const applyBtn = this.overlay.querySelector('#batch-rename-apply');
 
         if (!pattern) {
-            list.innerHTML = '<div class="batch-rename-preview-empty">Enter a pattern to see preview</div>';
+            list.innerHTML = `<div class="batch-rename-preview-empty">${t('Enter a pattern to see preview')}</div>`;
             applyBtn.disabled = true;
             return;
         }
 
-        Activity.in(list, 'Working out the new names…');
+        Activity.in(list, t('Working out the new names…'));
         applyBtn.disabled = true;
 
         try {
@@ -311,12 +311,12 @@ class BatchRenameModal {
             if (!this.overlay) return;
 
             const header = this.overlay.querySelector('.batch-rename-preview-header');
-            const conflictNote = result.conflicts > 0 ? ` — ${result.conflicts} conflict${result.conflicts !== 1 ? 's' : ''} resolved` : '';
+            const conflictNote = result.conflicts > 0 ? ' — ' + t('{conflicts} resolved', { conflicts: countText(result.conflicts, 'conflict') }) : '';
             // A name that already starts with its date gets it twice from a
             // pattern that adds it; the preview says so before anything moves.
             const twice = result.mappings.filter(m => !m.error && dateTwice(m.newName)).length;
-            const twiceNote = twice ? ` — the date twice in ${twice} name${twice !== 1 ? 's' : ''}; take {YYYY}-{MM}-{DD} out, or {original}` : '';
-            header.textContent = `Preview (${this.files.length} photo${this.files.length !== 1 ? 's' : ''})${conflictNote}${twiceNote}`;
+            const twiceNote = twice ? ' — ' + t('the date twice in {names}; take {YYYY}-{MM}-{DD} out, or {original}', { names: countText(twice, 'name') }) : '';
+            header.textContent = t('Preview ({files})', { files: countText(this.files.length, 'photo') }) + conflictNote + twiceNote;
             header.classList.toggle('batch-rename-preview-header--warn', twice > 0);
 
             let hasErrors = false;
@@ -357,7 +357,7 @@ class BatchRenameModal {
         const body = this._dialog.setBody('<div class="batch-rename-activity"></div>');
         this._dialog.setActions([]);
         const host = body.querySelector('.batch-rename-activity');
-        const activity = Activity.in(host, `Renaming ${total} file${total !== 1 ? 's' : ''}…`);
+        const activity = Activity.in(host, t('Renaming {files}…', { files: countText(total, 'file') }));
 
         try {
             const result = await API.batchRenameExecute(this.files, pattern);
@@ -365,23 +365,23 @@ class BatchRenameModal {
             const failures = result.results.filter(r => !r.success);
 
             if (failures.length > 0) {
-                activity.fail(`Renamed ${successes} of ${total} files. ${failures.length} could not be renamed.`);
+                activity.fail(t('Renamed {successes} of {total} files. {failures} could not be renamed.', { successes: successes, total: total, failures: failures.length }));
                 host.appendChild(Activity.errorList(failures.map(f => `${f.file.split('/').pop()}: ${f.error}`)));
             } else {
-                activity.done(`Renamed ${successes} of ${total} file${total !== 1 ? 's' : ''}.`);
+                activity.done(t('Renamed {done} of {files}.', { done: formatCount(successes), files: countText(total, 'file') }));
             }
 
             if (successes > 0) keepRenamePattern(pattern);
             if (successes > 0 && this._onSuccess) this._onSuccess(result.libraryUpdated);
 
-            this._dialog.setActions([{ label: 'Close', kind: 'primary', id: 'batch-rename-done', onClick: () => this.close() }]);
+            this._dialog.setActions([{ label: t('Close'), kind: 'primary', id: 'batch-rename-done', onClick: () => this.close() }]);
 
             if (failures.length === 0) {
                 setTimeout(() => this.close(), 1200);
             }
         } catch (err) {
-            activity.fail(`The rename stopped: ${err.message}. Reload the folder to see which files have their new names.`);
-            this._dialog.setActions([{ label: 'Close', id: 'batch-rename-done', onClick: () => this.close() }]);
+            activity.fail(t('The rename stopped: {err}. Reload the folder to see which files have their new names.', { err: err.message }));
+            this._dialog.setActions([{ label: t('Close'), id: 'batch-rename-done', onClick: () => this.close() }]);
         }
     }
 

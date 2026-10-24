@@ -112,7 +112,7 @@ class StatusLine {
         const state = job.error ? 'failed' : job.finished ? 'done' : 'running';
         view.el.dataset.state = state;
         const summary = this._describe(job, view.activity);
-        view.el.title = `${job.title}: ${summary}`;
+        view.el.title = `${jobTitle(job.title)}: ${summary}`;
         view.el.setAttribute('aria-label', view.el.title);
     }
 
@@ -128,7 +128,7 @@ class StatusLine {
             });
         }
         el.innerHTML = '<span class="status-job-mark" aria-hidden="true"></span><span class="status-job-title"></span>';
-        el.querySelector('.status-job-title').textContent = job.title;
+        el.querySelector('.status-job-title').textContent = jobTitle(job.title);
         const activity = new Activity({ delay: 0, since: job.started });
         el.appendChild(activity.el);
         return { el, activity };
@@ -138,18 +138,18 @@ class StatusLine {
     _describe(job, activity) {
         if (job.error) {
             activity.fail(t('It stopped: {error}', { error: job.error }));
-            return `stopped: ${job.error}`;
+            return t('stopped: {error}', { error: job.error });
         }
         if (job.finished) {
             const text = job.total > 0
-                ? t('Finished. {total} {job}.', { total: formatCount(job.total), job: this._noun(job) })
+                ? t('Finished. {total} {job}.', { total: formatCount(job.total), job: t(this._noun(job)) })
                 : t('Finished.');
             activity.done(text);
             return text.toLowerCase();
         }
         if (job.total > 0) {
             activity.count(job.done, job.total, { noun: this._noun(job), current: job.current || '' });
-            return `${job.done} of ${job.total} ${this._noun(job)}`;
+            return t('{done} of {total} {noun}', { done: formatCount(job.done), total: formatCount(job.total), noun: t(this._noun(job)) });
         }
         const text = PUBLISH_STEPS[job.step] || (job.kind === 'library' ? t('Looking for photos…') : t('Working…'));
         activity.busy(text);
@@ -169,4 +169,19 @@ class StatusLine {
         this.el.appendChild(this._moreEl);
         this._moreEl.textContent = `and ${hidden} more`;
     }
+}
+
+// The server words a job in English — `Scanning "Archive"`, `Installing
+// things` — so the status line says it again in the interface's words: the
+// text with its quoted name taken out is the key, and the name goes back in.
+function jobTitle(title) {
+    const named = /^(.*) "(.*)"$/.exec(title);
+    if (named) return t(`${named[1]} "{name}"`, { name: named[2] });
+    const zip = /^(Exporting|Packing) (\d+) \w+ (?:as|into) a ZIP$/.exec(title);
+    if (zip) {
+        return zip[1] === 'Exporting'
+            ? t('Exporting {photos} as a ZIP', { photos: countText(+zip[2], 'photo') })
+            : t('Packing {originals} into a ZIP', { originals: countText(+zip[2], 'original') });
+    }
+    return t(title);
 }

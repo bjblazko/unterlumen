@@ -58,7 +58,8 @@ class Wastebin {
         if (filePaths.length > 5) {
             const dialog = new ProgressDialog();
             dialog.open(filePaths, {
-                verb: t('Deleting'),
+                title: t('Deleting files'),
+                done: t('Deleted'),
                 action: async (file) => {
                     try {
                         const r = await deleteOne(file);

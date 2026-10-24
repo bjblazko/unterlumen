@@ -22,11 +22,11 @@ class PeopleMaybe {
         const n = escapeHtml(this._name);
         this._el.hidden = false;
         this._el.innerHTML = `
-            <h2 class="people-section-title">Maybe ${n}</h2>
-            <p class="people-hint">Faces nobody named that look like ${n}, the likeliest first. Select the ones that are ${n}, or the ones that are not, so they are not suggested again.</p>
+            <h2 class="people-section-title">${t('Maybe {name}', { name: n })}</h2>
+            <p class="people-hint">${t('Faces nobody named that look like {name}, the likeliest first. Select the ones that are {name}, or the ones that are not, so they are not suggested again.', { name: n })}</p>
             <div class="people-group-row people-maybe-actions">
-                <button type="button" class="btn people-maybe-yes" disabled>This is ${n}</button>
-                <button type="button" class="btn people-maybe-no" disabled>Not ${n}</button>
+                <button type="button" class="btn people-maybe-yes" disabled>${t('This is {name}', { name: n })}</button>
+                <button type="button" class="btn people-maybe-no" disabled>${t('Not {name}', { name: n })}</button>
             </div>
             <p class="people-group-error" hidden></p>`;
         this._grid = new FaceGrid({

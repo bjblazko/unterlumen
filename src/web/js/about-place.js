@@ -4,10 +4,10 @@
 // their own, listed under About in the sidebar while one of them is open.
 
 const ABOUT_TOPICS = [
-    ['guide', 'guide', 'How Unterlumen works', 'Folders, libraries, galleries and destinations, and how they fit together.'],
-    ['privacy', 'privacy', 'Your data', 'What stays on your computer, and the few things that leave it, and when.'],
-    ['warranty', 'warranty', 'No warranty', 'Unterlumen changes your files when you tell it to. Keep a backup.'],
-    ['licenses', 'licenses', 'Licenses and thanks', 'The projects Unterlumen is built on, and where to support them.'],
+    ['guide', 'guide', t('How Unterlumen works'), t('Folders, libraries, galleries and destinations, and how they fit together.')],
+    ['privacy', 'privacy', t('Your data'), t('What stays on your computer, and the few things that leave it, and when.')],
+    ['warranty', 'warranty', t('No warranty'), t('Unterlumen changes your files when you tell it to. Keep a backup.')],
+    ['licenses', 'licenses', t('Licenses and thanks'), t('The projects Unterlumen is built on, and where to support them.')],
 ];
 
 // The places that belong to About: the sidebar shows its topics while one is open.
@@ -23,7 +23,7 @@ class AboutPane {
         const version = App.config?.version;
         this.container.innerHTML = `
             <div class="guide-pane">
-                ${placeHeaderHTML({ title: 'About Unterlumen' })}
+                ${placeHeaderHTML({ title: t('About Unterlumen') })}
                 <div class="reading-body">
                     <div class="about-logo-row">
                         <svg class="about-logo" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -32,8 +32,8 @@ class AboutPane {
                             <polygon points="0,8 36,8 18,28" fill="var(--accent)"/>
                         </svg>
                         <div>
-                            <div class="about-app-name">Unterlumen</div>
-                            <div class="about-app-tagline">Photo browser, culler, and digital asset manager</div>
+                            <div class="about-app-name">${t('Unterlumen')}</div>
+                            <div class="about-app-tagline">${t('Photo browser, culler, and digital asset manager')}</div>
                             ${version ? `<div class="about-app-version mono">${escapeHtml(version)}</div>` : ''}
                         </div>
                     </div>
@@ -42,8 +42,12 @@ class AboutPane {
                             <li>${placeLink(mode, hash, label)}<span>${text}</span></li>`).join('')}
                     </ul>
                     <section class="guide-section">
-                        <h2>Made by</h2>
-                        <p>Timo Böwing, in his spare time — <a href="https://huepattl.de" target="_blank" rel="noopener noreferrer">huepattl.de</a>, <a href="mailto:timo.boewing@posteo.de">timo.boewing@posteo.de</a>. The source is on <a href="https://github.com/bjblazko/unterlumen" target="_blank" rel="noopener noreferrer">GitHub</a>, under the Apache License 2.0.</p>
+                        <h2>${t('Made by')}</h2>
+                        <p>${t('Timo Böwing, in his spare time — {site}, {mail}. The source is on {github}, under the Apache License 2.0.', {
+                            site: '<a href="https://huepattl.de" target="_blank" rel="noopener noreferrer">huepattl.de</a>',
+                            mail: '<a href="mailto:timo.boewing@posteo.de">timo.boewing@posteo.de</a>',
+                            github: '<a href="https://github.com/bjblazko/unterlumen" target="_blank" rel="noopener noreferrer">GitHub</a>',
+                        })}</p>
                     </section>
                 </div>
             </div>`;

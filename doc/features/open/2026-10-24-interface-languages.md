@@ -46,6 +46,7 @@ recorded in [ADR-0056](../../architecture/adr/0056-languages-things-and-interfac
 - [x] Plurals and sentences with values are whole sentences per language, never an English "s"
 - [x] `TestEveryInterfaceTextHasAGermanWord` and `TestGermanWordsKeepTheirPlaceholders`
 - [x] English unchanged: the full e2e suite passes
-- [ ] e2e spec: switching to German and back
-- [ ] Destinations, Galleries, Publish, Export, batch rename, About, guide and setup in German (0.20.x)
-- [ ] Texts from the server in German (0.20.x)
+- [x] e2e spec: switching to German and back
+- [x] Destinations, Galleries, Publish, Export, batch rename, About, guide and setup in German (0.20.1)
+- [x] The status line's job titles from the server in German (0.20.1); the server's error messages stay English
+- [ ] Error messages from the server in German

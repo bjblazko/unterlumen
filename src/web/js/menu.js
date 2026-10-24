@@ -19,7 +19,7 @@
 // three labels as every other switch in the app.
 
 class Menu {
-    constructor({ items, label = 'More' }) {
+    constructor({ items, label = t('More') }) {
         this._items = items;
         this._el = null;
         this.button = document.createElement('button');

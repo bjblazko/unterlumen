@@ -11,30 +11,30 @@
 const DESTINATION_TYPES = [
     {
         id: 'share',
-        label: 'Share links',
-        hint: 'Unrelated galleries, each under its own unguessable link. For family and friends.',
+        label: t('Share links'),
+        hint: t('Unrelated galleries, each under its own unguessable link. For family and friends.'),
         matches: ch => !!ch.galleryExport && !ch.siteExport,
     },
     {
         id: 'site',
-        label: 'Website',
-        hint: 'Related albums with an index page, an about page and a sitemap.',
+        label: t('Website'),
+        hint: t('Related albums with an index page, an about page and a sitemap.'),
         matches: ch => !!ch.siteExport,
     },
     {
         id: 'files',
-        label: 'Files',
-        hint: 'Image files in a folder, sized for a platform. You post them yourself.',
+        label: t('Files'),
+        hint: t('Image files in a folder, sized for a platform. You post them yourself.'),
         matches: ch => !ch.galleryExport && !ch.siteExport,
     },
 ];
 
 function destinationType(ch) {
-    return (DESTINATION_TYPES.find(t => t.matches(ch)) || DESTINATION_TYPES[2]).id;
+    return (DESTINATION_TYPES.find(dt => dt.matches(ch)) || DESTINATION_TYPES[2]).id;
 }
 
 function destinationTypeLabel(ch) {
-    return DESTINATION_TYPES.find(t => t.id === destinationType(ch)).label;
+    return t(DESTINATION_TYPES.find(dt => dt.id === destinationType(ch)).label);
 }
 
 function slugify(name) {
@@ -48,8 +48,8 @@ function slugify(name) {
 function _readDestinationForm(form, isNew, existingSlug) {
     const name = form.querySelector('#chf-name').value.trim();
     const slug = isNew ? form.querySelector('#chf-slug').value.trim() : existingSlug;
-    if (!name) return { error: 'The destination needs a name.' };
-    if (!slug) return { error: 'The name must contain at least one letter or digit.' };
+    if (!name) return { error: t('The destination needs a name.') };
+    if (!slug) return { error: t('The name must contain at least one letter or digit.') };
 
     const type = form.dataset.type;
     const handlerVal = form.querySelector('#chf-handler').value;
@@ -90,7 +90,7 @@ function _readHandlerConfig(form, handlerVal) {
     const remotePath = field('#chf-rsync-remote-path');
     const identityFile = field('#chf-rsync-identity');
     if (!host || !user || !remotePath) {
-        return { error: 'Uploading over SSH needs a host, a user and a remote folder.' };
+        return { error: t('Uploading over SSH needs a host, a user and a remote folder.') };
     }
     const config = { host, user, remotePath };
     if (port) config.port = port;
@@ -119,33 +119,33 @@ function _readSiteFields(form, type) {
 // The type: fixed once the destination exists.
 function _destTypeFieldsetHTML(isNew, type) {
     return `                    <fieldset class="dest-fieldset">
-                        <legend>Type</legend>
+                        <legend>${t('Type')}</legend>
                         <div class="dest-choices">
-                            ${DESTINATION_TYPES.map(t => `
+                            ${DESTINATION_TYPES.map(dt => `
                                 <label class="dest-choice">
-                                    <input type="radio" name="dest-type" value="${t.id}" ${t.id === type ? 'checked' : ''} ${isNew ? '' : 'disabled'}>
-                                    <span><strong>${escapeHtml(t.label)}</strong><span>${escapeHtml(t.hint)}</span></span>
+                                    <input type="radio" name="dest-type" value="${dt.id}" ${dt.id === type ? 'checked' : ''} ${isNew ? '' : 'disabled'}>
+                                    <span><strong>${escapeHtml(t(dt.label))}</strong><span>${escapeHtml(t(dt.hint))}</span></span>
                                 </label>`).join('')}
                         </div>
-                        ${isNew ? '' : '<p class="form-hint">The type is fixed after the first publish: it decides how the files are laid out and what the links look like.</p>'}
+                        ${isNew ? '' : '<p class="form-hint">' + t('The type is fixed after the first publish: it decides how the files are laid out and what the links look like.') + '</p>'}
                     </fieldset>`;
 }
 
 // Name, folder name and public address.
 function _destNameFieldsetHTML(ch) {
     return `                    <fieldset class="dest-fieldset">
-                        <legend>Name and address</legend>
+                        <legend>${t('Name and address')}</legend>
                         <div class="dest-grid">
                             <div class="form-field">
-                                <label class="form-label" for="chf-name">Name</label>
+                                <label class="form-label" for="chf-name">${t('Name')}</label>
                                 <input class="form-input" id="chf-name" value="${escapeHtml(ch.name)}" placeholder="e.g. Family share links">
-                                <span class="form-hint">Folder name: <span class="dest-mono" id="chf-slug-preview">${escapeHtml(ch.slug || slugify(ch.name) || '—')}</span></span>
+                                <span class="form-hint">${t('Folder name:')} <span class="dest-mono" id="chf-slug-preview">${escapeHtml(ch.slug || slugify(ch.name) || '—')}</span></span>
                                 <input type="hidden" id="chf-slug" value="${escapeHtml(ch.slug)}">
                             </div>
                             <div class="form-field dest-when-online">
-                                <label class="form-label" for="chf-site-url">Public address</label>
+                                <label class="form-label" for="chf-site-url">${t('Public address')}</label>
                                 <input class="form-input dest-mono" id="chf-site-url" value="${escapeHtml(ch.siteURL || '')}" placeholder="https://example.com">
-                                <span class="form-hint">Used for the links you share and for the reachability check.</span>
+                                <span class="form-hint">${t('Used for the links you share and for the reachability check.')}</span>
                             </div>
                         </div>
                     </fieldset>`;
@@ -154,47 +154,47 @@ function _destNameFieldsetHTML(ch) {
 // How an online destination gets its files onto the server.
 function _destUploadFieldsetHTML(ch, isNew) {
     return `                    <fieldset class="dest-fieldset dest-when-online">
-                        <legend>Upload</legend>
+                        <legend>${t('Upload')}</legend>
                         <div class="dest-choices">
                             <label class="dest-choice">
                                 <input type="radio" name="dest-upload" value="rsync" ${ch.handler === 'rsync' ? 'checked' : ''}>
-                                <span><strong>Upload over SSH</strong><span>Unterlumen copies changes to your server with rsync when you publish.</span></span>
+                                <span><strong>${t('Upload over SSH')}</strong><span>${t('Unterlumen copies changes to your server with rsync when you publish.')}</span></span>
                             </label>
                             <label class="dest-choice">
                                 <input type="radio" name="dest-upload" value="" ${ch.handler === 'rsync' ? '' : 'checked'}>
-                                <span><strong>Keep in a local folder</strong><span>You upload the folder yourself. Unterlumen cannot tell when it is online.</span></span>
+                                <span><strong>${t('Keep in a local folder')}</strong><span>${t('You upload the folder yourself. Unterlumen cannot tell when it is online.')}</span></span>
                             </label>
                         </div>
                         <div id="chf-rsync-wrap" ${ch.handler === 'rsync' ? '' : 'hidden'}>
                             <div class="dest-grid">
                                 <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-host">Host</label>
+                                    <label class="form-label" for="chf-rsync-host">${t('Host')}</label>
                                     <input class="form-input dest-mono" id="chf-rsync-host" value="${escapeHtml(ch.handlerConfig?.host || '')}" placeholder="example.com">
                                 </div>
                                 <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-user">User</label>
+                                    <label class="form-label" for="chf-rsync-user">${t('User')}</label>
                                     <input class="form-input dest-mono" id="chf-rsync-user" value="${escapeHtml(ch.handlerConfig?.user || '')}" placeholder="deploy">
                                 </div>
                                 <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-remote-path">Remote folder</label>
+                                    <label class="form-label" for="chf-rsync-remote-path">${t('Remote folder')}</label>
                                     <input class="form-input dest-mono" id="chf-rsync-remote-path" value="${escapeHtml(ch.handlerConfig?.remotePath || '')}" placeholder="/var/www/photos">
                                 </div>
                                 <div class="form-field">
-                                    <label class="form-label" for="chf-rsync-identity">SSH key</label>
+                                    <label class="form-label" for="chf-rsync-identity">${t('SSH key')}</label>
                                     <input class="form-input dest-mono" id="chf-rsync-identity" value="${escapeHtml(ch.handlerConfig?.identityFile || '')}" placeholder="~/.ssh/id_ed25519">
-                                    <span class="form-hint">Optional. Leave empty to use your default key or agent; the port lives under Advanced.</span>
+                                    <span class="form-hint">${t('Optional. Leave empty to use your default key or agent; the port lives under Advanced.')}</span>
                                 </div>
                             </div>
                             <div class="ch-rsync-test-row">
-                                <button type="button" class="btn btn-sm" id="chf-rsync-test"${isNew ? ' disabled' : ''}>Test connection</button>
-                                <span class="ch-rsync-test-result" id="chf-rsync-test-result">${isNew ? 'Create the destination first, then test the connection.' : ''}</span>
+                                <button type="button" class="btn btn-sm" id="chf-rsync-test"${isNew ? ' disabled' : ''}>${t('Test connection')}</button>
+                                <span class="ch-rsync-test-result" id="chf-rsync-test-result">${isNew ? t('Create the destination first, then test the connection.') : ''}</span>
                             </div>
                             <div class="form-hint ch-rsync-help">
-                                Deploy uses your system <code>ssh</code>/<code>rsync</code>, authenticated by key — no passwords are stored.
+                                ${t('Deploy uses your system {ssh}/{rsync}, authenticated by key — no passwords are stored.', { ssh: '<code>ssh</code>', rsync: '<code>rsync</code>' })}
                                 <ol>
-                                    <li>No key yet? <code>ssh-keygen -t ed25519</code>.</li>
-                                    <li>Copy it to the server: <code>ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host</code>.</li>
-                                    <li>Connect once by hand — <code>ssh user@host</code> — so the host key is trusted.</li>
+                                    <li>${t('No key yet?')} <code>ssh-keygen -t ed25519</code>.</li>
+                                    <li>${t('Copy it to the server:')} <code>ssh-copy-id -i ~/.ssh/id_ed25519.pub user@host</code>.</li>
+                                    <li>${t('Connect once by hand — {command} — so the host key is trusted.', { command: '<code>ssh user@host</code>' })}</li>
                                 </ol>
                             </div>
                         </div>
@@ -204,36 +204,36 @@ function _destUploadFieldsetHTML(ch, isNew) {
 // Format, quality, size and metadata of the exported files.
 function _destImageFieldsetHTML(ch) {
     return `                    <fieldset class="dest-fieldset">
-                        <legend>Image files</legend>
+                        <legend>${t('Image files')}</legend>
                         <div class="dest-grid">
                             <div class="form-field">
-                                <label class="form-label" for="chf-format">Format</label>
+                                <label class="form-label" for="chf-format">${t('Format')}</label>
                                 <select class="form-select" id="chf-format">
-                                    <option value="jpeg" ${ch.format === 'jpeg' ? 'selected' : ''}>JPEG</option>
-                                    <option value="png" ${ch.format === 'png' ? 'selected' : ''}>PNG</option>
-                                    <option value="webp" ${ch.format === 'webp' ? 'selected' : ''}>WebP</option>
+                                    <option value="jpeg" ${ch.format === 'jpeg' ? 'selected' : ''}>${t('JPEG')}</option>
+                                    <option value="png" ${ch.format === 'png' ? 'selected' : ''}>${t('PNG')}</option>
+                                    <option value="webp" ${ch.format === 'webp' ? 'selected' : ''}>${t('WebP')}</option>
                                 </select>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-quality">Quality</label>
+                                <label class="form-label" for="chf-quality">${t('Quality')}</label>
                                 <input class="form-input" id="chf-quality" type="number" min="1" max="100" value="${ch.quality}">
                                 <span class="form-hint">1–100.</span>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-scale-mode">Size</label>
+                                <label class="form-label" for="chf-scale-mode">${t('Size')}</label>
                                 <select class="form-select" id="chf-scale-mode">
-                                    <option value="none" ${ch.scale?.mode === 'none' ? 'selected' : ''}>Original size</option>
-                                    <option value="max_dim" ${ch.scale?.mode === 'max_dim' ? 'selected' : ''}>Max dimension</option>
-                                    <option value="percent" ${ch.scale?.mode === 'percent' ? 'selected' : ''}>Percent</option>
+                                    <option value="none" ${ch.scale?.mode === 'none' ? 'selected' : ''}>${t('Original size')}</option>
+                                    <option value="max_dim" ${ch.scale?.mode === 'max_dim' ? 'selected' : ''}>${t('Max dimension')}</option>
+                                    <option value="percent" ${ch.scale?.mode === 'percent' ? 'selected' : ''}>${t('Percent')}</option>
                                 </select>
                                 <div id="chf-scale-opts" class="form-scale-opts">${_scaleOptsHTML(ch.scale)}</div>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-exif">Metadata</label>
+                                <label class="form-label" for="chf-exif">${t('Metadata')}</label>
                                 <select class="form-select" id="chf-exif">
-                                    <option value="keep_no_gps" ${ch.exifMode === 'keep_no_gps' ? 'selected' : ''}>Keep, without GPS</option>
-                                    <option value="keep" ${ch.exifMode === 'keep' ? 'selected' : ''}>Keep all</option>
-                                    <option value="strip" ${ch.exifMode === 'strip' ? 'selected' : ''}>Remove all</option>
+                                    <option value="keep_no_gps" ${ch.exifMode === 'keep_no_gps' ? 'selected' : ''}>${t('Keep, without GPS')}</option>
+                                    <option value="keep" ${ch.exifMode === 'keep' ? 'selected' : ''}>${t('Keep all')}</option>
+                                    <option value="strip" ${ch.exifMode === 'strip' ? 'selected' : ''}>${t('Remove all')}</option>
                                 </select>
                             </div>
                         </div>
@@ -243,22 +243,22 @@ function _destImageFieldsetHTML(ch) {
 // Where a files destination puts its files.
 function _destOutputFieldsetHTML(ch) {
     return `                    <fieldset class="dest-fieldset dest-when-files">
-                        <legend>Output</legend>
+                        <legend>${t('Output')}</legend>
                         <div class="dest-grid">
                             <div class="form-field">
-                                <label class="form-label" for="chf-output-mode">Where the files go</label>
+                                <label class="form-label" for="chf-output-mode">${t('Where the files go')}</label>
                                 <select class="form-select" id="chf-output-mode">
-                                    <option value="save" ${(ch.outputMode || 'save') === 'save' ? 'selected' : ''}>Into a folder</option>
-                                    <option value="download" ${ch.outputMode === 'download' ? 'selected' : ''}>Download as a ZIP</option>
+                                    <option value="save" ${(ch.outputMode || 'save') === 'save' ? 'selected' : ''}>${t('Into a folder')}</option>
+                                    <option value="download" ${ch.outputMode === 'download' ? 'selected' : ''}>${t('Download as a ZIP')}</option>
                                 </select>
                             </div>
                             <div class="form-field" id="chf-output-path-wrap" ${ch.outputMode === 'download' ? 'hidden' : ''}>
-                                <label class="form-label" for="chf-output-path">Folder</label>
+                                <label class="form-label" for="chf-output-path">${t('Folder')}</label>
                                 <div class="export-destination-wrap">
                                     <input class="form-input export-destination-input dest-mono" id="chf-output-path"
                                            value="${escapeHtml(ch.outputPath ? (ch.outputDir || ch.outputPath) : '')}"
                                            placeholder="~/.unterlumen/channels/${escapeHtml(ch.slug || '<name>')}/">
-                                    <button type="button" class="btn btn-sm" id="chf-output-pick" title="Browse folders">…</button>
+                                    <button type="button" class="btn btn-sm" id="chf-output-pick" title="${t('Browse folders')}">…</button>
                                 </div>
                             </div>
                         </div>
@@ -268,59 +268,59 @@ function _destOutputFieldsetHTML(ch) {
 // Title, theme, logo and pages of a website.
 function _destSiteFieldsetHTML(ch) {
     return `                    <fieldset class="dest-fieldset dest-when-site">
-                        <legend>Website</legend>
+                        <legend>${t('Website')}</legend>
                         <div class="dest-grid">
                             <div class="form-field">
-                                <label class="form-label" for="chf-site-title">Site title</label>
+                                <label class="form-label" for="chf-site-title">${t('Site title')}</label>
                                 <input class="form-input" id="chf-site-title" value="${escapeHtml(ch.siteTitle || '')}" placeholder="e.g. My Photography">
-                                <span class="form-hint">Shown in the header on every page.</span>
+                                <span class="form-hint">${t('Shown in the header on every page.')}</span>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-site-theme">Default theme</label>
+                                <label class="form-label" for="chf-site-theme">${t('Default theme')}</label>
                                 <select class="form-select" id="chf-site-theme">
-                                    <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>Light</option>
-                                    <option value="dark" ${ch.siteTheme === 'dark' ? 'selected' : ''}>Dark</option>
+                                    <option value="light" ${(ch.siteTheme || 'light') === 'light' ? 'selected' : ''}>${t('Light')}</option>
+                                    <option value="dark" ${ch.siteTheme === 'dark' ? 'selected' : ''}>${t('Dark')}</option>
                                 </select>
-                                <span class="form-hint">Visitors can switch.</span>
+                                <span class="form-hint">${t('Visitors can switch.')}</span>
                             </div>
                         </div>
                         <div class="form-field">
-                            <span class="form-label">Site logo</span>
+                            <span class="form-label">${t('Site logo')}</span>
                             <div class="ch-avatar-wrap" id="chf-logo-wrap">
                                 <span class="ch-avatar-status" id="chf-logo-status"></span>
                                 <input type="file" id="chf-logo-file" accept="image/*" style="display:none">
-                                <button class="btn btn-sm" id="chf-logo-upload">Upload logo</button>
-                                <button class="btn btn-sm" id="chf-logo-remove" style="display:none">Remove</button>
+                                <button class="btn btn-sm" id="chf-logo-upload">${t('Upload logo')}</button>
+                                <button class="btn btn-sm" id="chf-logo-remove" style="display:none">${t('Remove')}</button>
                             </div>
                         </div>
                         <div class="form-field">
-                            <label class="form-label" for="chf-site-about">About page</label>
-                            <textarea class="form-input dest-textarea" id="chf-site-about" rows="6" placeholder="Write a short introduction about yourself and your photography…">${escapeHtml(ch.siteAbout || '')}</textarea>
-                            <span class="form-hint">Markdown. Becomes about.html.</span>
+                            <label class="form-label" for="chf-site-about">${t('About page')}</label>
+                            <textarea class="form-input dest-textarea" id="chf-site-about" rows="6" placeholder="${t('Write a short introduction about yourself and your photography…')}">${escapeHtml(ch.siteAbout || '')}</textarea>
+                            <span class="form-hint">${t('Markdown. Becomes about.html.')}</span>
                         </div>
                         <div class="form-field">
-                            <span class="form-label">Author photo</span>
+                            <span class="form-label">${t('Author photo')}</span>
                             <div class="ch-avatar-wrap" id="chf-avatar-wrap">
                                 <span class="ch-avatar-status" id="chf-avatar-status"></span>
                                 <input type="file" id="chf-avatar-file" accept="image/*" style="display:none">
-                                <button class="btn btn-sm" id="chf-avatar-upload">Upload photo</button>
-                                <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">Remove</button>
+                                <button class="btn btn-sm" id="chf-avatar-upload">${t('Upload photo')}</button>
+                                <button class="btn btn-sm" id="chf-avatar-remove" style="display:none">${t('Remove')}</button>
                             </div>
-                            <span class="form-hint">Shown on the About page.</span>
+                            <span class="form-hint">${t('Shown on the About page.')}</span>
                         </div>
                         <div class="form-field">
-                            <label class="form-label" for="chf-site-imprint">Legal / imprint</label>
-                            <textarea class="form-input dest-textarea" id="chf-site-imprint" rows="6" placeholder="Responsible for this website:&#10;Your Name&#10;Your Address…">${escapeHtml(ch.siteImprint || '')}</textarea>
-                            <span class="form-hint">Markdown. Becomes legal.html.</span>
+                            <label class="form-label" for="chf-site-imprint">${t('Legal / imprint')}</label>
+                            <textarea class="form-input dest-textarea" id="chf-site-imprint" rows="6" placeholder="${t('Responsible for this website:&#10;Your Name&#10;Your Address…')}">${escapeHtml(ch.siteImprint || '')}</textarea>
+                            <span class="form-hint">${t('Markdown. Becomes legal.html.')}</span>
                         </div>
                         <div class="dest-grid">
                             <div class="form-field">
-                                <label class="form-label" for="chf-site-contact-email">Contact email</label>
+                                <label class="form-label" for="chf-site-contact-email">${t('Contact email')}</label>
                                 <input class="form-input" id="chf-site-contact-email" type="email" value="${escapeHtml(ch.siteContactEmail || '')}" placeholder="you@example.com">
-                                <span class="form-hint">Shown in the footer of every page.</span>
+                                <span class="form-hint">${t('Shown in the footer of every page.')}</span>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-site-contact-url">Website or social address</label>
+                                <label class="form-label" for="chf-site-contact-url">${t('Website or social address')}</label>
                                 <input class="form-input" id="chf-site-contact-url" type="url" value="${escapeHtml(ch.siteContactURL || '')}" placeholder="https://yoursite.com">
                             </div>
                         </div>
@@ -330,49 +330,49 @@ function _destSiteFieldsetHTML(ch) {
 // Handler settings, accounts and maintenance.
 function _destAdvancedHTML(ch, isNew) {
     return `                    <details class="dest-advanced">
-                        <summary>Advanced: accounts, custom handler settings, rebuild</summary>
+                        <summary>${t('Advanced: accounts, custom handler settings, rebuild')}</summary>
                         <div class="dest-advanced-body">
                             <div class="form-field">
-                                <label class="form-label" for="chf-handler">Handler</label>
+                                <label class="form-label" for="chf-handler">${t('Handler')}</label>
                                 <select class="form-select" id="chf-handler">
-                                    <option value="" ${!ch.handler ? 'selected' : ''}>None</option>
+                                    <option value="" ${!ch.handler ? 'selected' : ''}>${t('None')}</option>
                                     <option value="rsync" ${ch.handler === 'rsync' ? 'selected' : ''}>rsync (deploy over SSH)</option>
                                     ${(ch.handler && ch.handler !== 'rsync') ? `<option value="${escapeHtml(ch.handler)}" selected>${escapeHtml(ch.handler)} (existing)</option>` : ''}
                                 </select>
-                                <span class="form-hint">Set by the Upload section above; change it here only for a handler Unterlumen has no form for.</span>
+                                <span class="form-hint">${t('Set by the Upload section above; change it here only for a handler Unterlumen has no form for.')}</span>
                             </div>
                             <div class="form-field">
-                                <label class="form-label" for="chf-rsync-port">Port</label>
+                                <label class="form-label" for="chf-rsync-port">${t('Port')}</label>
                                 <input class="form-input" id="chf-rsync-port" type="number" min="1" max="65535" value="${escapeHtml(ch.handlerConfig?.port || '')}" placeholder="22">
                             </div>
                             <div class="form-field" id="chf-generic-hconfig-wrap" ${ch.handler === 'rsync' ? 'hidden' : ''}>
-                                <span class="form-label">Handler config</span>
+                                <span class="form-label">${t('Handler config')}</span>
                                 <div id="chf-hconfig" class="kv-editor">${_kvEditorHTML(ch.handler === 'rsync' ? {} : (ch.handlerConfig || {}))}</div>
                                 <button class="btn btn-sm" id="chf-hconfig-add">+ Add config entry</button>
                             </div>
                             <div class="form-field">
-                                <span class="form-label">Accounts</span>
+                                <span class="form-label">${t('Accounts')}</span>
                                 <div id="chf-accounts" class="accounts-editor">${_accountsEditorHTML(ch.accounts || [])}</div>
                                 <button class="btn btn-sm" id="chf-account-add">+ Add account</button>
-                                <span class="form-hint">Named sub-accounts, e.g. two Mastodon logins.</span>
+                                <span class="form-hint">${t('Named sub-accounts, e.g. two Mastodon logins.')}</span>
                             </div>
                             ${(isNew || !ch.siteExport) ? '' : `
                             <div class="form-field">
-                                <span class="form-label">Album list</span>
+                                <span class="form-label">${t('Album list')}</span>
                                 <div class="dest-maintenance">
-                                    <button class="btn btn-sm" id="dest-rebuild-albums">Rebuild album list</button>
+                                    <button class="btn btn-sm" id="dest-rebuild-albums">${t('Rebuild album list')}</button>
                                 </div>
-                                <span class="form-hint">Adds albums that are missing from the list shared by your installations, from what the photos themselves record. Albums already listed stay as they are. Only photos in a library that has been scanned are looked at.</span>
+                                <span class="form-hint">${t('Adds albums that are missing from the list shared by your installations, from what the photos themselves record. Albums already listed stay as they are. Only photos in a library that has been scanned are looked at.')}</span>
                                 <div id="dest-rebuild-albums-report" class="dest-report" role="status" aria-live="polite"></div>
                             </div>`}
                             ${isNew ? '' : `
                             <div class="form-field">
-                                <span class="form-label">Maintenance</span>
+                                <span class="form-label">${t('Maintenance')}</span>
                                 <div class="dest-maintenance">
-                                    <button class="btn btn-sm" id="dest-reveal">Show output in Finder/Explorer</button>
-                                    <button class="btn btn-sm btn-danger" id="dest-delete">Delete destination…</button>
+                                    <button class="btn btn-sm" id="dest-reveal">${t('Show output in Finder/Explorer')}</button>
+                                    <button class="btn btn-sm btn-danger" id="dest-delete">${t('Delete destination…')}</button>
                                 </div>
-                                <span class="form-hint">Deleting removes the destination from your configuration. Galleries already published to it stay where they are.</span>
+                                <span class="form-hint">${t('Deleting removes the destination from your configuration. Galleries already published to it stay where they are.')}</span>
                                 <div id="dest-delete-confirm"></div>
                             </div>`}
                         </div>
@@ -400,14 +400,14 @@ class DestinationsPane {
 
     async _load() {
         this.container.innerHTML = '<div class="dest-pane"></div>';
-        Activity.in(this.container.firstChild, 'Reading the destinations…', { area: true });
+        Activity.in(this.container.firstChild, t('Reading the destinations…'), { area: true });
         try {
             [this._channels, this._galleries] = await Promise.all([
                 ChannelAPI.list(),
                 PublishedGalleryAPI.list().catch(() => []),
             ]);
         } catch (err) {
-            this.container.innerHTML = `<div class="dest-pane"><div class="gal-error">Could not load your destinations: ${escapeHtml(err.message)}</div></div>`;
+            this.container.innerHTML = `<div class="dest-pane"><div class="gal-error">${t('Could not load your destinations: {error}', { error: escapeHtml(err.message) })}</div></div>`;
             return;
         }
         if (this._editing === undefined) this._renderList();
@@ -424,7 +424,7 @@ class DestinationsPane {
             return `rsync · ${cfg.user ? cfg.user + '@' : ''}${cfg.host || ''}${cfg.remotePath ? ':' + cfg.remotePath : ''}`;
         }
         if (ch.handler) return ch.handler;
-        return destinationType(ch) === 'files' ? 'No upload — you post the files yourself' : 'Not set up';
+        return destinationType(ch) === 'files' ? t('No upload — you post the files yourself') : t('Not set up');
     }
 
     // For an online destination the address is its public URL; for a files
@@ -459,21 +459,21 @@ class DestinationsPane {
                 </span>
                 <span class="gal-row-actions">${n > 0
                     ? `<button class="btn btn-sm dest-galleries-link" data-slug="${escapeHtml(ch.slug)}">${n} ${n === 1 ? 'gallery' : 'galleries'}</button>`
-                    : '<span class="gal-row-sub">No galleries</span>'}</span>
+                    : '<span class="gal-row-sub">' + t('No galleries') + '</span>'}</span>
             </div>`;
         }).join('');
 
         this.container.innerHTML = `
             <div class="dest-pane">
                 ${placeHeaderHTML({
-                    title: 'Destinations',
+                    title: t('Destinations'),
                     meta: `${(this._channels || []).length} ${(this._channels || []).length === 1 ? 'destination' : 'destinations'}`,
-                    actions: '<button class="btn btn-sm" id="dest-new">New destination…</button>',
-                    lede: placeLede(`A destination is where ${placeLink('published', 'galleries', 'galleries')} go — a website, share links for family and friends, or plain files you post yourself — and how their files are made.`),
+                    actions: '<button class="btn btn-sm" id="dest-new">' + t('New destination…') + '</button>',
+                    lede: placeLede(t('A destination is where {galleries} go — a website, share links for family and friends, or plain files you post yourself — and how their files are made.', { galleries: placeLink('published', 'galleries', t('galleries')) })),
                 })}
                 <div class="gal-body">
                     ${(this._channels || []).length === 0
-                        ? '<p class="gal-empty">No destinations yet. Choose New destination… to say where your first gallery should go.</p>'
+                        ? '<p class="gal-empty">' + t('No destinations yet. Choose New destination… to say where your first gallery should go.') + '</p>'
                         : `<div class="dest-list">${rows}</div>`}
                 </div>
             </div>`;
@@ -519,10 +519,10 @@ class DestinationsPane {
         this.container.innerHTML = `
             <div class="dest-pane dest-form-pane">
                 ${placeHeaderHTML({
-                    title: `<nav class="gal-crumbs" aria-label="Breadcrumb"><button class="link-btn" id="dest-back">Destinations</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${isNew ? 'New destination' : escapeHtml(ch.name)}</span></nav>`,
-                    actions: `${isNew ? '' : '<a class="btn btn-sm" id="dest-show-photos" href="#libraries">Show photos</a>'}
-                        <button class="btn btn-sm" id="dest-cancel">Cancel</button>
-                        <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? 'Create destination' : 'Save'}</button>`,
+                    title: `<nav class="gal-crumbs" aria-label="${t('Breadcrumb')}"><button class="link-btn" id="dest-back">${t('Destinations')}</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${isNew ? t('New destination') : escapeHtml(ch.name)}</span></nav>`,
+                    actions: `${isNew ? '' : '<a class="btn btn-sm" id="dest-show-photos" href="#libraries">' + t('Show photos') + '</a>'}
+                        <button class="btn btn-sm" id="dest-cancel">${t('Cancel')}</button>
+                        <button class="btn btn-sm btn-accent" id="dest-save">${isNew ? t('Create destination') : t('Save')}</button>`,
                 })}
                 <div class="gal-body dest-form" id="dest-form" data-type="${type}">
 ${_destTypeFieldsetHTML(isNew, type)}
@@ -603,7 +603,7 @@ ${_destAdvancedHTML(ch, isNew)}
         });
         form.querySelector('#chf-output-pick').addEventListener('click', async () => {
             const current = form.querySelector('#chf-output-path').value.trim();
-            const chosen = await new FolderPicker().open(current || '', { title: 'Output folder' });
+            const chosen = await new FolderPicker().open(current || '', { title: t('Output folder') });
             if (chosen !== null) form.querySelector('#chf-output-path').value = chosen;
         });
 
@@ -622,9 +622,9 @@ ${_destAdvancedHTML(ch, isNew)}
             this._wireDelete(root, ch);
             if (ch.siteExport) this._wireRebuildAlbums(root, ch);
         } else {
-            form.querySelector('#chf-logo-status').textContent = 'Create the destination first, then upload a logo.';
+            form.querySelector('#chf-logo-status').textContent = t('Create the destination first, then upload a logo.');
             form.querySelector('#chf-logo-upload').disabled = true;
-            form.querySelector('#chf-avatar-status').textContent = 'Create the destination first, then upload a photo.';
+            form.querySelector('#chf-avatar-status').textContent = t('Create the destination first, then upload a photo.');
             form.querySelector('#chf-avatar-upload').disabled = true;
         }
 
@@ -637,7 +637,7 @@ ${_destAdvancedHTML(ch, isNew)}
                 errEl.hidden = false;
                 return;
             }
-            const restore = Activity.button(saveBtn, 'Saving…');
+            const restore = Activity.button(saveBtn, t('Saving…'));
             try {
                 if (isNew) await ChannelAPI.create(payload);
                 else await ChannelAPI.update(payload.slug, payload);
@@ -664,13 +664,13 @@ ${_destAdvancedHTML(ch, isNew)}
                 resultEl.className = 'ch-rsync-test-result ch-rsync-test-fail';
                 return;
             }
-            const restore = Activity.button(testBtn, 'Testing…');
+            const restore = Activity.button(testBtn, t('Testing…'));
             resultEl.textContent = '';
             resultEl.className = 'ch-rsync-test-result';
             try {
                 await ChannelAPI.update(ch.slug, payload);
                 const res = await ChannelAPI.deployTest(ch.slug);
-                resultEl.textContent = res.ok ? 'Connection OK.' : res.error;
+                resultEl.textContent = res.ok ? t('Connection OK.') : res.error;
                 resultEl.className = 'ch-rsync-test-result ' + (res.ok ? 'ch-rsync-test-ok' : 'ch-rsync-test-fail');
             } catch (err) {
                 resultEl.textContent = err.message;
@@ -685,12 +685,12 @@ ${_destAdvancedHTML(ch, isNew)}
         const btn = root.querySelector('#dest-rebuild-albums');
         const out = root.querySelector('#dest-rebuild-albums-report');
         btn.addEventListener('click', async () => {
-            const restore = Activity.button(btn, 'Rebuilding…');
-            Activity.in(out, 'Reading the photos…');
+            const restore = Activity.button(btn, t('Rebuilding…'));
+            Activity.in(out, t('Reading the photos…'));
             try {
                 out.innerHTML = this._albumReportHTML(await ChannelAPI.rebuildAlbumList(ch.slug));
             } catch (err) {
-                out.innerHTML = `<div class="gal-detail-error">Could not rebuild the album list: ${escapeHtml(err.message)}</div>`;
+                out.innerHTML = `<div class="gal-detail-error">${t('Could not rebuild the album list: {error}', { error: escapeHtml(err.message) })}</div>`;
             } finally {
                 restore();
             }
@@ -700,21 +700,21 @@ ${_destAdvancedHTML(ch, isNew)}
     // What the rebuild found, in plain sentences: what it added, what it
     // completed, and what it left alone and why.
     _albumReportHTML(r) {
-        const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+        const plural = (n, one, many) => countText(n, one, many);
         const found = r.added.length + r.present + r.unreadable.length + r.deleted;
         if (found === 0 && r.photos.length === 0 && !r.sidecarsCompleted && !r.unreachable) {
-            return '<p>No albums found in the photos of this destination.</p>';
+            return '<p>' + t('No albums found in the photos of this destination.') + '</p>';
         }
-        const left = r.deleted ? ` ${r.deleted} deleted earlier, left out.` : '';
-        const parts = [`<p>Found ${plural(found, 'album', 'albums')} in the photos. Added ${r.added.length}; ${r.present} already listed.${left}</p>`];
+        const left = r.deleted ? ' ' + t('{n} deleted earlier, left out.', { n: formatCount(r.deleted) }) : '';
+        const parts = [`<p>${t('Found {albums} in the photos. Added {added}; {present} already listed.', { albums: plural(found, 'album', 'albums'), added: formatCount(r.added.length), present: formatCount(r.present) })}${left}</p>`];
         if (r.added.length) {
             parts.push(`<ul>${r.added.map(a => `<li>${escapeHtml(a.title)} <span class="dest-report-data">/${escapeHtml(a.slug)}</span>, ${plural(a.photos, 'photo', 'photos')}</li>`).join('')}</ul>`);
         }
         if (r.sidecarsCompleted) {
-            parts.push(`<p>Completed ${plural(r.sidecarsCompleted, 'photo sidecar', 'photo sidecars')} with the listed albums' membership and address, so those albums can be restored from the photos too.</p>`);
+            parts.push(`<p>${t('Completed {sidecars} with the listed albums’ membership and address, so those albums can be restored from the photos too.', { sidecars: plural(r.sidecarsCompleted, 'photo sidecar', 'photo sidecars') })}</p>`);
         }
         if (r.unreachable) {
-            parts.push(`<p>${plural(r.unreachable, 'photo', 'photos')} of the listed albums could not be reached from here (not in a scanned library, not mounted, or an old entry without a photo). Their sidecars were not touched.</p>`);
+            parts.push(`<p>${t('{photos} of the listed albums could not be reached from here (not in a scanned library, not mounted, or an old entry without a photo). Their sidecars were not touched.', { photos: plural(r.unreachable, 'photo', 'photos') })}</p>`);
         }
         if (r.unreadable.length) {
             // Publications the list does not know and that carry no address:
@@ -728,13 +728,13 @@ ${_destAdvancedHTML(ch, isNew)}
                     : `<span class="dest-report-data">${escapeHtml(u.postID)}</span>`;
                 groups.set(label, (groups.get(label) || 0) + 1);
             }
-            parts.push(`<p>${plural(n, 'older publication is', 'older publications are')} not in the list and ${n === 1 ? 'has' : 'have'} no recorded address, so ${n === 1 ? 'it' : 'they'} cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.</p>`);
-            parts.push(`<details class="dest-report-details"><summary>Show ${n === 1 ? 'it' : 'them'}</summary><ul>${[...groups].map(([label, count]) => `<li>${label}${count > 1 ? ` <span class="dest-report-data">×${count}</span>` : ''}</li>`).join('')}</ul></details>`);
+            parts.push(`<p>${n === 1 ? t('1 older publication is not in the list and has no recorded address, so it cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.') : t('{n} older publications are not in the list and have no recorded address, so they cannot be restored without inventing one. Usually these are albums that were deleted or replaced. They are left as they are.', { n: formatCount(n) })}</p>`);
+            parts.push(`<details class="dest-report-details"><summary>${n === 1 ? t('Show it') : t('Show them')}</summary><ul>${[...groups].map(([label, count]) => `<li>${label}${count > 1 ? ` <span class="dest-report-data">×${count}</span>` : ''}</li>`).join('')}</ul></details>`);
         }
         if (r.photos.length) {
             const shown = r.photos.slice(0, 10);
-            parts.push(`<p class="dest-report-warning">${plural(r.photos.length, 'photo', 'photos')} could not be read:</p>`);
-            parts.push(`<ul>${shown.map(p => `<li><span class="dest-report-data">${escapeHtml(p.filename)}</span>: ${escapeHtml(p.reason)}</li>`).join('')}${r.photos.length > shown.length ? `<li>and ${r.photos.length - shown.length} more</li>` : ''}</ul>`);
+            parts.push(`<p class="dest-report-warning">${t('{photos} could not be read:', { photos: plural(r.photos.length, 'photo', 'photos') })}</p>`);
+            parts.push(`<ul>${shown.map(p => `<li><span class="dest-report-data">${escapeHtml(p.filename)}</span>: ${escapeHtml(p.reason)}</li>`).join('')}${r.photos.length > shown.length ? `<li>${t('and {n} more', { n: formatCount(r.photos.length - shown.length) })}</li>` : ''}</ul>`);
         }
         return parts.join('');
     }
@@ -746,21 +746,21 @@ ${_destAdvancedHTML(ch, isNew)}
             wrap.innerHTML = `
                 <p class="gal-danger-question">Delete "${escapeHtml(ch.name)}"? ${count > 0
                     ? `Its ${count} gallerie${count !== 1 ? 's' : ''} stay on disk and stay online; they just lose the destination that describes them.`
-                    : 'It holds no galleries.'}</p>
+                    : t('It holds no galleries.')}</p>
                 <div class="gal-danger-actions">
-                    <button class="btn btn-sm" id="dest-delete-cancel">Keep it</button>
-                    <button class="btn btn-sm btn-danger" id="dest-delete-confirm-btn">Delete destination</button>
+                    <button class="btn btn-sm" id="dest-delete-cancel">${t('Keep it')}</button>
+                    <button class="btn btn-sm btn-danger" id="dest-delete-confirm-btn">${t('Delete destination')}</button>
                 </div>`;
             wrap.querySelector('#dest-delete-cancel').addEventListener('click', () => { wrap.innerHTML = ''; });
             wrap.querySelector('#dest-delete-confirm-btn').addEventListener('click', async (e) => {
-                Activity.button(e.currentTarget, 'Deleting…');
+                Activity.button(e.currentTarget, t('Deleting…'));
                 wrap.querySelector('#dest-delete-cancel').disabled = true;
                 try {
                     await ChannelAPI.delete(ch.slug);
                     this._editing = undefined;
                     await this._load();
                 } catch (err) {
-                    wrap.innerHTML = `<div class="gal-detail-error">Could not delete it: ${escapeHtml(err.message)}</div>`;
+                    wrap.innerHTML = `<div class="gal-detail-error">${t('Could not delete it: {error}', { error: escapeHtml(err.message) })}</div>`;
                 }
             });
         });
@@ -776,18 +776,18 @@ ${_destAdvancedHTML(ch, isNew)}
         const refresh = async () => {
             try {
                 const { exists } = await ChannelAPI.logoStatus(slug);
-                statusEl.textContent = exists ? 'Logo uploaded.' : 'No logo set.';
+                statusEl.textContent = exists ? t('Logo uploaded.') : t('No logo set.');
                 removeBtn.style.display = exists ? '' : 'none';
             } catch {
-                statusEl.textContent = 'Could not check logo.';
+                statusEl.textContent = t('Could not check logo.');
             }
         };
 
         const rebuildIfSite = async () => {
             if (!ch.siteExport) return;
-            statusEl.textContent = 'Rebuilding the site…';
+            statusEl.textContent = t('Rebuilding the site…');
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Logo saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.';
+                statusEl.textContent = t('Logo saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.');
             }
         };
 
@@ -797,14 +797,14 @@ ${_destAdvancedHTML(ch, isNew)}
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files[0];
             if (!file) return;
-            statusEl.textContent = 'Uploading…';
+            statusEl.textContent = t('Uploading…');
             uploadBtn.disabled = true;
             try {
                 await ChannelAPI.uploadLogo(slug, file);
                 await rebuildIfSite();
                 await refresh();
             } catch (err) {
-                statusEl.textContent = 'Upload failed: ' + err.message;
+                statusEl.textContent = t('Upload failed: ') + err.message;
             } finally {
                 uploadBtn.disabled = false;
                 fileInput.value = '';
@@ -818,7 +818,7 @@ ${_destAdvancedHTML(ch, isNew)}
                 await rebuildIfSite();
                 await refresh();
             } catch (err) {
-                statusEl.textContent = 'Remove failed: ' + err.message;
+                statusEl.textContent = t('Remove failed: ') + err.message;
             } finally {
                 removeBtn.disabled = false;
             }
@@ -835,18 +835,18 @@ ${_destAdvancedHTML(ch, isNew)}
         const refresh = async () => {
             try {
                 const { exists } = await ChannelAPI.avatarStatus(slug);
-                statusEl.textContent = exists ? 'Portrait uploaded.' : 'No portrait set.';
+                statusEl.textContent = exists ? t('Portrait uploaded.') : t('No portrait set.');
                 removeBtn.style.display = exists ? '' : 'none';
             } catch {
-                statusEl.textContent = 'Could not check avatar.';
+                statusEl.textContent = t('Could not check avatar.');
             }
         };
 
         const rebuildIfSite = async () => {
             if (!ch.siteExport) return;
-            statusEl.textContent = 'Rebuilding the site…';
+            statusEl.textContent = t('Rebuilding the site…');
             try { await ChannelAPI.rebuildSite(slug); } catch {
-                statusEl.textContent = 'Portrait saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.';
+                statusEl.textContent = t('Portrait saved, but the site did not rebuild. Open Galleries and publish one of its galleries again to rebuild it.');
             }
         };
 
@@ -856,14 +856,14 @@ ${_destAdvancedHTML(ch, isNew)}
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files[0];
             if (!file) return;
-            statusEl.textContent = 'Uploading…';
+            statusEl.textContent = t('Uploading…');
             uploadBtn.disabled = true;
             try {
                 await ChannelAPI.uploadAvatar(slug, file);
                 await rebuildIfSite();
                 await refresh();
             } catch (err) {
-                statusEl.textContent = 'Upload failed: ' + err.message;
+                statusEl.textContent = t('Upload failed: ') + err.message;
             } finally {
                 uploadBtn.disabled = false;
                 fileInput.value = '';
@@ -877,7 +877,7 @@ ${_destAdvancedHTML(ch, isNew)}
                 await rebuildIfSite();
                 await refresh();
             } catch (err) {
-                statusEl.textContent = 'Remove failed: ' + err.message;
+                statusEl.textContent = t('Remove failed: ') + err.message;
             } finally {
                 removeBtn.disabled = false;
             }

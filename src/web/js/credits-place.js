@@ -4,9 +4,9 @@
 // test keeps complete; the license texts travel inside the binary with it.
 
 const CREDITS_SECTIONS = [
-    ['inside', 'Built into Unterlumen', 'These are inside the program. Their license texts come with it.'],
-    ['programs', 'Programs it calls', 'Unterlumen does not contain these; it calls them when they are installed, and Settings says which ones it finds. The container image includes them from Debian, whose sources are at <a href="https://sources.debian.org" target="_blank" rel="noopener noreferrer">sources.debian.org</a>.'],
-    ['data', 'Maps and data', 'The map tiles are loaded from OpenFreeMap while a map is shown.'],
+    ['inside', t('Built into Unterlumen'), t('These are inside the program. Their license texts come with it.')],
+    ['programs', t('Programs it calls'), 'Unterlumen does not contain these; it calls them when they are installed, and Settings says which ones it finds. The container image includes them from Debian, whose sources are at <a href="https://sources.debian.org" target="_blank" rel="noopener noreferrer">sources.debian.org</a>.'],
+    ['data', t('Maps and data'), t('The map tiles are loaded from OpenFreeMap while a map is shown.')],
 ];
 
 function creditsLink(href, label) {
@@ -14,9 +14,9 @@ function creditsLink(href, label) {
 }
 
 function creditsItem(c) {
-    const links = [creditsLink(c.home, 'Website')];
-    if (c.support) links.push(creditsLink(c.support, 'Support the project'));
-    if (c.text) links.push(creditsLink(`/licenses/${c.text}`, 'License text'));
+    const links = [creditsLink(c.home, t('Website'))];
+    if (c.support) links.push(creditsLink(c.support, t('Support the project')));
+    if (c.text) links.push(creditsLink(`/licenses/${c.text}`, t('License text')));
     return `<li class="credits-item">
         <div class="credits-name">${escapeHtml(c.name)}</div>
         <div class="credits-use">${escapeHtml(c.use)}</div>
@@ -43,9 +43,9 @@ class CreditsPane {
         if (this.container.firstChild) return; // nothing on it changes
         this.container.innerHTML = `
             <div class="guide-pane">
-                ${placeHeaderHTML({ title: 'Licenses and thanks' })}
+                ${placeHeaderHTML({ title: t('Licenses and thanks') })}
                 <div class="reading-body">
-                    <p class="reading-intro">Unterlumen stands on the work of the projects below. Each keeps its own license; Unterlumen itself is under the ${creditsLink('https://github.com/bjblazko/unterlumen/blob/main/LICENSE', 'Apache License 2.0')}. Thank you to everyone who makes them. If Unterlumen is useful to you, consider supporting them too — where a project takes support, its entry links there.</p>
+                    <p class="reading-intro">Unterlumen stands on the work of the projects below. Each keeps its own license; Unterlumen itself is under the ${creditsLink('https://github.com/bjblazko/unterlumen/blob/main/LICENSE', t('Apache License 2.0'))}. Thank you to everyone who makes them. If Unterlumen is useful to you, consider supporting them too — where a project takes support, its entry links there.</p>
                     <div class="reading-text"></div>
                 </div>
             </div>`;
@@ -53,13 +53,13 @@ class CreditsPane {
     }
 
     async _load(host) {
-        const activity = Activity.in(host, 'Reading the list…');
+        const activity = Activity.in(host, t('Reading the list…'));
         try {
             const resp = await fetch('/licenses/credits.json');
             if (!resp.ok) throw new Error(`the server answered ${resp.status}`);
             host.innerHTML = creditsSections(await resp.json());
         } catch (err) {
-            activity.fail(`The list could not be read: ${err.message}. Reload the page to try again.`);
+            activity.fail(t('The list could not be read: {err}. Reload the page to try again.', { err: err.message }));
         }
     }
 }

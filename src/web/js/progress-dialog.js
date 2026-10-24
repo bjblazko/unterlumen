@@ -7,10 +7,13 @@ class ProgressDialog {
         this._results = [];
     }
 
-    open(items, { verb, action, onComplete }) {
+    // title says what runs ("Deleting files"), done how its end reads
+    // ("Deleted"), both already in the interface's language.
+    open(items, { title, done, action, onComplete }) {
         this._cancelled = false;
         this._results = [];
-        this._verb = verb;
+        this._title = title;
+        this._doneWord = done;
         this._items = items;
         this._action = action;
         this._onComplete = onComplete;
@@ -22,12 +25,12 @@ class ProgressDialog {
     // in the middle of that would leave the person guessing what happened.
     _buildDOM() {
         this._dialog = new Dialog({
-            title: `${this._verb} files`,
+            title: this._title,
             size: 'sm',
             dismissible: false,
             className: 'progress-dialog',
             body: '<div class="progress-dialog-activity"></div>',
-            actions: [{ label: 'Cancel', onClick: () => { this._cancelled = true; } }],
+            actions: [{ label: t('Cancel'), onClick: () => { this._cancelled = true; } }],
         });
         this.overlay = this._dialog.open();
     }
@@ -60,24 +63,23 @@ class ProgressDialog {
         }
 
         activity.count(completed, total);
-        const pastTense = this._verb.endsWith('ing') ? this._verb.slice(0, -3) + 'ed' : this._verb + 'd';
-
+        const files = countText(total, 'file');
         if (this._cancelled) {
-            activity.done(`Cancelled. ${completed} of ${total} files ${pastTense.toLowerCase()}.`);
+            activity.done(t('Cancelled. {done}: {n} of {files}.', { done: this._doneWord, n: formatCount(completed), files }));
         } else if (errors.length > 0) {
-            activity.fail(`${pastTense} ${completed - errors.length} of ${total} files. ${errors.length} could not be ${pastTense.toLowerCase()}.`);
+            activity.fail(t('{done}: {n} of {files}. {failed} did not work.', { done: this._doneWord, n: formatCount(completed - errors.length), files, failed: formatCount(errors.length) }));
             host.appendChild(Activity.errorList(errors.map(e => {
                 const name = typeof e.file === 'string' ? e.file.split('/').pop() : String(e.file);
                 return `${name}: ${e.error}`;
             })));
         } else {
-            activity.done(`${pastTense} ${completed} of ${total} files.`);
+            activity.done(t('{done}: {n} of {files}.', { done: this._doneWord, n: formatCount(completed), files }));
         }
 
         // The run is over, so the one thing left to do is close the report.
         this._dialog.dismissible = true;
         this._dialog.setActions([{
-            label: 'Close',
+            label: t('Close'),
             kind: 'primary',
             onClick: () => {
                 this._close();

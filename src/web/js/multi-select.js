@@ -73,7 +73,7 @@ class MultiSelect {
         this._btn.textContent = this._summary();
         this._btn.classList.toggle('multi-select-btn--narrowed', this._selected !== null);
         const all = this._selected === null;
-        this._list.innerHTML = `<label class="multi-select-row multi-select-all"><input type="checkbox"${all ? ' checked' : ''}><span>All</span></label>`
+        this._list.innerHTML = `<label class="multi-select-row multi-select-all"><input type="checkbox"${all ? ' checked' : ''}><span>${t('All')}</span></label>`
             + this._options.map((o, i) => `<label class="multi-select-row"><input type="checkbox" data-i="${i}"${this._isOn(o.value) ? ' checked' : ''}><span class="multi-select-name">${escapeHtml(o.label)}</span><span class="multi-select-count">${o.count != null ? formatCount(o.count) : ''}</span></label>`).join('');
         this._list.querySelector('.multi-select-all input').addEventListener('change', (e) => {
             this._change(e.target.checked ? null : []);

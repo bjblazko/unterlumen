@@ -12,12 +12,12 @@ const Originals = {
             return;
         }
         const btn = document.querySelector('.selection-bar [data-action="download"]');
-        const restore = btn ? Activity.button(btn, 'Packing…') : () => {};
+        const restore = btn ? Activity.button(btn, t('Packing…')) : () => {};
         try {
             const token = await packOriginals(zipRequest(files, dirs, pane, sourcePath));
             saveURL(`/api/export/zip-download?token=${encodeURIComponent(token)}&name=${encodeURIComponent(zipName(pane, files, dirs))}`);
         } catch (err) {
-            App.showToast(`The photos could not be packed: ${err.message}`);
+            App.showToast(t('The photos could not be packed: {err}', { err: err.message }));
         } finally {
             restore();
         }
@@ -66,7 +66,7 @@ async function packOriginals(request) {
 function zipName(pane, files, dirs) {
     const last = (p) => (p || '').split('/').filter(Boolean).pop();
     const name = (dirs.length === 1 && files.length === 0) ? last(dirs[0]) : last(pane.path);
-    return `${name || 'Photos'}.zip`;
+    return `${name || t('Photos')}.zip`;
 }
 
 // A link with `download` lets the browser save the file itself, streamed to

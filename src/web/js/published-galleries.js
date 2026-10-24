@@ -75,7 +75,7 @@ function recordedTime(value) {
 function galleryTitle(g) {
     if (g.title) return g.title;
     if (g.status !== 'draft' && g.publishedAt) {
-        return 'Post of ' + formatDay(g.publishedAt);
+        return t('Post of ') + formatDay(g.publishedAt);
     }
     return '(untitled)';
 }
@@ -91,8 +91,8 @@ function isFilesDestination(channel) {
 // label is what the owner reads, note what follows it, warn whether the
 // note needs attention.
 function galleryState(row, channel) {
-    const published = `Published ${formatDay(row.publishedAt)}`;
-    if (row.status === 'draft') return { key: 'draft', label: 'Not published', published: false };
+    const published = t('Published {publishedAt}', { publishedAt: formatDay(row.publishedAt) });
+    if (row.status === 'draft') return { key: 'draft', label: t('Not published'), published: false };
     if (row.status === 'live-pending') {
         return { key: 'pending', label: published, published: true, note: `${row.pendingCount} waiting` };
     }
@@ -108,9 +108,9 @@ function galleryState(row, channel) {
     const generated = recordedTime(row.generatedAt);
     const deployed = recordedTime(row.deployedAt);
     if (generated && (!deployed || deployed < generated)) {
-        return { key: 'built', label: deployed ? `Published ${formatDay(deployed)}` : 'Not published', published: !!deployed, note: 'built, upload missing', warn: true };
+        return { key: 'built', label: deployed ? t('Published {day}', { day: formatDay(deployed) }) : t('Not published'), published: !!deployed, note: t('built, upload missing'), warn: true };
     }
-    if (!row.url) return { key: 'built', label: published, published: true, note: 'no address set' };
+    if (!row.url) return { key: 'built', label: published, published: true, note: t('no address set') };
     return { key: 'online', label: published, published: true };
 }
 
@@ -123,13 +123,13 @@ function stateWords(state) {
 // The one thing worth doing to this gallery right now, if there is one.
 function galleryAction(row, check, channel) {
     const state = galleryState(row, channel);
-    if (state.key === 'draft') return { act: 'publish', label: 'Publish' };
+    if (state.key === 'draft') return { act: 'publish', label: t('Publish') };
     if (state.key === 'pending') {
-        return { act: 'publish', label: `Publish ${row.pendingCount} change${row.pendingCount !== 1 ? 's' : ''}` };
+        return { act: 'publish', label: t('Publish {changes}', { changes: countText(row.pendingCount, 'change') }) };
     }
-    if (state.key === 'built' && channel?.handler) return { act: 'publish', label: 'Retry upload' };
-    if (state.key === 'exported') return { act: 'reveal', label: 'Show in Finder' };
-    if (check && check.reachable === false) return { act: 'recheck', label: 'Check again' };
+    if (state.key === 'built' && channel?.handler) return { act: 'publish', label: t('Retry upload') };
+    if (state.key === 'exported') return { act: 'reveal', label: t('Show in Finder') };
+    if (check && check.reachable === false) return { act: 'recheck', label: t('Check again') };
     return null;
 }
 
@@ -143,27 +143,27 @@ function formatTime(date) {
 // it stands.
 function galleryStateLine(row, ch, state, check) {
     const published = formatDay(row.publishedAt);
-    const built = recordedTime(row.generatedAt) ? ' on ' + formatDay(recordedTime(row.generatedAt)) : '';
+    const builtOn = recordedTime(row.generatedAt) ? formatDay(recordedTime(row.generatedAt)) : '';
     switch (state.key) {
         case 'draft':
             return ch && !ch.galleryExport && !ch.siteExport
-                ? 'Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.'
-                : 'Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.';
+                ? t('Never exported. Publishing puts the image files in this destination\'s folder, sized for it; posting them is up to you.')
+                : t('Never published. Publishing exports the photos, builds the page and — where an upload is set up — uploads it.');
         case 'pending':
             return isFilesDestination(ch)
-                ? `Exported ${published}. ${row.pendingCount} more photo${row.pendingCount !== 1 ? 's wait' : ' waits'} to be exported.`
-                : `Online since ${published}. ${row.pendingCount} change${row.pendingCount !== 1 ? 's are' : ' is'} not online yet.`;
+                ? (row.pendingCount === 1 ? t('Exported {day}. 1 more photo waits to be exported.', { day: published }) : t('Exported {day}. {n} more photos wait to be exported.', { day: published, n: formatCount(row.pendingCount) }))
+                : (row.pendingCount === 1 ? t('Online since {day}. 1 change is not online yet.', { day: published }) : t('Online since {day}. {n} changes are not online yet.', { day: published, n: formatCount(row.pendingCount) }));
         case 'exported':
-            return `Exported ${published} as ${row.photoCount} file${row.photoCount !== 1 ? 's' : ''}. This destination has no upload configured, so putting them anywhere is up to you.`;
+            return t('Exported {day} as {files}. This destination has no upload configured, so putting them anywhere is up to you.', { day: published, files: countText(row.photoCount, 'file') });
         case 'built':
             return ch?.handler
-                ? `Built${built}, and not uploaded since. Publishing again uploads it.`
-                : `Built${built}. This destination has no upload configured, so the files only exist in the local output folder.`;
+                ? (builtOn ? t('Built on {day}, and not uploaded since. Publishing again uploads it.', { day: builtOn }) : t('Built, and not uploaded since. Publishing again uploads it.'))
+                : (builtOn ? t('Built on {day}. This destination has no upload configured, so the files only exist in the local output folder.', { day: builtOn }) : t('Built. This destination has no upload configured, so the files only exist in the local output folder.'));
     }
     if (check && check.reachable === false) {
-        return `Published ${published}. The address did not answer at ${formatTime(check.at)}.`;
+        return t('Published {published}. The address did not answer at {at}.', { published: published, at: formatTime(check.at) });
     }
-    return `Published ${published}.`;
+    return t('Published {published}.', { published: published });
 }
 
 class GalleriesPane {
@@ -195,12 +195,12 @@ class GalleriesPane {
 
     async _load() {
         this.container.innerHTML = '<div class="gal-pane"></div>';
-        Activity.in(this.container.firstChild, 'Reading the galleries…', { area: true });
+        Activity.in(this.container.firstChild, t('Reading the galleries…'), { area: true });
         let rows, channels;
         try {
             [rows, channels] = await Promise.all([PublishedGalleryAPI.list(), ChannelAPI.list()]);
         } catch (err) {
-            this.container.innerHTML = `<div class="gal-pane"><div class="gal-error">Could not load galleries: ${escapeHtml(err.message)}</div></div>`;
+            this.container.innerHTML = `<div class="gal-pane"><div class="gal-error">${t('Could not load galleries: {error}', { error: escapeHtml(err.message) })}</div></div>`;
             return;
         }
         this._rows = rows;
@@ -225,9 +225,9 @@ class GalleriesPane {
     // Share links / Website / Files — what the destination is, in one word.
     _destinationType(ch) {
         if (!ch) return '';
-        if (ch.siteExport) return 'Website';
-        if (ch.galleryExport) return 'Share links';
-        return 'Files';
+        if (ch.siteExport) return t('Website');
+        if (ch.galleryExport) return t('Share links');
+        return t('Files');
     }
 
     // Returns { text, isAddress } — "no address configured" is a sentence,
@@ -270,7 +270,7 @@ class GalleriesPane {
                             return type && type.toLowerCase() !== name.toLowerCase() ? `${escapeHtml(type)} · ${where}` : where;
                         })()}</span>
                         <span class="gal-group-spacer"></span>
-                        <button class="btn btn-sm gal-dest-settings" data-slug="${escapeHtml(slug)}">Destination settings</button>
+                        <button class="btn btn-sm gal-dest-settings" data-slug="${escapeHtml(slug)}">${t('Destination settings')}</button>
                     </div>
                     ${groupRows.map(r => this._rowHTML(r)).join('')}
                 </section>`;
@@ -279,19 +279,19 @@ class GalleriesPane {
         this.container.innerHTML = `
             <div class="gal-pane">
                 ${placeHeaderHTML({
-                    title: 'Galleries',
+                    title: t('Galleries'),
                     meta: `${filtered.length} ${filtered.length === 1 ? 'gallery' : 'galleries'}${todo ? ` · ${todo} to publish` : ''}`,
                     actions: this._filterChannel
-                        ? `<span class="gal-filter" id="gal-filter">Showing ${escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel)}</span>
-                           <button class="btn btn-sm gal-clear-filter">Show all destinations</button>`
+                        ? `<span class="gal-filter" id="gal-filter">${t('Showing {destination}', { destination: escapeHtml(this._channelBySlug(this._filterChannel)?.name || this._filterChannel) })}</span>
+                           <button class="btn btn-sm gal-clear-filter">${t('Show all destinations')}</button>`
                         : '',
-                    lede: placeLede(`A gallery is a set of photos collected from libraries and published together to a ${placeLink('destinations', 'destinations', 'destination')}.`),
+                    lede: placeLede(t('A gallery is a set of photos collected from libraries and published together to a {destination}.', { destination: placeLink('destinations', 'destinations', t('destination')) })),
                 })}
                 <div class="gal-body">
                     ${filtered.length === 0
                         ? `<p class="gal-empty">${this._filterChannel
-                            ? 'Nothing has been collected for this destination yet.'
-                            : `No galleries yet. Select photos in a ${placeLink('library', 'libraries', 'library')} and choose Add to gallery… to collect the first one.`}</p>`
+                            ? t('Nothing has been collected for this destination yet.')
+                            : t('No galleries yet. Select photos in a {library} and choose Add to gallery… to collect the first one.', { library: placeLink('library', 'libraries', t('library')) })}</p>`
                         : groups}
                 </div>
             </div>`;
@@ -372,10 +372,10 @@ class GalleriesPane {
         const state = galleryState(row, this._channelBySlug(row.channelSlug)).key;
         if (state === 'draft' || state === 'exported' || !row.url) return '';
         const check = this._checks.get(row.rowKey);
-        if (!check) return '<span class="gal-check">Checking the link…</span>';
+        if (!check) return '<span class="gal-check">' + t('Checking the link…') + '</span>';
         const at = formatTime(check.at);
-        if (check.reachable) return `<span class="gal-check">Link answered at ${escapeHtml(at)}</span>`;
-        return `<span class="gal-check gal-check--down" title="${escapeHtml(check.error || '')}">Not reachable · ${escapeHtml(at)}</span>`;
+        if (check.reachable) return `<span class="gal-check">${t('Link answered at {at}', { at: escapeHtml(at) })}</span>`;
+        return `<span class="gal-check gal-check--down" title="${escapeHtml(check.error || '')}">${t('Not reachable · {at}', { at: escapeHtml(at) })}</span>`;
     }
 
     async _runAction(act, rowKey) {
@@ -450,9 +450,9 @@ class GalleriesPane {
         this.container.innerHTML = `
             <div class="gal-pane gal-detail">
                 ${placeHeaderHTML({
-                    title: `<nav class="gal-crumbs" aria-label="Breadcrumb"><button class="link-btn gal-back">Galleries</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span></nav>`,
-                    actions: `${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">Show photos</a>' : ''}
-                        ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">Open in browser</a>` : ''}`,
+                    title: `<nav class="gal-crumbs" aria-label="${t('Breadcrumb')}"><button class="link-btn gal-back">${t('Galleries')}</button><span class="gal-crumb-sep">/</span><span class="gal-crumb-here">${escapeHtml(galleryTitle(row))}</span></nav>`,
+                    actions: `${state.key !== 'draft' ? '<a class="btn btn-sm" id="gal-show-photos" href="#libraries">' + t('Show photos') + '</a>' : ''}
+                        ${row.url && state.key !== 'draft' ? `<a class="btn btn-sm" href="${escapeHtml(row.url)}" target="_blank" rel="noopener">${t('Open in browser')}</a>` : ''}`,
                 })}
                 <div class="gal-detail-body">
                     <div class="gal-detail-main">
@@ -495,36 +495,36 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                             ? `<div class="gal-detail-primary">
                                    <div class="gal-detail-primary-row">
                                        <button class="btn gal-row-action" data-act="recheck" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button>
-                                       <button class="btn gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>
+                                       <button class="btn gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">${t('Publish again')}</button>
                                    </div>
-                                   <span class="form-hint">Publishing again rebuilds this gallery and uploads it, where an upload is set up.</span>
+                                   <span class="form-hint">${t('Publishing again rebuilds this gallery and uploads it, where an upload is set up.')}</span>
                                </div>`
                             : action
                             ? `<div class="gal-detail-primary"><button class="btn${action.act === 'publish' ? ' btn-accent' : ''} gal-row-action" data-act="${action.act}" data-rowkey="${escapeHtml(row.rowKey)}">${escapeHtml(action.label)}</button></div>`
                             : `<div class="gal-detail-primary">
-                                   <button class="btn btn-sm gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">Publish again</button>
-                                   <span class="form-hint">Nothing is waiting. Publishing again rebuilds this gallery — needed only after a theme or format change.</span>
+                                   <button class="btn btn-sm gal-row-action" data-act="publish" data-rowkey="${escapeHtml(row.rowKey)}">${t('Publish again')}</button>
+                                   <span class="form-hint">${t('Nothing is waiting. Publishing again rebuilds this gallery — needed only after a theme or format change.')}</span>
                                </div>`;
     }
 
     // The settings beside the gallery: title, date, visibility, address and
     // destination.
     _detailPanelHTML(row, ch, state, canEditVisibility) {
-        return `                    <aside class="gal-detail-panel" aria-label="Gallery settings">
+        return `                    <aside class="gal-detail-panel" aria-label="${t('Gallery settings')}">
                         <div class="form-field">
-                            <span class="form-label">Destination</span>
+                            <span class="form-label">${t('Destination')}</span>
                             <span class="gal-detail-value"><a class="gal-dest-link" href="#destinations" data-slug="${escapeHtml(row.channelSlug)}">${escapeHtml(ch?.name || row.channelName)}</a>${ch ? ` · ${escapeHtml(this._destinationType(ch))}` : ''}</span>
-                            <span class="form-hint">Where this gallery goes when you publish it, and how its files are made.</span>
+                            <span class="form-hint">${t('Where this gallery goes when you publish it, and how its files are made.')}</span>
                         </div>
                         ${isFilesDestination(ch) && state.key !== 'draft' ? `
                         <div class="form-field">
-                            <span class="form-label">Date</span>
+                            <span class="form-label">${t('Date')}</span>
                             <span class="gal-detail-value">${escapeHtml(formatDay(row.publishedAt))}</span>
-                            <span class="form-hint">A post's files are in this destination's folder; its title and date are kept in its photos' sidecars, so they cannot be changed here.</span>
+                            <span class="form-hint">${t('A post\'s files are in this destination\'s folder; its title and date are kept in its photos\' sidecars, so they cannot be changed here.')}</span>
                         </div>` : this._pageFieldsHTML(row, state, canEditVisibility)}
                         <dl class="gal-detail-kv">
-                            <dt>Destination</dt><dd>${escapeHtml(ch?.name || row.channelName)}</dd>
-                            <dt>Type</dt><dd>${escapeHtml(this._destinationType(ch))}</dd>
+                            <dt>${t('Destination')}</dt><dd>${escapeHtml(ch?.name || row.channelName)}</dd>
+                            <dt>${t('Type')}</dt><dd>${escapeHtml(this._destinationType(ch))}</dd>
                         </dl>
                         <div class="gal-detail-danger" id="gal-danger"></div>
                     </aside>`;
@@ -534,29 +534,29 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
     _pageFieldsHTML(row, state, canEditVisibility) {
         return `
                         <div class="form-field">
-                            <label class="form-label" for="gal-title-input">Title</label>
+                            <label class="form-label" for="gal-title-input">${t('Title')}</label>
                             <div class="gal-title-edit">
                                 <input class="form-input" id="gal-title-input" value="${escapeHtml(row.title || '')}" ${state.key === 'draft' ? 'disabled' : ''}>
-                                <button class="btn btn-sm" id="gal-title-save" ${state.key === 'draft' ? 'disabled' : ''}>Save</button>
+                                <button class="btn btn-sm" id="gal-title-save" ${state.key === 'draft' ? 'disabled' : ''}>${t('Save')}</button>
                             </div>
-                            ${state.key === 'draft' ? '<span class="form-hint">The title is set when you publish this gallery for the first time.</span>' : ''}
+                            ${state.key === 'draft' ? '<span class="form-hint">' + t('The title is set when you publish this gallery for the first time.') + '</span>' : ''}
                         </div>
                         <div class="form-field">
-                            <span class="form-label">Date shown on the gallery</span>
+                            <span class="form-label">${t('Date shown on the gallery')}</span>
                             <span class="gal-detail-value">${state.key === 'draft' ? 'Set on first publish' : escapeHtml(formatDay(row.publishedAt))}</span>
-                            <span class="form-hint">Stays as it is when you publish changes.</span>
+                            <span class="form-hint">${t('Stays as it is when you publish changes.')}</span>
                         </div>
                         <div class="form-field">
-                            <span class="form-label">Search engines</span>
+                            <span class="form-label">${t('Search engines')}</span>
                             <div id="gal-visibility"></div>
                             <span class="form-hint">${canEditVisibility
-                                ? 'Hidden adds a noindex tag. The link itself stays unguessable either way.'
-                                : 'Website albums are listed on the site\'s index and in its sitemap. Set when the album was created.'}</span>
+                                ? t('Hidden adds a noindex tag. The link itself stays unguessable either way.')
+                                : t('Website albums are listed on the site\'s index and in its sitemap. Set when the album was created.')}</span>
                         </div>
                         <div class="form-field">
-                            <span class="form-label">Address</span>
-                            <span class="gal-detail-value${row.url ? ' gal-detail-url' : ''}">${row.url ? escapeHtml(row.url) : 'No address configured'}</span>
-                            ${row.urlGuessed ? '<span class="form-hint">Guessed from the upload host, not configured.</span>' : ''}
+                            <span class="form-label">${t('Address')}</span>
+                            <span class="gal-detail-value${row.url ? ' gal-detail-url' : ''}">${row.url ? escapeHtml(row.url) : t('No address configured')}</span>
+                            ${row.urlGuessed ? '<span class="form-hint">' + t('Guessed from the upload host, not configured.') + '</span>' : ''}
                         </div>`;
     }
 
@@ -566,15 +566,15 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         if (!btn || btn.disabled) return;
         btn.addEventListener('click', async () => {
             const title = input.value.trim();
-            if (!title) { this._showDetailError('The title must not be empty.'); return; }
+            if (!title) { this._showDetailError(t('The title must not be empty.')); return; }
             // Renaming rebuilds the gallery and its site, which takes a moment.
-            const restore = Activity.button(btn, 'Saving…');
+            const restore = Activity.button(btn, t('Saving…'));
             try {
                 await PublishedGalleryAPI.rename(row.channelSlug, row.postID, title);
                 await this._load();
             } catch (err) {
                 restore();
-                this._showDetailError('Could not save the title: ' + err.message);
+                this._showDetailError(t('Could not save the title: ') + err.message);
             }
         });
     }
@@ -585,15 +585,15 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
         // Three visible labels, as every toggle carries (ADR-0019).
         const toggle = Toggle.create(wrap, {
             initial: !!row.unlisted,
-            labelOn: 'Hidden',
-            labelOff: 'Allowed',
+            labelOn: t('Hidden'),
+            labelOff: t('Allowed'),
             onChange: async (on) => {
                 try {
                     await PublishedGalleryAPI.rename(row.channelSlug, row.postID, row.title, on);
                     row.unlisted = on;
                 } catch (err) {
                     toggle.setState(!on);
-                    this._showDetailError('Could not change the visibility: ' + err.message);
+                    this._showDetailError(t('Could not change the visibility: ') + err.message);
                 }
             },
         });
@@ -607,17 +607,17 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
             wrap.innerHTML = ''; // a post's files are the user's; nothing here to unpublish
             return;
         }
-        wrap.innerHTML = `<button class="btn btn-sm btn-danger" id="gal-remove">${isDraft ? 'Discard draft…' : 'Unpublish…'}</button>`;
+        wrap.innerHTML = `<button class="btn btn-sm btn-danger" id="gal-remove">${isDraft ? t('Discard draft…') : t('Unpublish…')}</button>`;
         wrap.querySelector('#gal-remove').addEventListener('click', () => {
             const canDeleteRemote = !isDraft && row.channelHandler === 'rsync';
             wrap.innerHTML = `
                 <p class="gal-danger-question">${isDraft
-                    ? `Discard this draft? The ${row.pendingCount} collected photo${row.pendingCount !== 1 ? 's stay' : ' stays'} in your library.`
-                    : `Unpublish "${escapeHtml(galleryTitle(row))}"? This removes the built gallery from the local output. The photos stay in your libraries.`}</p>
-                ${canDeleteRemote ? `<label class="gal-danger-remote"><input type="checkbox" id="gal-remove-remote"> Also delete it on the remote host over SSH</label>` : ''}
+                    ? (row.pendingCount === 1 ? t('Discard this draft? The 1 collected photo stays in your library.') : t('Discard this draft? The {n} collected photos stay in your library.', { n: formatCount(row.pendingCount) }))
+                    : t('Unpublish "{row}"? This removes the built gallery from the local output. The photos stay in your libraries.', { row: escapeHtml(galleryTitle(row)) })}</p>
+                ${canDeleteRemote ? `<label class="gal-danger-remote"><input type="checkbox" id="gal-remove-remote"> ${t('Also delete it on the remote host over SSH')}</label>` : ''}
                 <div class="gal-danger-actions">
-                    <button class="btn btn-sm" id="gal-remove-cancel">Keep it</button>
-                    <button class="btn btn-sm btn-danger" id="gal-remove-confirm">${isDraft ? 'Discard draft' : 'Unpublish'}</button>
+                    <button class="btn btn-sm" id="gal-remove-cancel">${t('Keep it')}</button>
+                    <button class="btn btn-sm btn-danger" id="gal-remove-confirm">${isDraft ? t('Discard draft') : t('Unpublish')}</button>
                 </div>
                 <div class="gal-danger-status" id="gal-danger-status" role="status" aria-live="polite"></div>
                 <div class="gal-detail-error" id="gal-danger-error" hidden></div>`;
@@ -635,8 +635,8 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                 };
                 const deleteRemote = !!wrap.querySelector('#gal-remove-remote')?.checked;
                 errEl.hidden = true;
-                setBusy(isDraft ? 'Discarding the draft…'
-                    : deleteRemote ? 'Unpublishing and deleting on the remote host…' : 'Unpublishing…');
+                setBusy(isDraft ? t('Discarding the draft…')
+                    : deleteRemote ? t('Unpublishing and deleting on the remote host…') : t('Unpublishing…'));
                 try {
                     if (isDraft) {
                         await ChannelAPI.deleteDraft(row.channelSlug, row.draftID);
@@ -644,7 +644,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                         const result = await PublishedGalleryAPI.remove(row.channelSlug, row.postID, deleteRemote);
                         if (result.remoteDeleteError) {
                             setBusy('');
-                            errEl.textContent = 'Removed locally, but the remote copy is still there: ' + result.remoteDeleteError;
+                            errEl.textContent = t('Removed locally, but the remote copy is still there: ') + result.remoteDeleteError;
                             errEl.hidden = false;
                             return;
                         }
@@ -654,7 +654,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                     await this._load();
                 } catch (err) {
                     setBusy('');
-                    errEl.textContent = 'Could not remove it: ' + err.message;
+                    errEl.textContent = t('Could not remove it: ') + err.message;
                     errEl.hidden = false;
                 }
             });
@@ -668,25 +668,25 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
             wrap.innerHTML = '';
             return;
         }
-        Activity.in(wrap, 'Reading the collected photos…');
+        Activity.in(wrap, t('Reading the collected photos…'));
         let draft = null;
         try {
             const drafts = await ChannelAPI.listDrafts(row.channelSlug);
             draft = drafts.find(d => d.id === row.draftID) || null;
         } catch (err) {
-            wrap.innerHTML = `<div class="gal-error">Could not load the collected photos: ${escapeHtml(err.message)}</div>`;
+            wrap.innerHTML = `<div class="gal-error">${t('Could not load the collected photos: {error}', { error: escapeHtml(err.message) })}</div>`;
             return;
         }
         const photos = draft?.photos || [];
         wrap.innerHTML = `
             <h2 class="gal-section-title">${galleryState(row, this._channelBySlug(row.channelSlug)).key === 'draft'
                 ? `${photos.length} photo${photos.length !== 1 ? 's' : ''} collected`
-                : `Not published: ${photos.length} added`}</h2>
+                : t('Not published: {photos} added', { photos: photos.length })}</h2>
             <div class="gal-pending-photos">
                 ${photos.map(p => `
                     <div class="gal-pending-photo" data-lib="${escapeHtml(p.libraryID)}" data-photo="${escapeHtml(p.photoID)}">
                         <img src="/api/library/${encodeURIComponent(p.libraryID)}/thumb/${encodeURIComponent(p.photoID)}" alt="" loading="lazy">
-                        <button class="gal-pending-remove" title="Leave this photo out">×</button>
+                        <button class="gal-pending-remove" title="${t('Leave this photo out')}">×</button>
                     </div>`).join('')}
             </div>`;
         for (const btn of wrap.querySelectorAll('.gal-pending-remove')) {
@@ -696,7 +696,7 @@ ${this._detailPanelHTML(row, ch, state, canEditVisibility)}
                     await ChannelAPI.removeDraftPhoto(row.channelSlug, draft.id, card.dataset.lib, card.dataset.photo);
                     await this._load();
                 } catch (err) {
-                    this._showDetailError('Could not remove the photo: ' + err.message);
+                    this._showDetailError(t('Could not remove the photo: ') + err.message);
                 }
             });
         }

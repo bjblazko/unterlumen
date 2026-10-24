@@ -47,7 +47,7 @@ class ExportModal {
         // Keeping the EXIF without the GPS needs exiftool; without it the
         // photos leave with nothing rather than with where they were taken.
         const canDropGPS = exiftoolAvailable;
-        const webpDisabled = webpSupport ? '' : ' disabled title="WebP encoder not available — install cwebp (brew install webp) or ffmpeg with libwebp"';
+        const webpDisabled = webpSupport ? '' : ` disabled title="${t('WebP encoder not available — install cwebp (brew install webp) or ffmpeg with libwebp')}"`;
         const folderPlaceholder = serverRole ? 'exports/batch' : '/path/to/folder';
         // A segment of radio buttons: one choice, drawn as the segments
         // everywhere else; the radios stay underneath for the keyboard.
@@ -55,80 +55,80 @@ class ExportModal {
             <label${o.title ? ` title="${o.title}"` : ''}><input type="radio" name="${name}" value="${o.value}"${o.checked ? ' checked' : ''}${o.disabled ? ' disabled' : ''}><span>${o.text}</span></label>`).join('')}</div>`;
 
         this._dialog = new Dialog({
-            title: 'Export',
+            title: t('Export'),
             subtitle: files.length === 1 ? '1 photo' : `${files.length} photos`,
             size: 'md',
             className: 'export-dialog',
             body: `
                     <div class="export-grid">
-                        <span class="export-label">Format</span>
-                        <div class="seg export-format-tabs" role="group" aria-label="Format">
-                            <button type="button" class="active" aria-pressed="true" data-format="jpeg">JPEG</button>
-                            <button type="button" aria-pressed="false" data-format="png">PNG</button>
-                            <button type="button" aria-pressed="false" data-format="webp"${webpDisabled}>WebP</button>
+                        <span class="export-label">${t('Format')}</span>
+                        <div class="seg export-format-tabs" role="group" aria-label="${t('Format')}">
+                            <button type="button" class="active" aria-pressed="true" data-format="jpeg">${t('JPEG')}</button>
+                            <button type="button" aria-pressed="false" data-format="png">${t('PNG')}</button>
+                            <button type="button" aria-pressed="false" data-format="webp"${webpDisabled}>${t('WebP')}</button>
                         </div>
 
-                        <span class="export-label export-quality-row">Quality</span>
+                        <span class="export-label export-quality-row">${t('Quality')}</span>
                         <div class="export-quality-row export-quality">
-                            <input type="range" class="export-quality-slider" min="1" max="100" value="85" aria-label="Quality">
+                            <input type="range" class="export-quality-slider" min="1" max="100" value="85" aria-label="${t('Quality')}">
                             <span class="export-quality-value">85</span>
                         </div>
 
-                        <span class="export-label">Size</span>
+                        <span class="export-label">${t('Size')}</span>
                         <div class="export-choice">
-                            ${seg('scale-mode', 'Size', [
-                                { value: 'none', text: 'Original', checked: true },
-                                { value: 'percent', text: 'Percentage' },
-                                { value: 'max_dim', text: 'At most' },
+                            ${seg('scale-mode', t('Size'), [
+                                { value: 'none', text: t('Original'), checked: true },
+                                { value: 'percent', text: t('Percentage') },
+                                { value: 'max_dim', text: t('At most') },
                             ])}
                             <span class="export-sub-input export-percent-input" style="display:none">
-                                <input type="number" class="export-input export-percent-val" min="1" max="400" value="50" aria-label="Percentage"> %
+                                <input type="number" class="export-input export-percent-val" min="1" max="400" value="50" aria-label="${t('Percentage')}"> %
                             </span>
                             <span class="export-sub-input export-maxdim-input" style="display:none">
-                                <input type="number" class="export-input export-maxdim-val" min="1" aria-label="Pixels"> px
-                                ${seg('max-dim-axis', 'Side', [
+                                <input type="number" class="export-input export-maxdim-val" min="1" aria-label="${t('Pixels')}"> px
+                                ${seg('max-dim-axis', t('Side'), [
                                     { value: 'width', text: 'wide', checked: true },
                                     { value: 'height', text: 'high' },
                                 ])}
                             </span>
                         </div>
 
-                        <span class="export-label">Metadata</span>
-                        ${seg('exif-mode', 'Metadata', [
-                            { value: 'keep_no_gps', text: 'Keep, without GPS', checked: canDropGPS, disabled: !canDropGPS, title: canDropGPS ? '' : 'Needs exiftool' },
-                            { value: 'keep', text: 'Keep all' },
-                            { value: 'strip', text: 'Strip all', checked: !canDropGPS },
+                        <span class="export-label">${t('Metadata')}</span>
+                        ${seg('exif-mode', t('Metadata'), [
+                            { value: 'keep_no_gps', text: t('Keep, without GPS'), checked: canDropGPS, disabled: !canDropGPS, title: canDropGPS ? '' : t('Needs exiftool') },
+                            { value: 'keep', text: t('Keep all') },
+                            { value: 'strip', text: t('Strip all'), checked: !canDropGPS },
                         ])}
 
-                        <span class="export-label">To</span>
+                        <span class="export-label">${t('To')}</span>
                         <div class="export-choice">
                             ${seg('output-mode', 'To', [
-                                { value: 'folder', text: 'A folder', checked: true },
-                                { value: 'zip', text: 'A ZIP download' },
+                                { value: 'folder', text: t('A folder'), checked: true },
+                                { value: 'zip', text: t('A ZIP download') },
                             ])}
                             <div class="export-destination-wrap">
-                                <input type="text" class="export-destination-input" placeholder="${folderPlaceholder}" aria-label="Folder">
-                                <button type="button" class="btn btn-sm export-destination-btn">Choose…</button>
+                                <input type="text" class="export-destination-input" placeholder="${folderPlaceholder}" aria-label="${t('Folder')}">
+                                <button type="button" class="btn btn-sm export-destination-btn">${t('Choose…')}</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="export-section">
                         <div class="export-section-header">
-                            <span class="export-section-title">Files</span>
+                            <span class="export-section-title">${t('Files')}</span>
                             <div class="export-estimate-controls">
-                                <span class="export-label">Sizes</span>
-                                <div class="seg export-estimate-toggle" role="group" aria-label="Sizes">
-                                    <button type="button" class="active" aria-pressed="true" data-estimate="heuristic" title="Quick: worked out from the settings">Estimated</button>
-                                    <button type="button" aria-pressed="false" data-estimate="encode" title="Slow: each photo is encoded to measure it">Exact</button>
+                                <span class="export-label">${t('Sizes')}</span>
+                                <div class="seg export-estimate-toggle" role="group" aria-label="${t('Sizes')}">
+                                    <button type="button" class="active" aria-pressed="true" data-estimate="heuristic" title="${t('Quick: worked out from the settings')}">${t('Estimated')}</button>
+                                    <button type="button" aria-pressed="false" data-estimate="encode" title="${t('Slow: each photo is encoded to measure it')}">${t('Exact')}</button>
                                 </div>
-                                <button type="button" class="btn btn-sm export-estimate-abort" style="display:none">Abort</button>
+                                <button type="button" class="btn btn-sm export-estimate-abort" style="display:none">${t('Abort')}</button>
                             </div>
                         </div>
                         <div class="export-activity"></div>
                         <div class="export-file-list"></div>
                         <div class="export-total-row">
-                            <span class="export-total-label">Total</span>
+                            <span class="export-total-label">${t('Total')}</span>
                             <span class="export-total-in">—</span>
                             <span class="export-file-arrow">→</span>
                             <span class="export-total-out">—</span>
@@ -136,8 +136,8 @@ class ExportModal {
                     </div>
 `,
             actions: [
-                { label: 'Cancel', id: 'export-cancel-btn', onClick: () => this.close() },
-                { label: 'Export', kind: 'primary', id: 'export-confirm-btn', onClick: () => this._doExport() },
+                { label: t('Cancel'), id: 'export-cancel-btn', onClick: () => this.close() },
+                { label: t('Export'), kind: 'primary', id: 'export-confirm-btn', onClick: () => this._doExport() },
             ],
             onClose: () => { this.overlay = null; },
         });
@@ -201,7 +201,7 @@ class ExportModal {
             pickerBtn.addEventListener('click', async () => {
                 const current = this.overlay.querySelector('.export-destination-input').value.trim();
                 const picker = new FolderPicker();
-                const chosen = await picker.open(current || '', { title: 'Where the exported files go' });
+                const chosen = await picker.open(current || '', { title: t('Where the exported files go') });
                 if (chosen !== null && this.overlay) {
                     this.overlay.querySelector('.export-destination-input').value = chosen;
                 }
@@ -458,7 +458,7 @@ class ExportModal {
         } catch (err) {
             if (this.overlay) {
                 this._hideProgress();
-                this._dialog.setNote('The export stopped: ' + err.message, 'error');
+                this._dialog.setNote(t('The export stopped: ') + err.message, 'error');
                 enableButtons();
             }
         }
@@ -498,7 +498,7 @@ class ExportModal {
 
         if (!token) throw new Error('Export stream ended without a download token');
 
-        if (this.overlay) this._activity().busy('Downloading the ZIP…');
+        if (this.overlay) this._activity().busy(t('Downloading the ZIP…'));
         const blob = await API.exportZipDownload(token);
         this._hideProgress();
         const url = URL.createObjectURL(blob);
@@ -517,7 +517,7 @@ class ExportModal {
     async _exportToFolder(basePayload, enableButtons) {
         const destination = this._getDestination();
         if (!destination) {
-            this._dialog.setNote('Name a folder to export into, or choose one with "…".', 'error');
+            this._dialog.setNote(t('Name a folder to export into, or choose one with "…".'), 'error');
             enableButtons();
             return;
         }
@@ -586,11 +586,9 @@ function _applyDims(row, est) {
     let warn = '';
     if (upscale) {
         const parts = [];
-        if (upscaleW) parts.push(`width ${est.origWidth} → ${est.width} px`);
-        if (upscaleH) parts.push(`height ${est.origHeight} → ${est.height} px`);
-        const tooltip = `Upscaling detected: ${parts.join(', ')}. `
-            + `Enlarging beyond the original resolution cannot recover detail that was never captured — `
-            + `the result will appear softer or show artefacts.`;
+        if (upscaleW) parts.push(t('width {from} → {to} px', { from: est.origWidth, to: est.width }));
+        if (upscaleH) parts.push(t('height {from} → {to} px', { from: est.origHeight, to: est.height }));
+        const tooltip = t('Upscaling detected: {sides}. Enlarging beyond the original resolution cannot recover detail that was never captured — the result will appear softer or show artefacts.', { sides: parts.join(', ') });
         warn = ` <span class="export-upscale-warn" title="${tooltip}">!</span>`;
     }
 

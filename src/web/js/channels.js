@@ -162,7 +162,7 @@ function _kvRowHTML(k, v) {
     return `<div class="kv-row">
         <input class="form-input kv-key"   value="${escapeHtml(k)}" placeholder="key">
         <input class="form-input kv-value" value="${escapeHtml(v)}" placeholder="value">
-        <button class="btn btn-sm kv-del" title="Remove">&times;</button>
+        <button class="btn btn-sm kv-del" title="${t('Remove')}">&times;</button>
     </div>`;
 }
 
@@ -203,9 +203,9 @@ function _accountsEditorHTML(accounts) {
 function _accountRowHTML(a) {
     return `<div class="account-row">
         <div class="account-row-header">
-            <input class="form-input account-id"    value="${escapeHtml(a.id || '')}"    placeholder="ID (e.g. personal)">
-            <input class="form-input account-label" value="${escapeHtml(a.label || '')}" placeholder="Label (e.g. Personal)">
-            <button class="btn btn-sm account-del" title="Remove account">&times;</button>
+            <input class="form-input account-id"    value="${escapeHtml(a.id || '')}"    placeholder="${t('ID (e.g. personal)')}">
+            <input class="form-input account-label" value="${escapeHtml(a.label || '')}" placeholder="${t('Label (e.g. Personal)')}">
+            <button class="btn btn-sm account-del" title="${t('Remove account')}">&times;</button>
         </div>
         <div class="kv-editor account-config">${_kvEditorHTML(a.config || {})}</div>
         <button class="btn btn-sm account-kv-add">+ Add config</button>
@@ -239,8 +239,8 @@ function _scaleOptsHTML(scale) {
         const dim = scale?.maxDimension || 'width';
         const val = scale?.maxValue || 1920;
         return `<select class="form-select" id="chf-max-dim">
-            <option value="width"  ${dim==='width'?'selected':''}>Width</option>
-            <option value="height" ${dim==='height'?'selected':''}>Height</option>
+            <option value="width"  ${dim==='width'?'selected':''}>${t('Width')}</option>
+            <option value="height" ${dim==='height'?'selected':''}>${t('Height')}</option>
         </select>
         <input class="form-input" id="chf-max-val" type="number" min="1" value="${val}" placeholder="px">`;
     }

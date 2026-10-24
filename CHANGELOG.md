@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **The rest of Unterlumen speaks German too**: Destinations, Galleries, Publish, Export, Rename, the folder picker, Settings' helper programs and sharing, About, How Unterlumen works, Your data, No warranty and Licenses and thanks. What the server says it is doing in the status line ("„Archiv“ wird gescannt") is in German as well; messages from the server about errors stay English.
+
+### Fixed
+- **Removing the location of many photos said "Removing GPSd"** in the dialog's sentences, which made the past tense of a verb by adding letters. Each run now says how it ends in words of its own ("Location removed: 12 of 12 files").
+
 ## [0.20.0] - 2026-10-24
 
 ### Added

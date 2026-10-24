@@ -33,7 +33,8 @@ class LocationModal {
             const dialog = new ProgressDialog();
             const successFiles = [];
             dialog.open(files, {
-                verb: t('Removing GPS'),
+                title: t('Removing the location'),
+                done: t('Location removed'),
                 action: async (file) => {
                     try {
                         const result = await API.removeLocation([file]);
@@ -258,7 +259,8 @@ class LocationModal {
             const dialog = new ProgressDialog();
             const successFiles = [];
             dialog.open(files, {
-                verb: t('Setting location'),
+                title: t('Setting the location'),
+                done: t('Location set'),
                 action: async (file) => {
                     try {
                         const result = await API.setLocation([file], lat, lon);
