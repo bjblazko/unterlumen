@@ -17,7 +17,8 @@ import (
 type thingsState struct {
 	mu      sync.Mutex
 	look    *thingsLook
-	running sync.Map // map[libraryID]*atomic.Bool — as Manager.analysing
+	running sync.Map   // map[libraryID]*atomic.Bool — as Manager.analysing
+	pass    sync.Mutex // one pass at a time, whichever library: each runs the models on every core it gets
 }
 
 // ThingsDir is where this installation keeps the things models (ADR-0054).
@@ -102,14 +103,13 @@ func (m *Manager) findThingsOnce(id string) {
 	if tasks, err := store.PhotosNeedingThings(); err != nil || len(tasks) == 0 {
 		return
 	}
+	// Every check of every library asks for a pass; side by side they took
+	// the NAS's cores between them and none came to an end.
+	m.things.pass.Lock()
+	defer m.things.pass.Unlock()
 	job := m.jobs.Start("library", m.scanTitle(id, "Finding things in"), "statistics")
-	look, err := m.thingsLook()
-	if err != nil {
-		job.Finish(err)
-		return
-	}
 	ch := make(chan Progress, 8)
-	go NewIndexer(store, m.LibDir(id), "").RunFindThingsMissing(context.Background(), *look, ch)
+	go NewIndexer(store, m.LibDir(id), "").RunFindThingsMissing(context.Background(), m.thingsLook, ch)
 	var last Progress
 	for p := range ch {
 		job.Progress(p.Done, p.Total, "")

@@ -19,7 +19,9 @@ type ThingTask struct {
 }
 
 // PhotosNeedingThings lists the photos with a thumbnail that no current
-// models and word list looked at.
+// models and word list looked at, and those whose sidecar has their things
+// but not yet their vector, which this index has: it is written there, so
+// the other installation need not run the models.
 func (s *Store) PhotosNeedingThings() ([]ThingTask, error) {
 	rows, err := s.db.Query(`
 		SELECT p.id, p.thumb_path, p.path_hint,
@@ -28,8 +30,9 @@ func (s *Store) PhotosNeedingThings() ([]ThingTask, error) {
 		LEFT JOIN photo_things_found f ON f.photo_id = p.id
 		LEFT JOIN photo_vectors v ON v.photo_id = p.id
 		WHERE p.status = 'ok' AND p.thumb_path IS NOT NULL AND p.thumb_path != ''
-		  AND (f.photo_id IS NULL OR f.version < ? OR f.vocabulary < ?)`,
-		things.Version, things.Version, things.VocabularyVersion)
+		  AND (f.photo_id IS NULL OR f.version < ? OR f.vocabulary < ?
+		       OR f.written = 1 AND f.vector_in_sidecar = 0 AND f.version = ? AND v.vector IS NOT NULL)`,
+		things.Version, things.Version, things.VocabularyVersion, things.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +52,16 @@ func (s *Store) PhotosNeedingThings() ([]ThingTask, error) {
 	return tasks, rows.Err()
 }
 
-// FoundThings is what a pass found in one photo. Vector and Boxes are nil
-// when only the word list was applied again; Written says the sidecar
-// holds the things.
+// FoundThings is what a pass found in one photo. Vector is nil when the
+// index's own stays; Boxes nil when the detector did not look. Written says
+// the sidecar holds the things, VectorInSidecar the vector too.
 type FoundThings struct {
-	PhotoID string
-	Things  []things.Found
-	Vector  []float32
-	Boxes   []things.Box
-	Written bool
+	PhotoID         string
+	Things          []things.Found
+	Vector          []float32
+	Boxes           []things.Box
+	Written         bool
+	VectorInSidecar bool
 }
 
 // SaveFoundThings stores what a pass found in several photos in one
@@ -86,6 +90,8 @@ func saveFoundThings(tx *sql.Tx, it FoundThings) error {
 		if _, err := tx.Exec(`INSERT OR REPLACE INTO photo_vectors (photo_id, vector) VALUES (?, ?)`, it.PhotoID, encodeEmbedding(it.Vector)); err != nil {
 			return err
 		}
+	}
+	if it.Boxes != nil {
 		if err := replaceBoxes(tx, it.PhotoID, it.Boxes); err != nil {
 			return err
 		}
@@ -93,8 +99,8 @@ func saveFoundThings(tx *sql.Tx, it FoundThings) error {
 	if err := replaceThings(tx, it.PhotoID, it.Things); err != nil {
 		return err
 	}
-	_, err := tx.Exec(`INSERT OR REPLACE INTO photo_things_found (photo_id, version, vocabulary, written) VALUES (?, ?, ?, ?)`,
-		it.PhotoID, things.Version, things.VocabularyVersion, it.Written)
+	_, err := tx.Exec(`INSERT OR REPLACE INTO photo_things_found (photo_id, version, vocabulary, written, vector_in_sidecar) VALUES (?, ?, ?, ?, ?)`,
+		it.PhotoID, things.Version, things.VocabularyVersion, it.Written, it.VectorInSidecar)
 	return err
 }
 
@@ -155,7 +161,25 @@ func (s *Store) ApplySidecarThings(photoID string, st media.SidecarThings) error
 	if err := replaceThings(tx, photoID, found); err != nil {
 		return err
 	}
+	if err := takeSidecarVector(tx, photoID, st.Record.Vector); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// takeSidecarVector keeps the vector the other installation wrote into the
+// sidecar, when this index has none: searching by words then needs no
+// models here. An index that has one keeps it — rewriting it with every
+// check would make the search read every vector again.
+func takeSidecarVector(tx *sql.Tx, photoID string, vector []float32) error {
+	if vector == nil {
+		return nil
+	}
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO photo_vectors (photo_id, vector) VALUES (?, ?)`, photoID, encodeEmbedding(vector)); err != nil {
+		return err
+	}
+	_, err := tx.Exec(`UPDATE photo_things_found SET vector_in_sidecar = 1 WHERE photo_id = ?`, photoID)
+	return err
 }
 
 func thingScores(tx *sql.Tx, photoID string) (map[string]things.Found, error) {

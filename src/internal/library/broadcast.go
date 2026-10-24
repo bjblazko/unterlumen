@@ -15,6 +15,9 @@ type Broadcaster struct {
 	last Progress
 	done bool
 	job  *jobs.Handle // the same progress, for the status line
+	// changed says the scan changed the index, or failed: a failed scan
+	// may have changed some of it.
+	changed bool
 }
 
 func newBroadcaster() *Broadcaster { return &Broadcaster{} }
@@ -42,6 +45,7 @@ func (b *Broadcaster) Send(p Progress) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.last = p
+	b.changed = b.changed || p.Changed || p.Error != ""
 	b.report(p)
 	last := p.Finished || p.Error != ""
 	for _, ch := range b.subs {
@@ -114,4 +118,11 @@ func (b *Broadcaster) closeAll() {
 		close(ch)
 	}
 	b.subs = nil
+}
+
+// Changed says the scan changed the index.
+func (b *Broadcaster) Changed() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.changed
 }

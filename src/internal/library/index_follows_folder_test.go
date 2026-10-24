@@ -314,3 +314,37 @@ func TestForgetFilesTakesOutWhatTheAppDeleted(t *testing.T) {
 		}
 	}
 }
+
+// A check reads a sidecar only when it changed: one whose stamp — time and
+// size — is the same is not read again; one the other installation wrote
+// since is.
+func TestACheckReadsOnlyTheSidecarsThatChanged(t *testing.T) {
+	src := t.TempDir()
+	photo := filepath.Join(src, "IMG_2.JPG")
+	writePhoto(t, photo, "pixels", day)
+	media.WriteField(photo, "place", "Hagen") //nolint:errcheck
+	sidecar := media.SidecarPath(photo)
+	os.Chtimes(sidecar, day, day) //nolint:errcheck
+	idx, s := newTestIndexer(t, src)
+	s.SetProp(notesInSidecarProp, "1") //nolint:errcheck
+	drain(idx.RunScanNew)
+	drain(NewIndexer(s, s.dir, src).RunScanNew) // the first check takes the stamp
+	id := onlyID(t, s)
+
+	// Same size, same time: not read, so the index keeps what it had.
+	data, _ := os.ReadFile(sidecar)
+	os.WriteFile(sidecar, []byte(strings.Replace(string(data), "Hagen", "Essen", 1)), 0o644) //nolint:errcheck
+	os.Chtimes(sidecar, day, day)                                                            //nolint:errcheck
+	drain(NewIndexer(s, s.dir, src).RunScanNew)
+	if got := metaOf(t, s, id); got["place"] != "Hagen" {
+		t.Fatalf("an unchanged stamp was read again: %v", got)
+	}
+
+	// A new time: read.
+	later := day.Add(time.Hour)
+	os.Chtimes(sidecar, later, later) //nolint:errcheck
+	drain(NewIndexer(s, s.dir, src).RunScanNew)
+	if got := metaOf(t, s, id); got["place"] != "Essen" {
+		t.Fatalf("a changed sidecar was not read: %v", got)
+	}
+}

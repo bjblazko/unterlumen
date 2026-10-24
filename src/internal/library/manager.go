@@ -174,47 +174,27 @@ func (m *Manager) readLibrary(id string) (*Library, error) {
 }
 
 func libraryFromStore(id string, store *Store) (*Library, error) {
-	lib := &Library{ID: id}
-
-	if v, ok, _ := store.GetProp("name"); ok {
-		lib.Name = v
+	// One query for every property: the libraries are listed with most
+	// requests, and each library has one connection a scan may hold.
+	props, err := store.props()
+	if err != nil {
+		return nil, err
 	}
-	if v, ok, _ := store.GetProp("description"); ok {
-		lib.Description = v
+	lib := &Library{ID: id, Name: props["name"], Description: props["description"], SourcePath: props["source_path"]}
+	lib.CreatedAt, _ = time.Parse(time.RFC3339, props["created_at"])
+	if t, err := time.Parse(time.RFC3339, props["last_indexed"]); err == nil {
+		lib.LastIndexed = &t
 	}
-	if v, ok, _ := store.GetProp("source_path"); ok {
-		lib.SourcePath = v
+	if t, err := time.Parse(time.RFC3339, props["last_new_photos"]); err == nil {
+		lib.LastNewPhotos = &t
 	}
-	if v, ok, _ := store.GetProp("created_at"); ok {
-		lib.CreatedAt, _ = time.Parse(time.RFC3339, v)
+	if v, ok := props["photo_count"]; ok {
+		lib.PhotoCount, _ = strconv.Atoi(v)
+	} else if lib.PhotoCount, err = store.CountPhotos(); err != nil {
+		return nil, err
 	}
-	if v, ok, _ := store.GetProp("last_indexed"); ok {
-		t, err := time.Parse(time.RFC3339, v)
-		if err == nil {
-			lib.LastIndexed = &t
-		}
-	}
-	if v, ok, _ := store.GetProp("last_new_photos"); ok {
-		t, err := time.Parse(time.RFC3339, v)
-		if err == nil {
-			lib.LastNewPhotos = &t
-		}
-	}
-	if v, ok, _ := store.GetProp("photo_count"); ok {
-		if n, err := strconv.Atoi(v); err == nil {
-			lib.PhotoCount = n
-		}
-	} else {
-		count, err := store.CountPhotos()
-		if err != nil {
-			return nil, err
-		}
-		lib.PhotoCount = count
-	}
-	if v, ok, _ := store.GetProp("sort_position"); ok {
-		if n, err := strconv.Atoi(v); err == nil {
-			lib.SortPosition = &n
-		}
+	if n, err := strconv.Atoi(props["sort_position"]); err == nil {
+		lib.SortPosition = &n
 	}
 	return lib, nil
 }

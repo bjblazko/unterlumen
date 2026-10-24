@@ -298,12 +298,7 @@ func (m *Manager) AggregateExifFields(ids []string) ([]string, error) {
 	seen := make(map[string]bool)
 	var out []string
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
-		if err != nil {
-			continue
-		}
-		fields, err := store.ExifFields()
-		store.Close()
+		fields, err := m.exifFieldsOf(l.ID)
 		if err != nil {
 			continue
 		}
@@ -316,6 +311,26 @@ func (m *Manager) AggregateExifFields(ids []string) ([]string, error) {
 	}
 	sortStrings(out)
 	return out, nil
+}
+
+// exifFieldsOf is a library's EXIF field names, kept until it changes:
+// finding them reads its whole EXIF index, seconds in a large library, and
+// the filter asks every time it opens.
+func (m *Manager) exifFieldsOf(id string) ([]string, error) {
+	key := id + "|fields"
+	if v, ok := m.exifValuesCache.Load(key); ok {
+		return v.([]string), nil
+	}
+	store, err := m.OpenStore(id)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	fields, err := store.ExifFields()
+	if err == nil {
+		m.exifValuesCache.Store(key, fields)
+	}
+	return fields, err
 }
 
 // filterLibraries returns the subset of all libraries matching the given ids (or all if ids is nil).

@@ -20,10 +20,15 @@ type thingsLook struct {
 	words  [][]float32
 }
 
+// lookLoader gives the pass what it looks with, loaded on first use: a pass
+// that only takes over what the other installation found — most of them,
+// once one installation looked — never loads the models.
+type lookLoader func() (*thingsLook, error)
+
 // RunFindThingsMissing looks for things in every photo that has a thumbnail
 // and was not looked at by the current models and word list (ADR-0054). A
 // thumbnail that cannot be read is passed over; the next pass tries again.
-func (idx *Indexer) RunFindThingsMissing(ctx context.Context, look thingsLook, progress chan<- Progress) {
+func (idx *Indexer) RunFindThingsMissing(ctx context.Context, look lookLoader, progress chan<- Progress) {
 	defer close(progress)
 	tasks, err := idx.store.PhotosNeedingThings()
 	if err != nil {
@@ -51,7 +56,7 @@ func (idx *Indexer) RunFindThingsMissing(ctx context.Context, look thingsLook, p
 
 // findThings looks at the tasks on analyseWorkers goroutines, one result per
 // task; a result without a photo ID is a thumbnail that could not be read.
-func (idx *Indexer) findThings(ctx context.Context, look thingsLook, tasks []ThingTask) <-chan FoundThings {
+func (idx *Indexer) findThings(ctx context.Context, look lookLoader, tasks []ThingTask) <-chan FoundThings {
 	in := make(chan ThingTask)
 	out := make(chan FoundThings)
 	go func() {
@@ -79,25 +84,49 @@ func (idx *Indexer) findThings(ctx context.Context, look thingsLook, tasks []Thi
 	return out
 }
 
-// findThingsIn looks at one photo, then writes what it found into the
-// sidecar — first, as ADR-0052 asks — unless the sidecar already holds
-// what current models found there, on the other installation: that is
-// taken over.
-func (idx *Indexer) findThingsIn(look thingsLook, t ThingTask) FoundThings {
-	res, ok := idx.lookAt(look, t)
-	if !ok {
-		return FoundThings{}
-	}
+// findThingsIn reads the photo's sidecar first. When it holds what current
+// models found — the other installation looked first — that is taken over,
+// and nothing is run. Otherwise the photo is looked at, and what was found
+// is written into the sidecar first, as ADR-0052 asks, then into the index.
+func (idx *Indexer) findThingsIn(load lookLoader, t ThingTask) FoundThings {
 	sc, err := media.ReadThings(t.PathHint)
 	if err != nil {
 		return FoundThings{}
 	}
 	if things.Current(sc.Record.Version) {
-		res.Things, res.Written = takeOver(res.Things, sc.Things()), true
-		return res
+		return takeOverThings(t, sc)
+	}
+	look, err := load()
+	if err != nil {
+		return FoundThings{}
+	}
+	res, ok := idx.lookAt(*look, t)
+	if !ok {
+		return FoundThings{}
+	}
+	vector := res.Vector
+	if vector == nil {
+		vector = t.Vector
 	}
 	res.Things = slices.DeleteFunc(res.Things, func(f things.Found) bool { return slices.Contains(sc.Record.Not, f.Name) })
-	res.Written, _ = media.WriteFoundThings(t.PathHint, thingNames(res.Things), things.RecordVersion())
+	res.Written, _ = media.WriteFoundThings(t.PathHint, thingNames(res.Things), things.RecordVersion(), vector)
+	res.VectorInSidecar = res.Written && vector != nil
+	return res
+}
+
+// takeOverThings is what a current sidecar says of the photo, with its
+// vector. A sidecar without the vector gets this index's, when there is one.
+func takeOverThings(t ThingTask, sc media.SidecarThings) FoundThings {
+	res := FoundThings{PhotoID: t.ID, Written: true}
+	for _, n := range sc.Things() {
+		res.Things = append(res.Things, things.Found{Name: n, Source: "sidecar"})
+	}
+	switch {
+	case sc.Record.Vector != nil:
+		res.Vector, res.VectorInSidecar = sc.Record.Vector, true
+	case t.Vector != nil:
+		res.VectorInSidecar, _ = media.WriteThingsVector(t.PathHint, t.Vector)
+	}
 	return res
 }
 
@@ -121,21 +150,7 @@ func (idx *Indexer) lookAt(look thingsLook, t ThingTask) (FoundThings, bool) {
 		return FoundThings{}, false
 	}
 	return FoundThings{PhotoID: t.ID, Things: things.Score(seen.Vector, look.words, seen.Boxes),
-		Vector: seen.Vector, Boxes: seen.Boxes}, true
-}
-
-// takeOver is the things a sidecar names, with this pass's scores where it
-// found them too.
-func takeOver(found []things.Found, names []string) []things.Found {
-	out := make([]things.Found, 0, len(names))
-	for _, n := range names {
-		f := things.Found{Name: n, Source: "sidecar"}
-		if i := slices.IndexFunc(found, func(x things.Found) bool { return x.Name == n }); i >= 0 {
-			f = found[i]
-		}
-		out = append(out, f)
-	}
-	return out
+		Vector: seen.Vector, Boxes: append([]things.Box{}, seen.Boxes...)}, true // none found replaces old boxes too
 }
 
 func thingNames(found []things.Found) []string {

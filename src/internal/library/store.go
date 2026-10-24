@@ -116,8 +116,8 @@ CREATE TABLE IF NOT EXISTS face_not (
 
 -- Things (ADR-0054). photo_vectors is CLIP's vector of a photo, for
 -- searching by words. photo_things_found says which models (version) and
--- word list (vocabulary) looked at a photo, and whether its sidecar holds
--- what they found (written). photo_things are the things in a photo, from
+-- word list (vocabulary) looked at a photo, whether its sidecar holds what
+-- they found (written), and the vector too (vector_in_sidecar). photo_things are the things in a photo, from
 -- clip, the detector, or the sidecar alone. thing_boxes are the detector's
 -- boxes, kept for telling pets apart.
 CREATE TABLE IF NOT EXISTS photo_vectors (
@@ -128,7 +128,8 @@ CREATE TABLE IF NOT EXISTS photo_things_found (
 	photo_id   TEXT PRIMARY KEY REFERENCES photos(id),
 	version    INTEGER NOT NULL,
 	vocabulary INTEGER NOT NULL,
-	written    INTEGER NOT NULL DEFAULT 0
+	written    INTEGER NOT NULL DEFAULT 0,
+	vector_in_sidecar INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS photo_things (
 	photo_id TEXT NOT NULL REFERENCES photos(id),
@@ -225,6 +226,10 @@ func openDB(dbPath string) (*sql.DB, error) {
 	db.Exec(`ALTER TABLE people ADD COLUMN cover_chosen TEXT`)
 	// Migration: faces marked by hand.
 	db.Exec(`ALTER TABLE faces ADD COLUMN manual INTEGER NOT NULL DEFAULT 0`)
+	// Migration: the stamp of the sidecar a scan read last.
+	db.Exec(`ALTER TABLE path_cache ADD COLUMN sidecar_stamp TEXT`)
+	// Migration: whether a photo's sidecar holds its vector too (ADR-0054).
+	db.Exec(`ALTER TABLE photo_things_found ADD COLUMN vector_in_sidecar INTEGER NOT NULL DEFAULT 0`)
 	// Migration: ext column for fast format distribution queries.
 	db.Exec(`ALTER TABLE photos ADD COLUMN ext TEXT NOT NULL DEFAULT ''`)
 	db.Exec(`UPDATE photos SET ext =
@@ -298,6 +303,24 @@ func (s *Store) GetProp(key string) (string, bool, error) {
 	return v, err == nil, err
 }
 
+// props is every property of the library.
+func (s *Store) props() (map[string]string, error) {
+	rows, err := s.db.Query(`SELECT key, value FROM library_props`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		out[k] = v
+	}
+	return out, rows.Err()
+}
+
 // GetPathCache looks up a fast-path cache entry by absolute file path.
 func (s *Store) GetPathCache(absPath string) (photoID string, mtimeNs, fileSize int64, found bool, err error) {
 	err = s.db.QueryRow(
@@ -320,4 +343,39 @@ func (s *Store) UpsertPathCache(absPath, photoID string, mtimeNs, fileSize int64
 		absPath, photoID, mtimeNs, fileSize,
 	)
 	return err
+}
+
+// sidecarReading names what a scan reads from a sidecar. When it changes —
+// a version that reads something new from them — every sidecar is read once
+// again, whatever its stamp (forgetSidecarStamps).
+const sidecarReading = "1"
+
+func (s *Store) sidecarStampOf(absPath string) string {
+	var stamp sql.NullString
+	s.db.QueryRow(`SELECT sidecar_stamp FROM path_cache WHERE abs_path = ?`, absPath).Scan(&stamp) //nolint:errcheck
+	return stamp.String
+}
+
+func (s *Store) setSidecarStamp(absPath, stamp string) error {
+	if stamp == "" {
+		return nil
+	}
+	_, err := s.db.Exec(`UPDATE path_cache SET sidecar_stamp = ? WHERE abs_path = ?`, stamp, absPath)
+	return err
+}
+
+// forgetSidecarStamps has every sidecar read again when what a scan reads
+// from them changed since the stamps were taken.
+func (s *Store) forgetSidecarStamps() {
+	// Notes moving into the sidecars changes what a scan does with them too.
+	reading := sidecarReading
+	if s.NotesInSidecars() {
+		reading += "+notes"
+	}
+	if v, _, _ := s.GetProp("sidecar_reading"); v == reading {
+		return
+	}
+	if _, err := s.db.Exec(`UPDATE path_cache SET sidecar_stamp = NULL`); err == nil {
+		s.SetProp("sidecar_reading", reading) //nolint:errcheck
+	}
 }

@@ -17,6 +17,7 @@ import (
 // to the new one where the sidecar did not already say it. Publications do
 // not: the sidecar alone says which galleries a photo is in.
 func (idx *Indexer) retire(oldID, newID, absPath string) error {
+	idx.changed = true
 	if other := idx.store.otherPathOf(oldID, absPath); other != "" {
 		if hint, _ := idx.store.GetPhotoPathHint(oldID); hint == absPath {
 			return idx.store.MarkPhotoPresent(oldID, other, filepath.Base(other))

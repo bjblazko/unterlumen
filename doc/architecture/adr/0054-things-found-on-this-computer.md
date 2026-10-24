@@ -136,3 +136,23 @@ hundred megabytes is acceptable; a search bar above every place.
   vectors, not a new pass.
 - CLIP is a general model: it confuses things (a funicular taken for a boat)
   and misses some. Wrong things are taken away in the info panel, for good.
+
+## Addendum 2026-10-24: the vector travels, one pass at a time
+
+On the NAS (a Raspberry Pi 5) a photo takes about four seconds, and the
+passes of three libraries ran side by side after their checks: 37 hours for
+"Chronologisch" alone, for photos the Mac had looked at already.
+
+- The things record in the sidecar carries the photo's vector,
+  `ul:ThingsVector`: 512 half-precision numbers, little-endian, base64
+  (1.4 KB). Whoever looks at a photo first runs the models and writes both;
+  the other installation takes things and vector over in its pass and in
+  its scans, without models. A pass that only takes over never loads them.
+  Sidecars written before carry no vector: the installation that has one in
+  its index writes it there (`vector_in_sidecar`), without running models.
+- One things pass runs at a time, whichever library.
+- Checks read a sidecar only when its time or size changed
+  (`path_cache.sidecar_stamp`); `sidecarReading`, with whether notes live in
+  the sidecars, is part of that, so a version that reads something new reads
+  each sidecar once again. A check that changed nothing keeps the caches of
+  the statistics.

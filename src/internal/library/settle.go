@@ -43,6 +43,9 @@ func (idx *Indexer) settle(folder string, present map[string]bool) {
 			stale = append(stale, p)
 		}
 	}
+	if len(gone)+len(stale)+len(found) > 0 {
+		idx.changed = true
+	}
 	idx.store.PurgePhotos(gone)  //nolint:errcheck
 	idx.store.forgetPaths(stale) //nolint:errcheck
 	idx.store.markOK(found)      //nolint:errcheck

@@ -151,7 +151,6 @@ func (m *Manager) StartScan(id, verb string) (*Broadcaster, bool) {
 	if !m.TryLockIndex(id) {
 		return nil, false
 	}
-	m.InvalidateStatsCache(id)
 	b := newBroadcaster()
 	b.job = m.jobs.Start("library", m.scanTitle(id, verb), "libraries")
 	m.scans.Store(id, b)
@@ -179,10 +178,15 @@ func (m *Manager) JoinScan(id string) (*Broadcaster, bool) {
 // one after the other.
 // The broadcaster itself must be closed separately (by the bridge goroutine).
 func (m *Manager) EndScan(id string) {
-	m.scans.Delete(id)
+	b, ok := m.scans.LoadAndDelete(id)
 	m.UnlockIndex(id)
-	m.InvalidateStatsCache(id)
-	go m.prewarmFolderStats(id)
+	// A check of a library that did not change — every 30 minutes for a
+	// shared one — keeps what the statistics, the timeline and the filter
+	// worked out; only a change has them worked out again.
+	if !ok || b.(*Broadcaster).Changed() {
+		m.InvalidateStatsCache(id)
+		go m.prewarmFolderStats(id)
+	}
 	go func() {
 		m.AnalyseMissing(id)
 		m.FindFacesMissing(id)

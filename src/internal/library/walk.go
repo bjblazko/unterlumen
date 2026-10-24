@@ -27,9 +27,10 @@ func collectFiles(root string) ([]string, error) {
 }
 
 // collectFilesAndSidecars is collectFiles that also notes the sidecars it
-// passes, by lower-cased path (sidecarKey), so a scan need not ask the disk
-// — a round trip each on a network share — for the sidecar of every photo.
-func collectFilesAndSidecars(root string) ([]string, map[string]bool, error) {
+// passes, by lower-cased path (sidecarKey), with their stamp, so a scan need
+// not ask the disk — a round trip each on a network share — for the sidecar
+// of every photo, nor read one that did not change.
+func collectFilesAndSidecars(root string) ([]string, map[string]string, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, nil, err
@@ -38,7 +39,7 @@ func collectFilesAndSidecars(root string) ([]string, map[string]bool, error) {
 		return nil, nil, fmt.Errorf("%s is not a folder", root)
 	}
 	var files []string
-	sidecars := map[string]bool{}
+	sidecars := map[string]string{}
 	var unreadable error
 	err = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -55,7 +56,7 @@ func collectFilesAndSidecars(root string) ([]string, map[string]bool, error) {
 		case media.IsSupportedImage(d.Name()):
 			files = append(files, path)
 		case strings.EqualFold(filepath.Ext(path), ".xmp"):
-			sidecars[sidecarKey(path)] = true
+			sidecars[sidecarKey(path)] = stampOf(d)
 		}
 		return nil
 	})
@@ -63,6 +64,16 @@ func collectFilesAndSidecars(root string) ([]string, map[string]bool, error) {
 		return nil, nil, err
 	}
 	return files, sidecars, unreadable
+}
+
+// stampOf is a file's modification time and size, or "" when they cannot
+// be read: a stamp that matches no other, so the file is read.
+func stampOf(d os.DirEntry) string {
+	info, err := d.Info()
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", info.ModTime().UnixNano(), info.Size())
 }
 
 // sidecarKey is how collectFilesAndSidecars notes a sidecar: shares and the

@@ -28,6 +28,9 @@ type Progress struct {
 	Parent   string `json:"parent,omitempty"` // parent folder name of current file
 	Finished bool   `json:"finished,omitempty"`
 	Error    string `json:"error,omitempty"`
+	// Changed, on the last event, says the run changed the index: only then
+	// are the statistics worked out again (EndScan).
+	Changed bool `json:"-"`
 }
 
 // Indexer walks a source directory and populates a library store.
@@ -39,8 +42,11 @@ type Indexer struct {
 	// notesReplace caches Store.NotesInSidecars for the indexer's run.
 	notesReplace *bool
 	// sidecars, when a run's walk filled it, holds every sidecar below the
-	// source path (sidecarKey); nil means the disk is asked.
-	sidecars map[string]bool
+	// source path (sidecarKey) with its stamp; nil means the disk is asked.
+	sidecars map[string]string
+	// changed says the run changed a photo, its notes, names, things or
+	// publications, or removed one.
+	changed bool
 }
 
 // NewIndexer creates an Indexer for the given store and source path.
@@ -73,6 +79,7 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 
 	files, sidecars, err := collectFilesAndSidecars(idx.sourcePath)
 	idx.sidecars = sidecars
+	idx.store.forgetSidecarStamps()
 	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
@@ -96,7 +103,7 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 
 	// Only a run that saw every file knows which are gone.
 	if err != nil {
-		progress <- Progress{Done: total, Total: total, Finished: true, Error: nothingRemoved(err)}
+		progress <- Progress{Done: total, Total: total, Finished: true, Error: nothingRemoved(err), Changed: idx.changed}
 		return
 	}
 	idx.settle("", fileSet(files))
@@ -104,7 +111,7 @@ func (idx *Indexer) Run(ctx context.Context, progress chan<- Progress) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // RunScanNew walks the full source directory and indexes new or changed photos without
@@ -141,6 +148,7 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 
 	files, sidecars, err := collectFilesAndSidecars(scanRoot)
 	idx.sidecars = sidecars
+	idx.store.forgetSidecarStamps()
 	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
@@ -164,7 +172,7 @@ func (idx *Indexer) RunScanNewInFolder(ctx context.Context, progress chan<- Prog
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // resolveCanonicalPath returns the path that should be recorded as photoID's
@@ -204,7 +212,7 @@ func (idx *Indexer) indexFile(absPath string) error {
 		if err := idx.markPresent(cachedID, absPath); err != nil {
 			return err
 		}
-		idx.indexSidecar(absPath, cachedID)
+		idx.indexChangedSidecar(absPath, cachedID)
 		// A HEIF thumbnail may have failed on the first scan (e.g. heif-convert).
 		idx.ensureHEIFThumbnail(absPath, cachedID)
 		return nil
@@ -228,6 +236,7 @@ func (idx *Indexer) indexFile(absPath string) error {
 // library does not know the content, otherwise marked present there (a
 // rename, or a path cache cleared for a forced re-index).
 func (idx *Indexer) indexContent(absPath, photoID string, mtimeNs, fileSize int64) error {
+	idx.changed = true
 	exists, err := idx.store.PhotoExists(photoID)
 	if err != nil {
 		return err
@@ -283,6 +292,7 @@ func (idx *Indexer) ensureHEIFThumbnail(absPath, photoID string) {
 	}
 	if thumbRel, err := idx.ensureThumbnail(absPath, photoID); err == nil {
 		idx.store.SetPhotoThumbPath(photoID, thumbRel) //nolint:errcheck
+		idx.changed = true
 	}
 }
 
@@ -449,7 +459,8 @@ func hashFile(path string) (string, error) {
 // library's notes live in the sidecars (ADR-0048). Non-fatal: a sidecar that
 // cannot be read changes nothing.
 func (idx *Indexer) indexSidecar(absPath, photoID string) {
-	if idx.sidecars != nil && !idx.sidecars[sidecarKey(media.SidecarPath(absPath))] {
+	idx.changed = true
+	if _, ok := idx.sidecars[sidecarKey(media.SidecarPath(absPath))]; idx.sidecars != nil && !ok {
 		idx.store.ApplyNotes(photoID, media.Notes{}, idx.notesInSidecars()) //nolint:errcheck
 		idx.store.replaceBuiltMeta(photoID, nil)                            //nolint:errcheck
 		idx.store.ApplyFaceNames(photoID, nil, false)                       //nolint:errcheck
@@ -486,7 +497,8 @@ func (idx *Indexer) applyFaceNames(absPath, photoID string) {
 // there was one, otherwise from the disk.
 func (idx *Indexer) hasSidecar(absPath string) bool {
 	if idx.sidecars != nil {
-		return idx.sidecars[sidecarKey(media.SidecarPath(absPath))]
+		_, ok := idx.sidecars[sidecarKey(media.SidecarPath(absPath))]
+		return ok
 	}
 	_, err := os.Stat(media.SidecarPath(absPath))
 	return err == nil
@@ -524,6 +536,7 @@ func (idx *Indexer) RunInFolder(ctx context.Context, progress chan<- Progress, s
 
 	files, sidecars, err := collectFilesAndSidecars(scanRoot)
 	idx.sidecars = sidecars
+	idx.store.forgetSidecarStamps()
 	if walkFailed(err) {
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
@@ -547,7 +560,7 @@ func (idx *Indexer) RunInFolder(ctx context.Context, progress chan<- Progress, s
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // resolveSubfolder validates and resolves subfolder (relative to sourcePath) to an
@@ -610,7 +623,7 @@ func (idx *Indexer) RunRegenerateMissingPreviewsInFolder(ctx context.Context, pr
 		}
 	}
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // RunRebuildAllPreviewsInFolder deletes and regenerates every thumbnail inside
@@ -654,7 +667,7 @@ func (idx *Indexer) RunRebuildAllPreviewsInFolder(ctx context.Context, progress 
 		idx.store.ClearAppearance(photoID)             //nolint:errcheck // measured again from the new thumbnail
 	}
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // RunCleanupInFolder removes indexed photos inside subfolder whose source files
@@ -718,7 +731,7 @@ func (idx *Indexer) RunCleanupInFolder(ctx context.Context, progress chan<- Prog
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // RunCleanup removes indexed photos whose source files no longer exist on disk.
@@ -765,7 +778,7 @@ func (idx *Indexer) RunCleanup(ctx context.Context, progress chan<- Progress) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	idx.store.SetProp("last_indexed", now) //nolint:errcheck
 
-	progress <- Progress{Done: total, Total: total, Finished: true}
+	progress <- Progress{Done: total, Total: total, Finished: true, Changed: idx.changed}
 }
 
 // applyThingsWithoutSidecar is for a photo whose walk showed no sidecar. A
@@ -779,4 +792,36 @@ func (idx *Indexer) applyThingsWithoutSidecar(absPath, photoID string) {
 	if st, err := media.ReadThings(absPath); err == nil {
 		idx.store.ApplySidecarThings(photoID, st) //nolint:errcheck // the next scan tries again
 	}
+}
+
+// indexChangedSidecar indexes the sidecar of a photo whose file did not
+// change, unless the sidecar did not change either since it was last read:
+// a check of an unchanged library then reads no sidecar at all, where it
+// read each one four times, and writes nothing.
+func (idx *Indexer) indexChangedSidecar(absPath, photoID string) {
+	stamp := idx.sidecarStamp(absPath)
+	if stamp != "" && stamp == idx.store.sidecarStampOf(absPath) {
+		return
+	}
+	idx.indexSidecar(absPath, photoID)
+	idx.store.setSidecarStamp(absPath, stamp) //nolint:errcheck // read again next time
+}
+
+// sidecarStamp is the stamp of the photo's sidecar, "none" when it has
+// none, "" when that is not known.
+func (idx *Indexer) sidecarStamp(absPath string) string {
+	if idx.sidecars != nil {
+		if stamp, ok := idx.sidecars[sidecarKey(media.SidecarPath(absPath))]; ok {
+			return stamp
+		}
+		return "none"
+	}
+	info, err := os.Stat(media.SidecarPath(absPath))
+	if os.IsNotExist(err) {
+		return "none"
+	}
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", info.ModTime().UnixNano(), info.Size())
 }

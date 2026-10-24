@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"image/color"
 	"path/filepath"
 	"slices"
@@ -104,7 +105,8 @@ func photoWithOldWords(t *testing.T, s *Store, libDir, id, path, thing string) {
 func runThingsPass(t *testing.T, s *Store, libDir string) {
 	t.Helper()
 	ch := make(chan Progress, 8)
-	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), thingsLook{words: wordsFor()}, ch)
+	look := &thingsLook{words: wordsFor()}
+	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), func() (*thingsLook, error) { return look, nil }, ch)
 	for p := range ch {
 		if p.Error != "" {
 			t.Fatal(p.Error)
@@ -133,9 +135,9 @@ func TestThingsPassTakesOverACurrentSidecar(t *testing.T) {
 	s := newTestStore(t)
 	libDir, photos := t.TempDir(), t.TempDir()
 	other, removed := filepath.Join(photos, "b.jpg"), filepath.Join(photos, "c.jpg")
-	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion()) //nolint:errcheck
-	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0")              //nolint:errcheck
-	media.RemoveThing(removed, "lighthouse")                                    //nolint:errcheck
+	media.WriteFoundThings(other, []string{"windmill"}, things.RecordVersion(), nil) //nolint:errcheck
+	media.WriteFoundThings(removed, []string{"lighthouse"}, "0.0", nil)              //nolint:errcheck
+	media.RemoveThing(removed, "lighthouse")                                         //nolint:errcheck
 	photoWithOldWords(t, s, libDir, "bb22", other, "lighthouse")
 	photoWithOldWords(t, s, libDir, "cc33", removed, "lighthouse")
 	runThingsPass(t, s, libDir)
@@ -195,9 +197,9 @@ func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
 	photo := filepath.Join(photos, "late.jpg")
 	insertPhoto(t, s, "late", nil, nil)
 	s.SaveFoundThings([]FoundThings{{PhotoID: "late", Written: true, Things: []things.Found{{Name: "dog", Source: "clip"}}}}) //nolint:errcheck
-	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion())                                                    //nolint:errcheck
+	media.WriteFoundThings(photo, []string{"dog"}, things.RecordVersion(), nil)                                               //nolint:errcheck
 	idx := NewIndexer(s, libDir, photos)
-	idx.sidecars = map[string]bool{} // the walk saw no sidecar
+	idx.sidecars = map[string]string{} // the walk saw no sidecar
 	idx.indexSidecar(photo, "late")
 	if !s.thingsWritten("late") || !slices.Equal(thingNamesOf(t, s, "late"), []string{"dog"}) {
 		t.Fatal("a sidecar written after the walk was taken as lost")
@@ -208,5 +210,71 @@ func TestASidecarWrittenAfterTheWalkKeepsItsRecord(t *testing.T) {
 	idx.indexSidecar(gone, "gone")
 	if s.thingsWritten("gone") {
 		t.Fatal("a sidecar that is really gone kept its record")
+	}
+}
+
+func noModels() (*thingsLook, error) { return nil, errors.New("the models were loaded") }
+
+// What the other installation found and saw is taken over, vector included,
+// and the models are never loaded for it.
+func TestAPassTakesOverThingsAndVectorWithoutModels(t *testing.T) {
+	s := newTestStore(t)
+	libDir, photos := t.TempDir(), t.TempDir()
+	photo := filepath.Join(photos, "seen.jpg")
+	addPhotoWithThumb(t, s, libDir, "ee55", photo, color.RGBA{})
+	media.WriteFoundThings(photo, []string{"windmill"}, things.RecordVersion(), vectorOf("windmill")) //nolint:errcheck
+	ch := make(chan Progress, 8)
+	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), noModels, ch)
+	for range ch {
+	}
+	if got := thingNamesOf(t, s, "ee55"); !slices.Equal(got, []string{"windmill"}) {
+		t.Fatalf("things %v", got)
+	}
+	var n int
+	s.db.QueryRow(`SELECT COUNT(*) FROM photo_vectors WHERE photo_id = 'ee55'`).Scan(&n) //nolint:errcheck
+	if n != 1 {
+		t.Fatal("the sidecar's vector was not taken")
+	}
+	if tasks, _ := s.PhotosNeedingThings(); len(tasks) != 0 {
+		t.Fatalf("%d photos still to look at", len(tasks))
+	}
+}
+
+// A sidecar written before vectors travelled gets this index's vector, by a
+// pass that runs no model.
+func TestAPassWritesItsVectorIntoASidecarWithout(t *testing.T) {
+	s := newTestStore(t)
+	libDir, photos := t.TempDir(), t.TempDir()
+	photo := filepath.Join(photos, "old.jpg")
+	addPhotoWithThumb(t, s, libDir, "ff66", photo, color.RGBA{})
+	media.WriteFoundThings(photo, []string{"lighthouse"}, things.RecordVersion(), nil)               //nolint:errcheck
+	s.SaveFoundThings([]FoundThings{{PhotoID: "ff66", Vector: vectorOf("lighthouse"), Written: true, //nolint:errcheck
+		Things: []things.Found{{Name: "lighthouse", Source: "clip"}}}})
+	ch := make(chan Progress, 8)
+	go NewIndexer(s, libDir, "").RunFindThingsMissing(context.Background(), noModels, ch)
+	for range ch {
+	}
+	st, _ := media.ReadThings(photo)
+	if len(st.Record.Vector) != len(things.Vocabulary) {
+		t.Fatalf("the sidecar has %d numbers", len(st.Record.Vector))
+	}
+	if tasks, _ := s.PhotosNeedingThings(); len(tasks) != 0 {
+		t.Fatalf("%d photos still to look at", len(tasks))
+	}
+}
+
+// A scan takes the vector from the sidecar when the index has none.
+func TestAScanTakesTheSidecarsVector(t *testing.T) {
+	s := newTestStore(t)
+	insertPhoto(t, s, "gg77", nil, nil)
+	st := media.SidecarThings{Record: media.ThingsRecord{Found: []string{"dog"}, Version: things.RecordVersion(), Vector: []float32{0.6, 0.8}},
+		Keywords: []string{"dog"}}
+	if err := s.ApplySidecarThings("gg77", st); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	s.db.QueryRow(`SELECT COUNT(*) FROM photo_vectors WHERE photo_id = 'gg77'`).Scan(&n) //nolint:errcheck
+	if n != 1 {
+		t.Fatal("the sidecar's vector was not taken")
 	}
 }

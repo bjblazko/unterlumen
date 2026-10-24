@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Unterlumen starts in Libraries**, on the desk as on a phone, where a bare address used to open Folders.
+- **On a phone, Statistics has the place Folders had in the tab bar**: Libraries, Map, Timeline, People, Statistics. Folders stays reachable through its links.
+- **On a phone a place's head is one row**, so the photos keep the screen: title and count, the place's one setting as a small select (Map's Grey · Colour, the Timeline's Rows, the Statistics' Periods), the place's sentence behind a round "i", and ⋯. What does not fit is cut short, the count before the name. The desk keeps its heads as they were.
+- **On a phone a search shows its photos.** The filter, which covers the screen there, stays closed; its button counts the conditions.
+- **What one installation found is taken over by the other, vector included.** The things record in a sidecar now carries the photo's vector (`ul:ThingsVector`, 512 half-precision numbers, 1.4 KB), so the other installation takes things and words search over without running the models — the NAS no longer spends days on photos the Mac already looked at. A pass that only takes over never loads the models. The Mac writes the vectors it has into the sidecars that lack them, without running the models either.
+- **One things pass at a time.** Each library's check started its own pass; side by side on the NAS they shared its cores and none came to an end.
+- **A check reads only the sidecars that changed.** A sidecar's time and size are kept like a photo's; an unchanged one is not read again (it was read four times per photo per check), and a version that reads something new from sidecars reads each once again.
+- **A check that changes nothing keeps the statistics.** Every check of a shared library — every 30 minutes — threw away what the statistics, the timeline and the filter had worked out; now only a change does.
+- **The filter opens faster**: a library's EXIF field names are kept until it changes, and a library's properties are read with one query instead of seven.
+
 ## [0.18.1] - 2026-10-24
 
 ### Fixed
