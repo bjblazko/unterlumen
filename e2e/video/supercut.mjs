@@ -15,7 +15,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { REPO, BASE, preparePhotos, startServer, seed, showHomePath } from '../screenshots/stage.mjs';
-import { ready, settle, openFolder, openLibrary } from '../screenshots/shots.mjs';
+import { ready, settle, openFolder, openLibrary, thingsSettled } from '../screenshots/shots.mjs';
 
 const OUT = path.join(REPO, 'e2e/video/out');
 const SIZE = 1080;          // the film is SIZE × SIZE
@@ -116,7 +116,40 @@ const scenes = [
         },
     },
     {
-        caption: 'Every photo on one map',
+        caption: 'People, recognised on your computer',
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, 'people');
+            await page.waitForFunction(() => document.querySelectorAll('.people-card img').length >= 4);
+            await settle(page, 1500);
+        },
+        act: async (page) => {
+            const cards = page.locator('.people-card');
+            for (let i = 0; i < Math.min(5, await cards.count()); i++) { await cards.nth(i).hover(); await wait(360); }
+        },
+    },
+    {
+        // A word typed into the search bar, the thing it suggests chosen:
+        // the photos that show it.
+        caption: 'Find the things in your photos',
+        bars: 1,
+        prepare: async (page) => {
+            await thingsSettled(BASE);
+            // Libraries opens on the library last open, from the scene before.
+            await ready(page, BASE, 'libraries');
+            await page.waitForSelector('#lib-pane [data-type="dir"]');
+            await settle(page, 1200);
+        },
+        act: async (page) => {
+            await page.locator('#search-bar-input').pressSequentially('boat', { delay: 110 });
+            const option = page.locator('#search-bar-list:not([hidden]) [role="option"]').first();
+            await option.waitFor();
+            await wait(350);
+            await option.click();
+        },
+    },
+    {
+        caption: 'Every photo on one map, in 3D too',
         bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'map');
@@ -125,8 +158,8 @@ const scenes = [
         },
         act: async (page) => {
             await page.locator('.map-pane .maplibregl-ctrl-zoom-in').click();
-            await wait(750);
-            await page.locator('.map-pane .maplibregl-ctrl-zoom-in').click();
+            await wait(700);
+            await page.locator('.segment-field button[data-value="3d"]').click();
         },
     },
     {
@@ -143,7 +176,7 @@ const scenes = [
         },
     },
     {
-        caption: 'Statistics in six topics',
+        caption: 'Statistics in eight topics',
         bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'statistics');

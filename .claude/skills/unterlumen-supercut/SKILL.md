@@ -88,12 +88,12 @@ The page head of `/products/unterlumen` (EN and DE) shows a web copy:
 V=../unterlumen/e2e/video/out/unterlumen-supercut.mp4
 ffmpeg -v error -y -i $V -vf scale=720:720:flags=lanczos -c:v libx264 -preset slow -crf 28 \
   -pix_fmt yuv420p -movflags +faststart -an src/products/unterlumen/supercut.mp4
-ffmpeg -v error -y -i $V -vf "select='eq(n\,510)',scale=720:720" -frames:v 1 -vsync vfr /tmp/poster.png \
+ffmpeg -v error -y -i $V -vf "select='eq(n\,630)',scale=720:720" -frames:v 1 -vsync vfr /tmp/poster.png \
   && cwebp -quiet -q 80 /tmp/poster.png -o src/products/unterlumen/supercut-poster.webp
 ```
 
-The poster is bar 9 (the Colour space); pick another frame if the scenes
-moved. Update the caption's length ("in 28 seconds", both languages) if it
+The poster is bar 11 (the Colour space, frame 630); pick another frame if the scenes
+moved. Update the caption's length ("in 32 seconds", both languages) if it
 changed, then build and deploy as that repo's deploy command says. The site's
 CSP needs `media-src 'self'` (in both Caddyfiles; it is there since
 2026-10-02).

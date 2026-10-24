@@ -63,7 +63,7 @@ async function selectionDialog(page, base, action) {
 
 // Things are found in the background after the library is read (with the
 // models beside the fixtures, stage.mjs); waits until the totals stop changing.
-async function thingsSettled(base) {
+export async function thingsSettled(base) {
     let last = '', same = 0;
     for (let i = 0; i < 180 && same < 3; i++) {
         const now = await fetch(`${base}/api/library/things`).then(r => r.text()).catch(() => '');
@@ -75,7 +75,7 @@ async function thingsSettled(base) {
 }
 
 // Types into the search bar and waits for its suggestions.
-async function search(page, words) {
+export async function search(page, words) {
     await page.locator('#search-bar-input').fill(words);
     await page.waitForSelector('#search-bar-list:not([hidden]) [role="option"]');
     await page.waitForTimeout(600);

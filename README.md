@@ -124,7 +124,7 @@ The interface is in English or German. By default it follows the browser's langu
 
 #### Map
 
-Every photo with a location on one map. Photos close together form a group showing the newest one; zooming in splits the groups. The Photos column lists what is in view, the filter in the head narrows the map, and Style switches between grey and colour tiles.
+Every photo with a location on one map. Photos close together form a group showing the newest one; zooming in splits the groups. The Photos column lists what is in view, the filter in the head narrows the map. View shows the earth as a globe, flat (Mercator) or tilted in 3D with the buildings standing; Map switches between grey and colour tiles.
 
 ![Map with the photos column](doc/screenshots/map.webp)
 
