@@ -352,6 +352,9 @@ export const shots = [
     },
     {
         name: 'rename',
+        // The stage's file names start with their date, so a pattern with
+        // {original} would show the warning about a date twice.
+        storage: { 'rename.pattern': '{YYYY}-{MM}-{DD}_{model}_{seq}' },
         take: (page, { base }) => selectionDialog(page, base, 'rename'),
     },
     {
