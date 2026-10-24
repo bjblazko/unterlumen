@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-24
+
 ### Fixed
 - **Two installations no longer find the same things side by side.** Both went through a library's photos in the same order, so after a new model both ran it on the same photos, and neither could take over from the other. Each pass now goes through the photos in an order of its own; each takes over what the other already wrote.
 
