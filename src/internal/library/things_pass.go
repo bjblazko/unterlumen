@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"slices"
@@ -35,6 +36,11 @@ func (idx *Indexer) RunFindThingsMissing(ctx context.Context, look lookLoader, p
 		progress <- Progress{Error: err.Error(), Finished: true}
 		return
 	}
+	// Each pass goes through the photos in an order of its own: two
+	// installations sharing a library then look at different photos first,
+	// and each takes over what the other wrote, instead of both running the
+	// models on the same photos side by side.
+	rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 	total, done := len(tasks), 0
 	var batch []FoundThings
 	for found := range idx.findThings(ctx, look, tasks) {
