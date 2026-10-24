@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Opening a library no longer waits behind a scan of another one.** The list of libraries follows every running scan on its card, and each time the list was drawn it opened another connection that stayed open until the scan ended — during a long check of a large library, a few visits took the browser's six connections, and a library stayed at "Reading the folder…". The list now lets go of them whenever the place is drawn anew; the scans go on.
+
 ## [0.19.1] - 2026-10-24
 
 ### Fixed

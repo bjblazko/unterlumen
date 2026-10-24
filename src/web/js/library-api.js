@@ -221,16 +221,17 @@ const LibraryAPI = {
     regenMissingPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-missing', onProgress, subfolder); },
     rebuildAllPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-all', onProgress, subfolder); },
     analyseAgain(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'analyse', onProgress, subfolder); },
-    scanNew(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'scan-new', onProgress, subfolder); },
+    scanNew(id, onProgress, subfolder, signal) { return LibraryAPI._libraryJob(id, 'scan-new', onProgress, subfolder, signal); },
     // _libraryJob starts a job on a library, or on one of its folders, and
     // reports each progress event. It resolves when the job says it finished
-    // or the stream ends.
-    _libraryJob(id, action, onProgress, subfolder) {
+    // or the stream ends — or when signal ends the watching: the job itself
+    // goes on on the server.
+    _libraryJob(id, action, onProgress, subfolder, signal) {
         return new Promise((resolve, reject) => {
             const url = subfolder
                 ? `/api/library/${id}/${action}?subfolder=${encodeURIComponent(subfolder)}`
                 : `/api/library/${id}/${action}`;
-            fetch(url, { method: 'POST' })
+            fetch(url, { method: 'POST', signal })
                 .then(async r => {
                     if (!r.ok) { reject(new Error(await r.text())); return; }
                     await readEventStream(r, (p) => {
@@ -239,7 +240,7 @@ const LibraryAPI = {
                     });
                     resolve();
                 })
-                .catch(err => { if (err.name !== 'AbortError') reject(err); });
+                .catch(err => { if (err.name === 'AbortError') resolve(); else reject(err); });
         });
     },
 };

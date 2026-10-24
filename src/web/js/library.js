@@ -73,6 +73,12 @@ class LibraryTab {
     }
 
     render() {
+        // A card that shows a scan holds a connection while the scan runs —
+        // a check of a large library, many minutes. Every drawing of the list
+        // added one, until the browser's six were taken and nothing else
+        // loaded: whatever this place drew before lets go of them now.
+        this._scanWatch?.abort();
+        this._scanWatch = new AbortController();
         this.container.innerHTML = '';
         this.container.className = 'library-root';
         if (this.currentLibrary) {
@@ -164,7 +170,8 @@ class LibraryTab {
                 const card = this._libCard(lib, prevLastSeen);
                 body.appendChild(card);
                 if (lib.scanning) {
-                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), 'Scanning');
+                    const signal = this._scanWatch.signal;
+                    this._runScanCard(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb, undefined, signal), 'Scanning', signal);
                 }
                 if (mode === 'manual') this._addManualSortButtons(lib, card, body);
             }
@@ -226,7 +233,7 @@ class LibraryTab {
         }
     }
 
-    async _runScanCard(lib, card, scanFn, label) {
+    async _runScanCard(lib, card, scanFn, label, signal) {
         let host = card.querySelector('.library-card-progress');
         if (!host) {
             host = document.createElement('div');
@@ -238,6 +245,7 @@ class LibraryTab {
         scanBtns.forEach(b => { b.disabled = true; });
         try {
             await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
+            if (signal?.aborted) return; // the card is gone
             const updated = await LibraryAPI.get(lib.id);
             card.querySelector('.library-card-count').textContent = countText(updated.photoCount, 'photo');
             card.querySelector('.library-card-indexed').textContent =
