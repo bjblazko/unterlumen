@@ -87,7 +87,7 @@ class FolderPicker {
     // Enter takes the folder that the footer names, the way a file dialog
     // does — but not while the focus is on a row, where Enter opens it.
     _onKeyDown(e) {
-        if (e.key === 'Enter' && this._overlay && !e.target.closest('.fp-body')) {
+        if (e.key === 'Enter' && this._overlay && !e.target.closest('.fp-body') && this._source === 'fs') {
             e.preventDefault();
             this._close(this._currentPath);
         }
@@ -164,6 +164,9 @@ class FolderPicker {
             btn.setAttribute('aria-pressed', String(btn.dataset.source === source));
         }
         this._overlay.querySelector('.fp-crumbs').hidden = source !== 'fs';
+        // The list of libraries names no folder yet: Select waits for one,
+        // or it would take the folder the Filesystem view showed last.
+        this._overlay.querySelector('#fp-select').disabled = source !== 'fs';
         if (source === 'fs') this._loadDir(startPath ?? this._currentPath);
         else this._loadLibraries();
     }
@@ -279,7 +282,7 @@ class FolderPicker {
             // simply press Select.
             btn.addEventListener('click', () => this._showSource('fs', btn.dataset.lib));
         });
-        this._renderSelected(this._currentPath);
+        this._dialog.setNote(t('Choose a library, then Select takes it or a folder in it.'));
     }
 
     // The footer names what "Select" would return — shortened from the front,

@@ -7,13 +7,14 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - **Organize: drag photos onto a target.** A photo in the selection takes the selection with it, one outside it goes alone; hold ⌥ when dropping to copy.
-- **Organize: Add from a library…** beside Add folder… opens the folder picker on the list of libraries, so a library or a folder in it is two clicks away instead of a walk through the system's folder dialog.
+- **Organize: Add target… opens on your libraries.** It opens Unterlumen's folder picker on the list of libraries instead of the system's folder dialog, which knows none, so a library or a folder in it is two clicks away; Filesystem there reaches every other folder. On the list of libraries, Select waits until one is chosen.
 
 ### Changed
 - **The library filter's Kind is a row of its own at its top: Photos and videos · Photos · Videos.** It was a chip under More filters, where it was hard to find. It overrules Videos hidden in the ⋯: asking for videos shows them.
 - **Organize: Mark for deletion stands first and is always key 0.** Its key used to come after the last target and moved whenever a target was added, so the key that had sent photos to a folder could send them to the waste bin. The folders keep 1–9.
 
 ### Fixed
+- **The count beside Marked for deletion in the sidebar sat at the top of its pill.** It was set to display inline whenever it changed, which undid the pill's centring; it is now the same pill as every other count.
 - **A video's play and full screen buttons could not be clicked in the viewer.** The Prev and Next strips at the photo's edges reached down over the video's controls and took the click; for a video they now stop above them.
 - **Arrow keys in Folders, a library and Organize.** Up and Down now go to the tile above or below, in folders as among photos; they moved to the previous or next tile only. Enter opens the folder the arrows moved to; it used to act on the folder clicked last.
 

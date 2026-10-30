@@ -81,6 +81,8 @@ waste bin, where the count and the two-step confirmation already live.
 - **Photos can be dragged onto a target** (0.21.1): a photo in the selection
   takes the selection, one outside it goes alone and becomes the selection;
   ⌥ on dropping copies.
-- **Add from a library…** opens the folder picker on the list of libraries,
-  where most targets are, instead of the system's folder dialog; Add folder…
-  keeps the system's dialog.
+- **Add target… opens Unterlumen's folder picker on the list of
+  libraries**, where most targets are, never the system's folder dialog,
+  which knows no libraries; its Filesystem reaches every other folder. A
+  second button for the system's dialog was tried and dropped the same day:
+  two ways to the same picker only raised the question which to take.

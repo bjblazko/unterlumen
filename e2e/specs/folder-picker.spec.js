@@ -25,8 +25,11 @@ test.describe('Folder picker', () => {
         if (libID) await request.delete(`/api/library/${libID}`);
     });
 
+    // Organize's Add target opens the picker on the libraries; most of these
+    // tests walk the filesystem, so filesystem() goes there first.
+    const filesystem = (page) => page.locator('.fp-sources [data-source="fs"]').click();
+
     test.beforeEach(async ({ page }) => {
-        // Always start in the filesystem, whatever the last session used.
         await page.addInitScript(() => window.localStorage.removeItem('folderPicker.source'));
         await page.goto('/#organize');
         await waitForAppReady(page);
@@ -35,7 +38,8 @@ test.describe('Folder picker', () => {
         await expect(page.locator('.fp-dialog')).toBeVisible({ timeout: 5_000 });
     });
 
-    test('opens in the filesystem with a clickable path', async ({ page }) => {
+    test('Filesystem has a clickable path', async ({ page }) => {
+        await filesystem(page);
         await expect(page.locator('.fp-sources [data-source="fs"]')).toHaveAttribute('aria-pressed', 'true');
         await expect(page.locator('.fp-crumbs')).toBeVisible();
         await page.locator('.fp-row', { hasText: 'folder-a' }).click();
@@ -44,7 +48,7 @@ test.describe('Folder picker', () => {
     });
 
     test('a library is one click away, and lands in its folder', async ({ page }) => {
-        await page.locator('.fp-sources [data-source="libs"]').click();
+        await expect(page.locator('.fp-sources [data-source="libs"]')).toHaveAttribute('aria-pressed', 'true');
         const row = page.locator('.fp-row', { hasText: 'E2E Picker Library' });
         await expect(row).toBeVisible({ timeout: 8_000 });
 
@@ -56,6 +60,7 @@ test.describe('Folder picker', () => {
     });
 
     test('Select returns the folder, Cancel returns nothing', async ({ page }) => {
+        await filesystem(page);
         await page.locator('.fp-row', { hasText: 'folder-b' }).click();
         await page.locator('#fp-select').click();
         await expect(page.locator('.fp-dialog')).toHaveCount(0);
@@ -69,6 +74,7 @@ test.describe('Folder picker', () => {
 
     test('Home goes back to the folder the server was started with', async ({ page }) => {
         // Walk away from home first; the button is disabled while you are there.
+        await filesystem(page);
         await page.locator('.fp-row', { hasText: 'folder-a' }).click();
         await expect(page.locator('.fp-crumb-here')).toHaveText('folder-a');
 

@@ -14,8 +14,9 @@ Recorded in the addenda of
   folders keep 1–9.
 - **Drag and drop**: photos dragged onto a target are sent there, as with its
   number key; ⌥ on dropping copies.
-- **Add from a library…** opens the folder picker on its Libraries list; a
-  library opens its folder, where Select takes it or a folder in it.
+- **Add target…** opens Unterlumen's folder picker on its Libraries list; a
+  library opens its folder, where Select takes it or a folder in it. Select
+  waits while the list of libraries shows.
 - **Arrow keys** move by what is on screen: Up and Down to the nearest tile
   in the row above or below, across folders and photos; Enter on a folder
   tile opens the folder the arrows moved to.
@@ -24,6 +25,6 @@ Recorded in the addenda of
 
 - [x] Mark for deletion is the first target and keeps key 0 when targets are added
 - [x] A photo dragged onto a target moves there
-- [x] Add from a library… opens the picker on the libraries
+- [x] Add target… opens the picker on the libraries; Select waits for a library
 - [x] Down from a folder goes to the tile below it; Up comes back
 - [x] Enter opens the folder the arrow keys moved to

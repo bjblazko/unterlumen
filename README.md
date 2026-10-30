@@ -61,7 +61,7 @@ Everyone named in your libraries, found by their faces on this computer. Groups 
 
 #### Organize
 
-The folder you are sorting on the left, your target folders on the right with a number key each: select, press the key, done. ⌥ copies instead, `U` takes the last move back, and "Mark for deletion" is a target like any other.
+The folder you are sorting on the left, your target folders on the right with a number key each: select, press the key or drag the photos there, done. ⌥ copies instead, `U` takes the last move back, and "Mark for deletion" stands first, always on `0`.
 
 ![Organize](doc/screenshots/organize.webp)
 
@@ -194,7 +194,7 @@ On a phone Unterlumen is for looking: libraries, photos, the map, the timeline, 
 ## Features
 
 - **Browse & Cull mode** — Justified, grid, or list view of photos in a directory with breadcrumb navigation
-- **Organize** — One source folder shown large, your target folders as a list with a number key each: select, press the key, done. Moves run immediately with an undo beside the result; ⌥ copies instead. More than five files go in a progress dialog that counts them and can be cancelled; adding them to the library follows in the background, in the status line. Targets are remembered between sessions, and "Mark for deletion" is a target like any other (folders included)
+- **Organize** — One source folder shown large, your target folders as a list with a number key each: select, press the key or drag the photos onto the target, done. *Add target…* opens on your libraries, where a library or a folder in it is two clicks away. Moves run immediately with an undo beside the result; ⌥ copies instead. More than five files go in a progress dialog that counts them and can be cancelled; adding them to the library follows in the background, in the status line. Targets are remembered between sessions, and "Mark for deletion" is a target like any other (folders included), first in the list and always on key `0`
 - **Waste bin** — Mark photos for deletion, review in a dedicated view, restore or permanently delete
 - **Libraries (DAM)** — Index a folder into a SQLite library (no CGo). Photos are identified by SHA-256 so metadata survives renames. Full-text EXIF search (the filter points to Statistics for finding photos by colour, warmth or hour), key/value annotations, HQ thumbnails, and re-index progress via Server-Sent Events. Library data stored in `~/.unterlumen/libraries/<id>/` (overridable with `--lib-dir` / `UNTERLUMEN_LIB_DIR`)
 - **Publish to your own website** — Needs your own webspace reachable over SSH; the upload uses rsync (without it, the build stays in a local folder). A two-phase collect-then-publish workflow. From library mode, select photos (from the folder tree or EXIF filter results, within a single library or across libraries) and use the selection bar's "Add to gallery…" to add them to a gallery's pending draft — a new or existing gallery/album. Nothing is exported yet, so a gallery can be built up incrementally across sessions. When ready, open Galleries and press Publish: one action exports the photos, builds the HTML (writing an XMP sidecar per photo using a custom `xmlns:ul` namespace — non-destructive and portable), uploads the result where an upload is configured (rsync channels), and checks the link, showing each step as it runs. A failed upload keeps the build, so the gallery notes "built, upload missing" and the retry only uploads. Afterwards you can open the gallery in a browser, copy the local path, reveal it in Finder/Explorer, or preview it locally. Supports named accounts (e.g. two Mastodon logins), optional grouped post IDs for carousels, and platform-optimised export (channel presets: Instagram 1080px, Mastodon 1920px, Website 2400px). Two publishing modes: a **multi-album site** (a real, growing website whose albums are navigable and indexable) and **single gallery** (one host holding many unrelated albums, each under its own unguessable 24-hex URL — for sharing one album by link with a specific group, marked Unlisted by default so it carries a `noindex` tag). A single-gallery channel holds as many albums as you like; each is published, renamed and deleted on its own. Channel settings managed via a dedicated UI; stored globally in `~/.unterlumen/channels.json` (overridable with `-channels-dir` / `UNTERLUMEN_CHANNELS_DIR`, e.g. to share channel config between multiple installations — see [Sharing channel config across installations](#sharing-channel-config-across-installations))
@@ -239,7 +239,7 @@ On a phone Unterlumen is for looking: libraries, photos, the map, the timeline, 
 - **Read-ahead prefetch** — The viewer prefetches the next two images on each navigation for near-instant forward navigation, even over a NAS
 - **Fujifilm film simulation** — Film simulation name (e.g. Classic Chrome, Velvia, Acros) shown in the info panel and as a grid overlay badge for Fujifilm images
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
-- **Videos** — MP4, MOV, M4V and WebM play in the browser; MKV, AVI and MTS are listed with a still frame and downloaded. A video tile shows its length and plays a three-second silent clip while the pointer rests on it (made once by ffmpeg, then cached). The clip of an iPhone Live Photo is not listed on its own: the photo says "Live" and plays it in the viewer. **Videos** in a place's ⋯ shows or hides them; the library filter's **Kind** finds photos or videos only. Videos are never changed: crop, location, rename, export and publishing are for photos. See [ADR-0058](doc/architecture/adr/0058-videos-listed-and-played-never-edited.md)
+- **Videos** — MP4, MOV, M4V and WebM play in the browser; MKV, AVI and MTS are listed with a still frame and downloaded. A video tile shows its length and plays a three-second silent clip while the pointer rests on it (made once by ffmpeg, then cached). The clip of an iPhone Live Photo is not listed on its own: the photo says "Live" and plays it in the viewer. **Videos** in a place's ⋯ shows or hides them; **Kind** at the top of the library filter (Photos and videos · Photos · Videos) finds photos or videos only, and overrules videos hidden in the ⋯. The filter of Map, Statistics and the Timeline has Kind too. Videos are never changed: crop, location, rename, export and publishing are for photos. See [ADR-0058](doc/architecture/adr/0058-videos-listed-and-played-never-edited.md)
 
 ## Install
 
@@ -515,8 +515,8 @@ Notes:
 
 | Key | Action |
 |-----|--------|
-| Arrow keys | Navigate grid/list in browse view; prev/next in image viewer |
-| Enter | Open focused folder or image |
+| Arrow keys | Move through folders and photos in browse view — Up and Down to the tile above or below; prev/next in image viewer |
+| Enter | Open the focused folder or image (the one the arrow keys moved to) |
 | Space | Toggle selection of focused item |
 | Escape | Close viewer / go up a directory / close the Map's photos column |
 | `I` | Collapse or expand the info panel |
@@ -524,6 +524,7 @@ Notes:
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
 | Cmd/Ctrl+A | Select all files in current pane |
 | 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 / 9 / 0 | Go to Folders / Marked for deletion / Organize / Libraries / Galleries / Destinations / Map / Timeline / Statistics / People |
+| 1–9 / 0 in Organize, with a selection | Send it to that target / mark it for deletion |
 | Tab | Switch panes in File Manager mode |
 | F5 | Copy selected files (File Manager) |
 | F6 | Move selected files (File Manager) |

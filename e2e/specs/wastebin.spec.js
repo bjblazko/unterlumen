@@ -25,6 +25,21 @@ test.describe('Wastebin (non-destructive)', () => {
     await expect(page.locator(`[data-name="${GPS_IMAGE}"]`)).toHaveClass(/marked-for-deletion/);
   });
 
+  // The sidebar's pill is the same as every count pill: its number sits in
+  // the middle. An inline display set on it once put the number at the top.
+  test('the badge is a pill with its number in the middle', async ({ page }) => {
+    await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
+    await page.keyboard.press('Delete');
+    const badge = page.locator('#wastebin-count');
+    await expect(badge).toHaveText('1', { timeout: 3_000 });
+    const style = await badge.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { display: cs.display, alignItems: cs.alignItems, height: cs.height };
+    });
+    // In the sidebar's flex row the pill's inline-flex computes as flex.
+    expect(style).toEqual({ display: 'flex', alignItems: 'center', height: '18px' });
+  });
+
   test('marking a second image increments the badge', async ({ page }) => {
     await page.locator(`[data-name="${GPS_IMAGE}"]`).click();
     await page.keyboard.press('Delete');

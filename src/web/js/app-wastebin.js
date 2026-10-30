@@ -105,8 +105,9 @@ class Wastebin {
         const countEl = document.getElementById('wastebin-count');
         if (!countEl) return;
         const count = this._items.size;
+        // Empty, the pill is hidden by .nav-count:empty; a display set here
+        // would undo the pill's own and put its number at the top.
         countEl.textContent = count > 0 ? count : '';
-        countEl.style.display = count > 0 ? 'inline' : 'none';
     }
 
     render(containerEl, onRefresh) {

@@ -202,13 +202,15 @@ test.describe('Organize — one source, many targets', () => {
         expect(dst.entries.filter((e) => e.type === 'image')).toHaveLength(1);
     });
 
-    test('Add from a library opens the folder picker on the libraries', async ({ page }) => {
+    test('Add target opens the folder picker on the libraries, and Select waits for one', async ({ page }) => {
         await openOrganize(page);
-        await page.locator('[data-org="add-library"]').click();
-        await expect(page.locator('.fp-dialog [data-source="libs"]')).toHaveAttribute('aria-pressed', 'true');
-        await page.locator('#fp-cancel').click();
+        await expect(page.locator('.org-target-actions .btn')).toHaveCount(1);
         await page.locator('[data-org="add"]').click();
-        await expect(page.locator('.fp-dialog')).toBeVisible();
+        await expect(page.locator('.fp-dialog [data-source="libs"]')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('#fp-select')).toBeDisabled();
+        await page.locator('.fp-dialog [data-source="fs"]').click();
+        await expect(page.locator('#fp-select')).toBeEnabled();
+        await page.locator('#fp-cancel').click();
     });
 
     test('photos cannot be sent to a folder target while a folder is selected', async ({ page }) => {

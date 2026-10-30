@@ -131,8 +131,7 @@ class OrganizePane {
             </button>
             ${rows}
             <div class="org-target-actions">
-                <button class="btn btn-sm" data-org="add-library">${t('Add from a library…')}</button>
-                <button class="btn btn-sm" data-org="add">${t('Add folder…')}</button>
+                <button class="btn btn-sm" data-org="add">${t('Add target…')}</button>
             </div>
             <ul class="org-keys">
                 <li>${t('{key} selects the photo in focus', { key: `<span class="key">${t('Space')}</span>` })}</li>
@@ -147,7 +146,6 @@ class OrganizePane {
         const action = e.target.closest('[data-org]');
         if (action) {
             if (action.dataset.org === 'add') this._addTarget();
-            else if (action.dataset.org === 'add-library') this._addTarget({ libraries: true });
             else if (action.dataset.org === 'forget') this._forgetMissing();
             return;
         }
@@ -158,10 +156,11 @@ class OrganizePane {
         this.sendTo(index, { copy: e.altKey });
     }
 
-    // libraries: start from the list of libraries, where most targets are,
-    // rather than the system's folder dialog.
-    async _addTarget({ libraries = false } = {}) {
-        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true, libraries });
+    // Most targets are a library or a folder in one, so the picker opens on
+    // the libraries — Unterlumen's own picker, never the system's dialog,
+    // which knows no libraries. Filesystem there reaches every other folder.
+    async _addTarget() {
+        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true, libraries: true });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
             this._say(t('{name} is already a target.', { name: targetName(picked) }));
