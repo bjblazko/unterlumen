@@ -6926,6 +6926,103 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .wastebin-failures strong { color: var(--warning-ink); }
 .wastebin-failures ul { margin: var(--space-2) 0 0 var(--space-4); }
 
+/* --- Duplicates --- */
+
+.duplicates-place { overflow: auto; }
+
+.duplicates-body { padding: 0 var(--space-6) var(--space-8); }
+
+/* A group is a row of its versions under one hairline; a long list of them
+   draws only the groups in view. */
+.duplicates-group {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--line);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 24rem;
+}
+
+.duplicates-group-title {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-base);
+    font-weight: 500;
+}
+
+.duplicates-group-count {
+    margin-left: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    color: var(--fg-2);
+}
+
+.duplicates-versions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+.duplicates-version {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: 13rem;
+    min-width: 0;
+}
+
+.duplicates-thumb {
+    display: block;
+    width: 100%;
+    padding: 0;
+}
+
+.duplicates-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+    image-orientation: from-image;
+    background: var(--bg-2);
+}
+
+.duplicates-relation {
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.duplicates-data {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-1) var(--space-3);
+    margin: 0;
+    font-size: var(--text-sm);
+}
+
+.duplicates-data dt { color: var(--fg-2); }
+
+.duplicates-data dd,
+.duplicates-name,
+.duplicates-path {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.duplicates-name,
+.duplicates-path {
+    width: 100%;
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+}
+
+.duplicates-path,
+.duplicates-libs {
+    font-size: var(--text-xs);
+    color: var(--fg-2);
+}
+
+.duplicates-version.is-marked .duplicates-name { text-decoration: line-through; }
+
 /* --- Settings as a place --- */
 
 .settings-pane {

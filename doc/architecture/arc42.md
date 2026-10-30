@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-29*
+*Last modified: 2026-10-30*
 
 ## 1. Introduction and Goals
 
@@ -426,6 +426,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0056](adr/0056-languages-things-and-interface.md) — Languages: thing IDs with names per language, a keyword language per library, the interface translated by English keys
 - [ADR-0057](adr/0057-requests-from-other-sites-and-untrusted-input.md) — Requests from other sites refused, security headers, only images served inline, external program arguments checked, one escape helper
 - [ADR-0058](adr/0058-videos-listed-and-played-never-edited.md) — Videos listed and played, never edited: browser playback without transcoding, ffmpeg stills and hover clips, Live Photos as their photo, a kind in the filter
+- [ADR-0059](adr/0059-duplicates-from-the-index.md) — Duplicates found from the index: SHA-256, dHash bands and the moment taken; marks and deletion by path
 
 ## 10. Quality Requirements
 

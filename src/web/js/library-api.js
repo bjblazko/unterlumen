@@ -155,6 +155,21 @@ const LibraryAPI = {
         if (!r.ok) throw new Error(await r.text());
         return r.json();
     },
+    // Deletes the one file at an absolute path the library holds, with its
+    // sidecar; a copy elsewhere stays in the index.
+    async deleteFile(libID, path) {
+        const r = await fetch(`/api/library/${libID}/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
+    // The duplicates in all libraries (ADR-0059): { groups: [{ kind,
+    // files: [{ path, name, ext, size, width, height, photoID, libraries,
+    // relation }] }], unanalysed }.
+    async duplicates() {
+        const r = await fetch('/api/library/duplicates');
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+    },
     async deletePhoto(libID, photoID) {
         const r = await fetch(`/api/library/${libID}/photo/${photoID}`, { method: 'DELETE' });
         if (!r.ok) throw new Error(await r.text());

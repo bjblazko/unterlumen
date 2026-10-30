@@ -90,6 +90,7 @@ const App = {
     NAV: {
         browse: { hash: 'folders', id: 'mode-browse', key: '1' },
         wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
+        duplicates: { hash: 'duplicates', id: 'mode-duplicates' },
         organize: { hash: 'organize', id: 'mode-organize', key: '3' },
         library: { hash: 'libraries', id: 'mode-library', key: '4' },
         map: { hash: 'map', id: 'mode-map', key: '7' },
@@ -389,7 +390,7 @@ const App = {
 
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
-        ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'],
+        ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'], ['_duplicatesEl', 'duplicates'],
         ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'], ['_aboutEl', 'about'], ['_guideEl', 'guide'], ['_privacyEl', 'privacy'], ['_warrantyEl', 'warranty'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
@@ -424,6 +425,7 @@ const App = {
                 this.wastebin.selected.clear();
                 this.wastebin.render(this._wastebinEl, () => this._refreshPanes());
                 break;
+            case 'duplicates': this._openPane('_duplicatesEl', '_duplicatesPane', DuplicatesPane); break;
             case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
             case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'timeline': this._openPane('_timelineEl', '_timelinePane', TimelinePane); break;

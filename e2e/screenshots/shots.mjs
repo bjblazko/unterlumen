@@ -180,6 +180,18 @@ export const shots = [
         },
     },
     {
+        // The versions of one photo side by side, the smaller one marked.
+        name: 'duplicates',
+        take: async (page, { base }) => {
+            await ready(page, base, 'duplicates');
+            const group = page.locator('.duplicates-group', { hasText: 'DSCF3258-small' });
+            await group.waitFor({ timeout: 60_000 });
+            await group.locator('.duplicates-version', { hasText: 'DSCF3258-small' }).locator('[data-mark]').click();
+            await page.evaluate(() => document.activeElement?.blur());
+            await settle(page, 1500);
+        },
+    },
+    {
         // A folder selected, with the info panel's dashboard of it beside the
         // tiles: what it holds, by type, camera and lens, and hour.
         name: 'library',

@@ -3,7 +3,7 @@
 // renamed like a photo collection, a library over it, destinations and
 // galleries through the API, on port 8097.
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,20 @@ export function preparePhotos(tmp) {
     // Invented people for People (e2e/faces/ABOUT.md): no real person is shown.
     cpSync(path.join(REPO, 'e2e/faces'), path.join(root, 'Friends'), { recursive: true });
     for (const note of ['ABOUT.md', 'LICENSE']) rmSync(path.join(root, 'Friends', note));
+    addVersions(root);
     return root;
+}
+
+// Versions of one Travel photo for Duplicates: a copy, a smaller one for
+// sharing and a crop, as an export folder holds them. sips is macOS's own.
+function addVersions(root) {
+    const photo = '2024-07-04_14-09-43_X-T50_DSCF3258.jpeg';
+    const from = path.join(root, 'Travel', photo);
+    const dir = path.join(root, 'Exports');
+    mkdirSync(dir);
+    cpSync(from, path.join(dir, photo));
+    execFileSync('sips', ['-Z', '1600', from, '--out', path.join(dir, 'DSCF3258-small.jpeg')], { stdio: 'ignore' });
+    execFileSync('sips', ['-c', '3000', '4000', from, '--out', path.join(dir, 'DSCF3258-crop.jpeg')], { stdio: 'ignore' });
 }
 
 // ONNX Runtime and the face models: the ones the e2e run keeps, or the

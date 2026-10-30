@@ -34,6 +34,13 @@ class Wastebin {
         this._updateBadge();
     }
 
+    // markFile marks one file seen outside a pane (Duplicates); info is
+    // what the review shows and how the file is deleted.
+    markFile(path, info) {
+        this._items.set(path, info);
+        this._updateBadge();
+    }
+
     restore(paths) {
         for (const path of paths) this._items.delete(path);
         this._updateBadge();
@@ -48,6 +55,9 @@ class Wastebin {
 
         const deleteOne = async (file) => {
             const item = this._items.get(file);
+            if (item?.byPath) {
+                return LibraryAPI.deleteFile(item.libID, file);
+            }
             if (item?.libID && item?.photoID) {
                 return LibraryAPI.deletePhoto(item.libID, item.photoID);
             }

@@ -1,11 +1,14 @@
 # Changelog
 
-*Last modified: 2026-10-30*
+*Last modified: 2026-10-31*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-31
+
 ### Added
+- **Duplicates.** A new place under Cull finds the versions of one photo in all libraries, in one library and across them: identical files, the same picture scaled or saved again, and edited or cropped copies taken in the same moment. Bursts stay apart. Each group shows every version with its pixels, file size, format, name and path, the largest first, and **Show** narrows to one kind. **Mark for deletion** puts a version into Marked for deletion, where deleting it removes only that copy and keeps the other in its library (ADR-0059).
 - **Organize: drag photos onto a target.** A photo in the selection takes the selection with it, one outside it goes alone; hold ⌥ when dropping to copy.
 - **Organize: Add target… opens on your libraries.** It opens Unterlumen's folder picker on the list of libraries instead of the system's folder dialog, which knows none, so a library or a folder in it is two clicks away; Filesystem there reaches every other folder. On the list of libraries, Select waits until one is chosen.
 
