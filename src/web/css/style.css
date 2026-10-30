@@ -1778,6 +1778,13 @@ body.ui-hidden #app { height: 100vh; }
     background: color-mix(in srgb, var(--fg) 5%, transparent);
 }
 
+/* A target under dragged photos: the surface step a hover takes, and its
+   frame in --fg, so it reads as the place they will land. */
+.org-target.org-target--drop {
+    background: var(--bg-2);
+    border-color: var(--fg);
+}
+
 /* The current target is the screen's one primary action: Enter sends here. */
 .org-target[aria-current="true"] {
     border-color: var(--accent);
@@ -2651,6 +2658,13 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .viewer-live-clip {
     position: absolute;
     inset: 0;
+}
+
+/* Prev and Next stop above a video's controls: reaching down over them, they
+   took the clicks meant for its play and full screen buttons. */
+.viewer-body--video .viewer-prev,
+.viewer-body--video .viewer-next {
+    bottom: calc(var(--space-12) + var(--space-4));
 }
 
 .viewer-video-failed {
@@ -4068,6 +4082,11 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 /* A label above its field: sentence case in the UI voice, never small caps. */
+/* Kind: its three words need the panel's width, not a group's. */
+.lib-filter-group--kind {
+    max-width: none;
+}
+
 .lib-filter-label {
     font-size: var(--text-sm);
     font-weight: 500;

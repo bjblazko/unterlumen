@@ -323,7 +323,7 @@ class Viewer {
                     </div>
                 </div>
                 <div class="viewer-content">
-                    <div class="viewer-body">
+                    <div class="viewer-body${video ? ' viewer-body--video' : ''}">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="${t('Previous (←)')}" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
                             ${media}

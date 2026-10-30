@@ -58,6 +58,13 @@ class OrganizePane {
 
         this.container.querySelector('#org-change').addEventListener('click', () => this._changeFolder());
         this.container.querySelector('#org-targets').addEventListener('click', (e) => this._onTargetClick(e));
+        this._drag = new OrganizeDrag({
+            source: this.container.querySelector('#org-source'),
+            targets: this.container.querySelector('#org-targets'),
+            pane: this.pane,
+            onDrop: (index, opts) => this.sendTo(index, opts),
+            onSelect: () => this._updateSelectionBar(),
+        });
 
         if (this._preselect) this.pane.primePreselect(this._preselect);
         this._preselect = null;
@@ -96,6 +103,9 @@ class OrganizePane {
 
     /* --- Targets --- */
 
+    // Mark for deletion stands first and is always 0: a key that moved with
+    // every target added sent photos to the waste bin that were meant for a
+    // folder. The folders keep 1–9.
     _renderTargets() {
         const el = this.container.querySelector('#org-targets');
         const rows = this.targets.map((target, i) => {
@@ -112,21 +122,22 @@ class OrganizePane {
             </button>`;
         }).join('');
 
-        const markKey = this.targets.length < 9 ? String(this.targets.length + 1) : '';
         el.innerHTML = `
             <p class="section-title">${t('Targets')}</p>
-            ${rows}
             <button class="org-target org-target--mark" data-target="mark" aria-current="${this.current === 'mark'}">
                 <span class="org-target-name">${t('Mark for deletion')}</span>
                 <span class="org-target-path">${t('To the waste bin, not off the disk')}</span>
-                ${markKey ? `<span class="key">${markKey}</span>` : ''}
+                <span class="key">0</span>
             </button>
+            ${rows}
             <div class="org-target-actions">
-                <button class="btn btn-sm" data-org="add">${t('Add target…')}</button>
+                <button class="btn btn-sm" data-org="add-library">${t('Add from a library…')}</button>
+                <button class="btn btn-sm" data-org="add">${t('Add folder…')}</button>
             </div>
             <ul class="org-keys">
                 <li>${t('{key} selects the photo in focus', { key: `<span class="key">${t('Space')}</span>` })}</li>
-                <li>${t('{keys} move the selection to that target; hold {option} to copy', { keys: '<span class="key">1</span>–<span class="key">9</span>', option: '<span class="key">⌥</span>' })}</li>
+                <li>${t('{keys} move the selection to that target, or drag it there; hold {option} to copy', { keys: '<span class="key">1</span>–<span class="key">9</span>', option: '<span class="key">⌥</span>' })}</li>
+                <li>${t('{key} marks it for deletion', { key: '<span class="key">0</span>' })}</li>
                 <li>${t('{key} undoes the last move', { key: '<span class="key">U</span>' })}</li>
             </ul>
             ${this.targets.some(x => x.missing) ? `<button class="btn btn-sm" data-org="forget">${t('Forget the missing folders')}</button>` : ''}`;
@@ -136,6 +147,7 @@ class OrganizePane {
         const action = e.target.closest('[data-org]');
         if (action) {
             if (action.dataset.org === 'add') this._addTarget();
+            else if (action.dataset.org === 'add-library') this._addTarget({ libraries: true });
             else if (action.dataset.org === 'forget') this._forgetMissing();
             return;
         }
@@ -146,8 +158,10 @@ class OrganizePane {
         this.sendTo(index, { copy: e.altKey });
     }
 
-    async _addTarget() {
-        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true });
+    // libraries: start from the list of libraries, where most targets are,
+    // rather than the system's folder dialog.
+    async _addTarget({ libraries = false } = {}) {
+        const picked = await new FolderPicker().open(this.pane.path, { title: t('Folder to add as a target'), create: true, libraries });
         if (picked === null) return;
         if (this.targets.some(t => t.path === picked)) {
             this._say(t('{name} is already a target.', { name: targetName(picked) }));
@@ -346,12 +360,12 @@ class OrganizePane {
     // does not send again.
     handleKey(e) {
         const hasSelection = this.pane.selection.selected.size + this.pane.selectedDirs.size > 0;
-        if (hasSelection && /^[1-9]$/.test(e.key)) {
+        if (hasSelection && /^[0-9]$/.test(e.key)) {
+            const isMark = e.key === '0';
             const n = Number(e.key) - 1;
-            const isMark = n === this.targets.length;
-            if (n >= this.targets.length && !isMark) return false;
+            if (!isMark && n >= this.targets.length) return false;
             e.preventDefault();
-            if (!e.repeat) this.sendTo(isMark ? 'mark' : n, { copy: e.altKey });
+            if (!e.repeat) this.sendTo(isMark ? 'mark' : n, { copy: e.altKey && !isMark });
             return true;
         }
         if ((e.key === 'u' || e.key === 'U') && this._undo && !e.repeat) {

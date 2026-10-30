@@ -102,6 +102,22 @@ test.describe('Videos', () => {
         await expect(page.locator('.viewer-live-clip')).toHaveCount(1);
     });
 
+    test('the controls of a video take clicks, not the Prev and Next strips', async ({ page }) => {
+        await openTrip(page);
+        await page.locator('.image-item[data-name="clip.mp4"]').dblclick();
+        const video = page.locator('.viewer-video');
+        await expect(video).toBeVisible();
+        const box = await video.boundingBox();
+        // The pointer over the photo shows the strips; the play button and the
+        // full screen button sit in the bottom corners of the video.
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        const under = await page.evaluate(({ x, y, w }) => [
+            document.elementFromPoint(x + 16, y)?.className,
+            document.elementFromPoint(x + w - 16, y)?.className,
+        ], { x: box.x, y: box.y + box.height - 16, w: box.width });
+        expect(under).toEqual(['viewer-video', 'viewer-video']);
+    });
+
     test('a video the browser cannot play says so and offers the file', async ({ page }) => {
         await openTrip(page);
         await page.locator('.image-item[data-name="old.avi"]').dblclick();
@@ -148,6 +164,32 @@ test.describe('Videos', () => {
         const clip = page.waitForResponse(r => r.url().includes('/clip'));
         await page.locator('.image-item[data-name="clip.mp4"]:visible').hover();
         expect((await clip).ok()).toBe(true);
+    });
+
+    test('the library filter shows videos only, or photos only, with one press', async ({ page }) => {
+        await page.goto(base + '/#libraries');
+        await page.locator('.library-card', { hasText: 'Trip' }).click();
+        await page.locator('#lib-filter-btn:visible').click();
+        await page.locator('.lib-filter-kind:visible [data-kind="video"]').click();
+        await expect(page.locator('.image-item:visible')).toHaveCount(2);
+        await expect(page.locator('.image-item[data-video]:visible')).toHaveCount(2);
+        await page.locator('.lib-filter-kind:visible [data-kind="photo"]').click();
+        await expect(page.locator('.image-item:visible')).toHaveCount(1);
+        await expect(page.locator('.image-item[data-video]:visible')).toHaveCount(0);
+    });
+
+    test('Kind: Videos in the filter overrules videos hidden in the ⋯', async ({ page }) => {
+        await page.addInitScript(() => localStorage.setItem('unterlumen.videosShown', 'no'));
+        await page.goto(base + '/#libraries');
+        await page.locator('.library-card', { hasText: 'Trip' }).click();
+        await expect(page.locator('.image-item:visible')).toHaveCount(1);
+        await page.locator('#lib-filter-btn:visible').click();
+        await page.locator('.lib-filter-kind:visible [data-kind="video"]').click();
+        await expect(page.locator('.image-item[data-video]:visible')).toHaveCount(2);
+        // Photos and videos again: hidden videos stay hidden.
+        await page.locator('.lib-filter-kind:visible [data-kind=""]').click();
+        await page.locator('.lib-filter-kind:visible [data-kind="photo"]').click();
+        await expect(page.locator('.image-item:visible')).toHaveCount(1);
     });
 
     test('the filter of Map, Statistics and Timeline offers photos or videos', async ({ page }) => {

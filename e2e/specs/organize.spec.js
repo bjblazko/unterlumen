@@ -170,8 +170,8 @@ test.describe('Organize — one source, many targets', () => {
 
         const chip = page.locator('.organize-source .folder-tile[data-name="a-subfolder"]');
         await chip.click({ modifiers: ['ControlOrMeta'] });
-        // "Mark for deletion" is the last target; with one folder target it is key 2.
-        await page.keyboard.press('2');
+        // "Mark for deletion" is always key 0, however many targets there are.
+        await page.keyboard.press('0');
 
         await expect(page.locator('#wastebin-count')).toHaveText('1', { timeout: 5_000 });
         await expect(page.locator('.organize-source .folder-tile[data-name="a-subfolder"]'))
@@ -180,6 +180,35 @@ test.describe('Organize — one source, many targets', () => {
         await page.locator('#mode-wastebin').click();
         await expect(page.locator('.wastebin-dir')).toHaveCount(1);
         await expect(page.locator('#wb-delete')).toContainText('Delete 1 permanently');
+    });
+
+    test('Mark for deletion stands first and keeps key 0 when targets are added', async ({ page }) => {
+        await openOrganize(page, [{ path: DST }, { path: SUB }]);
+        await loadSource(page);
+        const first = page.locator('.org-target').first();
+        await expect(first).toHaveClass(/org-target--mark/);
+        await expect(first.locator('.key')).toHaveText('0');
+        await expect(page.locator('.org-target').nth(1).locator('.key')).toHaveText('1');
+        await expect(page.locator('.org-target').nth(2).locator('.key')).toHaveText('2');
+    });
+
+    test('a photo dragged onto a target moves there', async ({ page, request }) => {
+        await openOrganize(page);
+        await loadSource(page);
+        const photo = page.locator('.organize-source [data-type="image"] img').first();
+        await photo.dragTo(page.locator('.org-target[data-target="0"]'));
+        await expect(page.locator('#org-result')).toContainText('moved to', { timeout: 10_000 });
+        const dst = await (await request.get(`/api/browse?path=${DST}`)).json();
+        expect(dst.entries.filter((e) => e.type === 'image')).toHaveLength(1);
+    });
+
+    test('Add from a library opens the folder picker on the libraries', async ({ page }) => {
+        await openOrganize(page);
+        await page.locator('[data-org="add-library"]').click();
+        await expect(page.locator('.fp-dialog [data-source="libs"]')).toHaveAttribute('aria-pressed', 'true');
+        await page.locator('#fp-cancel').click();
+        await page.locator('[data-org="add"]').click();
+        await expect(page.locator('.fp-dialog')).toBeVisible();
     });
 
     test('photos cannot be sent to a folder target while a folder is selected', async ({ page }) => {

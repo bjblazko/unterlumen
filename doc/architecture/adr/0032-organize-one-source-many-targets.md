@@ -1,6 +1,6 @@
 # ADR-0032: Organize is one source and many targets
 
-*Last modified: 2026-10-25*
+*Last modified: 2026-10-30*
 
 ## Status
 
@@ -74,3 +74,13 @@ waste bin, where the count and the two-step confirmation already live.
   saying so; that line keeps Undo either way.
 - **Adding the files to a library's index follows in the background** and
   shows in the status line, so the move is done when the files are.
+- **Mark for deletion stands first and is always 0** (0.21.1). It was the
+  last target, with the key after the folders', so adding a target moved it:
+  the key that had sent photos to a folder sent them to the waste bin. The
+  folders keep 1–9, and no key changes when one is added.
+- **Photos can be dragged onto a target** (0.21.1): a photo in the selection
+  takes the selection, one outside it goes alone and becomes the selection;
+  ⌥ on dropping copies.
+- **Add from a library…** opens the folder picker on the list of libraries,
+  where most targets are, instead of the system's folder dialog; Add folder…
+  keeps the system's dialog.

@@ -95,41 +95,32 @@ class BrowseKeyboard {
         if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
-    getColumnCount() {
+    // moveFocusVertically goes to the tile in the row above or below whose
+    // middle is nearest the focused one's. Folders, the grid and the justified
+    // rows differ in length, so no count of columns can say which tile that
+    // is; the tiles' places on screen can.
+    moveFocusVertically(dir) {
         const pane = this._pane;
-        if (pane.view === 'list') return 1;
-        if (pane.view === 'justified') {
-            const focused = pane.container.querySelector(`[data-index="${this.focusedIndex}"]`);
-            if (!focused) return 1;
-            if (focused.classList.contains('dir-item')) {
-                const dirGrid = pane.container.querySelector('.justified-dirs');
-                if (!dirGrid) return 1;
-                const dirItems = dirGrid.querySelectorAll('.grid-item');
-                if (dirItems.length < 2) return 1;
-                const firstTop = dirItems[0].getBoundingClientRect().top;
-                let cols = 0;
-                for (const item of dirItems) {
-                    if (item.getBoundingClientRect().top !== firstTop) break;
-                    cols++;
-                }
-                return cols > 0 ? cols : 1;
-            }
-            const focusedTop = Math.round(focused.getBoundingClientRect().top);
-            const items = pane.container.querySelectorAll('.justified-item');
-            let cols = 0;
-            for (const item of items) {
-                if (Math.round(item.getBoundingClientRect().top) === focusedTop) cols++;
-            }
-            return cols > 0 ? cols : 1;
-        }
-        const items = pane.container.querySelectorAll('.grid-item');
-        if (items.length < 2) return 1;
-        const firstTop = items[0].getBoundingClientRect().top;
-        let cols = 0;
-        for (const item of items) {
-            if (item.getBoundingClientRect().top !== firstTop) break;
-            cols++;
-        }
-        return cols > 0 ? cols : 1;
+        const current = pane.container.querySelector(`[data-index="${this.focusedIndex}"]`);
+        if (!current) { this.moveFocus(dir); return; }
+        if (dir > 0) pane._ensureRenderedUpTo(Math.min(this.focusedIndex + CHUNK_SIZE, pane.entries.length - 1));
+        const target = this._nearestInNextRow(current.getBoundingClientRect(), dir);
+        if (target !== null) this.moveFocus(target - this.focusedIndex);
+    }
+
+    // _nearestInNextRow is the index of the tile in the nearest row beyond
+    // from, in direction dir, closest to its middle; null at the edge.
+    _nearestInNextRow(from, dir) {
+        const tiles = [...this._pane.container.querySelectorAll('[data-index]')]
+            .filter(el => el.offsetParent)
+            .map(el => ({ index: parseInt(el.dataset.index, 10), r: el.getBoundingClientRect() }))
+            .filter(({ r }) => (dir > 0 ? r.top >= from.bottom - 1 : r.bottom <= from.top + 1));
+        if (!tiles.length) return null;
+        const edge = t => (dir > 0 ? t.r.top : -t.r.bottom);
+        const rowEdge = Math.min(...tiles.map(edge));
+        const mid = r => r.left + r.width / 2;
+        const row = tiles.filter(t => edge(t) - rowEdge < 4);
+        row.sort((a, b) => Math.abs(mid(a.r) - mid(from)) - Math.abs(mid(b.r) - mid(from)));
+        return row[0].index;
     }
 }

@@ -80,6 +80,31 @@ test.describe('Keyboard shortcuts', () => {
     await expect(page.locator('[data-type="image"].selected.focused')).toHaveCount(1);
   });
 
+  // folder-a holds three folders in a row and a photo below them.
+  async function openFolderA(page) {
+    await page.goto('/#folders');
+    await waitForAppReady(page);
+    await navigateToFolder(page, 'folder-a');
+    await expect(page.locator('.folder-tile:visible')).toHaveCount(3);
+    await page.locator('.folder-tile[data-name="a1"]').click();
+  }
+
+  test('Down from a folder goes to what is below it, not to the next folder', async ({ page }) => {
+    await openFolderA(page);
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('[data-type="image"].focused')).toHaveAttribute('data-name', 'folder-a-sample.jpeg');
+    await page.keyboard.press('ArrowUp');
+    await expect(page.locator('.folder-tile.focused')).toHaveAttribute('data-name', 'a1');
+  });
+
+  test('Enter opens the folder the keys moved to, not the one clicked', async ({ page }) => {
+    await openFolderA(page);
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('.folder-tile.focused')).toHaveAttribute('data-name', 'a2');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.crumb[data-path="folder-a/a2"]')).toBeVisible({ timeout: 5_000 });
+  });
+
   test('Enter opens the focused photo in the viewer', async ({ page }) => {
     await openFolderB(page);
     await page.keyboard.press('Escape');

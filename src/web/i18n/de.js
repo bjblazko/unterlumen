@@ -354,6 +354,7 @@
  "Mark for deletion": "Zum Löschen markieren",
  "To the waste bin, not off the disk": "In den Papierkorb, nicht von der Platte",
  "Add target…": "Ziel hinzufügen…",
+ "Add folder…": "Ordner hinzufügen…",
  "Space": "Leertaste",
  "Forget the missing folders": "Fehlende Ordner vergessen",
  "Folder to add as a target": "Ordner, der Ziel werden soll",
@@ -1429,7 +1430,9 @@
  "{label}: none": "{label}: keine",
  "{label}: {n} of {total}": "{label}: {n} von {total}",
  "{key} selects the photo in focus": "{key} wählt das Foto im Fokus",
- "{keys} move the selection to that target; hold {option} to copy": "{keys} verschieben die Auswahl in dieses Ziel; halte {option}, um zu kopieren",
+ "{keys} move the selection to that target, or drag it there; hold {option} to copy": "{keys} verschieben die Auswahl in dieses Ziel, oder zieh sie dorthin; halte {option}, um zu kopieren",
+ "{key} marks it for deletion": "{key} markiert sie zum Löschen",
+ "Add from a library…": "Aus einer Bibliothek hinzufügen…",
  "{key} sends it to the orange one": "{key} schickt sie in das orangefarbene",
  "{key} undoes the last move": "{key} macht das letzte Verschieben rückgängig",
  "{n} of {faces}": "{n} von {faces}",
@@ -1523,7 +1526,6 @@
  "Live": "Live",
  "Live Photo": "Live Photo",
  "Kind": "Art",
- "Photos or videos": "Fotos oder Videos",
  "Play the Live Photo": "Live Photo abspielen",
  "This video cannot be played in the browser: its format is not one the browser knows.": "Dieses Video lässt sich im Browser nicht abspielen: Sein Format kennt der Browser nicht."
 };

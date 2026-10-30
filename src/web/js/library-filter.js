@@ -6,7 +6,6 @@ const CHIP_NS_FIXED = [
     { ns: 'lens',    label: t('Lens'),           hint: t('Lens model'),      type: 'exif', param: 'LensModel' },
     { ns: 'film',    label: t('Film sim'),       hint: t('Film simulation'), type: 'exif', param: 'FilmSimulation' },
     { ns: 'format',  label: t('Format'),         hint: t('File format'),     type: 'exif', param: 'ext' },
-    { ns: 'kind',    label: t('Kind'),           hint: t('Photos or videos'), type: 'kind', param: 'kind' },
     { ns: 'flash',   label: t('Flash'),          hint: t('Flash mode'),      type: 'exif', param: 'Flash' },
     { ns: 'wb',      label: t('White balance'),  hint: t('White balance'),   type: 'exif', param: 'WhiteBalance' },
     { ns: 'channel', label: t('Destination'),    hint: t('Published to this destination'), type: 'channel', param: 'channel' },
@@ -39,7 +38,6 @@ function chipToParam(chip) {
         if (ns.type === 'person') return { key: 'person', value: chip.value };
         if (ns.type === 'thing') return { key: 'thing', value: chip.value };
         if (ns.type === 'words') return { key: 'text', value: chip.value };
-        if (ns.type === 'kind') return { key: 'kind', value: chip.value };
         if (ns.type === 'meta') return { key: ns.param, value: chip.value };
     }
     return { key: 'meta_' + chip.ns, value: chip.value };
@@ -153,6 +151,7 @@ class LibraryFilterPanel {
         this._debounceTimer = null;
         this._libraries = [];
         this._queryGen = 0;
+        this._kind = ''; // 'photo', 'video' or '' for both (ADR-0058)
         this._dateMin = '';
         this._dateMax = '';
         this._dateMinInput = null;
@@ -246,6 +245,7 @@ class LibraryFilterPanel {
         await this._loadChoices();
         this._buildStatus();
         this._buildControls();
+        this._buildKindFilter();
         this._buildDateFilter();
         this._buildColourFilter();
         this._buildSliders();
@@ -324,6 +324,7 @@ class LibraryFilterPanel {
     activeFilters() {
         return [
             ...this._rangeFilters(),
+            ...(this._kind ? [{ label: t('Kind: {kind}', { kind: this._kind === 'video' ? t('Videos') : t('Photos') }), clear: () => { this._setKind(''); this._runQuery(); } }] : []),
             ...this._dateFilters(),
             ...(this._hues?.length ? [{ label: t('Colours: {hues}', { hues: comboName(this._hues) }), clear: () => this._setHues([]) }] : []),
             ...this._textFilters(),
@@ -602,6 +603,34 @@ class LibraryFilterPanel {
         }
     }
 
+    // Photos or videos only, one press away: the formats of More filters
+    // would have to be chosen one by one.
+    _buildKindFilter() {
+        const el = document.createElement('div');
+        el.className = 'lib-filter-groups';
+        el.innerHTML = `<div class="lib-filter-group lib-filter-group--kind">
+            <div class="lib-filter-label">${t('Kind')}</div>
+            <div class="seg lib-filter-kind" role="group" aria-label="${t('Kind')}">
+                ${[['', t('Photos and videos')], ['photo', t('Photos')], ['video', t('Videos')]].map(([v, text]) =>
+                    `<button type="button" data-kind="${v}" aria-pressed="${v === this._kind}">${text}</button>`).join('')}
+            </div></div>`;
+        el.querySelector('.lib-filter-kind').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-kind]');
+            if (!btn || btn.dataset.kind === this._kind) return;
+            this._setKind(btn.dataset.kind);
+            this._scheduleQuery();
+        });
+        this._kindEl = el;
+        this._container.appendChild(el);
+    }
+
+    _setKind(kind) {
+        this._kind = kind;
+        for (const b of this._kindEl?.querySelectorAll('[data-kind]') || []) {
+            b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
+        }
+    }
+
     _buildDateFilter() {
         const { el, from, to } = dateTakenFilter(this._dateMin, this._dateMax, {
             from: v => { this._dateMin = v; this._scheduleQuery(); },
@@ -624,7 +653,6 @@ class LibraryFilterPanel {
             person: () => this._personNames || [],
             thing: () => (this._thingNames || []).map(id => ({ value: id, label: ThingWords.name(id) })),
             shows: () => [],
-            kind: () => [{ value: 'photo', label: t('Photos') }, { value: 'video', label: t('Videos') }],
         };
         this._chipInput = new ChipInput(section.querySelector('.lib-chip-filter-wrap'), {
             onFetchNamespaces: async () => namespaces(),
@@ -650,6 +678,7 @@ class LibraryFilterPanel {
         if (this._dateMinInput) this._dateMinInput.value = '';
         if (this._dateMaxInput) this._dateMaxInput.value = '';
         this._hues = [];
+        this._setKind('');
         this._syncColourChips();
         this._chipInput?.reset();
         this._rebuildSliders();
@@ -681,9 +710,10 @@ class LibraryFilterPanel {
         if (this._dateMax) params.date_taken_max = this._dateMax;
         if (this._hues?.length) params.hues = this._hues.join(',');
         addChipParams(params, this._chipInput?.getChips() || []);
+        if (this._kind) params.kind = this._kind;
         // Videos hidden among the photos are hidden from the results too,
         // unless the filter asks for a kind itself.
-        if (!params.kind && !VideoPrefs.shown()) params.kind = 'photo';
+        else if (!VideoPrefs.shown()) params.kind = 'photo';
         return params;
     }
 

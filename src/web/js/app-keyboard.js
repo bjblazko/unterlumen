@@ -256,16 +256,19 @@ class GlobalKeyboard {
     _navigate(e) {
         if (this._viewerOpen()) return;
         // Enter and Space on a focused button or link are that control's own:
-        // taking them for the grid left keyboard users unable to press it.
-        if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button, a[href]')) return;
+        // taking them for the grid left keyboard users unable to press it. A
+        // tile of the grid (a folder is a button) is the grid's: its Enter
+        // opens the tile the arrows moved to, not the one clicked last.
+        const control = e.target.closest?.('button, a[href]');
+        if ((e.key === 'Enter' || e.key === ' ') && control && !control.matches('[data-index]')) return;
         const pane = this._app.getActiveBrowsePane();
         if (!pane) return;
         e.preventDefault();
         switch (e.key) {
             case 'ArrowLeft': pane.moveFocus(-1); break;
             case 'ArrowRight': pane.moveFocus(1); break;
-            case 'ArrowUp': pane.moveFocus(-pane.getColumnCount()); break;
-            case 'ArrowDown': pane.moveFocus(pane.getColumnCount()); break;
+            case 'ArrowUp': pane.moveFocusVertically(-1); break;
+            case 'ArrowDown': pane.moveFocusVertically(1); break;
             case 'Enter': pane.activateFocused(); break;
             case ' ': pane.toggleFocusedSelection(); break;
         }

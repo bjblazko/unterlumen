@@ -57,9 +57,10 @@ preferred.
 6. **A video is a row of `photos`.** Its ID is its file's SHA-256, as any
    photo's (ADR-0052); `ext` tells the kind. The shared filter has a kind
    (`Filter.Kind`, `kind=photo|video`), a set through `photos_ext_idx` and
-   never a correlated subquery (ADR-0045). The library filter offers it as
-   the chip Kind; the shared filter of Map, Statistics and the Timeline as
-   Kind: Photos and videos · Photos · Videos.
+   never a correlated subquery (ADR-0045). The library filter offers it as a
+   row of its own at its top, Kind: Photos and videos · Photos · Videos
+   (0.21.1; a chip under More filters in 0.21.0 was not found); the shared
+   filter of Map, Statistics and the Timeline as the same three choices.
 7. **Nothing changes a video.** Crop, set location, rename, export, publish
    and Add to gallery are not offered for a video, and refuse one if it comes
    anyway (`media.ErrVideoNotExported`, `handleToolInvoke`). Faces and Things
@@ -68,7 +69,8 @@ preferred.
    photos only.
 8. **Videos shown or hidden** is one switch, Videos, in the ⋯ of Folders and
    of a library, remembered per browser. Hidden, they leave the grids, the
-   counts and the library filter's results (which then ask for `kind=photo`).
+   counts and the library filter's results (which then ask for `kind=photo`)
+   — unless the filter's Kind asks for videos, which overrules it.
 
 ## Consequences
 

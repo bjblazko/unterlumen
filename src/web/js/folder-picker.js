@@ -8,6 +8,8 @@
 // Usage: const path = await new FolderPicker().open(startPath, { title });
 //        Resolves with the chosen path relative to the browse root, or null.
 //        { create: true } offers New folder… in the folder shown.
+//        { libraries: true } opens here, on the list of libraries, rather than
+//        in the system's folder dialog.
 //
 // The setup chooses the shared folder anywhere, so it walks the whole disk
 // instead: { disk: true } lists folders through /api/setup/dirs, whose paths
@@ -33,7 +35,7 @@ class FolderPicker {
     }
 
     async open(startPath = '', options = {}) {
-        if (!App.config?.folderDialog) return this._openHere(startPath, options);
+        if (!App.config?.folderDialog || options.libraries) return this._openHere(startPath, options);
         let abs;
         try {
             abs = await API.folderDialog(options.title || t('Choose folder'));
@@ -51,7 +53,7 @@ class FolderPicker {
         });
     }
 
-    _openHere(startPath, { title = t('Choose folder'), disk = false, home = null, notice = '', create = false } = {}) {
+    _openHere(startPath, { title = t('Choose folder'), disk = false, home = null, notice = '', create = false, libraries = false } = {}) {
         return new Promise((resolve) => {
             this._notice = notice;
             this._create = create && !disk;
@@ -60,6 +62,7 @@ class FolderPicker {
             this._disk = disk;
             this._home = home;
             if (disk) this._source = 'fs';
+            if (libraries) this._source = 'libs';
             this._build(title);
             document.addEventListener('keydown', this._onKeyDown);
             this._showSource(this._source, startPath);

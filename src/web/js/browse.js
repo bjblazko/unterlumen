@@ -299,7 +299,7 @@ class BrowsePane {
     getFocusedEntry()  { return this.keyboard.getFocusedEntry(); }
     moveFocus(delta)   { this.keyboard.moveFocus(delta); }
     activateFocused()  { this.keyboard.activateFocused(); }
-    getColumnCount()   { return this.keyboard.getColumnCount(); }
+    moveFocusVertically(dir) { this.keyboard.moveFocusVertically(dir); }
 
     toggleFocusedSelection() { this.keyboard.toggleFocusedSelection(); }
 
