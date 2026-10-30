@@ -55,6 +55,11 @@ func handleThumbnail(root string, libMgr *library.Manager) http.HandlerFunc {
 			}
 		}
 
+		if media.IsVideo(absPath) {
+			serveVideoThumbnail(w, r, absPath, size)
+			return
+		}
+
 		if media.IsHEIF(absPath) {
 			serveHEIFThumbnail(w, r, absPath, size, quality)
 			return
@@ -120,6 +125,18 @@ func serveHEIFThumbnail(w http.ResponseWriter, r *http.Request, absPath string, 
 			return
 		}
 		http.Error(w, "Failed to generate HEIF thumbnail", http.StatusInternalServerError)
+		return
+	}
+	serveThumbnail(w, thumb, "image/jpeg")
+}
+
+func serveVideoThumbnail(w http.ResponseWriter, r *http.Request, absPath string, size int) {
+	thumb, err := media.VideoPosterCached(r.Context(), absPath, size)
+	if err != nil {
+		if r.Context().Err() != nil {
+			return
+		}
+		http.Error(w, "Failed to take a still frame of the video", http.StatusInternalServerError)
 		return
 	}
 	serveThumbnail(w, thumb, "image/jpeg")

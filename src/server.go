@@ -122,6 +122,7 @@ func (s *server) build(saved installation.Config) (config, error) {
 		s.stopChecks = stop
 		go func() {
 			app.libMgr.MoveAllNotesToSidecars()
+			app.libMgr.DateAllFromNames()
 			go func() {
 				app.libMgr.AnalyseAllMissing()
 				app.libMgr.FindAllFacesMissing()

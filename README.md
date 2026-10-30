@@ -24,6 +24,7 @@ Unterlumen is a local image browser and culler. It runs as a lightweight web ser
 **What it is not:**
 - Not an image editor — no color grading, no retouching, no compositing
 - No RAW file support — JPEG, PNG, WebP, and HEIF/HEIC (via ffmpeg) only
+- Not a video editor — videos are listed, filtered and played, never cut, converted or renamed
 
 ## Screenshots
 
@@ -238,6 +239,7 @@ On a phone Unterlumen is for looking: libraries, photos, the map, the timeline, 
 - **Read-ahead prefetch** — The viewer prefetches the next two images on each navigation for near-instant forward navigation, even over a NAS
 - **Fujifilm film simulation** — Film simulation name (e.g. Classic Chrome, Velvia, Acros) shown in the info panel and as a grid overlay badge for Fujifilm images
 - **Formats** — JPEG, PNG, GIF, WebP natively; HEIF/HEIC/HIF via ffmpeg
+- **Videos** — MP4, MOV, M4V and WebM play in the browser; MKV, AVI and MTS are listed with a still frame and downloaded. A video tile shows its length and plays a three-second silent clip while the pointer rests on it (made once by ffmpeg, then cached). The clip of an iPhone Live Photo is not listed on its own: the photo says "Live" and plays it in the viewer. **Videos** in a place's ⋯ shows or hides them; the library filter's **Kind** finds photos or videos only. Videos are never changed: crop, location, rename, export and publishing are for photos. See [ADR-0058](doc/architecture/adr/0058-videos-listed-and-played-never-edited.md)
 
 ## Install
 
@@ -358,7 +360,7 @@ cd src && go build -o ../unterlumen .
 
 ### Optional dependencies
 
-- **ffmpeg** — required for HEIF/HEIC/HIF support (embedded preview extraction and HEVC decode fallback) and WebP export (when built with `libwebp`)
+- **ffmpeg** — required for HEIF/HEIC/HIF support (embedded preview extraction and HEVC decode fallback), WebP export (when built with `libwebp`), and videos' still frames, length and date, and their hover clips (encoded with `libx264`)
 - **cwebp** (from `libwebp` / `brew install webp`) — required for WebP export when ffmpeg is built without `libwebp` (e.g. the default Homebrew ffmpeg on macOS). If ffmpeg already has WebP support, cwebp is not needed.
 - **heif-convert** (from `libheif-examples` / `libheif`) — recommended alongside ffmpeg; handles HEIF files that ffmpeg cannot parse, such as standard Fujifilm HEIC files that carry no embedded JPEG preview stream. Without it those files show a placeholder instead of a thumbnail.
 - **glibc on Linux** — the Linux binary is linked against glibc's loader (so that it can load ONNX Runtime for People) and runs on Debian, Ubuntu, Fedora, Arch, Raspberry Pi OS and the like. On musl systems such as Alpine, or on NixOS without nix-ld, use the container image. See [ADR-0051](doc/architecture/adr/0051-faces-onnx-runtime-without-cgo.md)

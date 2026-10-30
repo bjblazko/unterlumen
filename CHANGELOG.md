@@ -1,9 +1,17 @@
 # Changelog
 
-*Last modified: 2026-10-25*
+*Last modified: 2026-10-30*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.21.0] - 2026-10-30
+
+### Added
+- **Videos.** Folders and libraries now list videos beside the photos. A video's tile shows its length and, while the pointer rests on it, plays a three-second silent clip, made once by ffmpeg and then cached. The viewer plays MP4, MOV, M4V and WebM (an iPhone's HEVC in Safari, and in Chrome and Firefox on a Mac). For MKV, AVI and MTS it says that the browser cannot play them and offers the file. The clip of an iPhone Live Photo is no longer a file of its own: the photo carries "Live" and plays it in the viewer. **Videos** in the ⋯ of Folders and of a library shows or hides them, remembered per browser, and the library filter, like the filter of Map, Statistics and the Timeline, has **Kind** (photos or videos). A library's card counts photos and videos apart. Videos get their date, place, camera and length from the file, so they appear in the Timeline and on the Map. They are never changed: crop, location, rename, export, galleries, faces and things are for photos (ADR-0058).
+
+### Changed
+- **A photo without a date taken in its EXIF takes the date its name gives**: "WhatsApp Image 2026-09-20 at 17.17.36", "IMG_20240704_142518", "2026-10-03_…". Such photos used to sort after every dated one, so the newest photos of a person seemed to be missing from the top of a search. The info panel says "from the file name" beside such a date; a date in the EXIF always wins. Photos already in a library are dated once, from the names the index has, when the app starts.
 
 ## [0.20.3] - 2026-10-25
 

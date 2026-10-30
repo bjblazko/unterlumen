@@ -47,6 +47,7 @@ class SearchResultPane extends BrowsePane {
             hasGPS: !!(exif.GPSLatitude),
             filmSimulation: exif.FilmSimulation || null,
             aspectRatio: null,
+            duration: exif.Duration ? Number(exif.Duration) : null,
         };
         return {
             name: p.pathHint,
@@ -55,6 +56,7 @@ class SearchResultPane extends BrowsePane {
             date: p.indexedAt,
             exifDate: p.dateTaken || null,
             size: p.fileSize,
+            video: isVideoName(p.filename),
         };
     }
 
@@ -97,6 +99,13 @@ class SearchResultPane extends BrowsePane {
     thumbFallbackURL(entry, size) {
         return API.thumbnailURL(entry.name, size);
     }
+
+    clipURL(name) {
+        const info = this._photoMap.get(name);
+        return info ? LibraryAPI.clipURL(info.libID, info.photoID) : null;
+    }
+
+    viewerLiveURL() { return null; }
 
     viewerImageURL(path) {
         const info = this._photoMap.get(path);

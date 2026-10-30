@@ -9,7 +9,8 @@ type Library struct {
 	Description   string     `json:"description"`
 	SourcePath    string     `json:"sourcePath"`
 	CreatedAt     time.Time  `json:"createdAt"`
-	PhotoCount    int        `json:"photoCount"`
+	PhotoCount    int        `json:"photoCount"` // photos and videos
+	VideoCount    int        `json:"videoCount"` // of them, videos (ADR-0058)
 	LastIndexed   *time.Time `json:"lastIndexed,omitempty"`
 	LastNewPhotos *time.Time `json:"lastNewPhotos,omitempty"`
 	SortPosition  *int       `json:"sortPosition,omitempty"`
@@ -35,6 +36,7 @@ type Photo struct {
 	Exif      map[string]string `json:"exif,omitempty"`
 	Meta      map[string]string `json:"meta,omitempty"`
 	Match     float32           `json:"match,omitempty"` // how well it matches the words searched for, if any
+	Live      bool              `json:"live,omitempty"`  // a Live Photo's clip is beside it (ADR-0058)
 }
 
 // MetaEntry is a single user-defined key/value pair for a photo.

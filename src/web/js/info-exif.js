@@ -21,18 +21,25 @@ class InfoExif {
     shortList(d, tags, used) {
         const p = this._panel;
         const rows = [p.row('Name', d.name)];
-        rows.push(d.exif?.dateTaken ? p.row('Taken', p.formatDate(d.exif.dateTaken)) : p.row('Modified', p.formatDate(d.modified)));
+        // A date its file's name gave says so: no camera recorded it.
+        const named = tags.DateTakenFrom ? ` · ${t('from the file name')}` : '';
+        used.add('DateTakenFrom');
+        rows.push(d.exif?.dateTaken ? p.row('Taken', p.formatDate(d.exif.dateTaken) + named) : p.row('Modified', p.formatDate(d.modified)));
         this._tag(rows, tags, used, 'Model', 'Camera');
         this._tag(rows, tags, used, 'LensModel', 'Lens');
         const exposure = exposureLine(tags);
         if (exposure) rows.push(p.row('Exposure', exposure));
+        if (tags.Duration) {
+            used.add('Duration');
+            rows.push(p.row('Length', formatDuration(tags.Duration)));
+        }
         if (d.exif?.width && d.exif?.height) {
             const ratio = aspectRatioLabel(d.exif.width, d.exif.height);
             rows.push(p.row('Size', d.exif.width + ' × ' + d.exif.height + (ratio ? ' · ' + ratio : '')));
         }
         rows.push(p.row('File', formatSize(d.size)));
         rows.push(p.badgeRow('Format', (d.format || '').toUpperCase()));
-        return p.section('Photo', rows);
+        return p.section(isVideoName(d.name) ? 'Video' : 'Photo', rows);
     }
 
     // Where it was taken, with the map right there — or an honest "None".

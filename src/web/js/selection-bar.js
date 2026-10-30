@@ -10,18 +10,20 @@
 // library photos, so it exists in a library and not in a plain folder.
 
 // `folders`: the action also works on selected folders. The others work on
-// photos only and say so when only folders are selected.
+// photos only and say so when only folders are selected. `videos`: the
+// action also works on videos, which are never changed (ADR-0058).
 const SELECTION_ACTIONS = {
     collect: { label: t('Add to gallery…'), primary: true },
     export: { label: t('Export…') },
-    download: { label: t('Download'), folders: true },
+    download: { label: t('Download'), folders: true, videos: true },
     rename: { label: t('Rename…') },
     location: { label: t('Set location…') },
-    organize: { label: t('Show in Organize'), folders: true },
-    mark: { label: t('Mark for deletion') },
+    organize: { label: t('Show in Organize'), folders: true, videos: true },
+    mark: { label: t('Mark for deletion'), videos: true },
 };
 
 const PHOTOS_ONLY = t('Works on photos. Select photos to use it.');
+const NOT_FOR_VIDEOS = t('Videos are listed and played, not changed. Select photos to use it.');
 
 class SelectionBar {
     // container: the element the bar is appended to (it renders nothing until
@@ -39,11 +41,12 @@ class SelectionBar {
 
     // count: how many items are selected. Zero removes the bar.
     // onlyFolders: nothing but folders is selected.
-    update(count, { disabled = {}, onlyFolders = false } = {}) {
-        if (onlyFolders) {
+    update(count, { disabled = {}, onlyFolders = false, onlyVideos = false } = {}) {
+        if (onlyFolders || onlyVideos) {
             disabled = { ...disabled };
             for (const key of this.actions) {
-                if (!SELECTION_ACTIONS[key].folders) disabled[key] ??= PHOTOS_ONLY;
+                if (onlyFolders && !SELECTION_ACTIONS[key].folders) disabled[key] ??= PHOTOS_ONLY;
+                if (onlyVideos && !SELECTION_ACTIONS[key].videos) disabled[key] ??= NOT_FOR_VIDEOS;
             }
         }
         this._count = count;

@@ -21,6 +21,11 @@ const API = {
         return `/api/image?path=${encodeURIComponent(path)}`;
     },
 
+    // A video's three-second silent clip, for its tile (ADR-0058).
+    clipURL(path) {
+        return `/api/clip?path=${encodeURIComponent(path)}`;
+    },
+
     async copy(files, destination) {
         const resp = await fetch('/api/copy', {
             method: 'POST',

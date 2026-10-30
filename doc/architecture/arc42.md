@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-25*
+*Last modified: 2026-10-29*
 
 ## 1. Introduction and Goals
 
@@ -425,6 +425,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0055](adr/0055-siglip2-quality-and-languages.md) — Things found by SigLIP 2: quality first, photo quality as things, search in any language
 - [ADR-0056](adr/0056-languages-things-and-interface.md) — Languages: thing IDs with names per language, a keyword language per library, the interface translated by English keys
 - [ADR-0057](adr/0057-requests-from-other-sites-and-untrusted-input.md) — Requests from other sites refused, security headers, only images served inline, external program arguments checked, one escape helper
+- [ADR-0058](adr/0058-videos-listed-and-played-never-edited.md) — Videos listed and played, never edited: browser playback without transcoding, ffmpeg stills and hover clips, Live Photos as their photo, a kind in the filter
 
 ## 10. Quality Requirements
 

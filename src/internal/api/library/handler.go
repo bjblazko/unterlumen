@@ -64,6 +64,8 @@ func Handle(mux *http.ServeMux, mgr *lib.Manager, imgCache *media.ImageCache, ro
 	mux.HandleFunc("GET /api/library/{id}/photo-id-by-path", photoIDByPath(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}", servePhoto(mgr, imgCache))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/info", photoInfo(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/clip", serveClip(mgr))
+	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/live", serveLive(mgr))
 	mux.HandleFunc("DELETE /api/library/{id}/photo/{photoID}", deleteLibraryPhoto(mgr))
 	mux.HandleFunc("GET /api/library/{id}/photo/{photoID}/meta", getMeta(mgr))
 	mux.HandleFunc("PUT /api/library/{id}/photo/{photoID}/meta", upsertMeta(mgr))

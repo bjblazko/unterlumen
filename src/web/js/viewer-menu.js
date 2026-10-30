@@ -18,7 +18,10 @@ class ViewerMenu {
     _items() {
         const key = this._viewer.currentPath;
         const ref = this._libraryRef(key);
-        return [...this._viewItems(), 'separator', ...(ref ? this._libraryItems(ref) : this._folderItems(key))];
+        let items = ref ? this._libraryItems(ref) : this._folderItems(key);
+        // A video is played, never changed or published (ADR-0058).
+        if (isVideoName(key)) items = items.filter(i => !['collect', 'export', 'rename', 'location'].includes(i.id));
+        return [...this._viewItems(), 'separator', ...items];
     }
 
     // How the photo is shown, and its file: rare enough for the menu, and

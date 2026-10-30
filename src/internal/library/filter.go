@@ -15,11 +15,12 @@ type Filter struct {
 	Lenses      []string // lens models as exif_index stores them; any of them
 	People      []string // names given in People; all of them in the photo, as in a library's filter
 	Things      []string // things found in photos (ADR-0054); all of them in the photo
+	Kind        string   // KindPhoto or KindVideo (ADR-0058); "" for both
 }
 
 // Empty says the filter narrows nothing.
 func (f Filter) Empty() bool {
-	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0 && len(f.People) == 0 && len(f.Things) == 0
+	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0 && len(f.People) == 0 && len(f.Things) == 0 && f.Kind == ""
 }
 
 // Key identifies the filter in a cache key; "" for the empty one.
@@ -27,8 +28,8 @@ func (f Filter) Key() string {
 	if f.Empty() {
 		return ""
 	}
-	return fmt.Sprintf("%s~%s~%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"),
-		strings.Join(f.People, "\x1f"), strings.Join(f.Things, "\x1f"))
+	return fmt.Sprintf("%s~%s~%s~%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"),
+		strings.Join(f.People, "\x1f"), strings.Join(f.Things, "\x1f"), f.Kind)
 }
 
 // Cond restricts the photo IDs in col to the filter's photos: " AND col IN
@@ -71,6 +72,7 @@ func (f Filter) Cond(col string) (string, []any) {
 		b.WriteString(" AND " + col + " IN (SELECT photo_id FROM photo_things WHERE thing = ?)")
 		args = append(args, thing)
 	}
+	b.WriteString(kindCond(col, f.Kind))
 	return b.String(), args
 }
 

@@ -160,9 +160,9 @@ test.describe('Phone', () => {
         const gap = await page.locator('.browse-bar').evaluate(e => getComputedStyle(e).paddingBottom);
         expect(gap).toBe('8px');
         await page.locator('.browse-more .menu-btn').tap();
-        await expect(page.locator('.menu .menu-item')).toHaveCount(2);
+        await expect(page.locator('.menu .menu-item')).toHaveCount(3);
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-        expect(ids).toEqual(['names', 'details']);
+        expect(ids).toEqual(['names', 'details', 'videos']);
         const itemHeight = await page.locator('.menu .menu-item').first().evaluate(e => e.getBoundingClientRect().height);
         expect(itemHeight).toBeGreaterThanOrEqual(44);
     });

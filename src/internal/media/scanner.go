@@ -10,9 +10,10 @@ import (
 
 // EntryMeta holds lightweight EXIF metadata extracted during background scanning.
 type EntryMeta struct {
-	HasGPS         bool   `json:"hasGPS,omitempty"`
-	FilmSimulation string `json:"filmSimulation,omitempty"`
-	AspectRatio    string `json:"aspectRatio,omitempty"`
+	HasGPS         bool    `json:"hasGPS,omitempty"`
+	FilmSimulation string  `json:"filmSimulation,omitempty"`
+	AspectRatio    string  `json:"aspectRatio,omitempty"`
+	Duration       float64 `json:"duration,omitempty"` // a video's, in seconds
 }
 
 type EntryType string
@@ -28,46 +29,53 @@ type Entry struct {
 	Date     time.Time  `json:"date"`
 	ExifDate *time.Time `json:"exifDate,omitempty"`
 	Size     int64      `json:"size,omitempty"`
+	Video    bool       `json:"video,omitempty"`
+	Live     string     `json:"live,omitempty"` // the clip of a Live Photo, beside it
 }
 
-// ScanDirectoryFast lists subdirectories and supported image files using file
+// ScanDirectoryFast lists subdirectories, photos and videos using file
 // mod-times only (no EXIF extraction). This returns near-instantly even for
-// large directories.
+// large directories. The clip of a Live Photo is not listed; its photo names
+// it (ADR-0058).
 func ScanDirectoryFast(dirPath string) ([]Entry, error) {
 	dirEntries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
+	names := make([]string, len(dirEntries))
+	for i, de := range dirEntries {
+		names[i] = de.Name()
+	}
+	companions := LiveCompanions(names)
+	live := map[string]string{}
+	for clip, photo := range companions {
+		live[photo] = clip
+	}
 
 	var entries []Entry
 	for _, de := range dirEntries {
 		name := de.Name()
-
-		if strings.HasPrefix(name, ".") {
+		if strings.HasPrefix(name, ".") || companions[name] != "" {
 			continue
 		}
-
 		info, err := de.Info()
 		if err != nil {
 			continue
 		}
-
-		if de.IsDir() {
+		switch {
+		case de.IsDir():
+			entries = append(entries, Entry{Name: name, Type: EntryDir, Date: info.ModTime()})
+		case IsSupportedMedia(name):
 			entries = append(entries, Entry{
-				Name: name,
-				Type: EntryDir,
-				Date: info.ModTime(),
-			})
-		} else if IsSupportedImage(name) {
-			entries = append(entries, Entry{
-				Name: name,
-				Type: EntryImage,
-				Date: info.ModTime(),
-				Size: info.Size(),
+				Name:  name,
+				Type:  EntryImage,
+				Date:  info.ModTime(),
+				Size:  info.Size(),
+				Video: IsVideo(name),
+				Live:  live[name],
 			})
 		}
 	}
-
 	return entries, nil
 }
 

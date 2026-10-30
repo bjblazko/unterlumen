@@ -77,6 +77,7 @@ class LibraryPane extends BrowsePane {
                 if (photo.exif.GPSLatitude)    m.hasGPS = true;
                 if (photo.exif.FilmSimulation) m.filmSimulation = photo.exif.FilmSimulation;
                 if (photo.exif.AspectRatio)    m.aspectRatio = photo.exif.AspectRatio;
+                if (photo.exif.Duration)       m.duration = Number(photo.exif.Duration);
                 if (Object.keys(m).length > 0) this._entryMeta[photo.filename] = m;
             }
             return {
@@ -85,9 +86,11 @@ class LibraryPane extends BrowsePane {
                 date: photo.indexedAt, // already an ISO string from the API
                 exifDate: photo.dateTaken || null,
                 size: photo.fileSize,
+                video: isVideoName(photo.filename),
+                live: !!photo.live,
             };
         });
-        this.entries = [...folderEntries, ...photoEntries];
+        this.entries = [...folderEntries, ...this._shownEntries(photoEntries)];
         this._resortAndRender();
         this.keyboard.updateFocusClass();
         if (isReload && savedScroll > 0) {
@@ -160,6 +163,17 @@ class LibraryPane extends BrowsePane {
         return info
             ? LibraryAPI.thumbURL(this._libID, info.photoID)
             : API.thumbnailURL(this.fullPath(entry.name), size);
+    }
+
+    clipURL(name) {
+        const info = this._photoMap.get(this.fullPath(name));
+        return info ? LibraryAPI.clipURL(this._libID, info.photoID) : API.clipURL(this.fullPath(name));
+    }
+
+    viewerLiveURL(path) {
+        const info = this._photoMap.get(path);
+        const entry = this.entries.find(e => this.fullPath(e.name) === path);
+        return info && entry?.live ? LibraryAPI.liveURL(this._libID, info.photoID) : null;
     }
 
     thumbFallbackURL(entry, size) {

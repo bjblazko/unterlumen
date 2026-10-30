@@ -27,7 +27,9 @@ LABEL org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.source="https://github.com/bjblazko/unterlumen"
 
 # Install external tools bundled in the image:
-#   ffmpeg            — HEIF/HEIC embedded preview extraction, WebP export (built with libwebp)
+#   ffmpeg            — HEIF/HEIC embedded preview extraction, WebP export (built with libwebp),
+#                       videos' still frames, metadata and hover clips (H.264 through Debian's
+#                       libx264; ADR-0058 records the patent note)
 #   libheif-examples  — heif-convert; primary HEIC decoder on Linux; handles Fujifilm HEIC
 #                       files that have no embedded JPEG stream ffmpeg can probe.
 #   libheif-plugin-libde265 — libheif's HEVC decoder. Since libheif 1.16 (trixie) decoders

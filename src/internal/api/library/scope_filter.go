@@ -33,6 +33,9 @@ func filterFromQuery(q url.Values) lib.Filter {
 	if v := q.Get("month_until"); monthPattern.MatchString(v) {
 		f.Until = v
 	}
+	if v := q.Get("kind"); v == lib.KindPhoto || v == lib.KindVideo {
+		f.Kind = v
+	}
 	return f
 }
 

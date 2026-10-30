@@ -1,6 +1,6 @@
 // scope-filter.js — the one filter of the Map, the Statistics and the
-// Timeline (ADR-0050): libraries, a span of months, cameras, lenses, people
-// and things, each optional and all of everything at first. Its state is shared, so a place
+// Timeline (ADR-0050): libraries, a span of months, cameras, lenses, people,
+// things and photos or videos (ADR-0058), each optional and all of everything at first. Its state is shared, so a place
 // shows what the others show; it is kept in the browser across visits.
 
 const SCOPE_FILTER_KEY = 'scope.filter';
@@ -12,7 +12,8 @@ const ScopeState = {
     // from, until: months as "YYYY-MM", '' for an open end.
     // people: names who must all be in the photo, as in a library's filter.
     // things: things found in photos (ADR-0054), all of them in the photo.
-    value: { libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [] },
+    // kind: 'photo' or 'video' (ADR-0058), '' for both.
+    value: { libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [], kind: '' },
     _listeners: new Set(),
 
     load() {
@@ -29,7 +30,7 @@ const ScopeState = {
     },
 
     reset() {
-        this.set({ libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [] });
+        this.set({ libraries: null, from: '', until: '', models: null, lenses: null, people: [], things: [], kind: '' });
     },
 
     onChange(fn) {
@@ -40,7 +41,7 @@ const ScopeState = {
     // Whether anything is narrowed; time only where it counts.
     narrowed({ time = true } = {}) {
         const v = this.value;
-        return v.libraries !== null || v.models !== null || v.lenses !== null || v.people.length > 0 || v.things.length > 0 || (time && !!(v.from || v.until));
+        return v.libraries !== null || v.models !== null || v.lenses !== null || v.people.length > 0 || v.things.length > 0 || !!v.kind || (time && !!(v.from || v.until));
     },
 
     // The request parameters, as [key, value] pairs (model and lens repeat).
@@ -56,6 +57,7 @@ const ScopeState = {
         }
         for (const name of v.people) pairs.push(['person', name]);
         for (const thing of v.things) pairs.push(['thing', thing]);
+        if (v.kind) pairs.push(['kind', v.kind]);
         return pairs;
     },
 
@@ -115,6 +117,13 @@ class ScopeFilter {
                     <select class="btn btn-sm select-btn scope-filter-person" aria-label="${t('Add a person to the filter')}"></select>
                     <span class="scope-filter-people"></span>
                 </div>
+                <div class="lib-filter-group"><div class="lib-filter-label">${t('Kind')}</div>
+                    <select class="btn btn-sm select-btn scope-filter-kind" aria-label="${t('Kind')}">
+                        <option value="">${t('Photos and videos')}</option>
+                        <option value="photo">${t('Photos')}</option>
+                        <option value="video">${t('Videos')}</option>
+                    </select>
+                </div>
                 <div class="lib-filter-group scope-filter-things-group" hidden>
                     <div class="lib-filter-label">${t('Things')}</div>
                     <select class="btn btn-sm select-btn scope-filter-thing" aria-label="${t('Add a thing to the filter')}"></select>
@@ -140,6 +149,9 @@ class ScopeFilter {
         this._thing.addEventListener('change', () => {
             if (this._thing.value) this._setThings([...ScopeState.value.things, this._thing.value]);
         });
+        this._kind = this.panel.querySelector('.scope-filter-kind');
+        this._kind.value = ScopeState.value.kind || '';
+        this._kind.addEventListener('change', () => ScopeState.set({ kind: this._kind.value }));
         this._unsubscribe = ScopeState.onChange(() => this._showNarrowed());
         this._showNarrowed();
         this._load();
@@ -172,6 +184,7 @@ class ScopeFilter {
         this._libraries.selected = v.libraries;
         this._cameras.selected = v.models;
         this._lenses.selected = v.lenses;
+        this._kind.value = v.kind || '';
         this._showNarrowed();
         this._load();
     }
@@ -305,6 +318,7 @@ class ScopeFilter {
         if (v.lenses !== null) out.push({ label: some(t('Lens'), v.lenses, plainExif), drop: { lenses: null } });
         for (const name of v.people) out.push({ label: t('Person: {name}', { name: name }), drop: { people: v.people.filter(n => n !== name) } });
         for (const thing of v.things) out.push({ label: t('Thing: {name}', { name: ThingWords.name(thing) }), drop: { things: v.things.filter(x => x !== thing) } });
+        if (v.kind) out.push({ label: t('Kind: {kind}', { kind: v.kind === 'video' ? t('Videos') : t('Photos') }), drop: { kind: '' } });
         return out;
     }
 

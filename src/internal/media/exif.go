@@ -101,6 +101,9 @@ func ExtractDateTaken(path string) (time.Time, error) {
 // GPS presence, and Fujifilm film simulation. Falls back to decodeEmbeddedExif
 // for HEIF/HEIC/HIF files, fixing HEIF date extraction that ExtractDateTaken misses.
 func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
+	if IsVideo(path) {
+		return videoDateAndMeta(path)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return time.Time{}, nil, err

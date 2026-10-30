@@ -173,6 +173,14 @@ const LibraryAPI = {
     photoURL(libID, photoID) {
         return `/api/library/${libID}/photo/${photoID}`;
     },
+
+    clipURL(libID, photoID) {
+        return `/api/library/${libID}/photo/${photoID}/clip`;
+    },
+
+    liveURL(libID, photoID) {
+        return `/api/library/${libID}/photo/${photoID}/live`;
+    },
     async photoIDByPath(libID, relPath) {
         const r = await fetch(`/api/library/${libID}/photo-id-by-path?path=${encodeURIComponent(relPath)}`);
         if (!r.ok) return null;

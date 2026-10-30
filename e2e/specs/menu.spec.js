@@ -91,5 +91,5 @@ test('Organize\'s source offers only the switches', async ({ page }) => {
     await page.waitForSelector('.organize-source .browse-header', { timeout: 10_000 });
     await page.locator('.organize-source .menu-btn').click();
     const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-    expect(ids).toEqual(['names', 'details', 'interface']);
+    expect(ids).toEqual(['names', 'details', 'videos', 'interface']);
 });

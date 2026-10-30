@@ -7,6 +7,7 @@ import (
 
 	"huepattl.de/unterlumen/internal/api/download"
 	"huepattl.de/unterlumen/internal/api/heifjpeg"
+	"huepattl.de/unterlumen/internal/api/videoclip"
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -161,19 +162,8 @@ func deleteLibraryPhoto(mgr *lib.Manager) http.HandlerFunc {
 
 func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		photoID := r.PathValue("photoID")
-
-		store, err := mgr.OpenStore(id)
-		if err != nil {
-			http.Error(w, "library not found", http.StatusNotFound)
-			return
-		}
-		defer store.Close()
-
-		pathHint, err := store.GetPhotoPathHint(photoID)
-		if err != nil || pathHint == "" {
-			http.Error(w, "photo not found", http.StatusNotFound)
+		pathHint, ok := photoPath(w, mgr, r)
+		if !ok {
 			return
 		}
 
@@ -186,7 +176,60 @@ func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 			heifjpeg.Serve(w, r, pathHint, imgCache)
 			return
 		}
+		if media.IsVideo(pathHint) && media.VideoContentType(pathHint) == "" {
+			download.Original(w, r, pathHint) // a video the browser cannot play
+			return
+		}
 
 		http.ServeFile(w, r, pathHint)
 	}
+}
+
+// serveClip serves a video's short silent clip, the one its tile plays
+// under the pointer (ADR-0058).
+func serveClip(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pathHint, ok := photoPath(w, mgr, r)
+		if !ok {
+			return
+		}
+		if !media.IsVideo(pathHint) {
+			http.Error(w, "not a video", http.StatusBadRequest)
+			return
+		}
+		videoclip.Serve(w, r, pathHint)
+	}
+}
+
+// serveLive serves the clip of a Live Photo, the .mov beside it.
+func serveLive(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pathHint, ok := photoPath(w, mgr, r)
+		if !ok {
+			return
+		}
+		clip, found := media.LiveClips(filepath.Dir(pathHint))[filepath.Base(pathHint)]
+		if !found {
+			http.Error(w, "this photo has no Live clip", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "video/quicktime")
+		http.ServeFile(w, r, clip)
+	}
+}
+
+// photoPath is the file of the request's photo, or an error written.
+func photoPath(w http.ResponseWriter, mgr *lib.Manager, r *http.Request) (string, bool) {
+	store, err := mgr.OpenStore(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "library not found", http.StatusNotFound)
+		return "", false
+	}
+	defer store.Close()
+	pathHint, err := store.GetPhotoPathHint(r.PathValue("photoID"))
+	if err != nil || pathHint == "" {
+		http.Error(w, "photo not found", http.StatusNotFound)
+		return "", false
+	}
+	return pathHint, true
 }

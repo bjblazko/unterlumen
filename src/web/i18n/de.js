@@ -1509,5 +1509,21 @@
  "answered": "hat geantwortet",
  "could not be checked": "ließ sich nicht prüfen",
  "the beginning": "Anfang",
- "today": "heute"
+ "today": "heute",
+ "Video": "Video",
+ "Length": "Länge",
+ "The short clips a video plays in its tile are made on this computer and kept in Unterlumen's cache beside the thumbnails. Videos themselves are never changed.": "Die kurzen Clips, die ein Video in seiner Kachel abspielt, entstehen auf diesem Rechner und liegen in Unterlumens Cache neben den Vorschaubildern. Die Videos selbst werden nie verändert.",
+ "Photos and videos": "Fotos und Videos",
+ "Kind: {kind}": "Art: {kind}",
+ "from the file name": "aus dem Dateinamen",
+ "Videos are listed and played, not changed. Select photos to use it.": "Videos werden gezeigt und abgespielt, nicht verändert. Wähle Fotos, um es zu nutzen.",
+ "Videos": "Videos",
+ "video": "Video",
+ "videos": "Videos",
+ "Live": "Live",
+ "Live Photo": "Live Photo",
+ "Kind": "Art",
+ "Photos or videos": "Fotos oder Videos",
+ "Play the Live Photo": "Live Photo abspielen",
+ "This video cannot be played in the browser: its format is not one the browser knows.": "Dieses Video lässt sich im Browser nicht abspielen: Sein Format kennt der Browser nicht."
 };

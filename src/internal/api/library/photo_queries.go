@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	lib "huepattl.de/unterlumen/internal/library"
+	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
 
@@ -43,6 +44,7 @@ func browseFolder(mgr *lib.Manager, _ string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		markLivePhotos(result.Photos, absPath)
 		writeJSON(w, result)
 	}
 }
@@ -395,5 +397,14 @@ func exifRanges(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, ranges)
+	}
+}
+
+// markLivePhotos notes which photos have a Live Photo's clip beside them:
+// one read of the folder, nothing when it is not mounted.
+func markLivePhotos(photos []lib.Photo, folder string) {
+	clips := media.LiveClips(folder)
+	for i := range photos {
+		_, photos[i].Live = clips[photos[i].Filename]
 	}
 }

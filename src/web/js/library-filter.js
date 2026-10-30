@@ -6,6 +6,7 @@ const CHIP_NS_FIXED = [
     { ns: 'lens',    label: t('Lens'),           hint: t('Lens model'),      type: 'exif', param: 'LensModel' },
     { ns: 'film',    label: t('Film sim'),       hint: t('Film simulation'), type: 'exif', param: 'FilmSimulation' },
     { ns: 'format',  label: t('Format'),         hint: t('File format'),     type: 'exif', param: 'ext' },
+    { ns: 'kind',    label: t('Kind'),           hint: t('Photos or videos'), type: 'kind', param: 'kind' },
     { ns: 'flash',   label: t('Flash'),          hint: t('Flash mode'),      type: 'exif', param: 'Flash' },
     { ns: 'wb',      label: t('White balance'),  hint: t('White balance'),   type: 'exif', param: 'WhiteBalance' },
     { ns: 'channel', label: t('Destination'),    hint: t('Published to this destination'), type: 'channel', param: 'channel' },
@@ -38,6 +39,7 @@ function chipToParam(chip) {
         if (ns.type === 'person') return { key: 'person', value: chip.value };
         if (ns.type === 'thing') return { key: 'thing', value: chip.value };
         if (ns.type === 'words') return { key: 'text', value: chip.value };
+        if (ns.type === 'kind') return { key: 'kind', value: chip.value };
         if (ns.type === 'meta') return { key: ns.param, value: chip.value };
     }
     return { key: 'meta_' + chip.ns, value: chip.value };
@@ -622,6 +624,7 @@ class LibraryFilterPanel {
             person: () => this._personNames || [],
             thing: () => (this._thingNames || []).map(id => ({ value: id, label: ThingWords.name(id) })),
             shows: () => [],
+            kind: () => [{ value: 'photo', label: t('Photos') }, { value: 'video', label: t('Videos') }],
         };
         this._chipInput = new ChipInput(section.querySelector('.lib-chip-filter-wrap'), {
             onFetchNamespaces: async () => namespaces(),
@@ -678,6 +681,9 @@ class LibraryFilterPanel {
         if (this._dateMax) params.date_taken_max = this._dateMax;
         if (this._hues?.length) params.hues = this._hues.join(',');
         addChipParams(params, this._chipInput?.getChips() || []);
+        // Videos hidden among the photos are hidden from the results too,
+        // unless the filter asks for a kind itself.
+        if (!params.kind && !VideoPrefs.shown()) params.kind = 'photo';
         return params;
     }
 

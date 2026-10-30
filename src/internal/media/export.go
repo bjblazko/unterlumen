@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -146,9 +147,16 @@ func getImageDims(srcPath string) (int, int) {
 	return cfg.Width, cfg.Height
 }
 
+// ErrVideoNotExported says a video was given to be exported or published:
+// videos are only listed and played (ADR-0058).
+var ErrVideoNotExported = errors.New("videos are not exported or published; download the original instead")
+
 // ExportImage converts an image file to the specified format with the given options.
 // This is the reusable core function — safe to call from any context.
 func ExportImage(srcPath string, opts ExportOptions) ([]byte, error) {
+	if IsVideo(srcPath) {
+		return nil, ErrVideoNotExported
+	}
 	if opts.Quality <= 0 || opts.Quality > 100 {
 		opts.Quality = 85
 	}

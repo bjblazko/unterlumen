@@ -90,7 +90,7 @@ class LibraryList {
         return `
             <button class="library-card-open lib-open">
                 <span class="library-card-name">${escapeHtml(lib.name)}${hasNew ? `<span class="library-card-new-dot" title="${t('New photos added')}"></span>` : ''}</span>
-                <span class="library-card-count">${countText(lib.photoCount, 'photo')}</span>
+                <span class="library-card-count">${libraryCountText(lib)}</span>
                 <span class="library-card-meta">${escapeHtml(lib.sourcePath)}${libraryStateWords(lib)}</span>
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
@@ -124,7 +124,7 @@ class LibraryList {
             await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
             if (signal?.aborted) return; // the card is gone
             const updated = await LibraryAPI.get(lib.id);
-            card.querySelector('.library-card-count').textContent = countText(updated.photoCount, 'photo');
+            card.querySelector('.library-card-count').textContent = libraryCountText(updated);
             card.querySelector('.library-card-indexed').textContent = t('Indexed {day}', { day: formatDay(updated.lastIndexed) });
         } catch (err) {
             activity.fail(t('It stopped: {error}', { error: err.message }));
@@ -175,4 +175,12 @@ function newestPhotosFirst(a, b) {
     if (!a.lastNewPhotos) return 1;
     if (!b.lastNewPhotos) return -1;
     return new Date(b.lastNewPhotos) - new Date(a.lastNewPhotos);
+}
+
+// libraryCountText is what a library holds: its photos, and its videos when
+// it has any (ADR-0058).
+function libraryCountText(lib) {
+    const videos = lib.videoCount || 0;
+    const photos = countText(lib.photoCount - videos, 'photo');
+    return videos ? `${photos} · ${countText(videos, 'video')}` : photos;
 }

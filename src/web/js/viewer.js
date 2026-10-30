@@ -19,6 +19,8 @@ class Viewer {
         // full-size photo is prepared — a HEIF takes seconds to convert on a
         // NAS. Returns null where there is none (Folders).
         this._previewURLFn = options.previewURLFn || (() => null);
+        // The clip of a Live Photo, or null (ADR-0058).
+        this._liveURLFn = options.liveURLFn || (() => null);
         this._fullLoader = null;
         this._infoLoadFn = options.infoLoadFn || ((p, ip) => ip.loadInfo(p));
         // Read-only: photos seen from somewhere that is not their folder (the
@@ -249,6 +251,9 @@ class Viewer {
                 e.preventDefault();
                 this.close();
                 break;
+            case ' ':
+                if (ViewerVideo.toggle(this.container)) e.preventDefault();
+                break;
             case 'Backspace':
             case 'Delete':
                 if (this._readOnly) break;
@@ -285,6 +290,12 @@ class Viewer {
         const infoActive = this.infoPanel && this.infoPanel.expanded;
         // After a crop the stored preview is stale; go straight to the photo.
         const preview = this._cacheBust ? null : this._previewURLFn(this.currentPath);
+        // A video is played, never cropped or zoomed (ADR-0058).
+        const video = isVideoName(this.currentPath);
+        const liveURL = video ? null : this._liveURLFn(this.currentPath);
+        const media = video
+            ? viewerVideoHTML(this._currentImageURL(), preview || API.thumbnailURL(this.currentPath, 1024), filename)
+            : `<img src="${preview || this._currentImageURL()}" alt="${escapeHtml(filename)}" loading="eager" fetchpriority="high">`;
 
         this.container.innerHTML = `
             <div class="viewer">
@@ -294,7 +305,7 @@ class Viewer {
                         <span class="viewer-filename">${escapeHtml(filename)}</span>
                         <span class="viewer-counter">${counter}</span>
                     </div>
-                    <div class="viewer-zoom-group desk-only">
+                    <div class="viewer-zoom-group desk-only"${video ? ' hidden' : ''}>
                         <button class="btn viewer-zoom-out" title="${t('Zoom out')}" aria-label="${t('Zoom out')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                         <select class="viewer-zoom-select" title="${t('Zoom level')}" aria-label="${t('Zoom level')}">
                             ${['fit', 5, 10, 15, 25, 50, 75, 100, 150, 200, 300, 400].map(v => `<option value="${v}">${v === 'fit' ? 'Fit' : `${v}%`}</option>`).join('')}
@@ -302,7 +313,8 @@ class Viewer {
                         <button class="btn viewer-zoom-in" title="${t('Zoom in')}" aria-label="${t('Zoom in')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4"/><line x1="3.5" y1="5.5" x2="7.5" y2="5.5"/><line x1="5.5" y1="3.5" x2="5.5" y2="7.5"/><line x1="8.6" y1="8.6" x2="12" y2="12"/></svg></button>
                     </div>
                     <div class="viewer-group viewer-group-end">
-                        ${this._readOnly ? '' : `<button class="btn viewer-crop-btn desk-only" title="${preview ? t('Crop works on the full-size photo, which is still being prepared') : t('Crop')}" ${preview ? 'disabled' : ''}>${t('Crop')}</button>
+                        ${liveURL ? `<button class="btn viewer-live-btn" title="${t('Play the Live Photo')}">${t('Live')}</button>` : ''}
+                        ${this._readOnly ? '' : `${video ? '' : `<button class="btn viewer-crop-btn desk-only" title="${preview ? t('Crop works on the full-size photo, which is still being prepared') : t('Crop')}" ${preview ? 'disabled' : ''}>${t('Crop')}</button>`}
                         <button class="btn viewer-delete desk-only" title="${t('Mark for deletion (Delete)')}">${t('Mark for deletion')}</button>`}
                         ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn phone-only"></button>' : ''}
                         <a class="btn viewer-download-btn phone-only" href="${escapeHtml(this._downloadURL())}" download title="${t('Download the original file')}" aria-label="${t('Download the original file')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
@@ -314,7 +326,7 @@ class Viewer {
                     <div class="viewer-body">
                         <button class="btn viewer-prev ${hasPrev ? '' : 'disabled'}" title="${t('Previous (←)')}" ${hasPrev ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 4 7 12 15 20"/></svg></button>
                         <div class="viewer-image-container">
-                            <img src="${preview || this._currentImageURL()}" alt="${escapeHtml(filename)}" loading="eager" fetchpriority="high">
+                            ${media}
                         </div>
                         <button class="btn viewer-next ${hasNext ? '' : 'disabled'}" title="${t('Next (→)')}" ${hasNext ? '' : 'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 4 17 12 9 20"/></svg></button>
                     </div>
@@ -328,19 +340,11 @@ class Viewer {
         this.container.querySelector('.viewer-fullscreen-btn')?.addEventListener('click', () => this._toggleFullscreen());
         this._updateFullscreenButton();
 
-        const imgEl       = this.container.querySelector('.viewer-image-container img');
         const containerEl = this.container.querySelector('.viewer-image-container');
-        this._zoomTool = new ZoomTool(imgEl, containerEl);
-        this._zoomTool._onchange = () => this._updateZoomUI();
-        if (preview) this._swapInFullImage(imgEl, containerEl);
-        else this._watchImageLoad(imgEl, containerEl);
+        if (video) ViewerVideo.watch(containerEl.querySelector('video'), containerEl, this._downloadURL());
+        else this._showImage(containerEl, preview);
+        this.container.querySelector('.viewer-live-btn')?.addEventListener('click', () => ViewerVideo.playLive(containerEl, liveURL));
 
-        this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
-        this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
-        this.container.querySelector('.viewer-zoom-select').addEventListener('change', (e) => {
-            const v = e.target.value;
-            this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
-        });
 
         this.container.querySelector('.viewer-menu-wrap').appendChild(this._menu.menu.button);
         this.container.querySelector('.viewer-crop-btn')?.addEventListener('click', () => this._enterCropMode());
@@ -366,6 +370,22 @@ class Viewer {
                 this._infoLoadFn(this.currentPath, this.infoPanel);
             }
         }
+    }
+
+    // _showImage puts the photo on screen with its zoom: the preview first
+    // where there is one.
+    _showImage(containerEl, preview) {
+        const imgEl = containerEl.querySelector('img');
+        this._zoomTool = new ZoomTool(imgEl, containerEl);
+        this._zoomTool._onchange = () => this._updateZoomUI();
+        if (preview) this._swapInFullImage(imgEl, containerEl);
+        else this._watchImageLoad(imgEl, containerEl);
+        this.container.querySelector('.viewer-zoom-out').addEventListener('click', () => this._zoomTool.zoomOut());
+        this.container.querySelector('.viewer-zoom-in').addEventListener('click', () => this._zoomTool.zoomIn());
+        this.container.querySelector('.viewer-zoom-select').addEventListener('change', (e) => {
+            const v = e.target.value;
+            this._zoomTool.setLevel(v === 'fit' ? 'fit' : parseInt(v, 10));
+        });
     }
 
     _updateZoomUI() {
@@ -435,6 +455,7 @@ class Viewer {
             const idx = this.currentIndex + i;
             if (idx >= this.images.length) break;
             const path = this.images[idx];
+            if (isVideoName(path)) continue; // a video is fetched as it plays
             const preview = this._previewURLFn(path);
             if (preview) {
                 const img = new Image();

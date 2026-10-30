@@ -19,6 +19,7 @@ class PrivacyPane {
                         <section class="guide-section">
                             <h2>${t('What stays here')}</h2>
                             <p>${t('Your photos stay in their folders. Libraries, thumbnails and settings live in Unterlumen\'s data folder. Titles, fields, publications, the names you give faces and the things found in a photo are written beside a photo into its XMP sidecar, and a location or a crop into the photo itself — only when you set one.')}</p>
+                            <p>${t('The short clips a video plays in its tile are made on this computer and kept in Unterlumen\'s cache beside the thumbnails. Videos themselves are never changed.')}</p>
                         </section>
                         <section class="guide-section">
                             <h2>${t('What leaves, and when')}</h2>

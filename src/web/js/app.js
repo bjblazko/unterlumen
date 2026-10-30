@@ -586,6 +586,7 @@ const App = {
             imageURLFn: pane.viewerImageURL ? (p) => pane.viewerImageURL(p) : undefined,
             thumbURLFn:  pane.viewerThumbURL  ? (p) => pane.viewerThumbURL(p)  : undefined,
             previewURLFn: pane.viewerPreviewURL ? (p) => pane.viewerPreviewURL(p) : undefined,
+            liveURLFn: pane.viewerLiveURL ? (p) => pane.viewerLiveURL(p) : undefined,
             infoLoadFn:  pane.viewerLoadInfo  ? (p, ip) => pane.viewerLoadInfo(p, ip)  : undefined,
             libraryRef: pane.getLibraryMeta ? (p) => {
                 const meta = pane.getLibraryMeta(p);
@@ -636,6 +637,8 @@ const App = {
         // Resolve each path to its correct image URL (LibraryPane overrides viewerImageURL
         // to use /api/library/{id}/photo/{photoID}; BrowsePane falls back to API.imageURL).
         const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
+        // A slideshow shows photos; videos are played in the viewer.
+        const stills = paths => paths.filter(p => !isVideoName(p));
         let images;
         if (pane.selectedDirs?.size > 0) {
             const n = pane.selectedDirs.size;
@@ -644,11 +647,11 @@ const App = {
                 for (const dirPath of pane.selectedDirs) paths.push(...await pane.fetchRecursivePhotoPaths(dirPath));
                 return paths;
             });
-            images = allPaths.map(toURL);
+            images = stills(allPaths).map(toURL);
         } else if (pane.selection.selected.size > 0) {
-            images = Array.from(pane.selection.selected).map(toURL);
+            images = stills(Array.from(pane.selection.selected)).map(toURL);
         } else {
-            images = pane.getImageEntries().map(e => toURL(pane.fullPath(e.name)));
+            images = stills(pane.getImageEntries().map(e => pane.fullPath(e.name))).map(toURL);
         }
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
@@ -692,6 +695,7 @@ const App = {
         const dirs = this.browsePane?.selectedDirs?.size ?? 0;
         this._browseSelectionBar?.update(selected.length + dirs, {
             onlyFolders: selected.length === 0 && dirs > 0,
+            onlyVideos: selected.length > 0 && selected.every(isVideoName),
         });
     },
 
@@ -788,6 +792,11 @@ const App = {
         if (LIBRARY_TOOLS[tool]) {
             this._runLibraryTool(tool, path, onDone);
             return;
+        }
+        // Videos are listed and played, never changed or exported (ADR-0058).
+        if (['set-location', 'batch-rename', 'export'].includes(tool)) {
+            files = (files || []).filter(f => !isVideoName(f));
+            if (!files.length) return;
         }
         switch (tool) {
             case 'make-library': this._makeLibraryAt(path); break;

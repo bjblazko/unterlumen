@@ -48,9 +48,9 @@ func (s *Store) DatedPhotos() ([]DatedPhoto, error) {
 
 // UndatedPhotoIDs returns the IDs of the photos without a date taken.
 func (s *Store) UndatedPhotoIDs() ([]string, error) {
-	// Undated photos fall outside any span of months, but cameras, lenses
-	// and people still narrow them.
-	fw, fa := Filter{Models: s.filter.Models, Lenses: s.filter.Lenses, People: s.filter.People}.Cond("id")
+	// Undated photos fall outside any span of months, but cameras, lenses,
+	// people and the kind still narrow them.
+	fw, fa := Filter{Models: s.filter.Models, Lenses: s.filter.Lenses, People: s.filter.People, Kind: s.filter.Kind}.Cond("id")
 	if s.filter.From != "" || s.filter.Until != "" {
 		return []string{}, nil
 	}

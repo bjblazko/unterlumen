@@ -25,7 +25,7 @@ func (s *Store) PhotosNeedingFaces() ([]FaceTask, error) {
 		SELECT p.id, p.thumb_path, p.path_hint, COALESCE(CAST(TRIM(o.value, '"') AS INTEGER), 1) FROM photos p
 		LEFT JOIN photo_faces_found f ON f.photo_id = p.id
 		LEFT JOIN exif_index o ON o.photo_id = p.id AND o.field = 'Orientation'
-		WHERE p.status = 'ok' AND p.thumb_path IS NOT NULL AND p.thumb_path != ''
+		WHERE p.status = 'ok' AND p.thumb_path IS NOT NULL AND p.thumb_path != '' AND `+notVideo+`
 		  AND (f.photo_id IS NULL OR f.version < ?)`, faces.Version)
 	if err != nil {
 		return nil, err

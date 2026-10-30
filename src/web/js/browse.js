@@ -126,7 +126,26 @@ class BrowsePane {
         this.selection.updateClasses(this.container);
     }
 
+    // Videos are among the entries unless the person hid them (ADR-0058).
+    _shownEntries(entries) {
+        return VideoPrefs.shown() ? entries : entries.filter(e => !e.video);
+    }
+
+    // The clip a video tile plays under the pointer.
+    clipURL(name) {
+        return API.clipURL(this.fullPath(name));
+    }
+
+    // The clip of a Live Photo, or null when the photo has none.
+    viewerLiveURL(path) {
+        const entry = this.entries.find(e => this.fullPath(e.name) === path);
+        if (!entry?.live) return null;
+        const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
+        return API.imageURL(dir + entry.live);
+    }
+
     _attachDelegatedEvents() {
+        VideoHover.attach(this.container, name => this.clipURL(name));
         this.container.addEventListener('click', (e) => {
             // Background click on the grid/list/justified container deselects all
             if (e.target.classList.contains('grid') ||
@@ -176,7 +195,7 @@ class BrowsePane {
 
         const data = await this._fetchFolder(controller);
         if (!data) return;
-        this.entries = data.entries || [];
+        this.entries = this._shownEntries(data.entries || []);
         this.warnings = data.warnings || [];
         this.render();
         this.keyboard.updateFocusClass();
@@ -451,11 +470,13 @@ class BrowsePane {
     }
 
     _folderMeta() {
-        const images = this.getImageEntries().length;
+        const files = this.getImageEntries();
+        const videos = files.filter(e => e.video).length;
         const dirs = this.entries.filter(e => e.type === 'dir').length;
         const bytes = this.entries.reduce((sum, e) => sum + (e.size || 0), 0);
         return [
-            countHTML(images, 'photo'),
+            countHTML(files.length - videos, 'photo'),
+            videos > 0 ? countHTML(videos, 'video') : null,
             dirs > 0 ? countHTML(dirs, 'folder') : null,
             bytes > 0 ? formatSize(bytes) : null,
         ].filter(Boolean).join(' · ');
@@ -694,6 +715,10 @@ class BrowsePane {
                 id: 'details', label: t('Details'), switch: { on: this.showOverlays, labelOn: t('Shown'), labelOff: t('Hidden') },
                 onChange: (on) => { this.showOverlays = on; this.render(); },
             },
+            {
+                id: 'videos', label: t('Videos'), switch: { on: VideoPrefs.shown(), labelOn: t('Shown'), labelOff: t('Hidden') },
+                onChange: (on) => { VideoPrefs.setShown(on); this.load(this.path); },
+            },
         ];
         // A phone has no key to bring a hidden interface back.
         if (window.matchMedia('(max-width: 700px)').matches) return items;
@@ -822,6 +847,7 @@ class BrowsePane {
         if (data.meta) {
             this._entryMeta = data.meta;
             if (this.showOverlays) this._updateOverlays();
+            updateVideoBadges(this._contentEl || this.container, name => this._entryMeta[name]);
         }
     }
 

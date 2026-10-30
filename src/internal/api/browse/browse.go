@@ -2,6 +2,7 @@ package browse
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -44,6 +45,7 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, imgCache *m
 	mux.HandleFunc("/api/browse/folder-stats", handleFolderStats(root))
 	mux.HandleFunc("/api/thumbnail", handleThumbnail(root, libMgr))
 	mux.HandleFunc("/api/image", handleImage(root, imgCache))
+	mux.HandleFunc("/api/clip", handleClip(root))
 	mux.HandleFunc("/api/info", handleInfo(root))
 }
 
@@ -210,14 +212,26 @@ func extractExifBackground(absPath string, cached *media.CachedScan) {
 		fullPath := filepath.Join(absPath, entry.Name)
 		exifDate, meta, err := media.ExtractDateAndMeta(fullPath)
 		if err != nil {
-			continue
+			exifDate, err = dateOfName(entry.Name)
 		}
-		cached.SetExifDate(entry.Name, exifDate)
-		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "") {
+		if err == nil {
+			cached.SetExifDate(entry.Name, exifDate)
+		}
+		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "" || meta.Duration > 0) {
 			cached.SetExifMeta(entry.Name, meta)
 		}
 	}
 	cached.MarkExifDone()
+}
+
+// dateOfName is the date a file's name gives when its EXIF has none, in the
+// local time a date taken without a zone is read in.
+func dateOfName(name string) (time.Time, error) {
+	d := media.DateFromFileName(name)
+	if d == "" {
+		return time.Time{}, fmt.Errorf("%s has no date", name)
+	}
+	return time.ParseInLocation("2006-01-02T15:04:05", d, time.Local)
 }
 
 type browseRecursiveResponse struct {

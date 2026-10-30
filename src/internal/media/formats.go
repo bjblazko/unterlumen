@@ -388,14 +388,16 @@ func stripStaleHeifConvertOrientation(data []byte) []byte {
 }
 
 func ffmpegRun(inputPath string, args ...string) ([]byte, error) {
+	return ffmpegExec(append([]string{"-i", inputPath}, args...)...)
+}
+
+// ffmpegExec runs ffmpeg with exactly these arguments and returns what it
+// wrote to standard output.
+func ffmpegExec(args ...string) ([]byte, error) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	cmdArgs := make([]string, 0, len(args)+3)
-	cmdArgs = append(cmdArgs, "-i", inputPath)
-	cmdArgs = append(cmdArgs, args...)
-
-	cmd, cancel := commandWithTimeout("ffmpeg", cmdArgs...)
+	cmd, cancel := commandWithTimeout("ffmpeg", args...)
 	defer cancel()
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr

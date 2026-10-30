@@ -37,10 +37,12 @@ func (s *Store) directPhotos(prefix string) ([]Photo, error) {
 	rows, err := s.db.Query(
 		`SELECT p.id, p.path_hint, p.filename, p.file_size, p.indexed_at,
 		        COALESCE(e.value, '') AS date_taken,
-		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
+		        COALESCE((SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
+		                 CASE WHEN json_valid(p.exif_json) THEN CAST(json_extract(p.exif_json,'$.latitude') AS TEXT) END),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1),
 		        CAST(json_extract(p.exif_json,'$.width')  AS INTEGER),
-		        CAST(json_extract(p.exif_json,'$.height') AS INTEGER)
+		        CAST(json_extract(p.exif_json,'$.height') AS INTEGER),
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END
 		 FROM photos p
 		 LEFT JOIN exif_index e ON e.photo_id = p.id AND e.field = 'DateTaken'
 		 WHERE p.status='ok' AND p.path_hint GLOB ? AND p.path_hint NOT GLOB ?`,
@@ -55,11 +57,12 @@ func (s *Store) directPhotos(prefix string) ([]Photo, error) {
 		var indexedAt string
 		var gpsLat, filmSim *string
 		var imgWidth, imgHeight *int
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight); err != nil {
+		var duration *string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight, &duration); err != nil {
 			return err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
-		p.Exif = overlayExif(gpsLat, filmSim, imgWidth, imgHeight)
+		p.Exif = withDuration(overlayExif(gpsLat, filmSim, imgWidth, imgHeight), duration)
 		photos = append(photos, p)
 		return nil
 	})
@@ -87,6 +90,18 @@ func overlayExif(gpsLat, filmSim *string, width, height *int) map[string]string 
 			exif["AspectRatio"] = ar
 		}
 	}
+	return exif
+}
+
+// withDuration adds a video's length, in seconds, to its overlay details.
+func withDuration(exif map[string]string, duration *string) map[string]string {
+	if duration == nil {
+		return exif
+	}
+	if exif == nil {
+		exif = map[string]string{}
+	}
+	exif["Duration"] = *duration
 	return exif
 }
 

@@ -107,7 +107,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if k == "channel" || k == "album" || k == "album_title" || k == "person" || k == "thing" || k == "text" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
-		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" {
+		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" || k == "kind" {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

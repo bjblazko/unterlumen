@@ -29,7 +29,7 @@ func (s *Store) PhotosNeedingThings() ([]ThingTask, error) {
 		FROM photos p
 		LEFT JOIN photo_things_found f ON f.photo_id = p.id
 		LEFT JOIN photo_vectors v ON v.photo_id = p.id
-		WHERE p.status = 'ok' AND p.thumb_path IS NOT NULL AND p.thumb_path != ''
+		WHERE p.status = 'ok' AND p.thumb_path IS NOT NULL AND p.thumb_path != '' AND `+notVideo+`
 		  AND (f.photo_id IS NULL OR f.version < ? OR f.vocabulary < ?
 		       OR f.written = 1 AND f.vector_in_sidecar = 0 AND f.version = ? AND v.vector IS NOT NULL)`,
 		things.Version, things.Version, things.VocabularyVersion, things.Version)

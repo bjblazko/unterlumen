@@ -40,9 +40,10 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 			return
 		}
 
-		// Only images are shown. Anything else under the folder — an .html or
-		// .svg among the photos — would run as a page of the app's own origin,
-		// so it is handed over as a download instead.
+		// Only photos and videos are shown. Anything else under the folder — an
+		// .html or .svg among the photos — would run as a page of the app's
+		// own origin, so it is handed over as a download instead, as is a
+		// video the browser cannot play.
 		ct := contentTypeByExt(absPath)
 		if ct == "" {
 			download.Original(w, r, absPath)
@@ -64,5 +65,5 @@ func contentTypeByExt(path string) string {
 	case ".webp":
 		return "image/webp"
 	}
-	return ""
+	return media.VideoContentType(path)
 }

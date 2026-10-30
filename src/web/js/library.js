@@ -447,7 +447,8 @@ class LibraryTab {
     // every selection has, so it says why when it cannot be used.
     _updateSelectionBar() {
         const pane = this.getActivePaneForKeyboard();
-        const files = pane?.getSelectedFiles().length ?? 0;
+        const selected = pane?.getSelectedFiles() ?? [];
+        const files = selected.length;
         const dirs = pane?.selectedDirs?.size ?? 0;
         const count = files + dirs;
         // The list view and an opened library each have their own bar; only
@@ -458,6 +459,7 @@ class LibraryTab {
         const target = pane ? pane.getOpenInCommanderTarget() : null;
         active?.update(count, {
             onlyFolders: files === 0 && dirs > 0,
+            onlyVideos: files > 0 && dirs === 0 && selected.every(isVideoName),
             disabled: {
                 organize: target ? '' : (pane ? pane.organizeBtnHint() : t('Select photos to show them in Organize')),
             },

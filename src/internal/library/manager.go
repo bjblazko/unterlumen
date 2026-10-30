@@ -195,6 +195,9 @@ func libraryFromStore(id string, store *Store) (*Library, error) {
 	} else if lib.PhotoCount, err = store.CountPhotos(); err != nil {
 		return nil, err
 	}
+	if lib.VideoCount, err = store.CountVideos(); err != nil {
+		return nil, err
+	}
 	if n, err := strconv.Atoi(props["sort_position"]); err == nil {
 		lib.SortPosition = &n
 	}

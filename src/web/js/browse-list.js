@@ -48,9 +48,9 @@ class ListRenderer {
         const badgesHtml = this._pane._buildOverlayBadges(entry.name, entryMeta[entry.name]);
         const fallback = this._pane.thumbFallbackURL ? this._pane.thumbFallbackURL(entry, thumbSize) : null;
         const onerror = fallback ? ` onerror="this.onerror=null;this.src='${escapeHtml(fallback)}'"` : '';
-        return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="image" data-path="${escapeHtml(fp)}">
+        return `<tr class="image-row${selectedClass}${markedClass}${focusedClass}" data-index="${idx}" data-name="${escapeHtml(entry.name)}" data-type="image"${entry.video ? ' data-video' : ''} data-path="${escapeHtml(fp)}">
             <td class="list-icon"><img src="${this._pane.thumbURL(entry, thumbSize)}" alt="" loading="lazy" decoding="async" fetchpriority="low"${onerror}></td>
-            <td class="list-name">${escapeHtml(label)}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
+            <td class="list-name">${escapeHtml(label)}${videoBadgeHTML(entry, entryMeta[entry.name])}${badgesHtml ? `<span class="list-badges">${badgesHtml}</span>` : ''}</td>
             <td class="list-date">${formatDateTime(entry.exifDate ?? entry.date)}</td>
             <td class="list-size">${size}</td>
         </tr>`;

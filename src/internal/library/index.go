@@ -305,8 +305,8 @@ type photoExif struct {
 
 func readPhotoExif(absPath string) photoExif {
 	ex := photoExif{json: "{}", fields: make(map[string]string)}
-	exifData, err := media.ExtractAllEXIF(absPath)
-	if err != nil {
+	exifData, err := media.ExtractMeta(absPath)
+	if err != nil || exifData == nil {
 		return ex
 	}
 	for k, v := range exifData.Tags {
@@ -326,7 +326,7 @@ func readPhotoExif(absPath string) photoExif {
 // hif/heic as heif.
 func normalizedExt(absPath string) string {
 	ext := strings.TrimPrefix(filepath.Ext(strings.ToLower(filepath.Base(absPath))), ".")
-	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif"}
+	extNorm := map[string]string{"jpg": "jpeg", "hif": "heif", "heic": "heif", "m4v": "mp4"}
 	if n, ok := extNorm[ext]; ok {
 		return n
 	}
@@ -409,7 +409,13 @@ func (idx *Indexer) ensureThumbnail(absPath, photoID string) (string, error) {
 	}
 
 	var jpegData []byte
-	if media.IsHEIF(absPath) {
+	if media.IsVideo(absPath) {
+		data, err := media.VideoPoster(absPath, thumbMaxDim)
+		if err != nil {
+			return "", err
+		}
+		jpegData = data
+	} else if media.IsHEIF(absPath) {
 		data, err := media.ExtractHEIFPreview(absPath)
 		if err != nil {
 			return "", err

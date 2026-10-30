@@ -52,7 +52,7 @@ func handleInfo(root string) http.HandlerFunc {
 			Format:   strings.TrimPrefix(strings.ToLower(filepath.Ext(absPath)), "."),
 		}
 
-		if exifData, err := media.ExtractAllEXIF(absPath); err == nil && exifData != nil {
+		if exifData, err := media.ExtractMeta(absPath); err == nil && exifData != nil {
 			resp.Exif = exifData
 		}
 

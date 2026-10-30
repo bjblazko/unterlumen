@@ -53,7 +53,7 @@ func collectFilesAndSidecars(root string) ([]string, map[string]string, error) {
 		}
 		switch {
 		case d.IsDir():
-		case media.IsSupportedImage(d.Name()):
+		case media.IsSupportedMedia(d.Name()):
 			files = append(files, path)
 		case strings.EqualFold(filepath.Ext(path), ".xmp"):
 			sidecars[sidecarKey(path)] = stampOf(d)
@@ -63,7 +63,34 @@ func collectFilesAndSidecars(root string) ([]string, map[string]string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return files, sidecars, unreadable
+	return withoutLiveClips(files), sidecars, unreadable
+}
+
+// withoutLiveClips leaves out the clips of Live Photos: a .mov beside a
+// photo of the same name belongs to the photo, not to the library
+// (ADR-0058).
+func withoutLiveClips(files []string) []string {
+	byDir := map[string][]string{}
+	for _, f := range files {
+		dir := filepath.Dir(f)
+		byDir[dir] = append(byDir[dir], filepath.Base(f))
+	}
+	clips := map[string]bool{}
+	for dir, names := range byDir {
+		for clip := range media.LiveCompanions(names) {
+			clips[filepath.Join(dir, clip)] = true
+		}
+	}
+	if len(clips) == 0 {
+		return files
+	}
+	kept := files[:0]
+	for _, f := range files {
+		if !clips[f] {
+			kept = append(kept, f)
+		}
+	}
+	return kept
 }
 
 // stampOf is a file's modification time and size, or "" when they cannot
