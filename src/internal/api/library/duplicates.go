@@ -25,9 +25,10 @@ func libraryDuplicates(mgr *lib.Manager) http.HandlerFunc {
 }
 
 // deleteLibraryFile deletes one file of a library, named by its absolute
-// path, with its sidecar unless another file shares it. Unlike deleting by photo ID it takes the copy
-// meant, not the one the index names first; another copy of the same
-// content stays in the index. Only a file the library holds is deleted.
+// path, with its sidecar unless another file shares it. Unlike deleting by
+// photo ID it takes the copy meant, not the one the index names first;
+// another copy of the same content stays in the index. Only a file the
+// library holds is deleted.
 func deleteLibraryFile(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Query().Get("path")

@@ -55,43 +55,61 @@ type DupGroup struct {
 	Files []*DupFile `json:"files"`
 }
 
-// DupReport is every group, and how many photos took part only in the
-// search for identical files because their look is not measured yet.
+// DupReport is every group, how many photos took part only in the search
+// for identical files because their look is not measured yet, and the
+// libraries left out because their folder could not be reached.
 type DupReport struct {
-	Groups     []DupGroup `json:"groups"`
-	Unanalysed int        `json:"unanalysed"`
+	Groups      []DupGroup `json:"groups"`
+	Unanalysed  int        `json:"unanalysed"`
+	Unreachable []string   `json:"unreachable"`
 }
 
 // Duplicates finds the duplicates in all libraries. A path in two libraries
-// that overlap is one file there, not two.
+// that overlap is one file there, not two. A library whose folder is not
+// reachable is named, not taken for one without duplicates.
 func (m *Manager) Duplicates(ctx context.Context) (*DupReport, error) {
 	libs, err := m.ListLibraries()
 	if err != nil {
 		return nil, err
 	}
 	byPath := map[string]*DupFile{}
+	unreachable := []string{}
 	for _, l := range libs {
 		store, err := m.OpenStore(l.ID)
-		if err != nil {
+		if err != nil || !folderReachable(l.SourcePath) {
+			unreachable = append(unreachable, l.Name)
 			continue
 		}
 		files, err := store.duplicateCandidates(ctx)
 		if err != nil {
 			return nil, err
 		}
-		in := DupLibID{ID: l.ID, Name: l.Name}
-		for _, f := range files {
-			if seen := byPath[f.Path]; seen != nil {
-				seen.Libraries = append(seen.Libraries, in)
-				continue
-			}
-			f.Libraries = []DupLibID{in}
-			byPath[f.Path] = f
-		}
+		addCandidates(byPath, files, DupLibID{ID: l.ID, Name: l.Name})
 	}
 	report := groupDuplicates(byPath)
 	report.Groups = presentGroups(report.Groups)
+	report.Unreachable = unreachable
 	return report, nil
+}
+
+// folderReachable says whether a library's folder is there: a disk or a
+// NAS not connected leaves the index, but none of its files.
+func folderReachable(dir string) bool {
+	info, err := os.Stat(dir)
+	return err == nil && info.IsDir()
+}
+
+// addCandidates adds one library's files by path; a path already there from
+// an overlapping library gains this library instead.
+func addCandidates(byPath map[string]*DupFile, files []*DupFile, in DupLibID) {
+	for _, f := range files {
+		if seen := byPath[f.Path]; seen != nil {
+			seen.Libraries = append(seen.Libraries, in)
+			continue
+		}
+		f.Libraries = []DupLibID{in}
+		byPath[f.Path] = f
+	}
 }
 
 // duplicateCandidates reads every path of every photo of the library that is

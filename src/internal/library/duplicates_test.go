@@ -195,3 +195,19 @@ func TestDuplicateCandidatesAreNotCorrelated(t *testing.T) {
 		t.Fatalf("the duplicates query runs once per photo: %s", joined)
 	}
 }
+
+func TestDuplicatesNameTheLibrariesNotReached(t *testing.T) {
+	m := newTestManager(t)
+	dupLibrary(t, m, "Here", []dupPhoto{{name: "a.jpg", id: "same", w: 40, h: 30}})
+	_, dir := dupLibrary(t, m, "On the NAS", []dupPhoto{{name: "b.jpg", id: "same", w: 40, h: 30}})
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatal(err)
+	}
+	r := duplicatesOf(t, m)
+	if len(r.Unreachable) != 1 || r.Unreachable[0] != "On the NAS" {
+		t.Errorf("unreachable = %v, want the library whose folder is gone", r.Unreachable)
+	}
+	if got := groupNames(r); len(got) != 0 {
+		t.Errorf("groups = %v, want none", got)
+	}
+}

@@ -40,7 +40,17 @@ class DuplicatesPane {
             return;
         }
         this._renderHead();
+        this._renderUnreachable();
         this._renderGroups();
+    }
+
+    // A library whose folder is not connected is left out, and says so: its
+    // duplicates are not gone, only not looked at.
+    _renderUnreachable() {
+        const away = this.report.unreachable || [];
+        if (!away.length) return;
+        this.container.querySelector('.duplicates-head').insertAdjacentHTML('afterend',
+            `<div class="library-notice">${t('Left out because their folder cannot be reached: {libraries}. Connect the disk or the share and open Duplicates again.', { libraries: away.map(escapeHtml).join(', ') })}</div>`);
     }
 
     _shownGroups() {
@@ -73,7 +83,7 @@ class DuplicatesPane {
         const groups = this._shownGroups();
         if (!groups.length) {
             body.innerHTML = `<div class="wastebin-empty-box"><strong>${t('No duplicates')}</strong>
-                <span>${t('No photo is in the libraries more than once.')}</span></div>`;
+                <span>${this.report.unreachable?.length ? t('No photo is in the reachable libraries more than once.') : t('No photo is in the libraries more than once.')}</span></div>`;
             return;
         }
         body.innerHTML = groups.map((g, gi) => this._groupHTML(g, gi)).join('');

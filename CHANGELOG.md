@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Duplicates named no library it could not reach.** A library whose disk or NAS was not connected was left out without a word, so the place could say "No duplicates" while it had not looked. It now names those libraries above the groups.
+
 ## [0.22.0] - 2026-10-31
 
 ### Added

@@ -1,6 +1,6 @@
 # ADR-0059: Duplicates found from the index
 
-*Last modified: 2026-10-30*
+*Last modified: 2026-10-31*
 
 ## Status
 
@@ -66,6 +66,10 @@ The index already holds what is needed:
    edit made elsewhere, EXIF can keep the old size: a cropped fixture still
    said 7728 × 5152. EXIF stays only for a format Go cannot read. On a
    network share each look takes about 8 ms, so 16 run at once.
+   A library whose folder is not reachable (a disk or NAS not connected) is
+   left out before any of its files is looked at, and the place names it
+   above the groups: none of its files would be found, and "no duplicates"
+   would be false.
 6. **A mark names a path, and deletion goes by path.** Deleting by photo ID
    removes the file at `path_hint` and drops the row. For two copies in one
    library, that can be the wrong copy. So a version marked in Duplicates is

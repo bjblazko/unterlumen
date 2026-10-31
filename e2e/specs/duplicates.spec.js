@@ -6,7 +6,8 @@ import { waitForAppReady } from '../helpers/wait.js';
 // Duplicates (ADR-0059): two copies of one photo in one library form a
 // group; marking one and deleting it in Marked for deletion removes that
 // copy — the one chosen, not the one the index names first — and keeps the
-// other in the library.
+// other in the library. A library whose folder is gone is named, not taken
+// for one without duplicates.
 //
 // A throwaway folder and library, so the fixtures other specs use stay.
 
@@ -72,5 +73,24 @@ test.describe('Duplicates', () => {
 
         await page.locator('#mode-duplicates').click();
         await expect(page.locator('.duplicates-group', { hasText: `${DUP_FOLDER}/second` })).toHaveCount(0, { timeout: 30_000 });
+    });
+
+    test('names a library whose folder cannot be reached', async ({ page, request }) => {
+        const gone = `${DUP_FOLDER}/gone`;
+        expect((await request.post('/api/mkdir', { data: { path: gone } })).status()).toBe(200);
+        const libRes = await request.post('/api/library/', {
+            data: { name: 'E2E Duplicates gone', description: '', sourcePath: gone },
+        });
+        expect(libRes.status()).toBe(201);
+        const goneID = (await libRes.json()).id;
+        try {
+            await request.post('/api/delete', { data: { files: [gone] } });
+            await page.goto('/#duplicates');
+            await waitForAppReady(page);
+            await expect(page.locator('.duplicates-place .library-notice'))
+                .toContainText('Left out because their folder cannot be reached: E2E Duplicates gone', { timeout: 30_000 });
+        } finally {
+            await request.delete(`/api/library/${goneID}`);
+        }
     });
 });

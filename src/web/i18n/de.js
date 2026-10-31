@@ -1542,6 +1542,8 @@
  "versions": "Fassungen",
  "No duplicates": "Keine Duplikate",
  "No photo is in the libraries more than once.": "Kein Foto ist mehr als einmal in den Bibliotheken.",
+ "No photo is in the reachable libraries more than once.": "Kein Foto ist mehr als einmal in den erreichbaren Bibliotheken.",
+ "Left out because their folder cannot be reached: {libraries}. Connect the disk or the share and open Duplicates again.": "Ausgelassen, weil ihr Ordner nicht erreichbar ist: {libraries}. Verbinde die Festplatte oder die Freigabe und öffne Duplikate erneut.",
  "Comparing the photos of all libraries…": "Vergleiche die Fotos aller Bibliotheken …",
  "The libraries could not be compared: {error}. Try again when every library folder is reachable.": "Die Bibliotheken ließen sich nicht vergleichen: {error}. Versuche es noch einmal, wenn jeder Bibliotheksordner erreichbar ist.",
  "Versions of one photo in all libraries: the same file twice, the same picture scaled or saved again, and edited or cropped copies. The largest comes first. Mark the versions you don’t want; they are deleted in Marked for deletion.": "Fassungen eines Fotos in allen Bibliotheken: dieselbe Datei zweimal, dasselbe Bild skaliert oder neu gespeichert, und bearbeitete oder beschnittene Kopien. Die größte steht vorn. Markiere die Fassungen, die du nicht willst; gelöscht werden sie unter Zum Löschen markiert.",
