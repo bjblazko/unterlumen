@@ -10,19 +10,21 @@
 // library photos, so it exists in a library and not in a plain folder.
 
 // `folders`: the action also works on selected folders. The others work on
-// photos only and say so when only folders are selected. `videos`: the
-// action also works on videos, which are never changed (ADR-0058).
+// photos only and say so when only folders are selected. `oneFolder`: it
+// takes one folder at a time. `videos`: the action also works on videos,
+// which are never changed (ADR-0058).
 const SELECTION_ACTIONS = {
     collect: { label: t('Add to gallery…'), primary: true },
     export: { label: t('Export…') },
     download: { label: t('Download'), folders: true, videos: true },
-    rename: { label: t('Rename…') },
+    rename: { label: t('Rename…'), folders: true, oneFolder: true },
     location: { label: t('Set location…') },
     organize: { label: t('Show in Organize'), folders: true, videos: true },
-    mark: { label: t('Mark for deletion'), videos: true },
+    mark: { label: t('Mark for deletion'), folders: true, videos: true },
 };
 
 const PHOTOS_ONLY = t('Works on photos. Select photos to use it.');
+const ONE_FOLDER = t('Renames one folder at a time. Select one folder to rename it.');
 const NOT_FOR_VIDEOS = t('Videos are listed and played, not changed. Select photos to use it.');
 
 class SelectionBar {
@@ -46,6 +48,7 @@ class SelectionBar {
             disabled = { ...disabled };
             for (const key of this.actions) {
                 if (onlyFolders && !SELECTION_ACTIONS[key].folders) disabled[key] ??= PHOTOS_ONLY;
+                if (onlyFolders && count > 1 && SELECTION_ACTIONS[key].oneFolder) disabled[key] ??= ONE_FOLDER;
                 if (onlyVideos && !SELECTION_ACTIONS[key].videos) disabled[key] ??= NOT_FOR_VIDEOS;
             }
         }

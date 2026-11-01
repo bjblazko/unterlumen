@@ -278,12 +278,23 @@ class BrowsePane {
         return this.selection.getSelectedFiles();
     }
 
+    // What Mark for deletion takes: the selected photos, else the selected
+    // folders, else what has the focus.
     getActionableFiles() {
         const selected = this.getSelectedFiles();
         if (selected.length > 0) return selected;
+        if (this.selectedDirs.size > 0) return [...this.selectedDirs];
         const focused = this.keyboard.getFocusedEntry();
         return focused ? [focused] : [];
     }
+
+    // Where an entry lies relative to the browse boundary, the path every
+    // file operation takes. In Folders an entry's path already is that.
+    diskPath(path) { return path; }
+
+    // What the wastebin needs beyond the path to delete an entry later: a
+    // library photo's library and ID, where the pane knows them.
+    wastebinMeta(path) { return this.getLibraryMeta?.(path) ?? null; }
 
     // Home is the top of wherever you are: the folder the server was started
     // with (or the OS home) while browsing the filesystem, and the library's

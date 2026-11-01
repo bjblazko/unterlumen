@@ -146,7 +146,7 @@ func deleteLibraryPhoto(mgr *lib.Manager) http.HandlerFunc {
 			writeJSON(w, map[string]any{"file": pathHint, "success": false, "error": err.Error()})
 			return
 		}
-		os.Remove(media.SidecarPath(pathHint)) //nolint:errcheck
+		media.RemoveSidecar(pathHint) //nolint:errcheck
 
 		_, thumbPath, err := store.DeletePhotoByID(photoID)
 		if err != nil {

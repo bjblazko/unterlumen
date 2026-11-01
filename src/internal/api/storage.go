@@ -96,6 +96,39 @@ func handleStorageLimit(libMgr *library.Manager) http.HandlerFunc {
 	}
 }
 
+// handleStorageRemove removes the face models, the things models or ONNX
+// Runtime from the data folder. Each is downloaded again from People or
+// Statistics.
+func handleStorageRemove(libMgr *library.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Part string `json:"part"`
+		}
+		json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck
+		if libMgr == nil {
+			http.Error(w, "This installation has no data folder.", http.StatusNotFound)
+			return
+		}
+		remove := map[string]func() error{
+			"recognition": libMgr.RemoveRecognition,
+			"things":      libMgr.RemoveThings,
+			"runtime":     libMgr.RemoveRuntime,
+		}[body.Part]
+		if remove == nil {
+			http.Error(w, "Say what to remove: recognition, things or runtime.", http.StatusBadRequest)
+			return
+		}
+		switch err := remove(); {
+		case errors.Is(err, library.ErrModelsBusy), errors.Is(err, library.ErrRuntimeNeeded):
+			http.Error(w, err.Error(), http.StatusConflict)
+		case err != nil:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}
+}
+
 // handleStorageReveal opens the cache or the data folder in the file
 // manager of the computer the app runs on — only the installed app, whose
 // computer is the owner's.

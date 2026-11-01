@@ -1,11 +1,21 @@
 # Changelog
 
-*Last modified: 2026-10-31*
+*Last modified: 2026-11-01*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Folders can be renamed and marked for deletion.** Select a folder in Folders, Organize or a library, and the selection bar's **Rename…** and **Mark for deletion** take it; Rename takes one folder at a time and says so when several are selected. A renamed folder's photos keep what their library knew of them: faces, things, notes. A library's own folder, or one holding a library, is neither renamed nor deleted, and the reason is given.
+- **A folder a delete leaves empty is offered for removal.** After deleting in Marked for deletion, the place names each folder that is now empty (files a system leaves, like .DS_Store, do not count) and asks: **Keep it** or **Remove folder**. A folder that received something in the meantime stays.
+
+### Changed
+- **Settings → Storage: the data folder can be tidied, not only read.** Each library has **Delete library…** in its row, asked in place as in the library's own dialog; the photos are not touched. Face recognition and Things have **Remove…**: the faces, names and things found stay, and People and Statistics download the models again. ONNX Runtime can be removed once neither needs it. Destination output stays, since Galleries is read from it, and its row says so. Every library's row used to repeat "Thumbnails, faces and the index of this library" and a link to Libraries; the sentence now stands once above the rows, and a row's name leads to its place. The sizes stand in one column.
+
 ### Fixed
+- **Deleting a photo in Folders left its XMP sidecar behind.** It now goes with the photo, unless a file of the same name, a RAW beside its JPEG or a Live Photo's video, still uses it. Deleting a library photo removed the sidecar even then; it now keeps it too.
+- **A folder in a library marked with Backspace could delete the wrong folder.** Its path relative to the library was sent as if it were relative to the folder Unterlumen serves, which names another folder of the same name, or none. A library's folder is now deleted by where it lies on disk.
+- **Moving or copying a folder into a library lost what the library knew of its photos.** The folder went to the index as one file; its photos are now moved one by one, keeping their faces, things and notes.
 - **Duplicates named no library it could not reach.** A library whose disk or NAS was not connected was left out without a word, so the place could say "No duplicates" while it had not looked. It now names those libraries above the groups.
 
 ## [0.22.0] - 2026-10-31

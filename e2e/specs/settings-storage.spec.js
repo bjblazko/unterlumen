@@ -25,13 +25,13 @@ test.describe('Settings: Storage', () => {
 
     await page.goto('/#settings');
     await waitForAppReady(page);
-    const previews = page.locator('.storage-row[data-segment="thumbnails"]');
+    const previews = page.locator('.storage-row[data-part="thumbnails"]');
     await expect(previews.locator('.storage-label')).toHaveText('Previews');
     await expect(previews.locator('.storage-hint')).toContainText('Made again as you browse');
     await previews.getByRole('button', { name: 'Clear' }).click();
     await previews.locator('.storage-confirm').getByRole('button', { name: 'Clear' }).click();
-    await expect(page.locator('.storage-row[data-segment="thumbnails"] .storage-size')).toHaveText('0 KB');
-    await expect(page.locator('.storage-row[data-segment="thumbnails"] .storage-clear')).toHaveCount(0);
+    await expect(page.locator('.storage-row[data-part="thumbnails"] .storage-size')).toHaveText('0 KB');
+    await expect(page.locator('.storage-row[data-part="thumbnails"] .storage-clear')).toHaveCount(0);
   });
 
   test('the limit is chosen and kept', async ({ page, request }) => {
@@ -49,5 +49,33 @@ test.describe('Settings: Storage', () => {
     await expect(field).toContainText('Only for Folders');
     await expect(field.locator('.toggle')).toContainText('Fast');
     await expect(field.locator('.toggle')).toContainText('Sharp');
+  });
+
+  // Each library's row is its name, which leads to it, and Delete library…,
+  // asked in the row. What a library keeps is said once, not on each row.
+  test('a library is deleted from its row in the data folder', async ({ page, request }) => {
+    const res = await request.post('/api/library/', { data: { name: 'E2E Storage delete', description: '', sourcePath: 'folder-b' } });
+    expect(res.status()).toBe(201);
+    const id = (await res.json()).id;
+    try {
+      await page.goto('/#settings');
+      await waitForAppReady(page);
+      const row = page.locator(`.storage-row[data-part="library:${id}"]`);
+      await expect(row.locator('.library-link')).toHaveText('E2E Storage delete');
+      await expect(row.locator('.storage-hint')).toHaveCount(0);
+
+      await row.getByRole('button', { name: 'Delete library…' }).click();
+      await expect(row.locator('.storage-confirm')).toContainText('The photos in');
+      await row.locator('.storage-confirm').getByRole('button', { name: 'Delete library' }).click();
+      await expect(page.locator(`.storage-row[data-part="library:${id}"]`)).toHaveCount(0);
+      const libs = await (await request.get('/api/library/')).json();
+      expect(libs.some(l => l.id === id)).toBe(false);
+    } finally {
+      await request.delete(`/api/library/${id}`).catch(() => {});
+    }
+  });
+
+  test('removing a model part says what it needs', async ({ request }) => {
+    expect((await request.post('/api/storage/remove', { data: { part: 'everything' } })).status()).toBe(400);
   });
 });

@@ -345,7 +345,8 @@ class OrganizePane {
             Originals.download(this.pane.getSelectedFiles(), this.pane, { dirs: [...this.pane.selectedDirs] });
             return;
         }
-        const files = this.pane.getActionableFiles();
+        if (action === 'rename' && App.renameSelectedFolder(this.pane, () => this._renderPath())) return;
+        const files = this.pane.getActionableFiles().filter(p => !this.pane.selectedDirs.has(p));
         if (!files.length) return;
         const tool = { export: 'export', rename: 'batch-rename', location: 'set-location' }[action];
         if (tool && this.onToolInvoke) this.onToolInvoke({ tool, files, path: this.pane.path });

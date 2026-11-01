@@ -72,6 +72,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	mux.HandleFunc("GET /api/storage", handleStorage(libMgr, setup != nil))
 	mux.HandleFunc("POST /api/storage/clear", handleStorageClear())
 	mux.HandleFunc("PUT /api/storage/limit", handleStorageLimit(libMgr))
+	mux.HandleFunc("POST /api/storage/remove", handleStorageRemove(libMgr))
 	if setup != nil {
 		mux.HandleFunc("POST /api/storage/reveal", handleStorageReveal(libMgr))
 	}

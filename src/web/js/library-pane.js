@@ -158,6 +158,20 @@ class LibraryPane extends BrowsePane {
         return info ? { libID: this._libID, photoID: info.photoID } : null;
     }
 
+    // A library's paths are relative to its folder; on disk the folder lies
+    // somewhere under the boundary. null: outside it, which callers say.
+    diskPath(path) {
+        const abs = `${this._sourcePath.replace(/\/$/, '')}/${path}`;
+        return absPathRelativeToBoundary(abs, App.config?.boundary);
+    }
+
+    // A photo is deleted by its library and ID; a folder by where it is on
+    // disk — never by its library-relative path, which names another
+    // folder under the boundary.
+    wastebinMeta(path) {
+        return this.getLibraryMeta(path) ?? { diskPath: this.diskPath(path) };
+    }
+
     thumbURL(entry, size) {
         const info = this._photoMap.get(this.fullPath(entry.name));
         return info

@@ -539,6 +539,20 @@ const App = {
         if (this.organize) this.organize.reload();
     },
 
+    // leaveRemovedFolders moves Folders and Organize out of folders that
+    // were just removed, to the nearest one left, before they load again.
+    leaveRemovedFolders(removed) {
+        const outside = (path) => {
+            for (const f of removed) {
+                if (path === f || path.startsWith(f + '/')) return dirOf(f);
+            }
+            return path;
+        };
+        this.currentBrowsePath = outside(this.currentBrowsePath);
+        if (this.browsePane) this.browsePane.path = outside(this.browsePane.path);
+        if (this.organize) this.organize.pane.path = outside(this.organize.pane.path);
+    },
+
     // Opens one destination's settings — used by the Galleries screen.
     showDestination(slug) {
         this.setMode('destinations');
@@ -565,6 +579,32 @@ const App = {
 
     markForDeletion(selectedPaths, entries, currentDir) {
         this.wastebin.mark(selectedPaths, entries, currentDir);
+    },
+
+    // markInPane marks paths of a pane for deletion, with what the pane
+    // knows about deleting each (a library photo's ID, a folder's place on
+    // disk).
+    markInPane(pane, paths) {
+        const meta = {};
+        for (const p of paths) {
+            const m = pane.wastebinMeta?.(p);
+            if (m) meta[p] = m;
+        }
+        this.wastebin.mark(paths, pane.entries, pane.path, Object.keys(meta).length ? meta : null);
+        pane.updateMarkedForDeletion();
+    },
+
+    // renameSelectedFolder renames the one folder selected in a pane, if
+    // that is what is selected, and says whether it did.
+    renameSelectedFolder(pane, onDone) {
+        if (pane.getSelectedFiles().length || pane.selectedDirs?.size !== 1) return false;
+        const diskPath = pane.diskPath([...pane.selectedDirs][0]);
+        if (diskPath === null) { this._outsideBoundary(); return true; }
+        openFolderRenameDialog(diskPath, () => {
+            pane.load(pane.path);
+            onDone?.();
+        });
+        return true;
     },
 
     restoreFromWasteBin(paths) {
@@ -711,12 +751,12 @@ const App = {
             Originals.download(files, pane, { dirs: [...(pane.selectedDirs || [])] });
             return;
         }
-        if (!files.length) return;
         if (action === 'mark') {
-            this.markForDeletion(files, pane.entries, pane.path);
-            pane.updateMarkedForDeletion();
+            this.markInPane(pane, pane.getActionableFiles());
             return;
         }
+        if (action === 'rename' && this.renameSelectedFolder(pane)) return;
+        if (!files.length) return;
         const tool = action === 'export' ? 'export'
             : action === 'location' ? 'set-location'
             // Always the batch dialog, even for one photo: it previews the
@@ -850,7 +890,7 @@ const App = {
     },
 
     _outsideBoundary(onDone) {
-        this.showToast(t('This photo\'s folder is outside the folder this installation serves, so it cannot be changed from here.'));
+        this.showToast(t('This is outside the folder this installation serves, so it cannot be changed from here.'));
         if (onDone) onDone();
     },
 

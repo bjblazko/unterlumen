@@ -67,7 +67,7 @@ The folder you are sorting on the left, your target folders on the right with a 
 
 #### Marked for deletion
 
-Marked photos disappear from Folders and libraries but stay on disk until you delete them here, or restore them.
+Marked photos and folders disappear from Folders and libraries but stay on disk until you delete them here, or restore them. A photo goes with its XMP sidecar, unless a RAW or video of the same name still uses it. When deleting empties a folder, Unterlumen asks whether to remove the folder too.
 
 ![Marked for deletion](doc/screenshots/marked.webp)
 
@@ -143,7 +143,7 @@ Every dated photo of every library on one time axis, oldest on the left. The gra
 
 #### Rename, export, location
 
-Tools for a selection: rename from EXIF tokens with a live preview, export to JPEG, PNG or WebP with size and metadata options, and set or remove the location of several photos at once.
+Tools for a selection: rename from EXIF tokens with a live preview, export to JPEG, PNG or WebP with size and metadata options, and set or remove the location of several photos at once. A selected folder is renamed from the same bar; its photos keep what their library knows of them.
 
 | Rename | Export | Location |
 |---|---|---|

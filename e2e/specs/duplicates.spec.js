@@ -2,6 +2,11 @@ import { test, expect } from '@playwright/test';
 import { GPS_PATH, GPS_IMAGE } from '../helpers/fixtures.js';
 import { reindexLibrary } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const PHOTOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'photos');
 
 // Duplicates (ADR-0059): two copies of one photo in one library form a
 // group; marking one and deleting it in Marked for deletion removes that
@@ -84,7 +89,9 @@ test.describe('Duplicates', () => {
         expect(libRes.status()).toBe(201);
         const goneID = (await libRes.json()).id;
         try {
-            await request.post('/api/delete', { data: { files: [gone] } });
+            // Gone behind the app's back, as an unmounted share is: the app
+            // itself refuses to delete a library's folder.
+            fs.rmSync(path.join(PHOTOS, gone), { recursive: true, force: true });
             await page.goto('/#duplicates');
             await waitForAppReady(page);
             await expect(page.locator('.duplicates-place .library-notice'))

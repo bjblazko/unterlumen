@@ -3,8 +3,6 @@ package apilibrary
 import (
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	lib "huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
@@ -45,28 +43,8 @@ func deleteLibraryFile(mgr *lib.Manager) http.HandlerFunc {
 			writeJSON(w, map[string]any{"file": path, "success": false, "error": err.Error()})
 			return
 		}
-		if !sidecarShared(path) {
-			os.Remove(media.SidecarPath(path)) //nolint:errcheck
-		}
+		media.RemoveSidecar(path) //nolint:errcheck
 		mgr.ForgetFiles([]string{path})
 		writeJSON(w, map[string]any{"file": path, "success": true})
 	}
-}
-
-// sidecarShared says whether another file beside path has the same name up
-// to its extension, a RAW beside its JPEG, and so the same sidecar.
-func sidecarShared(path string) bool {
-	stem := strings.TrimSuffix(path, filepath.Ext(path))
-	others, _ := filepath.Glob(globEscape(stem) + ".*")
-	for _, o := range others {
-		if o != path && !strings.EqualFold(filepath.Ext(o), ".xmp") {
-			return true
-		}
-	}
-	return false
-}
-
-// globEscape keeps the characters a pattern reads specially as themselves.
-func globEscape(s string) string {
-	return strings.NewReplacer(`\`, `\\`, "*", `\*`, "?", `\?`, "[", `\[`).Replace(s)
 }

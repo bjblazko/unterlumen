@@ -6926,6 +6926,25 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .wastebin-failures strong { color: var(--warning-ink); }
 .wastebin-failures ul { margin: var(--space-2) 0 0 var(--space-4); }
 
+/* What a delete left empty: asked once, kept or removed. */
+.wastebin-emptied {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-width: 42rem;
+    margin: 0 var(--space-6) var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-2);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+}
+
+.wastebin-emptied p, .wastebin-emptied ul { margin: 0; }
+.wastebin-emptied ul { list-style: none; padding: 0; }
+.wastebin-emptied-path { font-family: var(--font-mono); color: var(--fg); overflow-wrap: anywhere; }
+.wastebin-emptied-error { color: var(--warning-ink); }
+.wastebin-emptied-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
 /* --- Duplicates --- */
 
 .duplicates-place { overflow: auto; }
@@ -7101,10 +7120,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     font-weight: 600;
 }
 
-/* Label, bar, size and action in one line, the sentence under them. */
+/* Label, bar, size and action in one line, the sentence under them. The
+   action column has one width, so the sizes stand in one column whatever
+   button a row has, or none. */
 .storage-row {
     display: grid;
-    grid-template-columns: minmax(8rem, 12rem) 1fr 5rem auto;
+    grid-template-columns: minmax(8rem, 12rem) 1fr 5rem 11rem;
     align-items: center;
     gap: var(--space-1) var(--space-3);
     padding: var(--space-2) 0;
@@ -7135,7 +7156,6 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .storage-head .storage-size { text-align: left; color: var(--fg-2); }
 
 .storage-action .btn { height: var(--control-h-sm); box-sizing: border-box; }
-.storage-action .place-link { font-size: var(--text-sm); color: var(--fg-2); }
 
 .storage-hint {
     grid-column: 1 / -1;

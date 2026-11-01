@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-10-30*
+*Last modified: 2026-11-01*
 
 ## 1. Introduction and Goals
 
@@ -89,7 +89,10 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `/api/copy` | HTTP POST | JSON request/response |
 | `/api/move` | HTTP POST | JSON request/response |
 | `/api/info` | HTTP GET | JSON (file metadata + EXIF) |
-| `/api/delete` | HTTP POST | JSON request/response |
+| `/api/delete` | HTTP POST | JSON request/response — a photo goes with its XMP sidecar unless a file of the same name still uses it; a folder holding a library is refused |
+| `/api/rename` | HTTP POST | JSON `{path, name}` — a file, or a folder whose photos the library index follows; a library's folder is refused |
+| `/api/folders/emptied`, `/api/folders/remove-empty` | HTTP POST | JSON `{folders}` — which folders a delete left empty (only `.DS_Store` and the like), and removing those still empty |
+| `POST /api/storage/remove` | HTTP POST | JSON `{part}` — remove the face models, the things models or ONNX Runtime from the data folder (Settings → Storage) |
 | `/api/browse/dates` | HTTP GET | JSON (deferred EXIF dates for a directory) |
 | `/api/browse/folder-stats` | HTTP GET | JSON (recursive size/count/depth stats for a folder) |
 | `/api/library/{id}/folder-stats` | HTTP GET | JSON (same, resolved against library source path) |

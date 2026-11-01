@@ -163,7 +163,7 @@ class GlobalKeyboard {
         if (app.mode === 'browse' && app.browsePane) {
             if (alwaysPrevent) e.preventDefault();
             if (this._viewerOpen()) return;
-            if (!this._markInPane(app.browsePane, false)) return;
+            if (!this._markInPane(app.browsePane)) return;
             if (!alwaysPrevent) e.preventDefault();
         } else if (app.mode === 'organize' && app.organize) {
             e.preventDefault();
@@ -172,29 +172,21 @@ class GlobalKeyboard {
             e.preventDefault();
             if (this._viewerOpen()) return;
             const pane = app._libraryTab.getActivePaneForKeyboard();
-            if (pane) this._markInPane(pane, true);
+            if (pane) this._markInPane(pane);
         }
     }
 
-    // _markInPane marks a pane's selected files, or its focused one, for
-    // deletion — with their library metadata when asked — and reports whether
-    // there was anything to mark.
-    _markInPane(pane, withLibraryMeta) {
+    // _markInPane marks a pane's selected photos or folders, or its focused
+    // one, for deletion, and reports whether there was anything to mark.
+    _markInPane(pane) {
         const targets = pane.getActionableFiles();
         if (targets.length === 0) return false;
-        let photoMeta = null;
-        if (withLibraryMeta) {
-            const meta = {};
-            for (const path of targets) {
-                const m = pane.getLibraryMeta?.(path);
-                if (m) meta[path] = m;
-            }
-            if (Object.keys(meta).length > 0) photoMeta = meta;
-        }
-        this._app.wastebin.mark(targets, pane.entries, pane.path, photoMeta);
+        this._app.markInPane(pane, targets);
         pane.selection.clear();
+        pane.selectedDirs?.clear();
         pane.updateSelectionClasses();
-        pane.updateMarkedForDeletion();
+        pane._updateDirSelectionClasses?.();
+        pane.onSelectionChange?.([]);
         return true;
     }
 
@@ -245,7 +237,7 @@ class GlobalKeyboard {
         const app = this._app;
         if (app.mode === 'browse' && app.browsePane && !this._viewerOpen()) {
             e.preventDefault();
-            this._markInPane(app.browsePane, false);
+            this._markInPane(app.browsePane);
         } else if (app.mode === 'organize' && app.organize) {
             e.preventDefault();
             app.organize.sendTo('mark');

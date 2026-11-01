@@ -40,6 +40,8 @@ func Handle(mux *http.ServeMux, root string, cache *media.ScanCache, libMgr *lib
 	mux.HandleFunc("/api/mkdir", handleMkdir(root, cache))
 	mux.HandleFunc("/api/rename", handleRename(root, cache, libMgr))
 	mux.HandleFunc("/api/list-recursive", handleListRecursive(root))
+	mux.HandleFunc("/api/folders/emptied", handleEmptiedFolders(root, libMgr))
+	mux.HandleFunc("/api/folders/remove-empty", handleRemoveEmptyFolders(root, cache, libMgr))
 }
 
 func handleDelete(root string, cache *media.ScanCache, libMgr *library.Manager) http.HandlerFunc {
@@ -63,7 +65,7 @@ func handleDelete(root string, cache *media.ScanCache, libMgr *library.Manager) 
 		var results []fileOpResult
 		var deleted []string
 		for _, file := range req.Files {
-			result, dir := deleteEntry(root, file, cache)
+			result, dir := deleteEntry(root, file, cache, libMgr)
 			results = append(results, result)
 			if result.Success && dir != "" {
 				dirsToInvalidate[dir] = struct{}{}
@@ -109,7 +111,7 @@ func triggerLibraryCleanup(libMgr *library.Manager, dirs map[string]struct{}) {
 	}
 }
 
-func deleteEntry(root, file string, cache *media.ScanCache) (fileOpResult, string) {
+func deleteEntry(root, file string, cache *media.ScanCache, libMgr *library.Manager) (fileOpResult, string) {
 	filePath, ok := pathguard.SafePath(root, file)
 	if !ok {
 		return fileOpResult{File: file, Error: "invalid path"}, ""
@@ -121,6 +123,9 @@ func deleteEntry(root, file string, cache *media.ScanCache) (fileOpResult, strin
 	}
 
 	if info.IsDir() {
+		if lib, ok := libraryInside(libMgr, filePath); ok {
+			return fileOpResult{File: file, Error: fmt.Sprintf("this folder holds the library %q; remove the library in Libraries first", lib.Name)}, ""
+		}
 		if err := os.RemoveAll(filePath); err != nil {
 			return fileOpResult{File: file, Error: err.Error()}, ""
 		}
@@ -131,6 +136,7 @@ func deleteEntry(root, file string, cache *media.ScanCache) (fileOpResult, strin
 	if err := os.Remove(filePath); err != nil {
 		return fileOpResult{File: file, Error: err.Error()}, ""
 	}
+	media.RemoveSidecar(filePath) //nolint:errcheck // the photo is gone; a sidecar left over does no harm
 	return fileOpResult{File: file, Success: true}, filepath.Dir(filePath)
 }
 
@@ -224,9 +230,9 @@ func indexArrivals(libMgr *library.Manager, destDir string, done fileOpDone, isM
 	job := ""
 	switch {
 	case inLibrary && isMove:
-		job = libMgr.AddMovedFiles(destLib.ID, movedPairs(done.srcPaths, done.dstPaths))
+		job = libMgr.AddMovedFiles(destLib.ID, filePairs(done.srcPaths, done.dstPaths))
 	case inLibrary:
-		job = libMgr.AddCopiedFiles(destLib.ID, done.dstPaths)
+		job = libMgr.AddCopiedFiles(destLib.ID, arrivedFiles(done.srcPaths, done.dstPaths))
 	}
 	if isMove {
 		if !inLibrary {
@@ -320,9 +326,16 @@ func handleRename(root string, cache *media.ScanCache, libMgr *library.Manager) 
 			return
 		}
 
+		if srcInfo.IsDir() {
+			if lib, ok := libraryInside(libMgr, srcPath); ok {
+				http.Error(w, fmt.Sprintf("This folder holds the library %q. Renamed, the library would lose its photos, so it keeps its name.", lib.Name), http.StatusConflict)
+				return
+			}
+		}
+
 		dstPath := filepath.Join(filepath.Dir(srcPath), req.Name)
 		if _, err := os.Stat(dstPath); err == nil {
-			http.Error(w, "Destination already exists", http.StatusConflict)
+			http.Error(w, "something with that name is already there. Choose another name.", http.StatusConflict)
 			return
 		}
 
@@ -332,6 +345,8 @@ func handleRename(root string, cache *media.ScanCache, libMgr *library.Manager) 
 		}
 		if !srcInfo.IsDir() {
 			media.CarrySidecar(os.Rename, srcPath, dstPath) //nolint:errcheck
+		} else {
+			cache.InvalidatePrefix(srcPath)
 		}
 		parentDir := filepath.Dir(srcPath)
 		cache.Invalidate(parentDir)
@@ -341,10 +356,10 @@ func handleRename(root string, cache *media.ScanCache, libMgr *library.Manager) 
 		// a directory rename needs a folder-scoped cleanup to purge the old
 		// path_hint rows, since IndexFilesSync only indexes individual files.
 		if libMgr != nil {
-			if !srcInfo.IsDir() {
-				if lib, ok := libMgr.FindLibraryForPath(dstPath); ok {
-					libMgr.IndexFilesSync(lib.ID, []string{dstPath})
-				}
+			if srcInfo.IsDir() {
+				reindexRenamedFolder(libMgr, srcPath, dstPath)
+			} else if lib, ok := libMgr.FindLibraryForPath(dstPath); ok {
+				libMgr.IndexFilesSync(lib.ID, []string{dstPath})
 			}
 			triggerLibraryCleanup(libMgr, map[string]struct{}{parentDir: {}})
 		}
@@ -531,11 +546,11 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// movedPairs pairs each moved file's old path with its new one.
-func movedPairs(srcPaths, dstPaths []string) [][2]string {
-	pairs := make([][2]string, len(srcPaths))
-	for i := range srcPaths {
-		pairs[i] = [2]string{srcPaths[i], dstPaths[i]}
+// arrivedFiles lists the files a copy brought, a folder by its photos.
+func arrivedFiles(srcPaths, dstPaths []string) []string {
+	var files []string
+	for _, p := range filePairs(srcPaths, dstPaths) {
+		files = append(files, p[1])
 	}
-	return pairs
+	return files
 }

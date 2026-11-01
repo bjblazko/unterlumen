@@ -13,9 +13,10 @@ import (
 // LibraryStorage is the room one library's data takes: thumbnails, faces
 // and index together.
 type LibraryStorage struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Bytes int64  `json:"bytes"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	SourcePath string `json:"sourcePath"` // where its photos are, which deleting it leaves alone
+	Bytes      int64  `json:"bytes"`
 }
 
 // DataStorage is the data folder, part by part.
@@ -33,7 +34,7 @@ func (m *Manager) DataStorage() DataStorage {
 	ds := DataStorage{Path: m.root, Libraries: []LibraryStorage{}}
 	if libs, err := m.ListLibraries(); err == nil {
 		for _, l := range libs {
-			ds.Libraries = append(ds.Libraries, LibraryStorage{l.ID, l.Name, folderBytes(m.LibDir(l.ID))})
+			ds.Libraries = append(ds.Libraries, LibraryStorage{l.ID, l.Name, l.SourcePath, folderBytes(m.LibDir(l.ID))})
 		}
 	}
 	ds.Recognition = folderBytes(m.RecognitionDir())

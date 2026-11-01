@@ -1,8 +1,9 @@
 // settings-storage.js — Storage in Settings: what Unterlumen keeps on this
 // computer, part by part, and what each part is for. The cache is copies,
 // made again when needed, so each part of it can be cleared and the whole
-// kept within a limit; the data folder is not, so it is only shown, with a
-// way to where it is looked after.
+// kept within a limit. The data folder is not copies: a library is deleted
+// here as in its own dialog, and the models can be removed, to be
+// downloaded again where they are used.
 
 const STORAGE_CACHE_PARTS = {
     thumbnails: [t('Previews'), t('Small versions of the photos for Folders and the grids. Made again as you browse.')],
@@ -46,8 +47,8 @@ class SettingsStorage {
                     ${this._reveal(s, 'cache')}
                 </div>
                 <span class="settings-cache settings-cache-path">${escapeHtml(s.cache.path)}</span>
-                ${parts.map(p => this._row(STORAGE_CACHE_PARTS[p.id][0], STORAGE_CACHE_PARTS[p.id][1], p.bytes, most,
-                    p.bytes ? `<button type="button" class="btn btn-sm storage-clear" data-segment="${p.id}">${t('Clear')}</button>` : '', p.id)).join('')}
+                ${parts.map(p => this._row(escapeHtml(STORAGE_CACHE_PARTS[p.id][0]), STORAGE_CACHE_PARTS[p.id][1], p.bytes, most,
+                    p.bytes ? `<button type="button" class="btn btn-sm storage-clear">${t('Clear')}</button>` : '', p.id)).join('')}
                 <label class="storage-limit">${t('Keep the cache within')}
                     <select class="btn btn-sm select-btn" id="storage-limit">${this._limitOptions(s.cache.limit)}</select>
                 </label>
@@ -61,34 +62,38 @@ class SettingsStorage {
                     ${this._reveal(s, 'data')}
                 </div>
                 <span class="settings-cache settings-cache-path">${escapeHtml(s.data.path)}</span>
-                <span class="form-hint">${t('Not copies: a library’s thumbnails say where its faces are, its index what was found and given. They are looked after where they belong.')}</span>
-                ${data.map(d => this._row(d.label, d.hint, d.bytes, most, d.link)).join('')}
+                <span class="form-hint">${t('Not copies. Each library keeps its thumbnails, faces and index here: the thumbnails say where its faces are, the index what was found and named. A library’s name leads to it.')}</span>
+                ${data.map(d => this._row(d.labelHTML, d.hint, d.bytes, most, d.action, d.part)).join('')}
             </div>` : ''}`;
         this._wire();
     }
 
+    // A row's name leads to the place that uses it; its button removes it.
+    // What a library keeps is said once above the rows, not on each.
     _dataRows(data) {
-        const rows = data.libraries.map(l => ({
-            label: l.name, bytes: l.bytes,
-            hint: t('Thumbnails, faces and the index of this library.'),
-            link: placeLink('library', 'libraries', t('Libraries')),
-        }));
-        if (data.recognition) rows.push({ label: t('Face recognition'), bytes: data.recognition, hint: t('The two face models.'), link: placeLink('people', 'people', t('People')) });
-        if (data.things) rows.push({ label: t('Things'), bytes: data.things, hint: t('SigLIP 2 and the object detector.'), link: placeLink('statistics', 'statistics', t('Statistics')) });
-        if (data.runtime) rows.push({ label: t('ONNX Runtime'), bytes: data.runtime, hint: t('Runs the face and things models.'), link: '' });
-        if (data.output) rows.push({ label: t('Destination output'), bytes: data.output, hint: t('What destinations built on this computer, ready to publish.'), link: placeLink('destinations', 'destinations', t('Destinations')) });
+        this._libraries = new Map(data.libraries.map(l => [`library:${l.id}`, l]));
+        const remove = (label) => `<button type="button" class="btn btn-sm storage-remove">${label}</button>`;
+        const rows = data.libraries.map(l => ({ labelHTML: libraryLink(l), bytes: l.bytes, hint: '', action: remove(t('Delete library…')), part: `library:${l.id}` }));
+        const runtimeNeeded = data.recognition || data.things;
+        if (data.recognition) rows.push({ labelHTML: placeLink('people', 'people', t('Face recognition')), bytes: data.recognition, hint: t('The two face models.'), action: remove(t('Remove…')), part: 'recognition' });
+        if (data.things) rows.push({ labelHTML: placeLink('statistics', 'statistics', t('Things')), bytes: data.things, hint: t('SigLIP 2 and the object detector.'), action: remove(t('Remove…')), part: 'things' });
+        if (data.runtime) rows.push({ labelHTML: escapeHtml(t('ONNX Runtime')), bytes: data.runtime, hint: runtimeNeeded ? t('Runs the face and things models.') : t('Runs the face and things models; neither is here now.'), action: runtimeNeeded ? '' : remove(t('Remove…')), part: 'runtime' });
+        // The galleries overview is read from the output, so it is not
+        // cleared here; Destinations looks after it.
+        if (data.output) rows.push({ labelHTML: placeLink('destinations', 'destinations', t('Destination output')), bytes: data.output, hint: t('What destinations built on this computer, ready to publish. Galleries are read from it, so it stays.'), action: '', part: '' });
         return rows.sort((a, b) => b.bytes - a.bytes);
     }
 
-    _row(label, hint, bytes, most, action, segment = '') {
+    // labelHTML: the row's name, escaped already — a library's is a link.
+    _row(labelHTML, hint, bytes, most, action, part = '') {
         const width = bytes ? Math.max(0.5, 100 * bytes / most) : 0;
         return `
-            <div class="storage-row"${segment ? ` data-segment="${segment}"` : ''}>
-                <span class="storage-label">${escapeHtml(label)}</span>
+            <div class="storage-row"${part ? ` data-part="${escapeHtml(part)}"` : ''}>
+                <span class="storage-label">${labelHTML}</span>
                 <span class="storage-bar" aria-hidden="true"><span style="width:${width.toFixed(1)}%"></span></span>
                 <span class="storage-size">${readableBytes(bytes)}</span>
                 <span class="storage-action">${action}</span>
-                <span class="storage-hint">${escapeHtml(hint)}</span>
+                ${hint ? `<span class="storage-hint">${escapeHtml(hint)}</span>` : ''}
                 <div class="storage-confirm"></div>
             </div>`;
     }
@@ -109,6 +114,9 @@ class SettingsStorage {
     _wire() {
         for (const btn of this.el.querySelectorAll('.storage-clear')) {
             btn.addEventListener('click', () => this._confirmClear(btn.closest('.storage-row')));
+        }
+        for (const btn of this.el.querySelectorAll('.storage-remove')) {
+            btn.addEventListener('click', () => this._confirmRemove(btn.closest('.storage-row')));
         }
         for (const btn of this.el.querySelectorAll('.storage-reveal')) {
             btn.addEventListener('click', async () => {
@@ -132,26 +140,65 @@ class SettingsStorage {
     // Clearing costs nothing but time, so the question is short — but it is
     // still asked, and asked here rather than in a browser box.
     _confirmClear(row) {
-        const segment = row.dataset.segment;
+        const segment = row.dataset.part;
         const [label] = STORAGE_CACHE_PARTS[segment];
+        this._confirm(row, {
+            question: `${t('Clear {what}?', { what: escapeHtml(label.toLowerCase()) })} ${segment === 'older' ? t('Nothing uses them.') : t('They are made again when needed; the photos are untouched.')}`,
+            keep: t('Keep them'), confirm: t('Clear'), busy: t('Clearing…'),
+            run: () => API.storageClear(segment),
+            failed: t('Could not clear it: {error}'),
+        });
+    }
+
+    // Removing from the data folder says what stays and how it comes back.
+    _confirmRemove(row) {
+        const part = row.dataset.part;
+        const lib = this._libraries.get(part);
+        const ask = lib ? {
+            question: t('Delete “{name}”? This removes the index and its thumbnails. The photos in {folder} are not touched.', { name: escapeHtml(lib.name), folder: escapeHtml(lib.sourcePath) }),
+            keep: t('Keep it'), confirm: t('Delete library'), busy: t('Deleting…'),
+            run: async () => {
+                await LibraryAPI.delete(lib.id);
+                if (App._libraryTab) App._libraryTab._cachedLibs = null;
+                App.refreshLibraryVisibility();
+            },
+            failed: t('Could not delete it: {error}'),
+        } : {
+            question: STORAGE_REMOVE_QUESTIONS[part],
+            keep: t('Keep them'), confirm: t('Remove'), busy: t('Removing…'),
+            run: () => API.storageRemove(part),
+            failed: t('Could not remove it: {error}'),
+        };
+        this._confirm(row, ask);
+    }
+
+    // _confirm asks in the row, runs on yes and measures again; a failure
+    // stays in the row, saying why.
+    _confirm(row, { question, keep, confirm, busy, run, failed }) {
         const wrap = row.querySelector('.storage-confirm');
         wrap.innerHTML = `
-            <p class="gal-danger-question">${t('Clear {what}?', { what: escapeHtml(label.toLowerCase()) })} ${segment === 'older' ? t('Nothing uses them.') : t('They are made again when needed; the photos are untouched.')}</p>
+            <p class="gal-danger-question">${question}</p>
             <div class="gal-danger-actions">
-                <button type="button" class="btn btn-sm storage-keep">${t('Keep them')}</button>
-                <button type="button" class="btn btn-sm btn-danger storage-confirm-btn">${t('Clear')}</button>
+                <button type="button" class="btn btn-sm storage-keep">${keep}</button>
+                <button type="button" class="btn btn-sm btn-danger storage-confirm-btn">${confirm}</button>
             </div>`;
         wrap.querySelector('.storage-keep').addEventListener('click', () => { wrap.innerHTML = ''; });
         wrap.querySelector('.storage-confirm-btn').addEventListener('click', async (e) => {
             wrap.querySelectorAll('button').forEach(b => { b.disabled = true; });
-            Activity.button(e.currentTarget, t('Clearing…'));
+            Activity.button(e.currentTarget, busy);
             try {
-                await API.storageClear(segment);
+                await run();
             } catch (err) {
-                wrap.innerHTML = `<div class="gal-detail-error">${t('Could not clear it: {error}', { error: escapeHtml(err.message) })}</div>`;
+                wrap.innerHTML = `<div class="gal-detail-error">${failed.replace('{error}', escapeHtml(err.message))}</div>`;
                 return;
             }
             this.load();
         });
     }
 }
+
+const STORAGE_REMOVE_QUESTIONS = {
+    recognition: t('Remove the face models? The faces found and the names given stay. New photos are not looked at for faces until the models are downloaded again in People.'),
+    things: t('Remove the things models? What was found stays. New photos are not looked at for things until the models are downloaded again in Statistics.'),
+    runtime: t('Remove ONNX Runtime? Nothing uses it now. People and Statistics download it again with their models.'),
+};

@@ -52,17 +52,24 @@ class Wastebin {
 
     async permanentlyDelete(paths, onRefresh, afterDelete) {
         const filePaths = Array.from(paths);
-
-        const deleteOne = async (file) => {
+        // The folders the deleted photos were in, relative to the boundary:
+        // those left empty are offered for removal afterwards.
+        const folders = new Set();
+        const deleteAndNote = async (file) => {
             const item = this._items.get(file);
-            if (item?.byPath) {
-                return LibraryAPI.deleteFile(item.libID, file);
+            const r = await this._deleteOne(file, item);
+            if (r && (r.success || (r.error && r.error.includes('no such file')))) {
+                this._items.delete(file);
+                const folder = r.success ? folderOfDeleted(file, item, r) : null;
+                if (folder) folders.add(folder);
             }
-            if (item?.libID && item?.photoID) {
-                return LibraryAPI.deletePhoto(item.libID, item.photoID);
-            }
-            const result = await API.delete([file]);
-            return result.results[0];
+            return r;
+        };
+        const finish = async () => {
+            this._updateBadge();
+            this._emptied = await emptiedFolders([...folders]);
+            if (onRefresh) onRefresh();
+            if (afterDelete) afterDelete();
         };
 
         if (filePaths.length > 5) {
@@ -72,20 +79,12 @@ class Wastebin {
                 done: t('Deleted'),
                 action: async (file) => {
                     try {
-                        const r = await deleteOne(file);
-                        if (r && (r.success || (r.error && r.error.includes('no such file')))) {
-                            this._items.delete(file);
-                        }
-                        return r || { success: true };
+                        return (await deleteAndNote(file)) || { success: true };
                     } catch (err) {
                         return { success: false, error: err.message };
                     }
                 },
-                onComplete: () => {
-                    this._updateBadge();
-                    if (onRefresh) onRefresh();
-                    if (afterDelete) afterDelete();
-                },
+                onComplete: finish,
             });
             return;
         }
@@ -93,22 +92,69 @@ class Wastebin {
         const failures = [];
         for (const file of filePaths) {
             try {
-                const r = await deleteOne(file);
-                if (r && (r.success || (r.error && r.error.includes('no such file')))) {
-                    this._items.delete(file);
-                } else if (r) {
+                const r = await deleteAndNote(file);
+                if (r && !r.success && !(r.error && r.error.includes('no such file'))) {
                     failures.push(`${file}: ${r.error}`);
                 }
             } catch (err) {
                 failures.push(`${file}: ${err.message}`);
             }
         }
-        this._updateBadge();
-        if (onRefresh) onRefresh();
-        if (afterDelete) afterDelete();
         // Failures belong on the screen that caused them, not in an alert box
         // the user has to dismiss before seeing what is left.
         this._lastFailures = failures;
+        await finish();
+    }
+
+    // _deleteOne deletes one marked item the way it was marked: a library
+    // photo by its library and ID, a file seen in Duplicates by its path,
+    // a library folder by where it lies on disk, the rest by its path in
+    // Folders.
+    async _deleteOne(file, item) {
+        if (item?.byPath) return LibraryAPI.deleteFile(item.libID, file);
+        if (item?.libID && item?.photoID) return LibraryAPI.deletePhoto(item.libID, item.photoID);
+        if (item && 'diskPath' in item && item.diskPath === null) {
+            return { file, success: false, error: t('it lies outside the folder this installation serves') };
+        }
+        const result = await API.delete([item?.diskPath ?? file]);
+        return result.results[0];
+    }
+
+    // The question after a delete: the folders it left empty, kept or removed.
+    _emptiedHTML() {
+        const folders = this._emptied || [];
+        if (!folders.length) return '';
+        const one = folders.length === 1;
+        const names = folders.map(f => `<li class="wastebin-emptied-path">${escapeHtml(f)}</li>`).join('');
+        return `
+            <div class="wastebin-emptied" role="group" aria-label="${t('Empty folders')}">
+                <p>${one ? t('Deleting left this folder empty:') : t('Deleting left {n} folders empty:', { n: formatCount(folders.length) })}</p>
+                <ul>${names}</ul>
+                ${this._emptiedError ? `<p class="wastebin-emptied-error">${escapeHtml(this._emptiedError)}</p>` : ''}
+                <div class="wastebin-emptied-actions">
+                    <button class="btn btn-sm" id="wb-keep-folders">${one ? t('Keep it') : t('Keep them')}</button>
+                    <button class="btn btn-sm" id="wb-remove-folders">${one ? t('Remove folder') : t('Remove {n} folders', { n: formatCount(folders.length) })}</button>
+                </div>
+            </div>`;
+    }
+
+    _attachEmptied(containerEl, onRefresh) {
+        containerEl.querySelector('#wb-keep-folders')?.addEventListener('click', () => {
+            this._emptied = [];
+            this._emptiedError = '';
+            this.render(containerEl, onRefresh);
+        });
+        containerEl.querySelector('#wb-remove-folders')?.addEventListener('click', async (e) => {
+            Activity.button(e.currentTarget, 'Removing…');
+            const failed = await removeEmptied(this._emptied);
+            App.leaveRemovedFolders(this._emptied.filter(f => !failed.some(x => x.file === f)));
+            // A folder that could not be removed stays in the question, and
+            // the question says why.
+            this._emptied = failed.map(f => f.file);
+            this._emptiedError = failed.map(f => t('{folder} was not removed: {err}.', { folder: f.file, err: f.error })).join(' ');
+            if (onRefresh) onRefresh();
+            this.render(containerEl, onRefresh);
+        });
     }
 
     _updateBadge() {
@@ -128,13 +174,15 @@ class Wastebin {
             containerEl.innerHTML = `
                 <div class="browse-container">
                     ${placeHeaderHTML({ title: t('Marked for deletion') })}
+                    ${this._emptiedHTML()}
                     <div class="wastebin-empty-box">
                         <strong>${t('Nothing marked')}</strong>
-                        <span>${t('Select photos in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.')}</span>
+                        <span>${t('Select photos or folders in Folders or a library and press Backspace to mark them. They stay on disk until you delete them here.')}</span>
                         <div><button class="btn" id="wb-go-folders">${t('Go to Folders')}</button></div>
                     </div>
                 </div>`;
             containerEl.querySelector('#wb-go-folders').addEventListener('click', () => App.setMode('browse'));
+            this._attachEmptied(containerEl, onRefresh);
             return;
         }
 
@@ -157,7 +205,8 @@ class Wastebin {
             <div class="wastebin-failures">
                 <strong>${this._lastFailures.length === 1 ? t('1 file could not be deleted') : t('{n} files could not be deleted', { n: formatCount(this._lastFailures.length) })}</strong>
                 <ul>${this._lastFailures.map(f => `<li>${f}</li>`).join('')}</ul>
-            </div>` : ''}`;
+            </div>` : ''}
+            ${this._emptiedHTML()}`;
         const actions = '';
 
         const gridItems = items.map(([path, entry], idx) => {
@@ -190,6 +239,7 @@ class Wastebin {
         });
         select.update(selectedCount, items.length);
         containerEl.querySelector('.wastebin-select').appendChild(select.el);
+        this._attachEmptied(containerEl, onRefresh);
 
         containerEl.querySelector('#wb-restore').addEventListener('click', () => {
             const paths = this.selected.size > 0 ? new Set(this.selected) : new Set(items.map(([path]) => path));
@@ -267,4 +317,35 @@ function describeDeletion(total, dirs) {
     if (files) parts.push(`${files} photo${files !== 1 ? 's' : ''}`);
     if (dirs) parts.push(`${dirs} folder${dirs !== 1 ? 's' : ''}`);
     return parts.join(' and ') || `${total} items`;
+}
+
+
+// folderOfDeleted says which folder a deleted photo was in, relative to the
+// boundary, or null for a deleted folder or one outside it. A library
+// answers with the absolute path it deleted; Folders with the path given.
+function folderOfDeleted(file, item, result) {
+    if (item?.type === 'dir') return null;
+    if (result.file?.startsWith('/')) return absPathRelativeToBoundary(dirOf(result.file), App.config?.boundary) || null;
+    return dirOf(item?.diskPath ?? file) || null;
+}
+
+// emptiedFolders asks which of the folders are empty now. Asking is a
+// courtesy: when it fails, nothing is offered.
+async function emptiedFolders(folders) {
+    if (!folders.length) return [];
+    try {
+        return await API.emptiedFolders(folders);
+    } catch {
+        return [];
+    }
+}
+
+// removeEmptied removes the folders and returns those it could not, with why.
+async function removeEmptied(folders) {
+    try {
+        const resp = await API.removeEmptyFolders(folders);
+        return resp.results.filter(r => !r.success);
+    } catch (err) {
+        return folders.map(f => ({ file: f, error: err.message.trim() }));
+    }
 }

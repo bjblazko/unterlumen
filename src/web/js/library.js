@@ -482,12 +482,12 @@ class LibraryTab {
             Originals.download(files, pane, { dirs: [...(pane.selectedDirs || [])], sourcePath });
             return;
         }
-        if (!files.length) return;
         if (action === 'mark') {
-            App.markForDeletion(files, pane.entries, pane.path);
-            pane.updateMarkedForDeletion();
+            App.markInPane(pane, pane.getActionableFiles());
             return;
         }
+        if (action === 'rename' && App.renameSelectedFolder(pane)) return;
+        if (!files.length) return;
         const tool = LIBRARY_SELECTION_TOOLS[action];
         if (tool) App.handleToolInvoke({ tool, files, path: pane.path, sourcePath });
     }

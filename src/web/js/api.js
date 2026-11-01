@@ -198,6 +198,28 @@ const API = {
         return resp.json();
     },
 
+    // Which of the folders (relative to the boundary) a delete left empty,
+    // and removing those that still are.
+    async emptiedFolders(folders) {
+        const resp = await fetch('/api/folders/emptied', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folders }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return (await resp.json()).empty || [];
+    },
+
+    async removeEmptyFolders(folders) {
+        const resp = await fetch('/api/folders/remove-empty', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folders }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     async listRecursive(path) {
         const resp = await fetch('/api/list-recursive', {
             method: 'POST',
@@ -245,6 +267,11 @@ const API = {
 
     async storageLimit(bytes) {
         await apiSend('PUT', '/api/storage/limit', { bytes });
+    },
+
+    // part: 'recognition', 'things' or 'runtime'.
+    async storageRemove(part) {
+        await apiSend('POST', '/api/storage/remove', { part });
     },
 
     async storageReveal(folder) {
