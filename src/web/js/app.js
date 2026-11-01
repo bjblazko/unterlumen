@@ -952,7 +952,7 @@ const App = {
 // The library jobs a folder's menu can start: what the toast calls them and
 // the LibraryAPI method that runs them.
 const LIBRARY_TOOLS = {
-    'lib-scan-new':      { label: t('Scanning'), run: 'scanNew' },
+    'lib-match':         { label: t('Matching the index with'), run: 'matchFolder' },
     'lib-reindex':       { label: t('Indexing'), run: 'reindex' },
     'lib-cleanup':       { label: t('Checking'), run: 'cleanup' },
     'lib-regen-missing': { label: t('Generating missing previews for'), run: 'regenMissingPreviews' },

@@ -245,6 +245,28 @@ const LibraryAPI = {
     rebuildAllPreviews(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'regen-previews-all', onProgress, subfolder); },
     analyseAgain(id, onProgress, subfolder) { return LibraryAPI._libraryJob(id, 'analyse', onProgress, subfolder); },
     scanNew(id, onProgress, subfolder, signal) { return LibraryAPI._libraryJob(id, 'scan-new', onProgress, subfolder, signal); },
+    // The jobs that make the index match its folder: new photos added, those
+    // whose files are gone dropped (a photo moved or renamed inside keeps
+    // what is known of it), missing previews made. Each with its words.
+    matchSteps() {
+        return [['scanNew', t('Scanning')], ['cleanup', t('Checking for photos that are gone')], ['regenMissingPreviews', t('Making missing previews')]];
+    },
+    // matchFolder runs matchSteps one after the other, for the library or
+    // one of its folders. Each progress event carries its job's words as
+    // step; only the last job's end is finished, and a failed job ends it.
+    async matchFolder(id, onProgress, subfolder) {
+        const steps = LibraryAPI.matchSteps();
+        for (const [i, [job, step]] of steps.entries()) {
+            const last = i === steps.length - 1;
+            let failed = false;
+            await LibraryAPI[job](id, (p) => {
+                if (p.error) failed = true;
+                if (p.finished && !p.error && !last) return;
+                onProgress({ ...p, step });
+            }, subfolder);
+            if (failed) return;
+        }
+    },
     // _libraryJob starts a job on a library, or on one of its folders, and
     // reports each progress event. It resolves when the job says it finished
     // or the stream ends — or when signal ends the watching: the job itself

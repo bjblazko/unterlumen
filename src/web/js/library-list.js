@@ -80,8 +80,8 @@ class LibraryList {
             this._loadFilmstrip(strip, lib.id);
         }
         card.querySelector('.lib-open').addEventListener('click', () => this.tab._openLibrary(lib));
-        card.querySelector('.lib-scan-new').addEventListener('click',
-            () => this._runScan(lib, card, (id, cb) => LibraryAPI.scanNew(id, cb), t('Scanning')));
+        card.querySelector('.lib-match').addEventListener('click',
+            () => this._runScan(lib, card, (id, cb) => LibraryAPI.matchFolder(id, cb), t('Scanning')));
         return card;
     }
 
@@ -95,7 +95,7 @@ class LibraryList {
                 ${lib.description ? `<span class="library-card-desc">${escapeHtml(lib.description)}</span>` : ''}
             </button>
             <div class="library-card-actions">
-                <button class="btn btn-sm lib-scan-new">${t('Scan for new photos')}</button>
+                <button class="btn btn-sm lib-match">${t('Match with the folder')}</button>
                 <span class="library-card-indexed">${lib.lastIndexed ? t('Indexed {day}', { day: formatDay(lib.lastIndexed) }) : t('Never indexed')}</span>
             </div>`;
     }
@@ -118,10 +118,10 @@ class LibraryList {
             card.querySelector('.library-card-actions').appendChild(host);
         }
         const activity = Activity.in(host, `${label}…`);
-        const scanBtns = card.querySelectorAll('.lib-scan-new');
+        const scanBtns = card.querySelectorAll('.lib-match');
         scanBtns.forEach(b => { b.disabled = true; });
         try {
-            await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${label}…`));
+            await scanFn(lib.id, (p) => showLibraryProgress(activity, p, `${p.step || label}…`));
             if (signal?.aborted) return; // the card is gone
             const updated = await LibraryAPI.get(lib.id);
             card.querySelector('.library-card-count').textContent = libraryCountText(updated);

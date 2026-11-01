@@ -44,10 +44,10 @@ class LibraryDialogs {
                 <div class="library-dialog-field">
                     <span class="library-dialog-label">${t('Maintenance')}</span>
                     <div class="lib-maint-actions" id="lib-edit-maint-actions">
-                        <button class="btn btn-sm" data-maint="scan">${t('Scan for new photos')}</button>
+                        <button class="btn btn-sm" data-maint="match">${t('Match with the folder')}</button>
                         <button class="btn btn-sm" data-maint="again">${t('Read everything again…')}</button>
                     </div>
-                    <span class="form-hint">${t('Scanning adds new photos, drops those whose files are gone and makes missing previews. Reading everything again reads every photo anew — details, previews, colours and faces — for when they look wrong; it takes as long as the first scan.')}</span>
+                    <span class="form-hint">${t('Matching with the folder adds new photos, drops those whose files are gone and makes missing previews; a photo moved or renamed inside the folder keeps what is known of it. Reading everything again reads every photo anew — details, previews, colours and faces — for when they look wrong; it takes as long as the first scan.')}</span>
                     <p class="lib-maint-confirm" hidden>${t('Read every photo of {name} again? This takes as long as its first scan; the library stays usable meanwhile.', { name: escapeHtml(lib.name) })}
                         <button class="btn btn-sm" data-maint-confirm="no">${t('Cancel')}</button>
                         <button class="btn btn-sm" data-maint-confirm="yes">${t('Read everything again')}</button></p>
@@ -140,7 +140,7 @@ class LibraryDialogs {
         const buttons = [...actions.querySelectorAll('[data-maint]')];
         // Each button is a few library jobs, one after the other.
         const steps = {
-            scan: [['scanNew', t('Scanning')], ['cleanup', t('Checking for photos that are gone')], ['regenMissingPreviews', t('Making missing previews')]],
+            match: LibraryAPI.matchSteps(),
             again: [['reindex', t('Reading every photo')], ['analyseAgain', t('Analysing')]],
         };
         const run = async (which) => {
@@ -168,7 +168,7 @@ class LibraryDialogs {
                 buttons.forEach(b => { b.disabled = false; });
             }
         };
-        actions.querySelector('[data-maint="scan"]').addEventListener('click', () => run('scan'));
+        actions.querySelector('[data-maint="match"]').addEventListener('click', () => run('match'));
         actions.querySelector('[data-maint="again"]').addEventListener('click', () => { confirm.hidden = false; });
         confirm.addEventListener('click', (e) => {
             const answer = e.target.closest('[data-maint-confirm]')?.dataset.maintConfirm;

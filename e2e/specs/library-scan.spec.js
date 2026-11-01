@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { libraryMenu } from '../helpers/library.js';
+import { libraryMenu, reindexLibrary } from '../helpers/library.js';
 import { waitForAppReady } from '../helpers/wait.js';
+import { GPS_PATH, GPS_IMAGE, NO_GPS_PATH } from '../helpers/fixtures.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const PHOTOS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'photos');
 
 // Tests for the five library scan operations:
 //   scan-new, reindex, regen-previews-missing, regen-previews-all, cleanup
@@ -68,7 +74,7 @@ test.describe('Library scan operations', () => {
 
     // ── Library card UI ──────────────────────────────────────────────────────
 
-    test('library row offers Scan for new photos and the indexed date', async ({ page }) => {
+    test('library row offers Match with the folder and the indexed date', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -77,7 +83,7 @@ test.describe('Library scan operations', () => {
         const card = page.locator('.library-card', { hasText: 'E2E Scan Ops' });
         await expect(card).toBeVisible({ timeout: 8_000 });
 
-        await expect(card.locator('.lib-scan-new')).toContainText('Scan for new photos');
+        await expect(card.locator('.lib-match')).toContainText('Match with the folder');
         await expect(card.locator('.library-card-indexed')).toContainText('Indexed');
 
         // The rarer maintenance runs are not on the row any more.
@@ -103,14 +109,14 @@ test.describe('Library scan operations', () => {
 
         const actions = dialog.locator('#lib-edit-maint-actions');
         // Two runs cover what six buttons did (ADR-0053).
-        await expect(actions.locator('[data-maint]')).toHaveText(['Scan for new photos', 'Read everything again…']);
+        await expect(actions.locator('[data-maint]')).toHaveText(['Match with the folder', 'Read everything again…']);
 
         await dialog.locator('#lib-edit-cancel').click();
     });
 
     // ── Scanning the folder you have open ────────────────────────────────────
 
-    test('a library folder offers Scan for new photos in its ⋯ menu', async ({ page }) => {
+    test('a library folder offers Match with the folder in its ⋯ menu', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
         await page.locator('#mode-library').click();
@@ -121,8 +127,54 @@ test.describe('Library scan operations', () => {
         await page.waitForSelector('#lib-pane', { timeout: 8_000 });
 
         await page.locator('#lib-pane .menu-btn').click();
-        await expect(page.locator('.menu [data-id="scan"]')).toHaveText('Scan for new photos');
+        await expect(page.locator('.menu [data-id="match"]')).toHaveText('Match with the folder');
         // A library is already a library.
         await expect(page.locator('.menu [data-id="make-library"]')).toHaveCount(0);
+    });
+});
+
+// Match with the folder, on a library's row, does what it does in Edit
+// library: a photo deleted outside the app (Finder, a shell) leaves the
+// index, and one renamed outside keeps its place in it. The row's button
+// once only added new photos, so a deleted photo stayed.
+test.describe('Match with the folder', () => {
+    const FOLDER = 'e2e-match-folder';
+    let libID;
+
+    test.beforeAll(async ({ request }) => {
+        const existing = await (await request.get('/api/library/')).json();
+        await Promise.all(existing.filter(l => l.name === 'E2E Match').map(l => request.delete(`/api/library/${l.id}`)));
+        fs.rmSync(path.join(PHOTOS, FOLDER), { recursive: true, force: true });
+        expect((await request.post('/api/mkdir', { data: { path: FOLDER } })).status()).toBe(200);
+        expect((await request.post('/api/copy', { data: { files: [GPS_PATH, NO_GPS_PATH], destination: FOLDER } })).status()).toBe(200);
+        const res = await request.post('/api/library/', { data: { name: 'E2E Match', description: '', sourcePath: FOLDER } });
+        expect(res.status()).toBe(201);
+        libID = (await res.json()).id;
+        await reindexLibrary(request, libID);
+    });
+
+    test.afterAll(async ({ request }) => {
+        if (libID) await request.delete(`/api/library/${libID}`);
+        fs.rmSync(path.join(PHOTOS, FOLDER), { recursive: true, force: true });
+    });
+
+    test('the row drops a photo deleted outside and follows one renamed outside', async ({ page, request }) => {
+        const before = await (await request.get(`/api/library/${libID}/photos?limit=10`)).json();
+        expect(before.photos).toHaveLength(2);
+        const dir = path.join(PHOTOS, FOLDER);
+        fs.rmSync(path.join(dir, GPS_IMAGE));
+        const kept = before.photos.find(p => p.filename !== GPS_IMAGE);
+        fs.renameSync(path.join(dir, kept.filename), path.join(dir, `renamed-${kept.filename}`));
+
+        await page.goto('/#library');
+        await waitForAppReady(page);
+        const card = page.locator('.library-card', { hasText: 'E2E Match' });
+        await card.locator('.lib-match').click();
+        await expect(card.locator('.library-card-count')).toContainText('1 photo', { timeout: 30_000 });
+
+        await expect.poll(async () => {
+            const after = await (await request.get(`/api/library/${libID}/photos?limit=10`)).json();
+            return after.photos.map(p => [p.id, p.filename]);
+        }, { timeout: 30_000 }).toEqual([[kept.id, `renamed-${kept.filename}`]]);
     });
 });

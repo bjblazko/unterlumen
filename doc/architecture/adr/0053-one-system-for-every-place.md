@@ -1,6 +1,6 @@
 # ADR-0053: One system for every place
 
-*Last modified: 2026-10-24*
+*Last modified: 2026-11-01*
 
 ## Status
 
@@ -70,8 +70,10 @@ Timeline takes its span from the filter's Taken and draws one band.
 2026-10-21", with a note where something is left: "built, upload missing"
 in the warning colour. The time colour means time passing and nothing else.
 
-**Rare tools are few.** A library's maintenance is Scan for new photos and
-Read everything again…; the cache is cleared in Settings only; the viewer
+**Rare tools are few.** A library's maintenance is Match with the folder
+(new photos added, gone ones dropped, missing previews made — the same on
+the library's row, in Edit library and in a folder's ⋯) and Read everything
+again…; the cache is cleared in Settings only; the viewer
 keeps Back, the zoom, Crop, Mark for deletion and ⋯ in view, and the film
 strip, full screen and the download in ⋯.
 

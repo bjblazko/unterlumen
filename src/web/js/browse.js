@@ -744,7 +744,7 @@ class BrowsePane {
             items.push({ id: 'make-library', label: t('Make library…'), onSelect: () => this._runFolderTool('make-library') });
         }
         if (App.mode === 'library') {
-            items.push({ id: 'scan', label: t('Scan for new photos'), onSelect: () => this._runFolderTool('lib-scan-new') });
+            items.push({ id: 'match', label: t('Match with the folder'), onSelect: () => this._runFolderTool('lib-match') });
         }
         return items;
     }
@@ -756,7 +756,7 @@ class BrowsePane {
             if (dir) this.onToolInvoke({ tool, path: dir });
             return;
         }
-        if (tool === 'lib-scan-new') {
+        if (tool === 'lib-match') {
             const scanPaths = this.selectedDirs.size > 0 ? Array.from(this.selectedDirs) : [this.path];
             const doNext = (i) => {
                 if (i >= scanPaths.length) return;
