@@ -1,14 +1,45 @@
-// metadata-form.js — the fields of the metadata editor (ADR-0060): title,
-// description, creator, rights and rating, and the keywords. Each shows what
-// the chosen files say, with where it came from; a field whose files differ
-// says "Several values" and is left as it is until it is changed. Only what
-// is changed is written.
+// metadata-form.js — the fields of the metadata editor (ADR-0060, ADR-0061),
+// in groups that fold: the date taken; title, description, keywords,
+// creator, copyright and rating; the IPTC fields of where, the event, origin
+// and rights, and who and what is shown; and own fields. Each shows what the
+// chosen files say, with where it came from; a field whose files differ says
+// "Several values" and is left as it is until it is changed. Only what is
+// changed is written. A group that is empty in every file starts folded.
 
-const META_TEXT_FIELDS = [
-    ['title', 'Title'],
-    ['description', 'Description'],
-    ['creator', 'Creator'],
-    ['rights', 'Copyright'],
+const META_GROUPS = [
+    { id: 'date', title: 'Date taken', date: true },
+    { id: 'description', title: 'Description', fields: [
+        { field: 'title', label: 'Title' },
+        { field: 'description', label: 'Description', kind: 'textarea' },
+        { field: 'keywords', label: 'Keywords', kind: 'keywords' },
+        { field: 'creator', label: 'Creator' },
+        { field: 'rights', label: 'Copyright' },
+        { field: 'rating', label: 'Rating', kind: 'rating' },
+    ] },
+    { id: 'location', title: 'Location', fields: [
+        { field: 'sublocation', label: 'Sublocation' },
+        { field: 'city', label: 'City' },
+        { field: 'state', label: 'Province or state' },
+        { field: 'country', label: 'Country' },
+        { field: 'countryCode', label: 'Country code', kind: 'mono' },
+    ] },
+    { id: 'event', title: 'Event and headline', fields: [
+        { field: 'headline', label: 'Headline' },
+        { field: 'event', label: 'Event' },
+    ] },
+    { id: 'origin', title: 'Origin and rights', fields: [
+        { field: 'credit', label: 'Credit line' },
+        { field: 'source', label: 'Source' },
+        { field: 'usageTerms', label: 'Usage terms', kind: 'textarea' },
+        { field: 'webStatement', label: 'Web statement of rights', kind: 'mono' },
+        { field: 'instructions', label: 'Instructions', kind: 'textarea' },
+        { field: 'jobId', label: 'Job ID', kind: 'mono' },
+    ] },
+    { id: 'shown', title: 'Shown', fields: [
+        { field: 'personShown', label: 'People shown', kind: 'list' },
+        { field: 'organisationShown', label: 'Organisations shown', kind: 'list' },
+    ] },
+    { id: 'own', title: 'Own fields', own: true },
 ];
 
 const META_SOURCES = {
@@ -18,10 +49,9 @@ const META_SOURCES = {
     'file name': 'the file name',
 };
 
-const META_FIELD_NAMES = {
-    dateTaken: 'Date taken', title: 'Title', description: 'Description',
-    creator: 'Creator', rights: 'Copyright', rating: 'Rating',
-};
+// The name of each field, for the preview.
+const META_FIELD_NAMES = Object.fromEntries([['dateTaken', 'Date taken'], ['own', 'Own fields'],
+    ...META_GROUPS.flatMap(g => (g.fields || []).map(f => [f.field, f.label]))]);
 
 // What the files say about one field: the value when they agree, and where
 // it came from.
@@ -38,36 +68,109 @@ function metaSourceText(sources) {
     return t('from {source}', { source: t(META_SOURCES[sources[0]] || sources[0]) });
 }
 
+// splitList splits "Ann; Bob", a list field's value, into its entries.
+function splitList(v) {
+    return (v || '').split(';').map(e => e.trim()).filter(Boolean);
+}
+
 class MetadataForm {
     // onChange runs after every edit; change() gives what is to be written.
     constructor(el, states, { onChange }) {
         this.el = el;
         this.states = states;
-        this.onChange = onChange;
+        this.onChange = () => { this._updateGroups(); onChange(); };
         this.edits = {};
-        this.keywordsAdd = [];
-        this.keywordsRemove = new Set();
+        this.lists = {};
         this.render();
     }
 
     change() {
         const change = {};
         if (Object.keys(this.edits).length) change.set = { ...this.edits };
-        if (this.keywordsAdd.length) change.keywordsAdd = [...this.keywordsAdd];
-        if (this.keywordsRemove.size) change.keywordsRemove = [...this.keywordsRemove];
+        const kw = this.lists.keywords;
+        if (kw.added.length) change.keywordsAdd = [...kw.added];
+        if (kw.removed.size) change.keywordsRemove = [...kw.removed];
+        for (const [field, chips] of Object.entries(this.lists)) {
+            if (field === 'keywords') continue;
+            if (chips.added.length) (change.add ||= {})[field] = [...chips.added];
+            if (chips.removed.size) (change.remove ||= {})[field] = [...chips.removed];
+        }
+        const own = this.own.change();
+        if (own) change.own = own;
         return change;
     }
 
     changedFields() {
-        return Object.keys(this.edits);
+        const fields = Object.keys(this.edits);
+        for (const [field, chips] of Object.entries(this.lists)) if (field !== 'keywords' && chips.isChanged()) fields.push(field);
+        if (this.own.isChanged()) fields.push('own');
+        return fields;
+    }
+
+    keywordsChanged() {
+        return this.lists.keywords.isChanged();
+    }
+
+    // dateSlot is where the place puts the correction of the date taken.
+    get dateSlot() {
+        return this.el.querySelector('.meta-date');
     }
 
     render() {
-        this.el.innerHTML = META_TEXT_FIELDS.map(([f, label]) => this._textFieldHTML(f, label)).join('')
-            + this._ratingHTML() + `<div class="meta-field meta-keywords"></div>`;
-        for (const [f] of META_TEXT_FIELDS) this._wireText(f);
-        this._wireRating();
-        this._renderKeywords();
+        this.el.innerHTML = META_GROUPS.map(g => this._groupHTML(g)).join('');
+        for (const g of META_GROUPS) for (const f of g.fields || []) this._wireField(f);
+        this.own = new MetaOwnFields(this.el.querySelector('.meta-own'), this.states, { onChange: this.onChange });
+        this._updateGroups();
+    }
+
+    /* --- Groups --- */
+
+    _groupHTML(g) {
+        const open = g.date || !this._groupEmpty(g) ? ' open' : '';
+        let body;
+        if (g.date) body = '<div class="meta-field meta-date"></div>';
+        else if (g.own) body = '<div class="meta-own"></div>';
+        else body = g.fields.map(f => this._fieldHTML(f)).join('');
+        return `<details class="meta-group" data-group="${g.id}"${open}>
+            <summary class="meta-group-head"><span class="meta-group-title">${t(g.title)}</span><span class="meta-group-state"></span></summary>
+            <div class="meta-group-body">${body}</div></details>`;
+    }
+
+    _groupEmpty(g) {
+        return this.states.every(s => {
+            const c = s.current;
+            if (!c) return true;
+            if (g.own) return !Object.keys(c.own || {}).length;
+            return g.fields.every(f => f.kind === 'keywords' ? !(c.keywords || []).length : !c.fields?.[f.field]?.value);
+        });
+    }
+
+    // A folded group says whether it is empty or changed, so nothing that
+    // is written hides in it.
+    _updateGroups() {
+        for (const g of META_GROUPS) {
+            if (g.date) continue;
+            const box = this.el.querySelector(`[data-group="${g.id}"]`);
+            const changed = Boolean(box.querySelector('.is-changed')) || (g.own && this.own?.isChanged());
+            const state = box.querySelector('.meta-group-state');
+            state.textContent = changed ? t('Changed') : (this._groupEmpty(g) ? t('Empty') : '');
+            state.classList.toggle('is-changed', changed);
+        }
+    }
+
+    /* --- Fields --- */
+
+    _fieldHTML(f) {
+        if (f.kind === 'rating') return this._ratingHTML();
+        if (f.kind === 'keywords' || f.kind === 'list') return `<div class="meta-field meta-list" data-field="${f.field}"></div>`;
+        return this._textFieldHTML(f);
+    }
+
+    _wireField(f) {
+        if (f.kind === 'rating') this._wireRating();
+        else if (f.kind === 'keywords') this._keywordChips();
+        else if (f.kind === 'list') this._listChips(f);
+        else this._wireText(f.field);
     }
 
     _headHTML(field, label, id) {
@@ -79,11 +182,12 @@ class MetadataForm {
         </div>`;
     }
 
-    _textFieldHTML(field, label) {
+    _textFieldHTML({ field, label, kind }) {
         const s = metaSummary(this.states, field);
         const id = `meta-${field}`;
-        const attrs = `id="${id}" class="form-input meta-input" data-field="${field}" placeholder="${s.same ? '' : escapeHtml(t('Several values'))}"`;
-        const input = field === 'description'
+        const cls = `form-input meta-input${kind === 'mono' ? ' meta-input--mono' : ''}`;
+        const attrs = `id="${id}" class="${cls}" data-field="${field}" placeholder="${s.same ? '' : escapeHtml(t('Several values'))}"`;
+        const input = kind === 'textarea'
             ? `<textarea ${attrs} rows="3">${escapeHtml(s.value)}</textarea>`
             : `<input type="text" ${attrs} value="${escapeHtml(s.value)}">`;
         return `<div class="meta-field" data-field="${field}">${this._headHTML(field, label, id)}${input}</div>`;
@@ -94,6 +198,25 @@ class MetadataForm {
         const original = input.value;
         input.addEventListener('input', () => this._edit(field, input.value, input.value !== original));
         this._wireReset(field, () => { input.value = original; });
+    }
+
+    _keywordChips() {
+        this.lists.keywords = new MetaChips(this.el.querySelector('.meta-list[data-field="keywords"]'), {
+            states: this.states, id: 'meta-keyword-input', label: 'Keywords',
+            entriesOf: s => s.current?.keywords || [],
+            sources: states => [...new Set(states.map(s => s.current?.keywordsFrom).filter(Boolean))],
+            hint: 'A keyword added goes to every chosen file; one removed goes from each that has it. The others stay.',
+            empty: 'No keywords yet.', onChange: this.onChange,
+        });
+    }
+
+    _listChips({ field, label }) {
+        this.lists[field] = new MetaChips(this.el.querySelector(`.meta-list[data-field="${field}"]`), {
+            states: this.states, id: `meta-${field}`, label,
+            entriesOf: s => splitList(s.current?.fields?.[field]?.value),
+            sources: states => metaSummary(states, field).sources,
+            empty: 'Nobody named yet.', onChange: this.onChange,
+        });
     }
 
     // The same five stars as the info panel and the viewer. Files that
@@ -134,74 +257,6 @@ class MetadataForm {
         const box = this.el.querySelector(`.meta-field[data-field="${field}"]`);
         box.classList.toggle('is-changed', changed);
         box.querySelector('.meta-reset').hidden = !changed;
-        this.onChange();
-    }
-
-    /* --- Keywords --- */
-
-    // Every keyword of the chosen files, and in how many of them it is.
-    _keywordCounts() {
-        const counts = new Map();
-        for (const s of this.states) {
-            for (const k of s.current?.keywords || []) counts.set(k, (counts.get(k) || 0) + 1);
-        }
-        return counts;
-    }
-
-    _renderKeywords() {
-        const box = this.el.querySelector('.meta-keywords');
-        const counts = this._keywordCounts();
-        const total = this.states.filter(s => s.current).length;
-        const sources = [...new Set(this.states.map(s => s.current?.keywordsFrom).filter(Boolean))];
-        const chips = [...counts.entries()].map(([k, n]) => this._chipHTML(k, n, total)).join('')
-            + this.keywordsAdd.map(k => this._chipHTML(k, total, total, true)).join('');
-        box.innerHTML = `<div class="meta-field-head">
-                <label class="form-label" for="meta-keyword-input">${t('Keywords')}</label>
-                <span class="meta-source">${escapeHtml(metaSourceText(sources))}</span>
-            </div>
-            <div class="meta-chips">${chips || `<span class="form-hint">${t('No keywords yet.')}</span>`}</div>
-            <div class="meta-keyword-add">
-                <input type="text" id="meta-keyword-input" class="form-input meta-input">
-                <button type="button" class="btn btn-sm" id="meta-keyword-btn">${t('Add')}</button>
-            </div>
-            <span class="form-hint">${t('A keyword added goes to every chosen file; one removed goes from each that has it. The others stay.')}</span>`;
-        this._wireKeywords(box);
-    }
-
-    _chipHTML(k, n, total, added = false) {
-        const removed = this.keywordsRemove.has(k);
-        const partial = n < total ? `<span class="meta-chip-count">${t('{n} of {total}', { n: formatCount(n), total: formatCount(total) })}</span>` : '';
-        const cls = ['meta-chip', removed ? 'is-removed' : '', added ? 'is-added' : '', n < total ? 'is-partial' : ''].join(' ');
-        const action = removed ? t('Keep {keyword}', { keyword: k }) : t('Remove {keyword}', { keyword: k });
-        return `<span class="${cls}" data-keyword="${escapeHtml(k)}"><span class="meta-chip-label">${escapeHtml(k)}</span>${partial}
-            <button type="button" class="meta-chip-remove" aria-label="${escapeHtml(action)}" title="${escapeHtml(action)}">${removed ? '↺' : '×'}</button></span>`;
-    }
-
-    _wireKeywords(box) {
-        const input = box.querySelector('#meta-keyword-input');
-        const add = () => {
-            const k = input.value.trim();
-            if (!k) return;
-            this.keywordsRemove.delete(k);
-            if (!this.keywordsAdd.includes(k) && this._keywordCounts().get(k) !== this.states.length) this.keywordsAdd.push(k);
-            this._keywordsChanged();
-            this.el.querySelector('#meta-keyword-input').focus();
-        };
-        box.querySelector('#meta-keyword-btn').addEventListener('click', add);
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
-        box.querySelector('.meta-chips').addEventListener('click', (e) => {
-            const chip = e.target.closest('.meta-chip-remove')?.closest('[data-keyword]');
-            if (!chip) return;
-            const k = chip.dataset.keyword;
-            if (this.keywordsAdd.includes(k)) this.keywordsAdd = this.keywordsAdd.filter(x => x !== k);
-            else if (this.keywordsRemove.has(k)) this.keywordsRemove.delete(k);
-            else this.keywordsRemove.add(k);
-            this._keywordsChanged();
-        });
-    }
-
-    _keywordsChanged() {
-        this._renderKeywords();
         this.onChange();
     }
 }

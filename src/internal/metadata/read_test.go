@@ -35,7 +35,7 @@ func TestSidecarWriteReadAndOverlay(t *testing.T) {
 	if plan.Set[DateTaken] != "2024-05-01T11:40:49" {
 		t.Fatalf("plan %v", plan)
 	}
-	if err := Write(photo, TargetSidecar, plan, change); err != nil {
+	if err := Write(photo, TargetSidecar, plan); err != nil {
 		t.Fatal(err)
 	}
 	if now, _ := os.ReadFile(photo); string(now) != string(before) {

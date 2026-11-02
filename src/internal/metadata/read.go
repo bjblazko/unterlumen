@@ -36,9 +36,25 @@ func Read(paths []string) (map[string]Current, error) {
 		if err != nil {
 			return nil, err
 		}
-		out[p] = merge(p, file, beside, keywords, from)
+		c := merge(p, file, beside, keywords, from)
+		if c.Own, err = readOwn(p); err != nil {
+			return nil, err
+		}
+		out[p] = c
 	}
 	return out, nil
+}
+
+// readOwn reads a photo's own fields from its sidecar.
+func readOwn(path string) (map[string]string, error) {
+	if media.IsVideo(path) {
+		return map[string]string{}, nil
+	}
+	notes, err := media.ReadNotes(path)
+	if err != nil || notes.Fields == nil {
+		return map[string]string{}, err
+	}
+	return notes.Fields, nil
 }
 
 // valuesFromMeta is what the file says without exiftool: its own XMP packet,

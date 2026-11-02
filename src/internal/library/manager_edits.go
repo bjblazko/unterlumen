@@ -3,11 +3,11 @@ package library
 // MetadataWritten brings what was written about the file at absPath into
 // every library that covers it: the file is indexed again — a new ID when
 // its content changed, the sidecar's or NFO's fields when only they did —
-// and a title written to the sidecar becomes the photo's title note, which
-// a scan would otherwise only add, never remove, in a library whose notes
-// are not yet in the sidecars (ADR-0048, ADR-0060). It returns the photo's
-// ID in each library afterwards.
-func (m *Manager) MetadataWritten(absPath string, title *string) map[string]string {
+// and the notes written to the sidecar — the title, own fields; "" for one
+// that went — become the photo's notes, which a scan would otherwise only
+// add, never remove, in a library whose notes are not yet in the sidecars
+// (ADR-0048, ADR-0060). It returns the photo's ID in each library afterwards.
+func (m *Manager) MetadataWritten(absPath string, notes map[string]string) map[string]string {
 	ids := map[string]string{}
 	for _, lib := range m.LibrariesForPath(absPath) {
 		m.IndexFilesSync(lib.ID, []string{absPath})
@@ -20,13 +20,12 @@ func (m *Manager) MetadataWritten(absPath string, title *string) map[string]stri
 			continue
 		}
 		ids[lib.ID] = id
-		if title == nil {
-			continue
-		}
-		if *title == "" {
-			store.DeleteMeta(id, "title") //nolint:errcheck // the next scan reads the sidecar again
-		} else {
-			store.UpsertMeta(id, "title", *title) //nolint:errcheck
+		for key, value := range notes {
+			if value == "" {
+				store.DeleteMeta(id, key) //nolint:errcheck // the next scan reads the sidecar again
+			} else {
+				store.UpsertMeta(id, key, value) //nolint:errcheck
+			}
 		}
 	}
 	return ids

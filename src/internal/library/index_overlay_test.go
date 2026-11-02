@@ -26,7 +26,7 @@ func TestSidecarDateReachesTheIndex(t *testing.T) {
 	}
 
 	plan := metadata.Plan{Set: map[metadata.Field]string{metadata.DateTaken: "2024-05-01T12:30:00"}}
-	if err := metadata.Write(path, metadata.TargetSidecar, plan, metadata.Change{}); err != nil {
+	if err := metadata.Write(path, metadata.TargetSidecar, plan); err != nil {
 		t.Fatal(err)
 	}
 	if err := idx.IndexFile(path); err != nil {
@@ -54,7 +54,7 @@ func TestSidecarIPTCReachesTheFilter(t *testing.T) {
 	writeIndexJPEG(t, path)
 	idx, s := newTestIndexer(t, src)
 	plan := metadata.Plan{Set: map[metadata.Field]string{metadata.City: "Kiel", metadata.PersonShown: "Ann; Bob"}}
-	if err := metadata.Write(path, metadata.TargetSidecar, plan, metadata.Change{}); err != nil {
+	if err := metadata.Write(path, metadata.TargetSidecar, plan); err != nil {
 		t.Fatal(err)
 	}
 	if err := idx.IndexFile(path); err != nil {

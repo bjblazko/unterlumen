@@ -189,4 +189,73 @@ test.describe('Metadata', () => {
         await page.locator('select.lib-filter-rating').selectOption('');
         await expect(page.locator('select.lib-filter-rating option:checked')).toHaveText('Doesn’t matter');
     });
+
+    // IPTC and own fields (ADR-0061).
+    const group = (page, id) => page.locator(`.meta-group[data-group="${id}"]`);
+    const sidecar = (i) => fs.readFileSync(path.join(trip, PHOTOS[i].replace('.jpeg', '.xmp')), 'utf8');
+
+    test('empty groups start folded, and a folded group says it holds a change', async ({ page }) => {
+        await chooseAll(page);
+        await expect(group(page, 'date')).toHaveAttribute('open', '');
+        await expect(group(page, 'description')).toHaveAttribute('open', '');
+        for (const id of ['location', 'event', 'origin', 'shown', 'own']) {
+            await expect(group(page, id)).not.toHaveAttribute('open', '');
+            await expect(group(page, id).locator('.meta-group-state')).toHaveText('Empty');
+        }
+        await group(page, 'location').locator('summary').click();
+        await page.locator('#meta-city').fill('Kiel');
+        await page.locator('#meta-countryCode').fill('DE');
+        await group(page, 'location').locator('summary').click();
+        await expect(group(page, 'location').locator('.meta-group-state')).toHaveText('Changed');
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toHaveText('Written to 3 files.');
+        await expect(group(page, 'location')).toHaveAttribute('open', '');
+        await expect(page.locator('#meta-city')).toHaveValue('Kiel');
+        expect(sidecar(0)).toContain('<photoshop:City>Kiel</photoshop:City>');
+        expect(sidecar(0)).toContain('<Iptc4xmpCore:CountryCode>DE</Iptc4xmpCore:CountryCode>');
+    });
+
+    test('people shown are added and removed like keywords', async ({ page }) => {
+        await chooseAll(page);
+        await group(page, 'shown').locator('summary').click();
+        await page.locator('#meta-personShown').fill('Ann');
+        await page.keyboard.press('Enter');
+        await page.locator('#meta-personShown').fill('Bob');
+        await page.keyboard.press('Enter');
+        await expect(page.locator('.meta-preview tbody tr').first()).toContainText('People shown');
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toHaveText('Written to 3 files.');
+        expect(sidecar(1)).toContain('<rdf:Bag><rdf:li>Ann</rdf:li><rdf:li>Bob</rdf:li></rdf:Bag>');
+
+        const chips = page.locator('.meta-list[data-field="personShown"]');
+        await chips.locator('[data-entry="Ann"] .meta-chip-remove').click();
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toHaveText('Written to 3 files.');
+        await expect(chips.locator('.meta-chip')).toHaveCount(1);
+        expect(sidecar(1)).toContain('<Iptc4xmpExt:PersonInImage><rdf:Bag><rdf:li>Bob</rdf:li></rdf:Bag></Iptc4xmpExt:PersonInImage>');
+    });
+
+    test('an own field goes to the sidecar and, if asked, among the keywords', async ({ page }) => {
+        test.skip(!has('exiftool'), 'exiftool is not installed');
+        await chooseAll(page);
+        await page.locator('.meta-target .seg button[data-value="file"]').click();
+        await group(page, 'own').locator('summary').click();
+        await expect(group(page, 'own')).toContainText('Own fields are always written to the sidecar');
+        await page.locator('#meta-own-key').fill('stock');
+        await page.locator('#meta-own-value').fill('Portra');
+        await page.locator('#meta-own-btn').click();
+        const row = page.locator('.meta-own-row[data-own="stock"]');
+        await row.locator('.toggle').click();
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toHaveText('Written to 3 files.');
+        expect(sidecar(2)).toContain('Portra');
+        await expect(page.locator('.meta-chip[data-entry="ul:stock=Portra"]')).toBeVisible();
+        await expect(row.locator('.toggle')).toHaveAttribute('aria-checked', 'true');
+
+        await row.locator('input').fill('Ektar');
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toHaveText('Written to 3 files.');
+        await expect(page.locator('.meta-chip[data-entry="ul:stock=Ektar"]')).toBeVisible();
+        await expect(page.locator('.meta-chip[data-entry="ul:stock=Portra"]')).toHaveCount(0);
+    });
 });

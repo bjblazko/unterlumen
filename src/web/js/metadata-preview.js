@@ -23,7 +23,21 @@ function metadataRowHTML(s, changedFields, keywords) {
     const date = after
         ? `<span class="meta-preview-before">${escapeHtml(formatDateTime(before) || t('None'))} →</span> <strong>${escapeHtml(formatDateTime(after))}</strong>`
         : escapeHtml(formatDateTime(before) || '');
-    const names = changedFields.filter(f => f !== 'dateTaken').map(f => t(META_FIELD_NAMES[f]));
-    if (keywords) names.push(t('Keywords'));
+    const names = changedNames(s.plan, changedFields, keywords);
     return `<tr>${name}<td class="meta-preview-date">${date}</td><td>${escapeHtml(names.join(', '))}</td></tr>`;
+}
+
+// changedNames are the fields a file gets: from its plan when the server
+// worked one out — a list or an own field may leave a file as it is —
+// otherwise what was changed in the form.
+function changedNames(plan, changedFields, keywords) {
+    let fields = changedFields;
+    if (plan) {
+        fields = Object.keys(plan.set || {});
+        if (plan.own && Object.keys(plan.own).length) fields.push('own');
+        keywords = Boolean(plan.keywordsAdd?.length || plan.keywordsRemove?.length);
+    }
+    const names = fields.filter(f => f !== 'dateTaken').map(f => t(META_FIELD_NAMES[f] || f));
+    if (keywords) names.push(t('Keywords'));
+    return names;
 }

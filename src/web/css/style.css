@@ -7975,7 +7975,6 @@ a.guide-node:focus-visible .guide-box {
 .meta-fields {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
 }
 
 /* Where it is written: always in view, above everything it concerns. */
@@ -8004,6 +8003,85 @@ a.guide-node:focus-visible .guide-box {
     flex-direction: column;
     gap: var(--space-1);
 }
+
+/* A group of fields that folds; its head says when it is empty or holds a
+   change, so nothing to be written hides in a folded group. */
+.meta-group { border-top: 1px solid var(--line); }
+
+.meta-group-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    min-height: var(--control-h);
+    padding: var(--space-2) 0;
+    cursor: pointer;
+    list-style: none;
+}
+
+.meta-group-head::-webkit-details-marker { display: none; }
+
+.meta-group-head::before {
+    content: '▸';
+    color: var(--fg-3);
+    transition: transform 120ms ease-out;
+}
+
+.meta-group[open] > .meta-group-head::before { transform: rotate(90deg); }
+
+.meta-group-title {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.meta-group-state {
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.meta-group-state.is-changed { color: var(--fg); font-weight: 500; }
+
+.meta-group-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-2) 0 var(--space-6);
+}
+
+.meta-input--mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.meta-own, .meta-own-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.meta-own-key { font-family: var(--font-mono); }
+
+.meta-own-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+}
+
+.meta-own-mirror-label {
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.meta-own-row.is-removed .meta-own-key { text-decoration: line-through; color: var(--fg-3); }
+
+.meta-own-add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+    gap: var(--space-2);
+}
+
+.meta-own-add .meta-input { height: var(--control-h-sm); }
 
 .meta-field-head {
     display: flex;

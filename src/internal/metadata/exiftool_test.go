@@ -35,7 +35,7 @@ func TestFileWriteAndReadWithExiftool(t *testing.T) {
 	change := Change{Set: map[Field]string{Title: "Hafen", Creator: "Ann", Rating: "4", Description: "Möwen"}, KeywordsAdd: []string{"sea", "sea"}}
 	cur := Current{Fields: map[Field]Value{DateTaken: {"2024-05-01T12:30:00+02:00", FromFile}}}
 	change.Date = &DateFix{Mode: "shift", ShiftSeconds: 3600}
-	if err := Write(p, TargetFile, PlanFor(change, cur), change); err != nil {
+	if err := Write(p, TargetFile, PlanFor(change, cur)); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := os.ReadFile(p)

@@ -158,13 +158,13 @@ func handleWrite(root string, cache *media.ScanCache, libMgr *library.Manager) h
 	}
 }
 
-// write writes one file. What the file says now is read only for a date
-// correction, which needs the file's own date; afterwards only when asked,
-// so a rating from a key stays quick.
+// write writes one file. What the file says now is read only when the change
+// is worked out from it — a date correction, a list, an own field;
+// afterwards only when asked, so a rating from a key stays quick.
 func write(abs string, req writeRequest, cache *media.ScanCache, libMgr *library.Manager, readAfter bool) writeResponse {
 	res := writeResponse{File: req.File}
 	var cur meta.Current
-	if req.Change.Date != nil {
+	if meta.NeedsCurrent(req.Change) {
 		before, err := meta.Read([]string{abs})
 		if err != nil {
 			res.Error = err.Error()
@@ -178,14 +178,14 @@ func write(abs string, req writeRequest, cache *media.ScanCache, libMgr *library
 		res.Success, res.Skipped = true, plan.Skipped
 		return res
 	}
-	if err := meta.Write(abs, req.Target, plan, req.Change); err != nil {
+	if err := meta.Write(abs, req.Target, plan); err != nil {
 		res.Error = err.Error()
 		return res
 	}
 	res.Success = true
 	cache.Invalidate(filepath.Dir(abs))
 	if libMgr != nil {
-		res.IDs = libMgr.MetadataWritten(abs, sidecarTitle(abs, req.Target, plan))
+		res.IDs = libMgr.MetadataWritten(abs, sidecarNotes(abs, req.Target, plan))
 	}
 	if !readAfter {
 		return res
@@ -197,14 +197,24 @@ func write(abs string, req writeRequest, cache *media.ScanCache, libMgr *library
 	return res
 }
 
-// sidecarTitle is the title written to a photo's sidecar, which a library
-// keeps as a note; nil when none was.
-func sidecarTitle(abs string, target meta.Target, plan meta.Plan) *string {
-	title, ok := plan.Set[meta.Title]
-	if !ok || target != meta.TargetSidecar || media.IsVideo(abs) {
+// sidecarNotes are the notes written to a photo's sidecar, which a library
+// keeps in photo_meta too: the title, and the own fields; "" for one that
+// went. nil when none were.
+func sidecarNotes(abs string, target meta.Target, plan meta.Plan) map[string]string {
+	if media.IsVideo(abs) {
 		return nil
 	}
-	return &title
+	notes := map[string]string{}
+	if title, ok := plan.Set[meta.Title]; ok && target == meta.TargetSidecar {
+		notes["title"] = title
+	}
+	for k, v := range plan.Own {
+		notes[k] = v
+	}
+	if len(notes) == 0 {
+		return nil
+	}
+	return notes
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

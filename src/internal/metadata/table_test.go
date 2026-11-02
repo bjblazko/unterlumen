@@ -39,7 +39,7 @@ func TestEveryFieldIsInTheTableOnce(t *testing.T) {
 func TestIPTCFieldsRoundTripInTheSidecar(t *testing.T) {
 	photo := filepath.Join(t.TempDir(), "a.jpg")
 	os.WriteFile(photo, []byte("x"), 0o644) //nolint:errcheck
-	if err := Write(photo, TargetSidecar, Plan{Set: iptcValues}, Change{}); err != nil {
+	if err := Write(photo, TargetSidecar, Plan{Set: iptcValues}); err != nil {
 		t.Fatal(err)
 	}
 	fields, _, from, err := readBeside(photo)
@@ -122,7 +122,7 @@ func TestEmbeddedXMPIsReadWithoutExiftool(t *testing.T) {
 		t.Errorf("the file's own XMP was not laid over: %+v", data)
 	}
 	os.WriteFile(media.SidecarPath(photo), []byte(""), 0o644) //nolint:errcheck
-	if err := Write(photo, TargetSidecar, Plan{Set: map[Field]string{City: "Lübeck"}}, Change{}); err != nil {
+	if err := Write(photo, TargetSidecar, Plan{Set: map[Field]string{City: "Lübeck"}}); err != nil {
 		t.Fatal(err)
 	}
 	if data := Overlay(photo, nil); data.Tags["City"] != "Lübeck" {
@@ -136,7 +136,7 @@ func TestIPTCFieldsRoundTripInTheFile(t *testing.T) {
 		t.Skip("exiftool is not installed")
 	}
 	p := tinyJPEG(t, t.TempDir())
-	if err := Write(p, TargetFile, Plan{Set: iptcValues}, Change{}); err != nil {
+	if err := Write(p, TargetFile, Plan{Set: iptcValues}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := readFiles([]string{p})

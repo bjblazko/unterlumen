@@ -65,12 +65,14 @@ type Value struct {
 }
 
 // Current is what a file says now: the value of each field that has one,
-// and the keywords.
+// the keywords, and its own fields (key and value, only ever in the sidecar
+// of a photo; ADR-0048, ADR-0061).
 type Current struct {
-	Fields       map[Field]Value `json:"fields"`
-	Keywords     []string        `json:"keywords"`
-	KeywordsFrom Source          `json:"keywordsFrom,omitempty"`
-	Video        bool            `json:"video"`
+	Fields       map[Field]Value   `json:"fields"`
+	Keywords     []string          `json:"keywords"`
+	KeywordsFrom Source            `json:"keywordsFrom,omitempty"`
+	Own          map[string]string `json:"own"`
+	Video        bool              `json:"video"`
 }
 
 // Change is what to write: fields to set ("" removes one), entries to add
@@ -78,10 +80,19 @@ type Current struct {
 // correction of the date taken. The lists and the date are worked out per
 // file from what it has.
 type Change struct {
-	Set            map[Field]string   `json:"set,omitempty"`
-	Add            map[Field][]string `json:"add,omitempty"`
-	Remove         map[Field][]string `json:"remove,omitempty"`
-	KeywordsAdd    []string         `json:"keywordsAdd,omitempty"`
-	KeywordsRemove []string         `json:"keywordsRemove,omitempty"`
-	Date           *DateFix         `json:"date,omitempty"`
+	Set            map[Field]string     `json:"set,omitempty"`
+	Add            map[Field][]string   `json:"add,omitempty"`
+	Remove         map[Field][]string   `json:"remove,omitempty"`
+	KeywordsAdd    []string             `json:"keywordsAdd,omitempty"`
+	KeywordsRemove []string             `json:"keywordsRemove,omitempty"`
+	Date           *DateFix             `json:"date,omitempty"`
+	Own            map[string]OwnChange `json:"own,omitempty"`
+}
+
+// OwnChange is what to do with one own field: a new value ("" removes the
+// field), and whether it is also a keyword (a machine tag, key=value); nil
+// leaves either as it is.
+type OwnChange struct {
+	Value  *string `json:"value,omitempty"`
+	Mirror *bool   `json:"mirror,omitempty"`
 }

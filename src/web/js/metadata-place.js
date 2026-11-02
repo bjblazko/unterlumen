@@ -52,7 +52,7 @@ class MetadataPane {
             title: t('Metadata'),
             meta,
             actions,
-            lede: placeLede(t('When photos and videos were taken, their title, description, keywords, creator, copyright and rating. Select photos in {folders}, {organize} or a {library} and choose Edit metadata; they come here. Each change is written where you choose: into the files themselves, or beside them.', {
+            lede: placeLede(t('When photos and videos were taken, where, what and who they show, who made them and on which terms, their keywords, rating and own fields. Select photos in {folders}, {organize} or a {library} and choose Edit metadata; they come here. Each change is written where you choose: into the files themselves, or beside them.', {
                 folders: placeLink('browse', 'folders', t('Folders')),
                 organize: placeLink('organize', 'organize', t('Organize')),
                 library: placeLink('library', 'libraries', t('library')),
@@ -90,7 +90,6 @@ class MetadataPane {
         body.innerHTML = `<div class="meta-layout">
             <div class="meta-edit">
                 <section class="meta-target"></section>
-                <section class="meta-field meta-date"></section>
                 <section class="meta-fields"></section>
             </div>
             <div class="meta-side">
@@ -99,8 +98,8 @@ class MetadataPane {
             </div></div>`;
         this._renderTarget();
         const onChange = () => this._changed();
-        this.date = new MetadataDate(body.querySelector('.meta-date'), this.states, { onChange });
         this.form = new MetadataForm(body.querySelector('.meta-fields'), this.states, { onChange });
+        this.date = new MetadataDate(this.form.dateSlot, this.states, { onChange });
         this._showResult();
         this._changed();
     }
@@ -165,7 +164,7 @@ class MetadataPane {
 
     _hasChange() {
         const c = this.change();
-        return Boolean(c.set || c.date || c.keywordsAdd || c.keywordsRemove);
+        return Boolean(c.set || c.date || c.keywordsAdd || c.keywordsRemove || c.add || c.remove || c.own);
     }
 
     _changed() {
@@ -185,8 +184,10 @@ class MetadataPane {
         if (!wrap) return;
         const change = this.change();
         const ask = ++this._previewAsk;
-        let states = this.states;
-        if (change.date) {
+        // Only a change worked out per file is asked for; the plan read with
+        // the files is of no change at all.
+        let states = this.states.map(s => ({ ...s, plan: null }));
+        if (change.date || change.add || change.remove || change.own) {
             try {
                 states = (await API.readMetadata(this.files, change)).files;
             } catch (err) {
@@ -198,7 +199,7 @@ class MetadataPane {
         const hint = this._hasChange() ? '' : `<p class="form-hint">${t('Nothing to write yet: change a field and each file shows here what it gets.')}</p>`;
         wrap.innerHTML = hint + metadataPreviewHTML(states, {
             changedFields: this.form.changedFields(),
-            keywords: Boolean(change.keywordsAdd || change.keywordsRemove),
+            keywords: this.form.keywordsChanged(),
         });
     }
 
