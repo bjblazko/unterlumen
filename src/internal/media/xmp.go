@@ -41,15 +41,35 @@ func SidecarPath(photoPath string) string {
 // It is a no-op when there is no sidecar, and when srcPhoto is a sidecar
 // itself. Failures are the caller's to report: the photo has already moved,
 // so the operation is not undone for the sake of its metadata.
+//
+// A video's NFO file, where the metadata editor writes about it (ADR-0060),
+// travels with it the same way.
 func CarrySidecar(op func(src, dst string) error, srcPhoto, dstPhoto string) error {
 	src := SidecarPath(srcPhoto)
 	if src == srcPhoto {
 		return nil
 	}
-	if _, err := os.Stat(src); err != nil {
+	if IsVideo(srcPhoto) {
+		if nfo := NFOPath(srcPhoto); fileExists(nfo) {
+			if err := op(nfo, NFOPath(dstPhoto)); err != nil {
+				return err
+			}
+		}
+	}
+	if !fileExists(src) {
 		return nil
 	}
 	return op(src, SidecarPath(dstPhoto))
+}
+
+// NFOPath is the NFO file beside a video.
+func NFOPath(videoPath string) string {
+	return videoPath[:len(videoPath)-len(filepath.Ext(videoPath))] + ".nfo"
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // ReadSidecar reads publication records from the XMP sidecar alongside photoPath.

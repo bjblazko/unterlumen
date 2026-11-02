@@ -75,7 +75,8 @@ func (s *Store) ListPhotos(ctx context.Context, opts ListPhotosOpts) (ListPhotos
 		        COALESCE((SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
 		                 CASE WHEN json_valid(p.exif_json) THEN CAST(json_extract(p.exif_json,'$.latitude') AS TEXT) END),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1),
-		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END,
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Rating') END
 		 FROM photos p WHERE p.id IN (SELECT p.id `+fromSQL+` WHERE `+whereSQL+newestFirst+` LIMIT ? OFFSET ?)`+newestFirst,
 		append(args, opts.Limit, opts.Offset)...,
 	)
@@ -96,15 +97,15 @@ func scanListedPhotos(rows *sql.Rows) ([]Photo, error) {
 		var p Photo
 		var indexedAt string
 		var dateTaken sql.NullString
-		var gpsLat, filmSim, duration *string
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status, &dateTaken, &gpsLat, &filmSim, &duration); err != nil {
+		var gpsLat, filmSim, duration, rating *string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.Status, &dateTaken, &gpsLat, &filmSim, &duration, &rating); err != nil {
 			return err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
 		if dateTaken.Valid {
 			p.DateTaken = dateTaken.String
 		}
-		p.Exif = withDuration(overlayExif(gpsLat, filmSim, nil, nil), duration)
+		p.Exif = withRating(withDuration(overlayExif(gpsLat, filmSim, nil, nil), duration), rating)
 		photos = append(photos, p)
 		return nil
 	})

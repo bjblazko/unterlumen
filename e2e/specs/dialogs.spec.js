@@ -57,8 +57,8 @@ test.describe('Dialogs — one frame, one behaviour', () => {
         await page.locator('.selection-bar [data-action="export"]').click();
         await expect(page.locator('.dialog')).toBeVisible({ timeout: 5_000 });
 
-        // "2" would go to Marked for deletion if the dialog did not own the keys.
-        await page.keyboard.press('2');
+        // "," would go to Settings if the dialog did not own the keys.
+        await page.keyboard.press(',');
         await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
         await expect(page.locator('.dialog')).toBeVisible();
     });

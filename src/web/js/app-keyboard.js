@@ -90,7 +90,8 @@ class GlobalKeyboard {
         if (modKey && !e.shiftKey && !e.altKey && (key === 'd' || key === 'D')) return this._markSelection;
         if (plain && GlobalKeyboard.NAVIGATION_KEYS.has(key)) return this._navigate;
         if (key === '\\' && noCommand) return this._toggleSidebar;
-        if (plain && GlobalKeyboard.PLACE_KEYS[key]) return (ev) => { ev.preventDefault(); this._app.setMode(GlobalKeyboard.PLACE_KEYS[key]); };
+        if (plain && GlobalKeyboard.PLACE_KEYS[key]) return (ev) => { ev.preventDefault(); this._app.enterPlace(GlobalKeyboard.PLACE_KEYS[key]); };
+        if (plain && /^[0-5]$/.test(key)) return this._rate;
         if (lower === 'h' && noCommand) return this._toggleUI;
         // "/" may need Shift (on a German keyboard it is Shift+7).
         if (key === '/' && noCommand) return (ev) => { ev.preventDefault(); this._app.search.focus(); };
@@ -99,6 +100,15 @@ class GlobalKeyboard {
 
     _viewerOpen() {
         return !!document.querySelector('.viewer');
+    }
+
+    // 1–5 give the selection, or the focused photo, that many stars; 0
+    // takes them away. The viewer rates its own photo; Organize keeps the
+    // number keys for its targets.
+    _rate(e) {
+        if (this._viewerOpen() || !['browse', 'library'].includes(this._app.mode)) return;
+        e.preventDefault();
+        if (!e.repeat) this._app.rateSelection(Number(e.key));
     }
 
     // Escape clears the selection, or else goes up one folder; in Settings it
@@ -284,10 +294,8 @@ class GlobalKeyboard {
 GlobalKeyboard.NAVIGATION_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ']);
 
 // The number keys switch places; comma opens Settings.
-GlobalKeyboard.PLACE_KEYS = {
-    '1': 'browse', '2': 'wastebin', '3': 'organize', '4': 'library',
-    '5': 'published', '6': 'destinations', '7': 'map', '8': 'timeline', '9': 'statistics', '0': 'people', ',': 'settings',
-};
+// The number keys rate (ADR-0060); of the places only Settings has a key.
+GlobalKeyboard.PLACE_KEYS = { ',': 'settings' };
 
 // parentFolder is the path one folder up; "" above the top.
 function parentFolder(path) {

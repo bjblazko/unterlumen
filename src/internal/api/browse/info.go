@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/metadata"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
 
@@ -52,7 +53,12 @@ func handleInfo(root string) http.HandlerFunc {
 			Format:   strings.TrimPrefix(strings.ToLower(filepath.Ext(absPath)), "."),
 		}
 
-		if exifData, err := media.ExtractMeta(absPath); err == nil && exifData != nil {
+		exifData, err := media.ExtractMeta(absPath)
+		if err != nil {
+			exifData = nil
+		}
+		// What the sidecar or the NFO says wins over the file (ADR-0060).
+		if exifData = metadata.Overlay(absPath, exifData); exifData != nil {
 			resp.Exif = exifData
 		}
 

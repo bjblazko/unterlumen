@@ -258,7 +258,27 @@ class InfoPanel {
         return this.renderData(this.data);
     }
 
+    // ratingChanged shows the stars just written for the photo shown.
+    ratingChanged(n) {
+        if (!this.data) return;
+        this.data.exif ||= {};
+        this.data.exif.tags = { ...(this.data.exif.tags || {}), Rating: String(n) };
+        this.render();
+    }
+
+    // _rate writes the stars of the photo shown: a library photo by where it
+    // lies on disk, a photo in Folders by its path; its tile shows them too.
+    async _rate(n) {
+        const lib = String(this.currentPath || '').startsWith('lib:');
+        const files = App._boundaryPaths([lib ? this.data.path : this.currentPath], null);
+        if (!files) { App._outsideBoundary(); return; }
+        if (!(await Rating.rate(files, n)).length) return;
+        this.ratingChanged(n);
+        App.ratedInPanel(this.currentPath, n);
+    }
+
     _wireRendered() {
+        Rating.wire(this.container, (n) => this._rate(n));
         this.container.querySelector('.info-collapse-btn').addEventListener('click', () => this.toggle());
         const loadingEl = this.container.querySelector('.info-loading');
         if (loadingEl) Activity.in(loadingEl, t('Reading the details…'));

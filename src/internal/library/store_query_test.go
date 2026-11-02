@@ -167,3 +167,53 @@ func TestListPhotosStopsWhenTheAskerHasGone(t *testing.T) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 }
+
+func TestRatingFilterIsNotCorrelated(t *testing.T) {
+	s := listFixture(t)
+	for _, rating := range []string{"3", RatingNone} {
+		fromSQL, whereSQL, args := newPhotoFilter(ListPhotosOpts{}).sql()
+		scope, scopeArgs := Filter{Rating: rating}.Cond("p.id")
+		rows, err := s.db.Query(`EXPLAIN QUERY PLAN SELECT COUNT(*) `+fromSQL+` WHERE `+whereSQL+scope, append(args, scopeArgs...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan []string
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			rows.Scan(&id, &parent, &unused, &detail) //nolint:errcheck
+			plan = append(plan, detail)
+		}
+		rows.Close()
+		if joined := strings.Join(plan, "; "); strings.Contains(joined, "CORRELATED") {
+			t.Fatalf("the rating filter %s runs once per photo: %s", rating, joined)
+		}
+	}
+}
+
+func TestRatingFilterCountsStars(t *testing.T) {
+	s := listFixture(t)
+	res, _ := s.ListPhotos(context.Background(), ListPhotosOpts{Limit: 1000})
+	if len(res.Photos) < 3 {
+		t.Skip("the fixture has too few photos")
+	}
+	ids := []string{res.Photos[0].ID, res.Photos[1].ID}
+	s.UpsertExifIndex(ids[0], map[string]string{"Rating": "4"}, nil) //nolint:errcheck
+	s.UpsertExifIndex(ids[1], map[string]string{"Rating": "2"}, nil) //nolint:errcheck
+	count := func(r string) int {
+		got, err := s.ListPhotos(context.Background(), ListPhotosOpts{Limit: 1000, Scope: Filter{Rating: r}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.Total
+	}
+	if n := count("3"); n != 1 {
+		t.Errorf("3 stars and more: %d photos, want 1", n)
+	}
+	if n := count("2"); n != 2 {
+		t.Errorf("2 stars and more: %d photos, want 2", n)
+	}
+	if n := count(RatingNone); n != len(res.Photos)-2 {
+		t.Errorf("without stars: %d photos, want %d", n, len(res.Photos)-2)
+	}
+}

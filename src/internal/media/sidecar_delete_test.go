@@ -47,3 +47,30 @@ func TestRemoveSidecarOfADeletedPhoto(t *testing.T) {
 		t.Errorf("no sidecar is no error: %v", err)
 	}
 }
+
+// A video's NFO file goes with it: moved with it, and removed with it even
+// when a still of the same name stays beside it.
+func TestNFOTravelsWithItsVideo(t *testing.T) {
+	dir := t.TempDir()
+	video := filepath.Join(dir, "IMG_1.mov")
+	still := filepath.Join(dir, "IMG_1.heic")
+	for _, p := range []string{video, still, NFOPath(video)} {
+		os.WriteFile(p, []byte("x"), 0o644) //nolint:errcheck
+	}
+	if SidecarShared(still) == false {
+		t.Fatal("the still should share its name with the video")
+	}
+	moved := filepath.Join(dir, "clip.mov")
+	if err := CarrySidecar(os.Rename, video, moved); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(NFOPath(moved)); err != nil {
+		t.Errorf("the NFO did not move with the video: %v", err)
+	}
+	if err := RemoveSidecar(moved); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(NFOPath(moved)); err == nil {
+		t.Error("the NFO stayed after its video went")
+	}
+}

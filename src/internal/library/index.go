@@ -18,6 +18,7 @@ import (
 	_ "image/png"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/metadata"
 )
 
 // Progress reports the state of an ongoing index operation.
@@ -306,7 +307,11 @@ type photoExif struct {
 func readPhotoExif(absPath string) photoExif {
 	ex := photoExif{json: "{}", fields: make(map[string]string)}
 	exifData, err := media.ExtractMeta(absPath)
-	if err != nil || exifData == nil {
+	if err != nil {
+		exifData = nil
+	}
+	// What the sidecar or the NFO says wins over the file (ADR-0060).
+	if exifData = metadata.Overlay(absPath, exifData); exifData == nil {
 		return ex
 	}
 	for k, v := range exifData.Tags {
@@ -806,11 +811,36 @@ func (idx *Indexer) applyThingsWithoutSidecar(absPath, photoID string) {
 // read each one four times, and writes nothing.
 func (idx *Indexer) indexChangedSidecar(absPath, photoID string) {
 	stamp := idx.sidecarStamp(absPath)
+	if media.IsVideo(absPath) {
+		// A video's NFO file holds what was written about it (ADR-0060).
+		if nfo := fileStamp(metadata.NFOPath(absPath)); stamp == "" || nfo == "" {
+			stamp = ""
+		} else {
+			stamp += "|nfo:" + nfo
+		}
+	}
 	if stamp != "" && stamp == idx.store.sidecarStampOf(absPath) {
 		return
 	}
 	idx.indexSidecar(absPath, photoID)
+	idx.refreshOverlay(absPath, photoID)
 	idx.store.setSidecarStamp(absPath, stamp) //nolint:errcheck // read again next time
+}
+
+// refreshOverlay reads the file's metadata again when what lies beside it
+// changed and either has a date, description, creator, rights or rating, or
+// had one when the photo was last read: the file itself is unchanged, so
+// nothing else would bring the change into the index (ADR-0060).
+func (idx *Indexer) refreshOverlay(absPath, photoID string) {
+	if !metadata.HasBeside(absPath) && !idx.store.photoOverlaid(photoID) {
+		return
+	}
+	ex := readPhotoExif(absPath)
+	if err := idx.store.UpdatePhotoExif(photoID, ex.json, ex.dateTaken); err != nil {
+		return
+	}
+	idx.store.UpsertExifIndex(photoID, ex.fields, media.NormalizeExifNumbers(ex.fields)) //nolint:errcheck
+	idx.changed = true
 }
 
 // sidecarStamp is the stamp of the photo's sidecar, "none" when it has
@@ -822,7 +852,13 @@ func (idx *Indexer) sidecarStamp(absPath string) string {
 		}
 		return "none"
 	}
-	info, err := os.Stat(media.SidecarPath(absPath))
+	return fileStamp(media.SidecarPath(absPath))
+}
+
+// fileStamp is a file's modification time and size, "none" when there is
+// no file, "" when that is not known.
+func fileStamp(path string) string {
+	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return "none"
 	}

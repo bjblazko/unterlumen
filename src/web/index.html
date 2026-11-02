@@ -12,10 +12,10 @@
     <meta name="theme-color" content="#F4F4F0" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#161718" media="(prefers-color-scheme: dark)">
     <link rel="stylesheet" href="/fonts/fonts.css?v=1">
-    <script src="/i18n/de.js?v=15"></script>
+    <script src="/i18n/de.js?v=18"></script>
     <script src="/js/i18n.js?v=2"></script>
     <script src="/js/theme-init.js"></script>
-    <link rel="stylesheet" href="/css/style.css?v=83">
+    <link rel="stylesheet" href="/css/style.css?v=87">
     <link rel="stylesheet" href="/css/timeline.css?v=5">
     <link rel="stylesheet" href="/css/people.css?v=19">
     <link rel="stylesheet" href="/css/things.css?v=1">
@@ -87,6 +87,12 @@
                     <span class="nav-text" data-i18n>Libraries</span>
                 </a>
                 <div id="nav-libraries"></div>
+                <a class="nav-item" id="mode-metadata" href="#metadata" data-mode="metadata">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1.5 2.5h6l7 7-5 5-7-7z"/><circle cx="5" cy="6" r="1"/>
+                    </svg>
+                    <span class="nav-text" data-i18n>Metadata</span>
+                </a>
             </div>
 
             <div class="nav-group">
@@ -200,9 +206,10 @@
 
     <div id="ui-hint" class="ui-hint"></div>
     <script src="/js/toggle.js?v=6"></script>
-    <script src="/js/api.js?v=14"></script>
+    <script src="/js/api.js?v=16"></script>
     <script src="/js/library-api.js?v=11"></script>
     <script src="/js/activity.js?v=7"></script>
+    <script src="/js/rating.js?v=1"></script>
     <script src="/js/dates.js?v=2"></script>
     <script src="/js/panel-icon.js?v=5"></script>
     <script src="/js/place-lede.js?v=7"></script>
@@ -210,36 +217,36 @@
     <script src="/js/status-line.js?v=4"></script>
     <script src="/js/select-all.js?v=3"></script>
     <script src="/js/browse-selection.js?v=8"></script>
-    <script src="/js/selection-bar.js?v=7"></script>
+    <script src="/js/selection-bar.js?v=8"></script>
     <script src="/js/originals.js?v=3"></script>
     <script src="/js/browse-keyboard.js?v=5"></script>
     <script src="/js/browse-grid.js?v=7"></script>
-    <script src="/js/browse-list.js?v=8"></script>
+    <script src="/js/browse-list.js?v=9"></script>
     <script src="/js/browse-justified.js?v=8"></script>
     <script src="/js/menu.js?v=4"></script>
     <script src="/js/segment-field.js?v=4"></script>
     <script src="/js/video.js?v=2"></script>
-    <script src="/js/browse-tiles.js?v=1"></script>
-    <script src="/js/browse.js?v=29"></script>
+    <script src="/js/browse-tiles.js?v=2"></script>
+    <script src="/js/browse.js?v=30"></script>
     <script src="/js/crop-tool.js?v=5"></script>
     <script src="/js/face-mark-tool.js?v=3"></script>
     <script src="/js/zoom-tool.js?v=5"></script>
     <script src="/js/fullscreen.js?v=1"></script>
     <script src="/js/viewer-video.js?v=1"></script>
-    <script src="/js/viewer.js?v=22"></script>
-    <script src="/js/viewer-menu.js?v=5"></script>
+    <script src="/js/viewer.js?v=23"></script>
+    <script src="/js/viewer-menu.js?v=6"></script>
     <script src="/js/exif-labels.js?v=3"></script>
     <script src="/js/folder-dashboard.js?v=5"></script>
     <script src="/js/info-people.js?v=8"></script>
     <script src="/js/info-things.js?v=2"></script>
-    <script src="/js/info-exif.js?v=3"></script>
+    <script src="/js/info-exif.js?v=5"></script>
     <script src="/js/info-records.js?v=1"></script>
-    <script src="/js/infopanel.js?v=23"></script>
+    <script src="/js/infopanel.js?v=24"></script>
     <script src="/js/dialog.js?v=2"></script>
     <script src="/js/folder-rename-dialog.js?v=1"></script>
     <script src="/js/progress-dialog.js?v=6"></script>
     <script src="/js/organize-drag.js?v=1"></script>
-    <script src="/js/organize.js?v=15"></script>
+    <script src="/js/organize.js?v=16"></script>
     <script src="/js/location-modal.js?v=9"></script>
     <script src="/js/batch-rename-modal.js?v=9"></script>
     <script src="/js/folder-picker.js?v=11"></script>
@@ -255,12 +262,12 @@
     <script src="/js/published-galleries.js?v=19"></script>
     <script src="/js/collect-dialog.js?v=7"></script>
     <script src="/js/publish-dialog.js?v=5"></script>
-    <script src="/js/library-pane.js?v=17"></script>
-    <script src="/js/search-result-pane.js?v=11"></script>
+    <script src="/js/library-pane.js?v=18"></script>
+    <script src="/js/search-result-pane.js?v=12"></script>
     <script src="/js/chip-input.js?v=10"></script>
     <script src="/js/range-slider.js?v=2"></script>
     <script src="/js/library-filter-parts.js?v=1"></script>
-    <script src="/js/library-filter.js?v=33"></script>
+    <script src="/js/library-filter.js?v=35"></script>
     <script src="/js/vendor/d3.v7.min.js?v=4"></script>
     <script src="/js/stats-charts.js?v=5"></script>
     <script src="/js/stats-timeline-charts.js?v=5"></script>
@@ -281,7 +288,7 @@
     <script src="/js/stats-topics.js?v=22"></script>
     <script src="/js/library-dialogs.js?v=6"></script>
     <script src="/js/library-list.js?v=3"></script>
-    <script src="/js/library.js?v=41"></script>
+    <script src="/js/library.js?v=42"></script>
     <script src="/js/map-time-range.js?v=3"></script>
     <script src="/js/multi-select.js?v=4"></script>
     <script src="/js/scope-filter.js?v=9"></script>
@@ -321,7 +328,11 @@
     <script src="/js/app-theme.js?v=4"></script>
     <script src="/js/app-wastebin.js?v=15"></script>
     <script src="/js/duplicates-place.js?v=1"></script>
-    <script src="/js/app-keyboard.js?v=20"></script>
-    <script src="/js/app.js?v=45"></script>
+    <script src="/js/metadata-form.js?v=3"></script>
+    <script src="/js/metadata-date.js?v=1"></script>
+    <script src="/js/metadata-preview.js?v=2"></script>
+    <script src="/js/metadata-place.js?v=1"></script>
+    <script src="/js/app-keyboard.js?v=22"></script>
+    <script src="/js/app.js?v=47"></script>
 </body>
 </html>

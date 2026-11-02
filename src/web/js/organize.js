@@ -52,7 +52,7 @@ class OrganizePane {
         // Actions on a selection live in the bar, as they do everywhere else;
         // "Mark for deletion" is a target here, so it is not repeated in it.
         this._selectionBar = new SelectionBar(this.container.querySelector('.organize'), {
-            actions: ['export', 'download', 'rename', 'location'],
+            actions: ['export', 'download', 'rename', 'location', 'metadata'],
             onAction: (action) => this._runSelectionAction(action),
         });
 
@@ -348,13 +348,13 @@ class OrganizePane {
         if (action === 'rename' && App.renameSelectedFolder(this.pane, () => this._renderPath())) return;
         const files = this.pane.getActionableFiles().filter(p => !this.pane.selectedDirs.has(p));
         if (!files.length) return;
-        const tool = { export: 'export', rename: 'batch-rename', location: 'set-location' }[action];
+        const tool = { export: 'export', rename: 'batch-rename', location: 'set-location', metadata: 'edit-metadata' }[action];
         if (tool && this.onToolInvoke) this.onToolInvoke({ tool, files, path: this.pane.path });
     }
 
     /* --- Keyboard (called from app-keyboard.js) --- */
 
-    // The number keys are the place shortcuts everywhere else, so they only
+    // The number keys rate photos everywhere else (ADR-0060), so they only
     // aim at a target while something is selected: you select, then you send.
     // Enter opens, as everywhere else; it never moves a file. A held key
     // does not send again.

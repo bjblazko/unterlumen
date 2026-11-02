@@ -88,17 +88,18 @@ const App = {
     // click handler only exists to avoid a reload.
 
     NAV: {
-        browse: { hash: 'folders', id: 'mode-browse', key: '1' },
-        wastebin: { hash: 'marked', id: 'mode-wastebin', key: '2' },
+        browse: { hash: 'folders', id: 'mode-browse' },
+        wastebin: { hash: 'marked', id: 'mode-wastebin' },
         duplicates: { hash: 'duplicates', id: 'mode-duplicates' },
-        organize: { hash: 'organize', id: 'mode-organize', key: '3' },
-        library: { hash: 'libraries', id: 'mode-library', key: '4' },
-        map: { hash: 'map', id: 'mode-map', key: '7' },
-        timeline: { hash: 'timeline', id: 'mode-timeline', key: '8' },
-        people: { hash: 'people', id: 'mode-people', key: '0' },
-        statistics: { hash: 'statistics', id: 'mode-statistics', key: '9' },
-        published: { hash: 'galleries', id: 'mode-published', key: '5' },
-        destinations: { hash: 'destinations', id: 'mode-destinations', key: '6' },
+        organize: { hash: 'organize', id: 'mode-organize' },
+        library: { hash: 'libraries', id: 'mode-library' },
+        metadata: { hash: 'metadata', id: 'mode-metadata' },
+        map: { hash: 'map', id: 'mode-map' },
+        timeline: { hash: 'timeline', id: 'mode-timeline' },
+        people: { hash: 'people', id: 'mode-people' },
+        statistics: { hash: 'statistics', id: 'mode-statistics' },
+        published: { hash: 'galleries', id: 'mode-published' },
+        destinations: { hash: 'destinations', id: 'mode-destinations' },
         settings: { hash: 'settings', id: 'mode-settings', key: ',' },
         about: { hash: 'about', id: 'mode-about' },
         // Reached from the sentence under each place, not from the sidebar.
@@ -120,10 +121,7 @@ const App = {
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; // let the browser open a new tab
                 e.preventDefault();
-                if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
-                if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
-                if (mode === 'people') this._peopleRoute = {};
-                this.setMode(mode);
+                this.enterPlace(mode);
             });
         }
 
@@ -134,7 +132,7 @@ const App = {
             el.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
                 e.preventDefault();
-                this.setMode(el.dataset.mode);
+                this.enterPlace(el.dataset.mode);
             });
         }
 
@@ -146,7 +144,7 @@ const App = {
             e.preventDefault();
             if (link.classList.contains('library-link')) this.openLibrary(link.dataset.libraryId);
             else if (link.classList.contains('folder-link')) this.openFolder(link.dataset.path);
-            else this.setMode(link.dataset.mode);
+            else this.enterPlace(link.dataset.mode);
         });
 
         window.addEventListener('popstate', () => this.setMode(this._modeFromHash(), { fromHistory: true }));
@@ -156,6 +154,17 @@ const App = {
         const collapseBtn = document.getElementById('sidebar-collapse');
         collapseBtn.addEventListener('click', () => this.toggleSidebar());
         this._applySidebarState(localStorage.getItem('sidebar-collapsed') === '1');
+    },
+
+    // enterPlace opens a place at its start, as a click on its name does:
+    // Libraries at the overview, Statistics at its topics, People at the
+    // people, Galleries for every destination. History keeps where one was.
+    enterPlace(mode) {
+        if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
+        if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
+        if (mode === 'people') this._peopleRoute = {};
+        if (mode === 'library') this._libraryTab?.leaveLibrary();
+        this.setMode(mode);
     },
 
     // A place's address is its first segment; Statistics carries a topic
@@ -391,7 +400,7 @@ const App = {
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'], ['_duplicatesEl', 'duplicates'],
-        ['_libraryEl', 'library'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_libraryEl', 'library'], ['_metadataEl', 'metadata'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'], ['_aboutEl', 'about'], ['_guideEl', 'guide'], ['_privacyEl', 'privacy'], ['_warrantyEl', 'warranty'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
 
@@ -427,6 +436,7 @@ const App = {
                 break;
             case 'duplicates': this._openPane('_duplicatesEl', '_duplicatesPane', DuplicatesPane); break;
             case 'library': this._openPane('_libraryEl', '_libraryTab', LibraryTab); break;
+            case 'metadata': this._openPane('_metadataEl', '_metadataPane', MetadataPane); break;
             case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'timeline': this._openPane('_timelineEl', '_timelinePane', TimelinePane); break;
             case 'people':
@@ -517,7 +527,7 @@ const App = {
         // is missing on purpose: collecting needs library photos, and
         // a folder is not a library.
         this._browseSelectionBar = new SelectionBar(this._browseEl, {
-            actions: ['export', 'download', 'rename', 'location', 'mark'],
+            actions: ['export', 'download', 'rename', 'location', 'metadata', 'mark'],
             onAction: (action) => this.runSelectionAction(action, this.browsePane),
         });
         this.browsePane.load(this.currentBrowsePath);
@@ -759,6 +769,7 @@ const App = {
         if (!files.length) return;
         const tool = action === 'export' ? 'export'
             : action === 'location' ? 'set-location'
+            : action === 'metadata' ? 'edit-metadata'
             // Always the batch dialog, even for one photo: it previews the
             // result, and the single-file path was a browser prompt().
             : action === 'rename' ? 'batch-rename'
@@ -820,6 +831,48 @@ const App = {
         if (pane) pane.load(pane.path);
     },
 
+    // rateSelection gives the selected photos, or the focused one, n stars
+    // (0 takes them away): the keys 1–5 and 0 in Folders and a library.
+    async rateSelection(n) {
+        const pane = this.mode === 'organize' ? null : this.getActiveBrowsePane();
+        if (!pane) return;
+        const images = new Set(pane.getImageEntries().map(e => pane.fullPath(e.name)));
+        const files = pane.getActionableFiles().filter(f => images.has(f));
+        const sourcePath = this.mode === 'library' && pane === this._libraryTab?._pane ? this._libraryTab.currentLibrary?.sourcePath : null;
+        const resolved = this._boundaryPaths(files, sourcePath);
+        if (!resolved) { this._outsideBoundary(); return; }
+        const done = new Set(await Rating.rate(resolved, n));
+        this.showRating(pane, files.filter((f, i) => done.has(resolved[i])), n);
+    },
+
+    // showRating puts new stars on a pane's tiles and rows, and in the info
+    // panel when it shows one of the photos; files are the pane's paths.
+    showRating(pane, files, n) {
+        if (!pane || !files.length) return;
+        pane._entryMeta ||= {};
+        for (const e of pane.getImageEntries()) {
+            if (files.includes(pane.fullPath(e.name))) pane._entryMeta[e.name] = { ...pane._entryMeta[e.name], rating: n };
+        }
+        pane._updateOverlays?.();
+        const panel = this.mode === 'library' ? this._libraryTab?._infoPanel : this.infoPanel;
+        if (files.some(f => panel?.currentPath === this._infoKey(pane, f))) panel.ratingChanged(n);
+    },
+
+    // ratedInPanel puts the stars set in an info panel on the tile of the
+    // photo it shows (key: its path, or lib:<library>:<photo>).
+    ratedInPanel(key, n) {
+        const pane = this.getActiveBrowsePane();
+        if (!pane) return;
+        const files = pane.getImageEntries().map(e => pane.fullPath(e.name)).filter(f => this._infoKey(pane, f) === key);
+        this.showRating(pane, files, n);
+    },
+
+    // _infoKey is how an info panel names a pane's photo.
+    _infoKey(pane, path) {
+        const meta = pane.getLibraryMeta?.(path);
+        return meta ? `lib:${meta.libID}:${meta.photoID}` : path;
+    },
+
     getActiveBrowsePane() {
         if (this.mode === 'browse') return this.browsePane;
         if (this.mode === 'organize' && this.organize) return this.organize.pane;
@@ -845,7 +898,23 @@ const App = {
             case 'set-location': this._setLocation(files, sourcePath, onDone, pane); break;
             case 'batch-rename': this._batchRename(files, sourcePath, onDone, pane); break;
             case 'export': this._openExport(files, sourcePath, pane); break;
+            case 'edit-metadata': this._editMetadata(files, sourcePath, onDone); break;
         }
+    },
+
+    // _editMetadata brings the files to Metadata (ADR-0060); videos come
+    // too, their metadata goes beside them.
+    _editMetadata(files, sourcePath, onDone) {
+        const resolved = this._boundaryPaths(files || [], sourcePath);
+        if (!resolved) { this._outsideBoundary(onDone); return; }
+        if (!resolved.length) return;
+        if (!this._metadataEl) {
+            this._metadataEl = this._placeElement();
+            this._metadataPane = new MetadataPane(this._metadataEl);
+        }
+        this._metadataPane.setFiles(resolved);
+        if (onDone) onDone();
+        this.setMode('metadata');
     },
 
     // _filesChanged refreshes a pane, and the info panel when it shows one of

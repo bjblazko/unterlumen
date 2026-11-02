@@ -19,6 +19,7 @@ const SELECTION_ACTIONS = {
     download: { label: t('Download'), folders: true, videos: true },
     rename: { label: t('Rename…'), folders: true, oneFolder: true },
     location: { label: t('Set location…') },
+    metadata: { label: t('Edit metadata…'), videos: true },
     organize: { label: t('Show in Organize'), folders: true, videos: true },
     mark: { label: t('Mark for deletion'), folders: true, videos: true },
 };

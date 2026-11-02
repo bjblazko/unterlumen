@@ -155,13 +155,13 @@ test.describe('Organize — one source, many targets', () => {
         await expect(page.locator('.org-target[aria-current="true"]')).toHaveCount(1);
     });
 
-    // The number keys are the place shortcuts everywhere else; in Organize they
-    // only take over while something is selected.
-    test('with nothing selected, a number key still switches places', async ({ page }) => {
+    // Elsewhere the number keys rate; in Organize they aim at targets while
+    // something is selected, and without a selection they do nothing.
+    test('with nothing selected, a number key does nothing', async ({ page }) => {
         await openOrganize(page);
         await loadSource(page);
         await page.keyboard.press('1');
-        await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('#mode-organize')).toHaveAttribute('aria-current', 'page');
     });
 
     test('a folder can go to Mark for deletion', async ({ page }) => {

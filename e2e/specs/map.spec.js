@@ -85,7 +85,7 @@ test.describe('Map', () => {
         await expect(page).toHaveURL(/#map$/);
 
         await page.locator('#mode-browse').click();
-        await page.keyboard.press('7');
+        await page.locator('#mode-map').click();
         await expect(page.locator('#mode-map')).toHaveAttribute('aria-current', 'page');
     });
 

@@ -7947,3 +7947,292 @@ a.guide-node:focus-visible .guide-box {
     .photo-column { width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
     .photo-column-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* --- Metadata --- */
+
+.meta-place { overflow: auto; }
+
+.meta-body { padding: 0 var(--space-6) var(--space-8); }
+
+/* The fields on the left, what each file gets on the right. */
+.meta-layout {
+    display: grid;
+    grid-template-columns: minmax(18rem, 34rem) minmax(0, 1fr);
+    gap: var(--space-8);
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    .meta-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.meta-edit {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.meta-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Where it is written: always in view, above everything it concerns. */
+.meta-target {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    background: var(--bg-2);
+    border-radius: var(--radius-md);
+}
+
+.meta-target-text {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+
+.meta-target .seg button:disabled {
+    color: var(--fg-3);
+    cursor: not-allowed;
+}
+
+.meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.meta-field-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    min-height: var(--control-h-sm);
+}
+
+.meta-field-head .form-label { margin-top: 0; }
+
+.meta-source {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.meta-reset { margin-left: auto; }
+
+.meta-input {
+    height: var(--control-h);
+    box-sizing: border-box;
+    font-size: var(--text-base);
+}
+
+textarea.meta-input {
+    height: auto;
+    min-height: calc(var(--control-h) * 2);
+    resize: vertical;
+}
+
+.meta-field.is-changed .form-label { color: var(--fg); }
+
+.meta-rating {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.meta-date-now { color: var(--fg); }
+
+.meta-date-now.is-date {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.meta-date-mode { margin: var(--space-1) 0; }
+
+.meta-date-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.meta-day, .meta-time { max-width: 12rem; }
+
+.meta-shift-row {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.meta-shift-unit {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.meta-shift { width: 6rem; font-family: var(--font-mono); }
+
+/* Keywords: neutral marks; one only some files have is quieter and says
+   in how many. */
+.meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+    padding: 0 var(--space-1) 0 var(--space-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--fg);
+}
+
+.meta-chip.is-partial { border-style: dashed; color: var(--fg-2); }
+
+.meta-chip.is-added { border-color: var(--confirm); }
+
+.meta-chip.is-removed .meta-chip-label { text-decoration: line-through; color: var(--fg-3); }
+
+.meta-chip-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--fg-3);
+}
+
+.meta-chip-remove {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--fg-2);
+    cursor: pointer;
+}
+
+.meta-chip-remove:hover { background: var(--bg-3); color: var(--fg); }
+
+.meta-keyword-add {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.meta-keyword-add .meta-input { height: var(--control-h-sm); }
+
+.meta-result-text { margin: 0 0 var(--space-2); }
+
+.meta-result-error { margin: 0; color: var(--warning-ink); }
+
+.meta-preview {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.meta-preview th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--fg-2);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--line);
+}
+
+.meta-preview td {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+}
+
+/* The photo beside its name, so a row is recognised at a glance. */
+.meta-preview-name {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    font-family: var(--font-mono);
+    overflow-wrap: anywhere;
+}
+
+.meta-preview-name span { min-width: 0; }
+
+.meta-preview-thumb {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+}
+
+.meta-preview th:first-child { width: 40%; }
+
+.meta-preview-date {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.meta-preview-date strong, .meta-preview-before { white-space: nowrap; }
+
+.meta-preview-before { color: var(--fg-2); }
+
+.meta-preview-date strong { font-weight: 600; }
+
+.meta-preview-skip { color: var(--warning-ink); }
+
+/* --- Rating --- */
+
+/* Stars are data, not status: the text colour, never a signal colour. */
+.rating-marks {
+    letter-spacing: 1px;
+    color: inherit;
+}
+
+.list-rating {
+    color: var(--fg);
+    white-space: nowrap;
+}
+
+.overlay-badge-rating .rating-marks { letter-spacing: 0; font-size: var(--text-sm); line-height: 1; }
+
+.rating-control {
+    display: inline-flex;
+    align-items: center;
+}
+
+.rating-star {
+    width: 24px;
+    height: var(--control-h-sm);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--fg-3);
+    font-size: var(--text-base);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.rating-star.is-on { color: var(--fg); }
+
+.rating-star:hover { background: var(--bg-3); color: var(--fg); }
+
+.viewer-rating { display: inline-flex; align-items: center; }
+
+/* Over the photo — the toolbar and the info panel beside it — the stars take
+   the viewer's own colours. */
+.viewer .rating-star { color: var(--overlay-fg-3); }
+
+.viewer .rating-star.is-on { color: var(--overlay-fg); }
+
+.viewer .rating-star:hover { background: var(--overlay-shade); color: var(--overlay-fg); }
+
+.lib-filter-rating {
+    align-self: flex-start;
+    min-width: 12rem;
+    height: var(--control-h-sm);
+    box-sizing: border-box;
+}

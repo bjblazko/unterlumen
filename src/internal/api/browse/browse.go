@@ -11,6 +11,7 @@ import (
 
 	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/metadata"
 	"huepattl.de/unterlumen/internal/pathguard"
 )
 
@@ -214,14 +215,38 @@ func extractExifBackground(absPath string, cached *media.CachedScan) {
 		if err != nil {
 			exifDate, err = dateOfName(entry.Name)
 		}
+		// What lies beside the file wins (ADR-0060).
+		besideDate, besideRating := metadata.BesideDateAndRating(fullPath)
+		if d, ok := parseBesideDate(besideDate); ok {
+			exifDate, err = d, nil
+		}
+		if besideRating != "" {
+			if meta == nil {
+				meta = &media.EntryMeta{}
+			}
+			meta.Rating = media.StarsOf(besideRating)
+		}
 		if err == nil {
 			cached.SetExifDate(entry.Name, exifDate)
 		}
-		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "" || meta.Duration > 0) {
+		if meta != nil && (meta.HasGPS || meta.FilmSimulation != "" || meta.AspectRatio != "" || meta.Duration > 0 || meta.Rating > 0) {
 			cached.SetExifMeta(entry.Name, meta)
 		}
 	}
 	cached.MarkExifDone()
+}
+
+// parseBesideDate reads a date taken from a sidecar or NFO file, in the
+// local time a date without a zone is read in.
+func parseBesideDate(d string) (time.Time, bool) {
+	if d == "" {
+		return time.Time{}, false
+	}
+	if t, err := time.Parse(time.RFC3339, d); err == nil {
+		return t, true
+	}
+	t, err := time.ParseInLocation("2006-01-02T15:04:05", d, time.Local)
+	return t, err == nil
 }
 
 // dateOfName is the date a file's name gives when its EXIF has none, in the

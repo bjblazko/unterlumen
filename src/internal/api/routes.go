@@ -16,6 +16,7 @@ import (
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	apimetadata "huepattl.de/unterlumen/internal/api/metadata"
 	apipeople "huepattl.de/unterlumen/internal/api/people"
 	apisetup "huepattl.de/unterlumen/internal/api/setup"
 	apithings "huepattl.de/unterlumen/internal/api/things"
@@ -82,6 +83,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 	apicrop.Handle(mux, boundary, cache)
 	fileops.Handle(mux, boundary, cache, libMgr)
 	location.Handle(mux, boundary, cache)
+	apimetadata.Handle(mux, boundary, cache, libMgr)
 	batchrename.Handle(mux, boundary, cache, libMgr)
 
 	if chStore != nil {

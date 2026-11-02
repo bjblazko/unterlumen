@@ -16,15 +16,14 @@ async function openFolderB(page) {
 }
 
 test.describe('Keyboard shortcuts', () => {
-  test('number keys and comma switch places', async ({ page }) => {
+  test('comma opens Settings; the number keys open no place', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
     await page.locator('.breadcrumb').click();
-    const places = [['3', 'organize'], ['4', 'library'], ['5', 'published'], ['6', 'destinations'], [',', 'settings'], ['1', 'browse']];
-    for (const [key, place] of places) {
-      await page.keyboard.press(key);
-      await expect(page.locator(`#mode-${place}`)).toHaveAttribute('aria-current', 'page');
-    }
+    await page.keyboard.press('4');
+    await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
+    await page.keyboard.press(',');
+    await expect(page.locator('#mode-settings')).toHaveAttribute('aria-current', 'page');
   });
 
   test('Escape in a field leaves the field first, the place only next', async ({ page }) => {

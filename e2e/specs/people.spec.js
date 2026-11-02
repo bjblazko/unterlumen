@@ -58,10 +58,10 @@ const waiting = (extra = {}) => ({ people: [], groups: [{ id: 0, size: 2, faces:
 const annaNamed = (cover = 11, faces = 1) => ({ people: [{ id: 1, name: 'Anna', faces, photos: faces, cover }], groups: [], groupCount: 0, pending: 0, finding: false });
 
 test.describe('People', () => {
-  test('the sidebar entry and the 0 key open People, which offers the download', async ({ page }) => {
+  test('the sidebar entry opens People, which offers the download', async ({ page }) => {
     await page.goto('/#folders');
     await waitForAppReady(page);
-    await page.keyboard.press('0');
+    await page.locator('#mode-people').click();
     await expect(page).toHaveURL(/#people/);
     await expect(page.locator('#mode-people')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('.place-title:visible')).toHaveText('People');

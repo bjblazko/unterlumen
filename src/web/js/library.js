@@ -118,7 +118,7 @@ class LibraryTab {
         this._list = new LibraryList(this);
         this._list.wireSort(el.querySelector('.lib-sort-select'), body);
         this._listSelectionBar = new SelectionBar(el, {
-            actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
+            actions: ['collect', 'export', 'download', 'rename', 'location', 'metadata', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
         this._mountFilter(el, el.querySelector('#lib-list-main'), null);
@@ -137,6 +137,16 @@ class LibraryTab {
         this._pane = null;
         this._infoPanel = null;
         this.render();
+        App.refreshLibraryVisibility();
+    }
+
+    // leaveLibrary forgets the open library, so the next render shows the
+    // overview; the caller renders.
+    leaveLibrary() {
+        if (!this.currentLibrary) return;
+        this.currentLibrary = null;
+        this._pane = null;
+        this._infoPanel = null;
         App.refreshLibraryVisibility();
     }
 
@@ -222,7 +232,7 @@ class LibraryTab {
         // Actions on a selection live in the bar, not in the header, so they
         // are never shown greyed out with no reason given.
         this._detailSelectionBar = new SelectionBar(el, {
-            actions: ['collect', 'export', 'download', 'rename', 'location', 'organize', 'mark'],
+            actions: ['collect', 'export', 'download', 'rename', 'location', 'metadata', 'organize', 'mark'],
             onAction: (action) => this._runSelectionAction(action),
         });
         const paneEl = el.querySelector('#lib-pane');
@@ -247,9 +257,7 @@ class LibraryTab {
             sourcePath: lib.sourcePath,
             rootLabel: lib.name,
             onLeave: () => {
-                this._pane = null;
-                this._infoPanel = null;
-                this.currentLibrary = null;
+                this.leaveLibrary();
                 this.render();
             },
             // What concerns the library as a whole, rare enough for the ⋯.
@@ -580,7 +588,7 @@ class LibraryTab {
 // The selection's tools that open a dialog. Rename is always the batch
 // dialog, even for one photo: it previews the result, and the single-file
 // path was a browser prompt().
-const LIBRARY_SELECTION_TOOLS = { export: 'export', location: 'set-location', rename: 'batch-rename' };
+const LIBRARY_SELECTION_TOOLS = { export: 'export', location: 'set-location', metadata: 'edit-metadata', rename: 'batch-rename' };
 
 // The photos selected among search results, grouped by their library.
 function searchSelectionGroups(searchPane) {

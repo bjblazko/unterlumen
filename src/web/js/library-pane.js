@@ -78,6 +78,7 @@ class LibraryPane extends BrowsePane {
                 if (photo.exif.FilmSimulation) m.filmSimulation = photo.exif.FilmSimulation;
                 if (photo.exif.AspectRatio)    m.aspectRatio = photo.exif.AspectRatio;
                 if (photo.exif.Duration)       m.duration = Number(photo.exif.Duration);
+                if (photo.exif.Rating)         m.rating = Rating.of(photo.exif.Rating);
                 if (Object.keys(m).length > 0) this._entryMeta[photo.filename] = m;
             }
             return {
@@ -151,7 +152,7 @@ class LibraryPane extends BrowsePane {
 
     // Library EXIF data lives in the SQLite DB — no need to poll the browse API.
     _pollExifDates() {}
-    _pollOverlayMeta() { if (this.showOverlays) this._updateOverlays(); }
+    _pollOverlayMeta() { this._updateOverlays(); }
 
     getLibraryMeta(path) {
         const info = this._photoMap.get(path);

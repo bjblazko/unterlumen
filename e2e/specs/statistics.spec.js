@@ -116,10 +116,10 @@ test.describe('Statistics', () => {
         await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
     });
 
-    test('9 opens Statistics', async ({ page }) => {
+    test('the sidebar entry opens Statistics', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
-        await page.keyboard.press('9');
+        await page.locator('#mode-statistics').click();
         await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
         await expect(page.locator('.stats-title')).toHaveText('Statistics');
     });

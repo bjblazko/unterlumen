@@ -157,6 +157,45 @@ class Viewer {
         this._prefetch(2);
     }
 
+    /* --- Rating (ADR-0060) --- */
+
+    // _loadRating reads the stars of the photo on screen, and where its file
+    // is, and shows them in the toolbar.
+    async _loadRating() {
+        const path = this.currentPath;
+        const ref = this._menu._libraryRef(path);
+        this._rating = null; // until this photo's is known, a key rates nothing
+        let info;
+        try {
+            info = ref ? await fetch(`/api/library/${ref.lib}/photo/${ref.id}/info`).then(r => r.ok ? r.json() : Promise.reject(new Error(r.statusText)))
+                : await API.info(path);
+        } catch { return; }
+        if (path !== this.currentPath) return;
+        this._rating = {
+            key: ref ? `lib:${ref.lib}:${ref.id}` : path,
+            files: ref ? App._boundaryPaths([info.path], null) : [path],
+        };
+        this._showRating(Rating.of(info.exif?.tags?.Rating));
+    }
+
+    _showRating(n) {
+        const el = this.container.querySelector('.viewer-rating');
+        if (!el) return;
+        el.innerHTML = Rating.controlHTML(n);
+        Rating.wire(el, (stars) => this.rate(stars));
+    }
+
+    // rate gives the photo on screen n stars, 0 for none.
+    async rate(n) {
+        const r = this._rating;
+        if (!r || this.currentPath === null) return;
+        if (!r.files) { App._outsideBoundary(); return; }
+        if (!(await Rating.rate(r.files, n)).length) return;
+        this._showRating(n);
+        if (this.infoPanel?.currentPath === r.key) this.infoPanel.ratingChanged(n);
+        App.ratedInPanel(r.key, n);
+    }
+
     // reloadInfo reads the photo's info again after it changed on disk.
     reloadInfo() {
         if (!this.infoPanel?.expanded) return;
@@ -265,6 +304,11 @@ class Viewer {
                 e.preventDefault();
                 this.toggleInfo();
                 break;
+            case '0': case '1': case '2': case '3': case '4': case '5':
+                if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) break;
+                e.preventDefault();
+                if (!e.repeat) this.rate(Number(e.key));
+                break;
             case 'f':
             case 'F':
                 e.preventDefault();
@@ -319,6 +363,7 @@ class Viewer {
                         ${Fullscreen.available() ? '<button class="btn viewer-fullscreen-btn phone-only"></button>' : ''}
                         <a class="btn viewer-download-btn phone-only" href="${escapeHtml(this._downloadURL())}" download title="${t('Download the original file')}" aria-label="${t('Download the original file')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"/></svg></a>
                         <button class="btn viewer-info-btn phone-only" title="${t('Photo info')}">${t('Info')}</button>
+                        <span class="viewer-rating desk-only"></span>
                         <div class="viewer-menu-wrap desk-only"></div>
                     </div>
                 </div>
@@ -347,6 +392,7 @@ class Viewer {
 
 
         this.container.querySelector('.viewer-menu-wrap').appendChild(this._menu.menu.button);
+        this._loadRating();
         this.container.querySelector('.viewer-crop-btn')?.addEventListener('click', () => this._enterCropMode());
         this.container.querySelector('.viewer-delete')?.addEventListener('click', () => this.markCurrentForDeletion());
         const prevBtn = this.container.querySelector('.viewer-prev');

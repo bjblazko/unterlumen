@@ -46,7 +46,7 @@ See `e2e/NOTES.md` for non-obvious patterns: app-init race, selector quirks, lib
 - `README.md` — user-facing usage documentation
 - `CHANGELOG.md` — tracks all notable changes
 - `doc/architecture/arc42.md` — arc42 architecture documentation
-- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0059)
+- `doc/architecture/adr/` — Architecture Decision Records (ADR-0001 through ADR-0060)
 - `doc/features/open/` — feature documents for planned/in-progress work
 - `doc/features/done/` — feature documents for completed work
 - `doc/ideas/` — collections of ideas, not plans; an idea taken up gets its own feature document
@@ -59,7 +59,7 @@ The UI follows Dieter Rams' ten principles of good design ([ADR-0008](doc/archit
 - **Typography**: IBM Plex Sans (`--font-sans`) is the UI voice for all labels, buttons, headings and body text. IBM Plex Mono (`--font-mono`) **only for data** — file names, paths, EXIF values, coordinates, counters, IDs, keyboard keys — with tabular numerals. Weights 400/500/600. No small caps (`text-transform: uppercase`) anywhere: labels, section titles, table headers and switch states are in sentence case, and hierarchy comes from size, weight and colour (ADR-0030).
 - **Where orange is allowed** — exactly four places, everywhere in the app: (1) the one primary action of a screen or dialog (`btn-accent`), (2) the focus ring, (3) the current value of something being adjusted right now (a range slider, Organize's current target), (4) nothing else. Errors are `--warning-ink`, progress and elapsed time `--time`, "on/new/confirmed" `--confirm`, selected and active states `--fg` (or `--bg-2` for a quiet selection), hover a surface step, chart marks `--chart-*`. Orange as an error colour was the pre-ADR-0030 habit; it is a defect now.
 - **Controls**: Every action has a frame; rank comes from colour and order. Orange marks the one primary action per screen. Frameless only for navigation entries and links in running text. Everything in one row shares one height: `--control-h` 36px, `--control-h-sm` 30px (set `height` with `box-sizing: border-box`; the border counts inside).
-- **Navigation**: A sidebar of places ([ADR-0028](doc/architecture/adr/0028-places-not-workflow-steps.md)) — entries are `<a href>` with `aria-current`, never `<button>`. `#mode-*` IDs and the number shortcuts stay.
+- **Navigation**: A sidebar of places ([ADR-0028](doc/architecture/adr/0028-places-not-workflow-steps.md)) — entries are `<a href>` with `aria-current`, never `<button>`. `#mode-*` IDs stay. The number keys rate photos (1–5, 0 removes; ADR-0060), they no longer open places; only `,` opens Settings.
 - **Shape and depth**: Flat. Radii `--radius-sm` 2px / `--radius-md` 4px / `--radius-lg` 8px, `--radius-full` for round controls and badges. Separate areas with a surface step *or* a hairline, never both. `--shadow-float` only for floating layers (menu, popover, modal); nothing at rest has a shadow. No gradients, glows or backdrop blur.
 - **Layout**: 4px base spacing scale (`--space-1` … `--space-12`), no off-scale values, generous whitespace, photos without ornament.
 - **Motion**: 120/160/240ms ease-out, state changes only; 0ms under `prefers-reduced-motion`.

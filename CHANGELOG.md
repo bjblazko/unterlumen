@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Metadata: a place to change what photos and videos say about themselves.** Select photos in Folders, Organize, a library or the viewer and choose **Edit metadata…**. You can change the date taken, title, description, keywords, creator, copyright and rating. **Write to** is always at the top and is chosen for each change. **Sidecar (XMP · NFO)** writes beside the files and leaves them byte for byte as they are; a video gets an NFO file as Kodi and Jellyfin read it. **File (EXIF)** writes into the photos themselves, and says first that this changes them and their ID in a library. Fields the files disagree on say "Several values" and are left alone unless changed. Keywords are added or removed, never replaced. Every value says where it came from: the sidecar, the NFO file, the file or its name (ADR-0060).
+- **The date taken of many photos at once.** In Metadata, **Set the day** puts every chosen photo on one day and keeps each one's own time of day. **Shift** moves them all by days, hours and minutes and keeps the time between them. Each file shows its date before → after, and files without a date are named and left as they are.
+- **Stars.** The keys 1–5 give the selected photos in Folders or a library, or the photo in the viewer, that many stars; 0 takes them away. The stars in the info panel and in the viewer's toolbar can be clicked too. The rating is written to the sidecar beside the photo, or to a video's NFO file, so the file stays as it is and keeps its ID in a library. A rating the camera or Lightroom wrote into the file is read too, and one beside the file wins. Tiles show the stars when Details is on, and the list has a Rating column. The library filter has a **Rating** choice: Doesn’t matter (the default) · ★ or more … ★★★★ or more · ★★★★★ · Not rated.
+- **Metadata shows a thumbnail beside each file's name.**
+- **A date in a sidecar or NFO file counts.** A date taken written beside a file, by Unterlumen or by Lightroom or darktable, is now the date the Timeline, the Map, Statistics and the info panel use. The info panel says "from the sidecar" beside it. The first scan after the update reads every sidecar once again for this.
+
+### Changed
+- **The number keys rate instead of opening places.** 1–5 and 0 set and remove stars. Places are reached from the sidebar; only `,` still opens Settings. In Organize the number keys still send the selection to the targets.
+
+### Fixed
+- **Libraries in the sidebar always opens the list of libraries.** It used to bring back the library opened last, which looked like the first one, from another place and from inside a library alike. The tab on a phone does the same. A library's own entry under it still opens that library.
+
 ## [0.22.1] - 2026-11-01
 
 ### Added

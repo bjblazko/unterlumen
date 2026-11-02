@@ -79,6 +79,9 @@ func ExtractAllEXIF(path string) (*ExifData, error) {
 	}
 
 	data.Width, data.Height = exifImageDimensions(x)
+	if r := embeddedRating(f); r != "" {
+		data.Tags["Rating"] = r
+	}
 	return data, nil
 }
 
@@ -117,6 +120,7 @@ func ExtractDateAndMeta(path string) (time.Time, *EntryMeta, error) {
 
 	dt, dtErr := x.DateTime()
 	meta := buildEntryMeta(x)
+	meta.Rating = StarsOf(embeddedRating(f))
 
 	if dtErr != nil {
 		return time.Time{}, meta, dtErr

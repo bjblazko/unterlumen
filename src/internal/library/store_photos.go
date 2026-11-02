@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"huepattl.de/unterlumen/internal/metadata"
 )
 
 // PhotoExists returns true if a photo with the given SHA-256 ID is in the DB.
@@ -339,6 +342,14 @@ func (s *Store) SetPhotoThumbPath(id, thumbPath string) error {
 func (s *Store) UpdatePhotoExif(id, exifJSON, dateTaken string) error {
 	_, err := s.db.Exec(`UPDATE photos SET exif_json=?, date_taken=NULLIF(?,'') WHERE id=?`, exifJSON, dateTaken, id)
 	return err
+}
+
+// photoOverlaid says the photo's metadata in the index was laid over by what
+// lies beside its file (metadata.OverlaidTag).
+func (s *Store) photoOverlaid(id string) bool {
+	var exifJSON string
+	s.db.QueryRow(`SELECT exif_json FROM photos WHERE id=?`, id).Scan(&exifJSON) //nolint:errcheck
+	return strings.Contains(exifJSON, `"`+metadata.OverlaidTag+`"`)
 }
 
 // GetPhotoPathHint returns the last known absolute path for a photo.

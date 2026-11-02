@@ -55,10 +55,9 @@ test.describe('Navigation — places, not steps', () => {
     await expect(page.locator('#mode-organize')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('number shortcuts still select places', async ({ page }) => {
+  // The number keys rate photos now (ADR-0060); they open no place.
+  test('number keys do not change the place', async ({ page }) => {
     await page.keyboard.press('2');
-    await expect(page.locator('#mode-wastebin')).toHaveAttribute('aria-current', 'page');
-    await page.keyboard.press('1');
     await expect(page.locator('#mode-browse')).toHaveAttribute('aria-current', 'page');
   });
 

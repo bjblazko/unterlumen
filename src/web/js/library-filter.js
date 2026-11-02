@@ -152,6 +152,7 @@ class LibraryFilterPanel {
         this._libraries = [];
         this._queryGen = 0;
         this._kind = ''; // 'photo', 'video' or '' for both (ADR-0058)
+        this._rating = ''; // '1'…'5' at least so many stars, 'none', '' for any (ADR-0060)
         this._dateMin = '';
         this._dateMax = '';
         this._dateMinInput = null;
@@ -246,6 +247,7 @@ class LibraryFilterPanel {
         this._buildStatus();
         this._buildControls();
         this._buildKindFilter();
+        this._buildRatingFilter();
         this._buildDateFilter();
         this._buildColourFilter();
         this._buildSliders();
@@ -325,6 +327,7 @@ class LibraryFilterPanel {
         return [
             ...this._rangeFilters(),
             ...(this._kind ? [{ label: t('Kind: {kind}', { kind: this._kind === 'video' ? t('Videos') : t('Photos') }), clear: () => { this._setKind(''); this._runQuery(); } }] : []),
+            ...(this._rating ? [{ label: t('Rating: {rating}', { rating: ratingChoiceText(this._rating) }), clear: () => { this._setRating(''); this._runQuery(); } }] : []),
             ...this._dateFilters(),
             ...(this._hues?.length ? [{ label: t('Colours: {hues}', { hues: comboName(this._hues) }), clear: () => this._setHues([]) }] : []),
             ...this._textFilters(),
@@ -631,6 +634,30 @@ class LibraryFilterPanel {
         }
     }
 
+    // Stars: doesn't matter (the default), at least so many, exactly five,
+    // or not rated. A select, since seven buttons do not fit the panel.
+    _buildRatingFilter() {
+        const el = document.createElement('div');
+        el.className = 'lib-filter-groups';
+        el.innerHTML = `<div class="lib-filter-group lib-filter-group--rating">
+            <label class="lib-filter-label" for="lib-filter-rating">${t('Rating')}</label>
+            <select id="lib-filter-rating" class="btn btn-sm select-btn lib-filter-rating">
+                ${RATING_CHOICES.map(v => `<option value="${v}"${v === this._rating ? ' selected' : ''}>${escapeHtml(ratingChoiceText(v))}</option>`).join('')}
+            </select></div>`;
+        const select = el.querySelector('select');
+        select.addEventListener('change', () => {
+            this._setRating(select.value);
+            this._scheduleQuery();
+        });
+        this._ratingEl = select;
+        this._container.appendChild(el);
+    }
+
+    _setRating(rating) {
+        this._rating = rating;
+        if (this._ratingEl) this._ratingEl.value = rating;
+    }
+
     _buildDateFilter() {
         const { el, from, to } = dateTakenFilter(this._dateMin, this._dateMax, {
             from: v => { this._dateMin = v; this._scheduleQuery(); },
@@ -679,6 +706,7 @@ class LibraryFilterPanel {
         if (this._dateMaxInput) this._dateMaxInput.value = '';
         this._hues = [];
         this._setKind('');
+        this._setRating('');
         this._syncColourChips();
         this._chipInput?.reset();
         this._rebuildSliders();
@@ -710,6 +738,7 @@ class LibraryFilterPanel {
         if (this._dateMax) params.date_taken_max = this._dateMax;
         if (this._hues?.length) params.hues = this._hues.join(',');
         addChipParams(params, this._chipInput?.getChips() || []);
+        if (this._rating) params.rating = this._rating;
         if (this._kind) params.kind = this._kind;
         // Videos hidden among the photos are hidden from the results too,
         // unless the filter asks for a kind itself.
@@ -784,4 +813,18 @@ class LibraryFilterPanel {
 
         this._options.onResults(results, multiLib, { total, fetchPage });
     }
+}
+
+// The rating filter's choices: doesn't matter, at least 1…4 stars, five,
+// and not rated.
+const RATING_CHOICES = ['', '1', '2', '3', '4', '5', 'none'];
+
+// ratingChoiceText names a choice, in the select and in the chip of active
+// filters: the stars written out, so 3 or more reads as ★★★ or more.
+function ratingChoiceText(v) {
+    if (v === '') return t('Doesn’t matter');
+    if (v === 'none') return t('Not rated');
+    const n = Number(v);
+    const stars = '★'.repeat(n);
+    return n === 5 ? stars : t('{stars} or more', { stars });
 }

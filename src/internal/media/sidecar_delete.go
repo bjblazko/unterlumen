@@ -12,6 +12,12 @@ import (
 // owns that sidecar. It is a no-op when there is no sidecar, and when the
 // deleted file was a sidecar itself.
 func RemoveSidecar(photoPath string) error {
+	if IsVideo(photoPath) {
+		// The NFO file is the video's own, whatever lies beside it.
+		if err := os.Remove(NFOPath(photoPath)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
 	sidecar := SidecarPath(photoPath)
 	if sidecar == photoPath || SidecarShared(photoPath) {
 		return nil
@@ -28,7 +34,7 @@ func SidecarShared(path string) bool {
 	stem := strings.TrimSuffix(path, filepath.Ext(path))
 	others, _ := filepath.Glob(globEscape(stem) + ".*")
 	for _, o := range others {
-		if o != path && !strings.EqualFold(filepath.Ext(o), ".xmp") {
+		if ext := filepath.Ext(o); o != path && !strings.EqualFold(ext, ".xmp") && !strings.EqualFold(ext, ".nfo") {
 			return true
 		}
 	}

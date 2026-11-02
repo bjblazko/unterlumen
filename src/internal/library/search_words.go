@@ -133,7 +133,8 @@ func (s *Store) listMatches(ctx context.Context, opts ListPhotosOpts) (ListPhoto
 		        COALESCE((SELECT value FROM exif_index WHERE photo_id=p.id AND field='GPSLatitude' LIMIT 1),
 		                 CASE WHEN json_valid(p.exif_json) THEN CAST(json_extract(p.exif_json,'$.latitude') AS TEXT) END),
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1),
-		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END,
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Rating') END
 		 FROM photos p WHERE p.id IN (SELECT p.id `+fromSQL+` WHERE `+whereSQL+`)`, args...)
 	if err != nil {
 		return ListPhotosResult{}, err

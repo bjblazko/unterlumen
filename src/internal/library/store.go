@@ -364,7 +364,7 @@ func (s *Store) MovePathCache(oldPath, newPath string) error {
 // sidecarReading names what a scan reads from a sidecar. When it changes —
 // a version that reads something new from them — every sidecar is read once
 // again, whatever its stamp (forgetSidecarStamps).
-const sidecarReading = "1"
+const sidecarReading = "2"
 
 func (s *Store) sidecarStampOf(absPath string) string {
 	var stamp sql.NullString

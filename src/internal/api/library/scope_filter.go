@@ -36,6 +36,9 @@ func filterFromQuery(q url.Values) lib.Filter {
 	if v := q.Get("kind"); v == lib.KindPhoto || v == lib.KindVideo {
 		f.Kind = v
 	}
+	if v := q.Get("rating"); v == lib.RatingNone || (len(v) == 1 && v >= "1" && v <= "5") {
+		f.Rating = v
+	}
 	return f
 }
 

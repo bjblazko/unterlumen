@@ -54,7 +54,7 @@ test.describe('Full view menu', () => {
         await page.locator('.viewer .menu-btn').click();
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
         // The view and the file first, then what an overview does to a selection.
-        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'collect', 'export', 'rename', 'location', 'organize', 'library']);
+        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'collect', 'export', 'rename', 'location', 'metadata', 'organize', 'library']);
     });
 
     test('Show in library opens its folder with the photo selected', async ({ page }) => {
@@ -98,6 +98,14 @@ test.describe('Full view menu', () => {
         await info;
     });
 
+    test('Edit metadata brings the photo to Metadata', async ({ page }) => {
+        await openFromMap(page);
+        await choose(page, 'metadata');
+        await expect(page.locator('.viewer')).toHaveCount(0);
+        await expect(page.locator('#mode-metadata')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.meta-preview-name')).toHaveText(PHOTO);
+    });
+
     test('a photo in Folders has what Folders offers, and Show in Organize goes there', async ({ page }) => {
         await page.goto('/#folders');
         await waitForAppReady(page);
@@ -107,7 +115,7 @@ test.describe('Full view menu', () => {
         await expect(page.locator('.viewer')).toBeVisible();
         await page.locator('.viewer .menu-btn').click();
         const ids = await page.locator('.menu .menu-item').evaluateAll(els => els.map(e => e.dataset.id));
-        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'export', 'rename', 'location', 'organize']);
+        expect(ids).toEqual(['filmstrip', 'fullscreen', 'download', 'export', 'rename', 'location', 'metadata', 'organize']);
         await page.locator('.menu .menu-item[data-id="organize"]').click();
         await expect(page.locator('.viewer')).toHaveCount(0);
         await expect(page).toHaveURL(/#organize$/);

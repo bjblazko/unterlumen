@@ -857,17 +857,19 @@ class BrowsePane {
         if (!data.ready) { setTimeout(() => this._doMetaPoll(pollPath), 500); return; }
         if (data.meta) {
             this._entryMeta = data.meta;
-            if (this.showOverlays) this._updateOverlays();
+            this._updateOverlays();
             updateVideoBadges(this._contentEl || this.container, name => this._entryMeta[name]);
         }
     }
 
     _updateOverlays() {
-        updateOverlayBadges(this._contentEl || this.container, name => this._buildOverlayBadges(name, this._entryMeta[name]));
+        updateOverlayBadges(this._contentEl || this.container,
+            (name, opts) => this._buildOverlayBadges(name, this._entryMeta[name], opts),
+            name => this._entryMeta[name]);
     }
 
-    _buildOverlayBadges(name, meta) {
-        return this.showOverlays ? overlayBadgesHTML(name, meta) : '';
+    _buildOverlayBadges(name, meta, opts) {
+        return this.showOverlays ? overlayBadgesHTML(name, meta, opts) : '';
     }
 
     // --- Client-side sort ---

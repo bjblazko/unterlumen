@@ -161,6 +161,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/export` | `/api/export/*` handlers; ZIP token store |
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
+| `internal/api/metadata` | `/api/metadata/read` (what files say, and what a change writes to each) and `/api/metadata/write` (one file per request), then `Manager.MetadataWritten` ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)) |
+| `internal/metadata` | The metadata editor's fields: read with their source (sidecar/NFO before file before file name), written into the file (exiftool), the XMP sidecar or a video's NFO; date corrections (set the day, shift); `Overlay` for the index and info panel |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
@@ -197,6 +199,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-justified.js` | `JustifiedRenderer` — justified-view DOM rendering and row-packing layout |
 | `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
+| `metadata-place.js` | `MetadataPane` — the Metadata place: the target, the preview, writing ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)); `metadata-form.js` (fields and keywords), `metadata-date.js` (date correction), `metadata-preview.js` (before → after per file) |
 | `organize.js` | `OrganizePane` class — source browse pane, remembered targets, move/copy with undo |
 | `activity.js` | `Activity` — the one way to say something is happening: busy, counted, ended ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `status-line.js` | `StatusLine` — the foot of the sidebar: jobs from `/api/jobs/stream` that outlive their page |
@@ -430,6 +433,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0057](adr/0057-requests-from-other-sites-and-untrusted-input.md) — Requests from other sites refused, security headers, only images served inline, external program arguments checked, one escape helper
 - [ADR-0058](adr/0058-videos-listed-and-played-never-edited.md) — Videos listed and played, never edited: browser playback without transcoding, ffmpeg stills and hover clips, Live Photos as their photo, a kind in the filter
 - [ADR-0059](adr/0059-duplicates-from-the-index.md) — Duplicates found from the index: SHA-256, dHash bands and the moment taken; marks and deletion by path
+- [ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md) — Metadata written to a named target (file via exiftool, XMP sidecar, a video's Kodi NFO); what lies beside a file wins when reading
 
 ## 10. Quality Requirements
 

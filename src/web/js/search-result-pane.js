@@ -48,6 +48,7 @@ class SearchResultPane extends BrowsePane {
             filmSimulation: exif.FilmSimulation || null,
             aspectRatio: null,
             duration: exif.Duration ? Number(exif.Duration) : null,
+            rating: Rating.of(exif.Rating),
         };
         return {
             name: p.pathHint,

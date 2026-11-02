@@ -178,6 +178,40 @@ const API = {
         return resp.json();
     },
 
+    // What the files say now and, with a change, what it writes to each
+    // (ADR-0060). Files are relative to the boundary.
+    async readMetadata(files, change = {}) {
+        const resp = await fetch('/api/metadata/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, change }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    // Writes the change to one file, into target: 'file' or 'sidecar'.
+    async writeMetadata(file, target, change) {
+        const resp = await fetch('/api/metadata/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file, target, change }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
+    // Sets the stars of the files, 0 for none, beside each (ADR-0060).
+    async rateFiles(files, rating) {
+        const resp = await fetch('/api/metadata/rating', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, rating }),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    },
+
     async mkdir(path) {
         const resp = await fetch('/api/mkdir', {
             method: 'POST',

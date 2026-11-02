@@ -21,10 +21,17 @@ class InfoExif {
     shortList(d, tags, used) {
         const p = this._panel;
         const rows = [p.row('Name', d.name)];
-        // A date its file's name gave says so: no camera recorded it.
-        const named = tags.DateTakenFrom ? ` · ${t('from the file name')}` : '';
+        // A date that is not the camera's says where it came from: the
+        // file's name, or the sidecar or NFO file it was written to.
+        const from = { 'file name': 'from the file name', sidecar: 'from the sidecar', nfo: 'from the NFO file' }[tags.DateTakenFrom];
+        const named = from ? ` · ${t(from)}` : '';
         used.add('DateTakenFrom');
+        used.add('MetadataFrom');
         rows.push(d.exif?.dateTaken ? p.row('Taken', p.formatDate(d.exif.dateTaken) + named) : p.row('Modified', p.formatDate(d.modified)));
+        // Stars to read and to set (ADR-0060); a click writes them beside
+        // the file.
+        used.add('Rating');
+        rows.push(`<div class="info-row"><span class="info-label">${escapeHtml(t('Rating'))}</span><span class="info-value">${Rating.controlHTML(Rating.of(tags.Rating))}</span></div>`);
         this._tag(rows, tags, used, 'Model', 'Camera');
         this._tag(rows, tags, used, 'LensModel', 'Lens');
         const exposure = exposureLine(tags);

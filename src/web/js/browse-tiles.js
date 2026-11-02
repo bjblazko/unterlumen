@@ -33,8 +33,10 @@ function folderTileBodyHTML(libID, name, preview) {
 // photo. Colour is a signal in this UI (ADR-0030), and a colour per file
 // format and per film simulation would be eight decorative colours
 // competing with the photograph itself.
-function overlayBadgesHTML(name, meta) {
+// rating: false leaves the stars out, for the list, which has a column for them.
+function overlayBadgesHTML(name, meta, { rating = true } = {}) {
     const badges = [];
+    if (rating && meta?.rating) badges.push(`<span class="overlay-badge overlay-badge-rating">${Rating.marksHTML(meta.rating, 'rating-marks')}</span>`);
     if (meta?.hasGPS) {
         badges.push(`<span class="overlay-badge overlay-badge-gps" title="${t('Has GPS coordinates')}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>`);
     }
@@ -59,14 +61,19 @@ function fileTypeLabel(name) {
 
 // updateOverlayBadges puts each photo's details in place once they have come:
 // over a tile, or beside a list row's name.
-function updateOverlayBadges(container, badgesOf) {
+// badgesOf(name, opts) gives the badges; metaOf(name) the details, whose
+// stars go into the list's Rating column.
+function updateOverlayBadges(container, badgesOf, metaOf = () => null) {
     container.querySelectorAll('[data-type="image"]').forEach(el => {
-        const badges = badgesOf(el.dataset.name);
         if (el.tagName !== 'TR') {
+            const badges = badgesOf(el.dataset.name);
             el.querySelector('.overlay-badges')?.remove();
             if (badges) el.insertAdjacentHTML('beforeend', badges);
             return;
         }
+        const badges = badgesOf(el.dataset.name, { rating: false });
+        const ratingCell = el.querySelector('td.list-rating');
+        if (ratingCell) ratingCell.innerHTML = Rating.marksHTML(metaOf(el.dataset.name)?.rating || 0);
         const nameCell = el.querySelector('td.list-name');
         if (!nameCell) return;
         let listBadges = nameCell.querySelector('.list-badges');

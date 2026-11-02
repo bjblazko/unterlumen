@@ -1,6 +1,7 @@
 package library
 
 import (
+	"strconv"
 	"time"
 
 	"huepattl.de/unterlumen/internal/media"
@@ -42,7 +43,8 @@ func (s *Store) directPhotos(prefix string) ([]Photo, error) {
 		        (SELECT value FROM exif_index WHERE photo_id=p.id AND field='FilmSimulation' LIMIT 1),
 		        CAST(json_extract(p.exif_json,'$.width')  AS INTEGER),
 		        CAST(json_extract(p.exif_json,'$.height') AS INTEGER),
-		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Duration') END,
+		        CASE WHEN json_valid(p.exif_json) THEN json_extract(p.exif_json,'$.tags.Rating') END
 		 FROM photos p
 		 LEFT JOIN exif_index e ON e.photo_id = p.id AND e.field = 'DateTaken'
 		 WHERE p.status='ok' AND p.path_hint GLOB ? AND p.path_hint NOT GLOB ?`,
@@ -57,12 +59,12 @@ func (s *Store) directPhotos(prefix string) ([]Photo, error) {
 		var indexedAt string
 		var gpsLat, filmSim *string
 		var imgWidth, imgHeight *int
-		var duration *string
-		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight, &duration); err != nil {
+		var duration, rating *string
+		if err := rows.Scan(&p.ID, &p.PathHint, &p.Filename, &p.FileSize, &indexedAt, &p.DateTaken, &gpsLat, &filmSim, &imgWidth, &imgHeight, &duration, &rating); err != nil {
 			return err
 		}
 		p.IndexedAt, _ = time.Parse(time.RFC3339, indexedAt)
-		p.Exif = withDuration(overlayExif(gpsLat, filmSim, imgWidth, imgHeight), duration)
+		p.Exif = withRating(withDuration(overlayExif(gpsLat, filmSim, imgWidth, imgHeight), duration), rating)
 		photos = append(photos, p)
 		return nil
 	})
@@ -139,4 +141,16 @@ func (s *Store) BrowseFolderRecursive(folderAbs string) ([]Photo, error) {
 		photos = []Photo{}
 	}
 	return photos, nil
+}
+
+// withRating adds the photo's stars to its overlay details when it has any.
+func withRating(exif map[string]string, rating *string) map[string]string {
+	if rating == nil || media.StarsOf(*rating) == 0 {
+		return exif
+	}
+	if exif == nil {
+		exif = make(map[string]string)
+	}
+	exif["Rating"] = strconv.Itoa(media.StarsOf(*rating))
+	return exif
 }

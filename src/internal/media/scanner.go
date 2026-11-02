@@ -14,6 +14,7 @@ type EntryMeta struct {
 	FilmSimulation string  `json:"filmSimulation,omitempty"`
 	AspectRatio    string  `json:"aspectRatio,omitempty"`
 	Duration       float64 `json:"duration,omitempty"` // a video's, in seconds
+	Rating         int     `json:"rating,omitempty"`   // stars, 1–5; 0 for none
 }
 
 type EntryType string

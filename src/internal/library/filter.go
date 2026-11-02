@@ -2,6 +2,7 @@ package library
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -16,11 +17,15 @@ type Filter struct {
 	People      []string // names given in People; all of them in the photo, as in a library's filter
 	Things      []string // things found in photos (ADR-0054); all of them in the photo
 	Kind        string   // KindPhoto or KindVideo (ADR-0058); "" for both
+	Rating      string   // "1"…"5": at least that many stars; RatingNone: none; "" for any (ADR-0060)
 }
+
+// RatingNone asks for photos without stars.
+const RatingNone = "none"
 
 // Empty says the filter narrows nothing.
 func (f Filter) Empty() bool {
-	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0 && len(f.People) == 0 && len(f.Things) == 0 && f.Kind == ""
+	return f.From == "" && f.Until == "" && len(f.Models) == 0 && len(f.Lenses) == 0 && len(f.People) == 0 && len(f.Things) == 0 && f.Kind == "" && f.Rating == ""
 }
 
 // Key identifies the filter in a cache key; "" for the empty one.
@@ -28,8 +33,8 @@ func (f Filter) Key() string {
 	if f.Empty() {
 		return ""
 	}
-	return fmt.Sprintf("%s~%s~%s~%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"),
-		strings.Join(f.People, "\x1f"), strings.Join(f.Things, "\x1f"), f.Kind)
+	return fmt.Sprintf("%s~%s~%s~%s~%s~%s~%s~%s", f.From, f.Until, strings.Join(f.Models, "\x1f"), strings.Join(f.Lenses, "\x1f"),
+		strings.Join(f.People, "\x1f"), strings.Join(f.Things, "\x1f"), f.Kind, f.Rating)
 }
 
 // Cond restricts the photo IDs in col to the filter's photos: " AND col IN
@@ -73,7 +78,25 @@ func (f Filter) Cond(col string) (string, []any) {
 		args = append(args, thing)
 	}
 	b.WriteString(kindCond(col, f.Kind))
+	b.WriteString(ratingCond(col, f.Rating))
 	return b.String(), args
+}
+
+// ratingCond narrows col to photos with at least rating stars, or to those
+// without any: a set of the rated photos from the index on field and value.
+func ratingCond(col, rating string) string {
+	if rating == RatingNone {
+		return " AND " + col + " NOT IN (SELECT photo_id FROM exif_index WHERE field='Rating' AND value IN ('1','2','3','4','5'))"
+	}
+	n, err := strconv.Atoi(rating)
+	if err != nil || n < 1 || n > 5 {
+		return ""
+	}
+	var values []string
+	for v := n; v <= 5; v++ {
+		values = append(values, "'"+strconv.Itoa(v)+"'")
+	}
+	return " AND " + col + " IN (SELECT photo_id FROM exif_index WHERE field='Rating' AND value IN (" + strings.Join(values, ",") + "))"
 }
 
 // nextMonth is the month after "YYYY-MM", as the first text a date of a

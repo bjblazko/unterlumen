@@ -41,6 +41,7 @@ class ViewerMenu {
             { id: 'export', label: t('Export…'), onSelect: () => this._withPhoto(ref, p => App._openExport([p.path], null, photoRef)) },
             { id: 'rename', label: t('Rename…'), onSelect: () => this._withPhoto(ref, p => this._rename(p.path)) },
             { id: 'location', label: t('Set location…'), onSelect: () => this._withPhoto(ref, p => this._tool('set-location', p.path)) },
+            { id: 'metadata', label: t('Edit metadata…'), onSelect: () => this._withPhoto(ref, p => this._leave(() => App.handleToolInvoke({ tool: 'edit-metadata', files: [p.path] }))) },
             { id: 'organize', label: t('Show in Organize'), onSelect: () => this._withPhoto(ref, p => this._leave(() => App.openCommanderAt(dirOf(p.path), [p.name]))) },
             'separator',
             { id: 'library', label: t('Show in library'), onSelect: () => showPhotoInLibrary(ref, () => this._viewer.close()) },
@@ -52,6 +53,7 @@ class ViewerMenu {
             { id: 'export', label: t('Export…'), onSelect: () => App.handleToolInvoke({ tool: 'export', files: [path] }) },
             { id: 'rename', label: t('Rename…'), onSelect: () => this._rename(path) },
             { id: 'location', label: t('Set location…'), onSelect: () => this._tool('set-location', path) },
+            { id: 'metadata', label: t('Edit metadata…'), onSelect: () => this._leave(() => App.handleToolInvoke({ tool: 'edit-metadata', files: [path] })) },
         ];
         if (App.mode !== 'organize') {
             const boundary = (App.config?.boundary || '').replace(/\/$/, '');
