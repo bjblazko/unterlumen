@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-11-01*
+*Last modified: 2026-11-02*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.23.0] - 2026-11-02
 
 ### Added
 - **Metadata: a place to change what photos and videos say about themselves.** Select photos in Folders, Organize, a library or the viewer and choose **Edit metadata…**. You can change the date taken, title, description, keywords, creator, copyright and rating. **Write to** is always at the top and is chosen for each change. **Sidecar (XMP · NFO)** writes beside the files and leaves them byte for byte as they are; a video gets an NFO file as Kodi and Jellyfin read it. **File (EXIF)** writes into the photos themselves, and says first that this changes them and their ID in a library. Fields the files disagree on say "Several values" and are left alone unless changed. Keywords are added or removed, never replaced. Every value says where it came from: the sidecar, the NFO file, the file or its name (ADR-0060).
