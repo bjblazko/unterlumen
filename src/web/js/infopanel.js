@@ -35,6 +35,7 @@ class InfoPanel {
         this._things = new InfoThings(this);
         this._exif = new InfoExif(this);
         this._records = new InfoRecords(this);
+        this._iptc = new InfoIPTC(this);
         this.render();
     }
 
@@ -76,6 +77,7 @@ class InfoPanel {
     async loadInfo(path) {
         if (this._alreadyShowing(path, 'data')) return;
         this._startLoading(path);
+        this._metaContext = null;
         this._people.reset();
         this._things.reset();
         this.render();
@@ -83,6 +85,11 @@ class InfoPanel {
             const result = await API.info(path);
             return () => { this.data = result; };
         });
+        if (this.currentPath === path && this.data && !this._metaContext) {
+            sidecarNotesContext(path).then(ctx => {
+                if (ctx && this.currentPath === path && !this._metaContext) this.setMetaContext(ctx);
+            });
+        }
     }
 
     async loadFromURL(url, key) {
@@ -269,12 +276,18 @@ class InfoPanel {
     // _rate writes the stars of the photo shown: a library photo by where it
     // lies on disk, a photo in Folders by its path; its tile shows them too.
     async _rate(n) {
-        const lib = String(this.currentPath || '').startsWith('lib:');
-        const files = App._boundaryPaths([lib ? this.data.path : this.currentPath], null);
+        const files = this.boundaryFile();
         if (!files) { App._outsideBoundary(); return; }
         if (!(await Rating.rate(files, n)).length) return;
         this.ratingChanged(n);
         App.ratedInPanel(this.currentPath, n);
+    }
+
+    // boundaryFile is the photo shown as the API names a file: relative to
+    // the boundary, a library photo by where it is. null when it is outside.
+    boundaryFile() {
+        const lib = String(this.currentPath || '').startsWith('lib:');
+        return App._boundaryPaths([lib ? this.data.path : this.currentPath], null);
     }
 
     _wireRendered() {
@@ -295,6 +308,7 @@ class InfoPanel {
             });
         });
         if (this._metaContext) this._records.attachEvents(this.container, this._metaContext);
+        if (this.data) this._iptc.attachEvents(this.container);
         if (this.folderData) this._folders.attachEvents();
         if (this.data) {
             this._people.attachEvents(this.container);
@@ -352,6 +366,7 @@ class InfoPanel {
             this._people.render(),
             this._things.render(),
             this._exif.location(d, used),
+            this._iptc.render(d, tags, used),
             d.exif ? this._exif.allMetadata(d, tags, used, this.metadataOpen) : '',
             ctx ? this._records.galleriesSection(ctx) : '',
             ctx ? this._records.fieldsSection(ctx) : '',

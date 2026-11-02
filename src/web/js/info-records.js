@@ -21,8 +21,10 @@ class InfoRecords {
         `</div>`;
     }
 
-    // The fields a person added, each editable, and a row to add one.
+    // The fields a person added, each editable, and a row to add one. A
+    // video has none (ADR-0061).
     fieldsSection(ctx) {
+        if (ctx.fields === false) return '';
         const fields = (ctx.entries || []).filter(e =>
             e.key !== 'title' && !e.key.startsWith('built:') && !e.key.startsWith('pending:'));
         const rows = fields.map(e =>
@@ -37,7 +39,7 @@ class InfoRecords {
                 `<input class="info-meta-val-input" type="text" placeholder="${t('Value')}" autocomplete="off">` +
                 `<button class="btn btn-sm info-meta-add-btn">${t('Add')}</button>` +
             `</div>`);
-        return this._panel.section('Meta', rows);
+        return this._panel.section('Own fields', rows);
     }
 
     // The galleries the photo is published in, and those it waits for.
@@ -141,6 +143,42 @@ class InfoRecords {
             App.showToast(t('Could not save it: ') + err.message);
         }
     }
+}
+
+// sidecarNotesContext is the meta context of a photo outside a library —
+// in Folders, Organize, the viewer: its title and own fields, read and
+// written beside it through Metadata's API (ADR-0061), so a library that
+// covers it follows. path is relative to the boundary; null when it cannot
+// be read.
+async function sidecarNotesContext(path) {
+    const read = async () => {
+        const res = await API.readMetadata([path]);
+        const cur = res.files?.[0]?.current;
+        if (!cur) throw new Error(res.files?.[0]?.error || t('it could not be read'));
+        return cur;
+    };
+    const entriesOf = (cur) => [
+        ...(cur.fields?.title?.value ? [{ key: 'title', value: cur.fields.title.value }] : []),
+        ...Object.entries(cur.own || {}).map(([key, value]) => ({ key, value })),
+    ];
+    const write = async (key, value) => {
+        const change = key === 'title' ? { set: { title: value } } : { own: { [key]: { value } } };
+        const res = await API.writeMetadata(path, 'sidecar', change);
+        if (!res.success) throw new Error(res.error || t('it was not written'));
+    };
+    let cur;
+    try {
+        cur = await read();
+    } catch {
+        return null;
+    }
+    return {
+        entries: entriesOf(cur),
+        fields: !cur.video,
+        onUpsert: write,
+        onDelete: (key) => write(key, ''),
+        refresh: async () => entriesOf(await read()),
+    };
 }
 
 // One card per album, not per channel: a channel can hold many unrelated

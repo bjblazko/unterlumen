@@ -6,6 +6,8 @@
 // "Several values" and is left as it is until it is changed. Only what is
 // changed is written. A group that is empty in every file starts folded.
 
+// tag is the name a field's value has among a photo's tags (the index, the
+// info panel), as the server's field table names it.
 const META_GROUPS = [
     { id: 'date', title: 'Date taken', date: true },
     { id: 'description', title: 'Description', fields: [
@@ -17,27 +19,27 @@ const META_GROUPS = [
         { field: 'rating', label: 'Rating', kind: 'rating' },
     ] },
     { id: 'location', title: 'Location', fields: [
-        { field: 'sublocation', label: 'Sublocation' },
-        { field: 'city', label: 'City' },
-        { field: 'state', label: 'Province or state' },
-        { field: 'country', label: 'Country' },
-        { field: 'countryCode', label: 'Country code', kind: 'mono' },
+        { field: 'sublocation', label: 'Sublocation', tag: 'Sublocation' },
+        { field: 'city', label: 'City', tag: 'City' },
+        { field: 'state', label: 'Province or state', tag: 'State' },
+        { field: 'country', label: 'Country', tag: 'Country' },
+        { field: 'countryCode', label: 'Country code', kind: 'mono', tag: 'CountryCode' },
     ] },
     { id: 'event', title: 'Event and headline', fields: [
-        { field: 'headline', label: 'Headline' },
-        { field: 'event', label: 'Event' },
+        { field: 'headline', label: 'Headline', tag: 'Headline' },
+        { field: 'event', label: 'Event', tag: 'Event' },
     ] },
     { id: 'origin', title: 'Origin and rights', fields: [
-        { field: 'credit', label: 'Credit line' },
-        { field: 'source', label: 'Source' },
-        { field: 'usageTerms', label: 'Usage terms', kind: 'textarea' },
-        { field: 'webStatement', label: 'Web statement of rights', kind: 'mono' },
-        { field: 'instructions', label: 'Instructions', kind: 'textarea' },
-        { field: 'jobId', label: 'Job ID', kind: 'mono' },
+        { field: 'credit', label: 'Credit line', tag: 'Credit' },
+        { field: 'source', label: 'Source', tag: 'Source' },
+        { field: 'usageTerms', label: 'Usage terms', kind: 'textarea', tag: 'UsageTerms' },
+        { field: 'webStatement', label: 'Web statement of rights', kind: 'mono', tag: 'WebStatement' },
+        { field: 'instructions', label: 'Instructions', kind: 'textarea', tag: 'Instructions' },
+        { field: 'jobId', label: 'Job ID', kind: 'mono', tag: 'TransmissionReference' },
     ] },
     { id: 'shown', title: 'Shown', fields: [
-        { field: 'personShown', label: 'People shown', kind: 'list' },
-        { field: 'organisationShown', label: 'Organisations shown', kind: 'list' },
+        { field: 'personShown', label: 'People shown', kind: 'list', tag: 'PersonInImage' },
+        { field: 'organisationShown', label: 'Organisations shown', kind: 'list', tag: 'OrganisationInImageName' },
     ] },
     { id: 'own', title: 'Own fields', own: true },
 ];

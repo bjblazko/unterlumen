@@ -1668,5 +1668,12 @@
  "in {n} of {total}": "in {n} von {total}",
  "A key has no spaces and no =.": "Ein Schlüssel hat keine Leerzeichen und kein =.",
  "Own fields are always written to the sidecar, wherever the rest goes.": "Eigene Felder kommen immer ins Sidecar, egal wohin der Rest geht.",
- "{videos} have none and are left out.": "{videos} haben keine und bleiben außen vor."
+ "{videos} have none and are left out.": "{videos} haben keine und bleiben außen vor.",
+ "None yet.": "Noch keine.",
+ "Add a field…": "Feld hinzufügen…",
+ "Field": "Feld",
+ "Remove {field}": "{field} entfernen",
+ "it was not written": "es wurde nicht geschrieben",
+ "it could not be read": "es konnte nicht gelesen werden",
+ "IPTC": "IPTC"
 };

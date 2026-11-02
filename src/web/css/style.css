@@ -4476,6 +4476,12 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     padding: 2px 0;
 }
 
+/* An own field reads like every other row of the panel. */
+.info-meta-row[data-meta-key] {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
 .info-meta-val {
     flex: 1;
     min-width: 0;
@@ -4530,6 +4536,50 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .info-meta-key-input:focus,
 .info-meta-val-input:focus {
     border-color: var(--accent);
+}
+
+/* --- Info Panel IPTC --- */
+
+/* The IPTC fields under the name of their group, as Metadata groups them. */
+.info-iptc-group {
+    padding-top: var(--space-2);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fg-2);
+}
+
+.info-iptc-group:first-child { padding-top: 0; }
+
+/* A value to edit in place: a row like every other, its value underlined
+   while it can be typed into. */
+.info-iptc-row { align-items: baseline; }
+
+.info-iptc-val {
+    flex: 1;
+    border-bottom: 1px dashed var(--line);
+    outline: none;
+}
+
+.info-iptc-val:focus { border-bottom-color: var(--accent); }
+
+.info-iptc-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.info-iptc-none { color: var(--fg-3); }
+
+.info-iptc-field,
+.info-iptc-input {
+    flex: 1;
+    min-width: 60px;
+    height: 24px;
+    padding: 0 4px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 11px;
 }
 
 /* --- Info Panel Title --- */

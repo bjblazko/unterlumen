@@ -258,4 +258,43 @@ test.describe('Metadata', () => {
         await expect(page.locator('.meta-chip[data-entry="ul:stock=Ektar"]')).toBeVisible();
         await expect(page.locator('.meta-chip[data-entry="ul:stock=Portra"]')).toHaveCount(0);
     });
+
+    test('the info panel in Folders shows the IPTC fields and edits them in place', async ({ page }) => {
+        await openTrip(page);
+        await page.locator(`.image-item[data-name="${PHOTOS[0]}"]`).click();
+        if (await page.locator('.info-panel.expanded:visible').count() === 0) await page.keyboard.press('i');
+        const panel = page.locator('.info-panel.expanded:visible');
+        const city = panel.locator('.info-iptc-val[data-field="city"]');
+        await expect(city).toHaveText('Kiel');
+        await expect(panel.locator('.info-iptc-val[data-field="personShown"]')).toHaveText('Bob');
+        await city.click();
+        await page.keyboard.press('ControlOrMeta+A');
+        await page.keyboard.type('Lübeck');
+        await page.keyboard.press('Enter');
+        await expect(city).toHaveText('Lübeck');
+        expect(sidecar(0)).toContain('<photoshop:City>Lübeck</photoshop:City>');
+
+        await panel.locator('.info-iptc-field').selectOption('event');
+        await panel.locator('.info-iptc-input').fill('Kieler Woche');
+        await panel.locator('.info-iptc-add-btn').click();
+        await expect(panel.locator('.info-iptc-val[data-field="event"]')).toHaveText('Kieler Woche');
+        expect(sidecar(0)).toContain('Kieler Woche');
+    });
+
+    test('a photo in Folders has its own fields in the info panel', async ({ page }) => {
+        await openTrip(page);
+        await page.locator(`.image-item[data-name="${PHOTOS[1]}"]`).click();
+        if (await page.locator('.info-panel.expanded:visible').count() === 0) await page.keyboard.press('i');
+        const panel = page.locator('.info-panel.expanded:visible');
+        await expect(panel.locator('.info-meta-val[data-key="stock"]')).toHaveText('Ektar');
+        await panel.locator('.info-meta-key-input').fill('lab');
+        await panel.locator('.info-meta-val-input').fill('Nordfoto');
+        await panel.locator('.info-meta-add-btn').click();
+        await expect(panel.locator('.info-meta-val[data-key="lab"]')).toHaveText('Nordfoto');
+        expect(sidecar(1)).toContain('Nordfoto');
+        await panel.locator('.info-title-val').click();
+        await page.keyboard.type('Am Kai');
+        await page.keyboard.press('Enter');
+        await expect.poll(() => sidecar(1)).toContain('Am Kai');
+    });
 });
