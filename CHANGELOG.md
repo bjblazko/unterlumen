@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Statistics: Weekday and hour.** Time shows the photos per weekday and hour of the day as one grid; a cell shows the photos of that hour on that weekday.
+- **Statistics: Countries and Cities.** Places counts the photos per country and city their IPTC fields name; a bar shows its photos. Without any, the chart says where they come from.
+- **Statistics: Cataloguing.** A new topic. **Completeness** shows, for title, description, keywords, GPS position, country, named people and stars, how many photos have each and how many lack it; a click on "without" shows exactly those photos, to select and take to Metadata.
+- **Statistics: about twenty-five more views, arranged by theme.** Equipment: phone or camera, the life lines of cameras and lenses, how each zoom is used, white balance. Exposure: exposure time, how bright the scenes were (EV at ISO 100), the risk of shake per lens, flash and exposure compensation over time. Time: sessions and the largest ones, year against year. Frame: aspect ratio in detail, portrait or landscape per camera, cropped photos over time. Colour: how colourful each film simulation or camera makes the photos, the colours through the day, and the **palette space** in 3D (each photo's three largest colours as a triangle). Places: journeys away from home, and the **density landscape** in 3D (columns on the world map). Cataloguing: stars over time, keywords, own fields. People: not seen for a while, who where, who with what. Things: through the year, by place, and the **meaning space** in 3D (photos placed by what they show). Every view shows its photos on a click, exactly those it counted; the overview stays as quick as it was (ADR-0062).
+- **Keywords are indexed.** The keywords beside a photo (its sidecar, a video's NFO) or in its own XMP reach the library index, as a list. Every sidecar is read once again on the next scan.
+
+### Fixed
+- **What is written in Metadata, the info panel or with the stars reaches the library filter, the statistics and the search at once.** They kept what they had worked out before until a scan found some other change, so a country written in Metadata was missing from the filter.
+- **The "(no lens)" cell of Camera and lens shows only the photos without a lens tag**, not all of the camera's.
+
 ## [0.23.0] - 2026-11-02
 
 ### Added

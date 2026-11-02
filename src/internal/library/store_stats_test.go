@@ -95,6 +95,9 @@ func TestStatisticsWholeLibrary(t *testing.T) {
 	}
 	want.ShootingHours[10] = 2
 	want.ShootingHours[14] = 1
+	// 2024-05-01 is a Wednesday, 2023-01-02 a Monday.
+	want.WeekHours[2][10], want.WeekHours[2][14], want.WeekHours[0][10] = 1, 1, 1
+	want.Countries, want.Cities, want.Completeness = []NameCount{}, []NameCount{}, noneComplete()
 	sortTies(st)
 	if !reflect.DeepEqual(st, want) {
 		t.Errorf("Statistics(\"\") =\n%+v\nwant\n%+v", st, want)
@@ -119,6 +122,8 @@ func TestStatisticsPathPrefix(t *testing.T) {
 	}
 	want.ShootingHours[10] = 1
 	want.ShootingHours[14] = 1
+	want.WeekHours[2][10], want.WeekHours[2][14] = 1, 1
+	want.Countries, want.Cities, want.Completeness = []NameCount{}, []NameCount{}, noneComplete()
 	sortTies(st)
 	if !reflect.DeepEqual(st, want) {
 		t.Errorf("Statistics(\"/lib/2024\") =\n%+v\nwant\n%+v", st, want)
@@ -265,4 +270,13 @@ func TestUndatedPhotoIsStoredWithoutDate(t *testing.T) {
 	if n != 0 {
 		t.Errorf("%d photos stored with date_taken '', want none", n)
 	}
+}
+
+// noneComplete is Completeness when no photo has any of its fields.
+func noneComplete() []NameCount {
+	out := []NameCount{}
+	for _, f := range CompletenessFields {
+		out = append(out, NameCount{f, 0})
+	}
+	return out
 }

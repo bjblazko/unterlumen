@@ -3,6 +3,7 @@ package apilibrary
 import (
 	"math"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,21 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		ExtFilter:      q.Get("ext"),
 		PathPrefix:     q.Get("pathPrefix"),
 		Hour:           parseIntIn(q.Get("hour"), 0, 23),
+		Weekday:        parseIntIn(q.Get("weekday"), 0, 6),
+		Lacks:          nonEmpty(q["lacks"]),
+		Device:         oneOf(q.Get("device"), "phone", "camera"),
+		Orient:         oneOf(q.Get("orient"), "portrait", "landscape", "square"),
+		Slow:           q.Get("slow") == "1",
+		Flash:          q.Get("flash") == "1",
+		Cropped:        q.Get("cropped") == "1",
+		NoLens:         q.Get("nolens") == "1",
+		EVMin:          parseIntIn(q.Get("ev_from"), -20, 30),
+		EVMax:          parseIntIn(q.Get("ev_to"), -20, 30),
+		RatioMin:       parseFloatIn(q.Get("ratio_from"), 1, 10),
+		RatioMax:       parseFloatIn(q.Get("ratio_to"), 1, 10),
+		TakenFrom:      momentOf(q.Get("taken_from")),
+		TakenTo:        momentOf(q.Get("taken_to")),
+		Area:           parseArea(q),
 		Aspect:         q.Get("aspect"),
 		Month:          parseIntIn(q.Get("month"), 1, 12),
 		Mono:           q.Get("mono"),
@@ -52,6 +68,58 @@ func parseListPhotosOpts(q url.Values) lib.ListPhotosOpts {
 		opts.Limit = 100
 	}
 	return opts
+}
+
+// insightParams are the parameters a Statistics click sets
+// (library/insight_terms.go); none is an EXIF field.
+var insightParams = map[string]bool{"device": true, "orient": true, "slow": true, "flash": true, "cropped": true,
+	"nolens": true, "ev_from": true, "ev_to": true, "ratio_from": true, "ratio_to": true, "taken_from": true, "taken_to": true,
+	"lat_from": true, "lat_to": true, "lon_from": true, "lon_to": true}
+
+// parseArea is the box lat_from…lat_to, lon_from…lon_to, or nil without all four.
+func parseArea(q url.Values) *[4]float64 {
+	var a [4]float64
+	for i, k := range []string{"lat_from", "lat_to", "lon_from", "lon_to"} {
+		lim := 180.0
+		if i < 2 {
+			lim = 90
+		}
+		v := parseFloatIn(q.Get(k), -lim-1, lim+1)
+		if v == nil {
+			return nil
+		}
+		a[i] = *v
+	}
+	return &a
+}
+
+var momentPattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$`)
+
+// momentOf is a moment as taken, "2024-05-01T10:00:00", or "".
+func momentOf(v string) string {
+	if momentPattern.MatchString(v) {
+		return v
+	}
+	return ""
+}
+
+// oneOf is v when it is one of choices, else "".
+func oneOf(v string, choices ...string) string {
+	for _, c := range choices {
+		if v == c {
+			return v
+		}
+	}
+	return ""
+}
+
+// parseFloatIn is a number from lo to hi, or nil for none or anything else.
+func parseFloatIn(s string, lo, hi float64) *float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil || f < lo || f > hi {
+		return nil
+	}
+	return &f
 }
 
 // parseIntIn is a whole number from lo to hi, or nil for none or anything else.
@@ -107,7 +175,7 @@ func parseTextFilters(vals map[string][]string) map[string]string {
 		if k == "channel" || k == "album" || k == "album_title" || k == "person" || k == "thing" || k == "text" || k == "ext" || k == "date_taken_min" || k == "date_taken_max" {
 			continue
 		}
-		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" || k == "kind" || k == "rating" {
+		if k == "pathPrefix" || k == "hour" || k == "aspect" || k == "month" || k == "mono" || k == "hue_bin" || k == "hues" || k == "warmth" || k == "model" || k == "lens" || k == "month_from" || k == "month_until" || k == "photo_id" || k == "kind" || k == "rating" || k == "weekday" || k == "lacks" || insightParams[k] {
 			continue
 		}
 		if strings.HasPrefix(k, "meta_") {

@@ -287,6 +287,33 @@ func libraryStatistics(mgr *lib.Manager) http.HandlerFunc {
 	}
 }
 
+// libraryInsights answers one group of the Statistics views' tallies
+// (library.Insights): ?group=gear|frame|catalogue|places|colour|people|things.
+func libraryInsights(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		in, err := mgr.Insights(parseIDList(q.Get("ids")), q.Get("pathPrefix"), q.Get("group"), scopeFilter(r))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, in)
+	}
+}
+
+// librarySpace answers a 3D view's points (library.Space): ?view=palette|meaning.
+func librarySpace(mgr *lib.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		pc, err := mgr.Space(r.Context(), parseIDList(q.Get("ids")), q.Get("pathPrefix"), q.Get("view"), scopeFilter(r))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, pc)
+	}
+}
+
 func libraryTimeline(mgr *lib.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ids, pathPrefix, granularity := timeScope(r)

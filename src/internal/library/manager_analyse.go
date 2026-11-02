@@ -70,6 +70,8 @@ func (m *Manager) analyseOnce(id string) {
 	dropEntriesOf(&m.colourCache, id)
 	dropEntriesOf(&m.colourSpaceCache, id)
 	dropEntriesOf(&m.spaceTimeCache, id)
+	dropEntriesOf(&m.insightsCache, id)
+	dropEntriesOf(&m.spacesCache, id)
 	if last.Error != "" {
 		job.Finish(errors.New(last.Error))
 		return

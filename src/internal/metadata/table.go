@@ -54,6 +54,13 @@ var table = []fieldSpec{
 	{field: OrganisationShown, prop: bag("Iptc4xmpExt", "OrganisationInImageName"), file: []string{"XMP-iptcExt:OrganisationInImageName"}, nfo: "ul:organisation", tag: "OrganisationInImageName"},
 }
 
+// propSubject is the keywords' property, read here only from a file's own
+// XMP; the sidecar's are read and written as keywords (media.WriteKeywords).
+var propSubject = bag("dc", "subject")
+
+// KeywordsTag is the tag the keywords are indexed under, a list.
+const KeywordsTag = "Keywords"
+
 // propDateCreated is where Photoshop and Lightroom keep the date taken; it
 // is written with exif:DateTimeOriginal and read when that is missing.
 var propDateCreated = prop("photoshop", "DateCreated")
@@ -100,7 +107,7 @@ func IsList(f Field) bool {
 // EntryTags are the tags whose value is a list ("Ann; Bob"): the index keeps
 // each entry apart, so a filter finds a photo by one of them.
 var EntryTags = func() map[string]bool {
-	out := map[string]bool{}
+	out := map[string]bool{KeywordsTag: true}
 	for _, s := range table {
 		if s.prop.IsList() && s.tag != "" {
 			out[s.tag] = true

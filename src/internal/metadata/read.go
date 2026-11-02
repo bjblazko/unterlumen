@@ -4,6 +4,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
@@ -63,7 +64,7 @@ func readOwn(path string) (map[string]string, error) {
 func valuesFromMeta(path string) fileValues {
 	v := fileValues{fields: map[Field]string{}}
 	if !media.IsVideo(path) {
-		v.fields = embeddedFields(path)
+		v.fields, v.keywords = embeddedFields(path)
 	}
 	data, err := media.ExtractMeta(path)
 	if err != nil || data == nil {
@@ -83,14 +84,16 @@ func valuesFromMeta(path string) fileValues {
 	return v
 }
 
-// embeddedFields are the fields in the XMP packet inside the photo at path.
-func embeddedFields(path string) map[Field]string {
+// embeddedFields are the fields and the keywords in the XMP packet inside
+// the photo at path.
+func embeddedFields(path string) (map[Field]string, []string) {
 	f, err := os.Open(path)
 	if err != nil {
-		return map[Field]string{}
+		return map[Field]string{}, nil
 	}
 	defer f.Close()
-	return fieldsOfProps(media.EmbeddedProps(f, sidecarProps))
+	props := media.EmbeddedProps(f, append(slices.Clone(sidecarProps), propSubject))
+	return fieldsOfProps(props), media.SplitList(props[propSubject])
 }
 
 // fieldsOfProps turns XMP properties into fields, the date normalised.
@@ -178,7 +181,18 @@ const OverlaidTag = "MetadataFrom"
 // Overlay would lay over the file's own.
 func HasBeside(path string) bool {
 	beside, _, err := besideProps(path)
-	return err == nil && len(beside) > 0
+	return err == nil && (len(beside) > 0 || len(besideKeywords(path)) > 0)
+}
+
+// besideKeywords are the keywords beside a file: its sidecar's, or a
+// video's NFO tags.
+func besideKeywords(path string) []string {
+	if media.IsVideo(path) {
+		_, tags, _ := readNFO(path)
+		return tags
+	}
+	kw, _ := media.ReadSidecarKeywords(path)
+	return kw
 }
 
 // Overlay lays what the file's own XMP and what lies beside the file say
@@ -188,14 +202,16 @@ func HasBeside(path string) bool {
 // data may be nil; the result is nil only when there is nothing at all.
 func Overlay(path string, data *media.ExifData) *media.ExifData {
 	var embedded map[Field]string
+	var keywords []string
 	if !media.IsVideo(path) {
-		embedded = embeddedFields(path)
+		embedded, keywords = embeddedFields(path)
 	}
 	beside, from, err := besideProps(path)
 	if err != nil {
 		beside = nil
 	}
-	if len(beside) == 0 && !hasTagged(embedded) {
+	besideKw := besideKeywords(path)
+	if len(beside) == 0 && len(besideKw) == 0 && len(keywords) == 0 && !hasTagged(embedded) {
 		return data
 	}
 	if data == nil {
@@ -210,11 +226,25 @@ func Overlay(path string, data *media.ExifData) *media.ExifData {
 			tags[spec.tag] = v
 		}
 	}
-	if len(beside) > 0 {
+	if len(beside) > 0 || len(besideKw) > 0 {
 		layBeside(tags, data, beside, from)
+	}
+	switch {
+	case len(besideKw) > 0:
+		tags[KeywordsTag] = strings.Join(besideKw, "; ")
+		data.Beside[KeywordsTag] = string(besideSource(path))
+	case len(keywords) > 0:
+		tags[KeywordsTag] = strings.Join(keywords, "; ")
 	}
 	data.Tags = tags
 	return data
+}
+
+func besideSource(path string) Source {
+	if media.IsVideo(path) {
+		return FromNFO
+	}
+	return FromSidecar
 }
 
 func hasTagged(fields map[Field]string) bool {

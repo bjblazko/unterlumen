@@ -21,13 +21,29 @@ const STATS_TOPICS = [
               render: (el, d, pick) => renderCameraLines(el, d.tl, v => pick(v.camera
                   ? { subject: `${v.camera} · ${v.period}`, params: { Model: v.camera, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
+            { title: t('Phone or camera'), subtitle: t('Share of photos taken with a phone, per period'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderDeviceShare(el, d.in.gear, v => pick(v.series
+                  ? { subject: `${v.series.name} · ${v.period}`, params: { device: v.series.key, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: t('Life lines of the gear'), subtitle: t('A lane for each camera and lens with the most photos, darker in the periods it took more'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderGearLives(el, d.in.gear, v => pick({
+                  subject: `${v.group.name} · ${v.value}`,
+                  params: { [v.group.kind === 'lens' ? 'LensModel' : 'Model']: v.group.name, ...periodDates(v.value) },
+              })) },
             { title: t('Film simulation'), source: 'snap', full: true,
               when: d => d.snap.filmSims?.some(s => s.name !== 'None'),
               render: (el, d, pick) => renderFilmSimBar(el, d.snap.filmSims, f => pick({ subject: f, params: { FilmSimulation: f } })) },
+            { title: t('How each zoom is used'), subtitle: t('The focal lengths each zoom lens was used at, darker where it was used most'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderZoomUse(el, d.in.gear, v => pick({
+                  subject: `${v.group.name} · ${v.value} mm`,
+                  params: { LensModel: v.group.name, FocalLength_min: v.value - 0.5, FocalLength_max: v.value + 0.49 },
+              })) },
             { title: t('Resolution'), subtitle: t('Largest and average megapixels per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderMegapixelTimeline(el, d.tl, v => pick(periodCriterion(v))) },
             { title: t('Format'), source: 'snap',
               render: (el, d, pick) => renderFormatDonut(el, d.snap.formats, f => pick({ subject: f.toUpperCase(), params: { ext: f } })) },
+            { title: t('White balance'), subtitle: t('Set by the camera or by hand'), source: 'in:gear',
+              render: (el, d, pick) => renderWhiteBalance(el, d.in.gear, w => pick({ subject: w.label, params: { WhiteBalance: w.name } })) },
         ],
     },
     {
@@ -49,6 +65,14 @@ const STATS_TOPICS = [
             { title: t('ISO'), source: 'snap', coverage: d => d.snap.isos,
               render: (el, d, pick) => renderISOHistogram(el, expandValues(d.snap.isos),
                   v => pick({ subject: `ISO ${v.min} – ${v.max}`, params: binRange('ISOSpeedRatings', v) })) },
+            { title: t('Exposure time'), subtitle: t('Photos per stop of exposure time'), source: 'in:gear',
+              render: (el, d, pick) => renderExposureTimes(el, d.in.gear, b => pick({
+                  subject: exposureStopLabel(b.stop), params: { ExposureTime_min: 2 ** (b.stop - 0.5), ExposureTime_max: 2 ** (b.stop + 0.5) - 1e-9 },
+              })) },
+            { title: t('How bright the scenes were'), subtitle: t('Exposure value at ISO 100, from aperture, time and ISO: night low, sun high'), source: 'in:gear',
+              render: (el, d, pick) => renderSceneLight(el, d.in.gear, b => pick({ subject: `EV ${b.ev}`, params: { ev_from: b.ev, ev_to: b.ev } })) },
+            { title: t('Risk of shake'), subtitle: t('Share of each lens’s photos exposed longer than one over the focal length (35 mm), the old rule for a sharp photo held in the hand'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderShakeRisk(el, d.in.gear, l => pick({ subject: t('{lens} · at risk of shake', { lens: l.name }), params: { LensModel: l.name, slow: 1 } })) },
             { title: t('Focal length over time'), subtitle: t('Median 35 mm equivalent, with the middle half of all photos as a band'), source: 'tl', full: true,
               render: (el, d, pick) => renderFocalDrift(el, d.tl, v => pick(periodCriterion(v))) },
             { title: t('ISO over time'), subtitle: t('Median ISO per period'), source: 'tl', full: true,
@@ -58,6 +82,12 @@ const STATS_TOPICS = [
                   subject: `${v.bucket} · ${v.period}`,
                   params: { ...apertureBucketRange(v.bucket), ...periodDates(v.period) },
               })) },
+            { title: t('Flash'), subtitle: t('Share of photos per period for which the flash fired'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderFlashShare(el, d.in.gear, v => pick(v.series
+                  ? { subject: t('Flash · {period}', { period: v.period }), params: { flash: 1, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: t('Exposure compensation'), subtitle: t('Share of photos per period exposed darker or brighter than metered, by a third of a stop or more'), source: 'in:gear', full: true,
+              render: (el, d, pick) => renderBiasShare(el, d.in.gear, v => pick(periodCriterion(v))) },
         ],
     },
     {
@@ -75,6 +105,19 @@ const STATS_TOPICS = [
                   subject: `${String(h).padStart(2, '0')}:00 – ${String(h + 1).padStart(2, '0')}:00`,
                   params: { hour: h },
               })) },
+            { title: t('Sessions'), subtitle: t('Runs of photos with less than two hours between them, by their size'), source: 'in:time',
+              render: (el, d) => renderSessionSizes(el, d.in.time) },
+            { title: t('Weekday and hour'), subtitle: t('Photos per weekday and hour of the day'), source: 'snap', full: true,
+              render: (el, d, pick) => renderWeekHours(el, d.snap.weekHours, v => pick({
+                  subject: `${t(WEEKDAYS[v.wd])} · ${weekHourSpan(v.hr)}`,
+                  params: { weekday: v.wd, hour: v.hr },
+              })) },
+            { title: t('Year against year'), subtitle: t('Photos per month, a line for each year'), source: 'snap', full: true,
+              render: (el, d, pick) => renderYearAgainstYear(el, d.snap.shootingDays, v => pick(v.year
+                  ? { subject: `${t(MONTHS[v.month - 1])} ${v.year}`, params: periodDates(`${v.year}-${String(v.month).padStart(2, '0')}`) }
+                  : { subject: t('{month} · all years', { month: t(MONTHS[v.month - 1]) }), params: { month: v.month } })) },
+            { title: t('The largest sessions'), subtitle: t('The runs of photos with the most in them'), source: 'in:time', full: true,
+              render: (el, d, pick) => renderLargestSessions(el, d.in.time, x => pick({ subject: x.label, params: { taken_from: x.first, taken_to: x.last } })) },
             { title: t('Shooting calendar'), source: 'snap', full: true,
               render: (el, d, pick) => renderCalendarHeatmap(el, d.snap.shootingDays, day => pick({
                   subject: day, params: { date_taken_min: day, date_taken_max: day },
@@ -89,6 +132,14 @@ const STATS_TOPICS = [
             { title: t('Aspect ratio'), subtitle: t('Share of each frame shape per period'), source: 'tl', full: true,
               render: (el, d, pick) => renderAspectLines(el, d.tl, v => pick(v.aspect
                   ? { subject: `${v.aspect} · ${v.period}`, params: { aspect: v.aspect, ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: t('Aspect ratio in detail'), subtitle: t('The long side over the short one, in steps of 0.05: squares at 1.00, 3:2 at 1.50, panoramas beyond 2'), source: 'in:frame', full: true,
+              render: (el, d, pick) => renderRatioHistogram(el, d.in.frame, b => pick({ subject: `${b.label} : 1`, params: { ratio_from: b.ratio - 0.01, ratio_to: b.ratio + 0.01 } })) },
+            { title: t('Portrait or landscape'), subtitle: t('How each camera was held'), source: 'in:frame', full: true,
+              render: (el, d, pick) => renderOrientation(el, d.in.frame, v => pick({ subject: `${v.row} · ${t(ORIENTATION_NAMES[v.col])}`, params: { Model: v.row, orient: v.col } })) },
+            { title: t('Cropped'), subtitle: t('Share of photos per period smaller than the largest frame of their camera — cropped, or taken smaller'), source: 'in:frame', full: true,
+              render: (el, d, pick) => renderCropped(el, d.in.frame, v => pick(v.series
+                  ? { subject: t('Cropped · {period}', { period: v.period }), params: { cropped: 1, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
         ],
     },
@@ -129,18 +180,56 @@ const STATS_TOPICS = [
                   subject: `${b.warmth === 'warm' ? t('Warm') : t('Cool')} · ${MONTHS[b.month - 1]}${b.year ? ' ' + b.year : ''}`,
                   params: { mono: 'colour', warmth: b.warmth, month: b.month, ...(b.year ? periodDates(b.year) : {}) },
               })) },
+            { title: t('How colourful'), subtitle: t('Colourfulness of the colour photos of each film simulation, or of each camera without them, darker where most photos are'), source: 'in:colour', full: true,
+              render: (el, d, pick) => renderColourfulness(el, d.in.colour, v => pick({ subject: v.group.name, params: { [v.group.field]: v.group.name, mono: 'colour' } })) },
+            { title: t('Colours through the day'), subtitle: t('Photos per hour with each main colour'), source: 'in:colour', full: true,
+              render: (el, d, pick) => renderHueHours(el, d.in.colour, v => pick({
+                  subject: `${capitalise(hueName(v.row))} · ${weekHourSpan(v.col)}`, params: { mono: 'colour', hue_bin: v.row, hour: v.col },
+              })) },
+            { title: t('Palette space'), subtitle: t('Each photo’s three largest colours in OKLab, joined into a triangle: small for calm palettes, wide for contrasting ones'), source: 'space:palette', periods: false, full: true, stage: true, noPreview: true,
+              render: (el, d, pick) => renderPaletteSpace(el, d.space.palette, v => pick(photoCriterion(v.photo))) },
         ],
     },
     {
         id: 'places',
         label: t('Places'),
-        blurb: t('Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world.'),
+        blurb: t('Where and when the photos with a location were taken: home as a column of light, journeys as trails out into the world; and the countries and cities they name.'),
         charts: [
             { title: t('Space and time'), subtitle: t('Where on the floor, around the middle of your photos with distance on a log scale, wider beyond 1,000 km; when, upward; a trail through the days'), source: 'spaceTime', periods: false, full: true, stage: true,
               preview: (el, d) => renderSpaceTime(el, d.spaceTime, null, { preview: true }),
               render: (el, d, pick) => renderSpaceTime(el, d.spaceTime, v => pick(v.photo
                   ? photoCriterion(v.photo)
                   : { subject: v.day, params: { date_taken_min: v.day, date_taken_max: v.day } })) },
+            { title: t('Density landscape'), subtitle: t('The world map as the floor, a column on every half degree, higher the more photos (log scale), in their most common main colour'), source: 'in:places', periods: false, full: true, stage: true, noPreview: true,
+              render: (el, d, pick) => renderDensity(el, d.in.places, v => pick(densityCriterion(v.cell))) },
+            { title: t('Countries'), subtitle: t('Photos per country, as the photos name it'), source: 'snap',
+              render: (el, d, pick) => renderPlaceBars(el, d.snap.countries, v => pick({ subject: v, params: { Country: v } })) },
+            { title: t('Cities'), subtitle: t('Photos per city, as the photos name it'), source: 'snap',
+              render: (el, d, pick) => renderPlaceBars(el, d.snap.cities, v => pick({ subject: v, params: { City: v } })) },
+            { title: t('Journeys'), subtitle: t('Days whose photos were taken more than 100 km from home, joined into journeys, a row per year'), source: 'in:places', full: true,
+              render: (el, d, pick) => renderJourneys(el, d.in.places, j => pick({
+                  subject: `${j.start === j.end ? j.start : `${j.start} – ${j.end}`}${j.country ? ' · ' + j.country : ''}`,
+                  params: { date_taken_min: j.start, date_taken_max: j.end },
+              })) },
+        ],
+    },
+    {
+        id: 'cataloguing',
+        label: t('Cataloguing'),
+        blurb: t('How fully the photos are described: titles, descriptions, keywords, places, people and stars — and where they are still missing.'),
+        charts: [
+            { title: t('Completeness'), subtitle: t('Photos with each field, and those without; a click on “without” shows them, to select and take to Metadata'), source: 'snap', full: true,
+              render: (el, d, pick) => renderCompleteness(el, d.snap.completeness, d.snap.totalPhotos, f => pick({
+                  subject: t('Without: {field}', { field: t(COMPLETENESS_NAMES[f]) }), params: { lacks: f },
+              })) },
+            { title: t('Stars over time'), subtitle: t('Share of photos per period with each number of stars, and without'), source: 'in:catalogue', full: true,
+              render: (el, d, pick) => renderStarsOverTime(el, d.in.catalogue, v => pick(v.series
+                  ? { subject: `${v.series.name} · ${v.period}`, params: { ...(v.series.key === '0' ? { lacks: 'rating' } : { Rating: v.series.key }), ...periodDates(v.period) } }
+                  : periodCriterion(v))) },
+            { title: t('Keywords'), subtitle: t('The keywords on most photos'), source: 'in:catalogue',
+              render: (el, d, pick) => renderKeywordBars(el, d.in.catalogue, k => pick({ subject: k.name, params: { Keywords: k.name } })) },
+            { title: t('Own fields'), subtitle: t('The values of own fields on most photos'), source: 'in:catalogue',
+              render: (el, d, pick) => renderOwnFieldBars(el, d.in.catalogue, f => pick({ subject: f.label, params: { [`meta_${f.key}`]: f.value } })) },
         ],
     },
     {
@@ -164,6 +253,12 @@ const STATS_TOPICS = [
               render: (el, d, pick) => renderCrowdLines(el, d.people, v => pick(v.bucket
                   ? { subject: `${v.bucket.label} · ${v.period}`, params: { ...crowdParams(v.bucket), ...periodDates(v.period) } }
                   : periodCriterion(v))) },
+            { title: t('Not seen for a while'), subtitle: t('Months since each named person’s last photo'), source: 'in:people', periods: false, full: true,
+              render: (el, d, pick) => renderNotSeen(el, d.in.people, p => pick(personCriterion(p.name))) },
+            { title: t('Who where'), subtitle: t('Photos of each person in each country the photos name'), source: 'in:people', periods: false, full: true,
+              render: (el, d, pick) => renderWhoWhere(el, d.in.people, v => pick({ subject: `${v.row} · ${v.col}`, params: { person: v.row, Country: v.col } })) },
+            { title: t('Who with what'), subtitle: t('Photos of each person with each thing found'), source: 'in:people', periods: false, full: true,
+              render: (el, d, pick) => renderWhoWithWhat(el, d.in.people, v => pick({ subject: `${v.row} · ${ThingWords.name(v.col)}`, params: { person: v.row, thing: v.col } })) },
             { title: t('Face space'), subtitle: t('Every face placed by what it looks like, in the colour of its person; the middle of each person as a larger light'), source: 'people', periods: false, full: true, stage: true,
               preview: (el, d) => renderFaceSpace(el, d.people, null, { preview: true }),
               render: (el, d, pick) => renderFaceSpace(el, d.people, v => pick(v.person ? personCriterion(v.person) : photoCriterion(v.photo))) },
@@ -196,6 +291,14 @@ const STATS_TOPICS = [
               render: (el, d, pick) => renderThingsQuality(el, d.things, v => pick(v.person
                   ? { subject: `${v.person} · ${v.period}`, params: { thing: v.person, ...periodDates(v.period) } }
                   : periodCriterion(v))) },
+            { title: t('Things through the year'), subtitle: t('Photos of each thing per month of the year'), source: 'in:things', periods: false, full: true,
+              render: (el, d, pick) => renderThingsThroughTheYear(el, d.in.things, v => pick({
+                  subject: `${ThingWords.name(v.row)} · ${t(MONTHS[Number(v.col) - 1])}`, params: { thing: v.row, month: Number(v.col) },
+              })) },
+            { title: t('Things by place'), subtitle: t('Photos of each thing in each country the photos name'), source: 'in:things', periods: false, full: true,
+              render: (el, d, pick) => renderThingsByPlace(el, d.in.things, v => pick({ subject: `${ThingWords.name(v.row)} · ${v.col}`, params: { thing: v.row, Country: v.col } })) },
+            { title: t('Meaning space'), subtitle: t('Every photo the vision model has looked at, placed by what it shows: alike photos close together'), source: 'space:meaning', periods: false, full: true, stage: true, noPreview: true,
+              render: (el, d, pick) => renderMeaningSpace(el, d.space.meaning, v => pick(photoCriterion(v.photo))) },
         ],
     },
 ];
@@ -221,10 +324,11 @@ const capitalise = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* --- Criteria --- */
 
-// A camera, or a camera and lens. Photos without a lens tag cannot be looked
-// for as such, so that cell shows all of the camera's photos and says so.
+// A camera, or a camera and lens; the "(no lens)" cell, the camera's photos
+// without a lens tag.
 function cameraCriterion({ camera, lens }) {
-    if (!lens || lens === '(no lens)' || lens === '(unknown)') return { subject: camera, params: { Model: camera } };
+    if (lens === '(no lens)') return { subject: `${camera} · ${t('no lens tag')}`, params: { Model: camera, nolens: 1 } };
+    if (!lens || lens === '(unknown)') return { subject: camera, params: { Model: camera } };
     return { subject: `${camera} · ${lens}`, params: { Model: camera, LensModel: lens } };
 }
 

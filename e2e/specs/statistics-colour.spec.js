@@ -33,7 +33,7 @@ test.describe('Statistics: Colour', () => {
         await waitForAppReady(page);
         await expect(page.locator('.stats-title')).toHaveText('Colour');
         // Two stages (Colour space, Character) and six charts.
-        await expect(page.locator('.stats-chart')).toHaveCount(8, { timeout: 15_000 });
+        await expect(page.locator('.stats-chart')).toHaveCount(11, { timeout: 15_000 });
     }
 
     const chart = (page, title) => page.locator('.stats-chart')

@@ -59,26 +59,32 @@ func (m *Manager) libraryStatistics(l *Library, pathPrefix string, f Filter) (*L
 
 // statsMerger sums the statistics of several libraries.
 type statsMerger struct {
-	merged     *LibraryStatistics
-	formats    map[string]int
-	filmSims   map[string]int
-	cameraLens map[[2]string]int
-	focal      map[float64]int
-	focal35    map[float64]int
-	apertures  map[float64]int
-	isos       map[float64]int
+	merged       *LibraryStatistics
+	formats      map[string]int
+	filmSims     map[string]int
+	cameraLens   map[[2]string]int
+	focal        map[float64]int
+	focal35      map[float64]int
+	apertures    map[float64]int
+	isos         map[float64]int
+	countries    map[string]int
+	cities       map[string]int
+	completeness map[string]int
 }
 
 func newStatsMerger() *statsMerger {
 	return &statsMerger{
-		merged:     &LibraryStatistics{ShootingDays: make(map[string]int)},
-		formats:    make(map[string]int),
-		filmSims:   make(map[string]int),
-		cameraLens: make(map[[2]string]int),
-		focal:      make(map[float64]int),
-		focal35:    make(map[float64]int),
-		apertures:  make(map[float64]int),
-		isos:       make(map[float64]int),
+		merged:       &LibraryStatistics{ShootingDays: make(map[string]int)},
+		formats:      make(map[string]int),
+		filmSims:     make(map[string]int),
+		cameraLens:   make(map[[2]string]int),
+		focal:        make(map[float64]int),
+		focal35:      make(map[float64]int),
+		apertures:    make(map[float64]int),
+		isos:         make(map[float64]int),
+		countries:    make(map[string]int),
+		cities:       make(map[string]int),
+		completeness: make(map[string]int),
 	}
 }
 
@@ -101,6 +107,16 @@ func (sm *statsMerger) add(st *LibraryStatistics) {
 	for day, n := range st.ShootingDays {
 		sm.merged.ShootingDays[day] += n
 	}
+	for wd := range st.WeekHours {
+		for h, n := range st.WeekHours[wd] {
+			sm.merged.WeekHours[wd][h] += n
+		}
+	}
+	addNameCounts(sm.countries, st.Countries)
+	addNameCounts(sm.cities, st.Cities)
+	for _, c := range st.Completeness {
+		sm.completeness[c.Name] += c.Count
+	}
 }
 
 // result sorts the sums: names by count, values by value, and camera × lens
@@ -113,6 +129,12 @@ func (sm *statsMerger) result() *LibraryStatistics {
 	merged.FocalLengths35 = mapToValueCounts(sm.focal35)
 	merged.Apertures = mapToValueCounts(sm.apertures)
 	merged.ISOs = mapToValueCounts(sm.isos)
+	merged.Countries = mapToNameCounts(sm.countries)
+	merged.Cities = mapToNameCounts(sm.cities)
+	merged.Completeness = make([]NameCount, 0, len(CompletenessFields))
+	for _, f := range CompletenessFields {
+		merged.Completeness = append(merged.Completeness, NameCount{Name: f, Count: sm.completeness[f]})
+	}
 	merged.CameraLens = make([]CameraLensCount, 0, len(sm.cameraLens))
 	for key, count := range sm.cameraLens {
 		merged.CameraLens = append(merged.CameraLens, CameraLensCount{Camera: key[0], Lens: key[1], Count: count})

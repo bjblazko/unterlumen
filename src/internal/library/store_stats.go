@@ -84,6 +84,22 @@ func (s *Store) Statistics(pathPrefix string) (*LibraryStatistics, error) {
 			st.ShootingDays, err = s.shootingDays(sc)
 			return err
 		},
+		func() error {
+			st.WeekHours, err = s.weekHours(sc)
+			return err
+		},
+		func() error {
+			st.Countries, err = s.textValueCounts(sc, "Country")
+			return err
+		},
+		func() error {
+			st.Cities, err = s.textValueCounts(sc, "City")
+			return err
+		},
+		func() error {
+			st.Completeness, err = s.completeness(sc)
+			return err
+		},
 	}
 	for _, step := range steps {
 		if err := step(); err != nil {
@@ -194,6 +210,42 @@ func (s *Store) shootingHours(sc statsScope) ([24]int, error) {
 		return nil
 	})
 	return hours, err
+}
+
+// weekHours counts photos per weekday (0 = Monday) and hour taken. The day
+// is the date as taken, in its own time zone, as the hour is.
+func (s *Store) weekHours(sc statsScope) ([7][24]int, error) {
+	var grid [7][24]int
+	rows, err := s.db.Query(`
+		SELECT (CAST(strftime('%w', SUBSTR(date_taken, 1, 10)) AS INTEGER) + 6) % 7 AS wd,
+		       CAST(SUBSTR(date_taken, 12, 2) AS INTEGER) AS hr, COUNT(*) AS n
+		FROM   photos
+		WHERE  status='ok' AND date_taken IS NOT NULL AND LENGTH(date_taken) >= 13`+sc.photos+`
+		GROUP  BY wd, hr`, sc.args...)
+	if err != nil {
+		return grid, err
+	}
+	err = scanRows(rows, func() error {
+		var wd, hr sql.NullInt64
+		var n int
+		if err := rows.Scan(&wd, &hr, &n); err != nil {
+			return err
+		}
+		if wd.Valid && hr.Valid && wd.Int64 >= 0 && wd.Int64 < 7 && hr.Int64 >= 0 && hr.Int64 < 24 {
+			grid[wd.Int64][hr.Int64] = n
+		}
+		return nil
+	})
+	return grid, err
+}
+
+// textValueCounts counts photos per value of a text field of exif_index,
+// most first.
+func (s *Store) textValueCounts(sc statsScope, field string) ([]NameCount, error) {
+	return s.queryNameCounts(`
+		SELECT TRIM(value, '" ') AS v, COUNT(*) AS n FROM exif_index e
+		WHERE e.field=? AND TRIM(value, '" ')<>''`+sc.exif+`
+		GROUP BY v ORDER BY n DESC`, append([]any{field}, sc.args...)...)
 }
 
 // shootingDays counts photos per day taken, for the calendar heatmap.

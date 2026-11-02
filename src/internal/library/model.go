@@ -114,6 +114,14 @@ type LibraryStatistics struct {
 	CameraLens     []CameraLensCount `json:"cameraLens"`
 	ShootingHours  [24]int           `json:"shootingHours"` // index = hour 0–23
 	ShootingDays   map[string]int    `json:"shootingDays"`  // "YYYY-MM-DD": count
+	// WeekHours counts photos per weekday (0 = Monday) and hour.
+	WeekHours [7][24]int `json:"weekHours"`
+	// Countries and Cities count photos per value of those IPTC fields
+	// (ADR-0061); Completeness, per CompletenessFields, the photos that have
+	// each field.
+	Countries    []NameCount `json:"countries"`
+	Cities       []NameCount `json:"cities"`
+	Completeness []NameCount `json:"completeness"`
 }
 
 // LibraryTimeline holds time-series statistics across one or more libraries.

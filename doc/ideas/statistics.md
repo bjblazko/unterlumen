@@ -1,6 +1,6 @@
 # Ideas for Statistics
 
-*Last modified: 2026-10-01*
+*Last modified: 2026-11-02*
 
 A collection of ideas for the Statistics place ([ADR-0043](../architecture/adr/0043-statistics-place-with-topics.md)), not a plan. Nothing here is decided. When one of them is taken up, it gets its own feature document in `doc/features/open/`, with details and acceptance criteria, and an ADR where it makes a design decision.
 
@@ -11,10 +11,10 @@ A new idea usually becomes a topic in `STATS_TOPICS` (`src/web/js/stats-topics.j
 Mentioned while Statistics became a place:
 
 - **Colour over time.** How the average or dominant colour of the photos changes by month or year, as a topic of its own ("Colour"). Needs a colour value per photo in the index (see "What the ideas need"). Taken up on 2026-10-01: [Statistics: Colour](../features/open/2026-10-01-statistics-colour.md).
-- **More metadata.** Statistics from fields the index already holds but no chart shows yet: white balance, flash, exposure time, exposure compensation.
-- **Weekday and season** in the Time topic.
+- **More metadata.** Statistics from fields the index already holds but no chart shows yet: white balance, flash, exposure time, exposure compensation. Taken up on 2026-11-02: [Statistics: more views](../features/done/2026-11-02-statistics-more-views.md).
+- **Weekday and season** in the Time topic. Weekday taken up on 2026-11-02 as Weekday and hour: [Statistics: more views](../features/done/2026-11-02-statistics-more-views.md).
 - **Charts drawn to the width of their card** instead of at a fixed size and scaled. That matters most on a phone.
-- **Photos without a lens tag** as a search criterion, so the "(no lens)" cell of Camera and lens shows exactly its photos.
+- **Photos without a lens tag** as a search criterion, so the "(no lens)" cell of Camera and lens shows exactly its photos. Done on 2026-11-02 (`nolens`).
 
 ## Three-dimensional views
 
@@ -41,7 +41,7 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **What it shows:** how one photographs, as dense clusters in the space of settings. Portraits gather around 85 mm, f/1.8, ISO 100; night and astro photos form a separate cloud around 14 mm, f/2.8, ISO 3200. A section through the cube shows which lenses are used at the extremes.
 - Taken up on 2026-10-01 with focal length, aperture and ISO, coloured by camera: [Statistics: Exposure space and Daylight](../features/done/2026-10-01-statistics-3d-views.md). Lens colours and a section are still open.
 
-### 4. Semantic space (image embeddings reduced to 3D)
+### 4. Semantic space (taken up 2026-11-02 as the Meaning space, by principal components)
 
 - **Data:** each photo goes through a vision model (for example CLIP), which gives a vector of many dimensions. UMAP or t-SNE reduces it to three.
 - **Encoding:** the three coordinates place the photo; colour can show the time taken, and paths through the space can show how content changed over time.
@@ -54,7 +54,7 @@ Six ideas for views in three dimensions, collected on 2026-09-30.
 - **Layout:** a force-directed graph in 3D.
 - **What it shows:** holidays form dense clusters; lenses connect different periods of life. Zooming into a node shows the photo's thumbnail beside it.
 
-### 6. Density landscape (voxel topography)
+### 6. Density landscape (taken up 2026-11-02)
 
 - **Axes:** a geographic grid, and the number of photos per cell as the height.
 - **Encoding:** the colour of a column is the mean hue of the photos taken there; its surface texture can show image entropy (visual complexity).

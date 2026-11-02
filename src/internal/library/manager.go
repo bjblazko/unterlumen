@@ -33,6 +33,8 @@ type Manager struct {
 	exifRangesCache  sync.Map             // map[cacheKey]map[string]ExifRange — invalidated on scan start/end
 	exifValuesCache  sync.Map             // map[cacheKey+"|"+field][]string — invalidated on scan start/end
 	folderStatsCache sync.Map             // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
+	insightsCache    sync.Map             // map[cacheKey+"|"+group]Insights — invalidated with statsCache
+	spacesCache      sync.Map             // map[cacheKey+"|"+view]*PointCloud — invalidated with colourCache
 	jobs             *jobs.Registry       // where scans are reported to the status line; nil reports nowhere
 	faces            facesState           // the face engine and the face passes running (ADR-0051)
 	things           thingsState          // the things engine and the things passes running (ADR-0054)

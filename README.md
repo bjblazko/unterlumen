@@ -97,7 +97,7 @@ Each library is its own folder, anywhere: on this computer, a disk or a NAS. Sha
 
 #### Statistics
 
-What you shoot with, when, where and in what colours, by topic: Equipment (cameras, lenses, formats, film simulations), Exposure (focal length, aperture, ISO), Time (time of day, calendar), Frame (aspect ratio), Colour (black and white, main colours, warm and cool) and Places, each with how it changed over the years. The overview has a card per topic showing a few of its charts, and the topics are in the sidebar while Statistics is open. Click a bar, a slice or a point and the photos it counts appear beside the charts.
+What you shoot with, when, where and in what colours, by topic: Equipment (cameras, lenses, formats, film simulations), Exposure (focal length, aperture, ISO), Time (time of day, weekday and hour, calendar), Frame (aspect ratio), Colour (black and white, main colours, warm and cool), Places (space and time, countries, cities, journeys, a density landscape on the world map) and Cataloguing (how complete titles, descriptions, keywords, places, people and stars are — a click on what is missing shows those photos — stars over time, keywords, own fields), plus views such as phone or camera, the risk of shake, exposure times, sessions, portrait or landscape, colours through the day, and two more 3D views: the palette space and the meaning space, where photos stand by what they show. Each with how it changed over the years. The overview has a card per topic showing a few of its charts, and the topics are in the sidebar while Statistics is open. Click a bar, a slice or a point and the photos it counts appear beside the charts.
 
 | Overview | A topic |
 |---|---|

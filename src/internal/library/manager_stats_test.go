@@ -57,6 +57,8 @@ func TestManagerStatisticsMergesLibraries(t *testing.T) {
 	}
 	want.ShootingHours[10] = 3
 	want.ShootingHours[14] = 1
+	want.WeekHours[2][10], want.WeekHours[2][14], want.WeekHours[0][10] = 2, 1, 1
+	want.Countries, want.Cities, want.Completeness = []NameCount{}, []NameCount{}, noneComplete()
 	if len(st.CameraLens) == 0 || st.CameraLens[0] != want.CameraLens[0] {
 		t.Errorf("most used camera/lens = %+v, want %+v first", st.CameraLens, want.CameraLens[0])
 	}

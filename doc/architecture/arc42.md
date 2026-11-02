@@ -164,6 +164,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/metadata` | `/api/metadata/read` (what files say, and what a change writes to each) and `/api/metadata/write` (one file per request), then `Manager.MetadataWritten` ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)) |
 | `internal/metadata` | The metadata editor's fields, one table (`table.go`) naming each field's sidecar property, exiftool tags, NFO element and tag: read with their source (sidecar/NFO before the file's XMP before EXIF before file name), written into the file (exiftool), the XMP sidecar or a video's NFO; the IPTC fields; own fields and their machine tags; date corrections (set the day, shift); the country from the GPS position; `Overlay` for the index and info panel |
 | `internal/places` | The country of a GPS position, offline, from Natural Earth's country borders embedded in the binary (`countries.json.gz`, built by `gen_countries.go`); nothing is sent anywhere |
+| `internal/library` (insights) | `Insights` — the Statistics views' tallies by group (`insights_*.go`), the definitions a count and its click share (`insight_terms.go`), point clouds of the palette and meaning spaces (`spaces.go`, `pca.go`); ADR-0062 |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
@@ -259,6 +260,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `stats-people-compare.js` | `PeopleCompare` — Compare in the People topic: the people its charts show side by side |
 | `people-space-views.js` | The People topic's 3D views: Face space, Circle of people, Life lines |
 | `stats-charts.js` | Snapshot charts (formats, film simulations, lenses, exposure, shooting clock, calendar) and the shared chart helpers ([ADR-0034](adr/0034-colour-in-charts.md)) |
+| `stats-week-hours.js`, `stats-places-charts.js`, `stats-catalogue-charts.js` | Weekday and hour (Time), Countries and Cities (Places), Completeness (Cataloguing) — what is counted for completeness is `library/completeness.go`, shared with the search parameter `lacks` |
+| `stats-tally.js` and the `stats-*-charts.js` beside it | The views drawn from `/api/library/insights` tallies (ADR-0062): bars, histograms, matrices, strips and share lines, and per topic the gear, frame, time, colour, people and things views; `palette-space-view.js`, `density-view.js`, `meaning-space-view.js` are their 3D views |
 | `stats-timeline-charts.js` | Timeline charts: cameras, focal lengths, ISO, apertures, aspect ratios and resolution over time; `renderSeriesLines` for several series as lines |
 | `stats-colour-charts.js` | Colour charts from `/api/library/colour`: black and white against colour, a swatch strip per period, a hue wheel, warm and cool per month; marks in the photos' own colour (ADR-0030, Deviations) |
 | `api.js` | `API` object — fetch wrappers for all backend endpoints |
@@ -437,6 +440,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0059](adr/0059-duplicates-from-the-index.md) — Duplicates found from the index: SHA-256, dHash bands and the moment taken; marks and deletion by path
 - [ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md) — Metadata written to a named target (file via exiftool, XMP sidecar, a video's Kodi NFO); what lies beside a file wins when reading
 - [ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md) — IPTC fields from one field table, list entries indexed apart, own fields only in the sidecar and mirrored as machine tags, the country from the GPS position offline (Natural Earth, German point of view)
+- [ADR-0062](adr/0062-statistics-tallies-read-by-their-topic.md) — the newer Statistics views count in summable tallies per group, read only by their topic; one SQL definition serves a count and its click; palette and meaning space as point clouds
 
 ## 10. Quality Requirements
 

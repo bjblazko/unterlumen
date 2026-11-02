@@ -42,16 +42,27 @@ type ListPhotosOpts struct {
 	ExtFilter      string                   // file extension (photos.ext)
 	PathPrefix     string                   // absolute folder the photos must be in, as statistics take it
 	Hour           *int                     // hour of the day taken, 0–23
-	Aspect         string                   // frame shape, as aspectClassSQL names it
-	Month          *int                     // month of the year taken, 1–12, any year
-	Mono           string                   // mono, tinted or colour (photo_appearance)
-	HueBin         *int                     // a main colour: a swatch of this 30° sector, 0–11, of at least HueShareMin
-	Hues           []int                    // a colour combination: each of these sectors covers at least ComboShareMin (ADR-0049)
-	Scope          Filter                   // the shared filter of the Map, the Statistics and the Timeline (ADR-0050)
-	Warmth         string                   // warm or cool, beyond WarmthThreshold
-	PhotoID        string                   // one photo, by its id
-	Offset         int
-	Limit          int
+	Weekday        *int                     // day of the week taken, 0 = Monday … 6 = Sunday
+	Lacks          []string                 // CompletenessFields the photos must not have
+	// What a Statistics view's click sets (insight_terms.go).
+	Device             string      // "phone" or "camera"
+	Slow, Flash        bool        // at risk of shake; the flash fired
+	Cropped, NoLens    bool        // smaller than the camera's frame; no lens tag
+	EVMin, EVMax       *int        // EV100, rounded, inclusive
+	Orient             string      // "portrait", "landscape" or "square"
+	RatioMin, RatioMax *float64    // long side over short, inclusive
+	TakenFrom, TakenTo string      // moments taken, "2024-05-01T10:00:00", inclusive (a session)
+	Area               *[4]float64 // latitude from, to, longitude from, to (a column of the density landscape)
+	Aspect             string      // frame shape, as aspectClassSQL names it
+	Month              *int        // month of the year taken, 1–12, any year
+	Mono               string      // mono, tinted or colour (photo_appearance)
+	HueBin             *int        // a main colour: a swatch of this 30° sector, 0–11, of at least HueShareMin
+	Hues               []int       // a colour combination: each of these sectors covers at least ComboShareMin (ADR-0049)
+	Scope              Filter      // the shared filter of the Map, the Statistics and the Timeline (ADR-0050)
+	Warmth             string      // warm or cool, beyond WarmthThreshold
+	PhotoID            string      // one photo, by its id
+	Offset             int
+	Limit              int
 }
 
 // ListPhotos returns a filtered, paginated list of photos. It stops when ctx
@@ -247,6 +258,15 @@ func (f *photoFilter) addPlaceAndShape(opts ListPhotosOpts) {
 	}
 	if opts.Hour != nil {
 		f.cond(`(LENGTH(p.date_taken) >= 13 AND CAST(SUBSTR(p.date_taken, 12, 2) AS INTEGER) = ?)`, *opts.Hour)
+	}
+	if opts.Weekday != nil {
+		f.cond(`(p.date_taken IS NOT NULL AND (CAST(strftime('%w', SUBSTR(p.date_taken, 1, 10)) AS INTEGER) + 6) % 7 = ?)`, *opts.Weekday)
+	}
+	f.addInsightConds(opts)
+	for _, field := range opts.Lacks {
+		if c := lacksCond("p.id", field); c != "" {
+			f.cond(c)
+		}
 	}
 	if opts.Aspect != "" {
 		f.cond(`(`+hasSizeSQL("p.exif_json")+` AND `+aspectClassSQL("p.exif_json")+` = ?)`, opts.Aspect)

@@ -199,3 +199,23 @@ func TestOverlaySaysWhereEachValueLies(t *testing.T) {
 		t.Errorf("tags %v", data.Tags)
 	}
 }
+
+// Keywords beside a photo, or in its own XMP, reach the tags as a list.
+func TestOverlayCarriesTheKeywords(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "a.jpg")
+	packet := `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:subject><rdf:Bag><rdf:li>sea</rdf:li><rdf:li>harbour</rdf:li></rdf:Bag></dc:subject></rdf:Description></rdf:RDF></x:xmpmeta>`
+	os.WriteFile(photo, []byte("\xff\xd8"+packet), 0o644) //nolint:errcheck
+	if data := Overlay(photo, nil); data == nil || data.Tags[KeywordsTag] != "sea; harbour" || data.Beside[KeywordsTag] != "" {
+		t.Fatalf("the file's keywords: %+v", data)
+	}
+	if err := media.WriteKeywords(photo, []string{"kiel"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !HasBeside(photo) {
+		t.Error("a sidecar with keywords only does not count as beside")
+	}
+	if data := Overlay(photo, nil); data.Tags[KeywordsTag] != "kiel" || data.Beside[KeywordsTag] != "sidecar" {
+		t.Errorf("the sidecar's keywords: %+v", data)
+	}
+}

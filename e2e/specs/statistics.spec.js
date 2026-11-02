@@ -73,7 +73,7 @@ test.describe('Statistics', () => {
         await open(page);
         await expect(page.locator('#mode-statistics')).toHaveAttribute('aria-current', 'page');
         const topics = page.locator('#nav-statistics .nav-sub');
-        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Places', 'People', 'Things']);
+        await expect(topics).toHaveText(['Equipment', 'Exposure', 'Time', 'Frame', 'Colour', 'Places', 'Cataloguing', 'People', 'Things']);
 
         await topics.filter({ hasText: /^\s*Exposure\s*$/ }).click();
         await expect(page).toHaveURL(new RegExp(`#statistics/exposure\\?library=${lib.id}$`));
@@ -92,7 +92,7 @@ test.describe('Statistics', () => {
     test('the overview leads to each topic, and back', async ({ page }) => {
         await open(page);
         const cards = page.locator('.stats-card');
-        await expect(cards).toHaveCount(8);
+        await expect(cards).toHaveCount(9);
         await cards.filter({ hasText: 'Frame' }).click();
         await expect(page.locator('.stats-title')).toHaveText('Frame');
         await page.locator('.stats-back').click();
@@ -105,7 +105,7 @@ test.describe('Statistics', () => {
         await open(page);
         await page.locator('#sidebar-collapse').click();
         await expect(page.locator('#nav-statistics .nav-sub').first()).toBeHidden();
-        await expect(page.locator('.stats-card')).toHaveCount(8);
+        await expect(page.locator('.stats-card')).toHaveCount(9);
         await page.locator('#sidebar-collapse').click();
     });
 
@@ -155,7 +155,8 @@ test.describe('Statistics', () => {
 
         const column = page.locator('#stats-photos');
         await expect(column).toBeVisible();
-        await expect(column.locator('.photo-column-subject')).toHaveText(label.split(',')[0]);
+        // The "(no lens)" cell says so in its subject.
+        await expect(column.locator('.photo-column-subject')).toContainText(label.split(',')[0].split(' · ')[0]);
         await expect(column.locator('.photo-column-title')).toContainText('photo');
         const tiles = column.locator('.photo-column-tile');
         await expect(tiles.first()).toBeVisible();
@@ -163,6 +164,70 @@ test.describe('Statistics', () => {
 
         await page.keyboard.press('Escape');
         await expect(column).toBeHidden();
+    });
+
+    // The views of 2026-11-02: a click shows exactly the photos counted.
+    async function pickShows(page, mark, subject) {
+        const label = await mark.getAttribute('aria-label');
+        // The count is the number right before "photo(s)"; a year or a
+        // value before it is its own word.
+        const counted = Number(label.match(/(\d[\d,.\u00a0\u202f]*) photos?\b/)[1].replace(/\D/g, ''));
+        await mark.click();
+        const column = page.locator('#stats-photos');
+        if (subject) await expect(column.locator('.photo-column-subject')).toHaveText(subject);
+        await expect(column.locator('.photo-column-title')).toContainText(`${counted} photo`);
+    }
+
+    test('weekday and hour shows the photos of one hour on one weekday', async ({ page }) => {
+        await open(page, 'time');
+        const cell = page.locator('.stats-chart', { hasText: 'Weekday and hour' }).locator('rect.stats-pickable').first();
+        const label = await cell.getAttribute('aria-label');
+        const [, day, span] = label.match(/^(\w+) ([\d:–]+),/);
+        await pickShows(page, cell, `${day} · ${span}`);
+    });
+
+    test('completeness shows the photos without a field', async ({ page }) => {
+        await open(page, 'cataloguing');
+        const chartEl = page.locator('.stats-chart', { hasText: 'Completeness' });
+        await expect(chartEl).toContainText('Stars');
+        await pickShows(page, chartEl.locator('rect.stats-pickable[aria-label^="Stars:"]').last(), 'Without: Stars');
+    });
+
+    // Every new view (2026-11-02, phases 2–6) shows exactly what it counted:
+    // the first mark of each, clicked.
+    for (const [topic, title] of [
+        ['equipment', 'White balance'],
+        ['equipment', 'Life lines of the gear'],
+        ['exposure', 'Exposure time'],
+        ['exposure', 'How bright the scenes were'],
+        ['time', 'The largest sessions'],
+        ['frame', 'Aspect ratio in detail'],
+        ['frame', 'Portrait or landscape'],
+        ['cataloguing', 'Keywords'],
+        ['things', 'Things through the year'],
+    ]) {
+        test(`${title} shows the photos it counted`, async ({ page }) => {
+            await open(page, topic);
+            const card = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: new RegExp(`^${title}$`) }) });
+            const mark = card.locator('.stats-pickable').first();
+            await expect(mark).toBeVisible({ timeout: 15_000 });
+            await pickShows(page, mark, null);
+        });
+    }
+
+    test('the overview reads none of the new groups', async ({ page }) => {
+        const asked = [];
+        page.on('request', r => { if (/\/api\/library\/(insights|space)\?/.test(r.url())) asked.push(r.url()); });
+        await open(page);
+        await expect(page.locator('.stats-card')).toHaveCount(9);
+        expect(asked).toEqual([]);
+    });
+
+    test('countries say where they come from while no photo names one', async ({ page }) => {
+        await open(page, 'places');
+        const countries = page.locator('.stats-chart', { hasText: 'Countries' });
+        await expect(countries).toContainText('No photo has one yet.');
+        await expect(countries.locator('a.place-link[data-mode="metadata"]')).toBeVisible();
     });
 
     // folder-b has years whose median is ISO 20; the axis used to start at 50

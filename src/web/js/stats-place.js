@@ -261,7 +261,24 @@ class StatsPane {
                 .then(([ps, birthdays]) => ({ ...ps, birthdays })) : null,
             needs('things') ? this._fetch('/api/library/things-stats', over) : null,
         ]);
-        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour), colourSpace, exposureSpace, spaceTime, people, things };
+        const [inGroups, space] = await Promise.all([this._readInsights(topic, scope), this._readSpaces(topic, scope)]);
+        return { snap, tl: continuousTimeline(tl), colour: continuousColour(colour), colourSpace, exposureSpace, spaceTime, people, things, in: inGroups, space };
+    }
+
+    // The tallies of the views of 2026-11-02 ("in:group" sources), one
+    // request per group the topic's charts read.
+    async _readInsights(topic, scope) {
+        const groups = [...statsSources(topic, 'in:')];
+        const answers = await Promise.all(groups.map(g => this._fetch('/api/library/insights', [...scope, ['group', g]])));
+        return Object.fromEntries(groups.map((g, i) => [g, answers[i]]));
+    }
+
+    // The point clouds of the 3D views ("space:view" sources); never for the
+    // overview, whose cards leave them out.
+    async _readSpaces(topic, scope) {
+        const views = [...statsSources(topic, 'space:')];
+        const answers = await Promise.all(views.map(v => this._fetch('/api/library/space', [...scope, ['view', v]])));
+        return Object.fromEntries(views.map((v, i) => [v, answers[i]]));
     }
 
     async _fetch(url, params) {
@@ -470,10 +487,23 @@ function shownCharts(topic, data) {
     return topic.charts.filter(c => !c.when || c.when(data));
 }
 
+// statsSources are the groups (after prefix) that a topic's charts read.
+// The overview reads none of them: its cards draw only charts from the
+// snapshot and the older sources (statsPreviewable), so it stays as quick as
+// it was — on a NAS each library's queries run one after another.
+function statsSources(topic, prefix) {
+    if (!topic) return new Set();
+    return new Set(topic.charts.map(c => c.source).filter(src => src?.startsWith(prefix)).map(src => src.slice(prefix.length)));
+}
+
+function statsPreviewable(chart) {
+    return !chart.noPreview && !chart.source?.startsWith('in:') && !chart.source?.startsWith('space:');
+}
+
 // The charts a topic's card shows small: up to four charts, or two and the
 // first stage, which takes the card's width.
 function overviewCharts(topic, data) {
-    const charts = shownCharts(topic, data);
+    const charts = shownCharts(topic, data).filter(statsPreviewable);
     const stage = charts.find(c => c.stage);
     const flat = charts.filter(c => !c.stage).slice(0, stage ? 2 : 4);
     return stage ? [...flat, stage] : flat;

@@ -593,3 +593,14 @@
     height: 100%;
     border-radius: 0;
 }
+
+/* --- Palette space tip --- */
+
+/* A photo's three largest colours, beside its thumbnail. */
+.palette-tip-swatches { display: flex; gap: var(--space-1); }
+
+.palette-tip-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+}

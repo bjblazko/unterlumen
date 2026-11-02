@@ -330,6 +330,9 @@ test.describe('Metadata', () => {
         await page.goto(base + '/#folders');
         await page.locator('#search-bar-input').click();
         await page.locator('#search-bar-input').fill('kie');
+        // The values written in Metadata must reach the suggestions though
+        // the scan above finds nothing changed (IndexFilesSync drops what was
+        // worked out before).
         await expect(page.locator('.search-bar-option', { hasText: 'Kieler Woche' })).toContainText('Event');
         const option = page.locator('.search-bar-option', { hasText: 'City' });
         await expect(option).toContainText('Kiel');
@@ -344,5 +347,16 @@ test.describe('Metadata', () => {
         await city.selectOption('');
         await shown.selectOption('Bob');
         await expect(page.locator('#lib-results-pane .place-meta')).toHaveText('3 photos');
+    });
+
+    test('Statistics counts the cities, and a city shows its photos', async ({ page }) => {
+        const libs = await (await fetch(base + '/api/library/')).json();
+        const rated = (libs.libraries || libs).find(l => l.name === 'Rated');
+        await page.goto(`${base}/#statistics/places?library=${rated.id}`);
+        const bar = page.locator('.stats-chart', { hasText: 'Cities' }).locator('rect.stats-pickable[aria-label^="Kiel,"]');
+        await expect(bar).toHaveAttribute('aria-label', 'Kiel, 2 photos');
+        await bar.click();
+        await expect(page.locator('#stats-photos .photo-column-subject')).toHaveText('Kiel');
+        await expect(page.locator('#stats-photos .photo-column-title')).toContainText('2 photos');
     });
 });
