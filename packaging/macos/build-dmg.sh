@@ -28,11 +28,14 @@ codesign --force --deep --sign - "$work/dmg/Unterlumen.app"
 ln -s /Applications "$work/dmg/Applications"
 
 mkdir -p "$out"
-# hdiutil on GitHub's macOS runners fails now and then with "Resource
-# busy" (a scanner holding the new image); it is tried again, and what it
-# says is shown — the release of 0.23.0 lost its .dmg to a silent failure.
+# The image's size is given, not left to hdiutil: on GitHub's macOS
+# runners its estimate from the folder fell short once the app grew
+# ("No space left on device", 0.23.0). It is tried again on a failure —
+# the runners also report "Resource busy" now and then — and what it says
+# is shown.
+size=$(( $(du -sm "$work/dmg" | cut -f1) + 64 ))m
 for try in 1 2 3; do
-    if hdiutil create -volname Unterlumen -srcfolder "$work/dmg" -ov -format UDZO "$out/Unterlumen.dmg"; then
+    if hdiutil create -volname Unterlumen -srcfolder "$work/dmg" -size "$size" -ov -format UDZO "$out/Unterlumen.dmg"; then
         break
     fi
     [ "$try" = 3 ] && exit 1
