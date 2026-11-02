@@ -1688,5 +1688,8 @@
  "Organisation shown": "Gezeigte Organisation",
  "Place, event, people shown": "Ort, Ereignis, gezeigte Personen",
  "No photo here has a country, city, event or people shown yet. Fill them in {metadata}; then you can filter by them here.": "Noch hat hier kein Foto ein Land, eine Stadt, ein Ereignis oder gezeigte Personen. Trage sie in {metadata} ein; dann kannst du hier danach filtern.",
- "Removed from the sidecar. The file itself still says “{value}”; to remove it there, use Metadata with File (EXIF).": "Aus dem Sidecar entfernt. Die Datei selbst sagt noch „{value}“; um es dort zu entfernen, nutze Metadaten mit Datei (EXIF)."
+ "Removed from the sidecar. The file itself still says “{value}”; to remove it there, use Metadata with File (EXIF).": "Aus dem Sidecar entfernt. Die Datei selbst sagt noch „{value}“; um es dort zu entfernen, nutze Metadaten mit Datei (EXIF).",
+ "From the NFO file beside the video.": "Aus der NFO-Datei neben dem Video.",
+ "From the sidecar beside the file.": "Aus dem Sidecar neben der Datei.",
+ "The file itself says “{value}”.": "Die Datei selbst sagt „{value}“."
 };

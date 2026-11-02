@@ -13,7 +13,8 @@ import "huepattl.de/unterlumen/internal/media"
 
 type fieldSpec struct {
 	field Field
-	// prop is the sidecar's property; the title has its own (media.WriteTitle).
+	// prop is the sidecar's property. The title is read through it but
+	// written with media.WriteTitle, which keeps it where notes keep it.
 	prop media.Prop
 	// file are the exiftool tags written into the file, the first one read.
 	file []string
@@ -30,7 +31,7 @@ func bag(prefix, local string) media.Prop  { return media.NewProp(prefix, local,
 
 var table = []fieldSpec{
 	{field: DateTaken, prop: prop("exif", "DateTimeOriginal"), nfo: "ul:datetaken"},
-	{field: Title, file: []string{"XMP-dc:Title", "IPTC:ObjectName"}, nfo: "title"},
+	{field: Title, prop: alt("dc", "title"), file: []string{"XMP-dc:Title", "IPTC:ObjectName"}, nfo: "title", tag: "Title"},
 	{field: Description, prop: alt("dc", "description"), file: []string{"EXIF:ImageDescription", "XMP-dc:Description", "IPTC:Caption-Abstract"}, nfo: "plot", tag: "ImageDescription"},
 	{field: Creator, prop: media.NewProp("dc", "creator", media.PropSeq), file: []string{"EXIF:Artist", "XMP-dc:Creator", "IPTC:By-line"}, nfo: "credits", tag: "Artist"},
 	{field: Rights, prop: alt("dc", "rights"), file: []string{"EXIF:Copyright", "XMP-dc:Rights", "IPTC:CopyrightNotice"}, nfo: "ul:rights", tag: "Copyright"},

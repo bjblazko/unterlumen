@@ -152,7 +152,7 @@ func writeSidecar(path string, set map[Field]string, add, remove []string) error
 	}
 	props := map[media.Prop]string{}
 	for _, spec := range table {
-		if v, ok := set[spec.field]; ok && spec.prop != (media.Prop{}) {
+		if v, ok := set[spec.field]; ok && spec.prop != (media.Prop{}) && spec.field != Title {
 			props[spec.prop] = v
 		}
 	}

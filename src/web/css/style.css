@@ -4573,6 +4573,14 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .info-iptc-none { color: var(--fg-3); }
 
+/* The mark of a value that lies beside the file, not in it: the same
+   neutral chip as the format, right after the label (ADR-0061). */
+.info-source {
+    flex-shrink: 0;
+    align-self: center;
+    cursor: help;
+}
+
 .info-iptc-field,
 .info-iptc-input {
     flex: 1;

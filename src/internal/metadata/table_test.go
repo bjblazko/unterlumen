@@ -176,3 +176,26 @@ func TestCountryComesFromTheGPSPosition(t *testing.T) {
 		t.Errorf("the open sea: %+v", plan)
 	}
 }
+
+// The overlay says which values lie beside the file, and what the file
+// itself says under them.
+func TestOverlaySaysWhereEachValueLies(t *testing.T) {
+	photo := filepath.Join(t.TempDir(), "a.jpg")
+	packet := `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/" photoshop:City="Kiel" photoshop:Country="Deutschland"/></rdf:RDF></x:xmpmeta>`
+	os.WriteFile(photo, []byte("\xff\xd8"+packet), 0o644) //nolint:errcheck
+	plan := Plan{Set: map[Field]string{City: "Lübeck", Title: "Am Kai"}}
+	if err := Write(photo, TargetSidecar, plan); err != nil {
+		t.Fatal(err)
+	}
+	data := Overlay(photo, &media.ExifData{Tags: map[string]string{"Artist": `"Ann"`}})
+	if data.Beside["City"] != "sidecar" || data.Beside["Title"] != "sidecar" || data.Beside["Country"] != "" || data.Beside["Artist"] != "" {
+		t.Errorf("beside %v", data.Beside)
+	}
+	if data.Shadowed["City"] != "Kiel" || len(data.Shadowed) != 1 {
+		t.Errorf("shadowed %v", data.Shadowed)
+	}
+	if data.Tags["Title"] != "Am Kai" || data.Tags["Country"] != "Deutschland" {
+		t.Errorf("tags %v", data.Tags)
+	}
+}

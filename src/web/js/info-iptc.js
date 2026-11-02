@@ -1,10 +1,31 @@
 // info-iptc.js — the IPTC fields of the photo shown, in the info panel
-// (ADR-0061): where it was taken, its event and headline, origin and rights,
-// and who and what is shown — the filled ones, each editable in place, and
-// any other added from "Add a field…". A change is written to the sidecar
-// (a video's NFO file), like the stars, so the file itself stays as it is.
+// (ADR-0061): its description, creator and copyright, where it was taken,
+// its event and headline, origin and rights, and who and what is shown — the
+// filled ones, each editable in place, and any other added from "Add a
+// field…". A change is written to the sidecar (a video's NFO file), like the
+// stars, so the file itself stays as it is. A value that lies beside the
+// file carries a mark (infoSourceMarkHTML); one without lies in the file.
 
-const INFO_IPTC_GROUPS = ['location', 'event', 'origin', 'shown'];
+const INFO_IPTC_GROUPS = ['description', 'location', 'event', 'origin', 'shown'];
+
+// The fields of a group the section shows: the title stands at the top of
+// the panel, the stars and keywords elsewhere.
+function infoIPTCFields(g) {
+    return g.fields.filter(f => f.tag && f.field !== 'title' && f.kind !== 'rating' && f.kind !== 'keywords');
+}
+
+// infoSourceMarkHTML marks a value that lies beside the file — XMP for a
+// photo's sidecar, NFO for a video's — and says, on hover, what the file
+// itself says under it. Nothing for a value in the file: the mark is the
+// exception, so it is the signal (ADR-0061).
+function infoSourceMarkHTML(exif, tag) {
+    const from = exif?.beside?.[tag];
+    if (!from) return '';
+    const under = exif.shadowed?.[tag];
+    let text = from === 'nfo' ? t('From the NFO file beside the video.') : t('From the sidecar beside the file.');
+    if (under) text += ' ' + t('The file itself says “{value}”.', { value: under });
+    return `<span class="info-chip info-source" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">${from === 'nfo' ? 'NFO' : 'XMP'}</span>`;
+}
 
 class InfoIPTC {
     constructor(panel) {
@@ -20,21 +41,22 @@ class InfoIPTC {
         const rows = [];
         const empty = [];
         for (const g of this._groups()) {
-            const filled = g.fields.filter(f => { used.add(f.tag); return tags[f.tag]; });
-            empty.push(...g.fields.filter(f => !tags[f.tag]));
+            const fields = infoIPTCFields(g);
+            const filled = fields.filter(f => { used.add(f.tag); return tags[f.tag]; });
+            empty.push(...fields.filter(f => !tags[f.tag]));
             if (!filled.length) continue;
             rows.push(`<div class="info-iptc-group">${escapeHtml(t(g.title))}</div>`);
-            rows.push(...filled.map(f => this._rowHTML(f, tags[f.tag])));
+            rows.push(...filled.map(f => this._rowHTML(f, tags[f.tag], infoSourceMarkHTML(d.exif, f.tag))));
         }
         if (!rows.length) rows.push(`<div class="info-row"><span class="info-value info-iptc-none">${t('None yet.')}</span></div>`);
         rows.push(this._addHTML(empty));
         return this._panel.section('IPTC', rows);
     }
 
-    _rowHTML(f, value) {
+    _rowHTML(f, value, mark) {
         const mono = f.kind === 'mono' ? ' info-iptc-mono' : '';
         return `<div class="info-row info-iptc-row" data-iptc="${f.field}">` +
-            `<span class="info-label">${escapeHtml(t(f.label))}</span>` +
+            `<span class="info-label">${escapeHtml(t(f.label))}</span>` + mark +
             `<span class="info-value info-iptc-val${mono}" contenteditable="true" data-field="${f.field}">${escapeHtml(String(value).replace(/^"|"$/g, ''))}</span>` +
             `<button class="info-meta-del info-iptc-del" title="${t('Remove')}" aria-label="${escapeHtml(t('Remove {field}', { field: t(f.label) }))}" data-field="${f.field}">×</button>` +
         `</div>`;
@@ -43,7 +65,7 @@ class InfoIPTC {
     _addHTML(empty) {
         if (!empty.length) return '';
         const options = this._groups().map(g => {
-            const own = g.fields.filter(f => empty.includes(f));
+            const own = infoIPTCFields(g).filter(f => empty.includes(f));
             if (!own.length) return '';
             return `<optgroup label="${escapeHtml(t(g.title))}">${own.map(f => `<option value="${f.field}">${escapeHtml(t(f.label))}</option>`).join('')}</optgroup>`;
         }).join('');
@@ -107,9 +129,17 @@ class InfoIPTC {
         p.data.exif = p.data.exif || { tags: {} };
         p.data.exif.tags = { ...(p.data.exif.tags || {}), [tag]: after };
         if (!after) delete p.data.exif.tags[tag];
+        setInfoSource(p.data.exif, tag, res.after?.fields?.[field]?.from);
         // An edit in place may be followed at once by typing elsewhere in
         // the panel, which a render would wipe; an added field is done.
         if (added) p.render();
         else p._renderWhenIdle();
     }
+}
+
+// setInfoSource notes where a value just written and read back lies.
+function setInfoSource(exif, tag, from) {
+    exif.beside = { ...(exif.beside || {}) };
+    if (from === 'sidecar' || from === 'nfo') exif.beside[tag] = from;
+    else delete exif.beside[tag];
 }

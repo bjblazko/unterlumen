@@ -270,6 +270,8 @@ class InfoPanel {
         if (!this.data) return;
         this.data.exif ||= {};
         this.data.exif.tags = { ...(this.data.exif.tags || {}), Rating: String(n) };
+        // Stars are always written beside the file (ADR-0060).
+        setInfoSource(this.data.exif, 'Rating', isVideoName(this.data.name || '') ? 'nfo' : 'sidecar');
         this.render();
     }
 
@@ -381,7 +383,7 @@ class InfoPanel {
         const tags = d.exif?.tags || {};
         const used = new Set();
         return [
-            ctx ? this._records.titleField(ctx) : '',
+            this._records.titleField(ctx, d.exif),
             this._exif.shortList(d, tags, used),
             this._people.render(),
             this._things.render(),

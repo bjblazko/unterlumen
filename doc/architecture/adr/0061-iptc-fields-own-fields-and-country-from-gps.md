@@ -71,10 +71,19 @@ chose:
    are not lost to the sea. It is worked out per file
    (`Change.CountryFromGPS`) and shown in the preview; no request leaves the
    machine.
-9. **The info panel** shows the filled IPTC fields in a section of their
-   own, edited in place and added from "Add a field…", written to the
-   sidecar like the stars. A photo outside a library gets its title and own
-   fields there too, read and written through Metadata's API.
+9. **The info panel** shows the filled IPTC fields — description, creator
+   and copyright among them — in a section of their own, edited in place
+   and added from "Add a field…", written to the sidecar like the stars. A
+   photo outside a library gets its title and own fields there too, read and
+   written through Metadata's API. **Where a value lies is marked, not
+   coloured**: the overlay records per tag what lies beside the file
+   (`ExifData.Beside`) and what the file says under it (`Shadowed`); such a
+   value carries the neutral chip `XMP` (`NFO` for a video) after its label,
+   whose hover names the file's own value. A value without the mark is in
+   the file. Of three ways shown to the owner — the source as a word after
+   every value, a mark on the exception, two sections by place — the owner
+   chose the mark: it is compact, keeps related fields together, and colour
+   would have given a signal colour a second meaning (ADR-0030).
 10. **Filter and search.** The library filter offers Country, City,
     Sublocation, Event, People and Organisations shown as soon as one photo
     has a value, and says where they come from while none has. The search
@@ -83,7 +92,8 @@ chose:
 
 ## Consequences
 
-- Every sidecar is read once again after the update (`sidecarReading` 3).
+- Every sidecar is read once again after the update (`sidecarReading` 3,
+  then 4 for the marks).
 - A value removed beside a file that the file itself holds shows again;
   the info panel says so and names where to remove it for good.
 - A new IPTC field costs a line in the table, a line in `META_GROUPS`

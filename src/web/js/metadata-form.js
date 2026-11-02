@@ -11,11 +11,11 @@
 const META_GROUPS = [
     { id: 'date', title: 'Date taken', date: true },
     { id: 'description', title: 'Description', fields: [
-        { field: 'title', label: 'Title' },
-        { field: 'description', label: 'Description', kind: 'textarea' },
+        { field: 'title', label: 'Title', tag: 'Title' },
+        { field: 'description', label: 'Description', kind: 'textarea', tag: 'ImageDescription' },
         { field: 'keywords', label: 'Keywords', kind: 'keywords' },
-        { field: 'creator', label: 'Creator' },
-        { field: 'rights', label: 'Copyright' },
+        { field: 'creator', label: 'Creator', tag: 'Artist' },
+        { field: 'rights', label: 'Copyright', tag: 'Copyright' },
         { field: 'rating', label: 'Rating', kind: 'rating' },
     ] },
     { id: 'location', title: 'Location', fields: [

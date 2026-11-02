@@ -27,6 +27,11 @@ type ExifData struct {
 	DateTaken     *string           `json:"dateTaken,omitempty"`
 	DateDigitized *string           `json:"dateDigitized,omitempty"`
 	DateModified  *string           `json:"dateModified,omitempty"`
+	// Beside names the tags whose value lies beside the file — "sidecar" or
+	// "nfo" — not in it; Shadowed is what the file itself says under such a
+	// value, where it says something else (ADR-0061).
+	Beside   map[string]string `json:"beside,omitempty"`
+	Shadowed map[string]string `json:"shadowed,omitempty"`
 }
 
 // exifWalker collects EXIF tags into a map.

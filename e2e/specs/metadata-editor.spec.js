@@ -267,6 +267,10 @@ test.describe('Metadata', () => {
         const city = panel.locator('.info-iptc-val[data-field="city"]');
         await expect(city).toHaveText('Kiel');
         await expect(panel.locator('.info-iptc-val[data-field="personShown"]')).toHaveText('Bob');
+        // What lies beside the file is marked; the creator written earlier too.
+        await expect(panel.locator('.info-iptc-row[data-iptc="city"] .info-source')).toHaveText('XMP');
+        await expect(panel.locator('.info-iptc-val[data-field="creator"]')).toHaveText('Ann');
+        await expect(panel.locator('.info-iptc-row[data-iptc="creator"] .info-source')).toHaveText('XMP');
         await city.click();
         await page.keyboard.press('ControlOrMeta+A');
         await page.keyboard.type('Lübeck');

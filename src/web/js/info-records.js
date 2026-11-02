@@ -8,11 +8,19 @@ class InfoRecords {
         this._panel = panel;
     }
 
-    titleField(ctx) {
-        const entry = (ctx.entries || []).find(e => e.key === 'title');
-        const val = entry ? escapeHtml(entry.value) : '';
+    // The title, from the sidecar or the file itself, marked when it lies
+    // beside the file. Without a context to write it, it is only read.
+    titleField(ctx, exif) {
+        const entry = (ctx?.entries || []).find(e => e.key === 'title');
+        const title = entry?.value || (exif?.tags?.Title || '').replace(/^"|"$/g, '');
+        const mark = infoSourceMarkHTML(exif, 'Title');
+        if (!ctx) {
+            return title ? `<div class="info-meta-row info-title-row"><span class="info-label">${t('Title')}</span>${mark}` +
+                `<span class="info-meta-val info-value info-title-val">${escapeHtml(title)}</span></div>` : '';
+        }
+        const val = escapeHtml(title);
         return `<div class="info-meta-row info-title-row">` +
-            `<span class="info-label">${t('Title')}</span>` +
+            `<span class="info-label">${t('Title')}</span>` + mark +
             `<span class="info-meta-val info-value info-title-val" contenteditable="true" ` +
                 `data-key="title"${!val ? ` data-placeholder="${t('Add title…')}"` : ''}>` +
                 val +

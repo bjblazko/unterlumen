@@ -29,6 +29,8 @@ type photoExifOut struct {
 	DateTaken     *string           `json:"dateTaken,omitempty"`
 	DateDigitized *string           `json:"dateDigitized,omitempty"`
 	DateModified  *string           `json:"dateModified,omitempty"`
+	Beside        map[string]string `json:"beside,omitempty"`
+	Shadowed      map[string]string `json:"shadowed,omitempty"`
 }
 
 func photoInfo(mgr *lib.Manager) http.HandlerFunc {
@@ -63,6 +65,8 @@ type photoExifStored struct {
 	DateTaken     *string           `json:"dateTaken"`
 	DateDigitized *string           `json:"dateDigitized"`
 	DateModified  *string           `json:"dateModified"`
+	Beside        map[string]string `json:"beside"`
+	Shadowed      map[string]string `json:"shadowed"`
 }
 
 func buildPhotoInfoResp(p *lib.PhotoInfo) photoInfoResp {
@@ -90,6 +94,8 @@ func buildPhotoInfoResp(p *lib.PhotoInfo) photoInfoResp {
 		DateTaken:     stored.DateTaken,
 		DateDigitized: stored.DateDigitized,
 		DateModified:  stored.DateModified,
+		Beside:        stored.Beside,
+		Shadowed:      stored.Shadowed,
 	}
 
 	// Use pre-parsed GPS coordinates when available; fall back to tag parsing.

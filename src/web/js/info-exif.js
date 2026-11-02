@@ -23,15 +23,22 @@ class InfoExif {
         const rows = [p.row('Name', d.name)];
         // A date that is not the camera's says where it came from: the
         // file's name, or the sidecar or NFO file it was written to.
-        const from = { 'file name': 'from the file name', sidecar: 'from the sidecar', nfo: 'from the NFO file' }[tags.DateTakenFrom];
-        const named = from ? ` · ${t(from)}` : '';
+        // A date that lies beside the file carries the same mark as any
+        // other value there; one from the file's name says so.
+        const named = tags.DateTakenFrom === 'file name' ? ` · ${t('from the file name')}` : '';
         used.add('DateTakenFrom');
         used.add('MetadataFrom');
-        rows.push(d.exif?.dateTaken ? p.row('Taken', p.formatDate(d.exif.dateTaken) + named) : p.row('Modified', p.formatDate(d.modified)));
+        if (d.exif?.dateTaken) {
+            const beside = tags.DateTakenFrom === 'sidecar' || tags.DateTakenFrom === 'nfo';
+            const mark = beside ? infoSourceMarkHTML({ beside: { Date: tags.DateTakenFrom } }, 'Date') : '';
+            rows.push(this._markedRow('Taken', p.formatDate(d.exif.dateTaken) + named, mark));
+        } else {
+            rows.push(p.row('Modified', p.formatDate(d.modified)));
+        }
         // Stars to read and to set (ADR-0060); a click writes them beside
         // the file.
         used.add('Rating');
-        rows.push(`<div class="info-row"><span class="info-label">${escapeHtml(t('Rating'))}</span><span class="info-value">${Rating.controlHTML(Rating.of(tags.Rating))}</span></div>`);
+        rows.push(`<div class="info-row"><span class="info-label">${escapeHtml(t('Rating'))}</span>${infoSourceMarkHTML(d.exif, 'Rating')}<span class="info-value">${Rating.controlHTML(Rating.of(tags.Rating))}</span></div>`);
         this._tag(rows, tags, used, 'Model', 'Camera');
         this._tag(rows, tags, used, 'LensModel', 'Lens');
         const exposure = exposureLine(tags);
@@ -47,6 +54,11 @@ class InfoExif {
         rows.push(p.row('File', formatSize(d.size)));
         rows.push(p.badgeRow('Format', (d.format || '').toUpperCase()));
         return p.section(isVideoName(d.name) ? 'Video' : 'Photo', rows);
+    }
+
+    _markedRow(label, value, mark) {
+        if (!mark) return this._panel.row(label, value);
+        return `<div class="info-row"><span class="info-label">${escapeHtml(t(label))}</span>${mark}<span class="info-value">${escapeHtml(value)}</span></div>`;
     }
 
     // Where it was taken, with the map right there — or an honest "None".

@@ -232,10 +232,17 @@ func layBeside(tags map[string]string, data *media.ExifData, beside map[Field]st
 		tags["DateTakenFrom"] = string(from)
 	}
 	tags[OverlaidTag] = string(from)
+	data.Beside, data.Shadowed = map[string]string{}, map[string]string{}
 	for _, spec := range table {
-		if v := beside[spec.field]; spec.tag != "" && v != "" {
-			tags[spec.tag] = v
+		v := beside[spec.field]
+		if spec.tag == "" || v == "" {
+			continue
 		}
+		if under := strings.Trim(tags[spec.tag], `" `); under != "" && under != v {
+			data.Shadowed[spec.tag] = under
+		}
+		tags[spec.tag] = v
+		data.Beside[spec.tag] = string(from)
 	}
 }
 
