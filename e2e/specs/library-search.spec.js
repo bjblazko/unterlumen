@@ -55,6 +55,13 @@ test.describe('Filter panel — no EXIF data', () => {
         await expect(page.locator('.stats-title')).toHaveText('Colour');
     });
 
+    test('the filter says where place, event and people shown come from while no photo has them', async ({ page }) => {
+        const hint = page.locator('.lib-filter-group--hint');
+        await expect(hint).toContainText('No photo here has a country, city, event or people shown yet.');
+        await hint.locator('a.place-link').click();
+        await expect(page.locator('#mode-metadata')).toHaveAttribute('aria-current', 'page');
+    });
+
     test('on a phone the filter leaves the Statistics hint out', async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await expect(page.locator('.lib-filter-hint')).toBeHidden();

@@ -1682,5 +1682,10 @@
  "{n} of {total} have one; the others are left as they are.": "{n} von {total} haben eine; die anderen bleiben, wie sie sind.",
  "Fills Country and Country code from where each file was taken, from the borders built into the app; nothing is sent anywhere.": "Füllt Land und Ländercode aus dem Ort, an dem jede Datei aufgenommen wurde – aus den Grenzen, die in die App eingebaut sind; nichts wird irgendwohin geschickt.",
  "no GPS position": "keine GPS-Position",
- "no country at its position": "kein Land an ihrer Position"
+ "no country at its position": "kein Land an ihrer Position",
+ "Events": "Ereignisse",
+ "Person shown": "Gezeigte Person",
+ "Organisation shown": "Gezeigte Organisation",
+ "Place, event, people shown": "Ort, Ereignis, gezeigte Personen",
+ "No photo here has a country, city, event or people shown yet. Fill them in {metadata}; then you can filter by them here.": "Noch hat hier kein Foto ein Land, eine Stadt, ein Ereignis oder gezeigte Personen. Trage sie in {metadata} ein; dann kannst du hier danach filtern."
 };

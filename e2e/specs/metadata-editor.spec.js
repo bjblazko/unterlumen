@@ -316,4 +316,29 @@ test.describe('Metadata', () => {
         await expect(page.locator('.meta-result-text')).toContainText('Written to');
         expect(sidecar(0)).toContain('<photoshop:Country>Germany</photoshop:Country>');
     });
+
+    test('the search suggests a city and the library filter narrows by it', async ({ page }) => {
+        const libs = await (await fetch(base + '/api/library/')).json();
+        const rated = (libs.libraries || libs).find(l => l.name === 'Rated');
+        const scan = await fetch(`${base}/api/library/${rated.id}/reindex`, { method: 'POST' });
+        expect(await scan.text()).toContain('"finished":true');
+
+        await page.goto(base + '/#folders');
+        await page.locator('#search-bar-input').click();
+        await page.locator('#search-bar-input').fill('kie');
+        await expect(page.locator('.search-bar-option', { hasText: 'Kieler Woche' })).toContainText('Event');
+        const option = page.locator('.search-bar-option', { hasText: 'City' });
+        await expect(option).toContainText('Kiel');
+        await option.click();
+        await expect(page.locator('#mode-library')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('#lib-results-pane .place-meta')).toHaveText('2 photos');
+
+        // The filter shows the city chosen, and offers the people shown.
+        const city = page.locator('.lib-filter-group', { hasText: 'City' }).locator('select');
+        await expect(city).toHaveValue('Kiel');
+        const shown = page.locator('.lib-filter-group', { hasText: 'People shown' }).locator('select');
+        await city.selectOption('');
+        await shown.selectOption('Bob');
+        await expect(page.locator('#lib-results-pane .place-meta')).toHaveText('3 photos');
+    });
 });

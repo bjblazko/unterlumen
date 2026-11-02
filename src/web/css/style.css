@@ -4087,6 +4087,10 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
     max-width: none;
 }
 
+.lib-filter-group--hint { max-width: 32rem; }
+
+.lib-filter-group--hint .form-hint { margin: 0; }
+
 .lib-filter-label {
     font-size: var(--text-sm);
     font-weight: 500;

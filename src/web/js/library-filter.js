@@ -43,10 +43,19 @@ function chipToParam(chip) {
     return { key: 'meta_' + chip.ns, value: chip.value };
 }
 
+// A camera, lens or film simulation is offered once there are two to choose
+// between; an IPTC field (ADR-0061) as soon as one photo has it, since
+// "the photos from Kiel" is a choice even when Kiel is the only city.
 const EXIF_TEXT_FILTER_FIELDS = [
     { field: 'Model',     label: t('Camera')   },
     { field: 'LensModel', label: t('Lens')     },
     { field: 'FilmSimulation', label: t('Film sim') },
+    { field: 'Country', label: t('Country'), any: true },
+    { field: 'City', label: t('City'), any: true },
+    { field: 'Sublocation', label: t('Sublocation'), any: true },
+    { field: 'Event', label: t('Event'), any: true },
+    { field: 'PersonInImage', label: t('People shown'), any: true },
+    { field: 'OrganisationInImageName', label: t('Organisations shown'), any: true },
 ];
 
 const EXIF_FILTER_FIELDS = [
@@ -116,6 +125,7 @@ function searchWords(criteria) {
     if (found.length) return t('Finding the photos with {found}…', { found: sentenceList(found) });
     if (criteria.text) return t('Finding photos that show {text}…', { text: criteria.text });
     if (criteria.gallery) return t('Finding the photos of {title}…', { title: criteria.gallery.title });
+    if (criteria.exif) return t('Finding the photos of {title}…', { title: Object.values(criteria.exif).join(', ') });
     return t('Finding the photos…');
 }
 
@@ -215,6 +225,11 @@ class LibraryFilterPanel {
         }
         if (criteria.text) this._chipInput.add(CHIP_NS_FIXED.find(n => n.ns === 'shows'), criteria.text);
         if (criteria.hues) this._setHues(criteria.hues);
+        // An IPTC value from the search: { exif: { City: 'Kiel' } }.
+        if (criteria.exif) {
+            Object.assign(this._textActive, criteria.exif);
+            this._rebuildTextFilters();
+        }
         this._suppressQuery = false;
         this._runQuery();
     }
@@ -530,12 +545,23 @@ class LibraryFilterPanel {
     _rebuildTextFilters() {
         this._textFiltersWrap.innerHTML = '';
         const fields = EXIF_TEXT_FILTER_FIELDS.filter(f =>
-            this._textValues[f.field] && this._textValues[f.field].length > 1
+            (this._textValues[f.field]?.length || 0) > (f.any ? 0 : 1) || this._textActive[f.field]
         );
         for (const spec of fields) {
             this._textFiltersWrap.appendChild(this._buildDropdown(spec));
         }
-        this._textFiltersWrap.style.display = fields.length ? '' : 'none';
+        if (!fields.some(f => f.any)) this._textFiltersWrap.appendChild(this._iptcHint());
+        this._textFiltersWrap.style.display = '';
+    }
+
+    // Where the place, event and people shown would be chosen, while no
+    // photo here has any: said, so the filter can be found (ADR-0061).
+    _iptcHint() {
+        const group = document.createElement('div');
+        group.className = 'lib-filter-group lib-filter-group--hint';
+        group.innerHTML = `<div class="lib-filter-label">${t('Place, event, people shown')}</div>
+            <p class="form-hint">${t('No photo here has a country, city, event or people shown yet. Fill them in {metadata}; then you can filter by them here.', { metadata: placeLink('metadata', 'metadata', t('Metadata')) })}</p>`;
+        return group;
     }
 
     _buildDropdown(spec) {

@@ -1,11 +1,25 @@
 // search-bar.js — the search above every place: people, things, or any words
 // (ADR-0054). Typing suggests the people named and the things found whose
-// names hold the letters, and last the photos that show the words as typed;
+// names hold the letters, the places, events, people and organisations the
+// photos' IPTC fields name (ADR-0061), and last the photos that show the
+// words as typed;
 // choosing one opens Libraries with its filter set, where the search can be
 // refined. "/" comes here from anywhere.
 
 const SEARCH_PEOPLE = 5;
 const SEARCH_THINGS = 6;
+const SEARCH_IPTC = 6;
+
+// The IPTC fields the search suggests values of, in the order they are
+// listed, with what each value is called beside it.
+const SEARCH_IPTC_FIELDS = [
+    { field: 'City', kind: 'Places', note: 'City' },
+    { field: 'Sublocation', kind: 'Places', note: 'Sublocation' },
+    { field: 'Country', kind: 'Places', note: 'Country' },
+    { field: 'Event', kind: 'Events', note: 'Event' },
+    { field: 'PersonInImage', kind: 'Shown', note: 'Person shown' },
+    { field: 'OrganisationInImageName', kind: 'Shown', note: 'Organisation shown' },
+];
 
 class SearchBar {
     constructor(host) {
@@ -40,12 +54,14 @@ class SearchBar {
     // What there is to suggest, read again on every visit: names and things
     // change while the app is open.
     async _load() {
-        const [names, things, status] = await Promise.all([
+        const [names, things, status, , ...iptc] = await Promise.all([
             LibraryAPI.personNames().catch(() => []),
             LibraryAPI.thingTotals().catch(() => []),
             ThingsAPI.status().catch(() => ({ installed: false })),
             ThingWords.load(),
+            ...SEARCH_IPTC_FIELDS.map(f => LibraryAPI.exifValues(f.field).catch(() => [])),
         ]);
+        this._iptc = SEARCH_IPTC_FIELDS.map((f, i) => ({ ...f, values: iptc[i] || [] }));
         this._names = names;
         this._things = things;
         this._words = status.installed;
@@ -66,11 +82,29 @@ class SearchBar {
             const hits = new Set(ThingWords.matches(text));
             const found = (this._things || []).filter(th => hits.has(th.thing)).slice(0, SEARCH_THINGS);
             for (const th of found) this._options.push(this._thingOption(th));
+            this._options.push(...this._iptcOptions(low));
             if (this._words) this._options.push({ kind: 'Words', label: t('Photos that show “{text}”', { text }), criteria: { text } });
             if (!found.length && this._words) this._suggestNearest(text);
         }
         this._active = this._options.length ? 0 : -1;
         this._draw();
+    }
+
+    // Values of the IPTC fields that hold the letters, grouped by kind; a
+    // value that starts with them comes first.
+    _iptcOptions(low) {
+        const hits = [];
+        for (const f of this._iptc || []) {
+            for (const v of f.values) {
+                const at = v.toLowerCase().indexOf(low);
+                if (at >= 0) hits.push({ f, v, at: at === 0 ? 0 : 1 });
+            }
+        }
+        const order = ['Places', 'Events', 'Shown'];
+        hits.sort((a, b) => order.indexOf(a.f.kind) - order.indexOf(b.f.kind) || a.at - b.at || a.v.localeCompare(b.v));
+        return hits.slice(0, SEARCH_IPTC).map(({ f, v }) => ({
+            kind: f.kind, label: v, note: t(f.note), criteria: { exif: { [f.field]: v } },
+        }));
     }
 
     _thingOption(th, nearTo) {
