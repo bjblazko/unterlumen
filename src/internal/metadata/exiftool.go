@@ -15,17 +15,9 @@ import (
 
 // What the file itself says is read and written with exiftool, which keeps
 // everything else in the file — maker notes, previews, other programs' XMP.
-// Each field goes into the places programs look for it: EXIF, IPTC and the
-// file's own XMP.
-
-// fileTags are the tags each field is written to, first the one read.
-var fileTags = map[Field][]string{
-	Title:       {"XMP-dc:Title", "IPTC:ObjectName"},
-	Description: {"EXIF:ImageDescription", "XMP-dc:Description", "IPTC:Caption-Abstract"},
-	Creator:     {"EXIF:Artist", "XMP-dc:Creator", "IPTC:By-line"},
-	Rights:      {"EXIF:Copyright", "XMP-dc:Rights", "IPTC:CopyrightNotice"},
-	Rating:      {"XMP-xmp:Rating"},
-}
+// Each field goes into the places programs look for it, as the field table
+// names them: EXIF, IPTC and the file's own XMP. A list's entries are
+// written apart ("Ann; Bob" is two), with -sep.
 
 var keywordTags = []string{"XMP-dc:Subject", "IPTC:Keywords"}
 
@@ -52,8 +44,8 @@ type fileValues struct {
 // readFiles reads the fields of many files in one run of exiftool.
 func readFiles(paths []string) (map[string]fileValues, error) {
 	args := []string{"-j", "-charset", "iptc=UTF8", "-DateTimeOriginal", "-OffsetTimeOriginal"}
-	for _, f := range Fields {
-		for _, tag := range fileTags[f] {
+	for _, spec := range table {
+		for _, tag := range spec.file {
 			args = append(args, "-"+tag)
 		}
 	}
@@ -81,10 +73,10 @@ func valuesFromRow(row map[string]any) fileValues {
 	if d := exifDate(text(row["DateTimeOriginal"]), text(row["OffsetTimeOriginal"])); d != "" {
 		v.fields[DateTaken] = d
 	}
-	for _, f := range Fields {
-		for _, tag := range fileTags[f] {
+	for _, spec := range table {
+		for _, tag := range spec.file {
 			if s := text(row[tagName(tag)]); s != "" {
-				v.fields[f] = s
+				v.fields[spec.field] = s
 				break
 			}
 		}
@@ -150,17 +142,17 @@ func exifDate(d, offset string) string {
 // fileArgs are exiftool's arguments for writing set, the keywords and the
 // date into the file.
 func fileArgs(set map[Field]string, add, remove []string) []string {
-	args := []string{"-overwrite_original", "-charset", "iptc=UTF8", "-codedcharacterset=utf8"}
-	for _, f := range Fields {
-		v, ok := set[f]
+	args := fileArgsHead()
+	for _, spec := range table {
+		v, ok := set[spec.field]
 		if !ok {
 			continue
 		}
-		if f == DateTaken {
+		if spec.field == DateTaken {
 			args = append(args, dateArgs(v)...)
 			continue
 		}
-		for _, tag := range fileTags[f] {
+		for _, tag := range spec.file {
 			args = append(args, "-"+tag+"="+v)
 		}
 	}
@@ -174,6 +166,10 @@ func fileArgs(set map[Field]string, add, remove []string) []string {
 		}
 	}
 	return args
+}
+
+func fileArgsHead() []string {
+	return []string{"-overwrite_original", "-charset", "iptc=UTF8", "-codedcharacterset=utf8", "-sep", "; "}
 }
 
 func dateArgs(iso string) []string {
@@ -198,7 +194,7 @@ func writeFile(path string, set map[Field]string, add, remove []string) error {
 		return fmt.Errorf("exiftool is not installed, so nothing can be written into the file; write to the sidecar instead")
 	}
 	args := fileArgs(set, add, remove)
-	if len(args) == 4 {
+	if len(args) == len(fileArgsHead()) {
 		return nil
 	}
 	_, err := runExiftool(append(args, path)...)

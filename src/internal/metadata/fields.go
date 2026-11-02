@@ -1,6 +1,6 @@
 // Package metadata reads and writes what the metadata editor changes about a
 // photo or a video — when it was taken, its title, description, keywords,
-// creator, rights and rating — always into a named target: the file itself
+// creator, rights, rating and the IPTC fields — always into a named target: the file itself
 // (EXIF, IPTC and XMP inside it, through exiftool) or what lies beside it
 // (the XMP sidecar of a photo, the NFO file of a video). Reading gives each
 // value with where it came from; what lies beside a file wins over the file
@@ -8,6 +8,7 @@
 package metadata
 
 // Field is one value the editor changes. Keywords are a list of their own.
+// Where each is kept is the field table (table.go).
 type Field string
 
 const (
@@ -17,10 +18,24 @@ const (
 	Creator     Field = "creator"
 	Rights      Field = "rights"
 	Rating      Field = "rating"
-)
 
-// Fields are every field, in the order the editor shows them.
-var Fields = []Field{DateTaken, Title, Description, Creator, Rights, Rating}
+	// The IPTC Photo Metadata Standard's fields (ADR-0061).
+	Sublocation       Field = "sublocation"
+	City              Field = "city"
+	State             Field = "state"
+	Country           Field = "country"
+	CountryCode       Field = "countryCode"
+	Headline          Field = "headline"
+	Event             Field = "event"
+	Credit            Field = "credit"
+	IPTCSource        Field = "source"
+	UsageTerms        Field = "usageTerms"
+	WebStatement      Field = "webStatement"
+	Instructions      Field = "instructions"
+	JobID             Field = "jobId"
+	PersonShown       Field = "personShown"
+	OrganisationShown Field = "organisationShown"
+)
 
 // Source says where a value was read.
 type Source string
@@ -58,11 +73,14 @@ type Current struct {
 	Video        bool            `json:"video"`
 }
 
-// Change is what to write: fields to set ("" removes one), keywords to add
-// and remove, and a correction of the date taken, which is worked out per
-// file from its own date.
+// Change is what to write: fields to set ("" removes one), entries to add
+// to and remove from a list field (Person Shown, …) and the keywords, and a
+// correction of the date taken. The lists and the date are worked out per
+// file from what it has.
 type Change struct {
-	Set            map[Field]string `json:"set,omitempty"`
+	Set            map[Field]string   `json:"set,omitempty"`
+	Add            map[Field][]string `json:"add,omitempty"`
+	Remove         map[Field][]string `json:"remove,omitempty"`
 	KeywordsAdd    []string         `json:"keywordsAdd,omitempty"`
 	KeywordsRemove []string         `json:"keywordsRemove,omitempty"`
 	Date           *DateFix         `json:"date,omitempty"`

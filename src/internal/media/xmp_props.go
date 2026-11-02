@@ -13,53 +13,78 @@ import (
 )
 
 // The descriptive properties the metadata editor writes into a sidecar
-// besides the title and the keywords (ADR-0060): when the photo was taken,
-// its description, who made it, its copyright and its rating, under the
-// names Lightroom, digiKam and darktable read. A property another program
-// already keeps — as an element or as an attribute of its description — is
-// changed where it is; any other goes into a description of Unterlumen's
-// own, which holds nothing else.
+// besides the title and the keywords (ADR-0060, ADR-0061): when the photo was
+// taken, its description, creator, rights, rating and the IPTC fields, under
+// the names Lightroom, digiKam and darktable read. Which properties there are
+// is the metadata package's field table; this file only knows how a property
+// is kept. A property another program already keeps — as an element or as an
+// attribute of its description — is changed where it is; any other goes into
+// a description of Unterlumen's own, which holds nothing else.
 
 // A Prop is one property of a sidecar.
 type Prop struct {
 	prefix, ns, local string
-	kind              propKind
+	kind              PropKind
 }
 
-type propKind int
+// PropKind is how a property holds its value.
+type PropKind int
 
 const (
-	propSimple propKind = iota // text in the element or an attribute
-	propAlt                    // rdf:Alt with one x-default rdf:li
-	propSeq                    // rdf:Seq, one rdf:li per entry, read joined by "; "
+	PropSimple PropKind = iota // text in the element or an attribute
+	PropAlt                    // rdf:Alt with one x-default rdf:li
+	PropSeq                    // rdf:Seq, one rdf:li per entry, read joined by "; "
+	PropBag                    // rdf:Bag, like PropSeq without an order
 )
 
-const (
-	exifNS      = "http://ns.adobe.com/exif/1.0/"
-	photoshopNS = "http://ns.adobe.com/photoshop/1.0/"
-	xmpNS       = "http://ns.adobe.com/xap/1.0/"
-)
+// xmpNamespaces are the namespaces a Prop can be in, by their usual prefix,
+// in the order Unterlumen's own description declares them.
+var xmpNamespaces = []struct{ prefix, ns string }{
+	{"dc", dcNS},
+	{"exif", "http://ns.adobe.com/exif/1.0/"},
+	{"photoshop", "http://ns.adobe.com/photoshop/1.0/"},
+	{"xmp", "http://ns.adobe.com/xap/1.0/"},
+	{"Iptc4xmpCore", "http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"},
+	{"Iptc4xmpExt", "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"},
+	{"xmpRights", "http://ns.adobe.com/xap/1.0/rights/"},
+}
 
-var (
-	PropDateTaken   = Prop{"exif", exifNS, "DateTimeOriginal", propSimple}
-	PropDateCreated = Prop{"photoshop", photoshopNS, "DateCreated", propSimple}
-	PropRating      = Prop{"xmp", xmpNS, "Rating", propSimple}
-	PropDescription = Prop{"dc", dcNS, "description", propAlt}
-	PropCreator     = Prop{"dc", dcNS, "creator", propSeq}
-	PropRights      = Prop{"dc", dcNS, "rights", propAlt}
-)
+// NewProp is the property local in the namespace of prefix, one of
+// xmpNamespaces; any other prefix is a mistake in the field table.
+func NewProp(prefix, local string, kind PropKind) Prop {
+	for _, n := range xmpNamespaces {
+		if n.prefix == prefix {
+			return Prop{prefix, n.ns, local, kind}
+		}
+	}
+	panic("media: no XMP namespace for prefix " + prefix)
+}
 
-// ownProps is the order of the properties in Unterlumen's own description.
-var ownProps = []Prop{PropDateTaken, PropDateCreated, PropRating, PropDescription, PropCreator, PropRights}
+// PropRating is the one property media reads itself, from a file's own XMP.
+var PropRating = NewProp("xmp", "Rating", PropSimple)
 
-const ownPropsStart = `<rdf:Description rdf:about="" xmlns:dc="` + dcNS + `" xmlns:exif="` + exifNS +
-	`" xmlns:photoshop="` + photoshopNS + `" xmlns:xmp="` + xmpNS + `">`
+// IsList says whether a property holds several entries.
+func (p Prop) IsList() bool { return p.kind == PropSeq || p.kind == PropBag }
+
+// ownPropsStart opens Unterlumen's own description. The one before the IPTC
+// fields declared fewer namespaces and is still found (legacyOwnPropsStart).
+var ownPropsStart = func() string {
+	var b strings.Builder
+	b.WriteString(`<rdf:Description rdf:about=""`)
+	for _, n := range xmpNamespaces {
+		b.WriteString(` xmlns:` + n.prefix + `="` + n.ns + `"`)
+	}
+	return b.String() + ">"
+}()
+
+const legacyOwnPropsStart = `<rdf:Description rdf:about="" xmlns:dc="` + dcNS +
+	`" xmlns:exif="http://ns.adobe.com/exif/1.0/" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">`
 
 func (p Prop) qname() string { return p.prefix + ":" + p.local }
 
-// ReadSidecarProps reads the properties from the sidecar beside photoPath,
-// wherever a program keeps them. No sidecar is no properties, not an error.
-func ReadSidecarProps(photoPath string) (map[Prop]string, error) {
+// ReadSidecarProps reads props from the sidecar beside photoPath, wherever a
+// program keeps them. No sidecar is no properties, not an error.
+func ReadSidecarProps(photoPath string, props []Prop) (map[Prop]string, error) {
 	data, err := os.ReadFile(SidecarPath(photoPath))
 	if errors.Is(err, fs.ErrNotExist) {
 		return map[Prop]string{}, nil
@@ -67,7 +92,7 @@ func ReadSidecarProps(photoPath string) (map[Prop]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseProps(data), nil
+	return parseProps(data, props), nil
 }
 
 // ReadSidecarKeywords reads the keywords from the sidecar beside photoPath.
@@ -83,14 +108,15 @@ func ReadSidecarKeywords(photoPath string) ([]string, error) {
 }
 
 // WriteSidecarProps sets the properties in set in the sidecar beside
-// photoPath; an empty value removes one. Without a sidecar and with nothing
-// to set, nothing is written.
-func WriteSidecarProps(photoPath string, set map[Prop]string) error {
+// photoPath; an empty value removes one. props are all the properties there
+// are, in the order of Unterlumen's own description, which keeps the others.
+// Without a sidecar and with nothing to set, nothing is written.
+func WriteSidecarProps(photoPath string, props []Prop, set map[Prop]string) error {
 	return changeSidecar(photoPath, func(data []byte) ([]byte, error) {
 		if data == nil && allEmpty(set) {
 			return nil, nil
 		}
-		return withProps(data, set), nil
+		return withProps(data, props, set), nil
 	})
 }
 
@@ -116,11 +142,11 @@ func allEmpty(set map[Prop]string) bool {
 
 // withProps changes each property where another program keeps it, and puts
 // the rest into Unterlumen's own description.
-func withProps(data []byte, set map[Prop]string) []byte {
+func withProps(data []byte, props []Prop, set map[Prop]string) []byte {
 	s := ensureXMP(data)
 	own := ownPropsSpan(s)
-	values := parseProps([]byte(own.text(s)))
-	for _, p := range ownProps {
+	values := parseProps([]byte(own.text(s)), props)
+	for _, p := range props {
 		v, ok := set[p]
 		if !ok {
 			continue
@@ -133,7 +159,7 @@ func withProps(data []byte, set map[Prop]string) []byte {
 		}
 		values[p] = v
 	}
-	return []byte(replaceOwnProps(s, own, values))
+	return []byte(replaceOwnProps(s, own, props, values))
 }
 
 // changeForeign changes p where another program keeps it; done is false
@@ -157,7 +183,7 @@ func changeForeign(s string, own span, p Prop, v string) (string, bool) {
 // foreignAttr finds p as an attribute of a description outside own: the
 // whole attribute with its leading space, and its value.
 func foreignAttr(s string, p Prop, own span) (int, int, int, int) {
-	if p.kind != propSimple {
+	if p.kind != PropSimple {
 		return -1, -1, -1, -1
 	}
 	re := regexp.MustCompile(`\s` + regexp.QuoteMeta(p.qname()) + `="([^"]*)"`)
@@ -172,6 +198,9 @@ func foreignAttr(s string, p Prop, own span) (int, int, int, int) {
 
 func ownPropsSpan(s string) span {
 	start := strings.Index(s, ownPropsStart)
+	if start < 0 {
+		start = strings.Index(s, legacyOwnPropsStart)
+	}
 	if start < 0 {
 		return span{-1, -1}
 	}
@@ -191,9 +220,9 @@ func (o span) text(s string) string {
 
 // replaceOwnProps writes values as Unterlumen's own description, in place
 // of the one there is, before </rdf:RDF>, or not at all when it is empty.
-func replaceOwnProps(s string, own span, values map[Prop]string) string {
+func replaceOwnProps(s string, own span, props []Prop, values map[Prop]string) string {
 	var body strings.Builder
-	for _, p := range ownProps {
+	for _, p := range props {
 		if v := values[p]; v != "" {
 			body.WriteString("\n      " + renderProp(p, v))
 		}
@@ -218,20 +247,24 @@ func replaceOwnProps(s string, own span, values map[Prop]string) string {
 func renderProp(p Prop, v string) string {
 	q := p.qname()
 	switch p.kind {
-	case propAlt:
+	case PropAlt:
 		return "<" + q + "><rdf:Alt><rdf:li xml:lang=\"x-default\">" + xmlEscapeStr(v) + "</rdf:li></rdf:Alt></" + q + ">"
-	case propSeq:
+	case PropSeq, PropBag:
+		list := "rdf:Seq"
+		if p.kind == PropBag {
+			list = "rdf:Bag"
+		}
 		var items strings.Builder
-		for _, e := range splitSeq(v) {
+		for _, e := range SplitList(v) {
 			items.WriteString("<rdf:li>" + xmlEscapeStr(e) + "</rdf:li>")
 		}
-		return "<" + q + "><rdf:Seq>" + items.String() + "</rdf:Seq></" + q + ">"
+		return "<" + q + "><" + list + ">" + items.String() + "</" + list + "></" + q + ">"
 	}
 	return "<" + q + ">" + xmlEscapeStr(v) + "</" + q + ">"
 }
 
-// splitSeq splits "Ann; Bob" into its entries.
-func splitSeq(v string) []string {
+// SplitList splits "Ann; Bob", a list property's value, into its entries.
+func SplitList(v string) []string {
 	var out []string
 	for _, e := range strings.Split(v, ";") {
 		if e = strings.TrimSpace(e); e != "" {
@@ -245,9 +278,9 @@ func xmlEscapeAttr(s string) string {
 	return strings.ReplaceAll(xmlEscapeStr(s), `"`, "&quot;")
 }
 
-// parseProps reads every property in data, from attributes and elements of
-// any description; the first one found counts.
-func parseProps(data []byte) map[Prop]string {
+// parseProps reads props in data, from attributes and elements of any
+// description; the first one found counts.
+func parseProps(data []byte, props []Prop) map[Prop]string {
 	out := map[Prop]string{}
 	if len(data) == 0 {
 		return out
@@ -264,10 +297,10 @@ func parseProps(data []byte) map[Prop]string {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			if t.Name.Space == rdfNS && t.Name.Local == "Description" {
-				readPropAttrs(t.Attr, out)
+				readPropAttrs(t.Attr, props, out)
 				continue
 			}
-			if p, ok := propNamed(t.Name); ok && cur == nil {
+			if p, ok := propNamed(props, t.Name); ok && cur == nil {
 				cur, items = &p, nil
 				text.Reset()
 				continue
@@ -292,7 +325,7 @@ func parseProps(data []byte) map[Prop]string {
 			}
 			if t.Name.Space == cur.ns && t.Name.Local == cur.local {
 				v := strings.TrimSpace(text.String())
-				if cur.kind != propSimple {
+				if cur.kind != PropSimple {
 					v = strings.Join(items, "; ")
 				}
 				if _, seen := out[*cur]; !seen && v != "" {
@@ -312,9 +345,9 @@ func wrapIfFragment(data []byte) []byte {
 	return data
 }
 
-func readPropAttrs(attrs []xml.Attr, out map[Prop]string) {
+func readPropAttrs(attrs []xml.Attr, props []Prop, out map[Prop]string) {
 	for _, a := range attrs {
-		if p, ok := propNamed(a.Name); ok && p.kind == propSimple {
+		if p, ok := propNamed(props, a.Name); ok && p.kind == PropSimple {
 			if _, seen := out[p]; !seen && strings.TrimSpace(a.Value) != "" {
 				out[p] = strings.TrimSpace(a.Value)
 			}
@@ -322,8 +355,8 @@ func readPropAttrs(attrs []xml.Attr, out map[Prop]string) {
 	}
 }
 
-func propNamed(n xml.Name) (Prop, bool) {
-	for _, p := range ownProps {
+func propNamed(props []Prop, n xml.Name) (Prop, bool) {
+	for _, p := range props {
 		if n.Space == p.ns && n.Local == p.local {
 			return p, true
 		}
@@ -335,21 +368,26 @@ func propNamed(n xml.Name) (Prop, bool) {
 // keeps it in an APP1 segment near the start.
 const xmpHead = 256 << 10
 
-// embeddedRating is the rating in the XMP packet inside a photo, written by
-// a camera, Lightroom or exiftool; "" when there is none near its start.
-func embeddedRating(f io.ReaderAt) string {
+// EmbeddedProps reads props from the XMP packet inside a photo, written by a
+// camera, Lightroom or exiftool; nothing when there is none near its start.
+func EmbeddedProps(f io.ReaderAt, props []Prop) map[Prop]string {
 	buf := make([]byte, xmpHead)
 	n, _ := f.ReadAt(buf, 0)
 	buf = buf[:n]
 	start := bytes.Index(buf, []byte("<x:xmpmeta"))
 	if start < 0 {
-		return ""
+		return map[Prop]string{}
 	}
 	end := bytes.Index(buf[start:], []byte("</x:xmpmeta>"))
 	if end < 0 {
-		return ""
+		return map[Prop]string{}
 	}
-	return parseProps(buf[start : start+end+len("</x:xmpmeta>")])[PropRating]
+	return parseProps(buf[start:start+end+len("</x:xmpmeta>")], props)
+}
+
+// embeddedRating is the rating in the XMP packet inside a photo.
+func embeddedRating(f io.ReaderAt) string {
+	return EmbeddedProps(f, []Prop{PropRating})[PropRating]
 }
 
 // StarsOf reads a rating as stars, 1–5; 0 for none, rejected (-1) or

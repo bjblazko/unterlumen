@@ -122,7 +122,7 @@ is no second record to keep in step.
 
 ## Phases
 
-1. **Field table:** refactor `internal/metadata` to the field table; `propBag` and the new namespaces in `media/xmp_props.go`; exiftool, NFO and embedded-XMP reading. Go tests for every field, both targets and a video.
+1. **Field table** (done 2026-11-02): `internal/metadata/table.go` holds every field; `media.NewProp` with `PropBag` and the IPTC namespaces; Unterlumen's own description declares them all and takes over the earlier one; exiftool writes lists with `-sep "; "`; the NFO reads and writes lists (`actor` by name, keeping its role); without exiftool the file's own XMP packet is read; `Change.Add`/`Remove` for list fields. Go tests for every field in the sidecar, the file and the NFO.
 2. **Index:** overlay, `sidecarReading` 3, filter conditions and plan tests, values endpoint.
 3. **Metadata place:** groups, Bag fields like keywords, Own fields with Several values, mirroring as a keyword.
 4. **Info panel:** IPTC section editable; Own fields for Folders photos.

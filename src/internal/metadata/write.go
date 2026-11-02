@@ -24,6 +24,7 @@ func PlanFor(change Change, cur Current) Plan {
 		set = map[Field]string{}
 	}
 	delete(set, DateTaken) // only through a DateFix
+	planLists(set, change, cur)
 	if change.Date != nil {
 		d, err := change.Date.Apply(cur.Fields[DateTaken].Value)
 		if err != nil {
@@ -35,6 +36,28 @@ func PlanFor(change Change, cur Current) Plan {
 		}
 	}
 	return Plan{Set: set}
+}
+
+// planLists works out the entries of each list field the change adds to or
+// removes from, starting from what the file has; a list that stays as it is
+// is not written.
+func planLists(set map[Field]string, change Change, cur Current) {
+	for _, f := range Fields {
+		add, remove := unique(change.Add[f]), unique(change.Remove[f])
+		if len(add) == 0 && len(remove) == 0 {
+			continue
+		}
+		have := media.SplitList(cur.Fields[f].Value)
+		list := slices.DeleteFunc(slices.Clone(have), func(e string) bool { return slices.Contains(remove, e) })
+		for _, e := range add {
+			if !slices.Contains(list, e) {
+				list = append(list, e)
+			}
+		}
+		if !slices.Equal(list, have) {
+			set[f] = strings.Join(list, "; ")
+		}
+	}
 }
 
 func skipReason(err error) string {
@@ -67,16 +90,16 @@ func writeSidecar(path string, set map[Field]string, add, remove []string) error
 		}
 	}
 	props := map[media.Prop]string{}
-	for f, p := range sidecarProps {
-		if v, ok := set[f]; ok {
-			props[p] = v
+	for _, spec := range table {
+		if v, ok := set[spec.field]; ok && spec.prop != (media.Prop{}) {
+			props[spec.prop] = v
 		}
 	}
 	if d, ok := set[DateTaken]; ok {
-		props[media.PropDateCreated] = d
+		props[propDateCreated] = d
 	}
 	if len(props) > 0 {
-		if err := media.WriteSidecarProps(path, props); err != nil {
+		if err := media.WriteSidecarProps(path, sidecarProps, props); err != nil {
 			return err
 		}
 	}

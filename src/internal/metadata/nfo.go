@@ -16,11 +16,13 @@ import (
 )
 
 // A video is never changed (ADR-0058); what is written about it goes into an
-// NFO file beside it, as Kodi and Jellyfin read it (ADR-0060): title, plot,
-// premiered, tag, credits and userrating (0–10, two per star). Kodi keeps
+// NFO file beside it, as Kodi and Jellyfin read it (ADR-0060, ADR-0061):
+// title, plot, premiered, tag, credits, country, tagline, actor and
+// userrating (0–10, two per star), as the field table names them. Kodi keeps
 // only a day in premiered, so the time taken goes into ul:datetaken beside
-// it, and the rights into ul:rights; both programs ignore elements they do
-// not know. Every other element of the file stays as it is.
+// it; what Kodi has no element for goes into ul: elements, which both
+// programs ignore. Every other element of the file stays as it is, and an
+// actor keeps its role and picture while its name is shown.
 
 const ulNFONS = "https://huepattl.de/unterlumen/nfo/1.0/"
 
@@ -34,15 +36,6 @@ var nfoRoots = []string{"movie", "musicvideo", "episodedetails"}
 
 // NFOPath is the NFO file beside a video.
 func NFOPath(videoPath string) string { return media.NFOPath(videoPath) }
-
-// nfoElements are the elements each field is kept in.
-var nfoElements = map[Field]string{
-	Title:       "title",
-	Description: "plot",
-	Creator:     "credits",
-	Rights:      "ul:rights",
-	Rating:      "userrating",
-}
 
 // readNFO reads the fields and the keywords of the NFO beside videoPath; no
 // file is no fields.
@@ -59,11 +52,12 @@ func readNFO(videoPath string) (map[Field]string, []string, error) {
 
 func parseNFO(data []byte) (map[Field]string, []string, error) {
 	out := map[Field]string{}
+	lists := map[Field][]string{}
 	var tags []string
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	depth := 0
 	var text strings.Builder
-	var premiered string
+	var premiered, parent string
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -72,33 +66,34 @@ func parseNFO(data []byte) (map[Field]string, []string, error) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			depth++
+			if depth == 2 {
+				parent = nfoName(t.Name)
+			}
 			text.Reset()
 		case xml.CharData:
 			text.Write(t)
 		case xml.EndElement:
-			if depth == 2 {
-				v := strings.TrimSpace(text.String())
-				name := t.Name.Local
-				if t.Name.Space == ulNFONS || t.Name.Space == "ul" {
-					name = "ul:" + name
-				}
-				switch name {
+			v := strings.TrimSpace(text.String())
+			switch {
+			case depth == 3:
+				addNFOChild(lists, parent, nfoName(t.Name), v)
+			case depth == 2:
+				switch name := nfoName(t.Name); name {
 				case "tag":
-					if v != "" && !slices.Contains(tags, v) {
-						tags = append(tags, v)
-					}
+					tags = appendNew(tags, v)
 				case "premiered", "aired":
 					if premiered == "" {
 						premiered = v
 					}
-				case "ul:datetaken":
-					out[DateTaken] = v
 				default:
-					assignNFOField(out, name, v)
+					assignNFOField(out, lists, name, v)
 				}
 			}
 			depth--
 		}
+	}
+	for f, list := range lists {
+		out[f] = strings.Join(list, "; ")
 	}
 	if out[DateTaken] == "" && premiered != "" {
 		out[DateTaken] = premiered + "T00:00:00"
@@ -106,16 +101,43 @@ func parseNFO(data []byte) (map[Field]string, []string, error) {
 	return out, tags, nil
 }
 
-func assignNFOField(out map[Field]string, name, v string) {
-	for f, el := range nfoElements {
-		if el != name || v == "" {
+// nfoName is an element's name as the field table writes it: ul:city.
+func nfoName(n xml.Name) string {
+	if n.Space == ulNFONS || n.Space == "ul" {
+		return "ul:" + n.Local
+	}
+	return n.Local
+}
+
+func appendNew(list []string, v string) []string {
+	if v == "" || slices.Contains(list, v) {
+		return list
+	}
+	return append(list, v)
+}
+
+// addNFOChild reads the value inside an element: an actor's name.
+func addNFOChild(lists map[Field][]string, parent, name, v string) {
+	for _, spec := range table {
+		if spec.nfo == parent && spec.nfoChild == name {
+			lists[spec.field] = appendNew(lists[spec.field], v)
+		}
+	}
+}
+
+func assignNFOField(out map[Field]string, lists map[Field][]string, name, v string) {
+	for _, spec := range table {
+		if spec.nfo != name || spec.nfoChild != "" || v == "" {
 			continue
 		}
-		if f == Rating {
+		switch {
+		case spec.prop.IsList():
+			lists[spec.field] = appendNew(lists[spec.field], v)
+		case spec.field == Rating:
 			v = stars(v)
 		}
-		if _, seen := out[f]; !seen && v != "" {
-			out[f] = v
+		if _, seen := out[spec.field]; !seen && v != "" && !spec.prop.IsList() {
+			out[spec.field] = v
 		}
 	}
 }
@@ -152,27 +174,30 @@ func withNFO(data []byte, set map[Field]string, add, remove []string) ([]byte, e
 	if root == "" {
 		return nil, fmt.Errorf("the NFO file beside the video is not one Kodi reads, so it was left as it is")
 	}
-	for _, f := range []Field{Title, Description, Creator, Rights, Rating, DateTaken} {
-		v, ok := set[f]
-		if !ok {
-			continue
+	for _, spec := range table {
+		if v, ok := set[spec.field]; ok && spec.nfo != "" {
+			s = setNFOField(s, root, spec, v)
 		}
-		if f == DateTaken {
-			s = setNFOElement(s, root, "premiered", datePart(v))
-			s = setNFOElement(s, root, "ul:datetaken", v)
-			continue
-		}
-		if f == Rating && v != "" {
-			n, _ := strconv.Atoi(v)
-			v = strconv.Itoa(n * 2)
-		}
-		s = setNFOElement(s, root, nfoElements[f], v)
 	}
 	s = changeNFOTags(s, root, add, remove)
 	if strings.Contains(s, "<ul:") {
 		s = declareUL(s, root)
 	}
 	return []byte(s), nil
+}
+
+func setNFOField(s, root string, spec fieldSpec, v string) string {
+	switch {
+	case spec.field == DateTaken:
+		s = setNFOElement(s, root, "premiered", datePart(v))
+		return setNFOElement(s, root, spec.nfo, v)
+	case spec.field == Rating && v != "":
+		n, _ := strconv.Atoi(v)
+		return setNFOElement(s, root, spec.nfo, strconv.Itoa(n*2))
+	case spec.prop.IsList():
+		return setNFOList(s, root, spec.nfo, spec.nfoChild, media.SplitList(v))
+	}
+	return setNFOElement(s, root, spec.nfo, v)
 }
 
 func nfoRoot(s string) string {
@@ -205,18 +230,70 @@ func setNFOElement(s, root, name, v string) string {
 }
 
 func changeNFOTags(s, root string, add, remove []string) string {
-	for _, k := range remove {
-		re := regexp.MustCompile(`\n?[ \t]*<tag>\s*` + regexp.QuoteMeta(xmlText(k)) + `\s*</tag>`)
-		s = re.ReplaceAllString(s, "")
+	if len(add) == 0 && len(remove) == 0 {
+		return s
 	}
 	_, have, _ := parseNFO([]byte(s))
+	want := slices.DeleteFunc(have, func(k string) bool { return slices.Contains(remove, k) })
 	for _, k := range add {
-		if !slices.Contains(have, k) {
-			s = insertBeforeClose(s, root, "\n    <tag>"+xmlText(k)+"</tag>")
-			have = append(have, k)
+		want = appendNew(want, k)
+	}
+	return setNFOList(s, root, "tag", "", want)
+}
+
+// setNFOList leaves one element name for each entry of want: those there
+// stay as they are (an actor with its role), the others go, the missing are
+// added. child is the element inside that holds the entry, or "".
+func setNFOList(s, root, name, child string, want []string) string {
+	re := elementRe(name)
+	var have []string
+	for _, m := range slices.Backward(re.FindAllStringIndex(s, -1)) {
+		entry := nfoEntry(s[m[0]:m[1]], child)
+		if !slices.Contains(want, entry) || slices.Contains(have, entry) {
+			s = s[:m[0]] + s[m[1]:]
+			continue
 		}
+		have = append(have, entry)
+	}
+	for _, e := range want {
+		if slices.Contains(have, e) {
+			continue
+		}
+		el := "<" + name + ">" + xmlText(e) + "</" + name + ">"
+		if child != "" {
+			el = "<" + name + "><" + child + ">" + xmlText(e) + "</" + child + "></" + name + ">"
+		}
+		s = insertBeforeClose(s, root, "\n    "+el)
 	}
 	return s
+}
+
+// nfoEntry is the text of one element, or of its child.
+func nfoEntry(el, child string) string {
+	if child != "" {
+		m := regexp.MustCompile(`(?s)<` + regexp.QuoteMeta(child) + `>(.*?)</` + regexp.QuoteMeta(child) + `>`).FindStringSubmatch(el)
+		if m == nil {
+			return ""
+		}
+		el = m[1]
+	} else {
+		el = el[strings.Index(el, ">")+1:]
+		if i := strings.LastIndex(el, "</"); i >= 0 {
+			el = el[:i]
+		}
+	}
+	var b strings.Builder
+	dec := xml.NewDecoder(strings.NewReader("<x>" + el + "</x>"))
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		if cd, ok := tok.(xml.CharData); ok {
+			b.Write(cd)
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func insertBeforeClose(s, root, el string) string {

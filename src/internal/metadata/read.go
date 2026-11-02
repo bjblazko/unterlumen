@@ -2,21 +2,12 @@ package metadata
 
 import (
 	"maps"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
 )
-
-// sidecarProps are the sidecar properties each field is read from and
-// written to; the date goes to both of its own.
-var sidecarProps = map[Field]media.Prop{
-	DateTaken:   media.PropDateTaken,
-	Description: media.PropDescription,
-	Creator:     media.PropCreator,
-	Rights:      media.PropRights,
-	Rating:      media.PropRating,
-}
 
 // Read says what each file at paths (absolute) says now. A value beside the
 // file — in the sidecar of a photo, the NFO of a video — wins over the file's
@@ -50,10 +41,13 @@ func Read(paths []string) (map[string]Current, error) {
 	return out, nil
 }
 
-// valuesFromMeta is what the file says without exiftool: the date and the
-// EXIF text tags the app reads itself, and a video's date.
+// valuesFromMeta is what the file says without exiftool: its own XMP packet,
+// then the date and the EXIF text tags the app reads itself.
 func valuesFromMeta(path string) fileValues {
 	v := fileValues{fields: map[Field]string{}}
+	if !media.IsVideo(path) {
+		v.fields = embeddedFields(path)
+	}
 	data, err := media.ExtractMeta(path)
 	if err != nil || data == nil {
 		return v
@@ -61,12 +55,41 @@ func valuesFromMeta(path string) fileValues {
 	if data.DateTaken != nil && data.Tags["DateTakenFrom"] == "" {
 		v.fields[DateTaken] = *data.DateTaken
 	}
-	for f, tag := range map[Field]string{Description: "ImageDescription", Creator: "Artist", Rights: "Copyright"} {
-		if s := strings.Trim(data.Tags[tag], `" `); s != "" {
-			v.fields[f] = s
+	for _, spec := range table {
+		if s := strings.Trim(data.Tags[spec.tag], `" `); spec.tag != "" && s != "" && v.fields[spec.field] == "" {
+			v.fields[spec.field] = s
 		}
 	}
 	return v
+}
+
+// embeddedFields are the fields in the XMP packet inside the photo at path.
+func embeddedFields(path string) map[Field]string {
+	f, err := os.Open(path)
+	if err != nil {
+		return map[Field]string{}
+	}
+	defer f.Close()
+	return fieldsOfProps(media.EmbeddedProps(f, sidecarProps))
+}
+
+// fieldsOfProps turns XMP properties into fields, the date normalised.
+func fieldsOfProps(props map[media.Prop]string) map[Field]string {
+	fields := map[Field]string{}
+	for _, spec := range table {
+		if v := props[spec.prop]; spec.prop != (media.Prop{}) && v != "" {
+			fields[spec.field] = v
+		}
+	}
+	if fields[DateTaken] == "" && props[propDateCreated] != "" {
+		fields[DateTaken] = props[propDateCreated]
+	}
+	if d, ok := fields[DateTaken]; ok {
+		if fields[DateTaken] = normaliseDate(d); fields[DateTaken] == "" {
+			delete(fields, DateTaken)
+		}
+	}
+	return fields
 }
 
 // readBeside reads the sidecar of a photo or the NFO of a video, with the
@@ -94,25 +117,11 @@ func besideProps(path string) (map[Field]string, Source, error) {
 		fields, _, err := readNFO(path)
 		return fields, FromNFO, err
 	}
-	props, err := media.ReadSidecarProps(path)
+	props, err := media.ReadSidecarProps(path, sidecarProps)
 	if err != nil {
 		return nil, FromSidecar, err
 	}
-	fields := map[Field]string{}
-	for f, p := range sidecarProps {
-		if v := props[p]; v != "" {
-			fields[f] = v
-		}
-	}
-	if fields[DateTaken] == "" && props[media.PropDateCreated] != "" {
-		fields[DateTaken] = props[media.PropDateCreated]
-	}
-	if d, ok := fields[DateTaken]; ok {
-		if fields[DateTaken] = normaliseDate(d); fields[DateTaken] == "" {
-			delete(fields, DateTaken)
-		}
-	}
-	return fields, FromSidecar, nil
+	return fieldsOfProps(props), FromSidecar, nil
 }
 
 func merge(path string, file fileValues, beside map[Field]string, keywords []string, from Source) Current {
@@ -154,7 +163,7 @@ func HasBeside(path string) bool {
 
 // Overlay lays what lies beside a file over what the file says, the way the
 // index and the info panel show it: the date taken (marked in Tags as
-// DateTakenFrom), the description, creator, rights and rating. data may be
+// DateTakenFrom), and every field with a tag in the table. data may be
 // nil; the result is nil only when there is nothing at all.
 func Overlay(path string, data *media.ExifData) *media.ExifData {
 	beside, from, err := besideProps(path)
@@ -173,9 +182,9 @@ func Overlay(path string, data *media.ExifData) *media.ExifData {
 		tags["DateTakenFrom"] = string(from)
 	}
 	tags[OverlaidTag] = string(from)
-	for f, tag := range map[Field]string{Description: "ImageDescription", Creator: "Artist", Rights: "Copyright", Rating: "Rating"} {
-		if v := beside[f]; v != "" {
-			tags[tag] = v
+	for _, spec := range table {
+		if v := beside[spec.field]; spec.tag != "" && v != "" {
+			tags[spec.tag] = v
 		}
 	}
 	data.Tags = tags

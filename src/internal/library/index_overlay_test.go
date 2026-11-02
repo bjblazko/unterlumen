@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/metadata"
 )
 
 // A date written into the sidecar of an unchanged photo reaches the index on
@@ -23,7 +24,8 @@ func TestSidecarDateReachesTheIndex(t *testing.T) {
 		t.Fatalf("a date before any was written: %v", r.date)
 	}
 
-	if err := media.WriteSidecarProps(path, map[media.Prop]string{media.PropDateTaken: "2024-05-01T12:30:00"}); err != nil {
+	plan := metadata.Plan{Set: map[metadata.Field]string{metadata.DateTaken: "2024-05-01T12:30:00"}}
+	if err := metadata.Write(path, metadata.TargetSidecar, plan, metadata.Change{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := idx.IndexFile(path); err != nil {
