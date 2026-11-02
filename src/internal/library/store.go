@@ -43,6 +43,16 @@ CREATE TABLE IF NOT EXISTS exif_index (
 CREATE INDEX IF NOT EXISTS exif_index_field_value ON exif_index(field, value);
 CREATE INDEX IF NOT EXISTS exif_index_field_numeric ON exif_index(field, numeric_value);
 
+-- exif_entries are the entries of a list tag of exif_index ("Ann; Bob" is Ann
+-- and Bob; metadata.EntryTags), so a filter finds a photo by one (ADR-0061).
+CREATE TABLE IF NOT EXISTS exif_entries (
+	photo_id TEXT NOT NULL REFERENCES photos(id),
+	field    TEXT NOT NULL,
+	value    TEXT NOT NULL,
+	PRIMARY KEY (field, value, photo_id)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS exif_entries_photo ON exif_entries(photo_id);
+
 CREATE TABLE IF NOT EXISTS photo_meta (
 	photo_id    TEXT NOT NULL REFERENCES photos(id),
 	key         TEXT NOT NULL,
@@ -364,7 +374,7 @@ func (s *Store) MovePathCache(oldPath, newPath string) error {
 // sidecarReading names what a scan reads from a sidecar. When it changes —
 // a version that reads something new from them — every sidecar is read once
 // again, whatever its stamp (forgetSidecarStamps).
-const sidecarReading = "2"
+const sidecarReading = "3" // 3: the IPTC fields (ADR-0061)
 
 func (s *Store) sidecarStampOf(absPath string) string {
 	var stamp sql.NullString

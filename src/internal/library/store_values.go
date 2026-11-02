@@ -3,6 +3,8 @@ package library
 import (
 	"database/sql"
 	"strings"
+
+	"huepattl.de/unterlumen/internal/metadata"
 )
 
 // ExifFields returns the sorted distinct field names present in the exif_index.
@@ -42,6 +44,9 @@ func (s *Store) GetExifFieldValues(field string) ([]string, error) {
 			vals = append(vals, v)
 		}
 		return vals, rows.Err()
+	}
+	if metadata.EntryTags[field] {
+		return s.entryValues(field)
 	}
 	rows, err := s.db.Query(
 		`SELECT DISTINCT TRIM(TRIM(value, '"')) FROM exif_index
@@ -210,4 +215,23 @@ func (s *Store) GetExifRanges(fields []string) (map[string]ExifRange, error) {
 	}
 
 	return out, nil
+}
+
+// entryValues are the entries of a list tag, each once, of photos still there.
+func (s *Store) entryValues(field string) ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT value FROM exif_entries
+		WHERE field=? AND photo_id IN (SELECT id FROM photos WHERE status='ok') ORDER BY value`, field)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var vals []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		vals = append(vals, v)
+	}
+	return vals, rows.Err()
 }

@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,5 +44,26 @@ func TestSidecarDateReachesTheIndex(t *testing.T) {
 	}
 	if r := readPhotoRow(t, s, id); r.date.Valid {
 		t.Errorf("the sidecar's date stayed after the sidecar went: %v", r.date)
+	}
+}
+
+// IPTC fields written beside a photo reach the index and its filter.
+func TestSidecarIPTCReachesTheFilter(t *testing.T) {
+	src := t.TempDir()
+	path := filepath.Join(src, "a.jpg")
+	writeIndexJPEG(t, path)
+	idx, s := newTestIndexer(t, src)
+	plan := metadata.Plan{Set: map[metadata.Field]string{metadata.City: "Kiel", metadata.PersonShown: "Ann; Bob"}}
+	if err := metadata.Write(path, metadata.TargetSidecar, plan, metadata.Change{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.IndexFile(path); err != nil {
+		t.Fatal(err)
+	}
+	for field, value := range map[string]string{"City": "Kiel", "PersonInImage": "Bob"} {
+		got, err := s.ListPhotos(context.Background(), ListPhotosOpts{Limit: 10, Filters: map[string]string{field: value}})
+		if err != nil || got.Total != 1 {
+			t.Errorf("%s=%s: %d photos, %v", field, value, got.Total, err)
+		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"huepattl.de/unterlumen/internal/media"
 	"huepattl.de/unterlumen/internal/metadata"
 )
 
@@ -63,7 +64,28 @@ func (s *Store) UpsertExifIndex(photoID string, fields map[string]string, numeri
 			return err
 		}
 	}
+	if err := replaceExifEntries(tx, photoID, fields); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// replaceExifEntries keeps each entry of the photo's list tags apart.
+func replaceExifEntries(tx *sql.Tx, photoID string, fields map[string]string) error {
+	if _, err := tx.Exec(`DELETE FROM exif_entries WHERE photo_id=?`, photoID); err != nil {
+		return err
+	}
+	for k, v := range fields {
+		if !metadata.EntryTags[k] {
+			continue
+		}
+		for _, e := range media.SplitList(strings.Trim(v, `"`)) {
+			if _, err := tx.Exec(`INSERT OR IGNORE INTO exif_entries(photo_id,field,value) VALUES(?,?,?)`, photoID, k, e); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // DeletePhotoByID removes a single photo from the database and returns its
@@ -85,6 +107,7 @@ func (s *Store) DeletePhotoByID(id string) (pathHint, thumbPath string, err erro
 	for _, q := range []string{
 		`DELETE FROM path_cache WHERE photo_id = ?`,
 		`DELETE FROM exif_index WHERE photo_id = ?`,
+		`DELETE FROM exif_entries WHERE photo_id = ?`,
 		`DELETE FROM photo_meta WHERE photo_id = ?`,
 		`DELETE FROM photo_palette    WHERE photo_id = ?`,
 		`DELETE FROM photo_appearance WHERE photo_id = ?`,
@@ -126,6 +149,7 @@ func (s *Store) PurgePhotos(ids []string) (int, error) {
 	for _, q := range []string{
 		`DELETE FROM path_cache  WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM exif_index  WHERE photo_id IN (` + ph + `)`,
+		`DELETE FROM exif_entries WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_meta  WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_palette    WHERE photo_id IN (` + ph + `)`,
 		`DELETE FROM photo_appearance WHERE photo_id IN (` + ph + `)`,

@@ -161,13 +161,21 @@ func HasBeside(path string) bool {
 	return err == nil && len(beside) > 0
 }
 
-// Overlay lays what lies beside a file over what the file says, the way the
-// index and the info panel show it: the date taken (marked in Tags as
-// DateTakenFrom), and every field with a tag in the table. data may be
-// nil; the result is nil only when there is nothing at all.
+// Overlay lays what the file's own XMP and what lies beside the file say
+// over what its EXIF says, the way the index and the info panel show it: the
+// date taken from beside (marked in Tags as DateTakenFrom), and every field
+// with a tag in the table — beside first, then the file's XMP, then EXIF.
+// data may be nil; the result is nil only when there is nothing at all.
 func Overlay(path string, data *media.ExifData) *media.ExifData {
+	var embedded map[Field]string
+	if !media.IsVideo(path) {
+		embedded = embeddedFields(path)
+	}
 	beside, from, err := besideProps(path)
-	if err != nil || len(beside) == 0 {
+	if err != nil {
+		beside = nil
+	}
+	if len(beside) == 0 && !hasTagged(embedded) {
 		return data
 	}
 	if data == nil {
@@ -177,6 +185,28 @@ func Overlay(path string, data *media.ExifData) *media.ExifData {
 	if tags == nil {
 		tags = map[string]string{}
 	}
+	for _, spec := range table {
+		if v := embedded[spec.field]; spec.tag != "" && v != "" && tags[spec.tag] == "" {
+			tags[spec.tag] = v
+		}
+	}
+	if len(beside) > 0 {
+		layBeside(tags, data, beside, from)
+	}
+	data.Tags = tags
+	return data
+}
+
+func hasTagged(fields map[Field]string) bool {
+	for _, spec := range table {
+		if spec.tag != "" && fields[spec.field] != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func layBeside(tags map[string]string, data *media.ExifData, beside map[Field]string, from Source) {
 	if d := beside[DateTaken]; d != "" {
 		data.DateTaken = &d
 		tags["DateTakenFrom"] = string(from)
@@ -187,8 +217,6 @@ func Overlay(path string, data *media.ExifData) *media.ExifData {
 			tags[spec.tag] = v
 		}
 	}
-	data.Tags = tags
-	return data
 }
 
 // BesideDateAndRating is the date taken and the rating that lie beside the

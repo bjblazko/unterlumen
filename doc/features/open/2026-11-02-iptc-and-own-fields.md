@@ -123,7 +123,7 @@ is no second record to keep in step.
 ## Phases
 
 1. **Field table** (done 2026-11-02): `internal/metadata/table.go` holds every field; `media.NewProp` with `PropBag` and the IPTC namespaces; Unterlumen's own description declares them all and takes over the earlier one; exiftool writes lists with `-sep "; "`; the NFO reads and writes lists (`actor` by name, keeping its role); without exiftool the file's own XMP packet is read; `Change.Add`/`Remove` for list fields. Go tests for every field in the sidecar, the file and the NFO.
-2. **Index:** overlay, `sidecarReading` 3, filter conditions and plan tests, values endpoint.
+2. **Index** (done 2026-11-02): `metadata.Overlay` lays the fields over the tags, the file's own XMP below what lies beside it; `sidecarReading` is 3; list fields (Person and Organisation Shown, Creator) keep each entry in `exif_entries`, which the library's text filter and `/api/library/exif-values` read for those tags (a set, plan test `TestEntryFilterIsNotCorrelated`). The IPTC of files already indexed and without a sidecar is read when the file changes, not by the update.
 3. **Metadata place:** groups, Bag fields like keywords, Own fields with Several values, mirroring as a keyword.
 4. **Info panel:** IPTC section editable; Own fields for Folders photos.
 5. **Country from GPS:** dataset build script, `internal/places`, `Change.CountryFromGPS`, preview, legal check.

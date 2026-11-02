@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"huepattl.de/unterlumen/internal/metadata"
 )
 
 // ListPhotosResult holds a page of photos plus the total count.
@@ -150,9 +152,14 @@ func (f *photoFilter) cond(where string, args ...any) {
 	f.whereArgs = append(f.whereArgs, args...)
 }
 
-// addExifText requires an exact EXIF text value per field.
+// addExifText requires an exact EXIF text value per field; for a list tag,
+// one of its entries — a set of photos from exif_entries (ADR-0045).
 func (f *photoFilter) addExifText(filters map[string]string) {
 	for field, val := range filters {
+		if metadata.EntryTags[field] {
+			f.cond(`p.id IN (SELECT photo_id FROM exif_entries WHERE field=? AND value=?)`, field, val)
+			continue
+		}
 		f.join("ef", `JOIN exif_index %[1]s ON %[1]s.photo_id=p.id AND %[1]s.field=? AND TRIM(TRIM(%[1]s.value,'"'))=?`, field, val)
 	}
 }

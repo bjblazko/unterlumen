@@ -117,6 +117,17 @@ func TestEmbeddedXMPIsReadWithoutExiftool(t *testing.T) {
 	if got.fields[City] != "Kiel" || got.fields[Headline] != "Kai" {
 		t.Errorf("fields %v", got.fields)
 	}
+	data := Overlay(photo, nil)
+	if data == nil || data.Tags["City"] != "Kiel" || data.Tags[OverlaidTag] != "" {
+		t.Errorf("the file's own XMP was not laid over: %+v", data)
+	}
+	os.WriteFile(media.SidecarPath(photo), []byte(""), 0o644) //nolint:errcheck
+	if err := Write(photo, TargetSidecar, Plan{Set: map[Field]string{City: "Lübeck"}}, Change{}); err != nil {
+		t.Fatal(err)
+	}
+	if data := Overlay(photo, nil); data.Tags["City"] != "Lübeck" {
+		t.Errorf("the sidecar did not win over the file's XMP: %v", data.Tags)
+	}
 }
 
 // Every IPTC field into the file and out again, with exiftool itself.

@@ -95,3 +95,15 @@ func IsList(f Field) bool {
 	s, ok := specOf(f)
 	return ok && s.prop.IsList()
 }
+
+// EntryTags are the tags whose value is a list ("Ann; Bob"): the index keeps
+// each entry apart, so a filter finds a photo by one of them.
+var EntryTags = func() map[string]bool {
+	out := map[string]bool{}
+	for _, s := range table {
+		if s.prop.IsList() && s.tag != "" {
+			out[s.tag] = true
+		}
+	}
+	return out
+}()
