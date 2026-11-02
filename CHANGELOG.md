@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-02
+
 ### Added
 - **Statistics: Weekday and hour.** Time shows the photos per weekday and hour of the day as one grid; a cell shows the photos of that hour on that weekday.
 - **Statistics: Countries and Cities.** Places counts the photos per country and city their IPTC fields name; a bar shows its photos. Without any, the chart says where they come from.
