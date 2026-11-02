@@ -60,6 +60,13 @@ func (m *Manager) IndexFilesSync(id string, absPaths []string) bool {
 	for _, p := range absPaths {
 		_ = idx.IndexFile(p)
 	}
+	// What the statistics, the filter's values and the search's
+	// suggestions worked out no longer holds. A later scan finds nothing
+	// changed and would keep them (EndScan), so a country written in Metadata
+	// stayed missing from the filter.
+	if len(absPaths) > 0 {
+		m.InvalidateStatsCache(id)
+	}
 	return len(absPaths) > 0
 }
 
