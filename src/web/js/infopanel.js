@@ -200,7 +200,7 @@ class InfoPanel {
 
     setMetaContext(ctx) {
         this._metaContext = ctx;
-        if (this.expanded && this.data) this.render();
+        if (this.expanded && this.data) this._renderWhenIdle();
         if (ctx?.entries?.some(e => e.key.startsWith('built:'))) this._loadFilesDestinations(ctx);
     }
 
@@ -281,6 +281,26 @@ class InfoPanel {
         if (!(await Rating.rate(files, n)).length) return;
         this.ratingChanged(n);
         App.ratedInPanel(this.currentPath, n);
+    }
+
+    // _renderWhenIdle renders now, or — while something in the panel is being
+    // typed into or chosen — once it is left, so what arrives later (the
+    // title and own fields of a photo in Folders) never wipes a half-filled
+    // row.
+    _renderWhenIdle() {
+        const busy = () => this.container.contains(document.activeElement)
+            || [...this.container.querySelectorAll('.info-meta-add input, .info-iptc-add input, .info-iptc-add select')].some(el => el.value);
+        if (!busy()) { this.render(); return; }
+        if (this._idleWait) return;
+        const key = this.currentPath;
+        const onLeave = () => setTimeout(() => {
+            if (busy()) return;
+            this.container.removeEventListener('focusout', onLeave);
+            this._idleWait = null;
+            if (this.currentPath === key) this.render();
+        }, 0);
+        this._idleWait = onLeave;
+        this.container.addEventListener('focusout', onLeave);
     }
 
     // boundaryFile is the photo shown as the API names a file: relative to

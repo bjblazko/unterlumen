@@ -14,7 +14,7 @@ function metadataPreviewHTML(states, { changedFields, keywords }) {
 function metadataRowHTML(s, changedFields, keywords) {
     const thumb = `<img class="meta-preview-thumb" src="${escapeHtml(API.thumbnailURL(s.file))}" alt="" loading="lazy">`;
     const name = `<td class="meta-preview-name" title="${escapeHtml(s.file)}">${thumb}<span>${escapeHtml(s.file.split('/').pop())}</span></td>`;
-    if (s.error) return `<tr>${name}<td colspan="2" class="meta-preview-skip">${escapeHtml(s.error)}</td></tr>`;
+    if (s.error) return `<tr>${name}<td colspan="2" class="meta-preview-error">${escapeHtml(s.error)}</td></tr>`;
     if (s.plan?.skipped) {
         return `<tr>${name}<td colspan="2" class="meta-preview-skip">${t('Left as it is: {reason}.', { reason: t(s.plan.skipped) })}</td></tr>`;
     }
@@ -37,7 +37,14 @@ function changedNames(plan, changedFields, keywords) {
         if (plan.own && Object.keys(plan.own).length) fields.push('own');
         keywords = Boolean(plan.keywordsAdd?.length || plan.keywordsRemove?.length);
     }
-    const names = fields.filter(f => f !== 'dateTaken').map(f => t(META_FIELD_NAMES[f] || f));
+    const names = fields.filter(f => f !== 'dateTaken' && !(f === 'countryCode' && plan?.set?.country))
+        .map(f => f === 'country' && plan?.set?.country ? countryText(plan.set) : t(META_FIELD_NAMES[f] || f));
     if (keywords) names.push(t('Keywords'));
     return names;
+}
+
+// countryText is the country a file gets, as "Country: Deutschland (DE)".
+function countryText(set) {
+    const code = set.countryCode ? ` (${set.countryCode})` : '';
+    return `${t('Country')}: ${set.country}${code}`;
 }

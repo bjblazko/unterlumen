@@ -271,8 +271,8 @@ test.describe('Metadata', () => {
         await page.keyboard.press('ControlOrMeta+A');
         await page.keyboard.type('Lübeck');
         await page.keyboard.press('Enter');
+        await expect.poll(() => sidecar(0)).toContain('<photoshop:City>Lübeck</photoshop:City>');
         await expect(city).toHaveText('Lübeck');
-        expect(sidecar(0)).toContain('<photoshop:City>Lübeck</photoshop:City>');
 
         await panel.locator('.info-iptc-field').selectOption('event');
         await panel.locator('.info-iptc-input').fill('Kieler Woche');
@@ -296,5 +296,24 @@ test.describe('Metadata', () => {
         await page.keyboard.type('Am Kai');
         await page.keyboard.press('Enter');
         await expect.poll(() => sidecar(1)).toContain('Am Kai');
+    });
+
+    test('the country comes from the GPS position, per file, offline', async ({ page }) => {
+        await chooseAll(page);
+        await expect(group(page, 'location')).toHaveAttribute('open', '');
+        const box = page.locator('.meta-country-gps');
+        await expect(box).toContainText('Every chosen file has one.');
+        await box.locator('.toggle').click();
+        await expect(page.locator('#meta-country')).toBeDisabled();
+        // Only the group that holds a change says so.
+        await expect(group(page, 'location').locator('.meta-group-state')).toHaveText('Changed');
+        for (const id of ['description', 'event', 'origin', 'shown', 'own']) {
+            await expect(group(page, id).locator('.meta-group-state')).not.toHaveText('Changed');
+        }
+        const rows = page.locator('.meta-preview tbody tr');
+        await expect(rows.nth(0)).toContainText('Country: Germany');
+        await page.locator('#meta-write').click();
+        await expect(page.locator('.meta-result-text')).toContainText('Written to');
+        expect(sidecar(0)).toContain('<photoshop:Country>Germany</photoshop:Country>');
     });
 });

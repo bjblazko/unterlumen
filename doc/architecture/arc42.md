@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-11-01*
+*Last modified: 2026-11-02*
 
 ## 1. Introduction and Goals
 
@@ -162,7 +162,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/fileops` | Copy, move, delete, mkdir, rename, recursive-list handlers |
 | `internal/api/location` | Set/remove GPS location handlers |
 | `internal/api/metadata` | `/api/metadata/read` (what files say, and what a change writes to each) and `/api/metadata/write` (one file per request), then `Manager.MetadataWritten` ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)) |
-| `internal/metadata` | The metadata editor's fields: read with their source (sidecar/NFO before file before file name), written into the file (exiftool), the XMP sidecar or a video's NFO; date corrections (set the day, shift); `Overlay` for the index and info panel |
+| `internal/metadata` | The metadata editor's fields, one table (`table.go`) naming each field's sidecar property, exiftool tags, NFO element and tag: read with their source (sidecar/NFO before the file's XMP before EXIF before file name), written into the file (exiftool), the XMP sidecar or a video's NFO; the IPTC fields; own fields and their machine tags; date corrections (set the day, shift); the country from the GPS position; `Overlay` for the index and info panel |
+| `internal/places` | The country of a GPS position, offline, from Natural Earth's country borders embedded in the binary (`countries.json.gz`, built by `gen_countries.go`); nothing is sent anywhere |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |

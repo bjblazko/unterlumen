@@ -37,6 +37,7 @@ func Read(paths []string) (map[string]Current, error) {
 			return nil, err
 		}
 		c := merge(p, file, beside, keywords, from)
+		c.GPS = file.gps
 		if c.Own, err = readOwn(p); err != nil {
 			return nil, err
 		}
@@ -70,6 +71,9 @@ func valuesFromMeta(path string) fileValues {
 	}
 	if data.DateTaken != nil && data.Tags["DateTakenFrom"] == "" {
 		v.fields[DateTaken] = *data.DateTaken
+	}
+	if data.Latitude != nil && data.Longitude != nil {
+		v.gps = &GPS{*data.Latitude, *data.Longitude}
 	}
 	for _, spec := range table {
 		if s := strings.Trim(data.Tags[spec.tag], `" `); spec.tag != "" && s != "" && v.fields[spec.field] == "" {

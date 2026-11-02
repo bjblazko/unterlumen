@@ -8309,7 +8309,10 @@ textarea.meta-input {
 
 .meta-preview-date strong { font-weight: 600; }
 
-.meta-preview-skip { color: var(--warning-ink); }
+/* A file left as it is is no error: it says why, quietly. */
+.meta-preview-skip { color: var(--fg-2); }
+
+.meta-preview-error { color: var(--warning-ink); }
 
 /* --- Rating --- */
 

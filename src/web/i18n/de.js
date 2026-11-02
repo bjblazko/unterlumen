@@ -1675,5 +1675,12 @@
  "Remove {field}": "{field} entfernen",
  "it was not written": "es wurde nicht geschrieben",
  "it could not be read": "es konnte nicht gelesen werden",
- "IPTC": "IPTC"
+ "IPTC": "IPTC",
+ "Country from the GPS position": "Land aus der GPS-Position",
+ "None of the chosen files has a GPS position.": "Keine der gewählten Dateien hat eine GPS-Position.",
+ "Every chosen file has one.": "Jede gewählte Datei hat eine.",
+ "{n} of {total} have one; the others are left as they are.": "{n} von {total} haben eine; die anderen bleiben, wie sie sind.",
+ "Fills Country and Country code from where each file was taken, from the borders built into the app; nothing is sent anywhere.": "Füllt Land und Ländercode aus dem Ort, an dem jede Datei aufgenommen wurde – aus den Grenzen, die in die App eingebaut sind; nichts wird irgendwohin geschickt.",
+ "no GPS position": "keine GPS-Position",
+ "no country at its position": "kein Land an ihrer Position"
 };

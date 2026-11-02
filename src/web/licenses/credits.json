@@ -31,7 +31,7 @@
     { "name": "OpenStreetMap", "use": "The map data, by its contributors", "license": "ODbL-1.0", "home": "https://www.openstreetmap.org/copyright", "support": "https://supporting.openstreetmap.org/" },
     { "name": "OpenFreeMap", "use": "Serves the map tiles, free of charge", "license": "MIT", "home": "https://openfreemap.org", "support": "https://github.com/sponsors/hyperknot" },
     { "name": "OpenMapTiles", "use": "The tile schema and map styles", "license": "BSD-3-Clause, schema: CC-BY-4.0", "home": "https://openmaptiles.org" },
-    { "name": "Natural Earth", "use": "The coastlines in Space and time", "license": "Public domain", "home": "https://www.naturalearthdata.com" },
+    { "name": "Natural Earth", "use": "The coastlines in Space and time, and the country borders that name the country of a GPS position in Metadata (Admin 0 countries 1:10m, version 5.2.0-pre, as Germany sees disputed areas, simplified)", "license": "Public domain", "home": "https://www.naturalearthdata.com" },
     { "name": "YuNet", "use": "Finds the faces in a photo; downloaded with face recognition", "license": "MIT", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet" },
     { "name": "SFace", "use": "Tells faces apart; downloaded with face recognition", "license": "Apache-2.0", "home": "https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface" },
     { "name": "SigLIP 2", "use": "Tells what a photo shows and searches by words, in many languages; Google's model in its ONNX export, downloaded with things", "license": "Apache-2.0", "home": "https://huggingface.co/google/siglip2-base-patch16-224" },

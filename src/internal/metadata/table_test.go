@@ -156,3 +156,23 @@ func TestIPTCFieldsRoundTripInTheFile(t *testing.T) {
 		t.Errorf("person shown not written as two entries: %s", list)
 	}
 }
+
+func TestCountryComesFromTheGPSPosition(t *testing.T) {
+	kiel := Current{Fields: map[Field]Value{}, GPS: &GPS{54.3233, 10.1228}}
+	plan := PlanFor(Change{CountryFromGPS: &CountryFromGPS{Lang: "de"}}, kiel)
+	if plan.Set[Country] != "Deutschland" || plan.Set[CountryCode] != "DE" || plan.Skipped != "" {
+		t.Errorf("plan %+v", plan)
+	}
+	kiel.Fields[Country] = Value{"Deutschland", FromSidecar}
+	kiel.Fields[CountryCode] = Value{"DE", FromSidecar}
+	if plan := PlanFor(Change{CountryFromGPS: &CountryFromGPS{Lang: "de"}}, kiel); len(plan.Set) != 0 || plan.Skipped != "" {
+		t.Errorf("a country already right was planned again: %+v", plan)
+	}
+	if plan := PlanFor(Change{CountryFromGPS: &CountryFromGPS{Lang: "en"}}, Current{}); plan.Skipped != "no GPS position" {
+		t.Errorf("a file without GPS: %+v", plan)
+	}
+	sea := Current{GPS: &GPS{0, -30}}
+	if plan := PlanFor(Change{CountryFromGPS: &CountryFromGPS{Lang: "en"}}, sea); plan.Skipped != "no country at its position" {
+		t.Errorf("the open sea: %+v", plan)
+	}
+}

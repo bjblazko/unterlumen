@@ -39,11 +39,12 @@ func runExiftool(args ...string) ([]byte, error) {
 type fileValues struct {
 	fields   map[Field]string
 	keywords []string
+	gps      *GPS
 }
 
 // readFiles reads the fields of many files in one run of exiftool.
 func readFiles(paths []string) (map[string]fileValues, error) {
-	args := []string{"-j", "-charset", "iptc=UTF8", "-DateTimeOriginal", "-OffsetTimeOriginal"}
+	args := []string{"-j", "-charset", "iptc=UTF8", "-DateTimeOriginal", "-OffsetTimeOriginal", "-GPSLatitude#", "-GPSLongitude#"}
 	for _, spec := range table {
 		for _, tag := range spec.file {
 			args = append(args, "-"+tag)
@@ -72,6 +73,11 @@ func valuesFromRow(row map[string]any) fileValues {
 	v := fileValues{fields: map[Field]string{}}
 	if d := exifDate(text(row["DateTimeOriginal"]), text(row["OffsetTimeOriginal"])); d != "" {
 		v.fields[DateTaken] = d
+	}
+	lat, latOK := row["GPSLatitude"].(float64)
+	lon, lonOK := row["GPSLongitude"].(float64)
+	if latOK && lonOK {
+		v.gps = &GPS{lat, lon}
 	}
 	for _, spec := range table {
 		for _, tag := range spec.file {

@@ -164,7 +164,7 @@ class MetadataPane {
 
     _hasChange() {
         const c = this.change();
-        return Boolean(c.set || c.date || c.keywordsAdd || c.keywordsRemove || c.add || c.remove || c.own);
+        return Boolean(c.set || c.date || c.keywordsAdd || c.keywordsRemove || c.add || c.remove || c.own || c.countryFromGps);
     }
 
     _changed() {
@@ -187,7 +187,7 @@ class MetadataPane {
         // Only a change worked out per file is asked for; the plan read with
         // the files is of no change at all.
         let states = this.states.map(s => ({ ...s, plan: null }));
-        if (change.date || change.add || change.remove || change.own) {
+        if (change.date || change.add || change.remove || change.own || change.countryFromGps) {
             try {
                 states = (await API.readMetadata(this.files, change)).files;
             } catch (err) {

@@ -63,7 +63,7 @@ class InfoIPTC {
         add?.addEventListener('click', () => {
             const field = container.querySelector('.info-iptc-field').value;
             const value = container.querySelector('.info-iptc-input').value.trim();
-            if (field && value) this._write(field, value);
+            if (field && value) this._write(field, value, { added: true });
         });
     }
 
@@ -82,7 +82,7 @@ class InfoIPTC {
 
     // _write writes one field beside the photo shown and shows it as read
     // back, so what the panel says is what the sidecar holds.
-    async _write(field, value) {
+    async _write(field, value, { added = false } = {}) {
         const p = this._panel;
         const key = p.currentPath;
         const files = p.boundaryFile();
@@ -102,6 +102,9 @@ class InfoIPTC {
         p.data.exif = p.data.exif || { tags: {} };
         p.data.exif.tags = { ...(p.data.exif.tags || {}), [tag]: after };
         if (!after) delete p.data.exif.tags[tag];
-        p.render();
+        // An edit in place may be followed at once by typing elsewhere in
+        // the panel, which a render would wipe; an added field is done.
+        if (added) p.render();
+        else p._renderWhenIdle();
     }
 }

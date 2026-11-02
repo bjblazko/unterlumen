@@ -72,7 +72,14 @@ type Current struct {
 	Keywords     []string          `json:"keywords"`
 	KeywordsFrom Source            `json:"keywordsFrom,omitempty"`
 	Own          map[string]string `json:"own"`
+	GPS          *GPS              `json:"gps,omitempty"`
 	Video        bool              `json:"video"`
+}
+
+// GPS is where a file says it was taken.
+type GPS struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 // Change is what to write: fields to set ("" removes one), entries to add
@@ -87,6 +94,14 @@ type Change struct {
 	KeywordsRemove []string             `json:"keywordsRemove,omitempty"`
 	Date           *DateFix             `json:"date,omitempty"`
 	Own            map[string]OwnChange `json:"own,omitempty"`
+	// CountryFromGPS fills Country and Country code from each file's GPS
+	// position, offline (internal/places); Lang is the language of the name.
+	CountryFromGPS *CountryFromGPS `json:"countryFromGps,omitempty"`
+}
+
+// CountryFromGPS asks for the country of each file's position.
+type CountryFromGPS struct {
+	Lang string `json:"lang"`
 }
 
 // OwnChange is what to do with one own field: a new value ("" removes the

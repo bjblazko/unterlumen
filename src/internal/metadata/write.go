@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"huepattl.de/unterlumen/internal/media"
+	"huepattl.de/unterlumen/internal/places"
 )
 
 // Plan is what a change writes to one file: the fields with the date and the
@@ -23,7 +24,7 @@ type Plan struct {
 // NeedsCurrent says whether working out the change needs what the file says
 // now; a rating from a key does not, and stays quick.
 func NeedsCurrent(change Change) bool {
-	return change.Date != nil || len(change.Add) > 0 || len(change.Remove) > 0 || len(change.Own) > 0
+	return change.Date != nil || change.CountryFromGPS != nil || len(change.Add) > 0 || len(change.Remove) > 0 || len(change.Own) > 0
 }
 
 func (p Plan) empty() bool {
@@ -41,17 +42,46 @@ func PlanFor(change Change, cur Current) Plan {
 	planLists(set, change, cur)
 	plan := Plan{Set: set, KeywordsAdd: unique(change.KeywordsAdd), KeywordsRemove: unique(change.KeywordsRemove)}
 	planOwn(&plan, change, cur)
+	var failed error
 	if change.Date != nil {
-		d, err := change.Date.Apply(cur.Fields[DateTaken].Value)
-		if err != nil {
-			if plan.empty() {
-				plan.Skipped = skipReason(err)
-			}
+		if d, err := change.Date.Apply(cur.Fields[DateTaken].Value); err != nil {
+			failed = err
 		} else {
 			set[DateTaken] = d
 		}
 	}
+	if change.CountryFromGPS != nil {
+		if err := planCountry(set, change.CountryFromGPS.Lang, cur); err != nil && failed == nil {
+			failed = err
+		}
+	}
+	if failed != nil && plan.empty() {
+		plan.Skipped = skipReason(failed)
+	}
 	return plan
+}
+
+var (
+	errNoGPS     = errors.New("no GPS position")
+	errNoCountry = errors.New("no country at its position")
+)
+
+// planCountry sets the country of the file's GPS position, as far as it
+// differs from what the file has.
+func planCountry(set map[Field]string, lang string, cur Current) error {
+	if cur.GPS == nil {
+		return errNoGPS
+	}
+	c, ok := places.CountryAt(cur.GPS.Lat, cur.GPS.Lon)
+	if !ok {
+		return errNoCountry
+	}
+	for f, v := range map[Field]string{Country: c.Name(lang), CountryCode: c.Code} {
+		if v != "" && cur.Fields[f].Value != v {
+			set[f] = v
+		}
+	}
+	return nil
 }
 
 // planLists works out the entries of each list field the change adds to or
@@ -79,6 +109,9 @@ func planLists(set map[Field]string, change Change, cur Current) {
 func skipReason(err error) string {
 	if errors.Is(err, ErrNoDate) {
 		return "no date taken"
+	}
+	if errors.Is(err, errNoGPS) || errors.Is(err, errNoCountry) {
+		return err.Error()
 	}
 	return err.Error()
 }

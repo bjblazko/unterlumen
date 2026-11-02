@@ -99,6 +99,11 @@ class MetadataForm {
         }
         const own = this.own.change();
         if (own) change.own = own;
+        if (this.countryFromGps) {
+            change.countryFromGps = { lang: I18n.lang };
+            if (change.set) { delete change.set.country; delete change.set.countryCode; }
+            if (change.set && !Object.keys(change.set).length) delete change.set;
+        }
         return change;
     }
 
@@ -106,6 +111,7 @@ class MetadataForm {
         const fields = Object.keys(this.edits);
         for (const [field, chips] of Object.entries(this.lists)) if (field !== 'keywords' && chips.isChanged()) fields.push(field);
         if (this.own.isChanged()) fields.push('own');
+        if (this.countryFromGps) fields.push('country');
         return fields;
     }
 
@@ -121,6 +127,7 @@ class MetadataForm {
     render() {
         this.el.innerHTML = META_GROUPS.map(g => this._groupHTML(g)).join('');
         for (const g of META_GROUPS) for (const f of g.fields || []) this._wireField(f);
+        this._wireCountryFromGPS();
         this.own = new MetaOwnFields(this.el.querySelector('.meta-own'), this.states, { onChange: this.onChange });
         this._updateGroups();
     }
@@ -133,6 +140,7 @@ class MetadataForm {
         if (g.date) body = '<div class="meta-field meta-date"></div>';
         else if (g.own) body = '<div class="meta-own"></div>';
         else body = g.fields.map(f => this._fieldHTML(f)).join('');
+        if (g.id === 'location') body += '<div class="meta-field meta-country-gps"></div>';
         return `<details class="meta-group" data-group="${g.id}"${open}>
             <summary class="meta-group-head"><span class="meta-group-title">${t(g.title)}</span><span class="meta-group-state"></span></summary>
             <div class="meta-group-body">${body}</div></details>`;
@@ -153,11 +161,52 @@ class MetadataForm {
         for (const g of META_GROUPS) {
             if (g.date) continue;
             const box = this.el.querySelector(`[data-group="${g.id}"]`);
-            const changed = Boolean(box.querySelector('.is-changed')) || (g.own && this.own?.isChanged());
+            // Only a field counts, never the group's own state line.
+            const changed = Boolean(box.querySelector('.meta-field.is-changed') || (g.own && this.own?.isChanged()));
             const state = box.querySelector('.meta-group-state');
             state.textContent = changed ? t('Changed') : (this._groupEmpty(g) ? t('Empty') : '');
             state.classList.toggle('is-changed', changed);
         }
+    }
+
+    /* --- Country from the GPS position --- */
+
+    // The country of each file's own position, worked out offline from the
+    // borders built into the app (ADR-0061); the preview shows it per file.
+    _wireCountryFromGPS() {
+        const box = this.el.querySelector('.meta-country-gps');
+        const withGPS = this.states.filter(s => s.current?.gps).length;
+        const total = this.states.filter(s => s.current).length;
+        box.innerHTML = `<div class="meta-field-head">
+                <span class="form-label">${t('Country from the GPS position')}</span>
+                <span class="meta-own-actions meta-country-switch"></span>
+            </div>
+            <span class="form-hint">${escapeHtml(this._gpsHint(withGPS, total))}</span>`;
+        if (!withGPS) return;
+        const toggle = Toggle.create(box.querySelector('.meta-country-switch'), {
+            initial: false,
+            onChange: (on) => this._countryFromGPS(on, box),
+        });
+        toggle.el.setAttribute('aria-label', t('Country from the GPS position'));
+    }
+
+    _gpsHint(withGPS, total) {
+        if (!withGPS) return t('None of the chosen files has a GPS position.');
+        const which = withGPS === total ? t('Every chosen file has one.') : t('{n} of {total} have one; the others are left as they are.', { n: formatCount(withGPS), total: formatCount(total) });
+        return t('Fills Country and Country code from where each file was taken, from the borders built into the app; nothing is sent anywhere.') + ' ' + which;
+    }
+
+    _countryFromGPS(on, box) {
+        this.countryFromGps = on;
+        box.classList.toggle('is-changed', on);
+        for (const f of ['country', 'countryCode']) {
+            const input = this.el.querySelector(`#meta-${f}`);
+            input.disabled = on;
+            if (on) {
+                this.el.querySelector(`[data-reset="${f}"]`).click();
+            }
+        }
+        this.onChange();
     }
 
     /* --- Fields --- */
