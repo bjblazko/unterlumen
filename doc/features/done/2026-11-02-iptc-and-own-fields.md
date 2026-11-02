@@ -24,7 +24,7 @@ edited in Metadata and in Folders too, and can be mirrored as a keyword
 Country and country code can be filled from a photo's GPS position,
 offline, from Natural Earth's country borders built into the app.
 
-Builds on ADR-0060. The decisions go into ADR-0061.
+Builds on ADR-0060. The decisions are in [ADR-0061](../../architecture/adr/0061-iptc-fields-own-fields-and-country-from-gps.md).
 
 ## Details
 
@@ -79,7 +79,7 @@ since exiftool knows no free namespace. The editor says so beside the group:
 **In the info panel:** a photo in Folders gets the same Own fields section a
 library photo has today. It writes through `/api/metadata/write`.
 
-**Mirroring as a keyword:** a field's switch **Also as keyword** writes the
+**Mirroring as a keyword:** a field's switch **As keyword** writes the
 keyword `key=value`. If the key has no namespace of its own (`film:stock`),
 it becomes `ul:key=value`. When the value changes, the old keyword goes.
 Whether a field is mirrored is read from the keywords themselves, so there
@@ -128,17 +128,17 @@ is no second record to keep in step.
 4. **Info panel** (done 2026-11-02): section IPTC (`info-iptc.js`) with the filled fields by group, edited in place and added from **Add a field…**, written through `/api/metadata/write` to the sidecar; title and own fields for any photo outside a library through `sidecarNotesContext` (`info-records.js`); the section "Meta" is now "Own fields".
 5. **Country from GPS** (done 2026-11-02): `internal/places` with `countries.json.gz` (Natural Earth Admin 0 1:10m 5.2.0-pre in the German point of view `_deu` — the Crimea in Ukraine, Northern Cyprus in Cyprus, Western Sahara its own — simplified to 0.005°, about 1 MB, names in English and German, codes from `ISO_A2_EH`) built by `gen_countries.go`; a position up to about 20 km off a border counts as in that country (coasts); `Change.CountryFromGPS{Lang}`, GPS read with exiftool or from EXIF; the switch in Metadata's Location group, the country per file in the preview; credits updated; legal check done (public domain, no notice duty, no network call).
 6. **Search and filter** (done 2026-11-02): the filter's text fields offer Country, City, Sublocation, Event, People and Organisations shown as soon as one photo has a value (`any` in `EXIF_TEXT_FILTER_FIELDS`); the search bar suggests their values under Places, Events and Shown (`SEARCH_IPTC_FIELDS`), and a choice opens Libraries with `{ exif: { City: … } }`.
-7. **Docs and tests:** e2e and documentation.
+7. **Docs and tests** (done 2026-11-02): ADR-0061, README, arc42, CLAUDE.md; e2e in `metadata-editor.spec.js` and `library-search.spec.js`; the info panel says when a value removed beside a file still stands in the file itself.
 
 ## Acceptance Criteria
 
-- [ ] The 15 IPTC fields can be read and written, into the file or the sidecar. A video gets them in its NFO. Lightroom-style sidecars are changed in place.
-- [ ] One table defines each field. No field is spelled out in more than one place in Go.
-- [ ] Metadata groups the fields. Empty groups start folded. Person and Organisation Shown are added and removed like keywords.
-- [ ] Own fields can be edited in Metadata, many files at once, and in the info panel for Folders and library photos. They always go to the sidecar, and the interface says so.
-- [ ] A field's **Also as keyword** writes `ns:key=value` and replaces it when the value changes.
-- [ ] Country from the GPS position fills Country and Country code per file, offline, and names the files without GPS.
-- [ ] The info panel shows the filled IPTC fields and edits them in place.
-- [ ] The library filter offers Country, City, Event, Person and Organisation Shown. The search bar suggests their values. No query is correlated.
-- [ ] The countries data is credited, and the legal check is done before release.
-- [ ] Go tests (field table round trip per target, NFO, embedded XMP, country lookup, filter plans); e2e (editor groups, own fields with machine tag, info panel IPTC in Folders, country from GPS, filter and search suggestion).
+- [x] The 15 IPTC fields can be read and written, into the file or the sidecar. A video gets them in its NFO. Lightroom-style sidecars are changed in place.
+- [x] One table defines each field. No field is spelled out in more than one place in Go.
+- [x] Metadata groups the fields. Empty groups start folded. Person and Organisation Shown are added and removed like keywords.
+- [x] Own fields can be edited in Metadata, many files at once, and in the info panel for Folders and library photos. They always go to the sidecar, and the interface says so.
+- [x] A field's **As keyword** writes `ns:key=value` and replaces it when the value changes.
+- [x] Country from the GPS position fills Country and Country code per file, offline, and names the files without GPS.
+- [x] The info panel shows the filled IPTC fields and edits them in place.
+- [x] The library filter offers Country, City, Event, Person and Organisation Shown. The search bar suggests their values. No query is correlated.
+- [x] The countries data is credited, and the legal check is done before release.
+- [x] Go tests (field table round trip per target, NFO, embedded XMP, country lookup, filter plans); e2e (editor groups, own fields with machine tag, info panel IPTC in Folders, country from GPS, filter and search suggestion).

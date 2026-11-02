@@ -200,7 +200,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `browse-justified.js` | `JustifiedRenderer` — justified-view DOM rendering and row-packing layout |
 | `browse-selection.js` | `SelectionManager` — toggle, range-select, select-all, class updates |
 | `browse-keyboard.js` | `BrowseKeyboard` — focus movement, keyboard activation, column detection |
-| `metadata-place.js` | `MetadataPane` — the Metadata place: the target, the preview, writing ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)); `metadata-form.js` (fields and keywords), `metadata-date.js` (date correction), `metadata-preview.js` (before → after per file) |
+| `metadata-place.js` | `MetadataPane` — the Metadata place: the target, the preview, writing ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md), [ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md)); `metadata-form.js` (the field groups, `META_GROUPS`, and the country from GPS), `metadata-chips.js` (keywords and people shown, added and removed), `metadata-own.js` (own fields and their machine tags), `metadata-date.js` (date correction), `metadata-preview.js` (before → after per file) |
+| `info-iptc.js` | `InfoIPTC` — the info panel's IPTC section: the filled fields by group, edited in place, written to the sidecar ([ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md)) |
 | `organize.js` | `OrganizePane` class — source browse pane, remembered targets, move/copy with undo |
 | `activity.js` | `Activity` — the one way to say something is happening: busy, counted, ended ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `status-line.js` | `StatusLine` — the foot of the sidebar: jobs from `/api/jobs/stream` that outlive their page |
@@ -435,6 +436,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0058](adr/0058-videos-listed-and-played-never-edited.md) — Videos listed and played, never edited: browser playback without transcoding, ffmpeg stills and hover clips, Live Photos as their photo, a kind in the filter
 - [ADR-0059](adr/0059-duplicates-from-the-index.md) — Duplicates found from the index: SHA-256, dHash bands and the moment taken; marks and deletion by path
 - [ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md) — Metadata written to a named target (file via exiftool, XMP sidecar, a video's Kodi NFO); what lies beside a file wins when reading
+- [ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md) — IPTC fields from one field table, list entries indexed apart, own fields only in the sidecar and mirrored as machine tags, the country from the GPS position offline (Natural Earth, German point of view)
 
 ## 10. Quality Requirements
 

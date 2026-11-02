@@ -99,6 +99,11 @@ class InfoIPTC {
         if (p.currentPath !== key || !p.data) return;
         const tag = META_GROUPS.flatMap(g => g.fields || []).find(f => f.field === field).tag;
         const after = res.after?.fields?.[field]?.value || '';
+        // Taken away beside the file, a value the file itself holds shows
+        // again: said, with where to take it away for good.
+        if (!value && after && res.after.fields[field].from === 'file') {
+            App.showToast(t('Removed from the sidecar. The file itself still says “{value}”; to remove it there, use Metadata with File (EXIF).', { value: after }));
+        }
         p.data.exif = p.data.exif || { tags: {} };
         p.data.exif.tags = { ...(p.data.exif.tags || {}), [tag]: after };
         if (!after) delete p.data.exif.tags[tag];

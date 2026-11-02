@@ -76,11 +76,11 @@ test.describe('Activity and the status line', () => {
         await page.locator('.lib-filter-select').first().selectOption(String(libID));
 
         const results = page.locator('#lib-results-pane');
-        await page.locator('.lib-filter-panel select').nth(1).selectOption({ index: 1 });
+        await page.locator('.lib-text-filter-select').first().selectOption({ index: 1 });
         await expect(results.locator('[data-type="image"]').first()).toBeVisible({ timeout: 15_000 });
 
         await page.route('**/api/library/search*', async (route) => { await delay(2_500); await route.continue(); });
-        await page.locator('.lib-filter-panel select').nth(1).selectOption({ index: 0 });
+        await page.locator('.lib-text-filter-select').first().selectOption({ index: 0 });
         await expect(results).toHaveClass(/is-stale/);
         await expect(page.locator('.lib-filter-status')).toHaveText('Searching…', { timeout: 2_000 });
         await expect(results).not.toHaveClass(/is-stale/, { timeout: 10_000 });
@@ -92,12 +92,12 @@ test.describe('Activity and the status line', () => {
         await page.locator('#lib-filter-btn').click();
         await page.waitForSelector('.lib-filter-select', { timeout: 20_000 });
         await page.locator('.lib-filter-select').first().selectOption(String(libID));
-        await page.locator('.lib-filter-panel select').nth(1).selectOption({ index: 1 });
+        await page.locator('.lib-text-filter-select').first().selectOption({ index: 1 });
         const results = page.locator('#lib-results-pane');
         await expect(results.locator('[data-type="image"]').first()).toBeVisible({ timeout: 15_000 });
 
         await page.route('**/api/library/search*', (route) => route.fulfill({ status: 500, body: 'database is locked' }));
-        await page.locator('.lib-filter-panel select').nth(1).selectOption({ index: 0 });
+        await page.locator('.lib-text-filter-select').first().selectOption({ index: 0 });
         await expect(page.locator('.lib-filter-status-error')).toContainText('database is locked');
         await expect(results).toHaveClass(/is-stale/);
     });
