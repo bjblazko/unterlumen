@@ -28,6 +28,16 @@ codesign --force --deep --sign - "$work/dmg/Unterlumen.app"
 ln -s /Applications "$work/dmg/Applications"
 
 mkdir -p "$out"
-hdiutil create -quiet -volname Unterlumen -srcfolder "$work/dmg" -ov -format UDZO "$out/Unterlumen.dmg"
-hdiutil verify -quiet "$out/Unterlumen.dmg"
+# hdiutil on GitHub's macOS runners fails now and then with "Resource
+# busy" (a scanner holding the new image); it is tried again, and what it
+# says is shown — the release of 0.23.0 lost its .dmg to a silent failure.
+for try in 1 2 3; do
+    if hdiutil create -volname Unterlumen -srcfolder "$work/dmg" -ov -format UDZO "$out/Unterlumen.dmg"; then
+        break
+    fi
+    [ "$try" = 3 ] && exit 1
+    echo "hdiutil create failed (try $try), trying again" >&2
+    sleep $((try * 10))
+done
+hdiutil verify "$out/Unterlumen.dmg"
 echo "$out/Unterlumen.dmg"
