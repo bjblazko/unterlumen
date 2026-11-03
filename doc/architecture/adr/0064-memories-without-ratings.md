@@ -49,10 +49,30 @@ held per installation, that the other installation could not see.
        from home.
      - The maximum, not the sum, so that a photo is not rewarded for
        simply showing many things.
-  4. Take the best five. Skip one that looks like a pick already taken
-     (dHash distance ≤ 10).
+  4. Take the best three to seven — as many as a hash of the day and the
+     memory chooses, so the memories weigh differently. Skip one that
+     looks like a pick already taken (dHash distance ≤ 10). A person or
+     a month takes the best photo of some of its years, chosen by the same
+     hash, not of every year in a row.
 - **Deterministic per day.** The day is part of every seed. The same day
   gives the same page, and the next day may give another.
+- **One sheet, laid out by chance** (amended 2026-11-03). The overview is
+  no list of years and cards but one sheet (`memories-sheet.js`):
+  - each memory is a block of its photos, a collage without gaps made
+    from a random tree of splits (side by side, one above the other);
+  - each photo takes a format it can carry without losing what it shows:
+    its own shape, a poster (2:3) when upright, a square, wide (16:9) or
+    a panorama (21:9) when wide enough;
+  - of some sixty trees, the one nearest a shape drawn at random between
+    upright and wide is taken, none with a photo too small to see;
+  - blocks stand side by side in bands of one height, each as wide as its
+    shape asks; a block alone in its band is built again wide enough to
+    fill it;
+  - the order of the memories is shuffled on every visit, and Shuffle
+    lays the sheet out anew. The photos themselves stay the day's.
+
+  No photo appears twice on the sheet: a card shows only what no memory
+  before it shows.
 - **Stars and months never count.** The handler clears `Rating`, `From` and
   `Until` of the shared filter.
 - **Nothing is stored.** There is no hiding, no exclusion list and no record
@@ -68,6 +88,8 @@ held per installation, that the other installation could not see.
 
 ## Consequences
 
+- The sheet looks different on every visit, the photos only from day to
+  day. A layout cannot be linked to; a memory's page can.
 - People who are named dominate the choice. A library without named faces
   falls back to rarity alone.
 - A library without appearance or things yet still has memories, only

@@ -57,7 +57,7 @@ func TestHandlerOverview(t *testing.T) {
 
 func TestHandlerRejectsBadDay(t *testing.T) {
 	mux := testMux(t)
-	for _, url := range []string{"/api/memories", "/api/memories?day=03.11.2026", "/api/memories/detail?day=x&kind=day&key=2020-11-03"} {
+	for _, url := range []string{"/api/memories", "/api/memories?day=03.11.2026", "/api/memories/detail?day=x&memory=day&key=2020-11-03"} {
 		if rec := get(t, mux, url); rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: status %d, want 400", url, rec.Code)
 		}
@@ -74,12 +74,21 @@ func TestHandlerIgnoresRating(t *testing.T) {
 
 func TestHandlerDetail(t *testing.T) {
 	mux := testMux(t)
-	rec := get(t, mux, "/api/memories/detail?day=2026-11-03&kind=day&key=2020-11-03")
+	rec := get(t, mux, "/api/memories/detail?day=2026-11-03&memory=day&key=2020-11-03")
 	var d memories.Detail
 	if rec.Code != http.StatusOK || json.NewDecoder(rec.Body).Decode(&d) != nil || len(d.Photos) != 2 {
 		t.Fatalf("status %d, detail %+v", rec.Code, d)
 	}
-	if rec := get(t, mux, "/api/memories/detail?day=2026-11-03&kind=trip&key=1900-01-01"); rec.Code != http.StatusNotFound {
+	if rec := get(t, mux, "/api/memories/detail?day=2026-11-03&memory=trip&key=1900-01-01"); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown trip: status %d, want 404", rec.Code)
+	}
+}
+
+// The memory is named by memory=, so the filter's kind= still narrows the
+// photos: Memories hold no videos, so videos only leave nothing.
+func TestHandlerDetailKeepsTheFilterKind(t *testing.T) {
+	mux := testMux(t)
+	if rec := get(t, mux, "/api/memories/detail?day=2026-11-03&memory=day&key=2020-11-03&kind=video"); rec.Code != http.StatusNotFound {
+		t.Errorf("videos only: status %d, want 404", rec.Code)
 	}
 }

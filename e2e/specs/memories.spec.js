@@ -56,54 +56,77 @@ test.describe('Memories', () => {
         await entry.click();
         await expect(page).toHaveURL(/#memories$/);
         await expect(entry).toHaveAttribute('aria-current', 'page');
-        const year = page.locator('.memories-year').first();
-        await expect(year).toBeVisible({ timeout: 20_000 });
-        await expect(year.locator('.memories-year-title')).toContainText(/On this day (a year|\d+ years) ago/);
-        await expect(year.locator('.memories-tile').first()).toBeVisible();
+        const block = page.locator('.sheet-block').first();
+        await expect(block).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.sheet-title', { hasText: /On this day (a year|\d+ years) ago/ }).first()).toBeVisible();
+        await expect(block.locator('.sheet-tile').first()).toBeVisible();
         await expect(page.locator('.btn-accent')).toHaveCount(0);
     });
 
     test('a row leads to its day and a tile opens the viewer', async ({ page }) => {
         await page.goto('/#memories');
         await waitForAppReady(page);
-        const head = page.locator('.memories-year-head').first();
+        const head = page.locator('.sheet-title[href^="#memories/day/"]').first();
         await expect(head).toBeVisible({ timeout: 20_000 });
         const href = await head.getAttribute('href');
         expect(href).toMatch(/^#memories\/day\/\d{4}-\d{2}-\d{2}$/);
         await head.click();
         await expect(page).toHaveURL(new RegExp(href + '$'));
         await expect(page.locator('.place-header .gal-crumbs a', { hasText: 'Memories' })).toBeVisible();
-        await page.locator('.memories-picks .memories-tile').first().click();
+        await page.locator('.memories-picks .sheet-tile').first().click();
         await expect(page.locator('#viewer-container')).toBeVisible();
         await page.keyboard.press('Escape');
         // The title is the way back.
         await page.locator('.place-header .gal-crumbs a', { hasText: 'Memories' }).click();
         await expect(page).toHaveURL(/#memories$/);
-        await expect(page.locator('.memories-year').first()).toBeVisible();
+        await expect(page.locator('.sheet-block').first()).toBeVisible();
     });
 
     test('a day page has its address, and a day without memories says so', async ({ page }) => {
         await page.goto('/#memories');
         await waitForAppReady(page);
-        const href = await page.locator('.memories-year-head').first().getAttribute('href', { timeout: 20_000 });
+        const href = await page.locator('.sheet-title[href^="#memories/day/"]').first().getAttribute('href', { timeout: 20_000 });
         await page.goto('/' + href);
         await waitForAppReady(page);
-        await expect(page.locator('.memories-picks .memories-tile').first()).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.memories-picks .sheet-tile').first()).toBeVisible({ timeout: 20_000 });
         await page.goto('/#memories/trip/1900-01-01');
         await expect(page.locator('.memories-body')).toContainText('not among today');
+    });
+
+    test('Shuffle lays the sheet out anew, with the same photos', async ({ page }) => {
+        await page.goto('/#memories');
+        await waitForAppReady(page);
+        await expect(page.locator('.sheet-tile').first()).toBeVisible({ timeout: 20_000 });
+        const layout = () => page.locator('.sheet-tile').evaluateAll(els => els.map(e => e.getAttribute('aria-label') + e.style.cssText).join('|'));
+        const photos = () => page.locator('.sheet-tile').evaluateAll(els => els.map(e => e.getAttribute('aria-label')).sort().join('|'));
+        const before = await layout();
+        const shown = await photos();
+        let after = before;
+        for (let i = 0; i < 5 && after === before; i++) {
+            await page.locator('.memories-shuffle').click();
+            after = await layout();
+        }
+        expect(after).not.toBe(before);
+        expect(await photos()).toBe(shown);
+    });
+
+    test('a broken address opens the sheet', async ({ page }) => {
+        await page.goto('/#memories/person/%E0');
+        await waitForAppReady(page);
+        await expect(page.locator('.sheet-block').first()).toBeVisible({ timeout: 20_000 });
     });
 
     test('the shared filter narrows the memories', async ({ page }) => {
         await page.goto('/#memories');
         await waitForAppReady(page);
-        await expect(page.locator('.memories-year').first()).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.sheet-block').first()).toBeVisible({ timeout: 20_000 });
         // Memories show no videos, so asking for videos only leaves nothing.
         await page.locator('.scope-filter-toggle:visible').click();
         await page.locator('.scope-filter-kind:visible').selectOption('video');
         await expect(page.locator('.memories-empty')).toBeVisible({ timeout: 20_000 });
-        await expect(page.locator('.memories-year')).toHaveCount(0);
+        await expect(page.locator('.sheet-block')).toHaveCount(0);
         await page.locator('.scope-filter-chips:visible .lib-filter-chip', { hasText: 'Kind' }).click();
-        await expect(page.locator('.memories-year').first()).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.sheet-block').first()).toBeVisible({ timeout: 20_000 });
     });
 
     test('on a phone the tab bar holds Memories beside the other five, in German too', async ({ browser }) => {
@@ -130,7 +153,7 @@ test.describe('Memories', () => {
             if (i > 0) expect(l.left - labels[i - 1].right, `gap before label ${i}`).toBeGreaterThanOrEqual(4);
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
-        await expect(page.locator('.memories-year').first()).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.sheet-block').first()).toBeVisible({ timeout: 20_000 });
         await ctx.close();
     });
 });

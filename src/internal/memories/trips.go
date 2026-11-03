@@ -103,7 +103,7 @@ func daysBetween(a, b string) int {
 // recent of them; otherwise one of the day's choosing.
 func (w *world) tripCard() (memory, bool) {
 	var past []Trip
-	for _, t := range FindTrips(w.all, w.home) {
+	for _, t := range w.trips() {
 		if t.End < w.today() {
 			past = append(past, t)
 		}
@@ -142,7 +142,7 @@ func (w *world) nearAnniversary(start string) bool {
 
 // tripMemory is the trip that began on key: every photo of its days.
 func (w *world) tripMemory(key string) (memory, bool) {
-	for _, t := range FindTrips(w.all, w.home) {
+	for _, t := range w.trips() {
 		if t.Start != key {
 			continue
 		}
@@ -150,7 +150,7 @@ func (w *world) tripMemory(key string) (memory, bool) {
 			return len(p.Taken) >= 10 && p.Taken[:10] >= t.Start && p.Taken[:10] <= t.End
 		})
 		card := Card{Kind: "trip", Key: key, Start: t.Start, End: t.End, Country: t.Country, Days: daysBetween(t.Start, t.End) + 1}
-		return memory{card: card, photos: photos, picks: w.pick("trip", key, photos, picksPer)}, true
+		return memory{card: card, photos: photos, picks: w.pick("trip", key, photos)}, true
 	}
 	return memory{}, false
 }

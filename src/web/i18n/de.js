@@ -1822,6 +1822,7 @@
  "This memory is not among today's; its title leads back to all of them.": "Diese Erinnerung gehört nicht zu den heutigen; ihr Titel führt zurück zu allen.",
  "The memories could not be read: {err}. Reload the page to try again.": "Die Erinnerungen konnten nicht gelesen werden: {err}. Lade die Seite neu, um es noch einmal zu versuchen.",
  "All photos": "Alle Fotos",
+ "Shuffle": "Neu mischen",
  "day": "Tag",
  "days": "Tage"
 };

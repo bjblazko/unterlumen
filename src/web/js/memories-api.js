@@ -7,7 +7,8 @@ const MemoriesAPI = {
         return memoriesJSON(await fetch(`/api/memories?day=${day}${scope ? '&' + scope : ''}`));
     },
     async detail(day, kind, key, scope) {
-        const q = `day=${day}&kind=${encodeURIComponent(kind)}&key=${encodeURIComponent(key)}`;
+        // memory=, not kind=: kind= is the shared filter's photos or videos.
+        const q = `day=${day}&memory=${encodeURIComponent(kind)}&key=${encodeURIComponent(key)}`;
         return memoriesJSON(await fetch(`/api/memories/detail?${q}${scope ? '&' + scope : ''}`));
     },
 };

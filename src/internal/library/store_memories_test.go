@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -183,5 +184,45 @@ func TestMemoryCountriesUseTheFieldIndex(t *testing.T) {
 	}
 	if joined := strings.Join(plan, "; "); !strings.Contains(joined, "exif_index_field") {
 		t.Errorf("countries not read through the field index: %s", joined)
+	}
+}
+
+// A look measured again changes the photos Memories choose from, though
+// the number of measured looks stays the same.
+func TestMemoryVersionMovesWithAMeasuredLook(t *testing.T) {
+	mgr := newTestManager(t)
+	l, err := mgr.CreateLibrary("A", "", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := mgr.OpenStore(l.ID)
+	defer s.Close()
+	seedStatsPhotos(t, s, []statsPhoto{{id: "p", path: "/x/p.jpg", ext: "jpeg", date: "2020-01-01T10:00:00"}})
+	if _, err := s.db.Exec(`INSERT INTO photo_appearance (photo_id, version, analysed_at, mono_class, tone_key) VALUES ('p', 1, '2026-01-01 10:00:00', 'colour', 'normal')`); err != nil {
+		t.Fatal(err)
+	}
+	_, v1, _ := mgr.MemoryPhotos(context.Background(), nil, Filter{})
+	if _, err := s.db.Exec(`UPDATE photo_appearance SET tone_key = 'low', analysed_at = '2026-01-02 10:00:00'`); err != nil {
+		t.Fatal(err)
+	}
+	photos, v2, _ := mgr.MemoryPhotos(context.Background(), nil, Filter{})
+	if v2 == v1 || len(photos) != 1 || photos[0].Tone != "low" {
+		t.Errorf("after measuring again: version %s → %s, photos %+v", v1, v2, photos)
+	}
+}
+
+// The photos are kept for a few filters, not for every filter ever asked.
+func TestMemoryCacheKeepsAFewFilters(t *testing.T) {
+	mgr := newTestManager(t)
+	if _, err := mgr.CreateLibrary("A", "", t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		mgr.MemoryPhotos(context.Background(), nil, Filter{Models: []string{fmt.Sprint(i)}})
+	}
+	n := 0
+	mgr.memoriesCache.Range(func(_, _ any) bool { n++; return true })
+	if n > memoriesKept {
+		t.Errorf("%d filters kept, want at most %d", n, memoriesKept)
 	}
 }

@@ -107,7 +107,7 @@ async function memoriesDay(base) {
 async function openMemories(page, base) {
     await page.clock.setFixedTime(new Date(`${await memoriesDay(base)}T12:00:00`));
     await ready(page, base, 'memories');
-    await page.waitForSelector('.memories-tile img');
+    await page.waitForSelector('.sheet-tile img');
     await page.evaluate(() => document.activeElement?.blur());
     await settle(page, 2000);
 }

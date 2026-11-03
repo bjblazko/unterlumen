@@ -1,8 +1,7 @@
-// memories-rows.js — photos of a memory as justified rows: each photo at its
-// own shape, a row's photos the same height. A row of picks stays one row;
-// a memory's photos fill as many rows as they need, a chunk at a time.
+// memories-rows.js — all photos of a memory as justified rows: each photo at
+// its own shape, a row's photos the same height, a chunk at a time.
 
-const MEMORIES_GAP = 4;
+const MEMORIES_GAP = SHEET_GAP;
 const MEMORIES_CHUNK = 120;
 
 // memoriesRow lays out photos in one row of the width: as tall as height,
@@ -67,7 +66,14 @@ class MemoriesGrid {
             if (entries.some(e => e.isIntersecting)) this._more();
         }, { rootMargin: '600px' });
         this._observer.observe(this._sentinel);
-        new ResizeObserver(() => this._relayout()).observe(this.el);
+        this._resize = new ResizeObserver(() => this._relayout());
+        this._resize.observe(this.el);
+    }
+
+    // destroy lets go of the observers when the page is left.
+    destroy() {
+        this._observer.disconnect();
+        this._resize.disconnect();
     }
 
     _more() {

@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Memories are one sheet.** Each memory is a collage without gaps whose photos take posters, panoramas, squares or their own shape by chance, side by side in bands. The order changes on every visit, and Shuffle lays the sheet out anew. A memory shows three to seven photos; a person or a month shows some of its years instead of every one; no photo appears twice. See ADR-0064.
+
+### Fixed
+- Memories: a memory's page no longer drops the filter's Kind, answers only for today's date in earlier years, and an address it cannot read opens the sheet. A change of filter while loading can no longer bring back the older answer.
+- Memories notice a look measured again, keep the photos of four filters instead of every one, and work out a day's memories once for the sheet and every page.
+
 ## [0.25.0] - 2026-11-03
 
 ### Added
