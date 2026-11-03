@@ -1,6 +1,6 @@
 # ADR-0038: MapLibre 6 as an ES module, without a bundler
 
-*Last modified: 2026-10-24*
+*Last modified: 2026-11-03*
 
 ## Status
 
@@ -50,3 +50,15 @@ the license. 6.15 also adds experimental custom projections
 (`addProjection`), including Equal Earth, but only for tiles made in that
 projection, and OpenFreeMap serves Mercator tiles (ADR-0039, addendum).
 
+## Addendum 2026-11-03: 6.16.0
+
+Updated from 6.15.0 to 6.16.0 in a dependency review. The release notes of
+6.16.0 list no breaking changes and no security fixes. The fixes that touch
+Unterlumen's maps:
+- The map no longer shrinks to one pixel after a lost WebGL context on phones.
+- It keeps loading after iOS stops background workers.
+- Terrain is no longer drawn flat at low zoom.
+- Expired vector tiles reload without an error when the server answers with an unchanged ETag.
+
+The package has the same layout; `maplibre-gl-shared.mjs` is still empty
+and is not vendored. The license text is unchanged.

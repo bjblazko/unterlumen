@@ -4,11 +4,11 @@ package library
 // none), the keywords, and the values of own fields (key and value).
 func (s *Store) catalogueInsights(sc statsScope) (Insights, error) {
 	in := Insights{}
-	scope := inScope(sc)
-	queries := []struct{ chart, q string }{
+	scope, okP := inScope(sc), okIn(sc)
+	queries := []tallyQuery{
 		{"stars", `SELECT ` + keyOf(monthOf, `CASE WHEN r.value IN ('1','2','3','4','5') THEN r.value ELSE '0' END`) + `, COUNT(*)
 			FROM photos p LEFT JOIN exif_index r ON r.photo_id = p.id AND r.field = 'Rating'
-			WHERE p.date_taken IS NOT NULL AND p.id IN ` + scope + ` GROUP BY 1`},
+			WHERE p.date_taken IS NOT NULL AND ` + okP + ` GROUP BY 1`},
 		{"keywords", `SELECT value, COUNT(*) FROM exif_entries
 			WHERE field = 'Keywords' AND photo_id IN ` + scope + ` GROUP BY value`},
 		// Own fields are the notes (IsNoteKey) other than the title.
@@ -16,10 +16,5 @@ func (s *Store) catalogueInsights(sc statsScope) (Insights, error) {
 			WHERE value <> '' AND key NOT IN ('title', 'rating') AND key NOT LIKE 'built:%' AND key NOT LIKE 'published:%' AND key NOT LIKE 'pending:%'
 			  AND photo_id IN ` + scope + ` GROUP BY 1`},
 	}
-	for _, q := range queries {
-		if err := s.tally(in, q.chart, q.q, sc.args...); err != nil {
-			return nil, err
-		}
-	}
-	return in, nil
+	return in, s.tallyAll(in, queries, sc.args)
 }

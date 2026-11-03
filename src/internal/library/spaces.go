@@ -135,7 +135,7 @@ func (m *Manager) addMeaningPoints(ctx context.Context, s *Store, libID string, 
 	}
 	rows, err := s.db.Query(`SELECT p.id, COALESCE(p.date_taken, ''), COALESCE(m.l, 0.6), COALESCE(m.c, 0), COALESCE(m.h, 0)
 		FROM photos p LEFT JOIN (SELECT photo_id, l, c, h, MIN(rank) FROM photo_palette WHERE hue_bin IS NOT NULL GROUP BY photo_id) m ON m.photo_id = p.id
-		WHERE p.id IN `+inScope(sc), sc.args...)
+		WHERE `+okIn(sc), sc.args...)
 	if err != nil {
 		return nil, err
 	}

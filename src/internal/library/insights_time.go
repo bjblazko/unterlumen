@@ -17,7 +17,7 @@ const topSessions = 12
 // largest by their first and last moment ("2024-05-01T10:00:00").
 func (s *Store) timeInsights(sc statsScope) (Insights, error) {
 	rows, err := s.db.Query(`SELECT SUBSTR(date_taken, 1, 19) FROM photos p
-		WHERE LENGTH(date_taken) >= 19 AND p.id IN `+inScope(sc)+` ORDER BY 1`, sc.args...)
+		WHERE LENGTH(date_taken) >= 19 AND `+okIn(sc)+` ORDER BY 1`, sc.args...)
 	if err != nil {
 		return nil, err
 	}

@@ -87,12 +87,24 @@ type LibraryPeople struct {
 }
 
 // PeopleStats reads the People topic across the requested libraries (all
-// when ids is nil). It is not cached: names change outside scans.
+// when ids is nil). Names change outside scans, so what is kept is read
+// again when the faces or people changed (index_changes).
 func (m *Manager) PeopleStats(ids []string, pathPrefix, granularity string, f Filter) (*PeopleStats, error) {
 	libs, err := m.filterLibraries(ids)
 	if err != nil {
 		return nil, err
 	}
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), granularity)
+	changes := m.changesOf(libs, "people")
+	if v, ok := loadChanging(&m.peopleStatsCache, key, changes); ok {
+		return v.(*PeopleStats), nil
+	}
+	ps := m.readPeopleStats(libs, pathPrefix, granularity, f)
+	storeChanging(&m.peopleStatsCache, key, changes, ps)
+	return ps, nil
+}
+
+func (m *Manager) readPeopleStats(libs []*Library, pathPrefix, granularity string, f Filter) *PeopleStats {
 	pathGlob := ""
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
@@ -105,7 +117,7 @@ func (m *Manager) PeopleStats(ids []string, pathPrefix, granularity string, f Fi
 		}
 		all = append(all, lp)
 	}
-	return BuildPeopleStats(all, granularity), nil
+	return BuildPeopleStats(all, granularity)
 }
 
 func (m *Manager) libraryPeople(id, pathGlob string, f Filter) (LibraryPeople, error) {

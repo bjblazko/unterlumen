@@ -604,3 +604,14 @@
     height: 16px;
     border-radius: var(--radius-sm);
 }
+
+/* --- Statistics: refreshing --- */
+
+/* What is shown, while the counts of another scope are read. */
+.stats-main { transition: opacity 160ms ease-out; }
+
+.stats-main.is-stale { opacity: 0.4; }
+
+@media (prefers-reduced-motion: reduce) {
+    .stats-main { transition: none; }
+}

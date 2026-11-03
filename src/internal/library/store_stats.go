@@ -9,6 +9,7 @@ import (
 // for each kind of query. Empty fragments mean the whole library.
 type statsScope struct {
 	photos string // appended to a WHERE on the photos table
+	p      string // the same, on the photos table aliased p
 	exif   string // appended to a WHERE on exif_index aliased e
 	camera string // appended to a WHERE on exif_index aliased c: its ok photos
 	args   []any  // the one argument each non-empty fragment takes
@@ -21,6 +22,7 @@ func (s *Store) statsScope(pathPrefix string) statsScope {
 	sc := statsScope{camera: " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok')"}
 	if pathPrefix != "" {
 		sc.photos = " AND path_hint LIKE ? ESCAPE '\\'"
+		sc.p = " AND p.path_hint LIKE ? ESCAPE '\\'"
 		sc.exif = " AND e.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
 		sc.camera = " AND c.photo_id IN (SELECT id FROM photos WHERE status='ok' AND path_hint LIKE ? ESCAPE '\\')"
 		sc.args = []any{escapeLikePattern(pathPrefix) + "/%"}
@@ -29,9 +31,11 @@ func (s *Store) statsScope(pathPrefix string) statsScope {
 	// fragment still takes all of sc.args.
 	if !s.filter.Empty() {
 		pw, fa := s.filter.Cond("id")
+		ppw, _ := s.filter.Cond("p.id")
 		ew, _ := s.filter.Cond("e.photo_id")
 		cw, _ := s.filter.Cond("c.photo_id")
 		sc.photos += pw
+		sc.p += ppw
 		sc.exif += ew
 		sc.camera += cw
 		sc.args = append(sc.args, fa...)

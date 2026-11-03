@@ -1,7 +1,6 @@
 package library
 
 import (
-	"database/sql"
 	"math"
 	"strings"
 )
@@ -15,23 +14,15 @@ type GeoPoint struct {
 	Taken    string // ISO date taken; empty when the photo has none
 }
 
-// GeoPoints returns every indexed photo that has a usable location.
-// The parsed coordinates written at index time are preferred; libraries
-// indexed before they existed fall back to the raw GPS tags.
+// GeoPoints returns every indexed photo that has a usable location, from
+// the photo's lat and lon (store_columns.go: the coordinates parsed at
+// index time, or for photos indexed before that, its GPS tags).
 func (s *Store) GeoPoints() ([]GeoPoint, error) {
 	fw, fa := s.filter.Cond("id")
 	rows, err := s.db.Query(`
-		SELECT id, filename, COALESCE(date_taken, ''),
-		       json_extract(exif_json, '$.latitude'),
-		       json_extract(exif_json, '$.longitude'),
-		       json_extract(exif_json, '$.tags.GPSLatitude'),
-		       json_extract(exif_json, '$.tags.GPSLatitudeRef'),
-		       json_extract(exif_json, '$.tags.GPSLongitude'),
-		       json_extract(exif_json, '$.tags.GPSLongitudeRef')
+		SELECT id, filename, COALESCE(date_taken, ''), lat, lon
 		  FROM photos
-		 WHERE status='ok' AND exif_json IS NOT NULL
-		   AND (json_extract(exif_json, '$.latitude') IS NOT NULL
-		        OR json_extract(exif_json, '$.tags.GPSLatitude') IS NOT NULL)`+fw, fa...)
+		 WHERE status='ok' AND lat IS NOT NULL AND lon IS NOT NULL`+fw, fa...)
 	if err != nil {
 		return nil, err
 	}
@@ -40,15 +31,8 @@ func (s *Store) GeoPoints() ([]GeoPoint, error) {
 	points := []GeoPoint{}
 	for rows.Next() {
 		var p GeoPoint
-		var lat, lon sql.NullFloat64
-		var latTag, latRef, lonTag, lonRef sql.NullString
-		if err := rows.Scan(&p.ID, &p.Filename, &p.Taken, &lat, &lon, &latTag, &latRef, &lonTag, &lonRef); err != nil {
+		if err := rows.Scan(&p.ID, &p.Filename, &p.Taken, &p.Lat, &p.Lon); err != nil {
 			return nil, err
-		}
-		if lat.Valid && lon.Valid {
-			p.Lat, p.Lon = lat.Float64, lon.Float64
-		} else if !coordsFromTags(&p, latTag.String, latRef.String, lonTag.String, lonRef.String) {
-			continue
 		}
 		if usableLocation(p.Lat, p.Lon) {
 			points = append(points, p)

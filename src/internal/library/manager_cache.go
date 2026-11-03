@@ -32,6 +32,9 @@ func (m *Manager) InvalidateStatsCache(id string) {
 	dropEntriesOf(&m.exifValuesCache, id)
 	dropEntriesOf(&m.insightsCache, id)
 	dropEntriesOf(&m.spacesCache, id)
+	dropEntriesOf(&m.peopleStatsCache, id)
+	dropEntriesOf(&m.thingsStatsCache, id)
+	dropEntriesOf(&m.scopeValuesCache, id)
 	// Folder stats keys are "<libID>|<absPath>" — prefix match is exact.
 	m.folderStatsCache.Range(func(k, _ any) bool {
 		if strings.HasPrefix(k.(string), id+"|") {

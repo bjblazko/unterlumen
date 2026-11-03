@@ -4,7 +4,9 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // insightsFixture: a phone photo and two camera photos with what the gear,
@@ -128,6 +130,68 @@ func TestInsightClicksAreNotCorrelated(t *testing.T) {
 	if joined := strings.Join(plan, "; "); strings.Contains(joined, "CORRELATED") {
 		t.Errorf("a click's condition runs once per photo: %s", joined)
 	}
+}
+
+// A tally that reads photos p finds the scope's photos by their status in an
+// index, never one by one by id: "p.id IN (ok photos)" read each photo's row
+// with its EXIF JSON and took 3 s where the index takes 0.08 s (33,000
+// photos). With a folder too; with the shared filter, whose set is small and
+// may lead to the photos by id, only never correlated.
+func TestInsightTalliesFindPhotosByStatus(t *testing.T) {
+	type heard struct {
+		chart, query string
+		args         []any
+		filtered     bool
+	}
+	var all []heard
+	s := insightsFixture(t)
+	var mu sync.Mutex // a group's tallies run side by side
+	tallyHeard = func(chart, query string, args []any, _ time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		all = append(all, heard{chart, query, args, !s.filter.Empty()})
+	}
+	defer func() { tallyHeard = nil }()
+	for _, prefix := range []string{"", "/lib"} {
+		for _, f := range []Filter{{}, {Models: []string{`"X-T50"`}}} {
+			s.filter = f
+			for name, group := range insightGroups {
+				if _, err := group(s, s.statsScope(prefix)); err != nil {
+					t.Fatalf("%s: %v", name, err)
+				}
+			}
+		}
+	}
+	s.filter = Filter{}
+	for _, h := range all {
+		plan := queryPlan(t, s, h.query, h.args)
+		for _, step := range plan {
+			byID := (strings.HasPrefix(step, "SEARCH p") || strings.HasPrefix(step, "SCAN p")) && strings.Contains(step, "sqlite_autoindex_photos")
+			if strings.Contains(step, "CORRELATED") || byID && !h.filtered {
+				t.Errorf("%s reads photos one by one: %s", h.chart, strings.Join(plan, "; "))
+				break
+			}
+		}
+	}
+}
+
+func queryPlan(t *testing.T, s *Store, query string, args []any) []string {
+	t.Helper()
+	rows, err := s.db.Query("EXPLAIN QUERY PLAN "+query, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	return plan
 }
 
 func TestColourPeopleAndThingsInsights(t *testing.T) {

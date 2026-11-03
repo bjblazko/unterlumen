@@ -40,6 +40,19 @@ func (m *Manager) ThingsStats(ids []string, pathPrefix, granularity string, f Fi
 	if err != nil {
 		return nil, err
 	}
+	key := timelineCacheKey(libraryIDs(libs), pathPrefix+f.Key(), granularity)
+	changes := m.changesOf(libs, "things")
+	if v, ok := loadChanging(&m.thingsStatsCache, key, changes); ok {
+		ts := *v.(*ThingsStats)
+		ts.Installed = m.ThingsInstalled() // the models can come or go without a change of things
+		return &ts, nil
+	}
+	ts := m.readThingsStats(libs, pathPrefix, granularity, f)
+	storeChanging(&m.thingsStatsCache, key, changes, ts)
+	return ts, nil
+}
+
+func (m *Manager) readThingsStats(libs []*Library, pathPrefix, granularity string, f Filter) *ThingsStats {
 	pathGlob := ""
 	if pathPrefix != "" {
 		pathGlob = escapeLikePattern(pathPrefix) + "/%"
@@ -69,7 +82,7 @@ func (m *Manager) ThingsStats(ids []string, pathPrefix, granularity string, f Fi
 	if granularity != "month" && granularity != "year" {
 		ts.Granularity = datesGranularity(ts.Appearances.Date, func(d string) string { return d })
 	}
-	return ts, nil
+	return ts
 }
 
 func (m *Manager) libraryThings(id, pathGlob string, f Filter) ([]Appearance, int, error) {

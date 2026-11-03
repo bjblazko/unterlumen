@@ -5,9 +5,9 @@ go 1.27.3
 require (
 	github.com/ebitengine/purego v0.11.2
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
-	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark v1.8.7
 	golang.org/x/image v0.47.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (

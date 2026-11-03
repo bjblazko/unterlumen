@@ -222,6 +222,7 @@ func (m *Manager) EndScan(id string) {
 		m.FindFacesMissing(id)
 		m.ApplyFaceDecisions(id)
 		m.FindThingsMissing(id)
+		m.prewarmStatistics(id)
 	}()
 }
 

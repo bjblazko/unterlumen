@@ -201,11 +201,11 @@ func tlApertureMap(db *sql.DB, N int, pWhere string, pArgs []any) (map[string]ma
 
 func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]map[string]int, error) {
 	rows, err := db.Query(`
-		SELECT SUBSTR(date_taken,1,?), `+aspectClassSQL("exif_json")+`, COUNT(*)
+		SELECT SUBSTR(date_taken,1,?), `+aspectClassSQL("")+`, COUNT(*)
 		FROM photos
 		WHERE status='ok'
 		  AND date_taken IS NOT NULL
-		  AND `+hasSizeSQL("exif_json")+pcWhere+`
+		  AND `+hasSizeSQL("")+pcWhere+`
 		GROUP BY 1, 2 ORDER BY 1`,
 		append([]any{N}, pcArgs...)...)
 	if err != nil {
@@ -230,16 +230,13 @@ func tlAspectMap(db *sql.DB, N int, pcWhere string, pcArgs []any) (map[string]ma
 func tlMegapixels(db *sql.DB, N int, pcWhere string, pcArgs []any) ([]MegapixelStat, error) {
 	rows, err := db.Query(`
 		SELECT SUBSTR(date_taken,1,?),
-		       MAX(CAST(json_extract(exif_json,'$.width') AS REAL) *
-		           CAST(json_extract(exif_json,'$.height') AS REAL) / 1000000.0),
-		       AVG(CAST(json_extract(exif_json,'$.width') AS REAL) *
-		           CAST(json_extract(exif_json,'$.height') AS REAL) / 1000000.0),
+		       MAX(CAST(width AS REAL) * height / 1000000.0),
+		       AVG(CAST(width AS REAL) * height / 1000000.0),
 		       COUNT(*)
 		FROM photos
 		WHERE status='ok'
 		  AND date_taken IS NOT NULL
-		  AND CAST(json_extract(exif_json,'$.width') AS INTEGER) > 0
-		  AND CAST(json_extract(exif_json,'$.height') AS INTEGER) > 0`+pcWhere+`
+		  AND `+hasSizeSQL("")+pcWhere+`
 		GROUP BY 1 ORDER BY 1`,
 		append([]any{N}, pcArgs...)...)
 	if err != nil {

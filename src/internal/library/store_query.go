@@ -269,7 +269,7 @@ func (f *photoFilter) addPlaceAndShape(opts ListPhotosOpts) {
 		}
 	}
 	if opts.Aspect != "" {
-		f.cond(`(`+hasSizeSQL("p.exif_json")+` AND `+aspectClassSQL("p.exif_json")+` = ?)`, opts.Aspect)
+		f.cond(`(`+hasSizeSQL("p.")+` AND `+aspectClassSQL("p.")+` = ?)`, opts.Aspect)
 	}
 }
 

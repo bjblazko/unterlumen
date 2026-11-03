@@ -24,7 +24,8 @@ class StatsPane {
             ScopeState.set({ libraries: [route.library] });
         }
         this._route = route;
-        this._filter?.sync();
+        // Another topic is the same scope: the filter's choices stay.
+        this._filter?.sync({ reload: App.previousMode !== 'statistics' });
         this._setStage(null);
         this._hidePhotos();
         this._allPhotosDue = photoColumnStartsOpen(STATS_PHOTOS_KEY);
@@ -49,6 +50,9 @@ class StatsPane {
             this._note(t('No libraries yet. Statistics count the photos in a library — {link}.', { link: placeLink('library', 'libraries', t('add one under Libraries')) }));
             return;
         }
+        // Another topic, or the overview, shows nothing of the one before
+        // while its own is read: its head is already the new one.
+        if (this._shown && this._shown.topic !== topic) this._clear();
         let data;
         try {
             data = await this._whileLoading(() => this._read(topic));
@@ -290,14 +294,30 @@ class StatsPane {
 
     // Words only after 400 ms (Activity), and only while nothing is shown
     // yet; a revisit refreshes behind what is already there.
+    // Words while nothing is shown (Activity: after 400 ms, the seconds after
+    // three); a refresh of what is shown — the same topic in another scope —
+    // fades it until the new counts are there.
     async _whileLoading(read) {
-        if (this._drawn) return read();
+        if (this._drawn) {
+            this._main.classList.add('is-stale');
+            try {
+                return await read();
+            } finally {
+                this._main.classList.remove('is-stale');
+            }
+        }
         this._noteEl.hidden = false;
         Activity.in(this._noteEl, t('Counting the photos…'), { area: true });
         const result = await read();
         this._noteEl.hidden = true;
         this._noteEl.innerHTML = '';
         return result;
+    }
+
+    _clear() {
+        this._main.innerHTML = '';
+        this._drawn = false;
+        this._shown = null;
     }
 
     _note(html, isError = false) {

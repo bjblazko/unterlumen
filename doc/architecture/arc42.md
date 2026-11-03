@@ -1,6 +1,6 @@
 # arc42 Architecture Documentation — Unterlumen
 
-*Last modified: 2026-11-02*
+*Last modified: 2026-11-03*
 
 ## 1. Introduction and Goals
 
@@ -164,7 +164,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/metadata` | `/api/metadata/read` (what files say, and what a change writes to each) and `/api/metadata/write` (one file per request), then `Manager.MetadataWritten` ([ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md)) |
 | `internal/metadata` | The metadata editor's fields, one table (`table.go`) naming each field's sidecar property, exiftool tags, NFO element and tag: read with their source (sidecar/NFO before the file's XMP before EXIF before file name), written into the file (exiftool), the XMP sidecar or a video's NFO; the IPTC fields; own fields and their machine tags; date corrections (set the day, shift); the country from the GPS position; `Overlay` for the index and info panel |
 | `internal/places` | The country of a GPS position, offline, from Natural Earth's country borders embedded in the binary (`countries.json.gz`, built by `gen_countries.go`); nothing is sent anywhere |
-| `internal/library` (insights) | `Insights` — the Statistics views' tallies by group (`insights_*.go`), the definitions a count and its click share (`insight_terms.go`), point clouds of the palette and meaning spaces (`spaces.go`, `pca.go`); ADR-0062 |
+| `internal/library` (insights) | `Insights` — the Statistics views' tallies by group (`insights_*.go`, run side by side by `tallyAll`), the definitions a count and its click share (`insight_terms.go`), point clouds of the palette and meaning spaces (`spaces.go`, `pca.go`); ADR-0062 |
+| `internal/library` (reading) | Each library's writer (`getDB`, `OpenStore`) and its read-only, mapped readers (`read_pool.go`, `OpenReader`; `OpenFiltered` for Statistics, Map and Timeline); width, height, lat and lon as trigger-filled columns (`store_columns.go`); the change counter of faces and things (`index_changes`, `index_changes.go`); Statistics read ahead after a scan and at start (`prewarm.go`); ADR-0063 |
 | `internal/api/batchrename` | Batch-rename preview and execute handlers; pattern resolution, filename sanitising, conflict suffixing |
 | `internal/api/download` | Serves a photo as the file it is, as an attachment under its own name; `?download=1` on `/api/image` and `/api/library/{id}/photo/{photoID}` |
 | `internal/api/heifjpeg` | Serves a HEIF as the JPEG a browser can show, for `/api/image` and `/api/library/{id}/photo/{photoID}`: memory cache, disk cache, conversion; a request with `X-Prefetch: 1` gets `204` rather than a conversion ([ADR-0022](adr/0022-read-ahead-prefetch.md)) |
@@ -441,6 +442,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0060](adr/0060-metadata-editor-named-target-beside-wins.md) — Metadata written to a named target (file via exiftool, XMP sidecar, a video's Kodi NFO); what lies beside a file wins when reading
 - [ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md) — IPTC fields from one field table, list entries indexed apart, own fields only in the sidecar and mirrored as machine tags, the country from the GPS position offline (Natural Earth, German point of view)
 - [ADR-0062](adr/0062-statistics-tallies-read-by-their-topic.md) — the newer Statistics views count in summable tallies per group, read only by their topic; one SQL definition serves a count and its click; palette and meaning space as point clouds
+- [ADR-0063](adr/0063-readers-beside-the-writer-and-statistics-read-ahead.md) — each library has read-only connections (mapped) beside its writer; tallies filter `photos p` by status; width, height and place as columns; principal axes from a sample; faces and things counted for their caches; Statistics read ahead after a scan and at start
 
 ## 10. Quality Requirements
 
@@ -473,6 +475,7 @@ Quality
 | Scenario | Quality | Expected Behavior |
 |----------|---------|-------------------|
 | User opens a directory with 500 JPEGs | Performance | Directory listing returns in < 2s; thumbnails load progressively |
+| User opens Statistics on libraries of 50,000 photos, then each topic | Performance | Each view within about 1 s once the read-ahead after start or scan has run; a scan does not hold up a page that only reads (ADR-0063); measured on copies of real libraries with `probe_insights_test.go` |
 | User navigates to `../../etc/passwd` | Security | API returns 400 Bad Request; file is not served |
 | User starts the binary with no arguments | Simplicity | Server starts, serving the user's home directory on localhost:8080 |
 | User runs on a headless server | Portability | Binds to 0.0.0.0 with `-bind` flag; browser on another machine connects |

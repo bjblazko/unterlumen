@@ -178,15 +178,22 @@ class ScopeFilter {
     _setPressed(on) { setPanelToggle(this._toggle, on); }
 
     // Takes the shared state again: after a reset, or when its place is shown
-    // after another place changed it.
-    sync() {
+    // after another place changed it. What there is to choose from is read
+    // again unless reload is false and the libraries and cameras are those
+    // it was read for.
+    sync({ reload = true } = {}) {
         const v = ScopeState.value;
         this._libraries.selected = v.libraries;
         this._cameras.selected = v.models;
         this._lenses.selected = v.lenses;
         this._kind.value = v.kind || '';
         this._showNarrowed();
-        this._load();
+        if (reload || this._loadedFor !== this._scopeKey()) this._load();
+    }
+
+    _scopeKey() {
+        const v = ScopeState.value;
+        return JSON.stringify([v.libraries || [], v.models || []]);
     }
 
     _setPeople(people) {
@@ -262,6 +269,7 @@ class ScopeFilter {
     // the chosen cameras.
     async _load() {
         const gen = this._gen = (this._gen || 0) + 1;
+        this._loadedFor = this._scopeKey();
         const v = ScopeState.value;
         const q = new URLSearchParams();
         if (v.libraries?.length) q.set('ids', v.libraries.join(','));

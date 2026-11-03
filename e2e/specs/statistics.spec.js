@@ -215,6 +215,32 @@ test.describe('Statistics', () => {
         });
     }
 
+    test('another topic shows nothing of the one before while it loads, and says so', async ({ page }) => {
+        await open(page, 'equipment');
+        await expect(page.locator('.stats-chart-title', { hasText: 'Camera and lens' })).toBeVisible();
+        await page.route('**/api/library/statistics*', async (route) => { await new Promise(r => setTimeout(r, 2_000)); await route.continue(); });
+        await page.locator('#nav-statistics .nav-sub', { hasText: /^\s*Time\s*$/ }).click();
+        await expect(page.locator('.stats-title')).toHaveText('Time');
+        await expect(page.locator('.stats-chart-title', { hasText: 'Camera and lens' })).toHaveCount(0);
+        await expect(page.locator('.stats-note .activity')).toContainText('Counting the photos', { timeout: 1_500 });
+        await expect(page.locator('.stats-chart-title', { hasText: 'Weekday and hour' })).toBeVisible({ timeout: 10_000 });
+    });
+
+    // The filter's choices belong to the scope, not the topic: switching
+    // topics asked for them again each time, before the topic's own numbers.
+    test("another topic does not read the filter's choices again", async ({ page }) => {
+        await open(page, 'equipment');
+        await expect(page.locator('.stats-chart-title', { hasText: 'Camera and lens' })).toBeVisible();
+        const asked = [];
+        page.on('request', r => { if (r.url().includes('/api/library/scope-values')) asked.push(r.url()); });
+        await page.locator('#nav-statistics .nav-sub', { hasText: /^\s*Time\s*$/ }).click();
+        await expect(page.locator('.stats-chart-title', { hasText: 'Weekday and hour' })).toBeVisible({ timeout: 10_000 });
+        expect(asked).toEqual([]);
+        await page.locator('#mode-map').click();
+        await page.locator('#mode-statistics').click();
+        await expect.poll(() => asked.length).toBeGreaterThan(0);
+    });
+
     test('the overview reads none of the new groups', async ({ page }) => {
         const asked = [];
         page.on('request', r => { if (/\/api\/library\/(insights|space)\?/.test(r.url())) asked.push(r.url()); });

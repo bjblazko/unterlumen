@@ -2,6 +2,7 @@ package library
 
 import (
 	"sort"
+	"strings"
 )
 
 // ScopeValues is what the shared filter offers (ADR-0050): the cameras and
@@ -21,10 +22,15 @@ func (m *Manager) ScopeValues(ids, models []string) (*ScopeValues, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Asked again with every place and topic shown; read once per scan.
+	key := statsCacheKey(libraryIDs(libs), strings.Join(models, "\x1f"))
+	if v, ok := m.scopeValuesCache.Load(key); ok {
+		return v.(*ScopeValues), nil
+	}
 	cameras, lenses := map[string]int{}, map[string]int{}
 	out := &ScopeValues{}
 	for _, l := range libs {
-		store, err := m.OpenStore(l.ID)
+		store, err := m.OpenReader(l.ID)
 		if err != nil {
 			continue
 		}
@@ -39,6 +45,7 @@ func (m *Manager) ScopeValues(ids, models []string) (*ScopeValues, error) {
 		}
 	}
 	out.Cameras, out.Lenses = sortedCounts(cameras), sortedCounts(lenses)
+	m.scopeValuesCache.Store(key, out)
 	return out, nil
 }
 

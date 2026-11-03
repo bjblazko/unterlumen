@@ -24,6 +24,8 @@ type Manager struct {
 	analysing        sync.Map             // map[libraryID]*atomic.Bool — an appearance pass runs; true: run it once more
 	dbMu             sync.Mutex           // guards openDBs mutations so getDB can't race DeleteLibrary's evict+RemoveAll
 	openDBs          sync.Map             // map[libraryID]*sql.DB — long-lived per-library connections
+	readDBs          sync.Map             // map[libraryID]*sql.DB — each library's readers (read_pool.go)
+	prewarm          prewarming           // Statistics read after a scan (prewarm.go)
 	statsCache       sync.Map             // map[cacheKey]*LibraryStatistics — invalidated on scan start/end
 	timelineCache    sync.Map             // map[cacheKey]*LibraryTimeline — invalidated on scan start/end
 	colourCache      sync.Map             // map[cacheKey]*LibraryColour — invalidated on scan start/end and after analysis
@@ -35,6 +37,9 @@ type Manager struct {
 	folderStatsCache sync.Map             // map["<libID>|<absPath>"]*LibraryFolderStats — invalidated on scan start/end
 	insightsCache    sync.Map             // map[cacheKey+"|"+group]Insights — invalidated with statsCache
 	spacesCache      sync.Map             // map[cacheKey+"|"+view]*PointCloud — invalidated with colourCache
+	peopleStatsCache sync.Map             // map[cacheKey+"|"+granularity]changing — read again when faces change
+	thingsStatsCache sync.Map             // map[cacheKey+"|"+granularity]changing — read again when things change
+	scopeValuesCache sync.Map             // map[ids+"|"+models]*ScopeValues — invalidated with statsCache
 	jobs             *jobs.Registry       // where scans are reported to the status line; nil reports nowhere
 	faces            facesState           // the face engine and the face passes running (ADR-0051)
 	things           thingsState          // the things engine and the things passes running (ADR-0054)
@@ -129,7 +134,7 @@ func (m *Manager) OpenStore(id string) (*Store, error) {
 // OpenFiltered opens a library's store with a filter on its statistics, map
 // and timeline queries (ADR-0050).
 func (m *Manager) OpenFiltered(id string, f Filter) (*Store, error) {
-	store, err := m.OpenStore(id)
+	store, err := m.OpenReader(id)
 	if err == nil {
 		store.filter = f
 	}
@@ -165,7 +170,7 @@ func (m *Manager) GetLibrary(id string) (*Library, error) {
 }
 
 func (m *Manager) readLibrary(id string) (*Library, error) {
-	store, err := m.OpenStore(id)
+	store, err := m.OpenReader(id)
 	if err != nil {
 		return nil, err
 	}
@@ -271,10 +276,7 @@ func (m *Manager) DeleteLibrary(id string) error {
 	// and re-cache a handle in the gap between eviction and removal.
 	m.dbMu.Lock()
 	defer m.dbMu.Unlock()
-	if db, ok := m.openDBs.LoadAndDelete(id); ok {
-		forgetLookalikes(db.(*sql.DB))
-		db.(*sql.DB).Close()
-	}
+	m.closeDBs(id)
 	return os.RemoveAll(m.LibDir(id))
 }
 

@@ -16,6 +16,11 @@ func geoFixture(t *testing.T) *Store {
 		{id: "broken", path: "/lib/e.jpg", exifJSON: `{"tags":{"GPSLatitude":"north","GPSLongitude":"east"}}`},
 		{id: "gone", path: "/lib/f.jpg", exifJSON: `{"latitude":1,"longitude":1}`, missing: true},
 	})
+	// "tags" is a photo indexed before coordinates were parsed at index
+	// time: the columns' first filling reads its GPS tags.
+	if err := fillPhotoColumns(s.db); err != nil {
+		t.Fatal(err)
+	}
 	return s
 }
 

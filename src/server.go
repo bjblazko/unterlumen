@@ -127,6 +127,7 @@ func (s *server) build(saved installation.Config) (config, error) {
 				app.libMgr.AnalyseAllMissing()
 				app.libMgr.FindAllFacesMissing()
 				app.libMgr.FindAllThingsMissing()
+				app.libMgr.PrewarmAllStatistics()
 			}()
 			app.libMgr.KeepSharedLibrariesCurrent(ctx)
 		}()

@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS photos (
 	thumb_path  TEXT,
 	status      TEXT NOT NULL DEFAULT 'ok',
 	date_taken  TEXT,
-	ext         TEXT NOT NULL DEFAULT ''
+	ext         TEXT NOT NULL DEFAULT '',
+	width       INTEGER, -- from exif_json, by trigger (store_columns.go)
+	height      INTEGER,
+	lat         REAL,
+	lon         REAL
 );
 
 CREATE TABLE IF NOT EXISTS path_cache (
@@ -175,6 +179,41 @@ CREATE TABLE IF NOT EXISTS photo_replaced (
 	new_id TEXT NOT NULL
 );
 
+-- How often the faces and people, and the things, have changed (ADR-0063):
+-- part of the key of what Statistics keep of them, so a naming, a hiding
+-- or a pass that found faces shows at once, whichever way it came.
+CREATE TABLE IF NOT EXISTS index_changes (
+	topic TEXT PRIMARY KEY,
+	n     INTEGER NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS faces_insert_counts AFTER INSERT ON faces BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS faces_update_counts AFTER UPDATE ON faces BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS faces_delete_counts AFTER DELETE ON faces BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS people_insert_counts AFTER INSERT ON people BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS people_update_counts AFTER UPDATE ON people BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS people_delete_counts AFTER DELETE ON people BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('people', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS photo_things_insert_counts AFTER INSERT ON photo_things BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('things', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS photo_things_update_counts AFTER UPDATE ON photo_things BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('things', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+CREATE TRIGGER IF NOT EXISTS photo_things_delete_counts AFTER DELETE ON photo_things BEGIN
+	INSERT INTO index_changes (topic, n) VALUES ('things', 1) ON CONFLICT(topic) DO UPDATE SET n = n + 1;
+END;
+
 CREATE TABLE IF NOT EXISTS library_props (
 	key         TEXT PRIMARY KEY,
 	value       TEXT NOT NULL
@@ -274,6 +313,10 @@ func openDB(dbPath string) (*sql.DB, error) {
 	if err := coverQueries(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate indexes: %w", err)
+	}
+	if err := photoColumns(db); err != nil {
+		db.Close()
+		return nil, err
 	}
 	return db, nil
 }

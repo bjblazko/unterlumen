@@ -1,9 +1,25 @@
 # Changelog
 
-*Last modified: 2026-11-02*
+*Last modified: 2026-11-03*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+- **Statistics open in about a second instead of nine.** Measured on six libraries of 49,500 photos. The overview opens in 1.1 s instead of 9 s, and every topic within 0.4 s instead of up to 13 s.
+  - Statistics, the Map and the Timeline read through connections of their own, beside the one that writes. Their requests no longer wait for each other or for a scan.
+  - The counts read photos from their indexes rather than from each photo's row.
+  - A photo's width, height and place are columns of their own. The Map, the Timeline and the search by frame shape get faster too.
+  - The meaning cloud finds its axes from a sample of 4,096 photos.
+  - After a start and after every scan, Statistics are worked out in the background before anybody asks.
+  - The first start after the update fills the new columns of each library once. The largest takes a few seconds.
+  - The app now uses less memory: 161 MB instead of 409 MB after the same clicks.
+- **Switching topics in Statistics no longer asks for the filter's choices again.**
+- **Dependencies updated.** modernc.org/sqlite 1.61.1: prepared statements are no longer planned again on every run, and a cancelled request stops waiting. goldmark 1.8.7: tabs in indented code blocks are parsed correctly. MapLibre GL JS 6.16.0: on phones the map survives a lost graphics context and keeps loading after iOS stopped its workers. D3 7.9.1: dependencies updated, with the same functions as before.
+
+### Fixed
+- **Statistics: People show a naming, hiding or newly found face at once.** Until now the newer People counts kept the names they had until the next scan.
+- **Statistics: switching to another topic no longer shows the previous one's charts under the new heading while it loads.** The page empties and says it is counting; a change of the filter within a topic fades what is shown until the new counts are there.
 
 ## [0.24.0] - 2026-11-02
 

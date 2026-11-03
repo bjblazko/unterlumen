@@ -374,6 +374,9 @@ const App = {
         if (mode === 'settings' && this.mode !== 'settings' && this.mode !== 'setup') {
             this._placeBeforeSettings = this.mode || null;
         }
+        // A place told it was shown again from within itself (a topic of
+        // Statistics) need not read again what only changes elsewhere.
+        this.previousMode = this.mode;
         this.mode = mode;
         this._markPlace(mode);
 

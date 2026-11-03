@@ -72,12 +72,13 @@ func biasSQL(v string) string {
 	return "(CAST(SUBSTR(" + t + ", 1, INSTR(" + t + ", '/') - 1) AS REAL) / NULLIF(CAST(SUBSTR(" + t + ", INSTR(" + t + ", '/') + 1) AS REAL), 0))"
 }
 
-// Frame: width and height from the photo's JSON, turned by Orientation 5–8.
+// Frame: width and height from the photo's columns (store_columns.go),
+// turned by Orientation 5–8.
 const (
-	widthSQL   = "CAST(json_extract(p.exif_json, '$.width') AS REAL)"
-	heightSQL  = "CAST(json_extract(p.exif_json, '$.height') AS REAL)"
+	widthSQL   = "CAST(p.width AS REAL)"
+	heightSQL  = "CAST(p.height AS REAL)"
 	turnedSQL  = "COALESCE(CAST(TRIM(o.value, '\"') AS INTEGER) BETWEEN 5 AND 8, 0)"
-	sizedSQL   = widthSQL + " > 0 AND " + heightSQL + " > 0"
+	sizedSQL   = "p.width > 0 AND p.height > 0"
 	orientJoin = " LEFT JOIN exif_index o ON o.photo_id = p.id AND o.field = 'Orientation'"
 )
 
@@ -96,11 +97,13 @@ const ratioSet = `SELECT p.id FROM photos p WHERE p.status = 'ok' AND ` + sizedS
 
 // croppedFrom joins each photo to the largest frame of its camera in the
 // library; a photo under nine tenths of it was cropped (or shot smaller).
+// CROSS JOIN keeps the photos first, read from their size index, rather
+// than each one fetched by id for its camera's row (1.4 s on 33,000).
 const croppedFrom = ` FROM photos p
 	JOIN exif_index m ON m.photo_id = p.id AND m.field = 'Model'
-	JOIN (SELECT m2.value AS model, MAX(CAST(json_extract(p2.exif_json, '$.width') AS REAL) * CAST(json_extract(p2.exif_json, '$.height') AS REAL)) AS px
-	      FROM photos p2 JOIN exif_index m2 ON m2.photo_id = p2.id AND m2.field = 'Model'
-	      WHERE p2.status = 'ok' GROUP BY m2.value) mx ON mx.model = m.value
+	JOIN (SELECT m2.value AS model, MAX(CAST(p2.width AS REAL) * p2.height) AS px
+	      FROM photos p2 CROSS JOIN exif_index m2 ON m2.photo_id = p2.id AND m2.field = 'Model'
+	      WHERE p2.status = 'ok' AND p2.width > 0 AND p2.height > 0 GROUP BY m2.value) mx ON mx.model = m.value
 	WHERE p.status = 'ok' AND ` + sizedSQL
 
 const croppedSQL = "(" + widthSQL + " * " + heightSQL + " < 0.9 * mx.px)"
@@ -109,9 +112,8 @@ const croppedSet = `SELECT p.id` + croppedFrom + ` AND ` + croppedSQL
 
 // areaSet is the photos taken within a box of latitude and longitude, its
 // lower bounds held, its upper ones not.
-const areaSet = `SELECT p.id FROM photos p WHERE p.status = 'ok' AND json_valid(p.exif_json)
-	AND CAST(json_extract(p.exif_json, '$.latitude') AS REAL) >= ? AND CAST(json_extract(p.exif_json, '$.latitude') AS REAL) < ?
-	AND CAST(json_extract(p.exif_json, '$.longitude') AS REAL) >= ? AND CAST(json_extract(p.exif_json, '$.longitude') AS REAL) < ?`
+const areaSet = `SELECT p.id FROM photos p WHERE p.status = 'ok'
+	AND p.lat >= ? AND p.lat < ? AND p.lon >= ? AND p.lon < ?`
 
 // noLensSet is the photos with a camera but no lens tag: the "(no lens)" cell.
 const noLensSet = `SELECT photo_id FROM exif_index WHERE field = 'Model'
