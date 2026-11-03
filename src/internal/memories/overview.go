@@ -34,18 +34,19 @@ type Year struct {
 // Card is one of the other memories: a trip, a person, this month back
 // then, or rediscovered photos.
 type Card struct {
-	Kind     string `json:"kind"`
-	Key      string `json:"key"`
-	Total    int    `json:"total"`
-	Cover    Photo  `json:"cover"`
-	Start    string `json:"start,omitempty"`
-	End      string `json:"end,omitempty"`
-	Country  string `json:"country,omitempty"`
-	Days     int    `json:"days,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Birthday string `json:"birthday,omitempty"`
-	Age      *int   `json:"age,omitempty"`
-	Month    int    `json:"month,omitempty"`
+	Kind        string `json:"kind"`
+	Key         string `json:"key"`
+	Total       int    `json:"total"`
+	Cover       Photo  `json:"cover"`
+	Start       string `json:"start,omitempty"`
+	End         string `json:"end,omitempty"`
+	Country     string `json:"country,omitempty"`
+	Days        int    `json:"days,omitempty"`
+	Anniversary bool   `json:"anniversary,omitempty"` // a trip that began around today in an earlier year
+	Name        string `json:"name,omitempty"`
+	Birthday    string `json:"birthday,omitempty"`
+	Age         *int   `json:"age,omitempty"`
+	Month       int    `json:"month,omitempty"`
 }
 
 // Overview is the Memories place on one day.

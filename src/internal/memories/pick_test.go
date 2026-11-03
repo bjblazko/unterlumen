@@ -14,11 +14,19 @@ func photoAt(id, taken string) library.MemoryPhoto {
 }
 
 func TestEligibleLeavesOutScreenshotsAndFailures(t *testing.T) {
-	for _, thing := range []string{"screenshot", "document", "blurred", "underexposed", "overexposed"} {
+	for _, thing := range []string{"screenshot", "document"} {
 		p := photoAt("x", "2020-01-01T10:00:00")
 		p.Things = []string{"sea", thing}
 		if Eligible(p) {
 			t.Errorf("a photo with %q is eligible", thing)
+		}
+	}
+	// A failed photo's best thing is its failure: it has no other.
+	for _, thing := range []string{"blurred", "underexposed", "overexposed"} {
+		p := photoAt("x", "2020-01-01T10:00:00")
+		p.Things = []string{thing}
+		if Eligible(p) {
+			t.Errorf("a photo only %q is eligible", thing)
 		}
 	}
 	p := photoAt("x", "2020-01-01T10:00:00")
@@ -141,4 +149,27 @@ func ids(photos []library.MemoryPhoto) []string {
 		out[i] = p.ID
 	}
 	return out
+}
+
+// A quality thing found beside others is not the photo's best: the photo
+// shows the sea and stays a memory.
+func TestEligibleKeepsAQualityThingBesideOthers(t *testing.T) {
+	p := photoAt("x", "2020-01-01T10:00:00")
+	p.Things = []string{"blurred", "sea"}
+	if !Eligible(p) {
+		t.Error("a photo of the sea that also scored blurred is left out")
+	}
+}
+
+// A day photographed every 20 minutes is one long run without a pause; it
+// still gives several photos, from its hours.
+func TestPickAllDayGivesSeveral(t *testing.T) {
+	var cands []library.MemoryPhoto
+	start := time.Date(2020, 6, 1, 8, 0, 0, 0, time.UTC)
+	for i := 0; i < 48; i++ {
+		cands = append(cands, photoAt(fmt.Sprintf("p%02d", i), start.Add(time.Duration(i)*20*time.Minute).Format("2006-01-02T15:04:05")))
+	}
+	if got := len(Pick(cands, NewRarity(cands, Home{}), "seed", 5)); got != 5 {
+		t.Errorf("%d picks from a day of 48 photos, want 5", got)
+	}
 }

@@ -297,3 +297,25 @@ func TestCardsHaveTheirOwnCovers(t *testing.T) {
 		}
 	}
 }
+
+// Before 1970 the day counts negative; the turn through the pool must not.
+func TestRediscoveredBefore1970(t *testing.T) {
+	all := rareLibrary()[:140]
+	for _, d := range []string{"1969-12-30", "1900-01-01"} {
+		Build(date(d), all, nil)
+		BuildDetail(date(d), "rediscovered", d, all, nil)
+	}
+}
+
+// Last week's trip is no anniversary, though it began in the year before.
+func TestTripLastWeekIsNoAnniversary(t *testing.T) {
+	all := joined(homePhotos(20), trip("new", "2025-12-28", 5, 38.72, -9.14, "Portugal"))
+	c, ok := cardOf(Build(date("2026-01-03"), all, nil), "trip")
+	if !ok || c.Anniversary {
+		t.Errorf("trip card = %+v, %v; want the trip, not as an anniversary", c, ok)
+	}
+	c, _ = cardOf(Build(date("2026-12-30"), all, nil), "trip")
+	if !c.Anniversary {
+		t.Errorf("a year later: %+v; want an anniversary", c)
+	}
+}

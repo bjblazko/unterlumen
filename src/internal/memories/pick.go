@@ -11,23 +11,31 @@ import (
 
 const (
 	momentGap = 30 * time.Minute // a longer pause starts a new moment
+	momentMax = 2 * time.Hour    // and so does a moment this long: a day photographed without a pause
 	sameLook  = 10               // dHash bits at most for two photos that look the same (ADR-0059)
 	perPerson = 100              // a named person outweighs any rarity
 	jitter    = 0.05             // the day's share in the choice among equals
 )
 
-// notMemories are the things that make a photo no memory: what was
-// photographed to keep it, and what failed (things.Quality).
-var notMemories = map[string]bool{"screenshot": true, "document": true, "blurred": true, "underexposed": true, "overexposed": true}
+// kept are the things photographed to keep, not to remember.
+var kept = map[string]bool{"screenshot": true, "document": true}
 
-// Eligible says the photo may be a memory.
+// failed are the things of a failed photo (things.Quality).
+var failed = map[string]bool{"blurred": true, "underexposed": true, "overexposed": true}
+
+// Eligible says the photo may be a memory: it shows nothing kept, and it
+// is not failed — its best thing is a failure when it has no other.
 func Eligible(p library.MemoryPhoto) bool {
+	onlyFailed := len(p.Things) > 0
 	for _, t := range p.Things {
-		if notMemories[t] {
+		if kept[t] {
 			return false
 		}
+		if !failed[t] {
+			onlyFailed = false
+		}
 	}
-	return true
+	return !onlyFailed
 }
 
 // eligible keeps the photos that may be memories.
@@ -90,16 +98,18 @@ func bestOf(moment []library.MemoryPhoto, r Rarity, seed string) scoredPhoto {
 }
 
 // moments sorts the photos by time and cuts them where more than momentGap
-// passes. A photo whose date cannot be read is a moment of its own.
+// passes, or a moment has lasted momentMax. A photo whose date cannot be
+// read is a moment of its own.
 func moments(photos []library.MemoryPhoto) [][]library.MemoryPhoto {
 	sorted := append([]library.MemoryPhoto{}, photos...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Taken < sorted[j].Taken })
 	var out [][]library.MemoryPhoto
-	var last time.Time
+	var first, last time.Time
 	for _, p := range sorted {
 		at, ok := takenAt(p)
-		if len(out) == 0 || !ok || last.IsZero() || at.Sub(last) > momentGap {
+		if len(out) == 0 || !ok || last.IsZero() || at.Sub(last) > momentGap || at.Sub(first) > momentMax {
 			out = append(out, nil)
+			first = at
 		}
 		out[len(out)-1] = append(out[len(out)-1], p)
 		if ok {

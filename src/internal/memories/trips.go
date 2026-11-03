@@ -113,7 +113,9 @@ func (w *world) tripCard() (memory, bool) {
 	}
 	for i := len(past) - 1; i >= 0; i-- {
 		if w.nearAnniversary(past[i].Start) {
-			return w.tripMemory(past[i].Start)
+			m, ok := w.tripMemory(past[i].Start)
+			m.card.Anniversary = true
+			return m, ok
 		}
 	}
 	return w.tripMemory(past[choose(w.today()+"|trip", len(past))].Start)
@@ -128,6 +130,9 @@ func (w *world) nearAnniversary(start string) bool {
 	}
 	for _, y := range []int{w.day.Year() - 1, w.day.Year(), w.day.Year() + 1} {
 		again := time.Date(y, s.Month(), s.Day(), 0, 0, 0, 0, time.UTC)
+		if again.Year() <= s.Year() {
+			continue // the trip itself, not its return
+		}
 		if d := again.Sub(w.day).Hours() / 24; d >= -anniversaryDays && d <= anniversaryDays {
 			return true
 		}

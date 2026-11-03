@@ -31,9 +31,12 @@ function memoryTitle(m, today) {
         case 'day': return ago === 1 ? t('On this day a year ago') : t('On this day {n} years ago', { n: ago });
         case 'trip':
             if (!m.country) return t('Away from home, {date}', { date: formatDay(m.start) });
-            return ago === 1 ? t('A year ago in {country}', { country: m.country }) : t('{year} in {country}', { year: m.start.slice(0, 4), country: m.country });
+            // "A year ago" only for a trip back on its anniversary.
+            if (!m.anniversary) return t('{year} in {country}', { year: m.start.slice(0, 4), country: m.country });
+            return ago === 1 ? t('A year ago in {country}', { country: m.country }) : t('{n} years ago in {country}', { n: ago, country: m.country });
         case 'person':
-            return m.birthday ? t('{name} turns {age} on {date}', { name: m.name, age: m.age, date: m.birthday }) : t('{name} over the years', { name: m.name });
+            if (!m.birthday) return t('{name} over the years', { name: m.name });
+            return m.age === 1 ? t('{name} turns 1 on {date}', { name: m.name, date: m.birthday }) : t('{name} turns {age} on {date}', { name: m.name, age: m.age, date: m.birthday });
         case 'month': return t('{month} in earlier years', { month: t(MONTHS[m.month - 1]) });
         case 'rediscovered': return t('Rediscovered');
     }

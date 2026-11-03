@@ -35,9 +35,12 @@ held per installation, that the other installation could not see.
   the number of measured appearances.
 - **The selection** (`Pick`), in order:
   1. Leave out what is not a memory: screenshots, documents, and photos
-     whose things say blurred, underexposed or overexposed.
-  2. Split the photos into moments at gaps of more than 30 minutes. A
-     moment gives at most one pick.
+     whose only things are blurred, underexposed or overexposed. A
+     failure found beside other things is not the photo's best match, so
+     the photo stays.
+  2. Split the photos into moments at gaps of more than 30 minutes, and
+     after two hours at the latest, so that a day photographed without a
+     pause still gives several photos. A moment gives at most one pick.
   3. Score each photo as 100 per named person, plus its rarity in the
      filtered libraries, plus a small jitter from a hash of the day, the
      memory and the photo.

@@ -21,7 +21,8 @@ func (w *world) rediscovered(shown map[string]bool) (memory, bool) {
 	}
 	turn := append([]library.MemoryPhoto{}, pool...)
 	sort.SliceStable(turn, func(i, j int) bool { return poolOrder(turn[i]) < poolOrder(turn[j]) })
-	start := int((w.day.Unix() / 86400 * picksPer) % int64(len(turn)))
+	n := int64(len(turn))
+	start := int(((w.day.Unix()/86400*picksPer)%n + n) % n) // a day before 1970 counts negative
 	var picks []library.MemoryPhoto
 	for i := 0; i < len(turn) && len(picks) < picksPer; i++ {
 		if p := turn[(start+i)%len(turn)]; !shown[p.ID] {
