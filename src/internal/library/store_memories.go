@@ -27,13 +27,16 @@ type MemoryPhoto struct {
 
 // The queries Memories read a library with. {where} is the condition on
 // photos p that makes a photo one to choose from; each query takes the set
-// once, never per row (ADR-0045).
+// once, never per row (ADR-0045). The + before a photo_id keeps SQLite from
+// looking each photo up by its primary key; the table is read through its
+// own index and the set checked with a Bloom filter — 0.1 s instead of 1.4 s
+// for the countries of 31,000 photos.
 const (
 	memoryPhotosQuery = `SELECT p.id, p.filename, p.date_taken, COALESCE(p.width, 0), COALESCE(p.height, 0),
 		COALESCE(CAST(json_extract(p.exif_json, '$.tags.Orientation') AS TEXT), ''), p.lat, p.lon
 		FROM photos p WHERE {where}`
 	memoryCountryQuery = `SELECT photo_id, TRIM(value, '" ') FROM exif_index
-		WHERE field = 'Country' AND photo_id IN (SELECT p.id FROM photos p WHERE {where})`
+		WHERE field = 'Country' AND +photo_id IN (SELECT p.id FROM photos p WHERE {where})`
 	memoryThingsQuery = `SELECT photo_id, thing FROM photo_things
 		WHERE photo_id IN (SELECT p.id FROM photos p WHERE {where})`
 	memoryPeopleQuery = `SELECT DISTINCT fa.photo_id, pe.name FROM faces fa JOIN people pe ON pe.id = fa.person_id

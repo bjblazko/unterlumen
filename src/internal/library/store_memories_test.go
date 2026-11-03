@@ -160,3 +160,28 @@ func TestManagerMemoryPhotosOnceAcrossLibraries(t *testing.T) {
 		t.Error("version did not move after a photo was added")
 	}
 }
+
+// The countries are read through the field's index, once: looked up per
+// photo by primary key the query took 1.4 s on 31,000 photos without a
+// single country, and 0.1 s through the index.
+func TestMemoryCountriesUseTheFieldIndex(t *testing.T) {
+	s := memoriesFixture(t)
+	sql, args := s.memoryQuery(memoryCountryQuery)
+	rows, err := s.db.Query(`EXPLAIN QUERY PLAN `+sql, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var plan []string
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		plan = append(plan, detail)
+	}
+	if joined := strings.Join(plan, "; "); !strings.Contains(joined, "exif_index_field") {
+		t.Errorf("countries not read through the field index: %s", joined)
+	}
+}
