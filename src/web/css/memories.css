@@ -1,0 +1,91 @@
+/* Memories place (ADR-0064). Its own file: style.css is past 7 000 lines. */
+
+/* --- Place --- */
+.memories-place { height: 100%; display: flex; min-height: 0; position: relative; }
+.memories-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+.memories-empty { color: var(--fg-2); font-size: var(--text-sm); max-width: 60ch; margin: 0; }
+.memories-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
+    color: var(--fg-2);
+}
+.memories-section-title { font-size: var(--text-md); font-weight: 600; margin: 0; }
+
+/* --- On this day: a head that leads to the day, a row of picks --- */
+.memories-year { display: flex; flex-direction: column; gap: var(--space-3); }
+.memories-year-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    color: var(--fg);
+    text-decoration: none;
+    align-self: flex-start;
+}
+.memories-year-head:hover .memories-year-title { text-decoration: underline; }
+.memories-year-title { font-size: var(--text-md); font-weight: 600; margin: 0; }
+.memories-more { color: var(--fg-3); }
+
+/* --- Rows of photos --- */
+.memories-picks { min-width: 0; }
+.memories-row { display: flex; gap: 4px; margin-bottom: 4px; }
+.memories-tile {
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: var(--bg-2);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+}
+.memories-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.memories-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.memories-grid { min-width: 0; }
+.memories-sentinel { height: 1px; }
+
+/* --- More memories: a card for each --- */
+.memories-cards-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.memories-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--space-4);
+}
+.memories-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: background-color 120ms ease-out;
+}
+.memories-card:hover { background: var(--bg-2); }
+.memories-card-cover {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+    margin-bottom: var(--space-1);
+}
+.memories-card-title { font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+    .memories-card { transition: none; }
+}
+
+@media (max-width: 700px) {
+    .memories-body { padding: var(--space-4); gap: var(--space-6); }
+    .memories-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+}

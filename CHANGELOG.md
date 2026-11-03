@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Memories, a new place under Explore** (`#memories`), also the sixth tab on a phone. See ADR-0064.
+  - On this day shows a row for each earlier year with photos on today's date.
+  - Below it are at most four cards: a trip that began around today in an earlier year, a person with a birthday in the next seven days (or with photos in several years), this month in earlier years, and five rediscovered photos a day from the rarest 5 %.
+  - Photos are chosen by who and what they show, never by stars. Screenshots, documents and failed photos are left out. Each moment gives one photo, and photos with named people come first, then rare ones.
+  - The choice stays the same through the day. Each row and card opens a page with its photos.
+  - Memories follow the shared filter except its months. Nothing is stored.
+
+### Changed
+- On a phone the tab bar's places now share the width by the length of their names, so six fit side by side in German too.
+
 ## [0.24.1] - 2026-11-03
 
 ### Changed

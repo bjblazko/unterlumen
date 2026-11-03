@@ -37,7 +37,7 @@ func merge(libs []LibraryPhotos) (photos []Photo, undated int) {
 			}
 			seen[p.ID] = true
 			photos = append(photos, Photo{LibraryID: l.LibraryID, ID: p.ID, Filename: p.Filename,
-				Taken: p.Taken, Ratio: displayRatio(p.Width, p.Height, p.Orientation)})
+				Taken: p.Taken, Ratio: DisplayRatio(p.Width, p.Height, p.Orientation)})
 		}
 		for _, id := range l.Undated {
 			noDate[id] = true

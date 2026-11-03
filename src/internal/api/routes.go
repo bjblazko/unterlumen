@@ -16,6 +16,7 @@ import (
 	apijobs "huepattl.de/unterlumen/internal/api/jobs"
 	apilibrary "huepattl.de/unterlumen/internal/api/library"
 	"huepattl.de/unterlumen/internal/api/location"
+	apimemories "huepattl.de/unterlumen/internal/api/memories"
 	apimetadata "huepattl.de/unterlumen/internal/api/metadata"
 	apipeople "huepattl.de/unterlumen/internal/api/people"
 	apisetup "huepattl.de/unterlumen/internal/api/setup"
@@ -106,6 +107,7 @@ func NewRouter(boundary, startPath, homePath string, webFS fs.FS, serverRole boo
 			bdays = birthdays.New(chStore.ConfigDir())
 		}
 		apipeople.Handle(mux, libMgr, jobReg, bdays)
+		apimemories.Handle(mux, libMgr, bdays)
 		apithings.Handle(mux, libMgr, jobReg)
 	}
 

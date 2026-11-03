@@ -172,6 +172,8 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `internal/api/library` | `/api/library/*` handlers: libraries, indexing (SSE), photo queries and filters, thumbnails and photos, photo info, metadata, located photos for the Map (`/api/library/geo`), statistics, timeline, colour (`/api/library/colour`) the points of the 3D views (`/api/library/colour-space`, `/api/library/exposure-space`, `/api/library/space-time`, [ADR-0046](adr/0046-colour-space-webgpu-glow-stage.md)); the search filters by appearance (`mono`, `hue_bin`, `warmth`, `month`) and by one photo (`photo_id`). The library database's indexes cover these queries ([ADR-0045](adr/0045-indexes-cover-statistics-and-search.md)) |
 | `internal/timeline` | Every dated photo of every library as one stream, oldest first, each photo once; display aspect ratios, versioned by the libraries' content stamps and cached ([ADR-0040](adr/0040-timeline-place.md)) |
 | `internal/api/timeline` | `/api/timeline` (skeleton: a day and an aspect ratio per photo) and `/api/timeline/photos` (details by index range, 409 when the stream changed) |
+| `internal/memories` | Memories: on this day in earlier years, a trip, a person, this month back then and rediscovered photos, chosen without stars — eligibility, moments, people first, then rarity, seeded by the day ([ADR-0064](adr/0064-memories-without-ratings.md)) |
+| `internal/api/memories` | `/api/memories` (the overview of a day) and `/api/memories/detail` (one memory: its picks and all its photos) |
 | `internal/api/publish` | Publishing: drafts, generating galleries and sites (SSE), rebuilding them, the published-galleries overview, reachability, deploy stamps; taking a photo off a destination |
 | `internal/jobs` | Register of long-running work (scans, adding copied or moved files to an index, exports, publishing, rebuilds, deploys) with merging subscriptions ([ADR-0036](adr/0036-activity-and-progress.md)) |
 | `internal/api/jobs` | `/api/jobs/stream` (SSE) and `Track`, which reports request-long work to the register |
@@ -220,6 +222,7 @@ It explicitly does **not** support image editing, RAW file processing, tagging, 
 | `multi-select.js` | `MultiSelect` — a button naming a choice that opens a list of checkboxes, all on at first ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `scope-filter.js` | `ScopeState` and `ScopeFilter` — the one filter of the Map, the Statistics and the Timeline: libraries, months, cameras, lenses, shared and kept in the browser ([ADR-0050](adr/0050-shared-scope-filter.md)) |
 | `timeline-place.js` | `TimelinePane` — the Timeline place: desk (band and time bar) or phone (list and scrubber), info panel, read-only viewer, reload when the stream changed ([ADR-0040](adr/0040-timeline-place.md)) |
+| `memories-place.js`, `memories-detail.js`, `memories-rows.js`, `memories-api.js` | `MemoriesPane` — the Memories place: rows of on this day, cards of the other memories, a page per memory with its picks and all its photos, read-only viewer ([ADR-0064](adr/0064-memories-without-ratings.md)) |
 | `people-place.js` | `PeoplePane` — People's frame and addresses: the download, which page an address shows, older addresses to their new place ([ADR-0051](adr/0051-faces-onnx-runtime-without-cgo.md)) |
 | `people-everyone.js` | `PeopleEveryone` — People's first page: everyone named in any library, Find a person, the groups waiting for a name per library |
 | `people-naming.js` | `PeopleNaming` — the groups waiting for a name in one library, and a group's page |
@@ -443,6 +446,7 @@ See the [ADR directory](adr/) for all recorded decisions:
 - [ADR-0061](adr/0061-iptc-fields-own-fields-and-country-from-gps.md) — IPTC fields from one field table, list entries indexed apart, own fields only in the sidecar and mirrored as machine tags, the country from the GPS position offline (Natural Earth, German point of view)
 - [ADR-0062](adr/0062-statistics-tallies-read-by-their-topic.md) — the newer Statistics views count in summable tallies per group, read only by their topic; one SQL definition serves a count and its click; palette and meaning space as point clouds
 - [ADR-0063](adr/0063-readers-beside-the-writer-and-statistics-read-ahead.md) — each library has read-only connections (mapped) beside its writer; tallies filter `photos p` by status; width, height and place as columns; principal axes from a sample; faces and things counted for their caches; Statistics read ahead after a scan and at start
+- [ADR-0064](adr/0064-memories-without-ratings.md) — Memories are chosen by what photos show (people first, then the rare, one per moment), never by stars; nothing is stored, the day seeds the choice
 
 ## 10. Quality Requirements
 
