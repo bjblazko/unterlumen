@@ -6323,13 +6323,17 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
         bottom: 0;
         z-index: 50;
         justify-content: space-around;
+        gap: var(--space-1);
         padding: var(--space-1) var(--space-2);
         background: var(--bg);
         border-top: 1px solid var(--line-strong);
     }
 
+    /* Six places share the width by their names, so a long German one
+       ("Erinnerungen", "Bibliotheken") still leaves room beside it. */
     .tabbar-item {
-        flex: 1;
+        flex: 1 1 auto;
+        white-space: nowrap;
         display: flex;
         flex-direction: column;
         align-items: center;

@@ -1,7 +1,7 @@
 // App — orchestration: init, mode switching, modal wiring, viewer
 
 // The places a phone is for: looking at photos and seeing where they went.
-const PHONE_PLACES = new Set(['browse', 'library', 'map', 'timeline', 'statistics', 'people', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
+const PHONE_PLACES = new Set(['browse', 'library', 'memories', 'map', 'timeline', 'statistics', 'people', 'guide', 'licenses', 'about', 'privacy', 'warranty']);
 
 const App = {
     mode: 'library',
@@ -24,12 +24,15 @@ const App = {
     _libraryTab: null,
     _timelineEl: null,
     _timelinePane: null,
+    _memoriesEl: null,
+    _memoriesPane: null,
     _statsEl: null,
     _statsPane: null,
     _statsRoute: { topic: '', library: '', path: '' },
     _peopleEl: null,
     _peoplePane: null,
     _peopleRoute: { library: '' },
+    _memoriesRoute: {},
     _galleriesEl: null,
     _galleriesPane: null,
     _destinationsEl: null,
@@ -94,6 +97,7 @@ const App = {
         organize: { hash: 'organize', id: 'mode-organize' },
         library: { hash: 'libraries', id: 'mode-library' },
         metadata: { hash: 'metadata', id: 'mode-metadata' },
+        memories: { hash: 'memories', id: 'mode-memories' },
         map: { hash: 'map', id: 'mode-map' },
         timeline: { hash: 'timeline', id: 'mode-timeline' },
         people: { hash: 'people', id: 'mode-people' },
@@ -163,6 +167,7 @@ const App = {
         if (mode === 'published' && this._galleriesPane) this._galleriesPane.setFilterChannel(null);
         if (mode === 'statistics') this._statsRoute = { ...this._statsRoute, topic: '' };
         if (mode === 'people') this._peopleRoute = {};
+        if (mode === 'memories') this._memoriesRoute = {};
         if (mode === 'library') this._libraryTab?.leaveLibrary();
         this.setMode(mode);
     },
@@ -175,12 +180,14 @@ const App = {
         if (!entry) return 'library'; // a bare address starts in Libraries, on the desk as on a phone
         if (entry[0] === 'statistics') this._statsRoute = statsRouteFromHash(location.hash);
         if (entry[0] === 'people') this._peopleRoute = peopleRouteFromHash(location.hash);
+        if (entry[0] === 'memories') this._memoriesRoute = memoriesRouteFromHash(location.hash);
         return entry[0];
     },
 
     _placeHash(mode) {
         if (mode === 'statistics') return statsHash(this._statsRoute);
         if (mode === 'people') return peopleHash(this._peopleRoute);
+        if (mode === 'memories') return memoriesHash(this._memoriesRoute);
         return '#' + this.NAV[mode].hash;
     },
 
@@ -253,6 +260,12 @@ const App = {
     openStatistics(route) {
         this._statsRoute = { topic: '', library: '', path: '', ...route };
         this.setMode('statistics');
+    },
+
+    // Memories at the overview ({}) or at one memory: { kind, key }.
+    openMemories(route) {
+        this._memoriesRoute = route;
+        this.setMode('memories');
     },
 
     // People at a library, a group or a person: { library, view, id }.
@@ -403,7 +416,7 @@ const App = {
     // Each place's element, in the order they are shown or hidden.
     PLACE_ELEMENTS: [
         ['_browseEl', 'browse'], ['_organizeEl', 'organize'], ['_wastebinEl', 'wastebin'], ['_duplicatesEl', 'duplicates'],
-        ['_libraryEl', 'library'], ['_metadataEl', 'metadata'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
+        ['_libraryEl', 'library'], ['_metadataEl', 'metadata'], ['_memoriesEl', 'memories'], ['_mapEl', 'map'], ['_timelineEl', 'timeline'], ['_peopleEl', 'people'], ['_statsEl', 'statistics'], ['_galleriesEl', 'published'], ['_destinationsEl', 'destinations'],
         ['_settingsEl', 'settings'], ['_aboutEl', 'about'], ['_guideEl', 'guide'], ['_privacyEl', 'privacy'], ['_warrantyEl', 'warranty'], ['_creditsEl', 'licenses'], ['_setupEl', 'setup'],
     ],
 
@@ -442,6 +455,7 @@ const App = {
             case 'metadata': this._openPane('_metadataEl', '_metadataPane', MetadataPane); break;
             case 'map': this._openPane('_mapEl', '_mapPane', MapPane); break;
             case 'timeline': this._openPane('_timelineEl', '_timelinePane', TimelinePane); break;
+            case 'memories': this._openPane('_memoriesEl', '_memoriesPane', MemoriesPane); break;
             case 'people':
                 if (!this._peopleEl) {
                     this._peopleEl = this._placeElement();
