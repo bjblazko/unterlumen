@@ -1,6 +1,6 @@
 ---
 name: unterlumen-supercut
-description: Make the silent social-media supercut of Unterlumen — a square MP4 of about 30 s, cut on the bars of 120 BPM so music can be laid on, showing the main features and the statistics (2D and 3D) with short captions. Use when the user asks for "the supercut", "a promo video", "a video for social media / Instagram / Mastodon", or to "redo the video" after a release or a visible change.
+description: Make the silent social-media supercut of Unterlumen — a square MP4 of about 40 s or more, in the dark theme, cut on the bars of 120 BPM so music can be laid on, showing the main features and the statistics (2D and 3D) with short captions. Use when the user asks for "the supercut", "a promo video", "a video for social media / Instagram / Mastodon", or to "redo the video" after a release or a visible change.
 allowed-tools: Bash, Read, Edit, Write
 ---
 
@@ -19,6 +19,8 @@ installation.
 - **Every cut falls on a bar** of 4/4 at `BPM` (120 → one bar = 2.0 s = 60
   frames). The owner lays music of that tempo on from 0 s. Change `BPM` in
   the script for another tempo; scenes then last a bar of that tempo.
+- **Dark theme** (the owner's default since 2026-11-03): the context is
+  `colorScheme: 'dark'` with `theme` = `dark` in localStorage.
 - Captions are drawn into the page in the app's own type (`caption()`); the
   end card is a layer over the app (`endCard()`); the phone scene shows two
   iframes of the app at phone width side by side.
@@ -47,7 +49,7 @@ tell enough:
 S=<scratchpad>; V=e2e/video/out/unterlumen-supercut.mp4
 ffprobe -v error -show_entries format=duration -of csv=p=0 $V
 # the middle frame of every bar: one picture per scene, the end card last
-ffmpeg -v error -y -i $V -vf "select='eq(mod(n-30\,60)\,0)',scale=300:300,tile=5x3" -frames:v 1 -vsync vfr $S/contact.png
+ffmpeg -v error -y -i $V -vf "select='eq(mod(n-30\,60)\,0)',scale=300:300,tile=5x4" -frames:v 1 -vsync vfr $S/contact.png
 ffmpeg -v error -y -sseof -0.5 -i $V -frames:v 1 -vf scale=540:540 $S/end.png
 ```
 
@@ -55,7 +57,7 @@ Read both images. Check: every scene has its caption and real content
 (thumbnails and map tiles loaded); no temporary path (`/private/var/…`,
 `unterlumen-shots-`) — `showHomePath` runs on every frame, iframes included;
 each bar shows its own scene (a scene bleeding into the next bar means a cut
-is off the beat); the last frame is the end card; length about 30 s.
+is off the beat); the last frame is the end card; length about 40 s.
 
 ## Change it
 
@@ -73,9 +75,17 @@ is off the beat); the last frame is the end card; length about 30 s.
   places need scoping (`.map-pane .maplibregl-ctrl-zoom-in`).
 - **A scene that does not move** paints no frame; `rec.start` flips a 1-pixel
   element's colour so Chrome paints one.
-- **Length**: the owner wants about 30 s, with the statistics shown at length
-  (2D and 3D); captions short, English, sentence case, no exclamation marks
+- **New features first, always.** Before each film, read the CHANGELOG since
+  the last film and give every user-visible feature since then a scene of
+  its own — the newest open the film (Memories and its Shuffle did on
+  2026-11-03). Keep the existing scenes too; the film may grow for them.
+- **Length**: about 40 s (2026-11-03: 19 bars plus the end card), longer
+  when new features ask for it; the statistics stay shown at length (2D and
+  3D). Captions short, English, sentence case, no exclamation marks
   (CLAUDE.md copy rules).
+- **Memories** follow the browser's date: the scene sets
+  `page.clock.setFixedTime` to `memoriesDay(BASE)` (shots.mjs) and reloads.
+  Only `Date` stands still; timers keep running for the scenes after.
 
 ## On huepattl.de
 
@@ -88,13 +98,13 @@ The page head of `/products/unterlumen` (EN and DE) shows a web copy:
 V=../unterlumen/e2e/video/out/unterlumen-supercut.mp4
 ffmpeg -v error -y -i $V -vf scale=720:720:flags=lanczos -c:v libx264 -preset slow -crf 28 \
   -pix_fmt yuv420p -movflags +faststart -an src/products/unterlumen/supercut.mp4
-ffmpeg -v error -y -i $V -vf "select='eq(n\,630)',scale=720:720" -frames:v 1 -vsync vfr /tmp/poster.png \
+ffmpeg -v error -y -i $V -vf "select='eq(n\,870)',scale=720:720" -frames:v 1 -vsync vfr /tmp/poster.png \
   && cwebp -quiet -q 80 /tmp/poster.png -o src/products/unterlumen/supercut-poster.webp
 ```
 
-The poster is bar 11 (the Colour space, frame 630); pick another frame if the scenes
-moved. Update the caption's length ("in 32 seconds", both languages) if it
-changed, then build and deploy as that repo's deploy command says. The site's
+The poster is bar 15 (the Colour space, frame 870); pick another frame if the
+scenes moved. Update the caption's length ("in 40 seconds", both languages) if
+it changed, then build and deploy as that repo's deploy command says. The site's
 CSP needs `media-src 'self'` (in both Caddyfiles; it is there since
 2026-10-02).
 

@@ -15,7 +15,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { REPO, BASE, preparePhotos, startServer, seed, showHomePath } from '../screenshots/stage.mjs';
-import { ready, settle, openFolder, openLibrary, thingsSettled } from '../screenshots/shots.mjs';
+import { ready, settle, openFolder, openLibrary, thingsSettled, memoriesDay } from '../screenshots/shots.mjs';
 
 const OUT = path.join(REPO, 'e2e/video/out');
 const SIZE = 1080;          // the film is SIZE × SIZE
@@ -83,6 +83,38 @@ function stage3D(topic, title, text) {
 // that is, for `bars` bars of music.
 const scenes = [
     {
+        // Memories follow the browser's date: the clock is set to a day of
+        // the stage's photos with the most to show. Only Date stands still;
+        // timers keep running for the scenes after.
+        caption: 'This day in earlier years',
+        bars: 1,
+        prepare: async (page) => {
+            await page.clock.setFixedTime(new Date(`${await memoriesDay(BASE)}T12:00:00`));
+            await ready(page, BASE, 'memories');
+            await page.reload();
+            await page.waitForSelector('.sheet-tile img');
+            await settle(page, 1800);
+        },
+        act: async (page) => {
+            await page.mouse.move(VIEW / 2, 500);
+            for (let i = 0; i < 7; i++) { await page.mouse.wheel(0, 60); await wait(220); }
+        },
+    },
+    {
+        caption: 'One sheet, laid out by chance',
+        bars: 1,
+        prepare: async (page) => {
+            await page.locator('.memories-body').evaluate(el => el.scrollTo(0, 0));
+            await settle(page, 600);
+        },
+        act: async (page) => {
+            for (let i = 0; i < 3; i++) {
+                await page.locator('.memories-shuffle').click();
+                await wait(600);
+            }
+        },
+    },
+    {
         caption: 'Cull your photos where they are',
         bars: 1,
         prepare: async (page) => {
@@ -96,6 +128,32 @@ const scenes = [
         act: async (page) => {
             await page.mouse.move(300, 500);
             for (let i = 0; i < 7; i++) { await page.mouse.wheel(0, 50); await wait(200); }
+        },
+    },
+    {
+        // The photo selected in the scene before: stars from the number keys,
+        // written to its sidecar, shown in the info panel.
+        caption: 'Rate with the keys 1 to 5',
+        bars: 1,
+        prepare: async (page) => {
+            await page.locator('[data-type="image"]').nth(4).click();
+            await settle(page, 400);
+        },
+        act: async (page) => {
+            for (const key of ['2', '3', '4', '5']) { await page.keyboard.press(key); await wait(420); }
+        },
+    },
+    {
+        caption: 'Every copy of a photo, found',
+        bars: 1,
+        prepare: async (page) => {
+            await ready(page, BASE, 'duplicates');
+            await page.locator('.duplicates-group').first().waitFor({ timeout: 60_000 });
+            await settle(page, 1500);
+        },
+        act: async (page) => {
+            const versions = page.locator('.duplicates-version');
+            for (let i = 0; i < Math.min(4, await versions.count()); i++) { await versions.nth(i).hover(); await wait(380); }
         },
     },
     {
@@ -183,7 +241,7 @@ const scenes = [
         },
     },
     {
-        caption: 'Statistics in eight topics',
+        caption: 'Statistics in nine topics',
         bars: 1,
         prepare: async (page) => {
             await ready(page, BASE, 'statistics');
@@ -256,7 +314,7 @@ const scenes = [
                     position: 'fixed', inset: '0', zIndex: 9998, background: 'var(--bg-2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '36px', paddingBottom: '70px',
                 });
-                el.innerHTML = ['#folders', '#map'].map(hash => `<iframe src="/${hash}" style="width:390px;height:760px;border:10px solid var(--fg);border-radius:36px;background:var(--bg)"></iframe>`).join('');
+                el.innerHTML = ['#folders', '#memories'].map(hash => `<iframe src="/${hash}" style="width:390px;height:760px;border:10px solid var(--fg);border-radius:36px;background:var(--bg)"></iframe>`).join('');
                 document.body.appendChild(el);
             });
             const frames = page.locator('#supercut-phones iframe');
@@ -264,7 +322,7 @@ const scenes = [
             const folders = frames.nth(0).contentFrame();
             await folders.locator('.dir-item[data-name="Travel"]').first().dblclick();
             await folders.locator('[data-type="image"] img').nth(8).waitFor();
-            await frames.nth(1).contentFrame().locator('.map-marker').first().waitFor();
+            await frames.nth(1).contentFrame().locator('.sheet-tile img').first().waitFor();
             await settle(page, 2500);
         },
         act: async (page) => {
@@ -358,11 +416,11 @@ async function main() {
         const context = await browser.newContext({
             viewport: { width: VIEW, height: VIEW },
             deviceScaleFactor: SIZE / VIEW,
-            colorScheme: 'light',
+            colorScheme: 'dark',
             locale: 'en-GB',
         });
         await context.addInitScript(() => {
-            localStorage.setItem('theme', 'light');
+            localStorage.setItem('theme', 'dark');
             localStorage.setItem('warranty-notice-seen', '1');
             localStorage.setItem('sidebar-collapsed', '1'); // the photos get the room
         });

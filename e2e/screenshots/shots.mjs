@@ -90,7 +90,7 @@ const PHONE = { viewport: { width: 390, height: 844 }, scale: 3, phone: true };
 // memoriesDay is the day of 2026 whose Memories show the most earlier
 // years, so the picture has rows and cards to show; the browser's clock is
 // set to it, as the place follows the owner's date.
-async function memoriesDay(base) {
+export async function memoriesDay(base) {
     const sk = await (await fetch(`${base}/api/timeline`)).json();
     const start = Date.parse(sk.start + 'T00:00:00Z');
     const days = new Set(sk.days.flatMap((n, i) => (n > 0 ? ['2026' + new Date(start + i * 86400000).toISOString().slice(4, 10)] : [])));
