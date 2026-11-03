@@ -35,8 +35,9 @@ test.describe('Phone', () => {
         await expect(page).toHaveURL(/#people$/);
         await expect(page.locator('#tab-people')).toHaveAttribute('aria-current', 'page');
         // Publishing is desktop work, and photos are found in libraries:
-        // Statistics has the place Folders had. Folders stays reachable by its links.
-        await expect(page.locator('.tabbar-item')).toHaveText(['Libraries', 'Map', 'Timeline', 'People', 'Statistics']);
+        // Statistics has the place Folders had. Folders stays reachable by its links;
+        // Memories (ADR-0064) stands after Libraries.
+        await expect(page.locator('.tabbar-item')).toHaveText(['Libraries', 'Memories', 'Map', 'Timeline', 'People', 'Statistics']);
     });
 
     // The photos keep the screen: a place's head is one row on a phone —
