@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-03
+
 ### Added
 - **Memories, a new place under Explore** (`#memories`), also the sixth tab on a phone. See ADR-0064.
   - On this day shows a row for each earlier year with photos on today's date.
