@@ -8,9 +8,9 @@ import "strconv"
 // sensor shape.
 const fallbackRatio = 1.5
 
-// displayRatio is width ÷ height as the photo is shown. EXIF orientations 5
+// DisplayRatio is width ÷ height as the photo is shown. EXIF orientations 5
 // to 8 turn it by a quarter, so its sides swap.
-func displayRatio(width, height int, orientation string) float64 {
+func DisplayRatio(width, height int, orientation string) float64 {
 	if width <= 0 || height <= 0 {
 		return fallbackRatio
 	}

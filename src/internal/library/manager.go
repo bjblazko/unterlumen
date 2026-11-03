@@ -39,6 +39,7 @@ type Manager struct {
 	spacesCache      sync.Map             // map[cacheKey+"|"+view]*PointCloud — invalidated with colourCache
 	peopleStatsCache sync.Map             // map[cacheKey+"|"+granularity]changing — read again when faces change
 	thingsStatsCache sync.Map             // map[cacheKey+"|"+granularity]changing — read again when things change
+	memoriesCache    sync.Map             // map[cacheKey]changing — the photos Memories choose from, read again when the version moves (ADR-0064)
 	scopeValuesCache sync.Map             // map[ids+"|"+models]*ScopeValues — invalidated with statsCache
 	jobs             *jobs.Registry       // where scans are reported to the status line; nil reports nowhere
 	faces            facesState           // the face engine and the face passes running (ADR-0051)

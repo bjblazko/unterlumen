@@ -17,8 +17,8 @@ func TestDisplayRatioSwapsForQuarterTurns(t *testing.T) {
 		{6000, 4000, "rotate", 1.5},
 	}
 	for _, c := range cases {
-		if got := displayRatio(c.w, c.h, c.o); got != c.want {
-			t.Errorf("displayRatio(%d, %d, %q) = %v, want %v", c.w, c.h, c.o, got, c.want)
+		if got := DisplayRatio(c.w, c.h, c.o); got != c.want {
+			t.Errorf("DisplayRatio(%d, %d, %q) = %v, want %v", c.w, c.h, c.o, got, c.want)
 		}
 	}
 }
