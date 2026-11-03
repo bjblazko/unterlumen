@@ -1,9 +1,11 @@
 # Changelog
 
-*Last modified: 2026-11-03*
+*Last modified: 2026-11-04*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+## [0.25.1] - 2026-11-04
 
 ### Changed
 - **Memories are one sheet.** Each memory is a collage without gaps whose photos take posters, panoramas, squares or their own shape by chance, side by side in bands. The order changes on every visit, and Shuffle lays the sheet out anew. A memory shows three to seven photos; a person or a month shows some of its years instead of every one; no photo appears twice. See ADR-0064.
