@@ -86,6 +86,32 @@ const FUJI = '2024-07-04_14-09-43_X-T50_DSCF3258.jpeg';
 const PARTY_PROFILE = '2025-02-12_21-00-00_party-33.jpg';
 const PHONE = { viewport: { width: 390, height: 844 }, scale: 3, phone: true };
 
+
+// memoriesDay is the day of 2026 whose Memories show the most earlier
+// years, so the picture has rows and cards to show; the browser's clock is
+// set to it, as the place follows the owner's date.
+async function memoriesDay(base) {
+    const sk = await (await fetch(`${base}/api/timeline`)).json();
+    const start = Date.parse(sk.start + 'T00:00:00Z');
+    const days = new Set(sk.days.flatMap((n, i) => (n > 0 ? ['2026' + new Date(start + i * 86400000).toISOString().slice(4, 10)] : [])));
+    let best = { day: '', score: -1 };
+    for (const day of days) {
+        if (day.endsWith('02-29')) continue;
+        const o = await (await fetch(`${base}/api/memories?day=${day}`)).json();
+        const score = o.years.length * 10 + o.cards.length;
+        if (score > best.score) best = { day, score };
+    }
+    return best.day;
+}
+
+async function openMemories(page, base) {
+    await page.clock.setFixedTime(new Date(`${await memoriesDay(base)}T12:00:00`));
+    await ready(page, base, 'memories');
+    await page.waitForSelector('.memories-tile img');
+    await page.evaluate(() => document.activeElement?.blur());
+    await settle(page, 2000);
+}
+
 export const shots = [
     {
         name: 'folders',
@@ -342,6 +368,10 @@ export const shots = [
         },
     },
     {
+        name: 'memories',
+        take: async (page, { base }) => openMemories(page, base),
+    },
+    {
         name: 'map',
         storage: { 'map-photos-open': '1' },
         take: async (page, { base }) => {
@@ -433,6 +463,11 @@ export const shots = [
             await page.waitForSelector('#map-photos .photo-column-tile img');
             await settle(page, 4000);
         },
+    },
+    {
+        name: 'phone-memories',
+        ...PHONE,
+        take: async (page, { base }) => openMemories(page, base),
     },
     {
         name: 'phone-timeline',

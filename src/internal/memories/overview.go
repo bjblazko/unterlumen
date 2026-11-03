@@ -56,7 +56,8 @@ type Overview struct {
 }
 
 // Detail is one memory: its picks and all of its photos, in time order
-// (rediscovered: rarest first).
+// (rediscovered: rarest first). Its Cover is its best pick; the overview's
+// card may show another, one no other row or card shows.
 type Detail struct {
 	Card
 	Picks  []Photo `json:"picks"`
@@ -102,13 +103,30 @@ func Build(day time.Time, all []library.MemoryPhoto, births map[string]string) O
 	if m, ok := w.rediscovered(shownIn(years, cards)); ok {
 		cards = append(cards, m)
 	}
+	used := shownIn(years)
 	for _, m := range years {
 		o.Years = append(o.Years, m.year(day))
 	}
 	for _, m := range cards {
-		o.Cards = append(o.Cards, m.shown().Card)
+		c := m.shown().Card
+		c.Cover = photoOf(m.coverBeside(used))
+		used[c.Cover.ID] = true
+		o.Cards = append(o.Cards, c)
 	}
 	return o
+}
+
+// coverBeside is the memory's best photo that is not used yet: its picks
+// best first, then its other photos; its best pick when all are used.
+func (m memory) coverBeside(used map[string]bool) library.MemoryPhoto {
+	for _, set := range [][]library.MemoryPhoto{m.picks, m.photos} {
+		for _, p := range set {
+			if !used[p.ID] {
+				return p
+			}
+		}
+	}
+	return m.picks[0]
 }
 
 // others are the day's years and the cards but rediscovered, which leaves

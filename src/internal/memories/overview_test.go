@@ -259,8 +259,8 @@ func TestOverviewCountsMatchDetail(t *testing.T) {
 	}
 	for _, c := range o.Cards {
 		d, ok := BuildDetail(day, c.Kind, c.Key, all, nil)
-		if !ok || c.Total != len(d.Photos) || d.Cover.ID != c.Cover.ID {
-			t.Errorf("%s %s: total %d, detail %d photos (%v), covers %q/%q", c.Kind, c.Key, c.Total, len(d.Photos), ok, c.Cover.ID, d.Cover.ID)
+		if !ok || c.Total != len(d.Photos) {
+			t.Errorf("%s %s: total %d, detail %d photos (%v)", c.Kind, c.Key, c.Total, len(d.Photos), ok)
 		}
 	}
 }
@@ -270,6 +270,30 @@ func TestDetailUnknownKey(t *testing.T) {
 	for _, c := range [][2]string{{"trip", "1900-01-01"}, {"person", "Nobody"}, {"month", "13"}, {"day", "not-a-day"}, {"what", "x"}, {"rediscovered", "2026-11-03"}} {
 		if _, ok := BuildDetail(date("2026-11-03"), c[0], c[1], all, nil); ok {
 			t.Errorf("%s/%s exists", c[0], c[1])
+		}
+	}
+}
+
+// Two cards with one cover read as one memory twice: a card's cover is its
+// best photo that no row and no card before it shows.
+func TestCardsHaveTheirOwnCovers(t *testing.T) {
+	all := joined(homePhotos(20), trip("anniv", "2023-11-08", 1, 38.72, -9.14, "Portugal"), series("nov", "2021-11-20", 1), series("day", "2024-11-03", 1))
+	o := Build(date("2026-11-03"), all, nil)
+	trip, okTrip := cardOf(o, "trip")
+	month, okMonth := cardOf(o, "month")
+	if !okTrip || !okMonth {
+		t.Fatalf("cards = %+v; want a trip and a month", o.Cards)
+	}
+	if trip.Cover.ID == month.Cover.ID {
+		t.Errorf("the trip and the month share the cover %s", trip.Cover.ID)
+	}
+	for _, c := range o.Cards {
+		for _, y := range o.Years {
+			for _, p := range y.Picks {
+				if c.Cover.ID == p.ID {
+					t.Errorf("%s's cover %s is a pick of %s", c.Kind, p.ID, y.Date)
+				}
+			}
 		}
 	}
 }

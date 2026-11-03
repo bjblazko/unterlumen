@@ -130,6 +130,12 @@ The interface is in English or German. By default it follows the browser's langu
 
 ![A library in German, with the search bar suggesting things for "Boot"](doc/screenshots/german.webp)
 
+#### Memories
+
+Photos of this day in earlier years, a row for each year, and below them a trip, this month in earlier years and photos rediscovered. They are chosen by who and what the photos show, never by stars. A row or card opens a page with all its photos.
+
+![Memories with on this day and three cards](doc/screenshots/memories.webp)
+
 #### Map
 
 Every photo with a location on one map. Photos close together form a group showing the newest one; zooming in splits the groups. The Photos column lists what is in view, the filter in the head narrows the map. View shows the earth as a globe, flat (Mercator) or tilted in 3D with the buildings standing; Map switches between grey and colour tiles.
@@ -170,11 +176,11 @@ What Publish builds — a website with its albums, one album of it, and a galler
 
 #### On a phone
 
-On a phone Unterlumen is for looking: libraries, photos, the map, the timeline, the people in your photos and the statistics, with a tab bar at the bottom and the search above every place. People on a phone finds a person as you type their name and shows their photos by year, with who is most often in them: tap one to see the photos of both together. Naming and everything else that changes files or settings — Galleries and publishing among them — is desktop work.
+On a phone Unterlumen is for looking: libraries, photos, memories, the map, the timeline, the people in your photos and the statistics, with a tab bar at the bottom and the search above every place. People on a phone finds a person as you type their name and shows their photos by year, with who is most often in them: tap one to see the photos of both together. Naming and everything else that changes files or settings — Galleries and publishing among them — is desktop work.
 
-| Folders | Map | Timeline |
-|---|---|---|
-| <img src="doc/screenshots/phone-folders.webp" alt="Folders on a phone" width="320"> | <img src="doc/screenshots/phone-map.webp" alt="Map on a phone" width="320"> | <img src="doc/screenshots/phone-timeline.webp" alt="Timeline on a phone, newest first, with the scrubber" width="320"> |
+| Folders | Memories | Map | Timeline |
+|---|---|---|---|
+| <img src="doc/screenshots/phone-folders.webp" alt="Folders on a phone" width="320"> | <img src="doc/screenshots/phone-memories.webp" alt="Memories on a phone, with the tab bar of six places" width="320"> | <img src="doc/screenshots/phone-map.webp" alt="Map on a phone" width="320"> | <img src="doc/screenshots/phone-timeline.webp" alt="Timeline on a phone, newest first, with the scrubber" width="320"> |
 
 ## Contents
 
