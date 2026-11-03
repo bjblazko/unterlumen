@@ -3,7 +3,7 @@
 // Starts a throwaway Unterlumen on a fresh copy of src/examples (the folders
 // renamed so they read like a photo collection), builds a library, a few
 // destinations and galleries through the API, then drives the app with
-// Playwright. Light theme except the dark twin. Writes WebP files to
+// Playwright. Dark theme except the light twin. Writes WebP files to
 // doc/screenshots/ (needs cwebp: `brew install webp`, `apt install webp`).
 //
 // The binary must be built first: cd src && go build -o ../unterlumen .
@@ -55,14 +55,14 @@ async function main() {
                 deviceScaleFactor: shot.scale || 2,
                 isMobile: !!shot.phone,
                 hasTouch: !!shot.phone,
-                colorScheme: shot.dark ? 'dark' : 'light',
+                colorScheme: shot.light ? 'light' : 'dark',
                 locale: shot.locale || 'en-GB',
             });
             await context.addInitScript(([theme, extra]) => {
                 localStorage.setItem('theme', theme);
                 localStorage.setItem('warranty-notice-seen', '1'); // a first start's notice is not the subject
                 for (const [k, v] of Object.entries(extra)) localStorage.setItem(k, v);
-            }, [shot.dark ? 'dark' : 'light', shot.storage || {}]);
+            }, [shot.light ? 'light' : 'dark', shot.storage || {}]);
             const page = await context.newPage();
             await shot.take(page, { base: BASE, lib, site });
             await showHomePath(page, root);

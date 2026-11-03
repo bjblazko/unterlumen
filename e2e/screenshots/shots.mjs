@@ -118,8 +118,8 @@ export const shots = [
         take: (page, { base }) => folderWithInfo(page, base),
     },
     {
-        name: 'folders-dark',
-        dark: true,
+        name: 'folders-light',
+        light: true,
         take: (page, { base }) => folderWithInfo(page, base),
     },
     {

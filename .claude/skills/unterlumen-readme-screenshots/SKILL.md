@@ -10,18 +10,18 @@ The README's `## Screenshots` section shows one picture per important feature. T
 
 - `e2e/screenshots/take.mjs` — starts a throwaway server (port 8097) on a copy of `src/examples` with the folders renamed (Travel, 2017, 2025, Odds and ends), seeds a library "Pictures", destinations and galleries through the API, captures, converts with `cwebp`, deletes everything temporary.
 - The seed also publishes two albums to the Website destination and one share-link gallery (build only, no upload); `website`, `website-album` and `share-link` open that output from disk (`file://…/lib/channels/…`). A change to the generated site's templates (`internal/site`) means retaking those three.
-- `e2e/screenshots/shots.mjs` — the list of shots, in README order. Each has a `name` (the file name), optional `dark`, `storage` (localStorage before load), phone settings (`...PHONE`), and a `take(page, { base, lib })` that opens a place and puts it into the state worth showing.
+- `e2e/screenshots/shots.mjs` — the list of shots, in README order. Each has a `name` (the file name), optional `light`, `storage` (localStorage before load), phone settings (`...PHONE`), and a `take(page, { base, lib })` that opens a place and puts it into the state worth showing.
 
 ## When a feature is finished
 
 1. **Decide what the README must show.**
    - A new place, dialog or clearly visible capability → a new shot and a new README entry.
-   - A changed place → retake its existing shots (a changed Folders grid touches `folders`, `folders-dark`, `phone-folders`; the sidebar touches all of them).
+   - A changed place → retake its existing shots (a changed Folders grid touches `folders`, `folders-light`, `phone-folders`; the sidebar touches all of them).
    - Something invisible (a fix, a backend change) → nothing to do; say so and stop.
 
 2. **Add or adjust the shot** in `shots.mjs`, following the ones there:
    - Reach the state the way a person would (clicks, keys) using the helpers `ready`, `openFolder`, `selectPhotos`, `openLibrary`, `selectionDialog`, `settle`.
-   - Light theme. Only `folders-dark` shows the dark theme; do not add other dark shots unless the feature is about theming.
+   - Dark theme — the owner's default since 2026-11-03. Only `folders-light` shows the light theme, beside `folders` under "Light and dark"; do not add other light shots unless the feature is about theming.
    - Show the feature with real content: photos selected, a dialog filled in, a panel open. Avoid focus rings, hover states and half-filled forms (blur the active element before capturing).
    - If the feature needs data the seed does not create, extend `seed()` in `take.mjs` through the API rather than clicking it together.
 

@@ -41,9 +41,9 @@ Your photo folders as a justified grid, with the metadata and the place a photo 
 
 Unterlumen follows the system's light or dark setting; Settings can fix one.
 
-| Light | Dark |
+| Dark | Light |
 |---|---|
-| ![Light theme](doc/screenshots/folders.webp) | ![Dark theme](doc/screenshots/folders-dark.webp) |
+| ![Dark theme](doc/screenshots/folders.webp) | ![Light theme](doc/screenshots/folders-light.webp) |
 
 #### Viewer
 
