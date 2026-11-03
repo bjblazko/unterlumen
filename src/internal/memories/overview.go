@@ -2,14 +2,22 @@ package memories
 
 import (
 	"sort"
+	"strconv"
+	"sync"
 	"time"
 
 	"huepattl.de/unterlumen/internal/library"
 	"huepattl.de/unterlumen/internal/timeline"
 )
 
-// picksPer is how many photos a memory shows at first.
-const picksPer = 5
+// A memory shows between picksMin and picksMin+picksSpread-1 photos at
+// first, as many as its day and key choose: blocks of one weight make a
+// dull sheet. picksPer is the step of the turn through rediscovered photos.
+const (
+	picksMin    = 3
+	picksSpread = 5
+	picksPer    = 5
+)
 
 const dayLayout = "2006-01-02"
 
@@ -49,11 +57,17 @@ type Card struct {
 	Month       int    `json:"month,omitempty"`
 }
 
+// CardView is a card with the photos its block on the sheet shows.
+type CardView struct {
+	Card
+	Picks []Photo `json:"picks"`
+}
+
 // Overview is the Memories place on one day.
 type Overview struct {
-	Day   string `json:"day"`
-	Years []Year `json:"years"`
-	Cards []Card `json:"cards"`
+	Day   string     `json:"day"`
+	Years []Year     `json:"years"`
+	Cards []CardView `json:"cards"`
 }
 
 // Detail is one memory: its picks and all of its photos, in time order
@@ -80,6 +94,9 @@ type world struct {
 	rarity Rarity
 	home   Home
 	births map[string]string
+
+	tripsOnce sync.Once
+	tripsAll  []Trip
 }
 
 func newWorld(day time.Time, all []library.MemoryPhoto, births map[string]string) *world {
@@ -91,28 +108,65 @@ func newWorld(day time.Time, all []library.MemoryPhoto, births map[string]string
 
 func (w *world) today() string { return w.day.Format(dayLayout) }
 
+func (w *world) seed(kind, key string) string { return w.today() + "|" + kind + "|" + key }
+
+// picksFor is how many photos the memory shows, the day's choice.
+func (w *world) picksFor(kind, key string) int {
+	return picksMin + choose(w.seed(kind, key)+"|n", picksSpread)
+}
+
 // pick chooses a memory's picks, seeded by the day and the memory.
-func (w *world) pick(kind, key string, photos []library.MemoryPhoto, n int) []library.MemoryPhoto {
-	return Pick(photos, w.rarity, w.today()+"|"+kind+"|"+key, n)
+func (w *world) pick(kind, key string, photos []library.MemoryPhoto) []library.MemoryPhoto {
+	return Pick(photos, w.rarity, w.seed(kind, key), w.picksFor(kind, key))
+}
+
+// trips are the trips of all the photos, found once.
+func (w *world) trips() []Trip {
+	w.tripsOnce.Do(func() { w.tripsAll = FindTrips(w.all, w.home) })
+	return w.tripsAll
+}
+
+// Day is every memory of one day, worked out once: the overview and each
+// memory's page read from it.
+type Day struct {
+	w     *world
+	once  sync.Once
+	years []memory
+	cards []memory // rediscovered last, when there is one
+}
+
+func NewDay(day time.Time, all []library.MemoryPhoto, births map[string]string) *Day {
+	return &Day{w: newWorld(day, all, births)}
+}
+
+func (d *Day) memories() {
+	d.once.Do(func() {
+		d.years, d.cards = d.w.others()
+		if m, ok := d.w.rediscovered(shownIn(d.years, d.cards)); ok {
+			d.cards = append(d.cards, m)
+		}
+	})
 }
 
 // Build lays out the Memories place on day.
 func Build(day time.Time, all []library.MemoryPhoto, births map[string]string) Overview {
-	w := newWorld(day, all, births)
-	o := Overview{Day: w.today(), Years: []Year{}, Cards: []Card{}}
-	years, cards := w.others()
-	if m, ok := w.rediscovered(shownIn(years, cards)); ok {
-		cards = append(cards, m)
+	return NewDay(day, all, births).Overview()
+}
+
+// Overview is the Memories place: the years, then the cards, each with a
+// cover no row or card before it shows.
+func (d *Day) Overview() Overview {
+	d.memories()
+	o := Overview{Day: d.w.today(), Years: []Year{}, Cards: []CardView{}}
+	used := shownIn(d.years)
+	for _, m := range d.years {
+		o.Years = append(o.Years, m.year(d.w.day))
 	}
-	used := shownIn(years)
-	for _, m := range years {
-		o.Years = append(o.Years, m.year(day))
-	}
-	for _, m := range cards {
-		c := m.shown().Card
-		c.Cover = photoOf(m.coverBeside(used))
-		used[c.Cover.ID] = true
-		o.Cards = append(o.Cards, c)
+	for _, m := range d.cards {
+		shown := m.shown()
+		shown.Cover = photoOf(m.coverBeside(used))
+		used[shown.Cover.ID] = true
+		o.Cards = append(o.Cards, CardView{Card: shown.Card, Picks: shown.Picks})
 	}
 	return o
 }
@@ -156,12 +210,20 @@ func shownIn(sets ...[]memory) map[string]bool {
 
 // BuildDetail is one memory on day; false when there is no such memory.
 func BuildDetail(day time.Time, kind, key string, all []library.MemoryPhoto, births map[string]string) (Detail, bool) {
-	w := newWorld(day, all, births)
+	return NewDay(day, all, births).Detail(kind, key)
+}
+
+// Detail is one memory of the day; false when there is no such memory: a
+// day must be today's date in an earlier year.
+func (d *Day) Detail(kind, key string) (Detail, bool) {
+	w := d.w
 	var m memory
 	var ok bool
 	switch kind {
 	case "day":
-		m, ok = w.dayMemory(key)
+		if w.isOnThisDay(key) {
+			m, ok = w.dayMemory(key)
+		}
 	case "trip":
 		m, ok = w.tripMemory(key)
 	case "person":
@@ -170,13 +232,29 @@ func BuildDetail(day time.Time, kind, key string, all []library.MemoryPhoto, bir
 		m, ok = w.monthMemory(key)
 	case "rediscovered":
 		if key == w.today() {
-			m, ok = w.rediscovered(shownIn(w.others()))
+			d.memories()
+			m, ok = d.cardOf(kind)
 		}
 	}
 	if !ok {
 		return Detail{}, false
 	}
 	return m.shown(), true
+}
+
+func (d *Day) cardOf(kind string) (memory, bool) {
+	for _, m := range d.cards {
+		if m.card.Kind == kind {
+			return m, true
+		}
+	}
+	return memory{}, false
+}
+
+// isOnThisDay says key is today's month and day in an earlier year.
+func (w *world) isOnThisDay(key string) bool {
+	y, err := strconv.Atoi(key[:min(4, len(key))])
+	return err == nil && len(key) == 10 && key[4:] == w.today()[4:] && y < w.day.Year()
 }
 
 // shown turns a memory into what the browser gets: the picks in time

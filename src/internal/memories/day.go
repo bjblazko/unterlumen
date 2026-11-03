@@ -64,7 +64,7 @@ func (w *world) dayMemory(key string) (memory, bool) {
 	if len(photos) == 0 {
 		return memory{}, false
 	}
-	return memory{card: Card{Kind: "day", Key: key}, photos: photos, picks: w.pick("day", key, photos, picksPer)}, true
+	return memory{card: Card{Kind: "day", Key: key}, photos: photos, picks: w.pick("day", key, photos)}, true
 }
 
 // monthCard is this month in earlier years, when there are at least two.
@@ -116,14 +116,21 @@ func byYear(photos []library.MemoryPhoto) map[int][]library.MemoryPhoto {
 	return out
 }
 
-// picksPerYear takes the best photo of each year, best first.
+// picksPerYear takes the best photo of some of the years, best first: as
+// many years as the memory shows photos, the day's choice of them — not
+// every year in a row.
 func (w *world) picksPerYear(kind, key string, years map[int][]library.MemoryPhoto) []library.MemoryPhoto {
+	chosen := sortedDesc(keysOf(years))
+	seed := w.seed(kind, key)
+	sort.SliceStable(chosen, func(i, j int) bool {
+		return unit(seed+"|"+strconv.Itoa(chosen[i])) < unit(seed+"|"+strconv.Itoa(chosen[j]))
+	})
 	var picks []library.MemoryPhoto
-	for _, y := range sortedDesc(keysOf(years)) {
-		picks = append(picks, w.pick(kind, key, years[y], 1)...)
+	for _, y := range chosen[:min(len(chosen), w.picksFor(kind, key))] {
+		picks = append(picks, Pick(years[y], w.rarity, seed, 1)...)
 	}
 	sort.SliceStable(picks, func(i, j int) bool {
-		return Score(picks[i], w.rarity, w.today()) > Score(picks[j], w.rarity, w.today())
+		return Score(picks[i], w.rarity, seed) > Score(picks[j], w.rarity, seed)
 	})
 	return picks
 }

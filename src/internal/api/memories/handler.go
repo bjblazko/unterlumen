@@ -21,9 +21,9 @@ type handler struct {
 	mgr   *library.Manager
 	bdays *birthdays.Store // nil: no birthdays
 
-	mu       sync.Mutex
-	lastKey  string
-	lastView memories.Overview
+	mu      sync.Mutex
+	lastKey string
+	lastDay *memories.Day // the day's memories, worked out once for the overview and every page
 }
 
 func Handle(mux *http.ServeMux, mgr *library.Manager, bdays *birthdays.Store) {
@@ -54,12 +54,12 @@ func readRequest(r *http.Request) (request, bool) {
 	return request{day: day, ids: ids, filter: f}, true
 }
 
-// photos reads what the memories are chosen from, and a key that changes
-// with it.
-func (h *handler) photos(r *http.Request, req request) ([]library.MemoryPhoto, map[string]string, string, error) {
+// day returns the memories of the request's day, worked out again only
+// when the photos, the day, the libraries or the birthdays changed.
+func (h *handler) day(r *http.Request, req request) (*memories.Day, error) {
 	photos, version, err := h.mgr.MemoryPhotos(r.Context(), req.ids, req.filter)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, err
 	}
 	births := map[string]string{}
 	if h.bdays != nil {
@@ -67,7 +67,13 @@ func (h *handler) photos(r *http.Request, req request) ([]library.MemoryPhoto, m
 			births = all
 		}
 	}
-	return photos, births, fmt.Sprintf("%s|%s|%v|%s", version, req.day.Format("2006-01-02"), req.ids, birthsKey(births)), nil
+	key := fmt.Sprintf("%s|%s|%v|%s", version, req.day.Format("2006-01-02"), req.ids, birthsKey(births))
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if key != h.lastKey {
+		h.lastDay, h.lastKey = memories.NewDay(req.day, photos, births), key
+	}
+	return h.lastDay, nil
 }
 
 func birthsKey(births map[string]string) string {
@@ -85,17 +91,12 @@ func (h *handler) overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "day must be a date as YYYY-MM-DD", http.StatusBadRequest)
 		return
 	}
-	photos, births, key, err := h.photos(r, req)
+	day, err := h.day(r, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if key != h.lastKey {
-		h.lastView, h.lastKey = memories.Build(req.day, photos, births), key
-	}
-	writeJSON(w, h.lastView)
+	writeJSON(w, day.Overview())
 }
 
 func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
@@ -104,12 +105,13 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "day must be a date as YYYY-MM-DD", http.StatusBadRequest)
 		return
 	}
-	photos, births, _, err := h.photos(r, req)
+	day, err := h.day(r, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	d, ok := memories.BuildDetail(req.day, r.URL.Query().Get("kind"), r.URL.Query().Get("key"), photos, births)
+	// memory=, not kind=: kind= is the shared filter's photos or videos.
+	d, ok := day.Detail(r.URL.Query().Get("memory"), r.URL.Query().Get("key"))
 	if !ok {
 		http.Error(w, "no such memory today", http.StatusNotFound)
 		return

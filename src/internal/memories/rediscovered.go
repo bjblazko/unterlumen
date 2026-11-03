@@ -24,7 +24,8 @@ func (w *world) rediscovered(shown map[string]bool) (memory, bool) {
 	n := int64(len(turn))
 	start := int(((w.day.Unix()/86400*picksPer)%n + n) % n) // a day before 1970 counts negative
 	var picks []library.MemoryPhoto
-	for i := 0; i < len(turn) && len(picks) < picksPer; i++ {
+	want := w.picksFor("rediscovered", w.today())
+	for i := 0; i < len(turn) && len(picks) < want; i++ {
 		if p := turn[(start+i)%len(turn)]; !shown[p.ID] {
 			picks = append(picks, p)
 		}

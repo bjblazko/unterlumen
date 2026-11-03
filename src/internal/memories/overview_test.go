@@ -42,7 +42,7 @@ func TestOnThisDay(t *testing.T) {
 	if y := o.Years[0]; y.Year != 2025 || y.Ago != 1 || y.Date != "2025-11-03" || y.Total != 2 || len(y.Picks) != 2 {
 		t.Errorf("first year = %+v", y)
 	}
-	if y := o.Years[1]; y.Year != 2022 || y.Ago != 4 || y.Total != 8 || len(y.Picks) != 5 {
+	if y := o.Years[1]; y.Year != 2022 || y.Ago != 4 || y.Total != 8 || len(y.Picks) < 3 || len(y.Picks) > 7 {
 		t.Errorf("second year = %+v", y)
 	}
 	for i := 1; i < len(o.Years[1].Picks); i++ {
@@ -106,13 +106,13 @@ func TestFindTripsMatchesStatistics(t *testing.T) {
 	}
 }
 
-func cardOf(o Overview, kind string) (Card, bool) {
+func cardOf(o Overview, kind string) (CardView, bool) {
 	for _, c := range o.Cards {
 		if c.Kind == kind {
 			return c, true
 		}
 	}
-	return Card{}, false
+	return CardView{}, false
 }
 
 func TestTripCardPrefersAnniversary(t *testing.T) {
@@ -209,7 +209,7 @@ func TestRediscoveredRotatesAndSkipsShown(t *testing.T) {
 		}
 	}
 	d, ok := BuildDetail(date("2026-11-03"), "rediscovered", "2026-11-03", all, nil)
-	if !ok || len(d.Picks) != 5 {
+	if !ok || len(d.Picks) < 3 || len(d.Picks) > 7 {
 		t.Fatalf("rediscovered = %d picks, %v", len(d.Picks), ok)
 	}
 	for _, p := range d.Picks {
@@ -267,7 +267,8 @@ func TestOverviewCountsMatchDetail(t *testing.T) {
 
 func TestDetailUnknownKey(t *testing.T) {
 	all := series("a", "2022-11-03", 3)
-	for _, c := range [][2]string{{"trip", "1900-01-01"}, {"person", "Nobody"}, {"month", "13"}, {"day", "not-a-day"}, {"what", "x"}, {"rediscovered", "2026-11-03"}} {
+	for _, c := range [][2]string{{"trip", "1900-01-01"}, {"person", "Nobody"}, {"month", "13"}, {"day", "not-a-day"}, {"what", "x"}, {"rediscovered", "2026-11-03"},
+		{"day", "2026-11-03"}, {"day", "2021-11-04"}} {
 		if _, ok := BuildDetail(date("2026-11-03"), c[0], c[1], all, nil); ok {
 			t.Errorf("%s/%s exists", c[0], c[1])
 		}
@@ -317,5 +318,57 @@ func TestTripLastWeekIsNoAnniversary(t *testing.T) {
 	c, _ = cardOf(Build(date("2026-12-30"), all, nil), "trip")
 	if !c.Anniversary {
 		t.Errorf("a year later: %+v; want an anniversary", c)
+	}
+}
+
+// A memory shows three to seven photos, not always the same number, so the
+// sheet has blocks of different weight.
+func TestPicksVaryBetweenMemories(t *testing.T) {
+	all := series("big", "2020-01-01", 0)
+	for y := 2010; y < 2026; y++ {
+		all = append(all, series(fmt.Sprintf("y%d", y), fmt.Sprintf("%d-11-03", y), 9)...)
+	}
+	counts := map[int]bool{}
+	for _, y := range Build(date("2026-11-03"), all, nil).Years {
+		if n := len(y.Picks); n < 3 || n > 7 {
+			t.Errorf("%s: %d picks, want 3 to 7", y.Date, n)
+		}
+		counts[len(y.Picks)] = true
+	}
+	if len(counts) < 3 {
+		t.Errorf("pick counts %v; want at least three different ones", counts)
+	}
+}
+
+// Someone with photos in twelve years is not shown year by year: a few of
+// the years, chosen anew each day.
+func TestPersonYearsAreChosenNotCounted(t *testing.T) {
+	var all []library.MemoryPhoto
+	for y := 2014; y < 2026; y++ {
+		all = append(all, named(series(fmt.Sprintf("a%d", y), fmt.Sprintf("%d-05-01", y), 1), "Anna")...)
+	}
+	births := map[string]string{"Anna": "2014-11-06"}
+	sets := map[string]bool{}
+	for _, d := range []string{"2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03"} {
+		det, ok := BuildDetail(date(d), "person", "Anna", all, births)
+		if !ok || len(det.Picks) < 3 || len(det.Picks) > 7 {
+			t.Fatalf("%s: %d picks, %v; want 3 to 7 of 12 years", d, len(det.Picks), ok)
+		}
+		key := ""
+		for _, p := range det.Picks {
+			key += p.Taken[:4]
+		}
+		sets[key] = true
+	}
+	if len(sets) < 2 {
+		t.Errorf("the same years on four days: %v", sets)
+	}
+}
+
+func TestOverviewCardsCarryTheirPicks(t *testing.T) {
+	all := joined(homePhotos(20), trip("anniv", "2023-11-08", 4, 38.72, -9.14, "Portugal"))
+	c, ok := cardOf(Build(date("2026-11-03"), all, nil), "trip")
+	if !ok || len(c.Picks) == 0 {
+		t.Fatalf("trip card = %+v; want its picks", c)
 	}
 }
