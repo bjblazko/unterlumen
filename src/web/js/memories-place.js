@@ -8,11 +8,17 @@
 // date), trip (its first day), person (the name), month (01…12) or
 // rediscovered (today's date).
 
-const MEMORIES_ROW_H = 160;
+const MEMORIES_PHONE = '(max-width: 700px)';
 
+// memoriesRouteFromHash reads #memories/<kind>/<key>; an address that cannot
+// be read (a broken %-escape) is the overview.
 function memoriesRouteFromHash(hash) {
-    const [kind = '', key = ''] = hash.replace(/^#/, '').split('?')[0].split('/').slice(1).map(decodeURIComponent);
-    return kind && key ? { kind, key } : {};
+    try {
+        const [kind = '', key = ''] = hash.replace(/^#/, '').split('?')[0].split('/').slice(1).map(decodeURIComponent);
+        return kind && key ? { kind, key } : {};
+    } catch {
+        return {};
+    }
 }
 
 function memoriesHash({ kind = '', key = '' } = {}) {
@@ -43,11 +49,24 @@ function memoryTitle(m, today) {
     return '';
 }
 
+// memoriesData is the line under a memory's title: its date where it has
+// one, its days away, its photos.
+function memoriesData(m) {
+    const parts = [];
+    if (m.kind === 'day') parts.push(formatDay(m.key));
+    if (m.kind === 'trip') parts.push(countText(m.days, 'day'));
+    parts.push(countText(m.total, 'photo'));
+    return parts.join(' · ');
+}
+
 class MemoriesPane {
     constructor(container) {
         this.container = container;
         this.route = {};
         this._detail = new MemoriesDetail(this);
+        this._ticket = 0;
+        this._seed = 0;
+        this._sheet = null;
     }
 
     async render() {
@@ -55,7 +74,10 @@ class MemoriesPane {
         else this._filter.sync();
         this.route = App._memoriesRoute || {};
         this._scope = ScopeState.query({ time: false });
-        await (this.route.kind ? this._detail.show(this.route) : this._showOverview());
+        this.clear();
+        const ticket = ++this._ticket;
+        const current = () => ticket === this._ticket && App.mode === 'memories';
+        await (this.route.kind ? this._detail.show(this.route, current) : this._showOverview(current));
     }
 
     _buildShell() {
@@ -74,25 +96,35 @@ class MemoriesPane {
             if (App.mode !== 'memories' || ScopeState.query({ time: false }) === this._scope) return;
             this.render();
         });
-        // Rows and cards are addresses; go there as the sidebar does.
+        // Captions and the way back are addresses; go there as the sidebar does.
         this.container.addEventListener('click', (e) => {
             const link = e.target.closest('a[data-memories]');
             if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
             e.preventDefault();
             App.openMemories(memoriesRouteFromHash(link.getAttribute('href')));
         });
+        this._resize = new ResizeObserver(() => this._sheet?.relayout());
+        this._resize.observe(this.body);
+    }
+
+    // clear ends what the last page left: its grid's observers, its sheet.
+    clear() {
+        this._sheet = null;
+        this._detail.clear();
     }
 
     // head draws the place's head: its title (on a memory's page the way
-    // back and the memory's name) and the filter.
+    // back and the memory's name), Shuffle on the sheet, and the filter.
     head(title, meta = '') {
+        const sheet = !this.route.kind;
         this._headEl.innerHTML = placeHeaderHTML({
             title,
             meta,
-            actions: '<span class="memories-actions"></span>',
-            lede: this.route.kind ? '' : placeLede(t('Photos from this day in earlier years, and more to find again — chosen by who and what they show, never by stars.')),
+            actions: `${sheet ? `<button type="button" class="btn memories-shuffle">${t('Shuffle')}</button>` : ''}<span class="memories-actions"></span>`,
+            lede: sheet ? placeLede(t('Photos from this day in earlier years, and more to find again — chosen by who and what they show, never by stars.')) : '',
         });
         this._headEl.querySelector('.memories-actions').replaceWith(this._filter.el);
+        this._headEl.querySelector('.memories-shuffle')?.addEventListener('click', () => this._sheet?.shuffle());
     }
 
     // load says the memories are being chosen while read runs, and what
@@ -111,53 +143,73 @@ class MemoriesPane {
         }
     }
 
-    async _showOverview() {
+    async _showOverview(current) {
         this.head(t('Memories'));
         const today = memoriesToday();
         const o = await this.load(() => MemoriesAPI.overview(today, this._scope));
-        if (!o || App.mode !== 'memories' || this.route.kind) return;
+        if (!o || !current()) return;
+        const memories = [
+            ...o.years.map(y => ({ kind: 'day', key: y.date, total: y.total, photos: y.picks })),
+            ...o.cards.map(c => ({ ...c, photos: c.picks })),
+        ];
         this.body.innerHTML = '';
         if (!o.years.length) {
             this.body.insertAdjacentHTML('beforeend', `<p class="memories-empty">${t('No photos from this day in earlier years.')}</p>`);
         }
-        for (const y of o.years) this.body.appendChild(this._yearEl(y, today));
-        if (o.cards.length) this.body.appendChild(this._cardsEl(o.cards, today));
+        if (!memories.length) return;
+        const el = document.createElement('div');
+        this.body.appendChild(el);
+        this._sheet = new MemoriesSheet(el, memories, today);
     }
+}
 
-    _yearEl(y, today) {
-        const el = document.createElement('section');
-        el.className = 'memories-year';
-        const route = { kind: 'day', key: y.date };
-        el.innerHTML = `<a class="memories-year-head" href="${memoriesHash(route)}" data-memories>
-                <h2 class="memories-year-title">${escapeHtml(memoryTitle({ ...route }, today))}</h2>
-                <span class="memories-data">${formatDay(y.date)} · ${countText(y.total, 'photo')}</span>
-                <span class="memories-more" aria-hidden="true">›</span>
-            </a>
-            <div class="memories-picks"></div>`;
-        const picks = el.querySelector('.memories-picks');
-        const draw = () => { picks.innerHTML = memoriesRowHTML(memoriesRow(y.picks, picks.clientWidth, MEMORIES_ROW_H)); };
-        new ResizeObserver(draw).observe(picks);
-        picks.addEventListener('click', (e) => {
-            const tile = e.target.closest('.memories-tile');
-            if (tile) openMemoryPhotos(y.picks, Number(tile.dataset.index));
+// MemoriesSheet draws the memories as one sheet (memories-sheet.js): a
+// block for each, captioned, the order and the shapes chance's. Shuffle
+// lays it out again; a new width keeps the shapes' seed. A memory's page
+// shows its one block without a caption.
+class MemoriesSheet {
+    constructor(el, memories, today, { captions = true } = {}) {
+        this.el = el;
+        this.el.classList.add('sheet');
+        this._memories = memories;
+        this._today = today;
+        this._captions = captions;
+        this._seed = Math.floor(Math.random() * 2 ** 31);
+        this._width = 0;
+        this.el.addEventListener('click', (e) => {
+            const tile = e.target.closest('.sheet-tile');
+            if (!tile) return;
+            const block = this._blocks[Number(tile.dataset.block)];
+            openMemoryPhotos(block.memory.photos, Number(tile.dataset.index));
         });
-        return el;
+        this.relayout();
     }
 
-    _cardsEl(cards, today) {
-        const el = document.createElement('section');
-        el.className = 'memories-cards-section';
-        el.innerHTML = `<h2 class="memories-section-title">${t('More memories')}</h2>
-            <div class="memories-cards">${cards.map(c => this._cardHTML(c, today)).join('')}</div>`;
-        return el;
+    shuffle() {
+        this._seed = Math.floor(Math.random() * 2 ** 31);
+        this._width = 0;
+        this.relayout();
     }
 
-    _cardHTML(c, today) {
-        const data = [c.kind === 'trip' ? countText(c.days, 'day') : '', countText(c.total, 'photo')].filter(Boolean).join(' · ');
-        return `<a class="memories-card" href="${memoriesHash(c)}" data-memories>
-            <img class="memories-card-cover" src="${LibraryAPI.thumbURL(c.cover.lib, c.cover.id)}" alt="" loading="lazy" decoding="async">
-            <span class="memories-card-title">${escapeHtml(memoryTitle(c, today))}</span>
-            <span class="memories-data">${data}</span>
-        </a>`;
+    relayout() {
+        const width = this.el.clientWidth;
+        if (!width || width === this._width) return;
+        this._width = width;
+        const bands = sheetLayout(this._memories, width, { phone: matchMedia(MEMORIES_PHONE).matches, seed: this._seed });
+        this._blocks = bands.flat();
+        let i = 0;
+        this.el.innerHTML = bands.map(band => `<div class="sheet-band">${band.map(b => this._blockHTML(b, i++)).join('')}</div>`).join('');
+    }
+
+    _blockHTML(b, index) {
+        const m = b.memory;
+        if (!this._captions) return `<div class="sheet-block" style="width:${b.w}px">${sheetBlockHTML(b, index)}</div>`;
+        return `<figure class="sheet-block" style="width:${b.w}px">
+            ${sheetBlockHTML(b, index)}
+            <figcaption class="sheet-caption">
+                <a class="sheet-title" href="${memoriesHash(m)}" data-memories>${escapeHtml(memoryTitle(m, this._today))}</a>
+                <span class="memories-data">${memoriesData(m)}</span>
+            </figcaption>
+        </figure>`;
     }
 }

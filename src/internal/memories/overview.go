@@ -163,12 +163,29 @@ func (d *Day) Overview() Overview {
 		o.Years = append(o.Years, m.year(d.w.day))
 	}
 	for _, m := range d.cards {
-		shown := m.shown()
-		shown.Cover = photoOf(m.coverBeside(used))
-		used[shown.Cover.ID] = true
-		o.Cards = append(o.Cards, CardView{Card: shown.Card, Picks: shown.Picks})
+		o.Cards = append(o.Cards, m.beside(used))
 	}
 	return o
+}
+
+// beside is the card of a memory on the sheet: its picks that no memory
+// before it shows — or, when it has none left, its best photo nobody shows
+// yet — the best of them its cover. What it shows is marked used.
+func (m memory) beside(used map[string]bool) CardView {
+	var picks []library.MemoryPhoto
+	for _, p := range m.picks {
+		if !used[p.ID] {
+			picks = append(picks, p)
+		}
+	}
+	if len(picks) == 0 {
+		picks = []library.MemoryPhoto{m.coverBeside(used)}
+	}
+	for _, p := range picks {
+		used[p.ID] = true
+	}
+	shown := memory{card: m.card, photos: m.photos, picks: picks}.shown()
+	return CardView{Card: shown.Card, Picks: shown.Picks}
 }
 
 // coverBeside is the memory's best photo that is not used yet: its picks

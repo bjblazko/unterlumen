@@ -372,3 +372,30 @@ func TestOverviewCardsCarryTheirPicks(t *testing.T) {
 		t.Fatalf("trip card = %+v; want its picks", c)
 	}
 }
+
+// On the sheet every memory shows its photos: none shows one another
+// memory before it shows already.
+func TestNoPhotoTwiceOnTheSheet(t *testing.T) {
+	// Two Novembers: the month shows both, one of them the day's photo.
+	all := joined(series("d", "2021-11-03", 1), series("n", "2022-11-20", 1))
+	o := Build(date("2026-11-03"), all, nil)
+	seen := map[string]string{}
+	check := func(where string, ps []Photo) {
+		for _, p := range ps {
+			if first, ok := seen[p.ID]; ok {
+				t.Errorf("%s shows %s, which %s shows already", where, p.ID, first)
+			}
+			seen[p.ID] = where
+		}
+	}
+	for _, y := range o.Years {
+		check(y.Date, y.Picks)
+	}
+	for _, c := range o.Cards {
+		if len(c.Picks) == 0 {
+			t.Errorf("%s has no photo left to show", c.Kind)
+		}
+		check(c.Kind, c.Picks)
+	}
+}
+
