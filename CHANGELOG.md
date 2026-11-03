@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-11-03
+
 ### Changed
 - **Statistics open in about a second instead of nine.** Measured on six libraries of 49,500 photos. The overview opens in 1.1 s instead of 9 s, and every topic within 0.4 s instead of up to 13 s.
   - Statistics, the Map and the Timeline read through connections of their own, beside the one that writes. Their requests no longer wait for each other or for a scan.
