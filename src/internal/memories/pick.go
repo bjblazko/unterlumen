@@ -129,4 +129,6 @@ func looksLikeAny(p library.MemoryPhoto, chosen []library.MemoryPhoto) bool {
 	return false
 }
 
-func appearanceDistance(a, b library.MemoryPhoto) int { return appearance.HashDistance(a.DHash, b.DHash) }
+func appearanceDistance(a, b library.MemoryPhoto) int {
+	return appearance.HashDistance(a.DHash, b.DHash)
+}
