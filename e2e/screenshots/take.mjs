@@ -60,6 +60,7 @@ async function main() {
             });
             await context.addInitScript(([theme, extra]) => {
                 localStorage.setItem('theme', theme);
+                localStorage.setItem('ul-theme', theme); // the generated website and share links
                 localStorage.setItem('warranty-notice-seen', '1'); // a first start's notice is not the subject
                 for (const [k, v] of Object.entries(extra)) localStorage.setItem(k, v);
             }, [shot.light ? 'light' : 'dark', shot.storage || {}]);
