@@ -110,7 +110,7 @@
 .people-phone-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .people-phone-photo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .people-phone-more { height: 1px; }
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .people-with-chip { height: var(--control-h); }
     .people-lede { flex-basis: auto; }
     .people-body { padding: var(--space-4); }

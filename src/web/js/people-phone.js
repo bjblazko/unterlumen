@@ -7,12 +7,7 @@
 // Addresses as on the computer: #people and #people/person/<name>; the
 // computer's pages for naming lead to everyone here.
 
-const PEOPLE_PHONE = '(max-width: 700px)';
 const PEOPLE_PHONE_PAGE = 60;
-
-function peopleOnPhone() {
-    return matchMedia(PEOPLE_PHONE).matches;
-}
 
 class PeoplePhone {
     // pane is the PeoplePane that hosts the page: its body and head.

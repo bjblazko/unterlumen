@@ -8,7 +8,6 @@
 // date), trip (its first day), person (the name), month (01…12) or
 // rediscovered (today's date).
 
-const MEMORIES_PHONE = '(max-width: 700px)';
 
 // memoriesRouteFromHash reads #memories/<kind>/<key>; an address that cannot
 // be read (a broken %-escape) is the overview.
@@ -195,7 +194,7 @@ class MemoriesSheet {
         const width = this.el.clientWidth;
         if (!width || width === this._width) return;
         this._width = width;
-        const bands = sheetLayout(this._memories, width, { phone: matchMedia(MEMORIES_PHONE).matches, seed: this._seed });
+        const bands = sheetLayout(this._memories, width, { phone: onPhone(), seed: this._seed });
         this._blocks = bands.flat();
         let i = 0;
         this.el.innerHTML = bands.map(band => `<div class="sheet-band">${band.map(b => this._blockHTML(b, i++)).join('')}</div>`).join('');

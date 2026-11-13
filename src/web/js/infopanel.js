@@ -1,6 +1,5 @@
 // Info side panel — displays file metadata and EXIF data
 
-const INFO_PANEL_PHONE = '(max-width: 700px)';
 const INFO_PANEL_KEY = 'info-panel';
 
 class InfoPanel {
@@ -43,13 +42,13 @@ class InfoPanel {
     // until it is closed: then it stays closed, everywhere, for the session.
     // A phone opens it with its Info button.
     static startsOpen() {
-        if (window.matchMedia(INFO_PANEL_PHONE).matches) return false;
+        if (onPhone()) return false;
         try { return sessionStorage.getItem(INFO_PANEL_KEY) !== 'closed'; } catch { return true; }
     }
 
     toggle() {
         this._setExpanded(!this.expanded);
-        if (window.matchMedia(INFO_PANEL_PHONE).matches) return;
+        if (onPhone()) return;
         try { sessionStorage.setItem(INFO_PANEL_KEY, this.expanded ? 'open' : 'closed'); } catch { /* this view only */ }
         // The other places' panels follow, so a panel closed over a photo is
         // closed in the library it came from too.

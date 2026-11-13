@@ -68,11 +68,11 @@ class PeoplePane {
         if (!this.libraries.length) { this._showNoLibraries(); return; }
         const { view, library, id } = this.route;
         if (view === 'person-of') { await this._showPersonOf(library, Number(id)); return; }
-        if (view === 'person') await (peopleOnPhone() ? this._phone.showPerson(id) : this._person.show(id));
-        else if (view === 'name' && !peopleOnPhone()) await this._naming.showLibrary(this._known(library));
-        else if (view === 'group' && !peopleOnPhone()) await this._naming.showGroup(this._known(library), Number(id));
-        else if (view === 'hidden' && !peopleOnPhone()) await this._naming.showHidden(library ? this._known(library) : null);
-        else await (peopleOnPhone() ? this._phone.showOverview() : this._everyone.show());
+        if (view === 'person') await (onPhone() ? this._phone.showPerson(id) : this._person.show(id));
+        else if (view === 'name' && !onPhone()) await this._naming.showLibrary(this._known(library));
+        else if (view === 'group' && !onPhone()) await this._naming.showGroup(this._known(library), Number(id));
+        else if (view === 'hidden' && !onPhone()) await this._naming.showHidden(library ? this._known(library) : null);
+        else await (onPhone() ? this._phone.showOverview() : this._everyone.show());
     }
 
     // _known is the library asked for when there is one of that id, else the

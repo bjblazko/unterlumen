@@ -119,8 +119,11 @@ class JustifiedRenderer {
 
 // justifiedRowHeight is the row height the layout aims for. On a narrow screen
 // — a phone — it shrinks with the width so that two landscape (3:2) photos
-// share a row; it never grows past the configured height.
+// share a row; on a phone turned on its side a row takes at most a third of
+// the low screen, so more than one fits under the head. It never grows past
+// the configured height.
 function justifiedRowHeight(configured, containerWidth, gap) {
-    if (containerWidth >= 700) return configured;
-    return Math.min(configured, Math.floor((containerWidth - gap) / 3) - 1);
+    if (containerWidth < 700) return Math.min(configured, Math.floor((containerWidth - gap) / 3) - 1);
+    if (onPhone()) return Math.min(configured, Math.floor(window.innerHeight / 3));
+    return configured;
 }

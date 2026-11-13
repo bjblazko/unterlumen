@@ -42,6 +42,7 @@ class Viewer {
         this.currentIndex = this.images.indexOf(imagePath);
         if (this.currentIndex < 0) this.currentIndex = 0;
         this.currentPath = this.images[this.currentIndex];
+        this._controlsShown = false;
 
         this.infoPanel = new InfoPanel(document.createElement('div'));
         // However the panel is opened — I, its own button, the phone's Info —
@@ -227,9 +228,22 @@ class Viewer {
             const touch = e.changedTouches[0];
             const dx = touch.clientX - startX;
             const dy = touch.clientY - startY;
+            if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && !e.target.closest('button, a')) {
+                this._toggleControls();
+                return;
+            }
             if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
             this.navigate(dx < 0 ? 1 : -1);
         }, { passive: true });
+    }
+
+    // A phone on its side shows the photo alone; a tap brings the toolbar
+    // and the arrows over it and the next tap takes them away. The choice
+    // lasts while the viewer is open, from photo to photo. Upright the
+    // toolbar always stands, so the class has no effect there.
+    _toggleControls() {
+        this._controlsShown = !this._controlsShown;
+        this.container.querySelector('.viewer')?.classList.toggle('viewer--controls', this._controlsShown);
     }
 
     markCurrentForDeletion() {
@@ -342,7 +356,7 @@ class Viewer {
             : `<img src="${preview || this._currentImageURL()}" alt="${escapeHtml(filename)}" loading="eager" fetchpriority="high">`;
 
         this.container.innerHTML = `
-            <div class="viewer">
+            <div class="viewer${this._controlsShown ? ' viewer--controls' : ''}">
                 <div class="viewer-toolbar">
                     <div class="viewer-group viewer-group-start">
                         <button class="btn viewer-back" title="${t('Back (Esc)')}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 2 4 7 9 12"/></svg> ${t('Back')}</button>

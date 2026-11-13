@@ -14,7 +14,7 @@ function photoColumnStartsOpen(key) {
         const kept = localStorage.getItem(key);
         if (kept !== null) return kept === '1';
     } catch { /* storage blocked: fall back to the layout */ }
-    return !matchMedia('(max-width: 700px)').matches;
+    return !onPhone();
 }
 
 function keepPhotoColumnOpen(key, open) {

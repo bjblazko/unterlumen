@@ -70,6 +70,6 @@
 .memories-grid { min-width: 0; }
 .memories-sentinel { height: 1px; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .memories-body { padding: var(--space-4); gap: var(--space-6); }
 }

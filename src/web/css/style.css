@@ -1680,7 +1680,7 @@ body.ui-hidden #app { height: 100vh; }
 
 /* A phone has no room for a centred panel: the dialog comes up from the
    bottom edge, as wide as the screen. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .dialog-scrim {
         padding: 0;
         align-items: end;
@@ -2303,7 +2303,7 @@ body.ui-hidden .viewer-filmstrip {
 
 .browse-layout:not(:has(.info-panel.expanded)) > .selection-bar { right: var(--space-16); }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .browse-layout > .selection-bar { right: 0; }
 }
 
@@ -3918,7 +3918,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .panel-toggle[aria-pressed="true"] .lib-filter-btn-count { background: var(--bg); color: var(--fg); }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     /* A phone has no room for a column: the toggles float as one row over
        the bottom right, above the tab bar. */
     .tool-strip {
@@ -6163,7 +6163,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 }
 
 /* On a phone the path needs the row; the play mark says it alone. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .browse-slideshow-label { display: none; }
 }
 
@@ -6288,7 +6288,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .tabbar { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     :root {
         /* The tab bar: its padding, a 44px row of places and its hairline.
            No safe-area inset anywhere: without viewport-fit=cover the browser
@@ -6445,7 +6445,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
    whose every control is hidden. */
 .desk-only-notice { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     /* The place itself is not rendered at all here, so nothing of it can
        scroll into view behind the notice. */
     body.desk-only-place #app { display: none; }
@@ -6470,7 +6470,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 .phone-only,
 .viewer-toolbar .phone-only { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     /* A phone shows a photo's info in the viewer, not beside the grid. */
     .info-head-toggle { display: none !important; }
     .phone-only { display: revert; }
@@ -6509,6 +6509,44 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
     /* Collapsed, the sheet has nothing to show: the Info button reopens it. */
     .viewer .info-panel.collapsed { display: none; }
+}
+
+/* --- Phone on its side: the photo alone ---
+ *
+ * Turned sideways a phone has a low screen and photos made for it, so the
+ * viewer covers the search and the tab bar and shows nothing but the photo.
+ * A tap brings the toolbar and the arrows over the photo (.viewer--controls,
+ * see Viewer._toggleControls); a swipe still moves through the set, and
+ * turning it upright again gives the usual viewer back.
+ */
+@media (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+    .viewer {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+    }
+
+    .viewer-toolbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2;
+        transition: opacity var(--dur) var(--ease);
+    }
+
+    .viewer:not(.viewer--controls) .viewer-toolbar,
+    .viewer:not(.viewer--controls) .viewer-prev,
+    .viewer:not(.viewer--controls) .viewer-next {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .viewer--controls .viewer-prev:not(:disabled),
+    .viewer--controls .viewer-next:not(:disabled) { pointer-events: auto; }
+
+    /* The film strip would take a third of the height. */
+    .viewer .viewer-filmstrip { display: none !important; }
 }
 
 /* Location dialog: setting and removing live together. */.location-remove-question {
@@ -6559,7 +6597,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 .segment-field-select { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .segment-field-label,
     .segment-field .seg { display: none; }
     .segment-field-select { display: inline-block; }
@@ -6654,7 +6692,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 
 /* Two tiles to a row on a phone. After the base rule, so it wins: the same
    rule above the base rule lost and left one tile per row. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .folder-tile { width: calc(50% - var(--space-1)); }
 }
 
@@ -6807,7 +6845,7 @@ body.slideshow-active .shell.sidebar-collapsed { grid-template-columns: minmax(0
 /* On a phone the head is one row — title, count, the place's setting, the
    "i" of its sentence and ⋯ — so the photos keep the screen: what does not
    fit is cut short, and only an opened sentence takes a row of its own. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .place-header {
         flex-direction: row;
         flex-wrap: wrap;
@@ -7559,7 +7597,7 @@ button.combo-item:hover { background: var(--bg-2); }
 }
 
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     /* On a phone the column is the lower half, the map stays above it. */
     .map-body { flex-direction: column; }
     .map-time { width: 100%; }
@@ -7671,7 +7709,7 @@ button.combo-item:hover { background: var(--bg-2); }
     color: var(--fg-2);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .multi-select-list { position: fixed; left: var(--space-4); right: var(--space-4); top: auto; }
 }
 
@@ -7694,7 +7732,7 @@ button.combo-item:hover { background: var(--bg-2); }
 .place-lede-toggle { display: none; }
 
 /* On a phone only the button is left; it shows the sentence on its own line. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .place-lede { width: auto; }
     .place-lede-toggle {
         display: inline-flex;
@@ -7824,7 +7862,7 @@ a.guide-node:focus-visible .guide-box {
     .guide-diagram { position: static; max-width: 440px; }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .guide-body { padding: var(--space-4); }
 }
 
@@ -7914,7 +7952,7 @@ a.guide-node:focus-visible .guide-box {
     font-size: var(--text-sm);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .reading-body { padding: var(--space-4); }
     .credits-item { grid-template-columns: minmax(0, 1fr); }
     .credits-license { grid-column: 1; grid-row: auto; text-align: left; }
@@ -8009,7 +8047,7 @@ a.guide-node:focus-visible .guide-box {
 .photo-column-sentinel { height: 1px; }
 
 /* On a phone the column is the lower half; the place stays above it. */
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
     .photo-column { width: auto; height: 50%; border-left: 0; border-top: 1px solid var(--line); }
     .photo-column-grid { grid-template-columns: repeat(4, 1fr); }
 }

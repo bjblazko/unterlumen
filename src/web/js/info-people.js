@@ -34,7 +34,7 @@ class InfoPeople {
     }
 
     render() {
-        if (matchMedia(INFO_PANEL_PHONE).matches) return this._faces.length ? this._renderToRead() : '';
+        if (onPhone()) return this._faces.length ? this._renderToRead() : '';
         const markable = !!(this._ref && this._panel.onMarkFace);
         if (!this._faces.length && !markable) return '';
         const rows = this._faces.map((f, i) => {

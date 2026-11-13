@@ -31,7 +31,7 @@ class InfoThings {
     render() {
         if (!this._things.length) return '';
         // On a phone the panel only says what is in the photo.
-        const editable = !matchMedia(INFO_PANEL_PHONE).matches;
+        const editable = !onPhone();
         const rows = this._things.map(f => {
             const name = ThingWords.name(f.name);
             const drop = t('There is no {name} in this photo', { name });

@@ -732,7 +732,7 @@ class BrowsePane {
             },
         ];
         // A phone has no key to bring a hidden interface back.
-        if (window.matchMedia('(max-width: 700px)').matches) return items;
+        if (onPhone()) return items;
         items.push({
             id: 'interface', label: t('Interface (H)'), switch: { on: !App.uiHidden, labelOn: t('Shown'), labelOff: t('Hidden') },
             onChange: () => App.toggleUIVisibility(),

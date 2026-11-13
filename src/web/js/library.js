@@ -169,7 +169,7 @@ class LibraryTab {
         }
         // On a phone the filter covers the screen: the photos come first,
         // the filter's count on its button says they are filtered.
-        if (matchMedia(INFO_PANEL_PHONE).matches) this._filterPanel.close();
+        if (onPhone()) this._filterPanel.close();
     }
 
     // showPhoto opens a library at a folder with one photo selected and in
@@ -277,7 +277,7 @@ class LibraryTab {
     // A phone looks; it does not edit libraries or open Folders.
     _libraryMenuItems(lib, edit) {
         const statistics = { id: 'statistics', label: t('Statistics'), onSelect: () => this._openStats() };
-        if (matchMedia('(max-width: 700px)').matches) return [statistics];
+        if (onPhone()) return [statistics];
         const rel = absPathRelativeToBoundary(lib.sourcePath, App.config?.boundary);
         return [
             statistics,

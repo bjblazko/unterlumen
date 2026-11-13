@@ -3,7 +3,6 @@
 // time bar (overview to limit, axis with the frame); a phone gets a list,
 // newest first, and a scrubber. Both are built from one TimelineStream.
 
-const TIMELINE_PHONE = '(max-width: 700px)';
 const TIMELINE_VIEWER_REACH = 500;
 // While a scan runs the stream changes with every photo; wait this long after
 // hearing so before reading it again, so a scan is not answered with a reload
@@ -22,7 +21,7 @@ class TimelinePane {
         this._reloading = null;
         this._reloadTimer = 0;
         this._rows = readTimelineRows();
-        this._phone = matchMedia(TIMELINE_PHONE);
+        this._phone = matchMedia(PHONE_MEDIA);
         this._phone.addEventListener('change', () => {
             if (this._body && this.stream.count) this._build(this._currentMs());
         });
