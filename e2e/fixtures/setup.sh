@@ -8,7 +8,11 @@ OUT="$SCRIPT_DIR"
 echo "Copying example images to $OUT/photos..."
 
 rm -rf "$OUT/photos"
-cp -r "$EXAMPLES" "$OUT/photos"
+# Only what is committed, as GitHub checks it out: an installed Unterlumen
+# with a library on src/examples writes sidecars there (things, notes), and
+# copying those made tests pass here that could never pass in CI.
+mkdir -p "$OUT/photos"
+git -C "$EXAMPLES" archive HEAD . | tar -x -C "$OUT/photos"
 # The photos' licence note is not a test photo.
 rm -f "$OUT/photos/LICENSE"
 

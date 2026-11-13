@@ -1,11 +1,24 @@
 name: E2E Tests
 
+# Every push to main, so the README's badge — which only ever shows the
+# default branch — says how main is. Runs on tags alone left it green for
+# weeks while every release run was red. A release tag points at a commit
+# of main, which has been tested by then. Pushes that only change words
+# outside the app are skipped.
 on:
   push:
-    tags:
-      - "v*.*.*"
-  # Run by hand to check a fix to this workflow without cutting a release.
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "doc/**"
+      - "docs/**"
+  # Run by hand to check a fix to this workflow.
   workflow_dispatch:
+
+# A newer push makes the older run pointless.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:

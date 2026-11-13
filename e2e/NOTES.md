@@ -1,12 +1,14 @@
 # E2E Test Notes
 
-*Last modified: 2026-10-23*
+*Last modified: 2026-11-13*
 
 Non-obvious patterns and traps discovered during test development.
 
 ## Server configuration
 
 Use `UNTERLUMEN_ROOT_PATH=e2e/fixtures` (env var), **not** a CLI positional argument. The CLI arg sets boundary=`/` (whole filesystem), which makes `path=gps-jpeg.jpg` resolve to `/gps-jpeg.jpg` (not found) and prevents path-traversal blocking. The env var restricts boundary to the fixtures dir so `path=` browses the fixtures root correctly. Set in `playwright.config.js`.
+
+**The fixtures are what git has, not what the folder holds.** `setup.sh` copies `src/examples` with `git archive HEAD`, as CI checks it out. An installed Unterlumen with a library on `src/examples` writes sidecars there (things, notes, ratings); copied along, they made `Things through the year` pass here and fail on GitHub for every release from 0.24.0 to 0.25.1. A test that needs found things belongs to the faces project (`things.spec.js`), whose server finds them with the real models. A change to an example photo is tested only once it is committed.
 
 **Run the suite with `npm test`, never bare `npx playwright test`.** `npm test` is `bash fixtures/setup.sh && playwright test`, and that setup step re-copies the fixtures from `src/examples`. Several specs mutate fixtures in place — `crop.spec.js` crops the centre 50% out of the same Canon JPEG on every run, and `gps-editing.spec.js` rewrites GPS tags — so skipping setup silently degrades the images across runs. After enough bare runs the crop target shrinks to a few KB and `POST /api/crop` starts failing, taking apparently unrelated specs (overlays, library-search) down with it. Failures that move between runs, or a spec that fails in isolation but passed an hour ago, are the symptom.
 

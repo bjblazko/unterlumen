@@ -204,7 +204,7 @@ test.describe('Statistics', () => {
         ['frame', 'Aspect ratio in detail'],
         ['frame', 'Portrait or landscape'],
         ['cataloguing', 'Keywords'],
-        ['things', 'Things through the year'],
+        // Things through the year: things.spec.js, on the server that finds things.
     ]) {
         test(`${title} shows the photos it counted`, async ({ page }) => {
             await open(page, topic);

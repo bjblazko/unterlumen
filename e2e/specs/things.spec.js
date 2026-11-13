@@ -92,6 +92,21 @@ test.describe.serial('Things', () => {
     await expect(page.locator('.stats-chart', { hasText: 'Things met most' })).toContainText('portrait');
   });
 
+  // Here and not in statistics.spec.js: only this server has found things.
+  // The example photos have none, except where an installed Unterlumen once
+  // wrote them into src/examples — which no checkout carries.
+  test('Things through the year shows the photos it counted', async ({ page }) => {
+    await page.goto('/#statistics/things');
+    await waitForAppReady(page);
+    const card = page.locator('.stats-chart').filter({ has: page.locator('.stats-chart-title', { hasText: /^Things through the year$/ }) });
+    const mark = card.locator('.stats-pickable').first();
+    await expect(mark).toBeVisible({ timeout: 15_000 });
+    const label = await mark.getAttribute('aria-label');
+    const counted = Number(label.match(/(\d[\d,.  ]*) photos?\b/)[1].replace(/\D/g, ''));
+    await mark.click();
+    await expect(page.locator('#stats-photos .photo-column-title')).toContainText(`${counted} photo`);
+  });
+
   test('on a phone the search stands above the place', async ({ browser }) => {
     const phone = await browser.newPage({ viewport: { width: 390, height: 800 } });
     await phone.goto('/#libraries');
