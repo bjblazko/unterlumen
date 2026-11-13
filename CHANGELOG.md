@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-11-13
+
 ### Fixed
 - **A phone on its side stays a phone.** Turned sideways, a phone is wider than 700 px and got the desktop's sidebar, toolbar and info column, with the photo in a corner a quarter of the screen in size. A low touch screen now keeps the phone's layout: the tab bar, the one-row heads, and rows of photos that fit the low screen twice.
 - **The viewer on a phone on its side shows the photo alone**, over the search and the tab bar. A tap brings the toolbar and the arrows over it, the next tap takes them away; a swipe moves through the set as before, and Info still comes from below.
