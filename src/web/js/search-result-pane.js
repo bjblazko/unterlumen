@@ -10,7 +10,7 @@ class SearchResultPane extends BrowsePane {
         this._serverTotal = 0;
         this._serverOffset = 0;
         this._serverFetchPage = null;
-        this._isFetching = false;
+        this._pageRequest = null;
         this._fetchGeneration = 0;
     }
 
@@ -26,7 +26,7 @@ class SearchResultPane extends BrowsePane {
         this._aspectRatios = {};
 
         this._fetchGeneration++;
-        this._isFetching = false;
+        this._pageRequest = null;
         this._serverTotal = total ?? photos.length;
         this._serverOffset = photos.length;
         this._serverFetchPage = fetchPage ?? null;
@@ -147,52 +147,97 @@ class SearchResultPane extends BrowsePane {
 
     // --- Lazy loading from server ---
 
+    // The head's count is the server's, and so is what Select all takes.
+    _syncSelectAll() {
+        const total = this._loading ? 0 : Math.max(this._serverTotal, this.getImageEntries().length);
+        this._selectAll.update(this.selection.selected.size, total);
+    }
+
+    _hasMore() {
+        return !!this._serverFetchPage && this._serverOffset < this._serverTotal;
+    }
+
     _renderNextChunk() {
         const remaining = this.entries.length - this._renderedCount;
-        if (remaining <= CHUNK_SIZE && this._serverOffset < this._serverTotal && !this._isFetching) {
+        if (remaining <= CHUNK_SIZE && this._hasMore() && !this._pageRequest) {
             this._fetchNextPage();
         }
         super._renderNextChunk();
     }
 
+    // The next page is usually fetched before the end is reached; if the
+    // end comes first, it says more is on its way.
     async _fetchNextPage() {
-        if (this._isFetching || !this._serverFetchPage) return;
-        if (this._serverOffset >= this._serverTotal) return;
-
-        this._isFetching = true;
-        const gen = this._fetchGeneration;
-        const offset = this._serverOffset;
-
-        // The next page is usually fetched before the end is reached; if the
-        // end comes first, it says more is on its way.
+        if (this._pageRequest || !this._hasMore()) return;
         const more = document.createElement('div');
         more.className = 'results-more';
         (this._contentEl || this.container).appendChild(more);
         Activity.in(more, t('Reading more photos…'));
-
         try {
-            const photos = await this._serverFetchPage(offset, 100);
-            if (this._fetchGeneration !== gen) return; // filter changed, discard
-
-            const newEntries = photos.map(p => this._mapPhoto(p, this._serverMultiLib));
-            this.entries = [...this.entries, ...newEntries];
-            this._serverOffset = offset + photos.length;
-
-            // If all previously loaded entries were already rendered, re-add sentinel
-            const ct = this._contentEl || this.container;
-            if (!ct.querySelector('.scroll-sentinel')) {
-                ct.insertAdjacentHTML('beforeend', '<div class="scroll-sentinel"></div>');
-                this._setupObserver();
-            }
-
-            // The count grows without a full re-render.
-            this._syncSelectAll();
+            await this._fetchPage(100);
         } catch { /* ignore transient errors */ }
-        finally {
-            more.remove();
-            if (this._fetchGeneration === gen) this._isFetching = false;
-        }
+        finally { more.remove(); }
     }
+
+    // One page more, at most `limit` photos. Resolves to false when the
+    // results were replaced meanwhile or the server had nothing more.
+    _fetchPage(limit) {
+        if (this._pageRequest) return this._pageRequest;
+        const gen = this._fetchGeneration;
+        const offset = this._serverOffset;
+        const request = (async () => {
+            const photos = await this._serverFetchPage(offset, limit);
+            if (this._fetchGeneration !== gen) return false; // filter changed, discard
+            this.entries = [...this.entries, ...photos.map(p => this._mapPhoto(p, this._serverMultiLib))];
+            this._serverOffset = offset + photos.length;
+            this._afterPage();
+            return photos.length > 0;
+        })();
+        this._pageRequest = request;
+        const release = () => { if (this._pageRequest === request) this._pageRequest = null; };
+        request.then(release, release);
+        return request;
+    }
+
+    // New entries below the last rendered one: the sentinel comes back, and
+    // the count grows without a full re-render.
+    _afterPage() {
+        const ct = this._contentEl || this.container;
+        if (!ct.querySelector('.scroll-sentinel')) {
+            ct.insertAdjacentHTML('beforeend', '<div class="scroll-sentinel"></div>');
+            this._setupObserver();
+        }
+        this._syncSelectAll();
+    }
+
+    // Every result, not only those scrolled to so far. Resolves to false when
+    // the results were replaced meanwhile.
+    async _loadAll() {
+        const gen = this._fetchGeneration;
+        if (!this._hasMore()) return true;
+        await App.whileSlow(t('Reading all {n} photos…', { n: formatCount(this._serverTotal) }), async () => {
+            while (this._fetchGeneration === gen && this._hasMore()) {
+                if (!await this._fetchPage(500)) break;
+            }
+        });
+        return this._fetchGeneration === gen;
+    }
+
+    // Select all takes every result, so that a slideshow, an export or Mark
+    // for deletion acts on all of them.
+    async selectAll() {
+        if (await this._loadAll()) super.selectAll();
+    }
+
+    // A slideshow shows the selected results, or every one of them.
+    async slideshowPaths() {
+        if (this.selection.selected.size > 0) return [...this.selection.selected];
+        if (!await this._loadAll()) return [];
+        return this.getImageEntries().map(e => this.fullPath(e.name));
+    }
+
+    // _loadAll says itself what it is doing.
+    slideshowCollectingText() { return null; }
 
     // ---
 

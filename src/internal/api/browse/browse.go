@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"huepattl.de/unterlumen/internal/library"
@@ -275,9 +276,21 @@ func handleBrowseRecursive(root string) http.HandlerFunc {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
+		// What the folder view hides stays out: ._ files a Mac leaves on a
+		// NAS, .unterlumen-shared. An abandoned request stops the walk.
 		var paths []string
 		_ = filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if ctxErr := r.Context().Err(); ctxErr != nil {
+				return ctxErr
+			}
+			if err != nil {
+				return nil
+			}
+			hidden := path != absPath && strings.HasPrefix(d.Name(), ".")
+			if d.IsDir() && hidden {
+				return filepath.SkipDir
+			}
+			if d.IsDir() || hidden {
 				return nil
 			}
 			if media.IsSupportedImage(d.Name()) {

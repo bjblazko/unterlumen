@@ -1,9 +1,18 @@
 # Changelog
 
-*Last modified: 2026-11-13*
+*Last modified: 2026-11-15*
 All notable changes to this project are documented in this file.
 
 ## [Unreleased]
+
+### Changed
+- **A slideshow of a folder takes its subfolders.** With nothing selected, Slideshow shows the folder's photos and those of every folder below it, so a folder that holds only folders has one too. Cmd/Ctrl+A selects the folders with the photos (in Organize still only the photos, which go to a target); Mark for deletion and Export still take the photos first.
+
+### Fixed
+- **A library check removed photos added while it ran.** A check of a shared library — at start and every half hour — reads the list of files first and settles at the end, on a share half an hour later. Photos added meanwhile were not in that list, so the check took them out of the library although their files were there; a gallery being published from them then failed with "photo not found". Before a photo or path goes, the check now looks for its file on the disk.
+- **Select all in the filter's results took only what had been scrolled to.** The results come in pages of 100, and Select all, Cmd/Ctrl+A and a slideshow without a selection stopped at the pages read so far. They now read the rest first, so a slideshow is as long as the results.
+- A slideshow of folders left out hidden files and folders the folder view does not show either: the `._` files a Mac leaves on a NAS, `.unterlumen-shared`.
+- **A cropped photo opened again showed the uncropped one.** The browser was allowed to keep a HEIF photo's full-size picture for an hour without asking, and guessed for JPEGs from the file's age — often days. The crop is written under the same address, so the viewer showed the old picture again once it was opened anew, while the thumbnails were already right. The browser now asks each time and gets a short "unchanged" while the file is as it was. The same holds for a library's thumbnails, which the browser kept for a day.
 
 ## [0.25.2] - 2026-11-13
 

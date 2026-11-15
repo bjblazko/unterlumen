@@ -74,6 +74,8 @@
  "library": "Bibliothek",
  "Collecting the photos of 1 folder…": "Fotos aus 1 Ordner werden gesammelt…",
  "Collecting the photos of {n} folders…": "Fotos aus {n} Ordnern werden gesammelt…",
+ "Collecting the photos of this folder and its subfolders…": "Fotos aus diesem Ordner und seinen Unterordnern werden gesammelt…",
+ "Reading all {n} photos…": "Alle {n} Fotos werden gelesen…",
  "It did not start: {e}": "Es ist nicht gestartet: {e}",
  "Scanning": "Wird gescannt",
  "Indexing": "Wird indiziert",

@@ -43,17 +43,29 @@ func thumbByPath(mgr *lib.Manager, root string) http.HandlerFunc {
 			return
 		}
 
-		absThumb := filepath.Join(mgr.LibDir(id), thumbRel)
-		data, err := os.ReadFile(absThumb)
-		if err != nil {
-			http.Error(w, "thumbnail not found", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "max-age=86400")
-		w.Write(data)
+		serveThumbFile(w, r, filepath.Join(mgr.LibDir(id), thumbRel))
 	}
+}
+
+// serveThumbFile answers with a library's stored thumbnail. The browser asks
+// each time and gets a 304 while it is unchanged: a crop writes the photo
+// again under the same address, and a replaced photo's old ID leads to the
+// new one's thumbnail.
+func serveThumbFile(w http.ResponseWriter, r *http.Request, absThumb string) {
+	f, err := os.Open(absThumb)
+	if err != nil {
+		http.Error(w, "thumbnail not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		http.Error(w, "thumbnail not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeContent(w, r, "", info.ModTime(), f)
 }
 
 func photoIDByPath(mgr *lib.Manager) http.HandlerFunc {
@@ -107,16 +119,7 @@ func serveThumb(mgr *lib.Manager) http.HandlerFunc {
 			return
 		}
 
-		absThumb := filepath.Join(mgr.LibDir(id), thumbRel)
-		data, err := os.ReadFile(absThumb)
-		if err != nil {
-			http.Error(w, "thumbnail not found", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "max-age=86400")
-		w.Write(data)
+		serveThumbFile(w, r, filepath.Join(mgr.LibDir(id), thumbRel))
 	}
 }
 
@@ -181,6 +184,8 @@ func servePhoto(mgr *lib.Manager, imgCache *media.ImageCache) http.HandlerFunc {
 			return
 		}
 
+		// Asked for each time: a crop rewrites the file under the same URL.
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, pathHint)
 	}
 }

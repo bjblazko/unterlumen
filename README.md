@@ -540,7 +540,7 @@ Notes:
 | `I` | Collapse or expand the info panel |
 | `\` | Collapse or expand the sidebar |
 | Backspace / Delete / Cmd+D | Mark selected files for deletion |
-| Cmd/Ctrl+A | Select all files in current pane |
+| Cmd/Ctrl+A | Select all photos and folders in the current pane (in Organize only the photos); in the filter's results, every result, also those not yet loaded |
 | 1–5 / 0 | Give the selected photos (or the focused one, or the photo in the viewer) that many stars / take the rating away — in Folders, a library and the viewer; written to the sidecar |
 | `,` | Settings |
 | 1–9 / 0 in Organize, with a selection | Send it to that target / mark it for deletion |

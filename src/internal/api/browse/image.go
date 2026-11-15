@@ -50,6 +50,8 @@ func handleImage(root string, imgCache *media.ImageCache) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", ct)
+		// Asked for each time: a crop rewrites the file under the same URL.
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, absPath)
 	}
 }

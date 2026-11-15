@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"huepattl.de/unterlumen/internal/media"
 )
@@ -39,4 +41,45 @@ func TestAPhotoGoneFromDiskIsNotFound(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("answered %d, want %d", rec.Code, http.StatusNotFound)
 	}
+}
+
+// A crop writes the photo again under the same URL. The browser must ask
+// every time it shows the photo, or it shows the uncropped one for as long
+// as it is allowed to keep it — it was an hour.
+func TestTheBrowserAsksAgainAndACroppedPhotoIsAnsweredAnew(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "DSCF0002.HIF")
+	if err := os.WriteFile(path, []byte("heif"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cache := media.NewImageCache(4)
+	before := serveConverted(t, path, cache, "uncropped", "")
+	if got := before.Header().Get("Cache-Control"); got != "private, no-cache" {
+		t.Errorf("Cache-Control %q, want %q", got, "private, no-cache")
+	}
+
+	later := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(path, later, later); err != nil {
+		t.Fatal(err)
+	}
+	after := serveConverted(t, path, cache, "cropped", before.Header().Get("ETag"))
+	if after.Code != http.StatusOK || after.Body.String() != "cropped" {
+		t.Errorf("after the crop answered %d %q, want 200 %q", after.Code, after.Body.String(), "cropped")
+	}
+}
+
+// serveConverted answers for path as if it had been converted to jpeg.
+func serveConverted(t *testing.T, path string, cache *media.ImageCache, jpeg, ifNoneMatch string) *httptest.ResponseRecorder {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache.Set(path+":"+strconv.FormatInt(info.ModTime().UnixNano(), 10), []byte(jpeg))
+	req := httptest.NewRequest(http.MethodGet, "/api/image", nil)
+	if ifNoneMatch != "" {
+		req.Header.Set("If-None-Match", ifNoneMatch)
+	}
+	rec := httptest.NewRecorder()
+	Serve(rec, req, path, cache)
+	return rec
 }

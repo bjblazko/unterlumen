@@ -348,3 +348,30 @@ func TestACheckReadsOnlyTheSidecarsThatChanged(t *testing.T) {
 		t.Fatalf("a changed sidecar was not read: %v", got)
 	}
 }
+
+// A check of a large library takes its list of files first and settles at
+// the end, half an hour later on a share. Photos added meanwhile — copied
+// in, scanned in their folder, collected into a gallery — are not in that
+// list, but their files are there. The check removed them, in the middle
+// of publishing them (2026-11-15).
+func TestARunKeepsPhotosAddedAfterItsWalk(t *testing.T) {
+	src := t.TempDir()
+	old, added := filepath.Join(src, "old.jpg"), filepath.Join(src, "new", "added.jpg")
+	writePhoto(t, old, "old", day)
+	idx, s := newTestIndexer(t, src)
+	drain(idx.RunScanNew)
+	walked := map[string]bool{old: true} // the check's walk, before added.jpg came
+
+	writePhoto(t, added, "added", day)
+	if err := NewIndexer(s, s.dir, src).IndexFile(added); err != nil {
+		t.Fatal(err)
+	}
+	NewIndexer(s, s.dir, src).settle("", walked)
+
+	if ids := photoIDs(t, s); len(ids) != 2 {
+		t.Fatalf("photos %v, want old.jpg and added.jpg", ids)
+	}
+	if id, _ := s.GetPhotoIDByAbsPath(added); id == "" {
+		t.Error("the added photo's path was forgotten")
+	}
+}

@@ -55,8 +55,11 @@ func IsPrefetch(r *http.Request) bool {
 
 func serve(w http.ResponseWriter, r *http.Request, absPath string, info os.FileInfo, data []byte) {
 	h := sha256.Sum256([]byte(absPath))
-	etag := fmt.Sprintf(`"%x-%d"`, h[:4], info.ModTime().Unix())
-	w.Header().Set("Cache-Control", "private, max-age=3600")
+	etag := fmt.Sprintf(`"%x-%d"`, h[:4], info.ModTime().UnixNano())
+	// A crop writes the photo again under the same URL, so the browser asks
+	// each time and gets a 304 while the file is unchanged. With a max-age
+	// it showed the uncropped photo for an hour after the crop.
+	w.Header().Set("Cache-Control", "private, no-cache")
 	w.Header().Set("ETag", etag)
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)

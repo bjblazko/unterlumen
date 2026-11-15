@@ -47,13 +47,16 @@ class BrowsePane {
         this.rootLabel = options.rootLabel || t('Folders');
         // onHeader(slot): the host puts buttons of its own into the head.
         this.onHeader = options.onHeader || null;
+        // Select all takes the folders too, for a slideshow of everything;
+        // Organize sorts photos, and a selected folder would stop the move.
+        this.selectAllFolders = options.selectAllFolders ?? true;
     }
 
     _buildParts() {
         this.selection = new SelectionManager((files) => {
             if (this.onSelectionChange) this.onSelectionChange(files);
         }, () => this._syncSelectAll());
-        // Select all takes the photos, as ⌘A does; Select none also the folders.
+        // Select all takes the photos and the folders, as ⌘A does.
         this._selectAll = new SelectAll({
             onAll: () => this.selectAll(),
             onNone: () => this._clearAllSelection(),
@@ -314,10 +317,45 @@ class BrowsePane {
 
     toggleFocusedSelection() { this.keyboard.toggleFocusedSelection(); }
 
+    // Every photo and every folder: a slideshow of everything then takes
+    // the folders' photos too. What acts on photos (Mark for deletion, Export)
+    // still takes the photos first.
     selectAll() {
         this.selectedDirs.clear();
+        if (this.selectAllFolders) {
+            for (const e of this.entries) if (e.type === 'dir') this.selectedDirs.add(this.fullPath(e.name));
+        }
         this.selection.selectAll(this.entries, n => this.fullPath(n));
         this.render();
+        this._updateDirSelectionClasses();
+    }
+
+    // What a slideshow shows: the selected photos and everything in the
+    // selected folders; with nothing selected, this folder and everything
+    // below it.
+    async slideshowPaths() {
+        const paths = [...this.selection.selected];
+        const dirs = [...this.selectedDirs];
+        if (paths.length === 0 && dirs.length === 0) {
+            if (!this._hasDirs()) return this.getImageEntries().map(e => this.fullPath(e.name));
+            dirs.push(this.path);
+        }
+        for (const dir of dirs) paths.push(...await this.fetchRecursivePhotoPaths(dir));
+        return [...new Set(paths)];
+    }
+
+    // What the slideshow says while it collects them, or null when it
+    // needs nothing it does not already have.
+    slideshowCollectingText() {
+        const n = this.selectedDirs.size;
+        if (n === 1) return t('Collecting the photos of 1 folder…');
+        if (n > 1) return t('Collecting the photos of {n} folders…', { n: formatCount(n) });
+        if (this.selection.selected.size === 0 && this._hasDirs()) return t('Collecting the photos of this folder and its subfolders…');
+        return null;
+    }
+
+    _hasDirs() {
+        return this.entries.some(e => e.type === 'dir');
     }
 
     fullPath(name) {
@@ -538,7 +576,7 @@ class BrowsePane {
     // ⋯ menu: a frame with a play mark, and its name.
     _slideshowButtonHTML() {
         if (!this.onSlideshowInvoke) return '';
-        const noPhotos = this.getImageEntries().length === 0 && this.selectedDirs.size === 0;
+        const noPhotos = this.getImageEntries().length === 0 && !this._hasDirs();
         return `<button class="btn btn-sm browse-slideshow-btn" aria-label="${t('Slideshow')}"${noPhotos ? ` disabled title="${t('This folder holds no photos')}"` : ''}><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="2" width="11" height="9" rx="1"/><path d="M5.25 4.75v3.5l3-1.75z" fill="currentColor"/></svg><span class="browse-slideshow-label">${t('Slideshow')}</span></button>`;
     }
 

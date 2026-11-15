@@ -1,7 +1,9 @@
 package library
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +19,11 @@ import (
 // that stops early never gets here, so it changes nothing; a library folder
 // that shows no files at all while the library knows photos is taken for a
 // share that is not there, and nothing is removed.
+//
+// present is the file list the run took at its start; on a share that can
+// be half an hour before it settles. A photo or path that list lacks is
+// looked for on the disk before it goes: added meanwhile — copied in,
+// scanned in its folder, collected into a gallery — it stays.
 func (idx *Indexer) settle(folder string, present map[string]bool) {
 	st, err := idx.store.settleState(folder)
 	if err != nil || (folder == "" && len(present) == 0 && len(st.photos) > 0) {
@@ -25,9 +32,13 @@ func (idx *Indexer) settle(folder string, present map[string]bool) {
 	inScope := func(p string) bool {
 		return folder == "" || strings.HasPrefix(p, folder+string(filepath.Separator))
 	}
+	listed := func(p string) bool { return present[p] }
 	var gone, found []string
 	for _, ph := range st.photos {
-		at, alive := ph.whereFound(present, inScope, st.owner)
+		at, alive := ph.whereFound(listed, inScope, st.owner)
+		if !alive {
+			at, alive = ph.whereFound(onDisk, inScope, st.owner)
+		}
 		switch {
 		case !alive:
 			gone = append(gone, ph.id)
@@ -39,7 +50,7 @@ func (idx *Indexer) settle(folder string, present map[string]bool) {
 	}
 	var stale []string
 	for p := range st.owner {
-		if inScope(p) && !present[p] {
+		if inScope(p) && !present[p] && !onDisk(p) {
 			stale = append(stale, p)
 		}
 	}
@@ -63,13 +74,13 @@ type settlePhoto struct {
 // paths ("" when it is kept only because a path outside the settled folder
 // cannot be checked). Its last path counts while no other photo owns it:
 // a photo indexed before the path cache has no known path at all.
-func (ph settlePhoto) whereFound(present map[string]bool, inScope func(string) bool, owner map[string]string) (string, bool) {
-	if present[ph.pathHint] && owner[ph.pathHint] == ph.id {
+func (ph settlePhoto) whereFound(there, inScope func(string) bool, owner map[string]string) (string, bool) {
+	if owner[ph.pathHint] == ph.id && there(ph.pathHint) {
 		return ph.pathHint, true
 	}
 	outside := false
 	for _, p := range ph.paths {
-		if present[p] {
+		if there(p) {
 			return p, true
 		}
 		outside = outside || !inScope(p)
@@ -77,10 +88,17 @@ func (ph settlePhoto) whereFound(present map[string]bool, inScope func(string) b
 	if outside {
 		return "", true
 	}
-	if present[ph.pathHint] && owner[ph.pathHint] == "" {
+	if owner[ph.pathHint] == "" && there(ph.pathHint) {
 		return ph.pathHint, true
 	}
 	return "", false
+}
+
+// onDisk says whether a file is at p. Only a file that is certainly not
+// there counts as gone; an error reading it keeps the photo.
+func onDisk(p string) bool {
+	_, err := os.Lstat(p)
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 // settleSnapshot is what settle needs from the index: the photos whose last

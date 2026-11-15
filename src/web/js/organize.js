@@ -46,6 +46,7 @@ class OrganizePane {
             onFocusChange: () => this._updateSelectionBar(),
             onNavigate: () => this._renderPath(),
             placeHeader: false,
+            selectAllFolders: false,
         });
         this.pane.view = 'justified';
 

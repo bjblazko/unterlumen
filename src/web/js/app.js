@@ -708,20 +708,9 @@ const App = {
         const toURL = p => pane.viewerImageURL ? pane.viewerImageURL(p) : API.imageURL(p);
         // A slideshow shows photos; videos are played in the viewer.
         const stills = paths => paths.filter(p => !isVideoName(p));
-        let images;
-        if (pane.selectedDirs?.size > 0) {
-            const n = pane.selectedDirs.size;
-            const allPaths = await this.whileSlow(n === 1 ? t('Collecting the photos of 1 folder…') : t('Collecting the photos of {n} folders…', { n: formatCount(n) }), async () => {
-                const paths = [];
-                for (const dirPath of pane.selectedDirs) paths.push(...await pane.fetchRecursivePhotoPaths(dirPath));
-                return paths;
-            });
-            images = stills(allPaths).map(toURL);
-        } else if (pane.selection.selected.size > 0) {
-            images = stills(Array.from(pane.selection.selected)).map(toURL);
-        } else {
-            images = stills(pane.getImageEntries().map(e => pane.fullPath(e.name))).map(toURL);
-        }
+        const text = pane.slideshowCollectingText();
+        const paths = text ? await this.whileSlow(text, () => pane.slideshowPaths()) : await pane.slideshowPaths();
+        const images = stills(paths).map(toURL);
         if (images.length === 0) return;
         if (!this.slideshowModal) this.slideshowModal = new SlideshowModal();
         this.slideshowModal.onStart = (imgs, opts) => this.openSlideshow(imgs, opts);
