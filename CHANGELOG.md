@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.25.3] - 2026-11-15
+
 ### Changed
 - **A slideshow of a folder takes its subfolders.** With nothing selected, Slideshow shows the folder's photos and those of every folder below it, so a folder that holds only folders has one too. Cmd/Ctrl+A selects the folders with the photos (in Organize still only the photos, which go to a target); Mark for deletion and Export still take the photos first.
 
